@@ -1,0 +1,114 @@
+.app-shell {
+  width: min(1100px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 64px;
+}
+
+.hero-panel,
+.card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(9, 15, 24, 0.72);
+  backdrop-filter: blur(18px);
+  border-radius: 24px;
+  box-shadow: 0 24px 80px rgba(4, 8, 16, 0.35);
+}
+
+.hero-panel {
+  padding: 36px;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  font-size: 0.75rem;
+  color: #9cc7ff;
+  margin-bottom: 12px;
+}
+
+.lead,
+.muted {
+  color: rgba(225, 233, 245, 0.74);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.card {
+  padding: 28px;
+}
+
+.status-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 10px;
+}
+
+.login-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.login-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.login-form input {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f4f8ff;
+  padding: 12px 14px;
+}
+
+.login-form button {
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #39c1ff, #7e8dff);
+  color: #08111c;
+  font-weight: 700;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.roadmap ol {
+  margin: 18px 0 0;
+  padding-left: 22px;
+  color: rgba(239, 244, 255, 0.88);
+  display: grid;
+  gap: 10px;
+}
+
+.error {
+  color: #ff9f9f;
+  margin-top: 14px;
+}
+
+.success {
+  color: #8ff0b7;
+  margin-top: 14px;
+}
+
+@media (max-width: 800px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-panel,
+  .card {
+    padding: 22px;
+  }
+}

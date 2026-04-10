@@ -1,0 +1,111 @@
+{
+  "mappings": [
+    {
+      "legacy_entity": "socios",
+      "canonical_entity": "Socio",
+      "migration_state": "migrable_directo",
+      "notes": "Mantener RUT e identidad, revisar scopes."
+    },
+    {
+      "legacy_entity": "empresas",
+      "canonical_entity": "Empresa",
+      "migration_state": "requiere_transformacion",
+      "notes": "Separar ConfiguracionFiscalEmpresa del agregado empresa."
+    },
+    {
+      "legacy_entity": "participaciones",
+      "canonical_entity": "ParticipacionPatrimonial",
+      "migration_state": "requiere_transformacion",
+      "notes": "Normalizar owner_tipo y vigencia."
+    },
+    {
+      "legacy_entity": "propiedades",
+      "canonical_entity": "Propiedad",
+      "migration_state": "requiere_transformacion",
+      "notes": "Mover ownership y codigo operacional al modelo can\u00f3nico."
+    },
+    {
+      "legacy_entity": "cuentas_bancarias",
+      "canonical_entity": "CuentaRecaudadora",
+      "migration_state": "requiere_transformacion",
+      "notes": "Reexpresar titularidad y provider activo."
+    },
+    {
+      "legacy_entity": "contratos",
+      "canonical_entity": "Contrato",
+      "migration_state": "requiere_transformacion",
+      "notes": "Separar MandatoOperacion, ContratoPropiedad y AvisoTermino."
+    },
+    {
+      "legacy_entity": "periodos_contractuales",
+      "canonical_entity": "PeriodoContractual",
+      "migration_state": "migrable_directo",
+      "notes": "Preserva el historial contractual."
+    },
+    {
+      "legacy_entity": "pagos_mensuales",
+      "canonical_entity": "PagoMensual",
+      "migration_state": "requiere_transformacion",
+      "notes": "Adaptar fechas bancarias y c\u00f3digo de conciliaci\u00f3n efectivo."
+    },
+    {
+      "legacy_entity": "movimientos_bancarios",
+      "canonical_entity": "Conciliacion/Banca",
+      "migration_state": "requiere_transformacion",
+      "notes": "Mapeo hacia movimientos importados y resoluciones manuales."
+    },
+    {
+      "legacy_entity": "facturas_electronicas",
+      "canonical_entity": "SII.DTE",
+      "migration_state": "requiere_transformacion",
+      "notes": "Separar capacidad y estado por gate."
+    },
+    {
+      "legacy_entity": "asientos_contables",
+      "canonical_entity": "AsientoContable",
+      "migration_state": "requiere_transformacion",
+      "notes": "Requiere evento contable previo y pol\u00edtica de reverso."
+    },
+    {
+      "legacy_entity": "movimientos_asientos",
+      "canonical_entity": "MovimientoAsiento",
+      "migration_state": "migrable_directo",
+      "notes": "Pendiente mapear plan de cuentas final."
+    },
+    {
+      "legacy_entity": "contabilidad_persona_natural",
+      "canonical_entity": "Reporting/Patrimonio",
+      "migration_state": "requiere_decision_manual",
+      "notes": "Definir si entra al boundary v1 o fase posterior."
+    }
+  ],
+  "decisions": [
+    {
+      "aggregate": "infraestructura",
+      "decision": "nueva_aislada",
+      "reason": "El greenfield no reutiliza la infraestructura viva del root."
+    },
+    {
+      "aggregate": "secrets",
+      "decision": "read_only_manifest",
+      "reason": "Se inventarian claves sin escribir valores en repo."
+    },
+    {
+      "aggregate": "schema",
+      "decision": "canonical_first",
+      "reason": "El modelo final sigue PRD_CANONICO, no Supabase legacy."
+    }
+  ],
+  "manual_resolution_queue": [
+    {
+      "aggregate": "contabilidad_persona_natural",
+      "reason": "No est\u00e1 explicitada como entidad can\u00f3nica m\u00ednima en el greenfield actual.",
+      "resolution_owner": "producto+contabilidad"
+    },
+    {
+      "aggregate": "facturas_electronicas",
+      "reason": "Debe dividirse por capacidad y gate SII antes de migrar.",
+      "resolution_owner": "arquitectura+sii"
+    }
+  ]
+}

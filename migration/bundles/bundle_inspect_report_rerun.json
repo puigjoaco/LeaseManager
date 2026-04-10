@@ -1,0 +1,3902 @@
+{
+  "created": {
+    "participaciones": 18
+  },
+  "updated": {
+    "socios": 6,
+    "empresas": 4,
+    "propiedades": 51,
+    "cuentas_recaudadoras": 6,
+    "mandatos_operacion": 51,
+    "arrendatarios": 52,
+    "contratos": 42,
+    "contrato_propiedades": 42,
+    "periodos_contractuales": 437,
+    "manual_resolutions": 22
+  },
+  "skipped": {
+    "arrendatarios": [
+      {
+        "legacy_id": "0f7aa310-231a-40a9-b397-99a7f53a4f03",
+        "reason": "El arrendatario legacy no tiene un RUT valido y no se puede importar de forma segura."
+      },
+      {
+        "legacy_id": "780bba00-db91-4b63-bfc0-35706db6e6a5",
+        "reason": "El arrendatario legacy no tiene un RUT valido y no se puede importar de forma segura."
+      },
+      {
+        "legacy_id": "714b5efc-68de-4457-b950-e57d4c4ee14c",
+        "reason": "El arrendatario legacy no tiene un RUT valido y no se puede importar de forma segura."
+      },
+      {
+        "legacy_id": "bbd1123f-86b4-45c4-abc8-5546d8df2f8d",
+        "reason": "El arrendatario legacy no tiene un RUT valido y no se puede importar de forma segura."
+      }
+    ],
+    "contratos_candidates": [
+      {
+        "legacy_id": "fbe8ab5c-4b9d-4132-85bd-69e1a6b68b2a",
+        "property_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "6808b275-286a-4af3-8ad9-7c0dc8b4a0c0",
+        "property_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "82039aa0-da8a-4492-9583-1f1b4b98e354",
+        "property_legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "7dfbe5bc-64dd-4e51-a006-cc8cd314d4c5",
+        "property_legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "afaea426-53b0-4419-8e78-43c7cc9630c9",
+        "property_legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c",
+        "property_legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "a9483e1e-06eb-4ed7-8b38-7b76b53cbabb",
+        "property_legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "14f3e23b-32e2-4008-8bb4-2e89a06c37f8",
+        "property_legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "8577e89c-5590-4b9f-89fc-b922d0fc8ccc",
+        "property_legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "794efd39-8029-4486-8175-54bc997fc8fa",
+        "property_legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "4279810f-0b30-4eff-96b3-3b42661bbb18",
+        "property_legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      },
+      {
+        "legacy_id": "08fe72fc-0890-460d-974f-d934931b7e19",
+        "reason": "Contrato candidato con valores vacios/no definidos: dia_pago_mensual"
+      },
+      {
+        "legacy_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a",
+        "reason": "Contrato candidato con valores vacios/no definidos: dia_pago_mensual"
+      },
+      {
+        "legacy_id": "55a33379-02a8-492a-a19d-1853b263c457",
+        "property_legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+        "reason": "No se encontro la propiedad can\u00f3nica para el contrato."
+      }
+    ],
+    "periodos_candidates": [
+      {
+        "legacy_id": "62686a47-3fed-40e8-b526-d0cd1023a375",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "fbe8ab5c-4b9d-4132-85bd-69e1a6b68b2a"
+      },
+      {
+        "legacy_id": "75bbdc5b-7931-4485-a7ab-21343b2a7c7e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "fbe8ab5c-4b9d-4132-85bd-69e1a6b68b2a"
+      },
+      {
+        "legacy_id": "6237dc1e-2c10-4ef4-8f29-2d7ed89f73d5",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "fbe8ab5c-4b9d-4132-85bd-69e1a6b68b2a"
+      },
+      {
+        "legacy_id": "04aba928-5eb0-411e-adfd-89889e16c7da",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "6808b275-286a-4af3-8ad9-7c0dc8b4a0c0"
+      },
+      {
+        "legacy_id": "e1741b0b-aaf8-48f7-8978-3437c979cb01",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "6808b275-286a-4af3-8ad9-7c0dc8b4a0c0"
+      },
+      {
+        "legacy_id": "42e461f2-9e98-4bac-8518-6ff8c1df5efe",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "6808b275-286a-4af3-8ad9-7c0dc8b4a0c0"
+      },
+      {
+        "legacy_id": "bda5cd81-5868-4b36-9bd4-6dc35798da06",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "6808b275-286a-4af3-8ad9-7c0dc8b4a0c0"
+      },
+      {
+        "legacy_id": "dd792b71-343e-413a-be1f-a4a38901c4c0",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "0257f371-c1b9-4bd2-82e5-428ad28e1adc",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "04c9769a-f224-45f2-b27d-db3bae01a5d2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "081abb18-f757-43ea-8ddf-2c6baa8f1e0b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "08a964f9-fae3-425f-8386-da1dc311fc70",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "09c6208a-3527-4c95-a78c-d0cfa7dec5d5",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "1180809b-9f39-482d-9174-29bebf996265",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "130859d9-a920-4720-b1c0-bb50ce41d259",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "167935d4-2689-4192-81cf-e3c622611685",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "171fcbc8-f682-4da9-b16a-21e0af21dcc4",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "1e3d0a3a-318f-45be-b0a9-54e7d4b3246f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "27862768-4499-4cfd-b70b-b84f3952d8c4",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "3026961d-7051-4b9c-ad7c-8f6801a0b41e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "318b2789-8bc6-4d86-b78c-b6c409325965",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "33bb36a7-34cc-41b4-ab9c-051d2dbb21a6",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "3457997d-e973-426a-b3be-d623c8f90d61",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "3580194f-7e8c-4b9b-8e23-a88c142a717c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "3872fd01-c0f0-48fb-bc88-62dcf8ce2e5f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "3929d15a-0758-4d20-a7de-700a2f506036",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "3990ca98-a337-41cb-9dc4-c3678fb0e0a5",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "46c48d88-32b7-4206-9229-a84371ce6c99",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "48ded922-d4a3-4fcc-ba9d-9eb287faf934",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "48fb51c9-8146-4956-88e8-e6a00f969f75",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "4e4a5938-5937-43b1-968e-a9aa09ceea05",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "513eed1c-d61c-4a31-9cf1-156984450217",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "6317660a-6522-4cae-b874-3ec86a5f65dd",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "64178160-7a7d-49cc-8550-ba02603c53b5",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "64d47975-c123-4414-852c-1023a21f5621",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "64f032b1-f3be-447c-876d-ea84b5f01cbc",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "66fb9132-1b83-4e6f-b7e6-fae00f2e6e53",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "6d469b33-f5fa-42c7-933c-50d4f9df6bcd",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "6f7ddc71-31ff-4858-986f-f851ffcf25c7",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "76e36b08-ac60-498a-b09a-779f56b771d1",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "7712fa62-dedd-4a76-931d-891bad1c07c8",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "7a9cb2b7-4c15-448a-97ee-5fea9b0ffde8",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "7c1e5797-cdc9-48c4-9103-711310479ec6",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "7ca71320-49d0-4711-a5e1-cf2dab8f1959",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "817adae5-3e11-409e-81de-149c7f560ed7",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "86a591b4-72dc-468e-afbe-930a6768f5ca",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "8ef76a1f-18b1-4351-9c6d-23f5ef9e5eaf",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "91cda832-dd5e-4037-a7fa-8739bdcbbc00",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "92788709-cada-4080-8db1-9f917d7740c8",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "a6d638f9-d51e-4f3b-bdac-440581e0ecf6",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "aa3c6d46-d3ca-43be-a845-c5928e0b1ee7",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "b4ecb0a0-6750-44b4-a90a-e86ec0fb3c3b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "b60f72a4-abff-4d08-bca3-03d623678dba",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "b6e5995e-82bc-415e-8975-acaacd35a4ac",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "bdb45542-84e7-4967-b494-466b120a985e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "c0bfdf0f-8604-496a-810b-80482c57df81",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "c18aec90-4faf-4aa6-9bcd-d4899b61cb71",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "c61cd0b7-3411-4b3c-8eeb-8bde144c1dbc",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "c7f5652b-6f3a-40fc-a728-375312507067",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "c9f6bd74-3204-41c0-afe9-459d94297d50",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "ce529361-8621-46e7-bedd-cf47321c71c8",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "dd0a8dc3-2aed-43d2-afc6-71354cccdaf8",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "df702bf8-6f4b-4c5a-9938-acbab743a215",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "e0aaa165-8e30-4ebe-a5d9-e9a2b6b88ffa",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "e2b04eb1-5e2c-4652-b075-aef064f1a7be",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "e63d0cd9-26d3-474f-bffb-361fc1138bd2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "e64a7aec-9148-4c5a-95b4-614bd989a61b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "ee5b0bbd-673c-40bb-8bb4-dd6c8869ce26",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "f2abb257-05c4-4207-92f9-92f8200e9a1e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "f55b5e79-3045-4611-b0aa-55a8351eb378",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "fcbfbd4c-0d94-4b83-8590-7e12aa9b460b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "fd1789be-a84b-4164-af2f-02b0f8899aa9",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "82039aa0-da8a-4492-9583-1f1b4b98e354"
+      },
+      {
+        "legacy_id": "8d8bbcdf-5c87-4f63-ae94-8bed7b4e9c56",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "7dfbe5bc-64dd-4e51-a006-cc8cd314d4c5"
+      },
+      {
+        "legacy_id": "bf56aba0-63b2-40bb-af90-de17e1943225",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "7dfbe5bc-64dd-4e51-a006-cc8cd314d4c5"
+      },
+      {
+        "legacy_id": "ff9af99e-6039-449a-8051-d8b6609c99eb",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "7dfbe5bc-64dd-4e51-a006-cc8cd314d4c5"
+      },
+      {
+        "legacy_id": "657474ff-23b9-4373-ae35-bc094ec3a766",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "7dfbe5bc-64dd-4e51-a006-cc8cd314d4c5"
+      },
+      {
+        "legacy_id": "9f95dfab-085f-4180-87f5-28276ac1de22",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "7dfbe5bc-64dd-4e51-a006-cc8cd314d4c5"
+      },
+      {
+        "legacy_id": "07effe44-adf3-411b-a3c6-d4709492ca61",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "0889ea72-261a-472a-ba2b-fc732e4ccaf6",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "09d56ced-3d12-453c-8ab7-753e3d97b4f6",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "0a9966ba-feea-49b3-98ec-37c1140194e3",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "0c094c04-3f5b-4e37-a8b3-3e8675b9ca07",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "17e0d3ad-6fd4-429f-9882-015f3bc89838",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "17fcbd9e-5d03-482b-aa94-15fb17adc035",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "210b2f10-f20f-430a-af4f-8100e7114317",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "24eab342-9a25-4c81-84ae-ab1262a35525",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "29a32290-97af-4360-b750-2fe6b11da1d4",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "2cece043-b9e1-442e-833a-f8bf1f36201b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "31b871c2-42ff-4710-bf83-0bd5182cf0ff",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "344c6f1e-f0c5-4764-9a4c-0b1ca3d413e0",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "374c0946-e49e-48a0-b58d-8f489a4291ab",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "3938bffd-548e-4b3d-8f4e-c3c97422c5e3",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "3f6fceab-5af8-4098-b015-fe530f39bee1",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "3f8946f9-f432-483c-9756-a772319fe899",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "42bafa82-9448-4be8-9d2e-f06f3dcf91a0",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "4a7b61b2-3eb2-4eb6-ace2-784e40f19acc",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "4b739357-3f79-4fe0-930f-cf3e1cd3c980",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "6a3dda11-d9e2-4097-a028-962fbaadf35e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "70a6359a-6e5d-4df0-9a7c-3ed1b9feb2da",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "72cbde9b-f433-41bf-a7f4-a1a42cd091b7",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "73d0f525-ea33-486c-a244-c388222710bf",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "7491af20-7ad7-4b44-ab01-c786673de3d8",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "7881c71f-2d94-4358-a8fa-c749afd7ca1f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "7d397843-f784-4426-968e-8bb420e8cb11",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "7e20c81d-dbe4-44d0-957d-9d8fc9af981d",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "7f5e5c50-aaa3-47e9-b1d2-b6d211229b9f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "8017cc90-be5a-4a04-b5ce-ebb85d3d8c3f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "81686943-84d7-4401-b9c3-af9ad00a1f3e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "8684d1fe-c4c7-4750-a213-3a6ae1bf36b2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "8b484ac9-8991-4cc3-9b60-d83773ad3f3a",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "8e077633-c240-40d7-aae8-505d7f2eb933",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "93f8b19c-d67f-49f3-89e3-2069f71f6730",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "947c1346-9fe5-4a05-b4e1-de8cf90fc27b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "949f73a9-e937-439a-9c0d-c445888393fd",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "9737f961-2f2b-47aa-975e-11bc605b5447",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "9be226e9-71c8-4431-9ee1-15f7a56c293d",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "9dba7dac-0e84-42cd-8b9f-d7167040a289",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "a5d3e3a8-1f9a-4104-bc07-2e473201f2a2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "a905c25d-427b-4187-ae29-1d4abafed798",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "ab378cba-2660-4a23-a3aa-11c24f08846b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "adbcdfa3-9841-45c1-bc0c-9a7d693c4301",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "b558a85a-3acb-419a-adcd-b52cd137799a",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "bc9663d1-90cc-4fca-ab3f-564ae1f1e37b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "c01e942a-7075-44ec-accb-acbdcbfa448c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "c20f646e-b5e8-4811-818b-37270cfed8ab",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "c3a67151-d135-48eb-843d-5975331c3207",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "c4382b96-ba78-485b-aeeb-642d97c248eb",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "cd00a879-7d42-4b93-bf83-29c583c0cd18",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "d197ef08-f754-445d-93ab-a4dacb382bb0",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "d262364c-c95f-48ca-a706-3c7c33b64e42",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "d67587d6-4f49-4d94-a433-801f012cabae",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "dca04d7e-4039-430f-885b-196f7c6ff7ec",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "dd4dac26-2527-4100-88a1-416916b18f6b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "ea5188d1-9e37-43a1-9884-18f709f7a882",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "f1b73a99-0183-440b-92e9-1672a3b478a4",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "f27f189e-1877-4f48-b84a-bd231af0a5c0",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "f48de725-cfe0-4608-a554-f28bd6436403",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "f530028a-de4a-480b-bd73-e2d02d12c24e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "f9c1459b-440e-4226-84e4-45cea8ca7149",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "fe308ea0-38de-4d87-838e-f8814b92d0b8",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "ffb9d23f-8fb5-4a80-b964-d7614be51261",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "dec7cb17-c6e3-4bb6-8fe5-066879fd692c"
+      },
+      {
+        "legacy_id": "6a5b3c30-246e-40b0-a3cc-b24020aa6a83",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "a9483e1e-06eb-4ed7-8b38-7b76b53cbabb"
+      },
+      {
+        "legacy_id": "3b0106cc-fb2e-4c9e-99b9-6b9e75ea9428",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "a9483e1e-06eb-4ed7-8b38-7b76b53cbabb"
+      },
+      {
+        "legacy_id": "648bce16-e752-4942-be55-be2b10515368",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "a9483e1e-06eb-4ed7-8b38-7b76b53cbabb"
+      },
+      {
+        "legacy_id": "310dcea9-d78f-419f-8119-e41e168d9caf",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "a9483e1e-06eb-4ed7-8b38-7b76b53cbabb"
+      },
+      {
+        "legacy_id": "58593ce2-8c38-44ef-af3d-6ee2a05d7a2b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "14f3e23b-32e2-4008-8bb4-2e89a06c37f8"
+      },
+      {
+        "legacy_id": "78d08c24-dafb-496b-a26f-050fec9d3630",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "14f3e23b-32e2-4008-8bb4-2e89a06c37f8"
+      },
+      {
+        "legacy_id": "2d220b87-f18a-4871-92fe-6b06b83f3070",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "8577e89c-5590-4b9f-89fc-b922d0fc8ccc"
+      },
+      {
+        "legacy_id": "d9dffe03-a10c-4803-86ff-3f83d181da07",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "8577e89c-5590-4b9f-89fc-b922d0fc8ccc"
+      },
+      {
+        "legacy_id": "e744227d-e4b3-455b-9e9f-404962a59fbe",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "8577e89c-5590-4b9f-89fc-b922d0fc8ccc"
+      },
+      {
+        "legacy_id": "2a88faaa-e2ef-4b95-a776-204fcb452a9e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "8577e89c-5590-4b9f-89fc-b922d0fc8ccc"
+      },
+      {
+        "legacy_id": "480e599c-42d1-4d9b-a2db-ea374c09ac86",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "794efd39-8029-4486-8175-54bc997fc8fa"
+      },
+      {
+        "legacy_id": "41575b49-f92a-4384-90b7-502b14bbe6a7",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "794efd39-8029-4486-8175-54bc997fc8fa"
+      },
+      {
+        "legacy_id": "f499849b-c4ea-4d28-bf2c-154b58443b3d",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "794efd39-8029-4486-8175-54bc997fc8fa"
+      },
+      {
+        "legacy_id": "6926db91-bf97-4a0b-bea0-c3fdc8c4ca20",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "794efd39-8029-4486-8175-54bc997fc8fa"
+      },
+      {
+        "legacy_id": "85024e77-4af0-40c7-b18c-b9ac6418badb",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "794efd39-8029-4486-8175-54bc997fc8fa"
+      },
+      {
+        "legacy_id": "d9d6b259-80cd-4c44-92e3-a5d8b63d698e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "4279810f-0b30-4eff-96b3-3b42661bbb18"
+      },
+      {
+        "legacy_id": "c30ed0d6-5ba5-471e-83ef-b389fa7bda15",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "4279810f-0b30-4eff-96b3-3b42661bbb18"
+      },
+      {
+        "legacy_id": "a6459576-cb17-455b-9395-4eb9b4fb2b37",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "4279810f-0b30-4eff-96b3-3b42661bbb18"
+      },
+      {
+        "legacy_id": "247ea545-eea9-4e3c-98db-5ae380dfc60b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "6c5aa6ce-d0f7-442c-a450-e9ddcfb52454",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "01603790-ca58-4c8f-9f73-38ce6d2c801a",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "0aa2c173-52e9-40b5-a96c-9ad8b3ea62af",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "15218b8e-02ce-4ad7-a1e6-f45c3824ff10",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "1d6215f9-63f7-4675-b26e-9dc36cc2398a",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "1db99ee9-4729-4e49-89a6-8ddf31c0b937",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "1e008bf2-5db4-4885-99d5-7ebb96d8118f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "1e3b31ee-77a7-490f-9c18-286fd480f7de",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "1f7134e0-fdbc-4486-a1ae-59d1177f91a5",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "20887e7a-71df-4a11-8e3a-d8e78ae8a4a2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "2579e776-3a5f-43a9-85d7-d1e2867bd07f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "2b6c2508-dd59-4cbd-8ec3-f1aa509c86e6",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "320ea189-3bce-4d98-9e3d-5ec48849683c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "34fe800c-9b73-444c-9319-5f70fe4f9538",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "352590c6-94b6-47f5-8b5e-d5ccc433e1be",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "35d4c9e2-f0a4-409c-840a-d0f2f3350244",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "46422f8c-ef0f-4ebd-8e27-7755cfe5acfe",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "4a85b816-163f-477f-9086-cb7ea112fe73",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "4ac48ac3-1568-4621-b523-211ddf98b4c7",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "4be83330-5499-4825-814c-e0ca4234fb50",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "4cda5bd0-6432-4547-9436-b4cd294da047",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "4d41a959-078a-40bb-afb2-b8328a2b27d0",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "509b6fd5-75da-4dc0-a3a4-51b87f549697",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "535244d2-13bc-4a00-a71e-c939f35d2e34",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "5d7cafe5-f002-40c5-a632-f2393db45985",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "5ee045f9-eb0d-4872-aaa3-aef39f5e64c9",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "60c346a2-d890-41c6-aff9-4910d4ceb680",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "632bc017-d35e-450e-99c1-503455093289",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "689ed0bc-6351-461a-ac49-37cf730847ea",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "6ab83f2d-27fe-453b-a6da-e85c3460454b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "6ac7b48e-38b3-4842-853a-c5aaedf57e0d",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "6ce5daf7-8b82-4892-ac3a-a4caf2bee460",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "6fe15ea1-594b-4fba-9834-101f35c71219",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "74a0689e-51eb-40d2-af6e-0ef14b73e7e6",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "7b9e6a86-7cec-478d-a9fa-0d37b1c1cdda",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "8194e1b7-aaeb-422e-a476-32070880df44",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "82d41825-d8d8-4445-9181-e8903f01ad0c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "8346d873-79b2-4972-9655-b89d0e75e094",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "834da7de-d331-4bcc-bafa-296280878e1c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "844572e8-546f-485a-8091-9733b17ea2df",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "8b0da84a-a99e-41ce-a729-6fcf5e5b8e51",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "8b798589-65b6-4102-8577-d95c1444b2d7",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "96c7698b-629d-42cf-bd55-d6095ba495b5",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "97a122d8-ce6c-4202-ab59-93071be9a659",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "99a7ae24-5033-4afb-8d14-c9450d431b10",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "9b00dfe2-a451-4c47-a7f2-2fcd0dd6f975",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "a1be586c-56ca-47e5-a212-bf358f055ba5",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "a78c115d-d50c-436c-8ba5-548928b3e718",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "aa53bab9-f263-48c0-aa43-13dccadbd395",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "ade4c51e-75b7-4489-8082-ce1049912d2e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "b0eb048d-0ce2-430c-b25c-5722baf1c43d",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "b891ca79-218a-4904-9f8e-1a3cfab050fb",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "b9f83d64-55ce-4b7b-a97a-921e451dcd06",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "ba5685b8-6a62-42b0-8434-8f28d84544fa",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "c10e5ea7-2333-402e-9d56-40dd131e7a8c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "c471837a-3bac-4af8-b3d2-c7ea01e81dee",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "c4c3365e-e11c-47cf-bcc7-a5b449f914cd",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "c4fcd183-5876-4f81-a609-4ce187672bcf",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "c939c0c9-2c73-4c5f-9113-8abdb9d1497b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "ce42648d-d5ee-4365-ba6d-cf61ed08c855",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "d5611ce9-2688-426e-a3db-cce04f1cd3d2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "d67586d0-cf1f-4460-b0d4-8ce6c2b6e877",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "de2d50af-1e96-4c85-a750-52c578c43359",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "e003b380-1ced-4041-9e3b-c3803bcf270d",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "e2a21eef-d0b8-48f8-aa68-721ca2f99ed6",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "e38933c9-5568-4430-b853-48e9001e1df3",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "e52eefb7-1e99-4e1b-9b83-dc3fa5849e55",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "e884685e-c05d-4682-9914-ef48a145b663",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "e90ca53c-58a8-4ae7-b5b3-1137ab782d1c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "f43824cd-2673-43c1-bdb0-9d715007bbf4",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "f569bcfa-9cfd-4a5a-b91b-aaf96cfa8322",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "f9468e3f-49fa-44f4-958e-22fde4a36746",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "fbfdb866-5e4d-40c4-b147-106da60e4f0f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "08fe72fc-0890-460d-974f-d934931b7e19"
+      },
+      {
+        "legacy_id": "a40902d7-29e5-4da9-930e-30921b9bbc4f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "09a3314c-c828-4fee-8030-38e638c476e0",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "00d0555a-ce1a-4120-b378-3482149fe904",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "08751ad6-f561-49b3-b9d8-ce2b62092039",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "0d9c276a-b7d6-43fc-85d1-17f4f77a43b2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "117af9e4-3476-42c5-9c5c-cea1a8c8d989",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "1b608b8c-ab7d-4049-9b21-eda82d30e741",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "1cee916c-1717-46aa-91a6-f39cf32a8d08",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "2911ceda-e358-462b-a366-5e4bc00e17ae",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "3146934d-ef79-41fc-8e4b-16795fded2dc",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "327c40b8-7ba1-4147-ab39-8413f5644955",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "33ba6472-8b27-4ba8-9b93-d65260cab9c2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "38998a31-39a2-49cb-b5bd-dc46d89891da",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "3c492a93-275d-4abc-8fb4-190ad6603f6f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "3d624fc0-d4da-4886-9fff-8d7f96ea8788",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "3db316d4-7c0b-4607-a34e-48bfa1d83ce8",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "415078c6-04b7-414d-b425-a0a256ef14ff",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "41eae046-b508-430d-b489-818e5dc0ea82",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "432c7e1c-9b8f-40e1-adee-818869377e31",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "4842b7de-4e83-4f1a-b948-30b23ad554e5",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "4985bef6-09c2-46b5-a44e-dab2a802e15e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "49dcba84-5788-4a2f-89ca-539a15258120",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "4acafcd0-2a26-4382-837b-6d79fdccd6d2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "52da18db-8a16-4d7b-b19c-e4d81f635d7b",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "54a64bba-7709-40f5-863c-f95cd4c51bbf",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "560ab0f1-8530-421c-a515-ccc99a3d5031",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "582b5101-3265-4405-8af9-7dc72f6357e4",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "58bd58d4-6ea7-41e4-88dc-266c9eb40c97",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "5f417235-5e02-49ed-bf90-50f3ee37adc0",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "60a54b32-b2c3-4209-9f66-1adbb576a5ec",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "690c8802-751a-4a00-874c-2b393f4db47c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "6e1e6929-ba11-4ab1-97dc-aed68eb48203",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "6f121232-4666-4d1c-b2aa-d8bea3be4af7",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "7605562f-7087-4661-88df-965ff5483e83",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "767579e5-aba0-4808-b3c2-b56d5e32be5c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "7804a727-be6e-49e0-968a-d956d5ec0629",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "781fb091-4009-4f2a-9d61-3eeb14103a3f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "78311fa6-9a27-4198-a108-51cc7334e8bf",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "7b0f0177-309f-4cb1-80e4-97701d100f8e",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "7bcb1cbc-9b65-4b43-85bb-502f2d64c09f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "85c03f64-a92a-4cce-9b68-42847e234f24",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "85f85ac2-2a57-45cb-b14c-41cddea55aa1",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "86879d8e-a407-4705-9543-8c2c8352e0c3",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "87e69774-45c7-423e-a74c-40c727ca51e0",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "88f1f9d6-55a3-4730-bbc8-52241dcb37d2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "92d31738-4cdb-41da-bab7-f72994a6dd08",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "9475d456-a2e9-4814-8ee4-7fae11ac001c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "9524448b-b4b5-49cd-94e4-2b4154eae594",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "95f15b8b-190d-4e13-85a5-f92c4a798418",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "97fb6572-9123-4d50-8412-2735e83ab1e1",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "9a3b7a02-6788-484f-ab84-8b2170d06f17",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "9b9c1b80-69fe-492d-8638-f50b94a74915",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "9e9de57e-346f-4d4f-ba85-bd4ceddc7b47",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "a021069d-6ac2-4397-b6cc-2299eb1a2ec2",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "a6581f52-464e-4269-a4d3-391b977408df",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "a887eb8d-4db6-4ee0-a590-83cbdc87fb64",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "a9a34b7c-894d-466c-81a0-5bfa513852ae",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "b2caed00-926c-4af7-ba1e-8ed0959e278a",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "b56a8752-25ed-4eae-8fd8-1d36620458a4",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "b65ea51f-872a-467d-8ca0-97502eac3dc9",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "ba3b69a6-23c1-4c06-aff0-2b6bd908f8e0",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "bafd0872-d6ad-4f33-a98f-c30e5af202b7",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "bf33fbd1-fc85-4cbe-8a17-c64ab2ecb73c",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "c89a4ffc-e762-4d92-b470-b4f74b1b1af1",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "cb4789d4-a9f5-4144-b216-75567eda55b9",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "d46f4fe8-146e-4daf-aadc-00821ddb224f",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "d5e1c487-6c08-40ee-bca6-38af0f998830",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "dfaee30b-ff8f-4299-bcb3-45c7361bfe82",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "e09bb522-207c-432c-81f4-340aef848c40",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "e4219aac-c880-4634-b9de-a7d339dea602",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "f4f7df96-5049-48bf-9c4a-d4a41bd5f644",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "f703821c-520a-46c1-a357-bfc89086d424",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "fcbc9a06-8a58-40be-a4ec-22c7f3a3c9c4",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "fdf38347-67f7-4d07-99ae-29aadd200999",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "b1634538-d8a8-406a-a1f3-bcb3ff391a2a"
+      },
+      {
+        "legacy_id": "6404b2d7-6a7b-4629-9e2b-bfb80e6307b3",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "55a33379-02a8-492a-a19d-1853b263c457"
+      },
+      {
+        "legacy_id": "b1cf3e6f-0c9a-4e7b-a995-dd0016ebda5a",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "55a33379-02a8-492a-a19d-1853b263c457"
+      },
+      {
+        "legacy_id": "085ad124-e518-4377-89e8-2f9c44626a8d",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "55a33379-02a8-492a-a19d-1853b263c457"
+      },
+      {
+        "legacy_id": "9f1c4d5d-f93f-4412-9d71-9512443ca934",
+        "reason": "Periodo omitido porque el contrato padre no fue importado de forma segura.",
+        "legacy_contract_id": "55a33379-02a8-492a-a19d-1853b263c457"
+      }
+    ],
+    "unresolved": {
+      "participaciones_propiedad": [
+        {
+          "legacy_id": "14d56af1-d41d-431c-be75-526338a5f452",
+          "propiedad_legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "56399fe3-a439-4553-8708-6c0375cea2a9",
+          "propiedad_legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9c0538d6-eec6-482a-a733-3d67712f3c40",
+          "propiedad_legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "96aa8496-3577-4e56-a38c-d29960f0b9cd",
+          "propiedad_legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "f897c818-b448-4c15-b3ca-c4c59203308d",
+          "propiedad_legacy_id": "3008bda6-c7e8-48ce-9e48-55b5a228296f",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "da6b04f5-67f6-421a-9729-b53362f9dd81",
+          "propiedad_legacy_id": "3008bda6-c7e8-48ce-9e48-55b5a228296f",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "88c87bd2-a1c5-456d-bdaa-a803c8b30a5f",
+          "propiedad_legacy_id": "3008bda6-c7e8-48ce-9e48-55b5a228296f",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "af8be95f-933f-4a03-9630-30a6bb2aa377",
+          "propiedad_legacy_id": "3008bda6-c7e8-48ce-9e48-55b5a228296f",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "fd384f32-8aeb-4e85-a986-c87c4fd9e8fd",
+          "propiedad_legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "e3bab9f6-5647-491d-a96b-1d72cb93b0b0",
+          "propiedad_legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "57050e8a-79b4-4e46-93d8-a2af0ca9acc3",
+          "propiedad_legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9ed3b085-09b2-413a-8a37-c79d84e78e72",
+          "propiedad_legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9a143ea3-9e12-4424-a157-ffce996fb34b",
+          "propiedad_legacy_id": "cc6890db-e35f-4673-b258-92d62c4b958b",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "8f002ef3-9fbf-4275-8b9e-567e9fd0e474",
+          "propiedad_legacy_id": "cc6890db-e35f-4673-b258-92d62c4b958b",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "406d4949-80b3-4572-8257-529385e814c1",
+          "propiedad_legacy_id": "cc6890db-e35f-4673-b258-92d62c4b958b",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "819d2e5b-618e-436b-81c6-27d7394cf9e9",
+          "propiedad_legacy_id": "cc6890db-e35f-4673-b258-92d62c4b958b",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "548a602e-14c4-4bac-ae87-8268e3a90c0c",
+          "propiedad_legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ca12deef-a767-4559-957d-0679b16c11bc",
+          "propiedad_legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ccd65d72-fb03-4626-a2ad-8bea874a0c2e",
+          "propiedad_legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "23531cbf-f890-45c1-a105-10283f54a6e6",
+          "propiedad_legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "2bb895de-7b2f-49ef-8ebe-263bf6cd491f",
+          "propiedad_legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "cb9ec08f-126d-4be9-9f5d-84c841e620ab",
+          "propiedad_legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ffbafab1-8a26-4138-a5b1-b280693de275",
+          "propiedad_legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "caede3bd-dd0b-4d03-b31d-bcbdf08c562c",
+          "propiedad_legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "cf539747-fb2a-4c26-bc9d-19567628ea49",
+          "propiedad_legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "eec53e09-54be-4959-a5b7-d7b3a63088d4",
+          "propiedad_legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "e2055277-7f09-4b65-ac7d-089514015acc",
+          "propiedad_legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "21fcb59f-bd45-49b0-a7a0-db5b45587dfc",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "863951a8-aac6-4e55-8c48-bb609bd2b76b",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "050c0b1f-74db-4a96-9dd8-9305f84149f8",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "282d3e11-5d9b-4c59-b92b-047277ca1f52",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "834a37dc-f88d-473a-a8f8-8f374ac1d50e",
+          "propiedad_legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "19878a10-03b4-4401-b347-73b08a572884",
+          "propiedad_legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "a1065377-1157-4d08-8515-e3a9b4343a83",
+          "propiedad_legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "3d614fd6-1ab0-4ba2-983e-0578f2aa24cc",
+          "propiedad_legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "65e9752f-8ba3-4d16-8394-bd20e800193f",
+          "propiedad_legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ffd67344-d747-4921-92dd-940d38644c25",
+          "propiedad_legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "55d3b584-efb4-4be3-a491-098d5dd05455",
+          "propiedad_legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "a21c2d3f-6087-4d57-8a31-35b0a42b9aa5",
+          "propiedad_legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "c04e9a56-771d-4b75-aa06-a4ce01e1d706",
+          "propiedad_legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "0ef6fc7d-984a-47b1-a898-dcdc7a18ea39",
+          "propiedad_legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "569c809d-954d-4b3e-97a4-77a347f02e8d",
+          "propiedad_legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "6ab4db29-21e2-46c5-9d2e-f722913e93c3",
+          "propiedad_legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "b40d8091-47d8-4066-9b7c-e72982a3c06f",
+          "propiedad_legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "07d439ed-863b-41c9-a058-ea4a014fe7f3",
+          "propiedad_legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "5e4290a4-ff37-45b3-950d-ae4d85e46b59",
+          "propiedad_legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "11bdd1ba-5a08-493f-9fe9-dc138d5b7f82",
+          "propiedad_legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9e899299-ad55-49a4-89b1-ed885d69cbc6",
+          "propiedad_legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ee9a32ad-64d6-4dd3-904c-9773c1864ec0",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "97b60cdd-0c42-4486-9d54-44f3ddfebb54",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9ba1c6fd-fc81-448d-a59d-19d07d12c5b4",
+          "propiedad_legacy_id": "91eb267c-154c-40df-89d8-0ea18bacd765",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "c1dc894b-c95e-46ed-86ba-7794eba136da",
+          "propiedad_legacy_id": "547e111a-29f1-4b09-a4e0-c873b5c29fc1",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "870468c2-ab6f-4a12-858e-a08688fe0ab8",
+          "propiedad_legacy_id": "5d74b1c1-af21-4bae-a155-d140ce54dd35",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "68de5c2b-d165-4461-87a3-4808e845b940",
+          "propiedad_legacy_id": "ce65ba69-8a49-48aa-87c8-f228f99a1836",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9762d805-f892-4773-a4c8-bc5f837b123c",
+          "propiedad_legacy_id": "54c7de96-c6bb-4446-971f-90c062edffae",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "c71ae78e-f735-4815-9e77-6c6f6c2fe066",
+          "propiedad_legacy_id": "d19a7f84-34bb-4a0d-85a6-7abcc2597f93",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "8988e180-ee58-4897-8cb6-87f9ad6add18",
+          "propiedad_legacy_id": "e62c760e-d31d-4847-8e53-feccd4d96588",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9c2a72f8-c477-40af-95a6-df8820e7fdb3",
+          "propiedad_legacy_id": "40603948-bdba-414a-bb81-ca77ef9761f8",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "2dcd983a-b9f0-4828-8a58-6ec04cbeba04",
+          "propiedad_legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "da8c57f7-87bc-47c7-8a6a-155cfc898148",
+          "propiedad_legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "c0f4322b-6ae6-41ad-a407-72b4f29625a3",
+          "propiedad_legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "6f3abf3c-75fe-4c50-a9c3-5be40afb2fd4",
+          "propiedad_legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "fcfaed66-fcd9-4b85-a829-c8ee30fa1e07",
+          "propiedad_legacy_id": "4fa29b2e-18f3-437f-8402-479e0642c6b0",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "a48c80e4-d583-4b85-a3ae-1502feeff2f2",
+          "propiedad_legacy_id": "4fa29b2e-18f3-437f-8402-479e0642c6b0",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ff67fa32-f395-4487-a83c-a0072abe024a",
+          "propiedad_legacy_id": "4fa29b2e-18f3-437f-8402-479e0642c6b0",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "aa4373ab-e614-4aca-b853-212347376dff",
+          "propiedad_legacy_id": "4fa29b2e-18f3-437f-8402-479e0642c6b0",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "779fbc6b-adfc-4547-a110-a07ea807ba42",
+          "propiedad_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "cb408d9b-6f9c-4041-901a-4be220d49f61",
+          "propiedad_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "socio_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "57d3bc2c-12c7-4b3a-915c-518f348b0ebb",
+          "propiedad_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "socio_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ae4e32d0-05fa-427b-a648-faade4990f46",
+          "propiedad_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "8ebe0991-03e1-4767-9930-6149aa83a0be",
+          "propiedad_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "631050b7-59dd-4db2-9921-4032bfa9bb4b",
+          "propiedad_legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "f49b16dc-a4fc-4d2f-a277-c39fb792be09",
+          "propiedad_legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "socio_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "0bc48a84-d67b-4233-b140-c19d7c6f74d1",
+          "propiedad_legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "socio_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "20b4f187-c83c-4d52-9752-5d74d5f176db",
+          "propiedad_legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "7a8ae8dd-f071-481d-821d-9cd4f9d79144",
+          "propiedad_legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        }
+      ],
+      "participaciones_sin_socio": [
+        {
+          "legacy_id": "2f6d0e80-5c7e-4aec-abc6-184f0e4c9bb7",
+          "reason": "No socio_id found in legacy row."
+        },
+        {
+          "legacy_id": "9490f7d4-6249-4a5d-9160-069ece57ebd7",
+          "reason": "No socio_id found in legacy row."
+        }
+      ],
+      "propiedades_sin_owner": [
+        {
+          "legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+          "reason": "No owner found in legacy row.",
+          "codigo": 1,
+          "codigo_propiedad": null,
+          "direccion": "Rudecindo Ortega 01002",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "731-009",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "39.13",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "17.39",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "21.74",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "21.74",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "39.13",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "17.39",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "21.74",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "21.74",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+          "reason": "No owner found in legacy row.",
+          "codigo": 3,
+          "codigo_propiedad": null,
+          "direccion": "Bascu\u00f1an Santamaria 0707",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "671-018",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+          "reason": "No owner found in legacy row.",
+          "codigo": 4,
+          "codigo_propiedad": null,
+          "direccion": "Rudecindo Ortega 865",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "618-012",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+          "reason": "No owner found in legacy row.",
+          "codigo": 5,
+          "codigo_propiedad": null,
+          "direccion": "Basilio Urrutia 633",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "597-005",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+          "reason": "No owner found in legacy row.",
+          "codigo": 45,
+          "codigo_propiedad": null,
+          "direccion": "Pleitiado 631",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "2076-006",
+          "comuna": "Padre Las Casas",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "reason": "No owner found in legacy row.",
+          "codigo": 40,
+          "codigo_propiedad": null,
+          "direccion": "Edificio Q Bod. N\u00ba 17, Est. N\u00ba 33",
+          "estado": "acoplada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "1338-33",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 5,
+          "total_pct": 83.34,
+          "candidate_owner_model": null,
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+              "participante_nombre": "Trinidad Puig Jequier",
+              "participante_rut": "20.785.966-4",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+              "participante_nombre": "Catalina Puig Jequier",
+              "participante_rut": "21.180.524-2",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+              "socio_nombre": "Trinidad Puig Jequier",
+              "socio_rut": "20.785.966-4",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+              "socio_nombre": "Catalina Puig Jequier",
+              "socio_rut": "21.180.524-2",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "4fa29b2e-18f3-437f-8402-479e0642c6b0",
+          "reason": "No owner found in legacy row.",
+          "codigo": 24,
+          "codigo_propiedad": null,
+          "direccion": "O'higgins 1312 Casa Cemento",
+          "estado": "disponible",
+          "canonical_estado": "activa",
+          "rol_avaluo": "1621-07",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "40",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "40",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+          "reason": "No owner found in legacy row.",
+          "codigo": 25,
+          "codigo_propiedad": null,
+          "direccion": "O'higgins 1312 Casa Madera",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "1621-07",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "40",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "40",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "cc6890db-e35f-4673-b258-92d62c4b958b",
+          "reason": "No owner found in legacy row.",
+          "codigo": 23,
+          "codigo_propiedad": null,
+          "direccion": "Panam 5 Sur Lote 2",
+          "estado": "no_arriendo",
+          "canonical_estado": "inactiva",
+          "rol_avaluo": "3203-182",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+          "reason": "No owner found in legacy row.",
+          "codigo": 8,
+          "codigo_propiedad": null,
+          "direccion": "Diego Portales 1175 (Frente)",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "72-017",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+          "reason": "No owner found in legacy row.",
+          "codigo": 10,
+          "codigo_propiedad": null,
+          "direccion": "Diego Portales 1163 A",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "72-017",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+          "reason": "No owner found in legacy row.",
+          "codigo": 26,
+          "codigo_propiedad": null,
+          "direccion": "Av. Pablo Neruda 02491, Local 4",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "4200-072",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "reason": "No owner found in legacy row.",
+          "codigo": 46,
+          "codigo_propiedad": null,
+          "direccion": "Edificio Q Dpto 1014",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "1338-268",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 6,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Trinidad Puig Jequier",
+              "participante_rut": "20.785.966-4",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Catalina Puig Jequier",
+              "participante_rut": "21.180.524-2",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "empresa",
+              "participante_nombre": "Inmobiliaria Puig SpA",
+              "participante_rut": "76.311.245-4",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Trinidad Puig Jequier",
+              "socio_rut": "20.785.966-4",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Catalina Puig Jequier",
+              "socio_rut": "21.180.524-2",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_rut": "17.366.287-4",
+            "source": "explicit_user_confirmed_override"
+          },
+          "enrichment_source": "explicit_user_confirmed_override"
+        },
+        {
+          "legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "reason": "No owner found in legacy row.",
+          "codigo": 47,
+          "codigo_propiedad": null,
+          "direccion": "Bulnes 699 Local 105, 110, 111 y 116",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "160-22 / 160-23 / 160-24 / 160-54",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 6,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "14.29",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "19.05",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "19.05",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+              "participante_nombre": "Catalina Puig Jequier",
+              "participante_rut": "21.180.524-2",
+              "porcentaje": "7.14",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+              "participante_nombre": "Trinidad Puig Jequier",
+              "participante_rut": "20.785.966-4",
+              "porcentaje": "7.14",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "14.29",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "19.05",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "19.05",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+              "socio_nombre": "Catalina Puig Jequier",
+              "socio_rut": "21.180.524-2",
+              "porcentaje": "7.14",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+              "socio_nombre": "Trinidad Puig Jequier",
+              "socio_rut": "20.785.966-4",
+              "porcentaje": "7.14",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "3008bda6-c7e8-48ce-9e48-55b5a228296f",
+          "reason": "No owner found in legacy row.",
+          "codigo": 9,
+          "codigo_propiedad": null,
+          "direccion": "Diego Portales 1175 (Fondo)",
+          "estado": "acoplada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "72-017",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+          "reason": "No owner found in legacy row.",
+          "codigo": 6,
+          "codigo_propiedad": null,
+          "direccion": "Cruz 465",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "93-005",
+          "comuna": "Temuco",
+          "region": "",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        }
+      ]
+    }
+  }
+}

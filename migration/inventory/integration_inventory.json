@@ -1,0 +1,84 @@
+[
+  {
+    "provider": "banco-central",
+    "capability": "banco-central_integration",
+    "source_paths": [
+      "lib\\integrations\\banco-central\\index.ts",
+      "lib\\integrations\\banco-central\\uf.ts"
+    ],
+    "status": "implemented_in_legacy"
+  },
+  {
+    "provider": "banco-chile",
+    "capability": "banco-chile_integration",
+    "source_paths": [
+      "lib\\integrations\\banco-chile\\auth.ts",
+      "lib\\integrations\\banco-chile\\balance.ts",
+      "lib\\integrations\\banco-chile\\client.ts",
+      "lib\\integrations\\banco-chile\\config-helper.ts",
+      "lib\\integrations\\banco-chile\\config.ts",
+      "lib\\integrations\\banco-chile\\example.ts",
+      "lib\\integrations\\banco-chile\\index.ts",
+      "lib\\integrations\\banco-chile\\README.md",
+      "lib\\integrations\\banco-chile\\tef.ts",
+      "lib\\integrations\\banco-chile\\transfer-service.ts",
+      "lib\\integrations\\banco-chile\\types.ts",
+      "lib\\integrations\\banco-chile\\utils.ts"
+    ],
+    "status": "implemented_in_legacy"
+  },
+  {
+    "provider": "claude",
+    "capability": "claude_integration",
+    "source_paths": [
+      "lib\\integrations\\claude\\client.ts",
+      "lib\\integrations\\claude\\config.ts",
+      "lib\\integrations\\claude\\index.ts",
+      "lib\\integrations\\claude\\regulatory-monitor.ts",
+      "lib\\integrations\\claude\\tax-analysis.ts"
+    ],
+    "status": "implemented_in_legacy"
+  },
+  {
+    "provider": "email",
+    "capability": "email_integration",
+    "source_paths": [
+      "lib\\integrations\\email\\balance-alerts.ts",
+      "lib\\integrations\\email\\bank-alerts.ts",
+      "lib\\integrations\\email\\index.ts"
+    ],
+    "status": "implemented_in_legacy"
+  },
+  {
+    "provider": "sii",
+    "capability": "sii_integration",
+    "source_paths": [
+      "lib\\integrations\\sii\\auth.ts",
+      "lib\\integrations\\sii\\caf.ts",
+      "lib\\integrations\\sii\\client.ts",
+      "lib\\integrations\\sii\\config.ts",
+      "lib\\integrations\\sii\\dte-generator.ts",
+      "lib\\integrations\\sii\\index.ts",
+      "lib\\integrations\\sii\\signature.ts",
+      "lib\\integrations\\sii\\submission.ts",
+      "lib\\integrations\\sii\\ted.ts",
+      "lib\\integrations\\sii\\types.ts"
+    ],
+    "status": "implemented_in_legacy"
+  },
+  {
+    "provider": "transbank",
+    "capability": "transbank_integration",
+    "source_paths": [
+      "lib\\integrations\\transbank\\client.ts",
+      "lib\\integrations\\transbank\\commerce-selector.ts",
+      "lib\\integrations\\transbank\\config.ts",
+      "lib\\integrations\\transbank\\index.ts",
+      "lib\\integrations\\transbank\\multi-commerce-client.ts",
+      "lib\\integrations\\transbank\\reconciliation.ts",
+      "lib\\integrations\\transbank\\token-management.ts",
+      "lib\\integrations\\transbank\\utils.ts"
+    ],
+    "status": "implemented_in_legacy"
+  }
+]

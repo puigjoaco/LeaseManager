@@ -1,0 +1,2267 @@
+{
+  "created": {
+    "mandatos_operacion": 16,
+    "contratos": 12,
+    "contrato_propiedades": 12,
+    "periodos_contractuales": 163
+  },
+  "updated": {
+    "socios": 6,
+    "empresas": 4,
+    "participaciones": 18,
+    "propiedades": 50,
+    "cuentas_recaudadoras": 6,
+    "mandatos_operacion": 50,
+    "arrendatarios": 53,
+    "contratos": 44,
+    "contrato_propiedades": 44,
+    "periodos_contractuales": 585
+  },
+  "skipped": {
+    "periodos_candidates": [],
+    "unresolved": {
+      "participaciones_propiedad": [
+        {
+          "legacy_id": "14d56af1-d41d-431c-be75-526338a5f452",
+          "propiedad_legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "56399fe3-a439-4553-8708-6c0375cea2a9",
+          "propiedad_legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9c0538d6-eec6-482a-a733-3d67712f3c40",
+          "propiedad_legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "96aa8496-3577-4e56-a38c-d29960f0b9cd",
+          "propiedad_legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "f897c818-b448-4c15-b3ca-c4c59203308d",
+          "propiedad_legacy_id": "3008bda6-c7e8-48ce-9e48-55b5a228296f",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "da6b04f5-67f6-421a-9729-b53362f9dd81",
+          "propiedad_legacy_id": "3008bda6-c7e8-48ce-9e48-55b5a228296f",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "88c87bd2-a1c5-456d-bdaa-a803c8b30a5f",
+          "propiedad_legacy_id": "3008bda6-c7e8-48ce-9e48-55b5a228296f",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "af8be95f-933f-4a03-9630-30a6bb2aa377",
+          "propiedad_legacy_id": "3008bda6-c7e8-48ce-9e48-55b5a228296f",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "fd384f32-8aeb-4e85-a986-c87c4fd9e8fd",
+          "propiedad_legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "e3bab9f6-5647-491d-a96b-1d72cb93b0b0",
+          "propiedad_legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "57050e8a-79b4-4e46-93d8-a2af0ca9acc3",
+          "propiedad_legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9ed3b085-09b2-413a-8a37-c79d84e78e72",
+          "propiedad_legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9a143ea3-9e12-4424-a157-ffce996fb34b",
+          "propiedad_legacy_id": "cc6890db-e35f-4673-b258-92d62c4b958b",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "8f002ef3-9fbf-4275-8b9e-567e9fd0e474",
+          "propiedad_legacy_id": "cc6890db-e35f-4673-b258-92d62c4b958b",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "406d4949-80b3-4572-8257-529385e814c1",
+          "propiedad_legacy_id": "cc6890db-e35f-4673-b258-92d62c4b958b",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "819d2e5b-618e-436b-81c6-27d7394cf9e9",
+          "propiedad_legacy_id": "cc6890db-e35f-4673-b258-92d62c4b958b",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "548a602e-14c4-4bac-ae87-8268e3a90c0c",
+          "propiedad_legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ca12deef-a767-4559-957d-0679b16c11bc",
+          "propiedad_legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ccd65d72-fb03-4626-a2ad-8bea874a0c2e",
+          "propiedad_legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "23531cbf-f890-45c1-a105-10283f54a6e6",
+          "propiedad_legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "2bb895de-7b2f-49ef-8ebe-263bf6cd491f",
+          "propiedad_legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "cb9ec08f-126d-4be9-9f5d-84c841e620ab",
+          "propiedad_legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ffbafab1-8a26-4138-a5b1-b280693de275",
+          "propiedad_legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "caede3bd-dd0b-4d03-b31d-bcbdf08c562c",
+          "propiedad_legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "cf539747-fb2a-4c26-bc9d-19567628ea49",
+          "propiedad_legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "eec53e09-54be-4959-a5b7-d7b3a63088d4",
+          "propiedad_legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "e2055277-7f09-4b65-ac7d-089514015acc",
+          "propiedad_legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "21fcb59f-bd45-49b0-a7a0-db5b45587dfc",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "863951a8-aac6-4e55-8c48-bb609bd2b76b",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "050c0b1f-74db-4a96-9dd8-9305f84149f8",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "282d3e11-5d9b-4c59-b92b-047277ca1f52",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "834a37dc-f88d-473a-a8f8-8f374ac1d50e",
+          "propiedad_legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "19878a10-03b4-4401-b347-73b08a572884",
+          "propiedad_legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "a1065377-1157-4d08-8515-e3a9b4343a83",
+          "propiedad_legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "3d614fd6-1ab0-4ba2-983e-0578f2aa24cc",
+          "propiedad_legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "65e9752f-8ba3-4d16-8394-bd20e800193f",
+          "propiedad_legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ffd67344-d747-4921-92dd-940d38644c25",
+          "propiedad_legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "55d3b584-efb4-4be3-a491-098d5dd05455",
+          "propiedad_legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "a21c2d3f-6087-4d57-8a31-35b0a42b9aa5",
+          "propiedad_legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "c04e9a56-771d-4b75-aa06-a4ce01e1d706",
+          "propiedad_legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "0ef6fc7d-984a-47b1-a898-dcdc7a18ea39",
+          "propiedad_legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "569c809d-954d-4b3e-97a4-77a347f02e8d",
+          "propiedad_legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "6ab4db29-21e2-46c5-9d2e-f722913e93c3",
+          "propiedad_legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "b40d8091-47d8-4066-9b7c-e72982a3c06f",
+          "propiedad_legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "07d439ed-863b-41c9-a058-ea4a014fe7f3",
+          "propiedad_legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "5e4290a4-ff37-45b3-950d-ae4d85e46b59",
+          "propiedad_legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "11bdd1ba-5a08-493f-9fe9-dc138d5b7f82",
+          "propiedad_legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9e899299-ad55-49a4-89b1-ed885d69cbc6",
+          "propiedad_legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ee9a32ad-64d6-4dd3-904c-9773c1864ec0",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "97b60cdd-0c42-4486-9d54-44f3ddfebb54",
+          "propiedad_legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "socio_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9ba1c6fd-fc81-448d-a59d-19d07d12c5b4",
+          "propiedad_legacy_id": "91eb267c-154c-40df-89d8-0ea18bacd765",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "c1dc894b-c95e-46ed-86ba-7794eba136da",
+          "propiedad_legacy_id": "547e111a-29f1-4b09-a4e0-c873b5c29fc1",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "870468c2-ab6f-4a12-858e-a08688fe0ab8",
+          "propiedad_legacy_id": "5d74b1c1-af21-4bae-a155-d140ce54dd35",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "68de5c2b-d165-4461-87a3-4808e845b940",
+          "propiedad_legacy_id": "ce65ba69-8a49-48aa-87c8-f228f99a1836",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9762d805-f892-4773-a4c8-bc5f837b123c",
+          "propiedad_legacy_id": "54c7de96-c6bb-4446-971f-90c062edffae",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "c71ae78e-f735-4815-9e77-6c6f6c2fe066",
+          "propiedad_legacy_id": "d19a7f84-34bb-4a0d-85a6-7abcc2597f93",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "8988e180-ee58-4897-8cb6-87f9ad6add18",
+          "propiedad_legacy_id": "e62c760e-d31d-4847-8e53-feccd4d96588",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "9c2a72f8-c477-40af-95a6-df8820e7fdb3",
+          "propiedad_legacy_id": "40603948-bdba-414a-bb81-ca77ef9761f8",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "2dcd983a-b9f0-4828-8a58-6ec04cbeba04",
+          "propiedad_legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "da8c57f7-87bc-47c7-8a6a-155cfc898148",
+          "propiedad_legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "c0f4322b-6ae6-41ad-a407-72b4f29625a3",
+          "propiedad_legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "6f3abf3c-75fe-4c50-a9c3-5be40afb2fd4",
+          "propiedad_legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "fcfaed66-fcd9-4b85-a829-c8ee30fa1e07",
+          "propiedad_legacy_id": "4fa29b2e-18f3-437f-8402-479e0642c6b0",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "a48c80e4-d583-4b85-a3ae-1502feeff2f2",
+          "propiedad_legacy_id": "4fa29b2e-18f3-437f-8402-479e0642c6b0",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ff67fa32-f395-4487-a83c-a0072abe024a",
+          "propiedad_legacy_id": "4fa29b2e-18f3-437f-8402-479e0642c6b0",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "aa4373ab-e614-4aca-b853-212347376dff",
+          "propiedad_legacy_id": "4fa29b2e-18f3-437f-8402-479e0642c6b0",
+          "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "779fbc6b-adfc-4547-a110-a07ea807ba42",
+          "propiedad_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "cb408d9b-6f9c-4041-901a-4be220d49f61",
+          "propiedad_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "socio_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "57d3bc2c-12c7-4b3a-915c-518f348b0ebb",
+          "propiedad_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "socio_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "ae4e32d0-05fa-427b-a648-faade4990f46",
+          "propiedad_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "8ebe0991-03e1-4767-9930-6149aa83a0be",
+          "propiedad_legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "631050b7-59dd-4db2-9921-4032bfa9bb4b",
+          "propiedad_legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "f49b16dc-a4fc-4d2f-a277-c39fb792be09",
+          "propiedad_legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "socio_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "0bc48a84-d67b-4233-b140-c19d7c6f74d1",
+          "propiedad_legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "socio_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "20b4f187-c83c-4d52-9752-5d74d5f176db",
+          "propiedad_legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        },
+        {
+          "legacy_id": "7a8ae8dd-f071-481d-821d-9cd4f9d79144",
+          "propiedad_legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+          "reason": "Canonical bundle ignores property-scoped participations; property ownership is carried by Propiedad owner fields."
+        }
+      ],
+      "participaciones_sin_socio": [
+        {
+          "legacy_id": "2f6d0e80-5c7e-4aec-abc6-184f0e4c9bb7",
+          "reason": "No socio_id found in legacy row."
+        },
+        {
+          "legacy_id": "9490f7d4-6249-4a5d-9160-069ece57ebd7",
+          "reason": "No socio_id found in legacy row."
+        }
+      ],
+      "propiedades_sin_owner": [
+        {
+          "legacy_id": "545d38ca-c085-4353-81c1-dd5775e5fce0",
+          "reason": "No owner found in legacy row.",
+          "codigo": 1,
+          "codigo_propiedad": null,
+          "direccion": "Rudecindo Ortega 01002",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "731-009",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "39.13",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "17.39",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "21.74",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "21.74",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "39.13",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "17.39",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "21.74",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "21.74",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "e4a49ef3-3af1-4715-b0c4-5a68c6e5289b",
+          "reason": "No owner found in legacy row.",
+          "codigo": 3,
+          "codigo_propiedad": null,
+          "direccion": "Bascu\u00f1an Santamaria 0707",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "671-018",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "3b0714d8-ad8e-45eb-97d3-3baeac35bc90",
+          "reason": "No owner found in legacy row.",
+          "codigo": 4,
+          "codigo_propiedad": null,
+          "direccion": "Rudecindo Ortega 865",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "618-012",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "fd195fa7-f0a3-4a58-aa6f-e47a7fb49a8c",
+          "reason": "No owner found in legacy row.",
+          "codigo": 5,
+          "codigo_propiedad": null,
+          "direccion": "Basilio Urrutia 633",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "597-005",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "fa3242b5-b1fe-4dd1-b681-867bf60b686e",
+          "reason": "No owner found in legacy row.",
+          "codigo": 45,
+          "codigo_propiedad": null,
+          "direccion": "Pleitiado 631",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "2076-006",
+          "comuna": "Padre Las Casas",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "d7659d52-b2af-4163-9dc4-ac1ec46c49e5",
+          "reason": "No owner found in legacy row.",
+          "codigo": 40,
+          "codigo_propiedad": null,
+          "direccion": "Edificio Q Bod. N\u00ba 17, Est. N\u00ba 33",
+          "estado": "acoplada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "1338-33",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 6,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Trinidad Puig Jequier",
+              "participante_rut": "20.785.966-4",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Catalina Puig Jequier",
+              "participante_rut": "21.180.524-2",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "empresa",
+              "participante_nombre": "Inmobiliaria Puig SpA",
+              "participante_rut": "76.311.245-4",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Trinidad Puig Jequier",
+              "socio_rut": "20.785.966-4",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Catalina Puig Jequier",
+              "socio_rut": "21.180.524-2",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_rut": "17.366.287-4",
+            "source": "explicit_user_confirmed_override"
+          },
+          "enrichment_source": "explicit_user_confirmed_override"
+        },
+        {
+          "legacy_id": "4fa29b2e-18f3-437f-8402-479e0642c6b0",
+          "reason": "No owner found in legacy row.",
+          "codigo": 24,
+          "codigo_propiedad": null,
+          "direccion": "O'higgins 1312 Casa Cemento",
+          "estado": "disponible",
+          "canonical_estado": "activa",
+          "rol_avaluo": "1621-07",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "40",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "40",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "9baaafc5-0fa0-45b6-8fcb-e2b2a78dba34",
+          "reason": "No owner found in legacy row.",
+          "codigo": 25,
+          "codigo_propiedad": null,
+          "direccion": "O'higgins 1312 Casa Madera",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "1621-07",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "40",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "40",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "20",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "cc6890db-e35f-4673-b258-92d62c4b958b",
+          "reason": "No owner found in legacy row.",
+          "codigo": 23,
+          "codigo_propiedad": null,
+          "direccion": "Panam 5 Sur Lote 2",
+          "estado": "no_arriendo",
+          "canonical_estado": "inactiva",
+          "rol_avaluo": "3203-182",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "ab43a6fe-5cfa-4e42-ac9e-c03a4fddccb8",
+          "reason": "No owner found in legacy row.",
+          "codigo": 8,
+          "codigo_propiedad": null,
+          "direccion": "Diego Portales 1175 (Frente)",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "72-017",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "6cde7633-5896-42a6-a48c-c37aba57aab2",
+          "reason": "No owner found in legacy row.",
+          "codigo": 10,
+          "codigo_propiedad": null,
+          "direccion": "Diego Portales 1163 A",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "72-017",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "8160628b-0198-4244-bef5-d26c71b6c508",
+          "reason": "No owner found in legacy row.",
+          "codigo": 26,
+          "codigo_propiedad": null,
+          "direccion": "Av. Pablo Neruda 02491, Local 4",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "4200-072",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "ea9d1e53-31f4-47a7-b49a-750e7cde0e91",
+          "reason": "No owner found in legacy row.",
+          "codigo": 46,
+          "codigo_propiedad": null,
+          "direccion": "Edificio Q Dpto 1014",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "1338-268",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 6,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Trinidad Puig Jequier",
+              "participante_rut": "20.785.966-4",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Catalina Puig Jequier",
+              "participante_rut": "21.180.524-2",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            },
+            {
+              "participante_tipo": "empresa",
+              "participante_nombre": "Inmobiliaria Puig SpA",
+              "participante_rut": "76.311.245-4",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "explicit_user_confirmed_override"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Trinidad Puig Jequier",
+              "socio_rut": "20.785.966-4",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Catalina Puig Jequier",
+              "socio_rut": "21.180.524-2",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "16.66",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": null,
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_rut": "17.366.287-4",
+            "source": "explicit_user_confirmed_override"
+          },
+          "enrichment_source": "explicit_user_confirmed_override"
+        },
+        {
+          "legacy_id": "eedeab26-0e6e-4dae-a31e-847d8a458ff8",
+          "reason": "No owner found in legacy row.",
+          "codigo": 47,
+          "codigo_propiedad": null,
+          "direccion": "Bulnes 699 Local 105, 110, 111 y 116",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "160-22 / 160-23 / 160-24 / 160-54",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 6,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "14.29",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "19.05",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "19.05",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+              "participante_nombre": "Catalina Puig Jequier",
+              "participante_rut": "21.180.524-2",
+              "porcentaje": "7.14",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+              "participante_nombre": "Trinidad Puig Jequier",
+              "participante_rut": "20.785.966-4",
+              "porcentaje": "7.14",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "14.29",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "19.05",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "19.05",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "5fd9f1b9-c459-4146-b1a0-896ffe8fb694",
+              "socio_nombre": "Catalina Puig Jequier",
+              "socio_rut": "21.180.524-2",
+              "porcentaje": "7.14",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "8f7211c7-c536-40ee-971c-6138b7332c33",
+              "socio_nombre": "Trinidad Puig Jequier",
+              "socio_rut": "20.785.966-4",
+              "porcentaje": "7.14",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "3008bda6-c7e8-48ce-9e48-55b5a228296f",
+          "reason": "No owner found in legacy row.",
+          "codigo": 9,
+          "codigo_propiedad": null,
+          "direccion": "Diego Portales 1175 (Fondo)",
+          "estado": "acoplada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "72-017",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "33.33",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "25",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        },
+        {
+          "legacy_id": "ed0842e7-87cd-44a8-8278-d2d4017204bb",
+          "reason": "No owner found in legacy row.",
+          "codigo": 6,
+          "codigo_propiedad": null,
+          "direccion": "Cruz 465",
+          "estado": "arrendada",
+          "canonical_estado": "activa",
+          "rol_avaluo": "93-005",
+          "comuna": "Temuco",
+          "region": "La Araucania",
+          "tipo_inmueble": "otro",
+          "participaciones_count": 4,
+          "total_pct": 100.0,
+          "candidate_owner_model": "comunidad",
+          "participantes": [
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "participante_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "participante_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "participante_nombre": "Geraldine Stefanie Puig Vittini",
+              "participante_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "participante_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "participante_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            },
+            {
+              "participante_tipo": "socio",
+              "participante_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "participante_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "participante_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null,
+              "vigente_desde_source": "default_symbolic_inheritance_2017_03_16"
+            }
+          ],
+          "socios": [
+            {
+              "socio_legacy_id": "16979aba-d9fd-4b99-8e50-807fa2ddebbb",
+              "socio_nombre": "Cecilia Jacqueline Vittini De Ruyt",
+              "socio_rut": "7.768.066-7",
+              "porcentaje": "38.89",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "2d1a5134-24ab-4bc1-ad8c-c5c064481562",
+              "socio_nombre": "Geraldine Stefanie Puig Vittini",
+              "socio_rut": "15.244.057-K",
+              "porcentaje": "16.67",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "4ec021b9-b102-4ce0-8d86-b00c2637c470",
+              "socio_nombre": "Crist\u00f3bal Jos\u00e9 Puig Vittini",
+              "socio_rut": "16.531.864-1",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            },
+            {
+              "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+              "socio_nombre": "Joaqu\u00edn Esteban Puig Vittini",
+              "socio_rut": "17.366.287-4",
+              "porcentaje": "22.22",
+              "activo": true,
+              "vigente_desde": "2017-03-16",
+              "vigente_hasta": null
+            }
+          ],
+          "representacion_sugerida": {
+            "modo_representacion": "designado",
+            "socio_legacy_id": "780b978d-a7f4-48b9-a1e8-47aa8aa417be",
+            "source": "business_rule_current_communities"
+          }
+        }
+      ]
+    }
+  }
+}

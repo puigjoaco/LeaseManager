@@ -1,0 +1,27 @@
+[
+  {
+    "category": "certificate",
+    "name": "17366287-4.pfx",
+    "relative_path": "certificados\\17366287-4.pfx"
+  },
+  {
+    "category": "repository_asset",
+    "name": "contabilidad",
+    "relative_path": "contabilidad"
+  },
+  {
+    "category": "repository_asset",
+    "name": "api-banco",
+    "relative_path": "api-banco"
+  },
+  {
+    "category": "repository_asset",
+    "name": "supabase",
+    "relative_path": "supabase"
+  },
+  {
+    "category": "repository_asset",
+    "name": "integrations",
+    "relative_path": "lib\\integrations"
+  }
+]

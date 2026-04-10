@@ -1,0 +1,42 @@
+Estas retomando el trabajo en:
+
+D:/Proyectos/LeaseManager/Produccion 1.0
+
+Antes de responder sustantivamente o proponer cambios, debes leer COMPLETO y EN ORDEN:
+
+1. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/00_HANDOFF_INDEX.md
+2. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/01_CONTEXTO_MAESTRO.md
+3. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/04_DECISIONES_VIGENTES.md
+4. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/06_BORRADOR_ACTUAL.md
+5. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/03_CRONOLOGIA.md
+6. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/05_HALLAZGOS_Y_RIESGOS.md
+7. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/08_PENDIENTES_Y_PROXIMOS_PASOS.md
+8. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/02_FUENTES_Y_RUTAS.md
+9. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/07_RESPUESTAS_EXTERNAS_LITERAL.md
+10. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/10_CONTROL_DE_CALIDAD.md
+11. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/11_MANIFEST.md
+
+Y luego abrir como fuentes principales:
+
+- D:/Proyectos/LeaseManager/Produccion 1.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md
+- D:/Proyectos/LeaseManager/Produccion 1.0/migration/enrichments.py
+- D:/Proyectos/LeaseManager/Produccion 1.0/migration/transformers.py
+- D:/Proyectos/LeaseManager/Produccion 1.0/migration/importers.py
+
+Despues de leer, debes:
+
+- confirmar brevemente cual es la decision central vigente;
+- indicar cual es el borrador principal a usar;
+- indicar cual fue el resultado final de la corrida de inspeccion (`56` contratos, `748` periodos, `66` mandatos, `0` manual resolutions abiertas);
+- y NO proponer implementacion ni responder de fondo hasta haber cargado ese contexto.
+
+Advertencias:
+
+- `D:/Proyectos/LeaseManager/Produccion 1.0` es el root activo.
+- `D:/Proyectos/LeaseManager` sigue siendo legacy read-only.
+- No rehacer scaffold.
+- No commit ni deploy.
+- No usar `git add .`.
+- No inventar owners, RUTs, direcciones, fechas ni montos.
+- No reabrir decisiones ya cerradas del backlog comunitario actual.
+- El siguiente paso recomendado ya no es rediseñar: es ejecutar la misma corrida sobre el entorno destino real del greenfield.

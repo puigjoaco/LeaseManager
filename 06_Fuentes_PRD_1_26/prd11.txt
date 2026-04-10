@@ -1,0 +1,437 @@
+<context>
+# Overview
+
+Rent Control es una plataforma web diseñada específicamente para automatizar y centralizar la administración de arriendos de locales comerciales en Chile. Resuelve los problemas críticos de la gestión manual actual: cálculos de renta complejos propensos a errores, envío manual de notificaciones sin trazabilidad, conciliación bancaria tediosa, información descentralizada, y seguimiento manual de plazos y pagos.
+
+**Para quién**: Administradores de propiedades comerciales en Chile que gestionan múltiples arriendos, con acceso de solo lectura para Socios (~15 usuarios) y Contadora.
+
+**Valor principal**: Automatización completa del ciclo de arriendo, desde el cálculo automático con identificador único para conciliación perfecta, hasta notificaciones persistentes y gestión documental centralizada. Reduce 90% el tiempo de gestión mensual y elimina errores de cálculo.
+
+# Core Features
+
+## 1. Gestión Centralizada de Datos
+- **Qué hace**: Administra toda la información clave del negocio (Socios, Empresas, Propiedades, Arrendatarios, Cuentas Bancarias, Contratos) con validaciones específicas chilenas
+- **Por qué es importante**: Única fuente de verdad, elimina duplicación y errores de datos
+- **Cómo funciona**: Interfaces web con validaciones (RUT válido, suma porcentajes = 100%, códigos únicos de 3 dígitos por propiedad)
+
+## 2. Cálculo Automático de Renta con Código Único
+- **Qué hace**: Cada día 1 a las 02:01 AM calcula el monto exacto en CLP, aplicando el código de propiedad en los últimos 3 dígitos
+- **Por qué es importante**: Permite conciliación bancaria perfecta y automática
+- **Cómo funciona**: 
+  1. Toma monto del período (UF o CLP)
+  2. Convierte a CLP si necesario
+  3. Aplica ajustes
+  4. Reemplaza últimos 3 dígitos por código propiedad
+  5. Acepta CUALQUIER pérdida monetaria resultante
+
+## 3. Sistema de Contratos Inteligente
+- **Qué hace**: Gestiona ciclo completo con períodos, renovaciones automáticas, ajustes y plantillas
+- **Por qué es importante**: Trazabilidad completa y automatización de renovaciones
+- **Cómo funciona**: 
+  - Contratos solo inician día 1
+  - Renovación automática si no hay carta de término
+  - Ajustes por mes completo (rechaza si resultado < $1,000)
+  - Contratos futuros REQUIEREN carta de término previa
+
+## 4. Notificaciones Automáticas Persistentes
+- **Qué hace**: Envía avisos por Email (siempre) y WhatsApp (opcional) en días específicos
+- **Por qué es importante**: Comunicación consistente sin posibilidad de olvidos
+- **Cómo funciona**: 
+  - Día 1, 3, 5: Recordatorios de pago (10:00 AM)
+  - Día 10, 15, 20, 25: Avisos de atraso
+  - Sin excepciones por feriados/fines de semana
+  - Sin opt-out permitido
+
+## 5. Conciliación Bancaria Inteligente
+- **Qué hace**: Conecta con API Banco de Chile (principal) o web scraping (respaldo) para identificar pagos
+- **Por qué es importante**: Automatiza el proceso más tedioso y propenso a errores
+- **Cómo funciona**:
+  - Match automático por monto exacto con código
+  - Pagos parciales/duplicados → IngresoDesconocido
+  - Excedentes → Devolución completa obligatoria
+  - Manual como último recurso
+
+## 6. Gestión de Garantías
+- **Qué hace**: Controla el ciclo completo con trazabilidad total
+- **Por qué es importante**: Cumplimiento legal y control financiero
+- **Cómo funciona**: Sin reajustes, permite parciales, en cambio de titular el Admin decide si devolver o transferir
+
+## 7. Sistema de Deudas y Repactación
+- **Qué hace**: Mantiene registro de deudas con score de pago y permite repactar en cuotas
+- **Por qué es importante**: Formaliza el manejo de atrasos
+- **Cómo funciona**: 
+  - Score solo desde datos en sistema
+  - Repactación siempre por deuda total
+  - Cuotas se suman como recargo al arriendo
+
+## 8. Dashboard Operacional
+- **Qué hace**: Vista consolidada del mes con estados, montos, pendientes
+- **Por qué es importante**: Control instantáneo del negocio
+- **Cómo funciona**: Cache Redis 5 min, modo degradado si falla, exportación Excel completa
+
+# User Experience
+
+## User Personas
+
+1. **Administrador** (1 usuario)
+   - Control total del sistema
+   - Realiza conciliaciones
+   - Gestiona ajustes y excepciones
+   - Único con acceso a credenciales bancarias
+
+2. **Contadora** (1 usuario)
+   - Acceso SOLO LECTURA
+   - Ve toda información contable/fiscal
+   - Exporta reportes
+   - Sin acceso a credenciales
+
+3. **Socios** (~15 usuarios)
+   - Acceso SOLO LECTURA
+   - Ven solo sus participaciones
+   - Información limitada a sus empresas/propiedades
+
+## Key User Flows
+
+### Flujo Mensual del Administrador
+1. **Día 1**: Sistema calcula automáticamente → Revisa dashboard → Confirma cálculos correctos
+2. **Días 1-5**: Monitorea pagos entrantes → Sistema concilia automáticamente
+3. **Día 6+**: Gestiona atrasos → Revisa IngresoDesconocido → Asigna pagos parciales
+4. **Fin de mes**: Conciliación final → Transferencias a socios → Cierre
+
+### Flujo de Contrato Nuevo
+1. Crear/seleccionar plantilla → Ingresar datos específicos → Subir PDF firmado
+2. Sistema valida monto mínimo $1,000 → Genera períodos → Activa notificaciones
+3. Si hay contrato actual: PRIMERO registrar carta término → LUEGO crear futuro
+
+### Flujo de Cambio de Arrendatario
+1. Recibir carta → Registrar en sistema → Decidir sobre garantía
+2. Opción A: Devolver a saliente, exigir nueva a entrante
+3. Opción B: Transferir garantía existente
+4. Crear nuevo contrato o transferir existente
+
+## UI/UX Considerations
+
+- **Idioma**: Español de Chile en toda la interfaz
+- **Formatos**: 
+  - Fechas: DD/MM/AAAA
+  - Moneda: $1.234.567
+  - RUT: 12.345.678-9
+  - Teléfonos: +(56)912345678
+- **Estados visuales**: Semáforos para pagos (verde/amarillo/rojo)
+- **Responsivo**: Optimizado para desktop, funcional en móvil
+- **Validaciones**: En tiempo real con mensajes claros
+- **Zona horaria**: America/Santiago con ajuste automático
+</context>
+
+<PRD>
+# Technical Architecture
+
+## System Components
+- **Backend**: Django 4.2+ con Django REST Framework
+- **Frontend**: React 18+ con Vite  
+- **Database**: PostgreSQL 14+ con índices optimizados
+- **Cache**: Redis 7+ con fallback a modo degradado
+- **Task Queue**: Celery (activación automática >500 propiedades)
+- **Storage**: Amazon S3 o Google Cloud Storage
+- **Web Server**: Nginx como reverse proxy
+
+## Data Models
+
+### Entidades Base
+- `Socio`: RUT, nombre, contacto (no eliminable con participaciones activas)
+- `Empresa`: RUT, razón social, socios con % (suma = 100%)
+- `Propiedad`: Código único 3 dígitos, pertenece a Empresa O Socios
+- `Arrendatario`: Persona natural o empresa con campos específicos
+- `CuentaBancaria`: Asociada a múltiples empresas
+- `CredencialBancaria`: Encriptada AES-256-GCM con recuperación 2/3 preguntas
+
+### Contratos y Pagos  
+- `Contrato`: Estado, fechas, montos, plazos (mínimo $1,000)
+- `PeriodoContractual`: Segmentos con reajustes automáticos
+- `AjusteContrato`: Descuentos/recargos validados
+- `PagoMensual`: Cálculo automático con código propiedad
+- `AvisoTermino`: Requisito para contratos futuros
+
+### Gestión Financiera
+- `IngresoDesconocido`: Pagos sin match automático
+- `IngresoManual` / `GastoManual`: Con categorías y prefijos únicos
+- `HistorialGarantia`: Trazabilidad completa
+- `RepactacionDeuda`: Siempre por total en cuotas
+
+### Auditoría
+- `AuditLog`: Registro completo de acciones con IP y cambios
+- `CierreMes`: Control de períodos contables
+
+## APIs and Integrations
+
+### API Banco de Chile (Principal)
+- **Autenticación**: OAuth2 Client Credentials
+- **Token**: Bearer 5 minutos vigencia  
+- **Endpoints clave**:
+  - `/v2/rescate-fondos/servicios/transferencias/consulta-estado`
+  - `/v2/rescate-fondos/servicios/transferencias/rescate/movimientos`
+  - `/v2/rescate-fondos/servicios/transferencias/rescate/consulta-cartola`
+- **Seguridad**: IPs en WAF, User-Agent: "APIRESCATE"
+- **PENDIENTE**: Credenciales reales, enrolamiento, límites TPS
+
+### Otras Integraciones
+- **Web Scraping**: Playwright (backup automático)
+- **Email**: SendGrid/Mailgun
+- **WhatsApp**: Twilio con templates pre-aprobados
+- **UF**: Múltiples APIs con fallback manual
+- **SII**: Facturación electrónica (Fase 2)
+
+## Infrastructure Requirements
+
+### Desarrollo/MVP
+- Django monolito bien estructurado
+- PostgreSQL single instance con backups diarios
+- Redis para caché (con modo degradado si falla)
+- Storage cloud para documentos
+- Procesamiento síncrono <500 propiedades
+
+### Producción
+- HTTPS obligatorio TLS 1.2+
+- Backup: Incremental diario, completo semanal
+- Disponibilidad: 99.5% objetivo mensual
+- Monitoreo 24/7 con alertas
+- Variables entorno con gestión segura
+
+# Development Roadmap
+
+## Phase 1: MVP Core (Essential Operations)
+
+### Foundation
+1. Django project setup with authentication system
+2. Base models: Socio, Empresa, Propiedad, Arrendatario
+3. Validation framework (RUT, percentages, unique codes)
+4. Admin interfaces with Chilean formats
+
+### Contract Management  
+1. Contract CRUD with minimum $1,000 validation
+2. Period calculation with adjustments
+3. Document upload for signed PDFs
+4. Termination notice system (required for future contracts)
+
+### Automated Calculations
+1. Monthly rent calculation engine (day 1, 02:01 AM)
+2. Property code application (last 3 digits replacement)
+3. UF value pre-loading (day 10 previous month)
+4. Adjustment validation (reject if result < $1,000)
+
+### Payment Tracking
+1. PagoMensual generation
+2. Due date management (days 1-5)
+3. Status tracking (Pending/Paid/Late)
+4. Manual payment recording interface
+
+### Notifications
+1. Email integration (SendGrid/Mailgun)
+2. WhatsApp setup with Twilio
+3. Template system for both channels
+4. Scheduling for days 1,3,5,10,15,20,25 at 10:00 AM
+
+### Bank Reconciliation (Mock Mode)
+1. Service architecture with Strategy pattern
+2. Mock data generator for realistic testing
+3. IngresoDesconocido management
+4. Manual reconciliation interface
+
+### Operational Dashboard
+1. Current month view with payment states
+2. Guarantee alerts
+3. Pending payments summary
+4. Basic export to Excel
+
+## Phase 2: Enhanced Automation
+
+### Real Bank Integration
+1. OAuth2 implementation for Banco Chile API
+2. Automatic token renewal
+3. Movement fetching and matching
+4. Fallback to web scraping
+
+### Advanced Features
+1. Debt tracking with payment score
+2. Debt restructuring in installments
+3. Guarantee lifecycle management
+4. Contract templates system
+
+### Reporting
+1. Multi-sheet Excel exports
+2. Financial summaries
+3. Audit trail reports
+4. Custom date ranges
+
+### Electronic Invoicing
+1. SII integration
+2. Automatic generation on day 1
+3. Digital delivery to tenants
+
+## Phase 3: Extended Access
+
+### Multi-User Support
+1. Read-only portal for Partners (~15 users)
+2. Accountant specific views
+3. Role-based permissions
+4. Activity logging per user
+
+### Analytics
+1. Payment trends
+2. Occupancy metrics
+3. Revenue forecasting
+4. Partner distribution calculations
+
+### Performance Optimization
+1. Celery activation for >500 properties
+2. Advanced caching strategies
+3. Database query optimization
+4. Bulk operation improvements
+
+# Logical Dependency Chain
+
+## 1. Foundation (Must be first)
+- Authentication system → Everything depends on this
+- Base models (Socio, Empresa, Propiedad) → Required for all business logic
+- Validation framework → Ensures data integrity from start
+
+## 2. Contract Core (Builds on Foundation)
+- Contract model → Enables rent calculation
+- Document upload → Legal compliance
+- Termination notices → Controls contract lifecycle
+
+## 3. Financial Engine (Requires Contracts)
+- Rent calculation → Core business function
+- Property code application → Enables bank reconciliation
+- Payment tracking → Monitors cash flow
+
+## 4. Communication Layer (Needs Payment Data)
+- Email setup → Always required
+- WhatsApp integration → Per contract configuration
+- Notification scheduler → Automates reminders
+
+## 5. Reconciliation (Depends on Payments + Notifications)
+- Mock service first → Allows full testing
+- IngresoDesconocido handling → Manages exceptions
+- Manual interface → Fallback option
+
+## 6. Operational Tools (Integrates Everything)
+- Dashboard → Real-time visibility
+- Reports → Historical analysis
+- Audit logs → Compliance and debugging
+
+## Quick Wins for Visible Progress
+1. Week 1-2: Basic CRUD with Chilean validations → "Look, we can create companies!"
+2. Week 3-4: Contract creation with document upload → "Contracts are digital now!"
+3. Week 5-6: Rent calculation with property codes → "The magic number works!"
+4. Week 7-8: Email notifications → "Tenants get automatic reminders!"
+
+# Risks and Mitigations
+
+## Technical Challenges
+
+### Bank API Integration Delay
+- **Risk**: Certification takes 2-3 months
+- **Mitigation**: Build complete system with mocks first, easy switch later
+
+### Property Code Edge Cases  
+- **Risk**: Large losses on high-value rents
+- **Mitigation**: Clear documentation, admin alerts for losses >$100k
+
+### Notification Delivery
+- **Risk**: WhatsApp template rejections
+- **Mitigation**: Pre-approve templates early, email as guaranteed fallback
+
+## MVP Scoping
+
+### Feature Creep
+- **Risk**: Adding "nice to have" features delays launch
+- **Mitigation**: Strict Phase 1 scope, park everything else for Phase 2
+
+### Over-Engineering
+- **Risk**: Building for 1000 properties when starting with 50
+- **Mitigation**: Simple synchronous processing first, Celery ready but not active
+
+## Resource Constraints
+
+### Single Developer Bottleneck
+- **Risk**: Everything depends on one person
+- **Mitigation**: Excellent documentation, modular architecture, AI-assisted development
+
+### Testing Coverage
+- **Risk**: Bugs in financial calculations
+- **Mitigation**: Extensive test suite for money handling, property codes, edge cases
+
+# Appendix
+
+## Chilean Business Rules
+- **RUT Format**: XX.XXX.XXX-X with check digit validation
+- **Business Hours**: Banks process Monday-Friday only
+- **Timezone**: America/Santiago with DST changes
+- **Currency**: CLP no decimals, UF with 2 decimals
+- **Minimum Rent**: $1,000 absolute floor
+
+## Critical Decisions (Non-Negotiable)
+1. **Partial Payments**: Accept but route to IngresoDesconocido
+2. **Retroactive Score**: Calculate only from system entry date
+3. **Payment Timestamp**: Transfer START time determines month
+4. **Guarantees**: Admin chooses return vs transfer
+5. **Notifications**: Every day at 10 AM, no exceptions
+6. **Adjustments**: System rejects if result < $1,000
+7. **Future Contracts**: Require termination notice first
+8. **Duplicate Payments**: Route to IngresoDesconocido
+
+## Environment Variables
+```
+# Database
+DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT
+
+# Django
+SECRET_KEY
+
+# Banco Chile API (pending)
+BCH_CLIENT_ID_CERT=PENDING
+BCH_CLIENT_SECRET_CERT=PENDING  
+BCH_CLIENT_ID_PROD=PENDING
+BCH_CLIENT_SECRET_PROD=PENDING
+BCH_API_URL_CERT=https://gw-qa-terceros.bancochile.cl/banco-chile/externo-qa/
+BCH_API_URL_PROD=https://gw-terceros.bancochile.cl/banco-chile/externo/
+
+# Messaging
+TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN
+TWILIO_WHATSAPP_FROM
+SENDGRID_API_KEY
+
+# Storage
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+AWS_STORAGE_BUCKET_NAME
+
+# System
+TZ=America/Santiago
+ENCRYPTION_SALT
+```
+
+## Development with AI Tools
+- **Cursor AI**: Primary IDE with AI assistance
+- **MCP Task Master**: Break down phases into specific tasks
+- **MCP Sequential Thinking**: Solve complex logic step by step  
+- **MCP Context7**: Maintain full project context
+
+## Sample Prompts for Implementation
+```
+"Create Django model for Empresa with:
+- Chilean RUT validation  
+- Many-to-many with Socio
+- Percentage sum validation = 100%
+- Include comprehensive tests"
+
+"Implement monthly rent calculation that:
+1. Handles UF/CLP conversion
+2. Applies adjustments
+3. Replaces last 3 digits with property code
+4. Accepts any monetary loss
+5. Validates minimum $1,000 result"
+```
+</PRD>

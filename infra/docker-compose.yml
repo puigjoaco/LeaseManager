@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: leasemanager-postgres
+    environment:
+      POSTGRES_DB: leasemanager
+      POSTGRES_USER: leasemanager
+      POSTGRES_PASSWORD: leasemanager
+    ports:
+      - '5433:5432'
+    volumes:
+      - leasemanager_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U leasemanager -d leasemanager']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: leasemanager-redis
+    ports:
+      - '6379:6379'
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - leasemanager_redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  leasemanager_postgres:
+  leasemanager_redis:
+

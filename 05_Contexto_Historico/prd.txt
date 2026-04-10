@@ -1,0 +1,71 @@
+## **Prompt Profesional para Unificación de PRDs - Inmobiliaria**
+
+---
+
+### **Contexto**
+
+Se han desarrollado 26 versiones de documentos PRD (Product Requirements Document) para el sistema de gestión inmobiliaria. Cada versión contiene diferentes perspectivas, funcionalidades, y niveles de detalle que reflejan la evolución del proyecto a lo largo del tiempo.
+
+### **Objetivo**
+
+Crear un PRD Maestro Unificado que consolide las mejores contribuciones de los 26 documentos existentes, eliminando redundancias y preservando únicamente el contenido de mayor valor para la implementación del sistema.
+
+### **Metodología de Análisis**
+
+**Fase 1 - Auditoría Individual**
+Para cada PRD (1-26), identificar y extraer:
+- Funcionalidades únicas no presentes en otras versiones
+- Definiciones técnicas más precisas o completas
+- Casos de uso mejor articulados
+- Reglas de negocio claramente especificadas
+- Requerimientos no funcionales relevantes
+
+**Fase 2 - Categorización**
+Clasificar el contenido extraído en las siguientes dimensiones:
+- **Crítico**: Imprescindible para el funcionamiento del sistema
+- **Importante**: Agrega valor significativo a la operación
+- **Deseable**: Mejoras o extensiones futuras
+- **Obsoleto**: Información superada por versiones posteriores
+
+**Fase 3 - Síntesis**
+Integrar el contenido categorizado como "Crítico" e "Importante" en una estructura coherente y unificada.
+
+### **Estructura del PRD Final**
+
+1. **Resumen Ejecutivo** (máx. 500 caracteres)
+2. **Visión y Alcance del Producto**
+3. **Usuarios y Stakeholders**
+4. **Requerimientos Funcionales** (priorizados)
+5. **Requerimientos No Funcionales**
+6. **Modelo de Datos Principal**
+7. **Integraciones y Dependencias**
+8. **Criterios de Aceptación**
+9. **Roadmap de Implementación**
+10. **Glosario de Términos** (solo términos específicos del dominio inmobiliario)
+
+### **Restricciones**
+
+- **Límite absoluto**: 24,000 caracteres
+- **Formato**: Markdown estructurado
+- **Lenguaje**: Técnico pero accesible
+- **Versionado**: Este documento será la versión 1.0 del PRD Unificado
+
+### **Criterios de Priorización**
+
+Al decidir qué incluir, aplicar el siguiente orden de prioridad:
+
+1. Funcionalidades que generan ingresos o evitan pérdidas
+2. Requerimientos legales o de cumplimiento normativo
+3. Operaciones críticas del día a día
+4. Experiencia del usuario
+5. Automatizaciones y eficiencias
+6. Reportería y analytics
+7. Extensiones futuras
+
+### **Entregable**
+
+Un único documento PRD que:
+- Sea autocontenido (no requiera consultar documentos anteriores)
+- Permita a un equipo de desarrollo implementar el sistema sin ambigüedades
+- Sirva como referencia única de verdad (*single source of truth*)
+- Incluya trazabilidad indicando de cuál PRD original proviene cada sección clave (ej: "Basado en PRD-12, PRD-18")

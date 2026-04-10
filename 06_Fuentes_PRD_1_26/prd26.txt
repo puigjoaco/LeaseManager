@@ -1,0 +1,665 @@
+<context>
+# Overview
+LeaseManager es un ERP inmobiliario integral con IA, diseñado a medida para automatizar y centralizar completamente la administración de arriendos de locales comerciales en Chile. Va más allá de la simple gestión de propiedades, integrando contabilidad completa automatizada, inteligencia artificial regulatoria y marketing inmobiliario automático. Está dirigido principalmente al Administrador del negocio, proporcionándole herramientas para eliminar procesos manuales, reducir errores y obtener un control financiero y operativo completo. También ofrece acceso de solo lectura a la Contadora y a usuarios ilimitados con roles personalizables.
+El sistema resuelve los problemas críticos de la gestión manual actual: cálculos de renta complejos y propensos a errores, envío manual de notificaciones, conciliación bancaria tediosa, información descentralizada, seguimiento manual de plazos, contabilidad externa costosa y publicación manual en portales. Su valor principal es la automatización completa, la centralización de datos (incluyendo documentos), la reducción de errores al mínimo, la eliminación de servicios externos y la mejora significativa en la eficiencia operativa.
+El sistema está diseñado para manejar hasta 999 propiedades por cuenta bancaria, eliminando límites artificiales. No hay límite en la cantidad de usuarios, todos creados y configurados manualmente por el Administrador Global con permisos específicos aditivos.
+
+# Core Features
+**🚨 PRINCIPIO FUNDAMENTAL INVIOLABLE 🚨**
+**PROHIBICIÓN ABSOLUTA DE SOLUCIONES TEMPORALES**
+**ESTE PRINCIPIO RIGE TODO EL DESARROLLO Y ES INNEGOCIABLE:**
+
+En CADA decisión técnica:
+❌ PROHIBIDO: "Hagamos esto rápido y después lo mejoramos"
+✅ OBLIGATORIO: "Hagámoslo BIEN desde el principio, aunque tome más tiempo"
+En CADA problema encontrado:
+❌ PROHIBIDO: "Parchemos para seguir"
+✅ OBLIGATORIO: "Detengámonos y resolvamos la RAÍZ del problema"
+En CADA fase de desarrollo:
+❌ PROHIBIDO: "Ya lo arreglaremos en la fase 2"
+✅ OBLIGATORIO: "Si no está completo y correcto, NO se entrega"
+En CADA código escrito:
+❌ PROHIBIDO: "Comentarios TODO o FIXME para después"
+✅ OBLIGATORIO: "Código production-ready desde el commit 1"
+"SI NO ESTÁ BIEN HECHO, NO AVANZA. PUNTO."
+Este principio se aplica a TODAS las secciones de este PRD. Cualquier intento de implementación temporal será rechazado sin excepción.
+
+**1. Gestión Centralizada de Datos Fundamentales**
+- **What it does:** Administra toda la información clave del negocio de forma centralizada con validaciones estrictas y relaciones complejas.
+- **Why it's important:** Establece la única fuente de verdad, garantizando integridad y consistencia total de la información.
+- **How it works:**
+    - **Socios:** Gestión completa con campos obligatorios (Nombre, RUT, Email, Teléfono, Domicilio completo, Nacionalidad, Profesión, Estado Civil). No eliminables con participaciones activas - wizard de transferencia mantiene 100% participación. Auto-registro controlado: Los socios pueden crear sus propias cuentas usando su email registrado.
+    - **Empresas:** Requieren representante legal obligatorio y suma exacta 100% de socios. Deben tener cuenta bancaria activa. Incluyen giro y codigo_actividad_economica estandarizados para facturación electrónica. Opcionalmente pueden configurar su propio Gmail para envíos.
+    - **Propiedades:** Código único 3 dígitos (001-999) por cuenta bancaria. Pertenecen a Empresa O comunidad de Socios (100% con representante). Máximo UN contrato vigente + UN futuro. Incluye campos para publicación: descripción, fotos, amenidades, precio publicación.
+    - **Arrendatarios:**
+        - Admin ingresa solo el email en UI
+        - Sistema envía formulario web automáticamente
+        - Formulario responsivo con campos dinámicos según tipo
+        - Link con expiración de 7 días
+        - Opción guardar y continuar
+        - Admin aprueba/rechaza desde panel dedicado
+    - **Cuentas Bancarias:** Límite 999 propiedades. Validación Asíncrona Inteligente. Pueden configurar Gmail general para todas las empresas asociadas.
+    - **Credenciales Bancarias:** Encriptación AES-256-GCM. Solo Admin accede. Recuperación con 3 preguntas (2 de 3 correctas).
+    - **Contratos:**
+        - Solo inician día 1, terminan último día mes
+        - Monto mínimo absoluto $1,000 CLP
+        - IMPORTANTE: Al renovarse, se EXTIENDE el mismo contrato agregando períodos, NUNCA se crea uno nuevo
+        - El ID del contrato permanece inmutable por toda su vida
+        - Auto-completa datos del representante desde BD
+    - **Notarías:** Gestión de notarías con nombre, ciudad, funcionarios y emails para envío rápido de contratos.
+
+**2. Sistema de Correos Dual (Gmail)**
+- **What it does:** Permite configuración flexible de Gmail para envío de todas las notificaciones.
+- **Why it's important:** Flexibilidad total para diferentes estructuras empresariales manteniendo identidad corporativa.
+- **How it works:**
+    - **Opción 1 - Correo por Cuenta Bancaria:**
+        - Un Gmail para todas las empresas de esa cuenta
+        - Ejemplo: administracion.general@gmail.com
+        - Útil para administración centralizada
+    - **Opción 2 - Correo por Empresa:**
+        - Cada empresa configura su propio Gmail
+        - Mantiene identidad de marca
+        - Ejemplo: inmobiliaria.santa.maria@gmail.com
+    - **Lógica de envío:**
+        - Si empresa tiene Gmail propio → usa ese
+        - Si no → usa Gmail de la cuenta bancaria
+        - Si ninguno → alerta al administrador
+
+**3. Generación y Formalización de Contrato con Firma Mixta**
+- **What it does:** Genera PDF legal, gestiona aprobación, firma electrónica del arrendador y coordinación con notaría para firma presencial.
+- **Why it's important:** Combina eficiencia digital con requisitos legales de firma presencial notarial.
+- **How it works:**
+    - Plantilla DOCX con variables dinámicas tipo {{nombre_arrendatario}}
+    - Sistema detecta tipo arrendador/arrendatario automáticamente
+    - Incluye/excluye cláusulas dinámicamente:
+        - Gastos comunes (si/no)
+        - Codeudores (0-3)
+        - Textos según tipo inmueble
+    - Convierte a PDF instantáneamente
+    - **Proceso de formalización:**
+        - Envío para aprobación: Arrendatario revisa y aprueba términos
+        - Firma electrónica arrendador: Admin aplica su firma digital
+        - Envío a Notaría: Con documento parcialmente firmado
+        - Firma presencial: Arrendatario acude a notaría
+        - Gestión manual final: Pago y recepción de documento final
+    - Tracking completo del proceso en el sistema
+
+**4. Gestión Avanzada de Períodos Contractuales**
+- **What it does:** Gestiona ciclo de vida completo con períodos, reajustes y renovaciones por EXTENSIÓN.
+- **Why it's important:** Mantiene historial completo en UN SOLO contrato sin duplicaciones.
+- **How it works:**
+    - **REGLA FUNDAMENTAL:** Un contrato = Una entidad permanente
+    - Renovación automática EXTIENDE agregando PeriodoContractual
+    - NUNCA crea contrato nuevo para renovar
+    - **Ejemplo:**
+        - Contrato #001:
+            - Período 1: 2024 (original)
+            - Período 2: 2025 (renovación - MISMO contrato)
+            - Período 3: 2026 (renovación - SIGUE siendo #001)
+    - Sistema de Tramos opcional para valores diferenciados
+    - Ajustes flexibles con mínimo $1,000 CLP
+
+**5. Notificaciones Automáticas Totalmente Configurables**
+- **What it does:** Sistema de notificaciones multicanal con flexibilidad absoluta por contrato y por día.
+- **Why it's important:** Cada arrendatario recibe comunicaciones exactamente como las prefiere, mejorando tasas de pago.
+- **How it works:**
+    - **Configuración predeterminada (100% editable):**
+        - ✅ Día 1:  ☑ WhatsApp  ☑ Email
+        - ✅ Día 3:  ☑ WhatsApp  ☑ Email
+        - ✅ Día 5:  ☑ WhatsApp  ☑ Email
+        - ✅ Día 10: ☑ WhatsApp  ☑ Email
+        - ✅ Día 15: ☑ WhatsApp  ☑ Email
+        - ✅ Día 20: ☑ WhatsApp  ☑ Email
+        - ✅ Día 25: ☑ WhatsApp  ☑ Email
+    - **Flexibilidad TOTAL por contrato:**
+        - Agregar días: "+ Agregar día" → cualquier día del 1-31
+        - Eliminar días: "🗑️" elimina día completo
+        - Personalizar canales por día:
+            - ☐ Solo WhatsApp
+            - ☐ Solo Email
+            - ☐ Ambos
+            - ☐ Ninguno (día desactivado)
+    - **Ejemplos de configuración real:**
+        - **Contrato Local Centro:**
+            - Día 1:  ☑ Email (solo email, más formal)
+            - Día 5:  ☑ WhatsApp ☑ Email (ambos)
+            - Día 10: ☑ WhatsApp (solo WhatsApp)
+        - **Contrato Oficina Premium:**
+            - Día 5:  ☑ Email (solo un recordatorio suave)
+            - (todos los demás días eliminados)
+    - **Contenido personalizado:**
+        - Nombre arrendatario
+        - Monto exacto con código
+        - Dirección propiedad
+        - Estado de cuenta
+        - Días de atraso si aplica
+
+**6. Facturación Electrónica Automática (API SII Directa)**
+- **What it does:** Genera y envía facturas electrónicas automáticamente cada día 1.
+- **Why it's important:** Cumplimiento tributario 100% automático sin intervención manual.
+- **How it works:**
+    - Día 1 cada mes: Proceso automático post-cálculo
+    - Conexión directa API SII - Sin intermediarios
+    - Sin proveedores externos (SimpleFactura, Acepta, etc.)
+    - Envío automático por email separado del aviso de pago
+    - Solo por email (no WhatsApp)
+    - Almacenamiento en historial del contrato
+    - Solo para arrendador = Empresa
+    - **Gestión Folios:**
+        - Alerta email cuando quedan 40 folios
+        - Meta: solicitud automática vía API SII
+
+**7. Conciliación Bancaria Inteligente (Solo API)**
+- **What it does:** Conecta diariamente vía API oficial, concilia automáticamente con IA.
+- **Why it's important:** Elimina revisión manual de cartolas completamente.
+- **How it works:**
+    - SOLO API Banco de Chile - Sin webscraping
+    - Proceso diario automático
+    - Matches exactos = asignación instantánea
+    - IA para casos complejos:
+        - Detecta errores de tipeo
+        - Identifica pagos múltiples
+        - Sugiere con probabilidades
+        - Aprende de decisiones del admin
+
+**8. Gestión de Avisos de Término**
+- **What it does:** Registra avisos con precisión de segundos, previene renovaciones no deseadas.
+- **Why it's important:** Formaliza término y habilita contratos futuros controladamente.
+- **How it works:**
+    - Registro con timestamp preciso
+    - Genera carta PDF automática
+    - Envía por canales configurados
+    - Desactiva renovación automática
+    - Permite cancelación (si no hay contrato futuro)
+    - Maneja casos post-renovación
+
+**9. Cálculo Automático de Renta Mensual**
+- **What it does:** Calcula monto exacto con código único para conciliación perfecta.
+- **Why it's important:** Elimina errores humanos en el cálculo más crítico.
+- **How it works:**
+    - Obtiene Monto Bruto del Período
+    - Convierte a CLP (UF del día 1)
+    - Valor UF: Banco Central → CMF → MiIndicador
+    - Aplica ajustes si existen
+    - Trunca decimales
+    - Reemplaza últimos 3 dígitos por código propiedad
+
+**10. Marketing Inmobiliario Automatizado**
+- **What it does:** Publica propiedades disponibles AUTOMÁTICAMENTE en portales principales sin intervención manual.
+- **Why it's important:** Minimiza vacancia, maximiza exposición, elimina trabajo manual repetitivo.
+- **⚠️ IMPORTANTE:** Verificar disponibilidad de APIs de Yapo y Portal Inmobiliario para:
+    - Publicación automática
+    - Actualización de avisos
+    - Despublicación programática
+    - Gestión de consultas
+- **How it works (si APIs disponibles):**
+    - **Detección automática:** Sistema detecta cuando propiedad se desocupa
+    - **Publicación instantánea:** Se publica automáticamente en Yapo y Portal Inmobiliario
+    - **Datos precargados:** Usa fotos, descripción, amenidades y precio ya configurados
+    - **Sin botones:** NO necesitas hacer nada, es 100% automático
+    - **Ejemplo real:**
+        - 10:00 AM - Contrato termina
+        - 10:01 AM - Sistema detecta disponibilidad
+        - 10:02 AM - Publicado en Yapo ✓
+        - 10:02 AM - Publicado en Portal Inmobiliario ✓
+        - 10:03 AM - Dashboard actualizado
+        - → Tú no hiciste NADA, todo automático
+    - **Sincronización bidireccional:** Consultas llegan al dashboard unificado
+    - **Gestión de interesados:** Todo centralizado en LeaseManager
+    - **Despublicación automática:** Al crear nuevo contrato se retira de portales
+    - **Actualización de precios:** Cambios se sincronizan en tiempo real
+
+**11. Contabilidad Completa Integrada**
+- **What it does:** Genera reportes contables y declaraciones automáticamente.
+- **Why it's important:** Visión financiera completa sin software adicional.
+- **How it works:**
+    - Balance general automático
+    - Estado de resultados
+    - Cálculo de impuestos
+    - Preparación declaraciones SII
+    - Export formatos oficiales
+
+**12. Contabilidad Completa Integrada**
+- **What it does:** Genera reportes contables y declaraciones automáticamente.
+- **Why it's important:** Visión financiera completa sin software adicional.
+- **How it works:**
+    - Balance general automático
+    - Estado de resultados
+    - Cálculo de impuestos
+    - Preparación declaraciones SII
+    - Export formatos oficiales
+
+**13. Contabilidad Inteligente con IA Regulatoria y Presentación Automática SII**
+- **What it does:** Sistema contable completo con IA que no solo calcula, sino que PRESENTA automáticamente todas las declaraciones al SII, dejándote solo la tarea de pagar.
+- **Why it's important:** Elimina 100% la necesidad de contador, garantiza cumplimiento perfecto, maximiza beneficios tributarios y convierte la contabilidad en un proceso totalmente automático.
+- **How it works:**
+    - **Motor Contable Integrado:**
+        - Cada movimiento en LeaseManager genera asiento automático
+        - Plan de cuentas SII actualizado por IA
+        - Libros contables digitales en tiempo real
+        - Multi-empresa con contabilidad segregada
+    - **IA Regulatoria (Claude/Gemini):**
+        - Monitorea diariamente circulares SII
+        - Detecta nuevos beneficios tributarios
+        - Analiza cambios en leyes
+        - Sugiere optimizaciones específicas
+        - Actualiza automáticamente formatos y códigos
+    - **Presentación Automática F29 (Mensual):**
+        - **Día 10: Pre-cálculo inteligente**
+            - IVA débito/crédito calculado
+            - PPM optimizado
+            - Retenciones aplicadas
+            - IA sugiere: "Puedes ahorrar $X usando crédito Y"
+        - **Día 11: Revisión y aprobación**
+            - Dashboard muestra borrador F29
+            - Un click para aprobar
+        - **Día 12: Presentación automática**
+            - Genera XML según formato SII
+            - Firma con certificado digital
+            - Envía vía API oficial
+            - Recibe folio confirmación
+        - **Día 13: Notificación**
+            - "✅ F29 Presentado - Folio: 12345678
+             💰 Monto a pagar: $X.XXX.XXX
+             📅 Vence: 20/03/2025
+             [Ir a pagar en TGR]"
+    - **Presentación Automática F22 + DDJJ (Anual):**
+        - **Enero-Febrero: Preparación**
+            - Cierre contable automático
+            - Depreciaciones y ajustes
+            - Cálculo RLI optimizada
+            - Validación CPT
+        - **Marzo: Optimización IA**
+            - Análisis de 200+ beneficios
+            - Simulación de escenarios
+            - Recomendaciones aplicadas
+        - **Abril: Presentación completa**
+            - F22 con todos los códigos
+            - DDJJ 1847, 1879, 1835, etc.
+            - Certificados digitales
+            - TODO enviado al SII
+        - **Notificación final:**
+            - "🎉 Declaración Renta 2024 COMPLETA
+             - F22: Folio 98765432
+             - 8 DDJJ presentadas
+             - Ahorrado en optimización: $X.XXX.XXX
+             - Impuesto final: $XX.XXX.XXX
+             [Ver resumen] [Ir a pagar]"
+    - **Simulador Tributario en Tiempo Real:**
+        - "Si facturas hoy vs mañana: diferencia $X"
+        - "Si compras activo fijo: ahorro $Y en renta"
+        - "Proyección F22 con operaciones actuales"
+        - Planificación de flujos optimizada
+    - **Dashboard Ejecutivo Tributario:**
+        - **Estado Compliance en Vivo:**
+            - ✅ F29 Ene - Presentado - Pagado
+            - ✅ F29 Feb - Presentado - Por pagar ($X.XXX)
+            - ⏳ F29 Mar - Borrador listo ($X.XXX)
+            - 📊 Proyección Renta: $XX.XXX.XXX
+            - 💰 Créditos disponibles: $X.XXX.XXX
+            - 🎯 Optimizaciones sugeridas: 3
+    - **Sistema de Respaldos Perfecto:**
+        - Libro Compras/Ventas digital certificado
+        - Archivo de documentos tributarios
+        - Trazabilidad completa de cálculos
+        - Un click → ZIP para auditoría SII
+
+**14. Agente IA Conversacional**
+- **What it does:** Chat inteligente para consultas y análisis en lenguaje natural.
+- **Why it's important:** Analista de negocios personal disponible 24/7.
+- **How it works:**
+    - Microservicio FastAPI independiente
+    - LangChain/LlamaIndex orquestación
+    - Acceso controlado vía API tools
+    - Respuestas contextualizadas
+    - Análisis complejos instantáneos
+
+# User Experience
+- **User Personas**
+    - **Persona Primaria: Andrés, el Administrador Eficiente**
+        - **Rol:** Administrador Global
+        - **Perfil:** 52 años, gestiona más de 100 propiedades. Experto en negocio inmobiliario, no en tecnología. Valora su tiempo por encima de todo.
+        - **Puntos de Dolor:** "Pierdo horas en tareas repetitivas. El cálculo del reajuste UF y código de propiedad es fuente constante de errores. Me estresa perseguir morosos."
+        - **Necesidades:** "Quiero automatización total, control en un solo lugar y confianza absoluta en los datos. Quiero tomar decisiones, no mover papeles."
+    - **Persona Secundaria: Carolina, la Contadora Precisa**
+        - **Rol:** Contadora (Nota: Con Fase 5, este rol se vuelve solo de auditoría anual)
+        - **Perfil:** 45 años, servicios externos. Principal preocupación: precisión para declaraciones fiscales.
+        - **Puntos de Dolor:** "Recibo información desordenada con errores. Rastrear gastos/ingresos es una pesadilla."
+        - **Necesidades:** "Acceso solo lectura a fuente única de verdad. Exportar reportes limpios sin preguntar constantemente."
+        - **Futuro con IA Contable:** Solo necesaria para auditoría anual y consultoría estratégica
+    - **Persona Terciaria: Roberto, el Socio Inversionista**
+        - **Rol:** Socio con participaciones
+        - **Perfil:** 48 años, inversionista con participación en varias propiedades y empresas. No participa en la gestión diaria.
+        - **Puntos de Dolor:** "No tengo visibilidad de mis inversiones. Dependo de que Andrés me envíe reportes."
+        - **Necesidades:** "Quiero acceder cuando quiera a ver MIS propiedades y MIS empresas. Solo lo que me corresponde."
+- **Key User Flows**
+    - **Flujo de Creación de Nuevo Arrendatario:**
+        1. Andrés ingresa solo el email del prospecto en el UI
+        2. Sistema envía automáticamente formulario web seguro y responsivo
+        3. Prospecto:
+            - Selecciona tipo: Empresa o Persona Natural
+            - Completa todos los campos requeridos según tipo
+            - El formulario ajusta campos dinámicamente
+            - Puede guardar y continuar después
+        4. Andrés recibe notificación inmediata cuando se completa
+        5. Revisa los datos en panel de aprobación
+        6. Aprueba o rechaza con un click
+        7. Si aprueba → Arrendatario creado en base de datos
+    - **Flujo de Creación y Formalización de Contrato:**
+        1. Andrés crea contrato:
+            - Selecciona arrendatario aprobado de la BD
+            - Selecciona arrendador (empresa/socio)
+            - Sistema auto-completa datos del representante
+            - Ingresa solo datos únicos:
+                - Valor en UF
+                - Fecha inicio (día 1) y término
+                - % reajuste por extensión
+                - Días pre-aviso término
+            - Click en "Generar PDF" → documento instantáneo
+        2. "Enviar para Aprobación":
+            - Envía PDF al arrendatario para revisión
+            - Arrendatario revisa términos y condiciones
+            - Puede aprobar o solicitar cambios
+        3. Si arrendatario aprueba:
+            - Sistema notifica al administrador
+            - Se habilita "Aplicar Firma Electrónica"
+        4. Proceso de firma:
+            - Admin aplica su firma electrónica como arrendador
+            - Sistema genera documento con firma electrónica avanzada
+        5. "Enviar a Notaría":
+            - Selecciona notaría guardada
+            - Sistema envía documento con firma electrónica
+        6. Notaría recibe y espera firma presencial del arrendatario
+        7. Proceso en notaría:
+            - Arrendatario acude presencialmente a firmar
+            - Notaría devuelve documento firmado digitalmente
+        8. Pasos manuales finales:
+            - [MANUAL] Admin paga a notaría
+            - [MANUAL] Notaría envía contrato final
+            - Admin sube documento final al sistema (gestión documental)
+    - **Flujo de Publicación Automática de Propiedad:**
+        1. Contrato termina o se desocupa propiedad
+        2. Sistema detecta disponibilidad automáticamente
+        3. Publica instantáneamente en Yapo y Portal Inmobiliario
+        4. Sincroniza consultas y respuestas en dashboard unificado
+        5. Al crear nuevo contrato → despublica automáticamente
+- **UI/UX considerations**
+    - **Métricas de Éxito (KPIs)**
+        - **KPIs de Negocio:**
+            - Reducción tiempo de gestión: 90% en 6 meses
+            - Tasa de error en cálculos: < 1%
+            - Aumento pago puntual: +15%
+            - Tiempo promedio para arrendar propiedad: -50%
+            - Ahorro en servicios contables: 95% (solo auditoría anual)
+            - Beneficios tributarios capturados: +100% vs gestión manual
+        - **KPIs de Producto:**
+            - Adopción generación PDF: 95% contratos nuevos
+            - Net Promoter Score: > +50
+            - Reducción pasos para tareas clave: -30%
+        - **KPIs Técnicos:**
+            - Disponibilidad: 99.5% uptime mensual
+            - Tiempos respuesta: < 2 segundos con caché
+</context>
+<PRD>
+# Technical Architecture
+- **Stack Tecnológico Confirmado**
+    - **Categoría** | **Tecnología** | **Propósito**
+    - --- | --- | ---
+    - Backend | Django 5.0 + Django Ninja | Framework principal + API moderna tipo-segura
+    - Base de Datos | PostgreSQL 16 + pgvector | Relacional + búsqueda semántica IA
+    - Tareas Asíncronas | Redis + Celery | Procesamiento background crítico
+    - Lenguaje | Python 3.12 | Versión estable moderna
+    - Frontend | React 18 + TypeScript | UI robusta y tipo-segura
+    - Build Tool | Vite | Desarrollo rápido y eficiente
+    - Estado Frontend | TanStack Query + Zustand | Server state + Client state
+    - UI Components | shadcn/ui + Tailwind CSS | Componentes modernos y personalizables
+    - Email | Gmail API | Envío de todas las notificaciones
+    - IA/Orquestación | LangChain o LlamaIndex | Framework para agente conversacional
+    - LLM | OpenAI API | Modelo de lenguaje principal
+    - Infraestructura Local | Docker + Docker Compose | Desarrollo consistente
+    - CI/CD | GitHub Actions | Automatización despliegue
+    - Despliegue | AWS ECS / Railway | Escalable y confiable
+    - Monitoreo | Sentry | Tracking errores y performance
+- **Data Models Principales (Actualizados)**
+    - **Entidades Core:** Socio, Empresa, Propiedad, Arrendatario, PropiedadPublicacion
+    - **Gestión:** Notaria, FuncionarioNotaria, FormularioArrendatario
+    - **Financieros:** CuentaBancaria, CredencialBancaria, ValorUF, ValorUFHistorico
+    - **Email:** ConfiguracionGmail, ConfiguracionGmailEmpresa
+    - **Contratos:** Contrato, PeriodoContractual, ContratoVersion, TramoArriendo, Codeudor, AprobacionContrato
+    - **Notificaciones:** ConfiguracionNotificacionContrato, DiaNotificacion
+    - **Pagos:** PagoMensual, AjusteContrato, RepactacionDeuda, PlanPagoPostContrato
+    - **Movimientos:** IngresoDesconocido, IngresoManual, GastoManual, HistorialGarantia
+    - **Gestión:** AvisoTermino, ContratoFuturo, TerminacionAnticipada, ChecklistSalida
+    - **Comunicación:** LogComunicacion, BloqueoWhatsApp
+    - **Facturación:** Factura, FolioSII, AlertaFolio
+    - **Contabilidad:** CuentaContable, AsientoContable, Balance, EstadoResultados
+    - **Contabilidad Avanzada:** PlanCuentas, LineaAsiento, ConfiguracionTributaria, DocumentoTributario
+    - **IA Tributaria:** AlertaRegulatoria, OptimizacionTributaria, BeneficioDetectado
+    - **Declaraciones:** DeclaracionF29, DeclaracionF22, DeclaracionJurada, CalculoRLI
+    - **Marketing:** PublicacionPortal, ConsultaPortal, EstadisticaPublicacion
+    - **Sistema:** Usuario, RolUsuario, Permiso, AuditLog, CategoriaMovimiento
+    - **Usuarios Socios:** RegistroSocio, SocioUsuario, VistaFiltrada
+    - **IA:** AnalisisAI, PatronPago, SugerenciaAsignacion, DecisionAdmin
+- **APIs and integrations**
+    - **Banco de Chile:** API OAuth2 exclusiva (sin webscraping)
+    - **SII:** API directa facturación, folios y declaraciones (F29, F22, DDJJ)
+    - **Gmail API:** Todos los envíos de email
+    - **Valor UF:** Banco Central → CMF → MiIndicador
+    - **Portales:** APIs Yapo y Portal Inmobiliario (⚠️ VERIFICAR DISPONIBILIDAD)
+    - **WhatsApp:** Twilio Business
+    - **IA:** OpenAI API + Claude API/Gemini API para análisis regulatorio
+    - **Firma Electrónica:** Integración pendiente definir proveedor
+- **Infrastructure requirements**
+    - [Implícito en el Stack Tecnológico: Servidores para Backend, Base de Datos, Tareas Asíncronas, Frontend hosting, CI/CD, Monitoreo. Despliegue en AWS ECS o Railway.]
+
+# Development Roadmap
+🚨 **RECORDATORIO:** Cada fase debe completarse al 100% antes de avanzar. NO se permiten implementaciones parciales.
+- **Fase 1: MVP - Núcleo Operativo**
+    - **Fundamentos COMPLETOS:**
+        - CRUDs con TODAS las validaciones
+        - Sistema de correos dual Gmail funcionando
+        - Flujo arrendatarios email → formulario → aprobación
+        - Gestión de notarías
+        - Sistema usuarios socios: auto-registro y vista filtrada
+    - **Contratos COMPLETOS:**
+        - Creación con auto-complete total
+        - Plantilla → PDF perfecta
+        - Aprobación arrendatario → Firma arrendador
+        - Envío a notaría funcionando
+    - **Cálculo y Cobro COMPLETO:**
+        - PagoMensual sin errores
+        - Notificaciones configurables funcionando (día + canal)
+    - **Conciliación API COMPLETA:**
+        - Solo API Banco Chile
+        - Matches exactos perfectos
+- **Fase 2: Inteligencia y Automatización**
+    - [Solo inicia cuando Fase 1 esté 100% completa y en producción]
+    - IA Conciliación COMPLETA
+    - Contratos Avanzados COMPLETOS (extensiones, no nuevos)
+    - Facturación SII COMPLETA (API directa)
+    - Notificaciones flexibles COMPLETAS
+- **Fase 3: Funcionalidades Avanzadas**
+    - [Solo cuando Fase 2 esté 100% operativa]
+    - Marketing Inmobiliario COMPLETO
+    - Contabilidad COMPLETA
+    - Gestión Deudas avanzada COMPLETA
+- **Fase 4: IA y Optimización**
+    - [Solo cuando todo lo anterior funcione perfectamente]
+    - Agente Conversacional COMPLETO
+    - Análisis Predictivo COMPLETO
+- **Fase 5: Contabilidad Inteligente con IA Regulatoria**
+    - [Solo cuando Fase 4 esté 100% operativa]
+    - **Motor Contable Integrado COMPLETO:**
+        - Plan de cuentas SII pre-configurado
+        - Asientos automáticos desde movimientos LeaseManager
+        - Libros Diario y Mayor en tiempo real
+        - Multi-empresa nativo
+    - **IA Regulatoria Activa COMPLETA:**
+        - Monitoreo diario de cambios SII/tributarios
+        - Análisis de beneficios no utilizados
+        - Alertas de optimización tributaria
+        - Actualización automática de normativas
+    - **Generación F29 Mensual COMPLETA:**
+        - Pre-cálculo automático día 10
+        - Revisión IA de optimizaciones
+        - Envío directo al SII
+    - **Cierre Anual Automatizado COMPLETO:**
+        - Depreciaciones y CM automáticas
+        - Balance de 8 columnas
+        - Cálculo RLI optimizada
+        - Validación CPT y razonabilidad
+    - **F22 y DDJJ Inteligentes COMPLETAS:**
+        - Pre-llenado automático completo
+        - Optimización de beneficios tributarios
+        - Generación de todas las DDJJ anexas
+        - Envío integrado al SII
+    - **Dashboard Tributario en Tiempo Real COMPLETO:**
+        - Estado tributario instantáneo
+        - Proyecciones de impuestos
+        - Sugerencias de optimización
+        - Calendario de obligaciones
+
+# Logical Dependency Chain
+- **Principios Fundamentales de Desarrollo**
+    - **Soluciones Definitivas, No Temporales:** NUNCA se implementan parches o soluciones provisionales. Todo se construye correctamente desde el principio o no se construye. Este principio es ABSOLUTO e INNEGOCIABLE.
+    - **Estrategia de Commits y Documentación:** Commits frecuentes con mensajes descriptivos que expliquen QUÉ se cambió, POR QUÉ, CÓMO afecta al sistema y cualquier consideración importante. Cada commit debe ser production-ready.
+- **Getting as quickly as possible to something usable/visible front end that works**
+    - El enfoque de la Fase 1 (MVP) está diseñado para esto. Comienza con los CRUDs fundamentales (Socios, Empresas, Propiedades) que son la base de todo. Luego, construye el flujo de arrendatarios y contratos, que es el corazón operativo. La visibilidad se logra rápidamente con el panel de administración para estos CRUDs y los flujos de creación de contratos. La conciliación de matches exactos proporciona un resultado tangible y valioso desde el principio.
+- **Properly pacing and scoping each feature**
+    - El roadmap está diseñado con dependencias lógicas. No se puede hacer conciliación con IA (Fase 2) sin la conciliación básica (Fase 1). No se puede hacer facturación (Fase 2) sin los datos de contratos y propiedades (Fase 1). La contabilidad inteligente (Fase 5) es la culminación de todas las fases anteriores, ya que depende de que todos los datos operativos y financieros se registren correctamente. Cada fase es un conjunto atómico de funcionalidades que construye sobre la anterior.
+
+# Risks and Mitigations
+- **Technical challenges**
+    - **Riesgo:** La disponibilidad y fiabilidad de las APIs de terceros (SII, Banco de Chile, Yapo, Portal Inmobiliario) es crítica.
+    - **Mitigación:** Verificar la disponibilidad y los términos de servicio de las APIs de portales inmobiliarios ANTES de comenzar el desarrollo de esa feature. Para el SII y el banco, usar solo las APIs oficiales y tener un sistema robusto de manejo de errores y reintentos. Tener planes de contingencia para caídas de servicio (ej. colas de reintento, notificaciones al admin).
+    - **Riesgo:** La complejidad de la lógica tributaria y contable.
+    - **Mitigación:** Involucrar a un experto contable durante el desarrollo de las Fases 3 y 5. La IA regulatoria debe tener múltiples fuentes de verificación y un mecanismo para que el administrador anule o corrija sugerencias.
+- **Figuring out the MVP that we can build upon**
+    - **Riesgo:** "Scope creep" o la tentación de agregar funcionalidades de fases posteriores en la Fase 1.
+    - **Mitigación:** Adherencia estricta al principio de "NO SOLUCIONES TEMPORALES" y al roadmap definido. Los criterios de aceptación globales deben ser la guía para determinar cuándo una fase está "COMPLETA". Cualquier nueva idea se añade al backlog para una fase futura, no a la actual.
+- **Resource constraints**
+    - **Riesgo:** Subestimar el tiempo requerido para construir las cosas "BIEN desde el principio".
+    - **Mitigación:** La planificación no se basa en tiempo, sino en alcance. La comunicación transparente sobre el progreso es clave. El principio fundamental anti-parches protege contra la deuda técnica que consume recursos a largo plazo.
+
+# Appendix
+- **Criterios de Aceptación Globales**
+    - Para TODA funcionalidad:
+        - ✅ Funciona correctamente en TODOS los casos
+        - ✅ Maneja TODOS los errores posibles
+        - ✅ Tests automatizados > 95% cobertura
+        - ✅ Documentación completa
+        - ✅ Performance óptima verificada
+        - ✅ Seguridad auditada
+        - ✅ UX pulida sin excepciones
+    - Si algún criterio NO se cumple:
+        - ❌ NO se acepta la funcionalidad
+        - ❌ NO se avanza a la siguiente
+        - ❌ Se corrige hasta que esté PERFECTA
+- **Variables de Entorno Requeridas (Actualizado)**
+    - `# Base de Datos`
+    - `DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT`
+    - `# Django`
+    - `SECRET_KEY`
+    - `ALLOWED_HOSTS`
+    - `DEBUG`
+    - `# Redis/Celery`
+    - `REDIS_URL`
+    - `CELERY_BROKER_URL`
+    - `# APIs Bancarias`
+    - `BANCO_CHILE_API_KEY`
+    - `BANCO_CHILE_API_SECRET`
+    - `BANCO_CHILE_CLIENT_ID`
+    - `# Gmail API`
+    - `GMAIL_API_CLIENT_ID`
+    - `GMAIL_API_CLIENT_SECRET`
+    - `GMAIL_API_REFRESH_TOKEN`
+    - `# APIs UF`
+    - `API_UF_BANCO_CENTRAL`
+    - `API_UF_CMF`
+    - `API_UF_MIINDICADOR`
+    - `# APIs Portales`
+    - `YAPO_API_KEY`
+    - `YAPO_API_SECRET`
+    - `PORTAL_INMOBILIARIO_API_KEY`
+    - `PORTAL_INMOBILIARIO_API_SECRET`
+    - `# WhatsApp (Twilio)`
+    - `TWILIO_ACCOUNT_SID`
+    - `TWILIO_AUTH_TOKEN`
+    - `TWILIO_WHATSAPP_FROM`
+    - `# IA`
+    - `OPENAI_API_KEY`
+    - `CLAUDE_API_KEY  # Para IA regulatoria`
+    - `GEMINI_API_KEY  # Alternativa para IA regulatoria`
+    - `# Seguridad`
+    - `ENCRYPTION_SALT`
+    - `# SII (Facturación y Declaraciones)`
+    - `SII_API_KEY`
+    - `SII_API_SECRET`
+    - `SII_CERT_PATH`
+    - `SII_CERT_PASSWORD`
+    - `SII_AMBIENTE  # Producción/Certificación`
+    - `# Storage`
+    - `AWS_ACCESS_KEY_ID`
+    - `AWS_SECRET_ACCESS_KEY`
+    - `AWS_STORAGE_BUCKET_NAME`
+    - `# Timezone`
+    - `TZ='America/Santiago'`
+- **Reglas de Negocio Definitivas (Completas)**
+    - NO SOLUCIONES TEMPORALES: Bajo ninguna circunstancia
+    - Monto Mínimo: $1,000 CLP absoluto
+    - Contratos: Solo día 1, se EXTIENDEN no se duplican
+    - Código Propiedad: SIEMPRE últimos 3 dígitos
+    - Notificaciones: 100% configurables (día + canal por contrato)
+    - Email: Gmail API exclusivamente
+    - Correos: Sistema dual (cuenta/empresa)
+    - Facturación: Directa SII, día 1 automática
+    - Conciliación: Solo API, sin webscraping
+    - Marketing: Publicación automática (verificar APIs disponibles)
+    - Formulario Arrendatario: Por email, aprobación manual
+    - Plantilla Contrato: Auto-complete desde BD
+    - Flujo Firma: Aprobación → Firma arrendador → Notaría → Firma presencial
+    - Contabilidad: Asientos automáticos desde movimientos
+    - F29: Pre-calculado día 10, enviado día 12
+    - IA Regulatoria: Monitoreo diario de cambios SII
+    - Optimización Tributaria: Automática y continua
+    - Auto-registro Socios: Solo emails pre-existentes
+    - Vista Socios: Filtrada automáticamente por RUT
+- **Límites del Sistema**
+    - 999 propiedades por cuenta bancaria
+    - Sin límite usuarios
+    - Sin límite empresas
+    - Sin límite cuentas bancarias
+    - 3 codeudores máximo por contrato
+    - Notificaciones: días 1-31 configurables
+    - Facturas: automáticas día 1
+    - Folios: alerta en 40
+    - F29: pre-cálculo día 10, envío día 12
+    - Publicación portales: máximo 2 simultáneos (Yapo + Portal Inmobiliario) - PENDIENTE VERIFICAR APIs
+- **Propuesta de Valor Única**
+    - LeaseManager será el PRIMER Y ÚNICO sistema en Chile que combine:
+        - ✅ Gestión inmobiliaria completa
+        - ✅ Contabilidad automatizada con IA
+        - ✅ Optimización tributaria inteligente
+        - ✅ Marketing inmobiliario automático
+        - ✅ Conciliación bancaria con IA
+        - ✅ Cero necesidad de contador para operaciones regulares
+        - ✅ 100% cumplimiento normativo garantizado
+    - **Resultado:** El administrador pasa de trabajar EN el negocio a trabajar SOBRE el negocio, con información perfecta y optimización continua.
+- **Decisiones de Diseño Inmutables**
+    - CERO tolerancia a parches temporales
+    - Gmail API para todos los emails
+    - Sin webscraping - Solo APIs oficiales
+    - Contratos se extienden, nunca se duplican
+    - Formulario web para registro arrendatarios
+    - API SII directa sin intermediarios
+    - Notificaciones 100% flexibles por día y canal
+    - Sistema correos dual para flexibilidad
+    - Publicación automática (pendiente verificar APIs)
+    - Flujo contractual: Aprobación → Firma arrendador → Notaría presencial
+    - Contabilidad integrada con asientos automáticos
+    - IA regulatoria activa monitoreando cambios diarios
+    - Auto-registro socios con validación email pre-existente
+    - Vista filtrada por RUT para socios automática
+    - Todo debe estar COMPLETO o no se entrega
+</PRD>
+

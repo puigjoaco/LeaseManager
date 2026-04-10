@@ -1,0 +1,69 @@
+{
+  "database_url": "postgresql://postgres.ubccvzaklmkiavppnzcf:IEr7UvmUHXooMN0k@aws-1-sa-east-1.pooler.supabase.com:5432/postgres",
+  "snapshot": {
+    "socios": 6,
+    "empresas": 4,
+    "comunidades": 16,
+    "participaciones_comunidad": 70,
+    "participaciones_empresa": 18,
+    "propiedades": 66,
+    "cuentas_recaudadoras": 6,
+    "mandatos": 66,
+    "arrendatarios": 53,
+    "contratos": 56,
+    "periodos": 748,
+    "manual_resolutions_abiertas": 0,
+    "manual_resolutions_resueltas": 16
+  },
+  "validation": {
+    "ok": true,
+    "expected": {
+      "comunidades": 16,
+      "participaciones_comunidad": 70,
+      "mandatos": 66,
+      "contratos": 56,
+      "periodos": 748,
+      "manual_resolutions_abiertas": 0
+    },
+    "actual": {
+      "socios": 6,
+      "empresas": 4,
+      "comunidades": 16,
+      "participaciones_comunidad": 70,
+      "participaciones_empresa": 18,
+      "propiedades": 66,
+      "cuentas_recaudadoras": 6,
+      "mandatos": 66,
+      "arrendatarios": 53,
+      "contratos": 56,
+      "periodos": 748,
+      "manual_resolutions_abiertas": 0,
+      "manual_resolutions_resueltas": 16
+    },
+    "mismatches": {}
+  },
+  "edificio_q_facturadora": [
+    {
+      "propiedad": "Edificio Q Bod. N\u00ba 17, Est. N\u00ba 33",
+      "entidad_facturadora": "Inmobiliaria Puig SpA"
+    },
+    {
+      "propiedad": "Edificio Q Dpto 1014",
+      "entidad_facturadora": "Inmobiliaria Puig SpA"
+    }
+  ],
+  "community_samples": [
+    {
+      "nombre": "Av. Pablo Neruda 02491, Local 4",
+      "participaciones_activas": 4
+    },
+    {
+      "nombre": "Edificio Q Bod. N\u00ba 17, Est. N\u00ba 33",
+      "participaciones_activas": 6
+    },
+    {
+      "nombre": "Edificio Q Dpto 1014",
+      "participaciones_activas": 6
+    }
+  ]
+}

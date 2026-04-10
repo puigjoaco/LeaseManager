@@ -1,0 +1,380 @@
+# Product Requirements Document: Rent Control
+*Fecha: 21 de Mayo de 2025*
+
+# Overview
+Rent Control es una aplicación web de gestión integral, diseñada a medida para automatizar y centralizar completamente la administración de arriendos de locales comerciales en Chile. Está dirigida principalmente al `Administrador` del negocio, proporcionándole herramientas para eliminar procesos manuales, reducir errores y obtener un control financiero y operativo completo. También ofrece acceso de solo lectura a los `Socios` del negocio y a la `Contadora`. El sistema resuelve los problemas asociados a la gestión manual actual, como cálculos de renta complejos y propensos a errores, envío manual de notificaciones, conciliación bancaria tediosa, información descentralizada y seguimiento manual de plazos y pagos de servicios. Su valor principal es la automatización, la centralización de datos (incluyendo documentos), la reducción de errores y la mejora significativa en la eficiencia y control del negocio de arriendos.
+
+# Core Features
+
+* **Gestión Centralizada de Datos Fundamentales:**
+    * *Qué hace:* Permite administrar (crear, ver, editar, eliminar) de forma centralizada toda la información clave:
+        * `Socios`: Información personal y de contacto de los socios del negocio (ej. Nombre, RUT, Email, Teléfono, Dirección).
+        * `Empresas`: Datos de las sociedades de inversión, incluyendo razón social, RUT, dirección. Se gestiona su(s) cuenta(s) bancaria(s) asociada(s) y la composición de socios con sus respectivos porcentajes de participación (que deben sumar 100%). Al crear una nueva empresa, se le debe asociar al menos una cuenta bancaria.
+        * `Propiedades`: Detalles completos de cada inmueble, incluyendo un código único de 3 dígitos numérico (validado para ser exactamente 3 números), RUT de avalúo fiscal, dirección, ciudad, datos de servicios (agua, luz, gas con nombre de empresa y número de cliente), información de gastos comunes (si tiene y detalles relevantes). Una propiedad debe poder asignarse como perteneciente a una `Empresa` específica *o* a un conjunto de `Socios` individuales (donde la suma de sus porcentajes de propiedad debe ser 100%, siendo estos socios los definidos en la entidad general `Socios`). No puede pertenecer a ambos simultáneamente.
+        * `Arrendatarios`: Información de quienes arriendan las propiedades. Pueden ser personas naturales (requiriendo Nombre, Apellido, RUT Persona, Email, Teléfono) o empresas (requiriendo Razón Social, RUT Empresa, Nombre Representante Legal, RUT Representante Legal, Email, Teléfono). El sistema debe permitir seleccionar el tipo y mostrar los campos correspondientes.
+        * `Cuentas Bancarias`: Datos de las cuentas bancarias utilizadas, como Nombre del Banco, Número de Cuenta, Nombre del Titular, RUT del Titular, Email de Contacto. Una cuenta bancaria puede estar asociada a múltiples `Empresas` que la utilizan para mantener sus dineros.
+        * `Credenciales Bancarias`: Almacenamiento seguro de las credenciales de acceso a los portales bancarios (Nombre de Usuario, Contraseña), asociadas a una `Cuenta Bancaria` específica para la funcionalidad de conciliación. Incluye la gestión del tipo de Autenticación de Dos Factores (2FA) y la información asociada:
+            * `tipo_2fa_configurado`: Opciones como 'NO_2FA' (Sin 2FA - opción por defecto o muy clara), 'TOTP' (para códigos de apps autenticadoras), 'SMS_ASISTIDO', 'PUSH_ASISTIDO', 'OTRO_ASISTIDO'. El `Administrador` seleccionará la opción correspondiente.
+            * `secreto_totp_encriptado`: Campo para almacenar el secreto TOTP (si `tipo_2fa_configurado` es 'TOTP'), encriptado con máxima robustez. Este campo solo será visible/editable en la UI si se selecciona 'TOTP'.
+            * `notas_2fa_asistida`: Campo para notas del administrador (ej. a quién contactar para un código SMS) si `tipo_2fa_configurado` es de tipo asistido. Este campo solo será visible/editable en la UI si se selecciona un tipo de 2FA asistido.
+            * El Administrador podrá actualizar estas credenciales de forma segura a través de una interfaz dedicada. La seguridad de estas credenciales es de máxima prioridad.
+        * `Contratos`: Todos los términos contractuales incluyendo estado (ej. 'Vigente', 'Finalizado', 'Cancelado', 'Terminado Anticipadamente'), la gestión detallada del ciclo de vida de la `garantía` (ver sección "Gestión de Garantías"), `dia_pago_mensual` (que por defecto es el día 5 del mes pero puede especificarse otro para un contrato particular), `plazo_notificacion_termino_dias` (campo obligatorio que indica con cuántos días de anticipación al término del contrato se debe notificar la no renovación), y la estructura detallada de períodos contractuales, reajustes y ajustes específicos según se describe en la característica "Gestión Avanzada de Períodos Contractuales y Ajustes de Renta". Incluye funcionalidad para "Terminación Anticipada de Contrato".
+        * `CategoriaMovimiento`: Permite al `Administrador` gestionar las categorías para `IngresosManuales` y `GastosManuales`. Campos: `nombre_categoria` (único), `tipo_movimiento` ('Ingreso' o 'Gasto'). El sistema se entregará con categorías predefinidas como "Recepción de Garantía del Contrato", "Devolución de Garantía del Contrato", "Retención de Garantía", "Contribuciones", "Reparaciones", etc., y el Administrador podrá añadir/editar/eliminar categorías a través de una interfaz de gestión.
+    * *Por qué es importante:* Establece la única fuente de verdad para todos los datos del negocio, permitiendo la integridad y consistencia de la información.
+    * *Cómo funciona a alto nivel:* Interfaces web para ingresar/modificar datos con validaciones de integridad (RUTs válidos, suma de porcentajes de socios en Empresas y Propiedades = 100%, campos obligatorios según tipo de Arrendatario, etc.). Interfaz segura para que el Administrador actualice credenciales bancarias. Interfaz de administración para `CategoriaMovimiento`.
+
+* **Gestión Avanzada de Períodos Contractuales y Ajustes de Renta:**
+    * *Qué hace:* Permite la definición inicial de los términos contractuales que rigen el cálculo del arriendo a lo largo de su ciclo de vida y la aplicación flexible de ajustes (descuentos o recargos) sobre el `Monto Contractual Bruto del Período` calculado. Un contrato se estructura como una secuencia de `PeriodoContractual`, donde cada uno representa un tramo de tiempo con un monto de arriendo bruto específico.
+    * **Definición de Parámetros Fundamentales del Contrato (Inmutables una vez Activo el Contrato):**
+        * *Parámetros Definibles al Crear/Configurar el Contrato (Antes de la generación del primer `PagoMensual`):*
+            * `fecha_inicio_contrato` y `fecha_fin_contrato`: Definen la duración total del término contractual vigente (inicial o una renovación).
+            * `valor_base_periodo_inicial` (en UF o CLP): Es el monto de arriendo bruto para el primer tramo (el primer `PeriodoContractual`) del contrato. Este valor se ingresa directamente.
+            * `porcentaje_reajuste_maestro` (decimal, puede ser 0 si no hay reajustes): Es el porcentaje que se aplicará para calcular los montos de los `PeriodoContractual` subsecuentes. El usuario ingresa el valor numérico del porcentaje deseado (ej. `3` para un 3%); el sistema lo almacena y para los cálculos lo divide por 100.
+            * `periodicidad_reajuste` (ej. 'Anual', 'Semestral', 'Trimestral'): Define la frecuencia con la que se aplica el `porcentaje_reajuste_maestro`.
+    * **Inmutabilidad:** Una vez que el contrato está activo y se han generado `PagoMensual` para un `PeriodoContractual`, el `valor_base_periodo_inicial`, el `porcentaje_reajuste_maestro` y la `periodicidad_reajuste` que determinaron los montos de dichos períodos contractuales se consideran inmutables para proteger la integridad histórica. La única excepción sería una intervención administrativa de alto nivel (realizada por el Administrador principal con plenos poderes) para corregir errores materiales, con plena conciencia de las implicaciones y con auditoría completa. La `fecha_fin_contrato` puede ser modificada a través de la funcionalidad de "Terminación Anticipada de Contrato".
+    * **Generación y Cálculo de `PeriodoContractual` y su `Monto Contractual Bruto`:**
+        * El sistema genera una secuencia de registros de `PeriodoContractual` para cubrir la duración total del contrato (desde `fecha_inicio_contrato` hasta `fecha_fin_contrato`), segmentando el tiempo según la `periodicidad_reajuste`.
+        * Para el primer `PeriodoContractual` (el tramo inicial del contrato), su `Monto Contractual Bruto del Período` es el `valor_base_periodo_inicial` definido en el `Contrato`.
+        * Para cada `PeriodoContractual` subsiguiente, su `Monto Contractual Bruto del Período` se calcula aplicando el `porcentaje_reajuste_maestro` al `Monto Contractual Bruto del Período` del `PeriodoContractual` inmediatamente anterior, si la `periodicidad_reajuste` indica que un reajuste es aplicable en la fecha de inicio de este nuevo `PeriodoContractual`.
+        * Esto permite reajustes intra-término (ej. un reajuste semestral dentro de un contrato de un año generará dos `PeriodoContractual` dentro de ese año).
+        * Esta secuencia de `PeriodoContractual` con sus respectivos `Montos Contractuales Brutos` se establece según los parámetros iniciales del contrato y constituye la base sobre la cual se aplicarán los ajustes de descuento/recargo.
+        * Si `fecha_fin_contrato` se modifica (antes de que los parámetros base se vuelvan inmutables, o como resultado de una "Terminación Anticipada de Contrato"), el sistema recalculará o ajustará dinámicamente cuántos `PeriodoContractual` deberían existir y sus montos brutos.
+    * **Visualización y Planificación:** La interfaz permitirá definir los parámetros del contrato (`valor_base_periodo_inicial`, `porcentaje_reajuste_maestro`, `periodicidad_reajuste`, fechas del término) y visualizará la secuencia proyectada de `PeriodoContractual` con sus fechas y los `Montos Contractuales Brutos` calculados. Si se modifican las Fechas de Fin del contrato (antes de que se vuelvan inmutables), el sistema recalculará dinámicamente cuántos `PeriodoContractual` deberían existir y sus montos brutos.
+    * **Gestión de Ajustes sobre el `Monto Contractual Bruto del Período` (Descuentos/Recargos):**
+        * Una vez calculado el `Monto Contractual Bruto del Período` para un `PeriodoContractual` específico (según los parámetros contractuales inmutables), toda variación sobre este monto para determinar el `Monto Neto a Cobrar` para los meses que caen dentro de dicho `PeriodoContractual` se gestionará exclusivamente a través de los siguientes tipos de `AjusteContrato`:
+        * **Ajustes Temporales Programados (Multi-Mes):** Permite aplicar una variación (descuento o recargo, en UF o CLP) al `Monto Contractual Bruto del Período` durante un rango específico de meses consecutivos. *Parámetros:* Tipo (Descuento/Recargo), Monto del Ajuste, Tipo de Monto (UF/CLP), Fecha de Inicio, Fecha de Fin, Justificación (obligatoria).
+        * **Ajustes Puntuales para un Único Mes:** Permite aplicar una variación (descuento o recargo, en UF o CLP) al `Monto Contractual Bruto del Período` para un único mes específico. *Parámetros:* Mes/Año de Aplicación, Tipo, Monto, Tipo de Monto (UF/CLP), Justificación (obligatoria).
+        * **Ajustes Indefinidos (Multi-Mes Continuo):** Permite aplicar una variación (descuento o recargo, en UF o CLP) al `Monto Contractual Bruto del Período` desde una fecha de inicio y que continúa aplicándose mes a mes hasta que el ajuste sea explícitamente modificado en su monto o cancelado (asignándole una fecha de fin). *Parámetros:* Tipo, Monto, Tipo de Monto (UF/CLP), Fecha de Inicio, Justificación (obligatoria), (Opcional) Fecha de Fin para cancelación.
+        * Al guardar cualquier tipo de ajuste, este y su justificación se propagan inmediatamente a los módulos relevantes (`PagoMensual`, mensajería, reportes) para los meses afectados. La mensajería incluirá la justificación.
+    * *Por qué es importante:* Asegura la integridad y la inmutabilidad de los términos contractuales base una vez activos, al tiempo que ofrece máxima flexibilidad para manejar situaciones particulares (concesiones, compensaciones, cobros extra) a través de un sistema de ajustes transparente y bien justificado. Profesionaliza la gestión al permitir comunicar claramente estos ajustes. Los futuros reajustes contractuales (para calcular el `Monto Contractual Bruto del Período` siguiente) siempre se calcularán sobre el `Monto Contractual Bruto del Período` anterior, sin ser afectados por los descuentos/recargos aplicados para determinar el monto neto cobrado.
+    * *Cómo funciona a alto nivel:* La interfaz de configuración de contratos permitirá definir el `valor_base_periodo_inicial`, `porcentaje_reajuste_maestro` y `periodicidad_reajuste`. El sistema mostrará la proyección de los `PeriodoContractual` con sus `Montos Contractuales Brutos`. Una vez activo y con `PagoMensual` generados, los parámetros base que lo definieron no se editan. Interfaces web dedicadas permitirán al `Administrador` crear, ver, editar (monto, fechas, justificación) y cancelar `AjusteContrato`. El sistema almacena los detalles de todos los `PeriodoContractual` con sus `Montos Contractuales Brutos` calculados y todos los `AjusteContrato` aplicados. Estos datos impactan la generación de `PagoMensual`, la conciliación, las notificaciones y los reportes.
+
+* **Cálculo Automático y Preciso de Renta Mensual:**
+    * *Qué hace:* Cada día 1 del mes, calcula el monto exacto en CLP a cobrar por cada contrato activo. Este proceso implica los siguientes pasos secuenciales:
+        1.  Identificar el `PeriodoContractual` vigente para el mes en curso y obtener su `Monto Contractual Bruto del Período` (en su moneda original, UF o CLP).
+        2.  **Obtención del `Monto Neto de Arriendo del Mes` en CLP:**
+            a.  Se toma el `Monto Contractual Bruto del Período` (del paso 1).
+            b.  Si este monto bruto está en UF, se convierte a CLP utilizando el valor de la UF correspondiente al día 1 del mes en curso (obtenida de APIs externas o ingreso manual por el Administrador). Si ya está en CLP, se utiliza ese valor.
+            c.  Al monto en CLP resultante del paso 2b (que ya tiene el valor bruto en CLP con sus decimales originales), se le aplica cualquier `AjusteContrato` que sea aplicable al mes en curso. Se asume que el monto del `AjusteContrato` estará en CLP o se convertirá a CLP (usando la UF del día 1 del mes de aplicación del ajuste, si el ajuste estuviera en UF) antes de su aplicación.
+            d.  El resultado de esta operación (bruto en CLP +/- ajustes en CLP) es el `Monto Neto de Arriendo del Mes` y estará en CLP (conservando los decimales que resulten de la operación).
+        3.  Del `Monto Neto de Arriendo del Mes` en CLP obtenido en el paso 2d, se toma únicamente la parte entera, descartando (truncando) todos los decimales. (Siguiendo el ejemplo de $121.110,10 \text{ CLP}$, la parte entera es $121.110 \text{ CLP}$).
+        4.  Al monto entero resultante del paso 3 (ej. $121.110 \text{ CLP}$), se le aplica el ajuste especial que reemplaza sus últimos 3 dígitos enteros (en el ejemplo, "110") por el `Código de Propiedad` único de 3 dígitos asociado al inmueble (ej. "003"). Esta operación es un reemplazo directo de dígitos, implementado como `monto_final_clp = (monto_entero_truncado // 1000) * 1000 + int(codigo_propiedad)`.
+        5.  El resultado de esta sustitución (ej. $121.003 \text{ CLP}$) es el `monto_calculado_clp` final que se guarda en el registro `PagoMensual`.
+    * Para la obtención del valor de la UF del día 1 del mes: El sistema intentará obtener este valor de una lista priorizada de APIs externas configuradas. Si la primera falla, intentará con la siguiente. Si todas las fuentes automáticas fallaran, se notificará inmediatamente al `Administrador`. El sistema debe permitir al `Administrador` ingresar manualmente el valor de la UF (con la debida trazabilidad y confirmación) para no detener el proceso de cálculo, si esta situación extrema ocurriese.
+    * *Por qué es importante:* Automatiza el cálculo crítico de la renta mensual, reflejando los términos contractuales base y cualquier ajuste acordado, asegurando el monto único y exacto para la conciliación bancaria. La obtención robusta de la UF es clave.
+    * *Cómo funciona a alto nivel:* Un proceso automático calendarizado (ej. cada día 1 a las 00:01) consulta los contratos activos, identifica el `PeriodoContractual` vigente, obtiene su `Monto Contractual Bruto del Período`, lo convierte a CLP, aplica los `AjusteContrato` correspondientes (en CLP) para obtener el `Monto Neto de Arriendo del Mes` en CLP, realiza el truncamiento de decimales y la sustitución del código de propiedad, y genera o actualiza el registro `PagoMensual` correspondiente.
+
+* **Generación y Seguimiento de Cobros Mensuales (`PagoMensual`):**
+    * *Qué hace:* Crea/almacena un registro (`PagoMensual`) por mes de arriendo activo. Este registro contendrá campos como: `contrato_id`, `periodo_contractual_id` (FK al `PeriodoContractual` vigente para ese mes), `mes_correspondiente`, `anio_correspondiente`, `monto_contractual_bruto_original_periodo` (el `Monto Contractual Bruto del Período` del `PeriodoContractual` vigente), `tipo_moneda_bruto_original_periodo` (UF/CLP), `monto_neto_arriendo_mes_original` (el monto en CLP tras aplicar ajustes, antes de truncamiento y código de propiedad), `tipo_moneda_neto_original` ('CLP'), `valor_uf_aplicado` (si aplica), `monto_calculado_clp` (el monto final en CLP con el código de propiedad incorporado, usado para cobro y conciliación), `fecha_vencimiento` (determinada por `Contrato.dia_pago_mensual` o por defecto el día 5 del mes), `fecha_pago` (opcional), `estado_pago` (inicial 'Pendiente', ej: 'Pendiente', 'Pagado', 'Vencido', 'Notificado_Inicial', etc.), `ids_ajustes_aplicados` (JSONB de IDs de `AjusteContrato` activos en el mes), y `justificacion_ajustes_aplicados` (texto consolidado de justificaciones de dichos ajustes). Su estado se actualiza durante el ciclo de cobro y seguimiento.
+    * `fecha_vencimiento`: Se establece tomando el `dia_pago_mensual` del `Contrato` asociado; si este campo no está especificado en el contrato, se asume por defecto el día 5 del mes correspondiente. Si el `dia_pago_mensual` especificado es mayor que el último día del mes correspondiente al `PagoMensual`, la `fecha_vencimiento` se establecerá en el último día de dicho mes.
+    * El `Administrador` podrá actualizar manualmente `estado_pago` y `fecha_pago`.
+    * *Por qué es importante:* Control exacto de cobros, pendientes y pagos por contrato/mes, reflejando la fecha de vencimiento correcta para cada uno y manteniendo la trazabilidad del monto contractual bruto, los ajustes aplicados y el monto neto final.
+    * *Cómo funciona a alto nivel:* Generado por el proceso de "Cálculo Automático y Preciso de Renta Mensual". El registro `PagoMensual` es luego actualizado por los procesos de notificaciones y conciliación bancaria. El `Administrador` podrá actualizar manualmente `estado_pago` y `fecha_pago`.
+
+* **Notificaciones Automáticas a Arrendatarios:**
+    * *Qué hace:* Envía communications vía Email y posteriormente WhatsApp a los arrendatarios. El sistema de notificaciones se estructura en fases:
+    * **Configuración del Remitente:** Se configurará un único nombre de remitente y una única dirección de correo electrónico remitente a nivel global en Rent Control, editables por el `Administrador`. Estos representarán a la empresa administradora o al negocio que utiliza la aplicación. Un valor predeterminado inicial podría ser "Rent Control App" y un email genérico del sistema.
+    * **Fase de Cobro Inicial (Email):**
+        * **Día 1 del mes:** Se envía un aviso inicial a todos los arrendatarios con el `monto_calculado_clp` a pagar, la `fecha_vencimiento` aplicable a su contrato (sea el día 5 por defecto o la fecha específica definida en `Contrato.dia_pago_mensual`), y la `justificacion_ajustes_aplicados` si los hubo. Estado `PagoMensual` se actualiza a 'Notificado_Inicial'.
+        * **Día 3 del mes (solo a `PagoMensual` pendientes):** Se envía un primer recordatorio.
+            * Si la `fecha_vencimiento` del arrendatario es el día 5, el mensaje será un recordatorio estándar.
+            * Si la `fecha_vencimiento` es posterior al día 5, el mensaje será un recordatorio amable indicando que su pago tiene una fecha de vencimiento específica (ej. "Recuerde que su pago vence el día X").
+        * Estado `PagoMensual` se actualiza a ('Notificado_Recordatorio1').
+        * **Día 5 del mes a las 10:00 AM (solo a `PagoMensual` pendientes):** Se envía un segundo recordatorio.
+            * Si la `fecha_vencimiento` del arrendatario es el día 5, el mensaje indicará que el plazo para el pago es hoy a las 13:59 hrs.
+            * Si la `fecha_vencimiento` es posterior al día 5, el mensaje será un recordatorio amable sobre su fecha de vencimiento específica, sin imponer el plazo del día 5 (ej. "Le recordamos que su pago vence el día X").
+        * Estado `PagoMensual` se actualiza a ('Notificado_Recordatorio2').
+    * **Fase de Seguimiento de Atrasos (para `PagoMensual` con estado 'Vencido'):**
+        * El estado `PagoMensual.estado_pago` se actualiza a 'Vencido' si, después de pasada la `fecha_vencimiento` del `PagoMensual` y tras el intento de conciliación bancaria, el pago no ha sido confirmado.
+        * **Días 10, 15, 20 y 25 del mes (solo a `PagoMensual` en estado 'Vencido'):** Se envía una notificación de atraso en cada una de estas fechas. El contenido del mensaje será distinto al de la fase inicial, indicando claramente que el pago está atrasado, el monto adeudado y que se debe regularizar la situación.
+        * El estado de `PagoMensual` se actualizará para reflejar estos seguimientos (ej. 'Notificado_Atraso_Dia10', 'Notificado_Atraso_Dia15', 'Notificado_Atraso_Dia20', 'Notificado_Atraso_Dia25').
+    * *Por qué es importante:* Mejora la comunicación, reduce olvidos, profesionaliza el proceso de cobranza y gestiona activamente los atrasos, adaptándose a las fechas de vencimiento individuales y manteniendo una comunicación constante.
+    * *Cómo funciona a alto nivel:* Procesos automáticos calendarizados consultan los `PagoMensual` según su estado y `fecha_vencimiento`. Utilizan APIs externas (SendGrid/Mailgun para Email; Twilio para WhatsApp) para enviar mensajes basados en plantillas dinámicas que reflejen la situación correcta del arrendatario (incluyendo su fecha de vencimiento específica y `justificacion_ajustes_aplicados`). El sistema actualiza el estado en `PagoMensual` tras cada notificación enviada.
+
+* **Conciliación Bancaria Inteligente:**
+    * *Qué hace:* Conecta de forma segura a los bancos registrados (utilizando las `Credenciales Bancarias` almacenadas con su `tipo_2fa_configurado`, `secreto_totp_encriptado` y `notas_2fa_asistida`), descarga movimientos, intenta conciliar automáticamente los pagos de arriendo (buscando el `monto_calculado_clp` único, que ya incluye el código de propiedad) y otros gastos/ingresos manuales registrados (incluyendo la identificación de ingresos por "Recepción de Garantía" asociados a una propiedad). Presenta los movimientos non reconocidos al Administrador para su clasificación manual y asociación (ej. un ingreso por garantía se asocia a la Propiedad y luego el Administrador lo vincula al Contrato específico, seleccionándolo de una lista). Compara saldos bancarios (obtenido por scraping vs. saldo contable en el sistema) y alerta sobre descuadres. Alerta también sobre la aparición de nuevos movimientos bancarios en el portal del banco que no se encuentran en la base de datos del sistema antes de la sincronización.
+    * *Por qué es importante:* Automatiza la mayor parte del tedioso proceso de conciliación, identifica pagos rápidamente, ayuda a mantener los saldos bancarios cuadrados con los registros del sistema y alerta proactivamente sobre actividad no esperada o discrepancias. La automatización total del scraping (incluyendo 2FA basada en TOTP mediante el almacenamiento seguro de `secreto_totp_encriptado`) es un requisito clave del Administrador.
+    * *Cómo funciona a alto nivel:* Un proceso (que puede ser disparado automáticamente de forma periódica o manualmente por el `Administrador`) utiliza técnicas de web scraping para obtener los datos de los portales bancarios.
+        * **Manejo de 2FA:** Al configurar las `Credenciales Bancarias`, el `Administrador` indicará el `tipo_2fa_configurado`.
+            * Para 2FA basadas en TOTP, si el `Administrador` proporciona el `secreto_totp_encriptado` de forma segura, el sistema podrá generar los códigos necesarios automáticamente durante el scraping.
+            * Para otros tipos de 2FA (ej. 'SMS_ASISTIDO', 'PUSH_ASISTIDO'), el sistema implementará un flujo de "conciliación asistida": durante la ejecución del scraping, si se requiere una intervención para 2FA, el sistema pausará y notificará/solicitará al `Administrador` (a través de una interfaz segura dentro de la aplicación, mostrando las `notas_2fa_asistida` si existen) que ingrese el código o realice la acción de aprobación necesaria para que el proceso de scraping pueda continuar para esa cuenta.
+        * El sistema aplica lógica de comparación de montos (el `monto_calculado_clp` único con el código de propiedad) y fechas para auto-conciliar arriendos. Provee una interfaz para la intervención manual del usuario en movimientos non reconocidos (ej. categorizar un ingreso como "Recepción de Garantía" y asociarlo a una Propiedad y Contrato). Calcula y compara saldos. Antes de procesar una nueva sincronización, el sistema comparará los movimientos existentes en el portal bancario con los ya registrados en la app; si detecta movimientos completamente nuevos en el banco o un saldo total diferente al esperado antes de la sincronización detallada, generará una alerta al `Administrador`.
+
+* **Registro de Otros Ingresos y Gastos Manuales:**
+    * *Qué hace:* Permite al Administrador registrar cualquier movimiento de dinero no relacionado directamente con el cobro automático de arriendos. Esto incluye la recepción de garantías (que se categorizará seleccionando la `CategoriaMovimiento` "Recepción de Garantía del Contrato" y se vinculará a una Propiedad y al Contrato específico seleccionado por el Administrador), la devolución de garantías (que se registrará como un `GastoManual` con la `CategoriaMovimiento` "Devolución de Garantía del Contrato", vinculado a Propiedad y al Contrato específico seleccionado, con una descripción para justificar devoluciones parciales), y las retenciones de garantía (que se registrarán como un `GastoManual` con la `CategoriaMovimiento` "Retención de Garantía", vinculado a Propiedad y Contrato, con justificación). También permite registrar pago de contribuciones, reparaciones, otros ingresos. Permite asignar los movimientos a Empresas o Propiedades y adjuntar documentos de respaldo.
+    * *Por qué es importante:* Asegura que todos los flujos de caja relevantes, incluyendo el ciclo completo de las garantías, queden registrados en el sistema para una visión financiera completa y para el cálculo de utilidad.
+    * *Cómo funciona a alto nivel:* Formularios específicos para ingresar los detalles del movimiento (fecha, monto, descripción, selección de `CategoriaMovimiento`, asociación a Propiedad y Contrato para garantías, adjuntar documento) y guardarlo en la base de datos.
+
+* **Gestión de Garantías (Integrada con Contratos, Ingresos/Gastos y Conciliación):**
+    * *Qué hace:* Gestiona el ciclo de vida completo de las garantías de arriendo.
+        * **Configuración en Contrato:** El `Contrato` define el `garantia_monto_pactado`. Campos adicionales en `Contrato` (`garantia_monto_recibido`, `garantia_fecha_recepcion`, `garantia_monto_devuelto`, `garantia_fecha_devolucion`, `garantia_estado`) se actualizan automáticamente por el sistema (basado en transacciones vinculadas) y son de solo lectura para el usuario, reflejando el estado real de la garantía. `garantia_estado` inicial: 'Pendiente Recepción'.
+        * **Recepción de Garantía:** Cuando el `Administrador` concilia un ingreso bancario o registra manualmente un `IngresoManual`, lo puede categorizar seleccionando la `CategoriaMovimiento` "Recepción de Garantía del Contrato". En este punto, el `Administrador` selecciona la `Propiedad` a la que pertenece y luego selecciona manualmente el `Contrato` específico de una lista. El sistema crea un `IngresoManual` vinculado a la `Propiedad` y al `Contrato` seleccionado. Esto dispara la actualización automática y acumulativa de `garantia_monto_recibido` (sumando el monto del ingreso al valor existente) y `garantia_fecha_recepcion` (con la fecha del ingreso más reciente de este tipo) en el `Contrato` seleccionado. El `garantia_estado` se actualiza a 'Recibida Parcialmente' si `garantia_monto_recibido` es menor que `garantia_monto_pactado`, o a 'Recibida Completamente' si `garantia_monto_recibido` es igual o mayor al `garantia_monto_pactado`.
+        * **Devolución o Retención de Garantía:** El `Administrador` crea un `GastoManual`, selecciona la `CategoriaMovimiento` "Devolución de Garantía del Contrato" o "Retención de Garantía", ingresa el monto (puede ser parcial o cero para devolución), y una justificación en la descripción del gasto. Similar a la recepción, selecciona la `Propiedad` y luego el `Contrato` específico. El sistema crea el `GastoManual` vinculado a la `Propiedad` y al `Contrato` seleccionado. Esto dispara la actualización automática y acumulativa de `garantia_monto_devuelto` (sumando el monto del gasto al valor existente) y `garantia_fecha_devolucion` (con la fecha del gasto más reciente de este tipo) en el `Contrato` seleccionado. El `garantia_estado` se recalculará (ej. 'Devuelta Totalmente', 'Devuelta Parcialmente', 'Retenida Totalmente', 'Retenida Parcialmente') basado en la comparación de `garantia_monto_pactado`, `garantia_monto_recibido` acumulado y `garantia_monto_devuelto` acumulado (que incluye tanto devoluciones como retenciones). Las justificaciones de cada movimiento de garantía (recepción, retención, devolución) se acceden a través de los `IngresosManuales` y `GastosManuales` vinculados al contrato.
+    * *Por qué es importante:* Proporciona un control y visibilidad completos sobre las garantías, desde el monto pactado hasta su recepción y eventual devolución o retención, con trazabilidad y justificaciones. Esencial para la gestión financiera y contractual.
+    * *Cómo funciona a alto nivel:* Se basa en la interacción entre la conciliación bancaria, el módulo de Ingresos y Gastos Manuales (para registrar formalmente la recepción, retención y la devolución con sus detalles y vinculaciones a Propiedad y Contrato) y el módulo de Contratos (para reflejar el estado actualizado de la garantía). Los campos de garantía en el `Contrato` actúan como un resumen de solo lectura de estas operaciones acumuladas. La interfaz del contrato permitirá visualizar el historial de todos los movimientos de garantía asociados.
+
+* **Gestión Documental Integrada:**
+    * *Qué hace:* Permite al `Administrador` cargar, asociar y gestionar archivos digitales (ej. PDFs, imágenes, documentos de Office) directamente con las entidades clave del sistema. El sistema, a través del modelo `Documento` (utilizando `GenericForeignKey`), permite asociar múltiples documentos a una única entidad propietaria (ej. un contrato puede tener varios anexos).
+        * `Contratos de Arriendo`: El contrato firmado escaneado.
+        * `GastosManuales`: Facturas, boletas de honorarios, comprobantes.
+        * `IngresosManuales`: Comprobantes de otros ingresos.
+        * `Propiedades`: Planos, títulos de dominio, certificados, pólizas.
+        * `Empresas`: Documentos societarios, RUT.
+        * `Socios`: Cédulas de identidad.
+        * `Arrendatarios`: Cédulas, RUT y constitución de sociedad.
+        * `CuentasBancarias`: Cartolas bancarias.
+    * *Por qué es importante:* Centraliza toda la documentación crítica y de respaldo en un repositorio único, digital y seguro, directamente vinculado a la operación. Elimina la necesidad de archivos físicos o sistemas de almacenamiento digital dispersos. Facilita la consulta rápida para el `Administrador`, el respaldo de transacciones, las auditorías internas o externas y el cumplimiento normativo. Mejora drásticamente la organización y la eficiencia operativa.
+    * *Cómo funciona a alto nivel:* El `Administrador` utiliza interfaces web intuitivas para cargar archivos. El sistema almacena los archivos de forma segura y vincula cada documento con la(s) entidad(es) correspondiente(s) en la base de datos. Se podrán visualizar y descargar los documentos asociados desde la ficha de cada entidad pertinente. Los `Socios` y la `Contadora` podrían tener acceso de solo lectura a los documentos relevantes.
+
+* **Monitoreo de Servicios y Gastos Comunes:**
+    * *Qué hace:* Intenta conectarse periódicamente a los portales de proveedores de servicios (Agua, Luz, Gas, GGCC) para detectar posibles deudas o vencimientos asociados a las propiedades registradas, utilizando los datos de empresa y número de cliente almacenados en `Propiedades`.
+    * *Por qué es importante:* Ayuda al Administrador a supervisar el estado de las cuentas de servicios de las propiedades arrendadas.
+    * *Cómo funciona a alto nivel:* Procesos automáticos intentan obtener información de sitios externos (vía scraping) y muestran alertas visuales en el sistema si detectan problemas.
+
+* **Alertas Clave para el Administrador:**
+    * *Qué hace:* Notifica proactivamente al Administrador sobre eventos importantes:
+        * Alertas visuales en el dashboard sobre `PagoMensual` pendientes.
+        * Notificación por email al `Administrador` tras la finalización del proceso de cálculo de renta mensual (Día 1), resumiendo el resultado (ej. número de pagos generados/actualizados, número de errores si los hubo).
+        * **Contratos Próximos a Vencer:** El sistema enviará una alerta (email/whatsapp/en pantalla) al Administrador 'Y' días (valor `dias_preaviso_para_notificacion_termino` configurable en el Contrato, default 30 días) antes de que comience el `plazo_notificacion_termino_dias` ('X', obligatorio en el Contrato).
+        * **Aparición de Movimientos Bancarios Nuevos No Reconocidos:** Notificación inmediata (WhatsApp/Email) si el scraping detecta movimientos en el portal del banco que no están aún registrados en el sistema, o si el saldo total de la cuenta difiere del esperado antes de una sincronización detallada.
+        * **Descuadres de Saldo Bancario:** Alerta visual en el dashboard y/o notificación si, tras la conciliación, el saldo bancario real difiere del saldo contable del sistema.
+        * **Posibles Deudas de Servicios:** Alerta visual si el monitoreo de servicios detecta problemas.
+    * *Por qué es importante:* Mantiene al Administrador informado de situaciones que requieren su atención o acción proactiva, mejorando la gestión de riesgos y oportunidades.
+    * *Cómo funciona a alto nivel:* Procesos internos monitorean fechas contractuales, los resultados de la conciliación bancaria y los resultados del monitoreo de servicios para disparar las notificaciones correspondientes.
+
+* **Cálculo de Utilidad Neta Operacional y Distribución a Socios:**
+    * *Qué hace:* Calcula mensualmente la utilidad operacional para cada `Empresa` y cada `Propiedad Independiente` (Ingresos Arriendo (`PagoMensual` donde `estado_pago` es 'Pagado') + `IngresosManuales` (excluyendo "Recepción de Garantía del Contrato") - Todos los `GastosManuales` asociados (excluyendo "Devolución de Garantía del Contrato" y "Retención de Garantía", si estas últimas no se consideran gasto operacional)). Luego, calcula cuánto de esa utilidad corresponde a cada `Socio` según su porcentaje de participación en la `Empresa` o `Propiedad Independiente`. La lógica contable exacta de las garantías debe ser confirmada.
+    * *Por qué es importante:* Proporciona visibilidad sobre la rentabilidad del negocio y su distribución entre los participantes.
+    * *Cómo funciona a alto nivel:* El sistema consulta los `PagoMensual` ('Pagado'), `IngresoManual` y `GastoManual` del período, aplica la fórmula de utilidad y los porcentajes de los `Socios`.
+
+* **Reportes Financieros y Operativos:**
+    * *Qué hace:* Ofrece vistas o reportes para analizar la información clave, siendo la principal herramienta la "Exportación a Excel" personalizable. Adicionalmente, se podrán desarrollar reportes en pantalla como:
+        * Utilidad distribuida por Socio (filtro multi-socio).
+        * Gastos detallados (filtrables por múltiples Propiedades o Empresas, categorías de gasto).
+        * Historial de Pagos de Arriendo (por contrato/arrendatario, incluyendo estado, fechas, montos brutos, ajustes, monto neto y monto calculado final).
+        * **Reporte de Estado de Garantías:** Un reporte específico para la `Contadora` (y `Administrador`) que muestre el estado de todas las garantías, agrupado por `Propiedad`, detallando `Contrato` asociado, monto pactado, monto recibido, fecha recepción, monto devuelto/retenido, fecha devolución/retención, estado actual de la garantía (`Contrato.garantia_estado`) y las justificaciones de los movimientos de garantía individuales. Filtrable por período y ordenado por propiedad.
+    * *Por qué es importante:* Permite analizar el desempeño del negocio desde distintas perspectivas.
+    * *Cómo funciona a alto nivel:* El sistema consulta y agrega la información relevante de la base de datos para presentarla de forma estructurada.
+
+* **Dashboard de Gestión Operacional para el Administrador:**
+    * *Qué hace:* Proporciona al `Administrador` una vista consolidada y dinámica de la operación del mes en curso, con capacidad de consultar una vista similar para meses anteriores. Para el mes seleccionado, el dashboard debe mostrar de forma clara, para cada propiedad/contrato activo:
+        * Código de la propiedad.
+        * Estado del pago del arriendo del mes.
+        * `Monto Contractual Bruto del Período` actual.
+        * `Monto Neto de Arriendo del Mes` (en CLP, antes de truncamiento y código de propiedad).
+        * Monto final en CLP cobrado o a cobrar (`monto_calculado_clp`).
+        * Resumen de `PagoMensual` pendientes.
+        * Indicador del estado de la garantía del contrato (`Contrato.garantia_estado`).
+        * Resumen o indicador de `AjusteContrato` (descuentos/recargos) aplicados en el mes.
+        * Dirección de la propiedad.
+        * Identificación del propietario (Empresa o Socios).
+        * Fecha de término del `PeriodoContractual` vigente (y/o del `Contrato` general).
+        * Indicador o contador de días restantes para el preaviso 'Y' (`dias_preaviso_para_notificacion_termino`) antes del inicio del plazo de notificación de término 'X' (`plazo_notificacion_termino_dias`) del contrato.
+        * Resúmenes de los gastos e ingresos extraordinarios del período seleccionado.
+        * Estado de la conciliación bancaria (saldo esperado vs. saldo real) y alertas por movimientos no conciliados o nuevos en el banco.
+    * *Por qué es importante:* Centraliza la información operativa y financiera más crítica para la gestión diaria y mensual.
+    * *Cómo funciona a alto nivel:* El sistema agrega y presenta datos de las entidades relevantes. Una interfaz permitirá seleccionar el período a visualizar.
+
+* **Exportación a Excel:**
+    * *Qué hace:* Permite al `Administrador` (y potencialmente a la `Contadora`) descargar datos financieros y operativos clave en un archivo Excel (`.xlsx`). El usuario podrá:
+        * Seleccionar un **rango de fechas** para el reporte (o un período predefinido como anual).
+        * Elegir, mediante una interfaz de selección (ej. checkboxes), **múltiples tipos de datos** que desea incluir en el archivo Excel generado.
+        * **Los datos exportables incluirán, según la selección del usuario:**
+            * Detalles completos de **Ingresos de Garantía** por contrato y propiedad.
+            * Detalles completos de **Egresos de Garantía** (incluyendo Devoluciones y Retenciones) por contrato y propiedad, con sus respectivas justificaciones.
+            * Detalles de **Pagos de Contribuciones**, especificando: la propiedad (con su código, dirección y Rol de Avalúo Fiscal), la empresa propietaria si aplica, el monto total de contribuciones pagado en el período seleccionado, y el detalle de cada cuota de contribución registrada (monto y fecha).
+            * Para **Propiedades cuyos dueños son Socios individuales** (propiedades en sociedad), y si se exportan datos de contribuciones, el Excel deberá mostrar la porción o desglose del monto de las contribuciones que le correspondería a cada `Socio` según su porcentaje de participación en dicha propiedad.
+            * Información detallada de **Pagos Mensuales de Arriendo** (`PagoMensual`), incluyendo `Monto Contractual Bruto del Período`, `Ajustes Aplicados` (con su justificación consolidada o detalle) y el `Monto Neto Cobrado` final (`monto_calculado_clp`).
+        * El archivo Excel generado identificará claramente la propiedad y su propietario (sea `Empresa` o conjunto de `Socios`) para cada registro o sección relevante.
+    * *Por qué es importante:* Facilita compartir información estructurada y detallada para análisis externo, auditoría, declaraciones contables o cumplimiento. Es una herramienta de reporte fundamental y personalizable.
+    * *Cómo funciona a alto nivel:* Una función en el backend recolectará los datos de la base de datos según los parámetros y selecciones del usuario, los estructurará adecuadamente (considerando las agrupaciones y desgloses necesarios) y generará el archivo Excel para su descarga.
+
+* **Logs de Auditoría:**
+    * *Qué hace:* El sistema registra de forma automática y segura un log detallado de todas las acciones significativas y modificaciones de datos críticos realizadas por los usuarios o por procesos automáticos del sistema. Esto incluye la configuración inicial de los parámetros del `Contrato` (`valor_base_periodo_inicial`, `porcentaje_reajuste_maestro`, `periodicidad_reajuste`), la creación, modificación y cancelación de `AjusteContrato`, la vinculación de transacciones de garantía a contratos y las actualizaciones automáticas resultantes en los campos de garantía del `Contrato`, y la terminación anticipada de contratos.
+    * *Por qué es importante:* Proporciona trazabilidad completa de las operaciones, facilita la detección de errores o actividades no autorizadas, es crucial para auditorías internas/externas, y ayuda en la resolución de problemas. Cumple con buenas prácticas de gestión de sistemas financieros y de información sensible.
+    * *Cómo funciona a alto nivel:* Cada vez que se crea, modifica o elimina una entidad crítica o se ejecuta una acción sensible, el sistema generará una entrada de log inmutable. Esta entrada contendrá: identificador del usuario que realizó la acción (o "sistema"), el tipo de acción, la entidad afectada y su identificador, la fecha y hora exactas, la dirección IP de origen (cuando aplique), y para modificaciones, detalles del cambio. Estos logs serán accesibles para consulta únicamente por el `Administrador` (y la `Contadora` según permisos) a través de una interfaz dedicada con capacidades de búsqueda y filtrado.
+
+* **Gestión de Contratos (Sub-sección para Terminación Anticipada):**
+    * **Terminación Anticipada de Contrato:**
+        * *Qué hace:* Permite al `Administrador` finalizar un contrato 'Vigente' antes de su `fecha_fin_contrato` originalmente pactada.
+        * *Cómo funciona:*
+            1.  El `Administrador` selecciona un contrato 'Vigente' desde la interfaz de gestión de contratos.
+            2.  Elige una opción o botón para "Terminar Contrato Anticipadamente".
+            3.  El sistema solicita al `Administrador` que ingrese la "Fecha Efectiva de Término". Esta fecha debe ser validada para que no sea anterior a la `fecha_inicio_contrato` del contrato ni posterior a la `fecha_fin_contrato` ya existente.
+            4.  Tras la confirmación, el sistema realiza las siguientes acciones:
+                a.  Actualiza el `Contrato.estado_contrato` a 'Terminado Anticipadamente'.
+                b.  Actualiza el campo `Contrato.fecha_fin_contrato` a la "Fecha Efectiva de Término" ingresada por el `Administrador`.
+                c.  Identifica y **elimina** todos los registros de `PagoMensual` asociados a este contrato cuya `mes_correspondiente` y `anio_correspondiente` sean posteriores al mes y año de la "Fecha Efectiva de Término".
+                d.  Identifica y **elimina** los `PeriodoContractual` cuya `fecha_inicio_periodo` sea posterior a la "Fecha Efectiva de Término". El `PeriodoContractual` que contiene la "Fecha Efectiva de Término" necesitará que su `fecha_fin_periodo` se ajuste a esta nueva fecha de término del contrato.
+                e.  Toda esta operación (cambio de estado, fechas, eliminación de pagos/períodos futuros) debe ser registrada detalladamente en el `AuditLog`, indicando el usuario que realizó la acción y los cambios efectuados.
+        * *Por qué es importante:* Permite reflejar correctamente la finalización prematura de un arriendo, deteniendo la generación de cobros futuros indebidos y manteniendo la integridad de los datos históricos y proyecciones del sistema.
+
+# User Experience
+
+* **User Personas:**
+    * `Administrador`: Usuario principal (1 o más) con acceso total para configurar, gestionar, conciliar, reportar, cargar documentos y exportar. Necesita eficiencia, claridad, control total y herramientas proactivas. Inicialmente, el creador del sistema será el Administrador principal.
+    * `Usuario / Socio`: Usuario secundario con acceso de solo lectura. Puede consultar información financiera y operativa relacionada con las Empresas y/o Propiedades Independientes en las que tiene participación. Necesita simplicidad y claridad.
+    * `Contadora`: Usuaria clave con acceso de solo lectura a una visión global de la información financiera, transaccional, documental y de logs de auditoría del sistema. Requiere acceso a detalles de ingresos, gastos, conciliaciones, estado de garantías y documentos de respaldo. No modifica datos, solo consulta y puede exportar. Se proveerá documentación o manual específico para este rol.
+* **Key User Flows (Ejemplos):**
+    * *Configuración Inicial:* Admin configura Socios, Empresas (con socios y %, cuenta bancaria inicial), Propiedades (asignando pertenencia, datos servicios, código de 3 dígitos), Arrendatarios, `CategoriaMovimiento` (revisa/añade categorías), `Contratos` iniciales (parámetros base para `PeriodoContractual` y `Montos Contractuales Brutos`; `dia_pago_mensual`, plazos de notificación, `garantia_monto_pactado` y `garantia_estado` inicial 'Pendiente Recepción'). Configura `Credenciales Bancarias` (seleccionando tipo de 2FA, y proveyendo secreto TOTP o notas según corresponda, o indicando 'Sin 2FA'). Configura el remitente de email principal del sistema.
+    * *Operación Mensual:* Sistema calcula renta y `PagoMensual` (día 1), y envía email de resumen al Admin. Sistema envía ciclo de notificaciones iniciales por Email a arrendatarios. Admin supervisa Dashboard básico (incluyendo estado de garantías), registra G/I manuales (seleccionando `CategoriaMovimiento`, y los vincula a Propiedad y selecciona el Contrato específico si son de garantías, lo que actualiza el estado del Contrato), actualiza manualmente estados de pago, carga documentos. Admin gestiona `Ajustes Puntuales` si es necesario. Admin puede realizar una "Terminación Anticipada de Contrato".
+    * *Consulta y Análisis:* Admin y `Contadora` revisan Dashboard básico, generan exportaciones detalladas a Excel, consultan logs de auditoría, revisan estados de garantías y su historial de movimientos.
+    * *Gestión Continua:* Admin crea/edita entidades, gestiona `Contratos` (incluyendo el ciclo de vida de sus garantías mediante la vinculación de Ingresos/Gastos Manuales, y la terminación anticipada), registra gastos/ingresos manuales (usando `CategoriaMovimiento`), gestiona documentos, gestiona `CategoriaMovimiento`.
+* **UI/UX Considerations:**
+    * Aplicación Web accesible desde navegadores modernos, con una interfaz de usuario responsiva que permita una consulta cómoda de información en dispositivos móviles y tabletas para todos los roles, además de la funcionalidad completa en escritorio para el `Administrador`.
+    * Interfaz intuitiva, limpia y profesional, completamente en español de Chile.
+    * Todas las fechas mostradas y solicitadas al usuario en la interfaz seguirán el formato `dd/mm/aaaa` (día/mes/año).
+    * La interfaz y la presentación de fechas (incluyendo el selector de calendario para la elección de fechas) se basarán en la configuración regional `Español (Chile)` (ES/CL).
+    * Uso claro de indicadores visuales para estados (pagado, pendiente, vencido, notificado, alerta, estado de garantía, etc.).
+    * Formularios con validaciones claras para prevenir errores de entrada.
+    * Tablas de datos con búsqueda, filtros y paginación.
+    * Vistas específicas y bien diseñadas para el Dashboard, Conciliación Bancaria, Reportes (incluyendo el de garantías), consulta de Logs de Auditoría, y la interfaz de configuración del remitente de email principal.
+    * Experiencia de usuario y permisos claramente diferenciados para `Administrador`, `Socio` y `Contadora`.
+    * Diseño de interfaz para la gestión de contratos que permita:
+        * Una clara configuración inicial de los parámetros contractuales base y la visualización de la proyección de `PeriodoContractual` con sus `Montos Contractuales Brutos`.
+        * Una gestión intuitiva de los `AjusteContrato`.
+        * Visualización clara del estado de la garantía del contrato (`Contrato.garantia_estado` y campos relacionados) y su historial detallado de movimientos (ingresos, retenciones, devoluciones).
+        * Interfaz clara para iniciar y confirmar la "Terminación Anticipada de Contrato", incluyendo la entrada de la fecha efectiva de término.
+    * Funcionalidad clara para la carga y visualización de documentos asociados.
+    * Interfaz clara para la configuración y actualización de `Credenciales Bancarias`, incluyendo la selección de `tipo_2fa_configurado` (con "Sin 2FA" como opción clara) y la presentación condicional de los campos `Secreto Compartido TOTP:` o `Notas para 2FA Asistida:`.
+    * **Selección de Contrato para Garantías:** Al procesar una transacción de garantía (recepción, retención o devolución), después de seleccionar la `Propiedad`, la interfaz presentará una lista clara, filtrable y ordenable de todos los contratos (vigentes, finalizados, futuros) asociados a esa propiedad. Esta lista deberá mostrar prominentemente el `estado_contrato` y el `Contrato.garantia_estado` (o un estado combinado como "Finalizado (Garantía Pendiente Gestión)") para facilitar al `Administrador` la selección manual del contrato correcto.
+    * Interfaz para la administración (CRUD) de `CategoriaMovimiento` por parte del `Administrador`.
+
+# Non-Functional Requirements
+
+* **Rendimiento y Escalabilidad:**
+    * **Tiempos de Respuesta Interactivos (objetivos):**
+        * Carga del Dashboard principal: < 3-4 segundos.
+        * Apertura de ficha de `Contrato`: < 3 segundos.
+        * Generación de Reportes Financieros comunes: < 10-15 segundos.
+        * Respuesta de la UI al definir/visualizar proyección de `PeriodoContractual`: < 1 segundo.
+        * Carga de tablas de datos con ~1000 registros: < 2 segundos.
+        * Carga y filtrado lista selección contratos para garantías: < 2-3 segundos.
+    * **Procesos Batch (objetivos):**
+        * Cálculo automático `PagoMensual`: debe finalizar antes de las 02:00 AM.
+        * Procesos envío notificaciones masivas: deben completarse en tiempo razonable.
+    * **Volumen de Datos (capacidad de gestión eficiente proyectada a 5 años):**
+        * Número de `Propiedades`: ~500 a 1,000.
+        * Número de `Contratos` activos: ~500 a 1,000.
+        * Total registros `PagoMensual`: ~30,000 a 60,000.
+        * Número de `Documentos` almacenados: ~10,000 a 20,000.
+    * **Concurrencia:** Soportar al menos 5-10 usuarios concurrentes sin degradación perceptible.
+    * **Escalabilidad de la Arquitectura:** Diseñada para escalado horizontal o vertical.
+* **Seguridad:**
+    * Protección contra vulnerabilidades OWASP Top 10.
+    * Encriptación de datos sensibles en tránsito (HTTPS/TLS obligatorio).
+    * Encriptación de datos sensibles en reposo (`Credenciales Bancarias` incluyendo `secreto_totp_encriptado`). Máxima robustez.
+    * Gestión de sesiones segura.
+    * Implementación estricta de roles y permisos.
+    * Protección contra ataques de fuerza bruta en login.
+* **Disponibilidad y Fiabilidad:**
+    * Objetivo 99.5% de tiempo de actividad mensual.
+    * Procesos críticos fiables, con manejo de errores robusto y reintentos.
+* **Mantenibilidad:**
+    * Código fuente bien estructurado, modular, comentado, principios DRY, SOLID.
+* **Backups y Recuperación:**
+    * Backups automáticos y periódicos de base de datos PostgreSQL y almacenamiento de archivos.
+    * Política de retención de backups.
+    * Plan de Recuperación ante Desastres (DRP) documentado (RTO y RPO definidos).
+
+# Technical Architecture
+
+* **System Components:**
+    * Backend: Aplicación web desarrollada con Python usando el framework Django.
+    * Frontend: Interfaz de usuario desarrollada con React (ej. Vite+React).
+    * Database: PostgreSQL.
+    * Task Queue: Celery con Message Broker (ej. Redis).
+    * Web Scraping Engine: Librerías de Python (ej. BeautifulSoup4, Selenium, Scrapy).
+    * File Storage (para Gestión Documental): Solución de almacenamiento de archivos segura (ej. Amazon S3, Google Cloud Storage).
+
+* **Data Models:**
+    * `Socio` (id, nombre_socio, rut_socio, email_socio, telefono_socio, direccion_socio)
+    * `Empresa` (id, razon_social, rut_empresa, direccion_empresa)
+    * `Propiedad` (id, codigo_propiedad (CharField(3), unique=True, help_text="Código numérico de 3 dígitos. Validar con regex ^\d{3}$."), rut_avaluo_fiscal, direccion_propiedad, ciudad_propiedad, empresa_propietaria_id (FK opcional a `Empresa`), empresa_agua, nro_cliente_agua, empresa_luz, nro_cliente_luz, empresa_gas, nro_cliente_gas, tiene_gasto_comun (boolean), info_gasto_comun (text))
+    * `Arrendatario` (id, tipo_arrendatario ('Persona Natural', 'Empresa'), email_arrendatario, telefono_arrendatario, nombre_persona, apellido_persona, rut_persona, razon_social_arrendatario, rut_empresa_arrendatario, representante_legal_arrendatario, rut_representante_legal_arrendatario)
+    * `CuentaBancaria` (id, nombre_banco, numero_cuenta, titular_nombre, titular_rut, email_contacto_banco)
+    * `CredencialBancaria` (id, cuenta_bancaria_id (FK a `CuentaBancaria`), nombre_usuario_banco, contrasena_banco (encriptada), `tipo_2fa_configurado` (CharField, NOT NULL, choices: ['NO_2FA', 'TOTP', 'SMS_ASISTIDO', 'PUSH_ASISTIDO', 'OTRO_ASISTIDO'], default='NO_2FA'), `secreto_totp_encriptado` (TextField, Nullable, blank=True, help_text="Secreto TOTP encriptado, solo si tipo_2fa es TOTP"), `notas_2fa_asistida` (TextField, Nullable, blank=True, help_text="Notas para el admin sobre 2FA asistida"), ultima_actualizacion_correcta (DateTimeField, Nullable))
+    * `Contrato` (id, propiedad_id (FK), arrendatario_id (FK), fecha_inicio_contrato, fecha_fin_contrato, dia_pago_mensual (integer, opcional, default=5), `valor_base_periodo_inicial` (decimal, NOT NULL), `tipo_moneda_base_inicial` (text, NOT NULL, choices=['UF', 'CLP']), `porcentaje_reajuste_maestro` (decimal, NOT NULL), `periodicidad_reajuste` (text, NOT NULL, choices=['Anual', 'Semestral', 'Trimestral', 'Mensual', 'SinReajuste']), `garantia_monto_pactado` (decimal, Nullable), `garantia_monto_recibido` (decimal, Nullable, default=0, editable=False), `garantia_fecha_recepcion` (date, Nullable, editable=False), `garantia_monto_devuelto` (decimal, Nullable, default=0, editable=False), `garantia_fecha_devolucion` (date, Nullable, editable=False), `garantia_estado` (text, Nullable, choices=['Pendiente Recepción', 'Recibida Parcialmente', 'Recibida Completamente', 'Devuelta Totalmente', 'Devuelta Parcialmente', 'Retenida Totalmente', 'Retenida Parcialmente'], editable=False), `estado_contrato` (CharField, choices: ['Vigente', 'Finalizado', 'Cancelado', 'Terminado Anticipadamente'], default='Vigente'), `plazo_notificacion_termino_dias` (integer, NOT NULL), `dias_preaviso_para_notificacion_termino` (integer, NOT NULL, default=30))
+    * `PeriodoContractual` (id, contrato_id (FK), secuencia_periodo (integer, NOT NULL), fecha_inicio_periodo (date, NOT NULL), fecha_fin_periodo (date, NOT NULL), `monto_contractual_bruto_periodo` (decimal, NOT NULL), `tipo_moneda_bruto_periodo` (text, NOT NULL, choices=['UF', 'CLP']), `porcentaje_reajuste_aplicado_al_inicio` (decimal, opcional))
+    * `AjusteContrato` (id, contrato_id (FK), tipo_ajuste (text, NOT NULL, choices=['Descuento', 'Recargo']), monto_ajuste (decimal, NOT NULL), tipo_moneda_ajuste (text, NOT NULL, choices=['UF', 'CLP']), fecha_inicio_ajuste (date, NOT NULL), fecha_fin_ajuste (date, opcional), justificacion (text, NOT NULL), es_puntual (boolean, default=False), mes_anio_aplicacion_puntual (date, opcional), estado_ajuste (text, NOT NULL, choices=['Activo', 'Cancelado', 'Finalizado_Temporal', 'Finalizado_Indefinido']), fecha_creacion, fecha_ultima_modificacion)
+    * `PagoMensual` (id, contrato_id (FK), periodo_contractual_id (FK a `PeriodoContractual`), mes_correspondiente (integer), anio_correspondiente (integer), `monto_contractual_bruto_original_periodo` (decimal, NOT NULL), `tipo_moneda_bruto_original_periodo` (text, NOT NULL), `monto_neto_arriendo_mes_original` (decimal, NOT NULL, help_text="En CLP, tras ajustes, antes de truncar/código"), `tipo_moneda_neto_original` (text, NOT NULL, default='CLP'), `valor_uf_aplicado` (decimal, opcional), `monto_calculado_clp` (decimal, NOT NULL), fecha_vencimiento (date, NOT NULL), fecha_pago (date, opcional), estado_pago (text, NOT NULL), `ids_ajustes_aplicados` (JSONField, opcional), `justificacion_ajustes_aplicados` (text, opcional))
+    * `CategoriaMovimiento` (id, nombre_categoria (CharField, unique=True), tipo_movimiento (CharField, choices: ['Ingreso', 'Gasto']))
+    * `GastoManual` (id, propiedad_id (FK opcional), empresa_id (FK opcional), contrato_id (FK opcional a `Contrato`), fecha_gasto, monto_gasto, descripcion_gasto, `categoria_id` (FK a `CategoriaMovimiento`), proveedor_gasto, rut_proveedor_gasto, documento_id (FK opcional a `Documento`))
+    * `IngresoManual` (id, propiedad_id (FK opcional), empresa_id (FK opcional), contrato_id (FK opcional a `Contrato`), fecha_ingreso, monto_ingreso, descripcion_ingreso, `categoria_id` (FK a `CategoriaMovimiento`), documento_id (FK opcional a `Documento`))
+    * `EmpresaSocio` (empresa_id (FK), socio_id (FK), porcentaje_participacion (decimal)) - Clave primaria compuesta.
+    * `PropiedadSocio` (propiedad_id (FK), socio_id (FK), porcentaje_propiedad (decimal)) - Clave primaria compuesta.
+    * `EmpresaCuentaBancaria` (empresa_id (FK), cuenta_bancaria_id (FK)) - Clave primaria compuesta.
+    * `Documento` (id, nombre_archivo, tipo_mime, fecha_carga, usuario_carga_id (FK), ruta_almacenamiento_url, entidad_asociada_tipo (CharField), entidad_asociada_id (PositiveIntegerField)). Utilizar `GenericForeignKey` de Django para `entidad_asociada`.
+    * `AuditLog` (id, usuario_id (FK a tabla Usuarios, opcional), tipo_accion (text, NOT NULL), entidad_afectada (text, opcional), id_entidad_afectada (integer, opcional), timestamp (datetime, NOT NULL, default='NOW()'), ip_origen (text, opcional), detalles_cambio (JSONField))
+    * *Validaciones a nivel de modelo/lógica de negocio:* Suma `porcentaje_participacion` en `EmpresaSocio` para una `empresa_id` debe ser 100%. Si `Propiedad.empresa_propietaria_id` es NULL, suma `porcentaje_propiedad` en `PropiedadSocio` para esa `propiedad_id` debe ser 100%. Si `Propiedad.empresa_propietaria_id` NO es NULL, no deben existir `PropiedadSocio` para esa `propiedad_id`. Al crear `Empresa`, asociar >=1 `CuentaBancaria`. `Contrato.plazo_notificacion_termino_dias` y `dias_preaviso_para_notificacion_termino` > 0. Solo un `Contrato` vigente por `Propiedad` simultáneamente. `AjusteContrato`: `fecha_fin_ajuste` >= `fecha_inicio_ajuste`; `mes_anio_aplicacion_puntual` obligatorio si `es_puntual`. `Contrato.periodicidad_reajuste` 'SinReajuste' => `porcentaje_reajuste_maestro` = 0. `IngresoManual`/`GastoManual` con `contrato_id` debe pertenecer a `Propiedad` referenciada (si `propiedad_id` no es nula). Lógica `PagoMensual.fecha_vencimiento` para días > último día mes. `categoria_id` en `IngresoManual`/`GastoManual` debe corresponder al `tipo_movimiento`.
+* **APIs and Integrations:**
+    * Fuente UF: Integración con múltiples APIs externas (configurables, con fallback) y opción de ingreso manual.
+    * Mensajería: SendGrid/Mailgun (Email). Twilio (WhatsApp).
+    * Bancos Chilenos: Portales web (vía Web Scraping).
+    * Proveedores Servicios/GGCC: Portales web (vía Web Scraping).
+* **Infrastructure Requirements:**
+    * Servidores para aplicación Django, base de datos PostgreSQL, Message Broker (Redis), Workers Celery, y almacenamiento de archivos.
+    * Infraestructura dimensionada para cumplir RNF.
+    * Procesos de backups automáticos y Plan de Recuperación ante Desastres (DRP).
+
+# Development Roadmap
+
+El desarrollo de "Rent Control" se abordará mediante un enfoque por fases.
+
+## Fase 1: MVP - Rent Control Core Operations
+**Objetivo Principal:** Proporcionar al `Administrador` herramientas esenciales para definir contratos, calcular y cobrar arriendos, gestionar pagos y garantías, enviar notificaciones email y mantener registro centralizado de información y documentación fundamental, incluyendo una potente herramienta de exportación a Excel.
+
+**Funcionalidades Incluidas en el MVP:**
+* Gestión Centralizada de Datos Fundamentales: `Socios`, `Empresas`, `Propiedades`, `Arrendatarios`, `Cuentas Bancarias`, `Credenciales Bancarias` (almacenamiento y UI 2FA), `Contratos` (incluyendo "Terminación Anticipada de Contrato" con eliminación de datos futuros), `CategoriaMovimiento` (CRUD y precarga incluyendo "Retención de Garantía").
+* Gestión Avanzada de Períodos Contractuales y Ajustes de Renta: Generación de `PeriodoContractual` y `Monto Contractual Bruto`, visualización de proyección, gestión de `Ajustes Puntuales para un Único Mes`.
+* Cálculo Automático y Preciso de Renta Mensual.
+* Generación y Seguimiento de Cobros Mensuales (`PagoMensual`): Creación, lógica de `fecha_vencimiento`, actualización manual de `estado_pago` y `fecha_pago`.
+* Notificaciones Automáticas a Arrendatarios: Fase de Cobro Inicial vía Email, usando remitente único configurable por el Administrador (con un default de sistema).
+* Registro de Otros Ingresos y Gastos Manuales.
+* Gestión de Garantías: Configuración en `Contrato`, registro y vinculación de `IngresosManuales` y `GastosManuales` para actualizar automáticamente y acumulativamente los campos de garantía en `Contrato` (con estados 'Recibida Parcialmente'/'Recibida Completamente'). Visualización del historial de movimientos de garantía.
+* Gestión Documental Integrada: Asociación de documentos a `Contratos de Arriendo`, `GastosManuales` e `IngresosManuales`.
+* Alertas Clave para el Administrador: Visuales en dashboard sobre `PagoMensual` pendientes, notificación email al Admin post-cálculo de renta mensual.
+* Dashboard de Gestión Operacional para el Administrador: Vista mes actual con los detalles especificados.
+* **Exportación a Excel:** Funcionalidad completa que permite al usuario seleccionar rango de fechas y tipos de datos múltiples (Garantías, Contribuciones con desglose por socio, Pagos Mensuales) para generar un archivo `.xlsx` detallado y estructurado.
+* Logs de Auditoría: Para funcionalidades del MVP.
+* User Experience: Roles `Administrador` y `Contadora` (solo lectura). UI intuitiva, responsiva, en español de Chile, con las consideraciones de UX mencionadas, incluyendo la configuración del remitente de email y la interfaz para exportaciones a Excel personalizadas.
+
+## Fase 2: Automatización Avanzada y Control Integral
+**Objetivo Principal:** Introducir automatización en conciliación bancaria, expandir notificaciones, completar gestión documental, implementar todos los tipos de ajustes contractuales, enriquecer alertas y dashboard.
+
+**Funcionalidades Principales:** Uso funcional de `Credenciales Bancarias`. Conciliación Bancaria Inteligente. `Ajustes Temporales Programados` y `Ajustes Indefinidos`. Notificaciones por WhatsApp, Fase de Seguimiento de Atrasos. Gestión Documental completa. Alertas avanzadas (Contratos por vencer, etc.). Dashboard mejorado. Ampliación Logs de Auditoría.
+
+## Fase 3: Análisis, Optimización y Funcionalidades Extendidas
+**Objetivo Principal:** Implementar capacidades analíticas completas, monitoreo de servicios, habilitar acceso para Socios, optimizar plataforma.
+
+**Funcionalidades Principales:** Cálculo de Utilidad Neta Operacional y Distribución a Socios. Reportes Financieros y Operativos en pantalla (adicionales a Excel). Dashboard completo con consulta histórica. Monitoreo de Servicios y Gastos Comunes. Activación rol `Usuario / Socio`. Prorrateo para "Terminación Anticipada de Contrato". Ampliación Logs de Auditoría.
+
+## Future Enhancements
+Mejoras en automatización scraping 2FA. Módulos analíticos avanzados. Posible app móvil. Integración con sistemas contables externos.
+
+# Risks and Mitigations
+* Fragilidad Web Scraping (Bancos/Servicios): Mitigación: Librerías robustas, monitoreo continuo, plan de actualización rápida, conciliación asistida.
+* Seguridad Credenciales Bancarias y Datos Sensibles: Mitigación: Prácticas OWASP, encriptación máxima robustez, variables de entorno seguras, educación al Admin.
+* Seguridad y Almacenamiento de Documentos: Mitigación: Solución segura, control de acceso, backups.
+* Fiabilidad Fuente UF: Mitigación: Múltiples APIs, fallback, reintentos, alerta, ingreso manual supervisado.
+* Precisión Cálculos (Renta/Utilidad/Garantías): Mitigación: Definición algorítmica precisa, pruebas exhaustivas, desglose en UI.
+* Correcta Asignación Manual Gastos/Ingresos (y Garantías a Contratos): Mitigación: UI clara, selección `CategoriaMovimiento`, documentación.
+* Fiabilidad APIs Externas (Twilio/SendGrid): Mitigación: Manejo de errores, logging, monitoreo.
+* Complejidad Alcance por Fases: Mitigación: Desglose detallado, metodologías ágiles.
+* Implementación Roles Acceso y Seguridad: Mitigación: Diseño detallado de permisos, pruebas.
+* Trigger Alerta WA/Email Conciliación (Nuevos Movimientos): Mitigación: Lógica cuidadosa.
+* Complejidad Modelos de Datos y Validaciones: Mitigación: Diseño cuidadoso, validaciones robustas, pruebas unitarias.
+* Definición y Mantenimiento Lógica de Notificaciones Compleja: Mitigación: Diseño detallado de flujos, plantillas, pruebas.
+* Lógica de Vinculación de Garantías a Contratos: Mitigación: Diseño de UI cuidadoso para selección, pruebas de usabilidad.
+
+# Appendix
+
+* **Fuente Oficial UF:** APIs de terceros que obtienen datos del Servicio de Impuestos Internos (SII) de Chile y otras fuentes financieras relevantes. Se configurará una lista priorizada de estas APIs para asegurar la obtención del valor.
+* **APIs Externas Requeridas:** SendGrid / Mailgun (Email). Twilio (WhatsApp). APIs de proveedores de datos de UF.
+* **Portales a Scrapear:** Portales web de los principales bancos chilenos relevantes. Portales web de proveedores de servicios básicos y Administradoras de Gastos Comunes.
+* **Fórmula Utilidad Neta Operacional:** `Utilidad Neta Operacional = Suma(Ingresos por Arriendo de 'PagoMensual' con estado 'Pagado') + Suma('IngresosManuales' del período, excluyendo "Recepción de Garantía del Contrato") - Suma(Todos los 'GastosManuales' asociados del período, excluyendo "Devolución de Garantía del Contrato" y "Retención de Garantía" si no son gasto operacional)`. Esta utilidad se calculará por `Empresa` y por `Propiedad Independiente`.
+* **Lógica Ajuste Renta (Incorporación Código de Propiedad en Monto):**
+    1.  Se calcula el `Monto Neto de Arriendo del Mes` en CLP (después de convertir el bruto a CLP si estaba en UF, y después de aplicar todos los `AjusteContrato` en CLP).
+    2.  Del `Monto Neto de Arriendo del Mes` en CLP, que puede tener decimales, el resultado se trunca, conservando únicamente su parte entera y descartando todos los decimales. Por ejemplo, si el cálculo da $121.110,10 \text{ CLP}$, se utilizará $121.110 \text{ CLP}$. Si el monto ya es entero, se utiliza tal cual.
+    3.  Sobre este monto CLP entero obtenido en el paso anterior, se reemplazan sus últimos 3 dígitos enteros por el `codigo_propiedad` (que debe ser de 3 dígitos numéricos) del inmueble arrendado. La fórmula es: `(monto_entero // 1000) * 1000 + int(codigo_propiedad)`.
+    4.  El resultado de esta sustitución es el `monto_calculado_clp` que se registra en `PagoMensual`. No se realiza ningún tipo de redondeo o aproximación matemática ni antes del reemplazo (más allá del truncamiento explícito de decimales ya mencionado) ni después de este reemplazo de dígitos. El objetivo principal de esta manipulación es obtener un identificador numérico único y predecible que facilite la conciliación bancaria automática.

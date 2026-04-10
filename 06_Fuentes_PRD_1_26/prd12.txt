@@ -1,0 +1,264 @@
+# Product Requirements Document: Rent Control
+*Última actualización: 18 de Junio de 2025 (incorporando todas las decisiones y ajustes acordados)*
+
+<context>
+# Overview
+Rent Control es una aplicación web de gestión integral, diseñada a medida para automatizar y centralizar completamente la administración de arriendos de locales comerciales en Chile. Está dirigida principalmente al `Administrador` del negocio, proporcionándole herramientas para eliminar procesos manuales, reducir errores y obtener un control financiero y operativo completo. También ofrece acceso de solo lectura a los `Socios` del negocio (máximo ~15 usuarios) y a la `Contadora`. 
+
+El sistema resuelve los problemas asociados a la gestión manual actual, como cálculos de renta complejos y propensos a errores, envío manual de notificaciones, conciliación bancaria tediosa, información descentralizada y seguimiento manual de plazos y pagos de servicios. Su valor principal es la automatización, la centralización de datos (incluyendo documentos), la reducción de errores y la mejora significativa en la eficiencia y control del negocio de arriendos. El sistema está diseñado para manejar hasta 999 propiedades por cuenta bancaria.
+
+# Core Features
+
+* **Gestión Centralizada de Datos Fundamentales:**
+   * *Qué hace:* Permite administrar (crear, ver, editar, eliminar) de forma centralizada toda la información clave:
+       * `Socios`: Información personal y de contacto. Los socios no pueden ser eliminados si tienen participaciones activas; en su lugar, se ofrece un wizard de transferencia. Un socio puede tener 100% de participación en múltiples empresas o propiedades.
+       * `Empresas`: Datos de las sociedades de inversión. Se gestiona su(s) cuenta(s) bancaria(s) y la composición de socios (debe sumar exactamente 100%). Si una empresa no tiene propiedades, contratos ni cuentas bancarias activas, se permite eliminación directa.
+       * `Propiedades`: Código único de 3 dígitos (001-999), datos completos. Puede pertenecer a una Empresa O a Socios individuales (suma 100%). Una propiedad tiene UN solo contrato vigente a la vez y máximo UN contrato futuro programado.
+       * `Arrendatarios`: Personas naturales o empresas con campos específicos según tipo. Dirección obligatoria para cartas certificadas. Teléfono en formato internacional +(código)(número).
+       * `Cuentas Bancarias`: Una cuenta puede estar asociada a múltiples Empresas. Límite de 999 propiedades por cuenta.
+       * `Credenciales Bancarias`: Almacenamiento seguro con sistema de recuperación (3 preguntas, requiere 2 correctas). Incluye configuración de 2FA.
+       * `Contratos`: Estado, garantía, fechas (solo inician día 1), períodos, ajustes. Monto mínimo absoluto $1,000. Contratos retroactivos permitidos sin límite temporal.
+       * `CategoriaMovimiento`: Categorías protegidas del sistema + personalizadas del admin.
+   * *Por qué es importante:* Establece la única fuente de verdad para todos los datos del negocio.
+   * *Cómo funciona:* Interfaces web con validaciones estrictas. Sistema de transferencia de socios. Disolución de empresa con transferencia directa de propiedades a socios.
+
+* **Gestión Avanzada de Períodos Contractuales y Ajustes:**
+   * *Qué hace:* Define términos contractuales y permite ajustes flexibles sobre el monto bruto. Los contratos se estructuran como períodos que se renuevan automáticamente si no hay aviso de término.
+   * Sistema de períodos con reajustes configurables
+   * Contratos con tramos opcionales (diferentes valores por período)
+   * Ajustes unificados (solo admin) aplicados por mes completo
+   * Validación estricta: resultado post-ajuste nunca menor a $1,000
+   * Renovación automática a las 02:01 del día 1 si no hay aviso
+   * *Por qué es importante:* Flexibilidad máxima manteniendo control y trazabilidad.
+   * *Cómo funciona:* Cálculo automático de períodos, aplicación de ajustes antes del código de propiedad.
+
+* **Gestión de Avisos de Término:**
+   * *Qué hace:* Registra y gestiona avisos de término con posibilidad de cancelación.
+   * Genera carta automática PDF
+   * Registra avisos enviados/recibidos
+   * Permite cancelación con justificación
+   * Validación temporal precisa (hasta 23:59:59 del plazo)
+   * Contrato futuro SOLO puede crearse después de registrar término
+   * *Por qué es importante:* Formaliza el proceso y previene renovaciones no deseadas.
+   * *Cómo funciona:* Interfaz en ficha del contrato, integrada con renovación automática.
+
+* **Cálculo Automático de Renta Mensual:**
+   * *Qué hace:* Cada día 1 a las 02:01 AM calcula el monto exacto a cobrar.
+   * Procesamiento resiliente: continúa aunque fallen algunos
+   * Pre-carga valor UF 5 días antes (día 27 del mes anterior)
+   * Para retroactivos: usa valor UF histórico más alto
+   * Trunca decimales, luego aplica código de propiedad
+   * Código: reemplaza últimos 3 dígitos (acepta cualquier pérdida)
+   * *Por qué es importante:* Automatiza el cálculo crítico con identificador único.
+   * *Cómo funciona:* Proceso automático con fallback manual para errores individuales.
+
+* **Notificaciones Automáticas Multi-canal:**
+   * *Qué hace:* Envía comunicaciones por Email y WhatsApp.
+   * Email SIEMPRE se envía
+   * WhatsApp opcional según contrato
+   * Hora configurable por admin (default 10:00 AM)
+   * Días fijos: 1, 3, 5, 10, 15, 20, 25
+   * Detección inteligente de bloqueos WhatsApp
+   * Notificación inmediata al admin si bloquean
+   * Sin opt-out, persistentes pero inteligentes
+   * *Por qué es importante:* Comunicación efectiva sin perder el canal.
+   * *Cómo funciona:* APIs de SendGrid y Twilio con manejo de errores específicos.
+
+* **Conciliación Bancaria Inteligente con AI:**
+   * *Qué hace:* Conecta prioritariamente por API, fallback a scraping autorizado.
+   * Conciliación automática TODOS los días del mes
+   * Match exacto = asignación automática
+   * Múltiples pagos = sugerencias con AI
+   * AI analiza patrones, errores comunes, comportamiento histórico
+   * Solo crea IngresoDesconocido (admin decide acciones)
+   * *Por qué es importante:* Automatización inteligente con control humano.
+   * *Cómo funciona:* API → Scraping → Manual, con AI asistiendo decisiones.
+
+* **Gestión de Deudas y Repactación:**
+   * *Qué hace:* Registro claro de deudas con repactación en cuotas.
+   * Vista consolidada por arrendatario
+   * Score de pago: X de Y meses en sistema
+   * Repactación SIEMPRE del total como recargo
+   * Aplicación automática en futuros cobros
+   * *Por qué es importante:* Formaliza el manejo de atrasos con transparencia.
+   * *Cómo funciona:* Interfaz específica integrada con cálculo mensual.
+
+* **Gestión de Garantías:**
+   * *Qué hace:* Ciclo completo con trazabilidad.
+   * Sin intereses ni reajustes
+   * Permite operar con garantía parcial
+   * Categorías especiales protegidas
+   * Devolución del monto exacto recibido
+   * *Por qué es importante:* Control total con respaldo para auditorías.
+   * *Cómo funciona:* Vincula transacciones categorizadas con contratos.
+
+* **Dashboard Operacional:**
+   * *Qué hace:* Vista consolidada con información clave.
+   * Estados de pago del mes
+   * Alertas de garantías incompletas
+   * Indicadores de bloqueos WhatsApp
+   * Modo degradado si falla cache (funcionalidad básica)
+   * *Por qué es importante:* Centro de comando para operación diaria.
+   * *Cómo funciona:* Agregación con Redis, fallback HTML estático.
+
+* **Logs de Auditoría:**
+   * *Qué hace:* Registra todas las acciones significativas.
+   * Solo admin ve logs sensibles
+   * Incluye cambios en meses cerrados
+   * Transferencias de propiedades
+   * Resolución de conflictos
+   * *Por qué es importante:* Cumplimiento y resolución de disputas.
+   * *Cómo funciona:* Registro automático con estructura JSON unificada.
+
+# User Experience
+
+* **User Personas:**
+   * `Administrador`: Acceso total, gestiona todo, único que puede crear ajustes, asignar a meses cerrados, resolver conflictos, ver credenciales.
+   * `Contadora`: Solo lectura de información fiscal/contable. NO ve credenciales. Puede exportar todo lo contable.
+   * `Socio`: Solo lectura de sus participaciones (~15 usuarios).
+
+* **Key User Flows:**
+   * *Configuración Inicial:* Setup → Credenciales → Reglas negocio
+   * *Operación Mensual:* 
+       * Día 1 02:01: Cálculo automático
+       * Hora configurada: Notificaciones
+       * Todo el mes: Conciliación diaria
+       * Fin de mes: Cierre → Transferencias
+   * *Gestión Deudas:* Vista unificada → Score transparente → Repactación total
+   * *Terminación Contrato:* Proceso completo con checklist y gestión garantía
+
+* **UI/UX Considerations:**
+   * Español de Chile (dd/mm/aaaa, $ con puntos)
+   * Teléfonos formato internacional obligatorio
+   * Validaciones en tiempo real
+   * Valores sugeridos (no plantillas)
+   * AI asistiendo en decisiones complejas
+   * Mensajes error comprensibles
+   * Zona horaria: America/Santiago
+</context>
+<PRD>
+# Technical Architecture
+
+* **System Components:**
+   * Backend: Django + Django REST Framework (monolito bien estructurado)
+   * Frontend: React + Vite
+   * Database: PostgreSQL con índices optimizados
+   * Cache: Redis con modo degradado operativo
+   * File Storage: S3 o Google Cloud Storage
+   * AI Service: Para análisis de pagos (OpenAI API o similar)
+   * API Gateway: Nginx reverse proxy
+
+* **Data Models Principales:**
+   * Entidades base: `Socio`, `Empresa`, `Propiedad`, `Arrendatario`
+   * Financieros: `Contrato`, `PeriodoContractual`, `AjusteContrato`, `PagoMensual`
+   * Movimientos: `IngresoDesconocido`, `IngresoManual`, `GastoManual`
+   * Gestión: `AvisoTermino`, `HistorialGarantia`, `RepactacionDeuda`
+   * Sistema: `CategoriaMovimiento` (protegidas + personalizadas), `ValorUF`
+   * Documentos: `ContratoDocumento`, `GastoDocumento`, `IngresoDocumento`
+   * AI: `AnalisisIA`, `PatronPago`, `SugerenciaAsignacion`
+
+* **APIs and Integrations:**
+   * Banco de Chile API (principal) + scraping respaldo
+   * SendGrid/Mailgun (Email)
+   * Twilio (WhatsApp Business)
+   * APIs UF múltiples con fallback
+   * AI Service para análisis predictivo
+   * SII (facturación - Fase 2)
+
+* **Infrastructure Requirements:**
+   * Simplicidad para <999 propiedades por cuenta
+   * Sin Celery (eliminado por límite natural)
+   * PostgreSQL single instance con backups
+   * Redis para cache (con degradación graceful)
+   * Storage cloud para documentos
+
+# Development Roadmap
+
+## Fase 1: MVP - Core Operations (3-4 meses)
+
+**Incluye:**
+* Gestión completa de entidades con validaciones
+* Contratos día 1 estrictos con renovación automática
+* Cálculo resiliente con código propiedad
+* Notificaciones Email + WhatsApp configurables
+* Conciliación API/scraping con sugerencias básicas
+* Gestión garantías y deudas
+* Dashboard con modo degradado
+* Categorías protegidas + personalizadas
+* Terminación anticipada completa
+* Valores sugeridos en formularios
+* Score transparente (X de Y)
+* Detección bloqueos WhatsApp
+
+## Fase 2: Inteligencia y Automatización (2-3 meses)
+
+**Agrega:**
+* AI completa para análisis de pagos
+* Patrones de comportamiento por pagador
+* Sugerencias predictivas avanzadas
+* Facturación electrónica SII
+* Reportes analíticos con AI
+* Optimizaciones de performance
+
+## Fase 3: Acceso Extendido (2 meses)
+
+**Agrega:**
+* Portal Socios (solo lectura)
+* Distribución automática utilidades
+* App móvil para notificaciones
+* Integraciones adicionales
+* Análisis predictivo de morosidad
+
+# Logical Dependency Chain
+
+1. **Foundation (Semana 1-4):**
+   - Modelos de datos core
+   - Autenticación y permisos
+   - CRUD básico entidades
+
+2. **Financial Core (Semana 5-8):**
+   - Contratos y períodos
+   - Cálculo de rentas
+   - Sistema de ajustes
+
+3. **Automation Layer (Semana 9-12):**
+   - Conciliación bancaria
+   - Notificaciones
+   - Procesos programados
+
+4. **Intelligence Layer (Semana 13-16):**
+   - Análisis básico AI
+   - Dashboard
+   - Reportes
+
+# Risks and Mitigations
+
+* **APIs bancarias inestables:** Scraping autorizado como respaldo inmediato
+* **Bloqueos WhatsApp:** Detección inteligente + email garantizado
+* **Complejidad UI:** Valores sugeridos en vez de plantillas
+* **Performance:** Límite natural 999 + cache con degradación
+* **Adopción usuarios:** AI asistiendo decisiones complejas
+* **Cambios normativos:** Arquitectura modular para adaptación
+
+# Appendix
+
+* **Límites del Sistema:**
+   * 999 propiedades máximo por cuenta bancaria
+   * Contratos solo inician día 1
+   * Monto mínimo $1,000 absoluto
+   * Sin pagos parciales automáticos
+
+* **Reglas de Negocio Fijas:**
+   * Código propiedad: reemplaza últimos 3 dígitos
+   * Valor UF: máximo histórico para retroactivos
+   * Repactación: siempre del total
+   * Garantías: sin intereses ni ajustes
+   * Score: muestra contexto (X de Y meses)
+
+* **Decisiones de Diseño:**
+   * Conciliación diaria sin excepciones
+   * Transferencia directa al disolver empresas
+   * AI sugiere, humano decide
+   * Categorías sistema protegidas
+   * Notificaciones sin opt-out pero inteligentes
+</PRD>

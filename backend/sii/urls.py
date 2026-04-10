@@ -1,0 +1,39 @@
+from django.urls import path
+
+from .views import (
+    AnnualGenerateView,
+    CapacidadTributariaSIIDetailView,
+    CapacidadTributariaSIIListCreateView,
+    DDJJPreparacionAnualListView,
+    DDJJStatusUpdateView,
+    DTEEmitidoDetailView,
+    DTEEmitidoListView,
+    DTEGenerateView,
+    DTEStatusUpdateView,
+    F22PreparacionAnualListView,
+    F22StatusUpdateView,
+    F29GenerateView,
+    F29PreparacionDetailView,
+    F29PreparacionListView,
+    F29StatusUpdateView,
+    ProcesoRentaAnualListView,
+)
+
+urlpatterns = [
+    path('capacidades/', CapacidadTributariaSIIListCreateView.as_view(), name='sii-capacidad-list'),
+    path('capacidades/<int:pk>/', CapacidadTributariaSIIDetailView.as_view(), name='sii-capacidad-detail'),
+    path('dtes/', DTEEmitidoListView.as_view(), name='sii-dte-list'),
+    path('dtes/<int:pk>/', DTEEmitidoDetailView.as_view(), name='sii-dte-detail'),
+    path('dtes/generar/', DTEGenerateView.as_view(), name='sii-dte-generate'),
+    path('dtes/<int:pk>/estado/', DTEStatusUpdateView.as_view(), name='sii-dte-status'),
+    path('f29/', F29PreparacionListView.as_view(), name='sii-f29-list'),
+    path('f29/<int:pk>/', F29PreparacionDetailView.as_view(), name='sii-f29-detail'),
+    path('f29/generar/', F29GenerateView.as_view(), name='sii-f29-generate'),
+    path('f29/<int:pk>/estado/', F29StatusUpdateView.as_view(), name='sii-f29-status'),
+    path('anual/', ProcesoRentaAnualListView.as_view(), name='sii-anual-list'),
+    path('anual/generar/', AnnualGenerateView.as_view(), name='sii-anual-generate'),
+    path('anual/ddjj/', DDJJPreparacionAnualListView.as_view(), name='sii-ddjj-list'),
+    path('anual/ddjj/<int:pk>/estado/', DDJJStatusUpdateView.as_view(), name='sii-ddjj-status'),
+    path('anual/f22/', F22PreparacionAnualListView.as_view(), name='sii-f22-list'),
+    path('anual/f22/<int:pk>/estado/', F22StatusUpdateView.as_view(), name='sii-f22-status'),
+]
