@@ -406,6 +406,16 @@ type ViewKey =
   | 'sii'
   | 'reporting'
 
+type SectionKey =
+  | 'patrimonio'
+  | 'operacion'
+  | 'contratos'
+  | 'cobranza'
+  | 'conciliacion'
+  | 'contabilidad'
+  | 'sii'
+  | 'reporting'
+
 type CapacidadSii = {
   id: number
   empresa: number
@@ -611,6 +621,15 @@ function effectiveCodeFromPropertyCode(value: string) {
 function stamp(value: string | null) {
   if (!value) return 'Sin refresco reciente'
   return new Intl.DateTimeFormat('es-CL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+}
+
+function canonicalRole(roleCode: string | null | undefined) {
+  const normalized = String(roleCode || '').trim().toLowerCase()
+  if (normalized === 'administradorglobal') return 'AdministradorGlobal'
+  if (normalized === 'operadordecartera' || normalized === 'operator') return 'OperadorDeCartera'
+  if (normalized === 'socio') return 'Socio'
+  if (normalized === 'revisorfiscalexterno') return 'RevisorFiscalExterno'
+  return roleCode || 'SinRol'
 }
 
 function Badge({ label, tone = 'neutral' }: { label: string; tone?: Tone }) {
@@ -969,6 +988,35 @@ function App() {
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
 
+  const effectiveRole = canonicalRole(currentUser?.default_role_code)
+  const activeAssignments = currentUser?.assignments || []
+
+  function canAccessView(view: ViewKey) {
+    if (effectiveRole === 'AdministradorGlobal') return true
+    if (effectiveRole === 'OperadorDeCartera') return true
+    if (effectiveRole === 'Socio') return view === 'overview' || view === 'reporting'
+    if (effectiveRole === 'RevisorFiscalExterno') {
+      return ['overview', 'contabilidad', 'sii', 'reporting'].includes(view)
+    }
+    return view === 'overview'
+  }
+
+  function canMutateSection(section: SectionKey) {
+    if (effectiveRole === 'AdministradorGlobal') return true
+    if (effectiveRole === 'OperadorDeCartera') {
+      return ['patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion'].includes(section)
+    }
+    return false
+  }
+
+  const canEditPatrimonio = canMutateSection('patrimonio')
+  const canEditOperacion = canMutateSection('operacion')
+  const canEditContratos = canMutateSection('contratos')
+  const canEditCobranza = canMutateSection('cobranza')
+  const canEditConciliacion = canMutateSection('conciliacion')
+  const canEditContabilidad = canMutateSection('contabilidad')
+  const canEditSii = canMutateSection('sii')
+
   async function loadHealth() {
     try {
       setHealth(await apiRequest<HealthPayload>('/api/v1/health/'))
@@ -1124,6 +1172,13 @@ function App() {
     void loadWorkspace(token)
   }, [token])
 
+  useEffect(() => {
+    if (!canAccessView(activeView)) {
+      setActiveView('overview')
+      setActiveContextLabel(null)
+    }
+  }, [activeView, effectiveRole])
+
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setIsLoggingIn(true)
@@ -1198,7 +1253,12 @@ function App() {
     method: 'POST' | 'PATCH',
     body: unknown,
     successMessage: string,
+    section?: SectionKey,
   ) {
+    if (section && !canMutateSection(section)) {
+      setFormError('Tu rol actual no tiene permisos para modificar esta sección.')
+      return false
+    }
     if (!token) return
     setIsSubmitting(true)
     setFormMessage(null)
@@ -1222,6 +1282,7 @@ function App() {
 
   async function handleCreateSocio(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditPatrimonio) return
     const isEdit = editingSocioId != null
     const ok = await submitMutation(
       isEdit ? `/api/v1/patrimonio/socios/${editingSocioId}/` : '/api/v1/patrimonio/socios/',
@@ -1237,6 +1298,7 @@ function App() {
 
   async function handleCreatePropiedad(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditPatrimonio) return
     const isEdit = editingPropiedadId != null
     const ok = await submitMutation(
       isEdit ? `/api/v1/patrimonio/propiedades/${editingPropiedadId}/` : '/api/v1/patrimonio/propiedades/',
@@ -1265,6 +1327,7 @@ function App() {
 
   async function handleCreateCuenta(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditOperacion) return
     const isEdit = editingCuentaId != null
     const ok = await submitMutation(
       isEdit
@@ -1295,6 +1358,7 @@ function App() {
 
   async function handleCreateMandato(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditOperacion) return
     const isEdit = editingMandatoId != null
     const ok = await submitMutation(
       isEdit ? `/api/v1/operacion/mandatos/${editingMandatoId}/` : '/api/v1/operacion/mandatos/',
@@ -1336,6 +1400,7 @@ function App() {
 
   async function handleCreateArrendatario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditContratos) return
     const isEdit = editingArrendatarioId != null
     const ok = await submitMutation(
       isEdit ? `/api/v1/contratos/arrendatarios/${editingArrendatarioId}/` : '/api/v1/contratos/arrendatarios/',
@@ -1360,6 +1425,7 @@ function App() {
 
   async function handleCreateContrato(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditContratos) return
     const selectedMandate = mandatos.find((item) => item.id === Number(contratoDraft.mandato_operacion))
     if (!selectedMandate) {
       setFormError('Debes seleccionar un mandato operativo válido.')
@@ -1637,6 +1703,7 @@ function App() {
 
   async function handleCreateAviso(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditContratos) return
     const ok = await submitCreate('/api/v1/contratos/avisos-termino/', {
       contrato: Number(avisoDraft.contrato),
       fecha_efectiva: avisoDraft.fecha_efectiva,
@@ -1655,6 +1722,7 @@ function App() {
 
   async function handleCreateUf(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditCobranza) return
     const ok = await submitCreate('/api/v1/cobranza/valores-uf/', ufDraft, 'Valor UF creado correctamente.')
     if (ok) {
       setUfDraft({ fecha: todayIso(), valor: '', source_key: 'manual' })
@@ -1663,6 +1731,7 @@ function App() {
 
   async function handleCreateAjuste(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditCobranza) return
     const ok = await submitCreate('/api/v1/cobranza/ajustes-contrato/', {
       ...ajusteDraft,
       contrato: Number(ajusteDraft.contrato),
@@ -1683,6 +1752,7 @@ function App() {
 
   async function handleGeneratePago(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditCobranza) return
     const ok = await submitCreate('/api/v1/cobranza/pagos-mensuales/generar/', {
       contrato_id: Number(pagoDraft.contrato_id),
       anio: Number(pagoDraft.anio),
@@ -1695,6 +1765,7 @@ function App() {
 
   async function handleCreateGarantia(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditCobranza) return
     const ok = await submitCreate('/api/v1/cobranza/garantias/', {
       contrato: Number(garantiaDraft.contrato),
       monto_pactado: garantiaDraft.monto_pactado,
@@ -1706,6 +1777,7 @@ function App() {
 
   async function handleGarantiaMovimiento(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditCobranza) return
     if (!garantiaMovimientoDraft.garantiaId) {
       setFormError('Debes seleccionar una garantía válida.')
       return
@@ -1729,6 +1801,7 @@ function App() {
 
   async function handleRebuildEstadoCuenta(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditCobranza) return
     const ok = await submitCreate('/api/v1/cobranza/estados-cuenta/recalcular/', {
       arrendatario_id: Number(estadoCuentaDraft.arrendatario_id),
     }, 'Estado de cuenta recalculado correctamente.')
@@ -1739,6 +1812,7 @@ function App() {
 
   async function handleCreateConexion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditConciliacion) return
     const ok = await submitCreate('/api/v1/conciliacion/conexiones-bancarias/', {
       ...conexionDraft,
       cuenta_recaudadora: Number(conexionDraft.cuenta_recaudadora),
@@ -1761,6 +1835,7 @@ function App() {
 
   async function handleCreateMovimiento(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditConciliacion) return
     const ok = await submitCreate('/api/v1/conciliacion/movimientos/', {
       ...movimientoDraft,
       conexion_bancaria: Number(movimientoDraft.conexion_bancaria),
@@ -1783,6 +1858,7 @@ function App() {
   }
 
   async function handleRetryMatch(movimientoId: number) {
+    if (!canEditConciliacion) return
     if (!token) return
     setIsSubmitting(true)
     setFormMessage(null)
@@ -1804,6 +1880,7 @@ function App() {
 
   async function handleCreateConfigFiscal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditContabilidad) return
     const ok = await submitCreate('/api/v1/contabilidad/configuraciones-fiscales/', {
       empresa: Number(configFiscalDraft.empresa),
       regimen_tributario: Number(configFiscalDraft.regimen_tributario),
@@ -1831,6 +1908,7 @@ function App() {
 
   async function handleCreateCuentaContable(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditContabilidad) return
     const ok = await submitCreate('/api/v1/contabilidad/cuentas-contables/', {
       empresa: Number(cuentaContableDraft.empresa),
       plan_cuentas_version: cuentaContableDraft.plan_cuentas_version,
@@ -1859,6 +1937,7 @@ function App() {
 
   async function handleCreateReglaContable(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditContabilidad) return
     const ok = await submitCreate('/api/v1/contabilidad/reglas-contables/', {
       empresa: Number(reglaContableDraft.empresa),
       evento_tipo: reglaContableDraft.evento_tipo,
@@ -1885,6 +1964,7 @@ function App() {
 
   async function handleCreateMatriz(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditContabilidad) return
     const ok = await submitCreate('/api/v1/contabilidad/matriz-reglas/', {
       regla_contable: Number(matrizDraft.regla_contable),
       cuenta_debe: Number(matrizDraft.cuenta_debe),
@@ -1905,6 +1985,7 @@ function App() {
 
   async function handleCreateEventoContable(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditContabilidad) return
     let payloadResumen: Record<string, unknown> = {}
     try {
       payloadResumen = JSON.parse(eventoContableDraft.payload_resumen || '{}')
@@ -1940,6 +2021,7 @@ function App() {
 
   async function handlePrepareCierre(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditContabilidad) return
     const ok = await submitCreate('/api/v1/contabilidad/cierres-mensuales/preparar/', {
       empresa_id: Number(cierreDraft.empresa_id),
       anio: Number(cierreDraft.anio),
@@ -1951,6 +2033,7 @@ function App() {
   }
 
   async function handleAccountingAction(path: string, successMessage: string) {
+    if (!canEditContabilidad) return
     if (!token) return
     setIsSubmitting(true)
     setFormMessage(null)
@@ -1968,6 +2051,7 @@ function App() {
 
   async function handleCreateCapacidadSii(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditSii) return
     const ok = await submitCreate('/api/v1/sii/capacidades/', {
       empresa: Number(capacidadSiiDraft.empresa),
       capacidad_key: capacidadSiiDraft.capacidad_key,
@@ -1989,6 +2073,7 @@ function App() {
 
   async function handleGenerateDte(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditSii) return
     const ok = await submitCreate('/api/v1/sii/dtes/generar/', {
       pago_mensual_id: Number(dteDraft.pago_mensual_id),
       tipo_dte: dteDraft.tipo_dte,
@@ -2000,6 +2085,7 @@ function App() {
 
   async function handleGenerateF29(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditSii) return
     const ok = await submitCreate('/api/v1/sii/f29/generar/', {
       empresa_id: Number(f29Draft.empresa_id),
       anio: Number(f29Draft.anio),
@@ -2012,6 +2098,7 @@ function App() {
 
   async function handleGenerateAnnual(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEditSii) return
     const ok = await submitCreate('/api/v1/sii/anual/generar/', {
       empresa_id: Number(annualDraft.empresa_id),
       anio_tributario: Number(annualDraft.anio_tributario),
@@ -2022,6 +2109,7 @@ function App() {
   }
 
   async function handleSiiStatusUpdate(path: string, body: Record<string, unknown>, successMessage: string) {
+    if (!canEditSii) return
     if (!token) return
     setIsSubmitting(true)
     setFormMessage(null)
@@ -2562,6 +2650,18 @@ function App() {
           <p className="header-copy">
             {currentUser ? `${currentUser.display_name || currentUser.username} · ${currentUser.default_role_code}` : 'Cargando sesión...'}
           </p>
+          {currentUser ? (
+            <div className="scope-strip">
+              <Badge label={effectiveRole} tone="neutral" />
+              {activeAssignments.map((assignment, index) => (
+                <Badge
+                  key={`${assignment.role}-${assignment.scope || 'global'}-${index}`}
+                  label={assignment.scope ? `${assignment.role} · ${assignment.scope}` : assignment.role}
+                  tone={assignment.is_primary ? 'positive' : 'neutral'}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="header-actions">
           <span className="refresh-label">{stamp(lastLoadedAt)}</span>
@@ -2575,7 +2675,9 @@ function App() {
       </header>
 
       <section className="tab-strip">
-        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'contabilidad', 'sii', 'reporting'] as ViewKey[]).map((view) => (
+        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'contabilidad', 'sii', 'reporting'] as ViewKey[])
+          .filter((view) => canAccessView(view))
+          .map((view) => (
           <button
             key={view}
             type="button"
@@ -2737,6 +2839,7 @@ function App() {
 
       {activeView === 'patrimonio' ? (
         <>
+          {!canEditPatrimonio ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Patrimonio.</div> : null}
           <section className="form-grid">
             <section className="panel">
               <div className="section-heading"><div><h2>{editingSocioId ? 'Editar socio' : 'Alta rápida de socio'}</h2><p>Ingreso mínimo para participantes activos.</p></div></div>
@@ -2859,6 +2962,7 @@ function App() {
 
       {activeView === 'operacion' ? (
         <>
+          {!canEditOperacion ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Operación.</div> : null}
           <section className="form-grid">
             <section className="panel">
               <div className="section-heading"><div><h2>{editingCuentaId ? 'Editar cuenta' : 'Alta rápida de cuenta'}</h2><p>Cuenta recaudadora con owner bancario explícito.</p></div></div>
@@ -3020,6 +3124,7 @@ function App() {
 
       {activeView === 'contratos' ? (
         <>
+          {!canEditContratos ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Contratos.</div> : null}
           <section className="form-grid">
             <section className="panel">
               <div className="section-heading"><div><h2>{editingArrendatarioId ? 'Editar arrendatario' : 'Alta rápida de arrendatario'}</h2><p>Base mínima para contratar sobre mandatos ya activos.</p></div></div>
@@ -3159,6 +3264,7 @@ function App() {
 
       {activeView === 'cobranza' ? (
         <>
+          {!canEditCobranza ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Cobranza.</div> : null}
           <section className="form-grid">
             <section className="panel">
               <div className="section-heading"><div><h2>Valor UF</h2><p>Registro diario mínimo para contratos en UF.</p></div></div>
@@ -3319,6 +3425,7 @@ function App() {
 
       {activeView === 'conciliacion' ? (
         <>
+          {!canEditConciliacion ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Conciliación.</div> : null}
           <section className="form-grid">
             <section className="panel">
               <div className="section-heading"><div><h2>Conexión bancaria</h2><p>Conecta una cuenta recaudadora al provider operativo.</p></div></div>
@@ -3410,6 +3517,7 @@ function App() {
 
       {activeView === 'contabilidad' ? (
         <>
+          {!canEditContabilidad ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Contabilidad.</div> : null}
           <section className="form-grid">
             <section className="panel">
               <div className="section-heading"><div><h2>Configuración fiscal</h2><p>Prerequisito para contabilización y cierre mensual oficial.</p></div></div>
@@ -3674,6 +3782,7 @@ function App() {
 
       {activeView === 'sii' ? (
         <>
+          {!canEditSii ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en SII.</div> : null}
           <section className="form-grid">
             <section className="panel">
               <div className="section-heading"><div><h2>Capacidad SII</h2><p>Gate operativo por empresa y capacidad tributaria.</p></div></div>
