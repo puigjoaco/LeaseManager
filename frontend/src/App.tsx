@@ -24,6 +24,7 @@ type LoginResponse = { token: string; user: CurrentUser }
 type Dashboard = {
   propiedades_activas: number
   contratos_vigentes: number
+  contratos_futuros: number
   pagos_pendientes: number
   pagos_atrasados: number
   resoluciones_manuales_abiertas: number
@@ -38,6 +39,17 @@ type ManualSummary = {
 
 type Socio = { id: number; nombre: string; rut: string; email: string; telefono: string; activo: boolean }
 type Empresa = { id: number; razon_social: string; rut: string; estado: string; participaciones_detail: unknown[] }
+type Arrendatario = {
+  id: number
+  tipo_arrendatario: string
+  nombre_razon_social: string
+  rut: string
+  email: string
+  telefono: string
+  domicilio_notificaciones: string
+  estado_contacto: string
+  whatsapp_bloqueado: boolean
+}
 type Comunidad = {
   id: number
   nombre: string
@@ -75,6 +87,7 @@ type Identidad = {
 }
 type Mandato = {
   id: number
+  propiedad_id: number
   propiedad_codigo: string
   propietario_display: string
   administrador_operativo_display: string
@@ -85,7 +98,42 @@ type Mandato = {
   estado: string
 }
 
-type ViewKey = 'overview' | 'patrimonio' | 'operacion'
+type Contrato = {
+  id: number
+  codigo_contrato: string
+  mandato_operacion: number
+  arrendatario: number
+  fecha_inicio: string
+  fecha_fin_vigente: string
+  fecha_entrega: string | null
+  dia_pago_mensual: number
+  plazo_notificacion_termino_dias: number
+  dias_prealerta_admin: number
+  estado: string
+  contrato_propiedades_detail: Array<{
+    propiedad: number
+    propiedad_codigo: string
+    propiedad_direccion: string
+    rol_en_contrato: string
+  }>
+  periodos_contractuales_detail: Array<{
+    numero_periodo: number
+    fecha_inicio: string
+    fecha_fin: string
+    monto_base: string
+    moneda_base: string
+  }>
+}
+
+type AvisoTermino = {
+  id: number
+  contrato: number
+  fecha_efectiva: string
+  causal: string
+  estado: string
+}
+
+type ViewKey = 'overview' | 'patrimonio' | 'operacion' | 'contratos'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type Column<T> = { label: string; render: (row: T) => ReactNode }
 
@@ -151,6 +199,12 @@ function count(value: number | undefined) {
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function effectiveCodeFromPropertyCode(value: string) {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+  return digits.slice(-3).padStart(3, '0')
 }
 
 function stamp(value: string | null) {
@@ -225,11 +279,14 @@ function App() {
   const [manualSummary, setManualSummary] = useState<ManualSummary | null>(null)
   const [socios, setSocios] = useState<Socio[]>([])
   const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [arrendatarios, setArrendatarios] = useState<Arrendatario[]>([])
   const [comunidades, setComunidades] = useState<Comunidad[]>([])
   const [propiedades, setPropiedades] = useState<Propiedad[]>([])
   const [cuentas, setCuentas] = useState<Cuenta[]>([])
   const [identidades, setIdentidades] = useState<Identidad[]>([])
   const [mandatos, setMandatos] = useState<Mandato[]>([])
+  const [contratos, setContratos] = useState<Contrato[]>([])
+  const [avisos, setAvisos] = useState<AvisoTermino[]>([])
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -290,6 +347,40 @@ function App() {
     vigencia_hasta: '',
     estado: 'activa',
   })
+  const [arrendatarioDraft, setArrendatarioDraft] = useState({
+    tipo_arrendatario: 'persona_natural',
+    nombre_razon_social: '',
+    rut: '',
+    email: '',
+    telefono: '',
+    domicilio_notificaciones: '',
+    estado_contacto: 'activo',
+    whatsapp_bloqueado: false,
+  })
+  const [contratoDraft, setContratoDraft] = useState({
+    codigo_contrato: '',
+    mandato_operacion: '',
+    arrendatario: '',
+    fecha_inicio: todayIso(),
+    fecha_fin_vigente: todayIso(),
+    fecha_entrega: todayIso(),
+    dia_pago_mensual: '5',
+    plazo_notificacion_termino_dias: '60',
+    dias_prealerta_admin: '90',
+    estado: 'vigente',
+    tiene_tramos: false,
+    tiene_gastos_comunes: false,
+    monto_base: '',
+    moneda_base: 'CLP',
+    tipo_periodo: 'base',
+    origen_periodo: 'backoffice',
+  })
+  const [avisoDraft, setAvisoDraft] = useState({
+    contrato: '',
+    fecha_efectiva: todayIso(),
+    causal: '',
+    estado: 'registrado',
+  })
 
   async function loadHealth() {
     try {
@@ -309,11 +400,14 @@ function App() {
         manualPayload,
         sociosPayload,
         empresasPayload,
+        arrendatariosPayload,
         comunidadesPayload,
         propiedadesPayload,
         cuentasPayload,
         identidadesPayload,
         mandatosPayload,
+        contratosPayload,
+        avisosPayload,
       ] = await Promise.all([
         apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken }),
         apiRequest<Dashboard>('/api/v1/reporting/dashboard/operativo/', { token: activeToken }),
@@ -322,22 +416,28 @@ function App() {
         }),
         apiRequest<Socio[]>('/api/v1/patrimonio/socios/', { token: activeToken }),
         apiRequest<Empresa[]>('/api/v1/patrimonio/empresas/', { token: activeToken }),
+        apiRequest<Arrendatario[]>('/api/v1/contratos/arrendatarios/', { token: activeToken }),
         apiRequest<Comunidad[]>('/api/v1/patrimonio/comunidades/', { token: activeToken }),
         apiRequest<Propiedad[]>('/api/v1/patrimonio/propiedades/', { token: activeToken }),
         apiRequest<Cuenta[]>('/api/v1/operacion/cuentas-recaudadoras/', { token: activeToken }),
         apiRequest<Identidad[]>('/api/v1/operacion/identidades-envio/', { token: activeToken }),
         apiRequest<Mandato[]>('/api/v1/operacion/mandatos/', { token: activeToken }),
+        apiRequest<Contrato[]>('/api/v1/contratos/contratos/', { token: activeToken }),
+        apiRequest<AvisoTermino[]>('/api/v1/contratos/avisos-termino/', { token: activeToken }),
       ])
       setCurrentUser(me)
       setDashboard(dashboardPayload)
       setManualSummary(manualPayload)
       setSocios(sociosPayload)
       setEmpresas(empresasPayload)
+      setArrendatarios(arrendatariosPayload)
       setComunidades(comunidadesPayload)
       setPropiedades(propiedadesPayload)
       setCuentas(cuentasPayload)
       setIdentidades(identidadesPayload)
       setMandatos(mandatosPayload)
+      setContratos(contratosPayload)
+      setAvisos(avisosPayload)
       setLastLoadedAt(new Date().toISOString())
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -400,11 +500,14 @@ function App() {
     setManualSummary(null)
     setSocios([])
     setEmpresas([])
+    setArrendatarios([])
     setComunidades([])
     setPropiedades([])
     setCuentas([])
     setIdentidades([])
     setMandatos([])
+    setContratos([])
+    setAvisos([])
   }
 
   async function submitCreate(path: string, body: unknown, successMessage: string) {
@@ -416,8 +519,10 @@ function App() {
       await apiRequest(path, { method: 'POST', token, body })
       await loadWorkspace(token)
       setFormMessage(successMessage)
+      return true
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'No se pudo guardar el registro.')
+      return false
     } finally {
       setIsSubmitting(false)
     }
@@ -425,51 +530,55 @@ function App() {
 
   async function handleCreateSocio(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    await submitCreate('/api/v1/patrimonio/socios/', socioDraft, 'Socio creado correctamente.')
-    setSocioDraft({ nombre: '', rut: '', email: '', telefono: '', domicilio: '', activo: true })
+    const ok = await submitCreate('/api/v1/patrimonio/socios/', socioDraft, 'Socio creado correctamente.')
+    if (ok) setSocioDraft({ nombre: '', rut: '', email: '', telefono: '', domicilio: '', activo: true })
   }
 
   async function handleCreatePropiedad(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    await submitCreate('/api/v1/patrimonio/propiedades/', {
+    const ok = await submitCreate('/api/v1/patrimonio/propiedades/', {
       ...propiedadDraft,
       owner_id: Number(propiedadDraft.owner_id),
     }, 'Propiedad creada correctamente.')
-    setPropiedadDraft({
-      codigo_propiedad: '',
-      direccion: '',
-      comuna: 'Temuco',
-      region: 'La Araucania',
-      rol_avaluo: '',
-      tipo_inmueble: 'otro',
-      estado: 'borrador',
-      owner_tipo: 'empresa',
-      owner_id: '',
-    })
+    if (ok) {
+      setPropiedadDraft({
+        codigo_propiedad: '',
+        direccion: '',
+        comuna: 'Temuco',
+        region: 'La Araucania',
+        rol_avaluo: '',
+        tipo_inmueble: 'otro',
+        estado: 'borrador',
+        owner_tipo: 'empresa',
+        owner_id: '',
+      })
+    }
   }
 
   async function handleCreateCuenta(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    await submitCreate('/api/v1/operacion/cuentas-recaudadoras/', {
+    const ok = await submitCreate('/api/v1/operacion/cuentas-recaudadoras/', {
       ...cuentaDraft,
       owner_id: Number(cuentaDraft.owner_id),
     }, 'Cuenta recaudadora creada correctamente.')
-    setCuentaDraft({
-      institucion: 'Banco de Chile',
-      numero_cuenta: '',
-      tipo_cuenta: 'corriente',
-      titular_nombre: '',
-      titular_rut: '',
-      moneda_operativa: 'CLP',
-      estado_operativo: 'activa',
-      owner_tipo: 'empresa',
-      owner_id: '',
-    })
+    if (ok) {
+      setCuentaDraft({
+        institucion: 'Banco de Chile',
+        numero_cuenta: '',
+        tipo_cuenta: 'corriente',
+        titular_nombre: '',
+        titular_rut: '',
+        moneda_operativa: 'CLP',
+        estado_operativo: 'activa',
+        owner_tipo: 'empresa',
+        owner_id: '',
+      })
+    }
   }
 
   async function handleCreateMandato(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    await submitCreate('/api/v1/operacion/mandatos/', {
+    const ok = await submitCreate('/api/v1/operacion/mandatos/', {
       ...mandatoDraft,
       propiedad_id: Number(mandatoDraft.propiedad_id),
       propietario_id: Number(mandatoDraft.propietario_id),
@@ -479,24 +588,126 @@ function App() {
       cuenta_recaudadora_id: Number(mandatoDraft.cuenta_recaudadora_id),
       vigencia_hasta: mandatoDraft.vigencia_hasta || null,
     }, 'Mandato operativo creado correctamente.')
-    setMandatoDraft({
-      propiedad_id: '',
-      propietario_tipo: 'empresa',
-      propietario_id: '',
-      administrador_operativo_tipo: 'empresa',
-      administrador_operativo_id: '',
-      recaudador_tipo: 'empresa',
-      recaudador_id: '',
-      entidad_facturadora_id: '',
-      cuenta_recaudadora_id: '',
-      tipo_relacion_operativa: 'operacion_directa',
-      autoriza_recaudacion: true,
-      autoriza_facturacion: true,
-      autoriza_comunicacion: true,
-      vigencia_desde: todayIso(),
-      vigencia_hasta: '',
-      estado: 'activa',
-    })
+    if (ok) {
+      setMandatoDraft({
+        propiedad_id: '',
+        propietario_tipo: 'empresa',
+        propietario_id: '',
+        administrador_operativo_tipo: 'empresa',
+        administrador_operativo_id: '',
+        recaudador_tipo: 'empresa',
+        recaudador_id: '',
+        entidad_facturadora_id: '',
+        cuenta_recaudadora_id: '',
+        tipo_relacion_operativa: 'operacion_directa',
+        autoriza_recaudacion: true,
+        autoriza_facturacion: true,
+        autoriza_comunicacion: true,
+        vigencia_desde: todayIso(),
+        vigencia_hasta: '',
+        estado: 'activa',
+      })
+    }
+  }
+
+  async function handleCreateArrendatario(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/contratos/arrendatarios/', arrendatarioDraft, 'Arrendatario creado correctamente.')
+    if (ok) {
+      setArrendatarioDraft({
+        tipo_arrendatario: 'persona_natural',
+        nombre_razon_social: '',
+        rut: '',
+        email: '',
+        telefono: '',
+        domicilio_notificaciones: '',
+        estado_contacto: 'activo',
+        whatsapp_bloqueado: false,
+      })
+    }
+  }
+
+  async function handleCreateContrato(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const selectedMandate = mandatos.find((item) => item.id === Number(contratoDraft.mandato_operacion))
+    if (!selectedMandate) {
+      setFormError('Debes seleccionar un mandato operativo válido.')
+      return
+    }
+    const code = effectiveCodeFromPropertyCode(selectedMandate.propiedad_codigo)
+    const ok = await submitCreate('/api/v1/contratos/contratos/', {
+      codigo_contrato: contratoDraft.codigo_contrato,
+      mandato_operacion: Number(contratoDraft.mandato_operacion),
+      arrendatario: Number(contratoDraft.arrendatario),
+      fecha_inicio: contratoDraft.fecha_inicio,
+      fecha_fin_vigente: contratoDraft.fecha_fin_vigente,
+      fecha_entrega: contratoDraft.fecha_entrega || null,
+      dia_pago_mensual: Number(contratoDraft.dia_pago_mensual),
+      plazo_notificacion_termino_dias: Number(contratoDraft.plazo_notificacion_termino_dias),
+      dias_prealerta_admin: Number(contratoDraft.dias_prealerta_admin),
+      estado: contratoDraft.estado,
+      tiene_tramos: contratoDraft.tiene_tramos,
+      tiene_gastos_comunes: contratoDraft.tiene_gastos_comunes,
+      snapshot_representante_legal: { source: 'frontend_backoffice' },
+      contrato_propiedades: [
+        {
+          propiedad_id: selectedMandate.propiedad_id,
+          rol_en_contrato: 'principal',
+          porcentaje_distribucion_interna: '100.00',
+          codigo_conciliacion_efectivo_snapshot: code,
+        },
+      ],
+      periodos_contractuales: [
+        {
+          numero_periodo: 1,
+          fecha_inicio: contratoDraft.fecha_inicio,
+          fecha_fin: contratoDraft.fecha_fin_vigente,
+          monto_base: contratoDraft.monto_base,
+          moneda_base: contratoDraft.moneda_base,
+          tipo_periodo: contratoDraft.tipo_periodo,
+          origen_periodo: contratoDraft.origen_periodo,
+        },
+      ],
+      codeudores_solidarios: [],
+    }, 'Contrato creado correctamente.')
+    if (ok) {
+      setContratoDraft({
+        codigo_contrato: '',
+        mandato_operacion: '',
+        arrendatario: '',
+        fecha_inicio: todayIso(),
+        fecha_fin_vigente: todayIso(),
+        fecha_entrega: todayIso(),
+        dia_pago_mensual: '5',
+        plazo_notificacion_termino_dias: '60',
+        dias_prealerta_admin: '90',
+        estado: 'vigente',
+        tiene_tramos: false,
+        tiene_gastos_comunes: false,
+        monto_base: '',
+        moneda_base: 'CLP',
+        tipo_periodo: 'base',
+        origen_periodo: 'backoffice',
+      })
+    }
+  }
+
+  async function handleCreateAviso(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/contratos/avisos-termino/', {
+      contrato: Number(avisoDraft.contrato),
+      fecha_efectiva: avisoDraft.fecha_efectiva,
+      causal: avisoDraft.causal,
+      estado: avisoDraft.estado,
+    }, 'Aviso de término creado correctamente.')
+    if (ok) {
+      setAvisoDraft({
+        contrato: '',
+        fecha_efectiva: todayIso(),
+        causal: '',
+        estado: 'registrado',
+      })
+    }
   }
 
   const normalizedSearch = searchText.trim().toLowerCase()
@@ -571,6 +782,39 @@ function App() {
       ),
     [mandatos, normalizedSearch],
   )
+  const filteredArrendatarios = useMemo(
+    () =>
+      arrendatarios.filter((item) =>
+        matches(normalizedSearch, [
+          item.nombre_razon_social,
+          item.rut,
+          item.email,
+          item.telefono,
+          item.estado_contacto,
+        ]),
+      ),
+    [arrendatarios, normalizedSearch],
+  )
+  const filteredContratos = useMemo(
+    () =>
+      contratos.filter((item) =>
+        matches(normalizedSearch, [
+          item.codigo_contrato,
+          item.estado,
+          item.fecha_inicio,
+          item.fecha_fin_vigente,
+          item.contrato_propiedades_detail.map((detail) => `${detail.propiedad_codigo} ${detail.propiedad_direccion}`).join(' '),
+        ]),
+      ),
+    [contratos, normalizedSearch],
+  )
+  const filteredAvisos = useMemo(
+    () =>
+      avisos.filter((item) =>
+        matches(normalizedSearch, [item.causal, item.estado, item.fecha_efectiva, item.contrato]),
+      ),
+    [avisos, normalizedSearch],
+  )
   const patrimonioOwners = useMemo(
     () => [
       ...empresas.map((item) => ({ tipo: 'empresa', id: item.id, label: item.razon_social })),
@@ -586,6 +830,9 @@ function App() {
     ],
     [empresas, socios],
   )
+  const arrendatarioById = useMemo(() => new Map(arrendatarios.map((item) => [item.id, item])), [arrendatarios])
+  const mandatoById = useMemo(() => new Map(mandatos.map((item) => [item.id, item])), [mandatos])
+  const contratoById = useMemo(() => new Map(contratos.map((item) => [item.id, item])), [contratos])
 
   if (!token) {
     return (
@@ -655,14 +902,20 @@ function App() {
       </header>
 
       <section className="tab-strip">
-        {(['overview', 'patrimonio', 'operacion'] as ViewKey[]).map((view) => (
+        {(['overview', 'patrimonio', 'operacion', 'contratos'] as ViewKey[]).map((view) => (
           <button
             key={view}
             type="button"
             className={activeView === view ? 'tab-button is-active' : 'tab-button'}
             onClick={() => setActiveView(view)}
           >
-            {view === 'overview' ? 'Resumen' : view === 'patrimonio' ? 'Patrimonio' : 'Operación'}
+            {view === 'overview'
+              ? 'Resumen'
+              : view === 'patrimonio'
+                ? 'Patrimonio'
+                : view === 'operacion'
+                  ? 'Operación'
+                  : 'Contratos'}
           </button>
         ))}
       </section>
@@ -723,15 +976,29 @@ function App() {
       {activeView !== 'overview' ? (
         <section className="section-toolbar">
           <div>
-            <p className="section-tag">{activeView === 'patrimonio' ? 'Patrimonio' : 'Operación'}</p>
-            <h2>{activeView === 'patrimonio' ? 'Owners, comunidades y propiedades' : 'Cuentas, identidades y mandatos'}</h2>
+            <p className="section-tag">
+              {activeView === 'patrimonio' ? 'Patrimonio' : activeView === 'operacion' ? 'Operación' : 'Contratos'}
+            </p>
+            <h2>
+              {activeView === 'patrimonio'
+                ? 'Owners, comunidades y propiedades'
+                : activeView === 'operacion'
+                  ? 'Cuentas, identidades y mandatos'
+                  : 'Arrendatarios, contratos y avisos'}
+            </h2>
           </div>
           <label className="search-field">
             <span>Buscar</span>
             <input
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
-              placeholder={activeView === 'patrimonio' ? 'Nombre, RUT, dirección u owner' : 'Cuenta, owner, canal o mandato'}
+              placeholder={
+                activeView === 'patrimonio'
+                  ? 'Nombre, RUT, dirección u owner'
+                  : activeView === 'operacion'
+                    ? 'Cuenta, owner, canal o mandato'
+                    : 'Código, arrendatario, propiedad o causal'
+              }
             />
           </label>
         </section>
@@ -939,6 +1206,115 @@ function App() {
             { label: 'Recaudador', render: (row) => row.recaudador_display },
             { label: 'Facturadora', render: (row) => row.entidad_facturadora_display || 'Sin facturadora' },
             { label: 'Cuenta', render: (row) => row.cuenta_recaudadora_display },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+        </>
+      ) : null}
+
+      {activeView === 'contratos' ? (
+        <>
+          <section className="form-grid">
+            <section className="panel">
+              <div className="section-heading"><div><h2>Alta rápida de arrendatario</h2><p>Base mínima para contratar sobre mandatos ya activos.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateArrendatario}>
+                <select value={arrendatarioDraft.tipo_arrendatario} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, tipo_arrendatario: event.target.value }))}>
+                  <option value="persona_natural">Persona natural</option>
+                  <option value="empresa">Empresa</option>
+                </select>
+                <input placeholder="Nombre o razón social" value={arrendatarioDraft.nombre_razon_social} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, nombre_razon_social: event.target.value }))} />
+                <input placeholder="RUT" value={arrendatarioDraft.rut} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, rut: event.target.value }))} />
+                <input placeholder="Email" value={arrendatarioDraft.email} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, email: event.target.value }))} />
+                <input placeholder="Teléfono" value={arrendatarioDraft.telefono} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, telefono: event.target.value }))} />
+                <input placeholder="Domicilio de notificaciones" value={arrendatarioDraft.domicilio_notificaciones} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, domicilio_notificaciones: event.target.value }))} />
+                <select value={arrendatarioDraft.estado_contacto} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, estado_contacto: event.target.value }))}>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="activo">Activo</option>
+                  <option value="inactivo">Inactivo</option>
+                </select>
+                <label className="checkbox-row"><input type="checkbox" checked={arrendatarioDraft.whatsapp_bloqueado} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, whatsapp_bloqueado: event.target.checked }))} />WhatsApp bloqueado</label>
+                <button type="submit" className="button-primary" disabled={isSubmitting}>Guardar arrendatario</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Alta rápida de contrato</h2><p>Contrato simple con una propiedad principal y un primer período.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateContrato}>
+                <input placeholder="Código contrato" value={contratoDraft.codigo_contrato} onChange={(event) => setContratoDraft((current) => ({ ...current, codigo_contrato: event.target.value }))} />
+                <select value={contratoDraft.mandato_operacion} onChange={(event) => setContratoDraft((current) => ({ ...current, mandato_operacion: event.target.value }))}>
+                  <option value="">Selecciona mandato</option>
+                  {mandatos.map((item) => (
+                    <option key={item.id} value={item.id}>{item.propiedad_codigo} · {item.propietario_display}</option>
+                  ))}
+                </select>
+                <select value={contratoDraft.arrendatario} onChange={(event) => setContratoDraft((current) => ({ ...current, arrendatario: event.target.value }))}>
+                  <option value="">Selecciona arrendatario</option>
+                  {arrendatarios.map((item) => (
+                    <option key={item.id} value={item.id}>{item.nombre_razon_social}</option>
+                  ))}
+                </select>
+                <input type="date" value={contratoDraft.fecha_inicio} onChange={(event) => setContratoDraft((current) => ({ ...current, fecha_inicio: event.target.value }))} />
+                <input type="date" value={contratoDraft.fecha_fin_vigente} onChange={(event) => setContratoDraft((current) => ({ ...current, fecha_fin_vigente: event.target.value }))} />
+                <input type="date" value={contratoDraft.fecha_entrega} onChange={(event) => setContratoDraft((current) => ({ ...current, fecha_entrega: event.target.value }))} />
+                <input placeholder="Monto base" value={contratoDraft.monto_base} onChange={(event) => setContratoDraft((current) => ({ ...current, monto_base: event.target.value }))} />
+                <select value={contratoDraft.moneda_base} onChange={(event) => setContratoDraft((current) => ({ ...current, moneda_base: event.target.value }))}>
+                  <option value="CLP">CLP</option>
+                  <option value="UF">UF</option>
+                </select>
+                <select value={contratoDraft.estado} onChange={(event) => setContratoDraft((current) => ({ ...current, estado: event.target.value }))}>
+                  <option value="vigente">Vigente</option>
+                  <option value="pendiente_activacion">Pendiente activación</option>
+                  <option value="futuro">Futuro</option>
+                </select>
+                <input placeholder="Día pago mensual" value={contratoDraft.dia_pago_mensual} onChange={(event) => setContratoDraft((current) => ({ ...current, dia_pago_mensual: event.target.value }))} />
+                <input placeholder="Plazo aviso término" value={contratoDraft.plazo_notificacion_termino_dias} onChange={(event) => setContratoDraft((current) => ({ ...current, plazo_notificacion_termino_dias: event.target.value }))} />
+                <input placeholder="Prealerta admin" value={contratoDraft.dias_prealerta_admin} onChange={(event) => setContratoDraft((current) => ({ ...current, dias_prealerta_admin: event.target.value }))} />
+                <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_tramos} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_tramos: event.target.checked }))} />Tiene tramos</label>
+                <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_gastos_comunes} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_gastos_comunes: event.target.checked }))} />Tiene gastos comunes</label>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !contratoDraft.codigo_contrato || !contratoDraft.mandato_operacion || !contratoDraft.arrendatario || !contratoDraft.monto_base}>Guardar contrato</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Alta rápida de aviso de término</h2><p>Base para contratos futuros y no renovación.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateAviso}>
+                <select value={avisoDraft.contrato} onChange={(event) => setAvisoDraft((current) => ({ ...current, contrato: event.target.value }))}>
+                  <option value="">Selecciona contrato</option>
+                  {contratos.map((item) => (
+                    <option key={item.id} value={item.id}>{item.codigo_contrato}</option>
+                  ))}
+                </select>
+                <input type="date" value={avisoDraft.fecha_efectiva} onChange={(event) => setAvisoDraft((current) => ({ ...current, fecha_efectiva: event.target.value }))} />
+                <input placeholder="Causal" value={avisoDraft.causal} onChange={(event) => setAvisoDraft((current) => ({ ...current, causal: event.target.value }))} />
+                <select value={avisoDraft.estado} onChange={(event) => setAvisoDraft((current) => ({ ...current, estado: event.target.value }))}>
+                  <option value="registrado">Registrado</option>
+                  <option value="borrador">Borrador</option>
+                </select>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !avisoDraft.contrato || !avisoDraft.causal}>Guardar aviso</button>
+              </form>
+            </section>
+          </section>
+
+          <TableBlock title="Arrendatarios" subtitle="Base actual de contraparte contractual." rows={filteredArrendatarios} empty="No hay arrendatarios para este filtro." columns={[
+            { label: 'Nombre', render: (row) => row.nombre_razon_social },
+            { label: 'RUT', render: (row) => row.rut },
+            { label: 'Tipo', render: (row) => row.tipo_arrendatario.replaceAll('_', ' ') },
+            { label: 'Contacto', render: (row) => row.email || row.telefono || 'Sin dato' },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_contacto} tone={toneFor(row.estado_contacto)} /> },
+          ]} />
+
+          <TableBlock title="Contratos" subtitle="Contratos cargados sobre mandatos ya vigentes." rows={filteredContratos} empty="No hay contratos para este filtro." columns={[
+            { label: 'Código', render: (row) => row.codigo_contrato },
+            { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
+            { label: 'Mandato', render: (row) => mandatoById.get(row.mandato_operacion)?.propiedad_codigo || row.mandato_operacion },
+            { label: 'Propiedad', render: (row) => row.contrato_propiedades_detail[0] ? `${row.contrato_propiedades_detail[0].propiedad_codigo} · ${row.contrato_propiedades_detail[0].propiedad_direccion}` : 'Sin propiedad' },
+            { label: 'Periodo', render: (row) => `${row.fecha_inicio} → ${row.fecha_fin_vigente}` },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+
+          <TableBlock title="Avisos de término" subtitle="Base para no renovación y contratos futuros." rows={filteredAvisos} empty="No hay avisos para este filtro." columns={[
+            { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
+            { label: 'Fecha efectiva', render: (row) => row.fecha_efectiva },
+            { label: 'Causal', render: (row) => row.causal },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
           ]} />
         </>
