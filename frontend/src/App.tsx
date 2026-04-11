@@ -371,6 +371,77 @@ type ViewKey =
   | 'cobranza'
   | 'conciliacion'
   | 'contabilidad'
+  | 'sii'
+
+type CapacidadSii = {
+  id: number
+  empresa: number
+  capacidad_key: string
+  certificado_ref: string
+  ambiente: string
+  estado_gate: string
+  ultimo_resultado: Record<string, unknown>
+}
+
+type DteEmitido = {
+  id: number
+  empresa: number
+  capacidad_tributaria: number
+  contrato: number
+  pago_mensual: number
+  distribucion_cobro_mensual: number
+  arrendatario: number
+  tipo_dte: string
+  monto_neto_clp: string
+  fecha_emision: string
+  estado_dte: string
+  sii_track_id: string
+  ultimo_estado_sii: string
+  observaciones: string
+}
+
+type F29Preparacion = {
+  id: number
+  empresa: number
+  capacidad_tributaria: number
+  cierre_mensual: number
+  anio: number
+  mes: number
+  estado_preparacion: string
+  resumen_formulario: Record<string, unknown>
+  borrador_ref: string
+  observaciones: string
+}
+
+type ProcesoRentaAnual = {
+  id: number
+  empresa: number
+  anio_tributario: number
+  estado: string
+  fecha_preparacion: string | null
+}
+
+type DdjjPreparacion = {
+  id: number
+  empresa: number
+  capacidad_tributaria: number
+  proceso_renta_anual: number
+  anio_tributario: number
+  estado_preparacion: string
+  paquete_ref: string
+  observaciones: string
+}
+
+type F22Preparacion = {
+  id: number
+  empresa: number
+  capacidad_tributaria: number
+  proceso_renta_anual: number
+  anio_tributario: number
+  estado_preparacion: string
+  borrador_ref: string
+  observaciones: string
+}
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type Column<T> = { label: string; render: (row: T) => ReactNode }
 
@@ -542,6 +613,12 @@ function App() {
   const [asientosContables, setAsientosContables] = useState<AsientoContable[]>([])
   const [obligacionesMensuales, setObligacionesMensuales] = useState<ObligacionMensual[]>([])
   const [cierresMensuales, setCierresMensuales] = useState<CierreMensual[]>([])
+  const [capacidadesSii, setCapacidadesSii] = useState<CapacidadSii[]>([])
+  const [dtes, setDtes] = useState<DteEmitido[]>([])
+  const [f29s, setF29s] = useState<F29Preparacion[]>([])
+  const [procesosAnuales, setProcesosAnuales] = useState<ProcesoRentaAnual[]>([])
+  const [ddjjs, setDdjjs] = useState<DdjjPreparacion[]>([])
+  const [f22s, setF22s] = useState<F22Preparacion[]>([])
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -747,6 +824,26 @@ function App() {
     anio: '2026',
     mes: '5',
   })
+  const [capacidadSiiDraft, setCapacidadSiiDraft] = useState({
+    empresa: '',
+    capacidad_key: 'DTEEmision',
+    certificado_ref: 'cert-local',
+    ambiente: 'certificacion',
+    estado_gate: 'abierto',
+  })
+  const [dteDraft, setDteDraft] = useState({
+    pago_mensual_id: '',
+    tipo_dte: '34',
+  })
+  const [f29Draft, setF29Draft] = useState({
+    empresa_id: '',
+    anio: '2026',
+    mes: '5',
+  })
+  const [annualDraft, setAnnualDraft] = useState({
+    empresa_id: '',
+    anio_tributario: '2027',
+  })
 
   async function loadHealth() {
     try {
@@ -792,6 +889,12 @@ function App() {
         asientosPayload,
         obligacionesPayload,
         cierresPayload,
+        capacidadesSiiPayload,
+        dtesPayload,
+        f29Payload,
+        procesosAnualesPayload,
+        ddjjsPayload,
+        f22sPayload,
       ] = await Promise.all([
         apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken }),
         apiRequest<Dashboard>('/api/v1/reporting/dashboard/operativo/', { token: activeToken }),
@@ -826,6 +929,12 @@ function App() {
         apiRequest<AsientoContable[]>('/api/v1/contabilidad/asientos-contables/', { token: activeToken }),
         apiRequest<ObligacionMensual[]>('/api/v1/contabilidad/obligaciones-mensuales/', { token: activeToken }),
         apiRequest<CierreMensual[]>('/api/v1/contabilidad/cierres-mensuales/', { token: activeToken }),
+        apiRequest<CapacidadSii[]>('/api/v1/sii/capacidades/', { token: activeToken }),
+        apiRequest<DteEmitido[]>('/api/v1/sii/dtes/', { token: activeToken }),
+        apiRequest<F29Preparacion[]>('/api/v1/sii/f29/', { token: activeToken }),
+        apiRequest<ProcesoRentaAnual[]>('/api/v1/sii/anual/', { token: activeToken }),
+        apiRequest<DdjjPreparacion[]>('/api/v1/sii/anual/ddjj/', { token: activeToken }),
+        apiRequest<F22Preparacion[]>('/api/v1/sii/anual/f22/', { token: activeToken }),
       ])
       setCurrentUser(me)
       setDashboard(dashboardPayload)
@@ -858,6 +967,12 @@ function App() {
       setAsientosContables(asientosPayload)
       setObligacionesMensuales(obligacionesPayload)
       setCierresMensuales(cierresPayload)
+      setCapacidadesSii(capacidadesSiiPayload)
+      setDtes(dtesPayload)
+      setF29s(f29Payload)
+      setProcesosAnuales(procesosAnualesPayload)
+      setDdjjs(ddjjsPayload)
+      setF22s(f22sPayload)
       setLastLoadedAt(new Date().toISOString())
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -946,6 +1061,12 @@ function App() {
     setAsientosContables([])
     setObligacionesMensuales([])
     setCierresMensuales([])
+    setCapacidadesSii([])
+    setDtes([])
+    setF29s([])
+    setProcesosAnuales([])
+    setDdjjs([])
+    setF22s([])
   }
 
   async function submitCreate(path: string, body: unknown, successMessage: string) {
@@ -1461,6 +1582,77 @@ function App() {
     }
   }
 
+  async function handleCreateCapacidadSii(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/sii/capacidades/', {
+      empresa: Number(capacidadSiiDraft.empresa),
+      capacidad_key: capacidadSiiDraft.capacidad_key,
+      certificado_ref: capacidadSiiDraft.certificado_ref,
+      ambiente: capacidadSiiDraft.ambiente,
+      estado_gate: capacidadSiiDraft.estado_gate,
+      ultimo_resultado: {},
+    }, 'Capacidad SII creada correctamente.')
+    if (ok) {
+      setCapacidadSiiDraft({
+        empresa: '',
+        capacidad_key: 'DTEEmision',
+        certificado_ref: 'cert-local',
+        ambiente: 'certificacion',
+        estado_gate: 'abierto',
+      })
+    }
+  }
+
+  async function handleGenerateDte(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/sii/dtes/generar/', {
+      pago_mensual_id: Number(dteDraft.pago_mensual_id),
+      tipo_dte: dteDraft.tipo_dte,
+    }, 'Borrador DTE generado correctamente.')
+    if (ok) {
+      setDteDraft({ pago_mensual_id: '', tipo_dte: '34' })
+    }
+  }
+
+  async function handleGenerateF29(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/sii/f29/generar/', {
+      empresa_id: Number(f29Draft.empresa_id),
+      anio: Number(f29Draft.anio),
+      mes: Number(f29Draft.mes),
+    }, 'F29 generado correctamente.')
+    if (ok) {
+      setF29Draft({ empresa_id: '', anio: '2026', mes: '5' })
+    }
+  }
+
+  async function handleGenerateAnnual(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/sii/anual/generar/', {
+      empresa_id: Number(annualDraft.empresa_id),
+      anio_tributario: Number(annualDraft.anio_tributario),
+    }, 'Preparación anual generada correctamente.')
+    if (ok) {
+      setAnnualDraft({ empresa_id: '', anio_tributario: '2027' })
+    }
+  }
+
+  async function handleSiiStatusUpdate(path: string, body: Record<string, unknown>, successMessage: string) {
+    if (!token) return
+    setIsSubmitting(true)
+    setFormMessage(null)
+    setFormError(null)
+    try {
+      await apiRequest(path, { method: 'POST', token, body })
+      await loadWorkspace(token)
+      setFormMessage(successMessage)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo actualizar el estado SII.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const normalizedSearch = searchText.trim().toLowerCase()
   const filteredSocios = useMemo(
     () => socios.filter((item) => matches(normalizedSearch, [item.nombre, item.rut, item.email, item.telefono])),
@@ -1717,6 +1909,48 @@ function App() {
       ),
     [cierresMensuales, normalizedSearch],
   )
+  const filteredCapacidadesSii = useMemo(
+    () =>
+      capacidadesSii.filter((item) =>
+        matches(normalizedSearch, [item.empresa, item.capacidad_key, item.ambiente, item.estado_gate]),
+      ),
+    [capacidadesSii, normalizedSearch],
+  )
+  const filteredDtes = useMemo(
+    () =>
+      dtes.filter((item) =>
+        matches(normalizedSearch, [item.empresa, item.contrato, item.pago_mensual, item.tipo_dte, item.estado_dte, item.sii_track_id]),
+      ),
+    [dtes, normalizedSearch],
+  )
+  const filteredF29s = useMemo(
+    () =>
+      f29s.filter((item) =>
+        matches(normalizedSearch, [item.empresa, item.anio, item.mes, item.estado_preparacion, item.borrador_ref]),
+      ),
+    [f29s, normalizedSearch],
+  )
+  const filteredProcesosAnuales = useMemo(
+    () =>
+      procesosAnuales.filter((item) =>
+        matches(normalizedSearch, [item.empresa, item.anio_tributario, item.estado]),
+      ),
+    [procesosAnuales, normalizedSearch],
+  )
+  const filteredDdjjs = useMemo(
+    () =>
+      ddjjs.filter((item) =>
+        matches(normalizedSearch, [item.empresa, item.anio_tributario, item.estado_preparacion, item.paquete_ref]),
+      ),
+    [ddjjs, normalizedSearch],
+  )
+  const filteredF22s = useMemo(
+    () =>
+      f22s.filter((item) =>
+        matches(normalizedSearch, [item.empresa, item.anio_tributario, item.estado_preparacion, item.borrador_ref]),
+      ),
+    [f22s, normalizedSearch],
+  )
   const patrimonioOwners = useMemo(
     () => [
       ...empresas.map((item) => ({ tipo: 'empresa', id: item.id, label: item.razon_social })),
@@ -1740,6 +1974,7 @@ function App() {
   const regimenById = useMemo(() => new Map(regimenesTributarios.map((item) => [item.id, item])), [regimenesTributarios])
   const reglaById = useMemo(() => new Map(reglasContables.map((item) => [item.id, item])), [reglasContables])
   const cuentaContableById = useMemo(() => new Map(cuentasContables.map((item) => [item.id, item])), [cuentasContables])
+  const capacidadSiiById = useMemo(() => new Map(capacidadesSii.map((item) => [item.id, item])), [capacidadesSii])
 
   if (!token) {
     return (
@@ -1809,7 +2044,7 @@ function App() {
       </header>
 
       <section className="tab-strip">
-        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'contabilidad'] as ViewKey[]).map((view) => (
+        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'contabilidad', 'sii'] as ViewKey[]).map((view) => (
           <button
             key={view}
             type="button"
@@ -1828,7 +2063,9 @@ function App() {
                       ? 'Cobranza'
                       : view === 'conciliacion'
                         ? 'Conciliación'
-                        : 'Contabilidad'}
+                        : view === 'contabilidad'
+                          ? 'Contabilidad'
+                          : 'SII'}
           </button>
         ))}
       </section>
@@ -1900,7 +2137,9 @@ function App() {
                       ? 'Cobranza'
                       : activeView === 'conciliacion'
                         ? 'Conciliación'
-                        : 'Contabilidad'}
+                        : activeView === 'contabilidad'
+                          ? 'Contabilidad'
+                          : 'SII'}
             </p>
             <h2>
               {activeView === 'patrimonio'
@@ -1913,7 +2152,9 @@ function App() {
                       ? 'Pagos, UF, ajustes, garantías y estado de cuenta'
                       : activeView === 'conciliacion'
                         ? 'Conexiones, movimientos e ingresos desconocidos'
-                        : 'Configuración fiscal, eventos, asientos y cierres'}
+                        : activeView === 'contabilidad'
+                          ? 'Configuración fiscal, eventos, asientos y cierres'
+                          : 'Capacidades, DTE, F29 y preparación anual'}
             </h2>
           </div>
           <label className="search-field">
@@ -1932,7 +2173,9 @@ function App() {
                         ? 'Contrato, monto, estado, UF o garantía'
                         : activeView === 'conciliacion'
                           ? 'Movimiento, referencia, estado o ingreso desconocido'
-                          : 'Empresa, evento, cuenta, cierre u obligación'
+                          : activeView === 'contabilidad'
+                            ? 'Empresa, evento, cuenta, cierre u obligación'
+                            : 'Empresa, DTE, F29, DDJJ o F22'
               }
             />
           </label>
@@ -2734,6 +2977,187 @@ function App() {
                     Reabrir
                   </button>
                 </div>
+              ),
+            },
+          ]} />
+        </>
+      ) : null}
+
+      {activeView === 'sii' ? (
+        <>
+          <section className="form-grid">
+            <section className="panel">
+              <div className="section-heading"><div><h2>Capacidad SII</h2><p>Gate operativo por empresa y capacidad tributaria.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateCapacidadSii}>
+                <select value={capacidadSiiDraft.empresa} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, empresa: event.target.value }))}>
+                  <option value="">Selecciona empresa</option>
+                  {empresas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.razon_social}</option>
+                  ))}
+                </select>
+                <select value={capacidadSiiDraft.capacidad_key} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, capacidad_key: event.target.value }))}>
+                  <option value="DTEEmision">DTE Emisión</option>
+                  <option value="DTEConsultaEstado">DTE Consulta Estado</option>
+                  <option value="F29Preparacion">F29 Preparación</option>
+                  <option value="F29Presentacion">F29 Presentación</option>
+                  <option value="DDJJPreparacion">DDJJ Preparación</option>
+                  <option value="F22Preparacion">F22 Preparación</option>
+                </select>
+                <input placeholder="Certificado ref" value={capacidadSiiDraft.certificado_ref} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, certificado_ref: event.target.value }))} />
+                <select value={capacidadSiiDraft.ambiente} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, ambiente: event.target.value }))}>
+                  <option value="certificacion">Certificación</option>
+                  <option value="produccion">Producción</option>
+                </select>
+                <select value={capacidadSiiDraft.estado_gate} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, estado_gate: event.target.value }))}>
+                  <option value="abierto">Abierto</option>
+                  <option value="condicionado">Condicionado</option>
+                  <option value="cerrado">Cerrado</option>
+                  <option value="suspendido">Suspendido</option>
+                  <option value="podado">Podado</option>
+                </select>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !capacidadSiiDraft.empresa}>Guardar capacidad</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Generar DTE</h2><p>Borrador desde un pago mensual con distribución facturable.</p></div></div>
+              <form className="entity-form" onSubmit={handleGenerateDte}>
+                <select value={dteDraft.pago_mensual_id} onChange={(event) => setDteDraft((current) => ({ ...current, pago_mensual_id: event.target.value }))}>
+                  <option value="">Selecciona pago</option>
+                  {pagos.map((item) => (
+                    <option key={item.id} value={item.id}>{contratoById.get(item.contrato)?.codigo_contrato || item.contrato} · {item.mes}/{item.anio}</option>
+                  ))}
+                </select>
+                <select value={dteDraft.tipo_dte} onChange={(event) => setDteDraft((current) => ({ ...current, tipo_dte: event.target.value }))}>
+                  <option value="34">34 · Factura Exenta</option>
+                  <option value="56">56 · Nota Débito</option>
+                  <option value="61">61 · Nota Crédito</option>
+                </select>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !dteDraft.pago_mensual_id}>Generar DTE</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Generar F29</h2><p>Borrador mensual desde cierre contable preparado.</p></div></div>
+              <form className="entity-form" onSubmit={handleGenerateF29}>
+                <select value={f29Draft.empresa_id} onChange={(event) => setF29Draft((current) => ({ ...current, empresa_id: event.target.value }))}>
+                  <option value="">Selecciona empresa</option>
+                  {empresas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.razon_social}</option>
+                  ))}
+                </select>
+                <input placeholder="Año" value={f29Draft.anio} onChange={(event) => setF29Draft((current) => ({ ...current, anio: event.target.value }))} />
+                <input placeholder="Mes" value={f29Draft.mes} onChange={(event) => setF29Draft((current) => ({ ...current, mes: event.target.value }))} />
+                <button type="submit" className="button-primary" disabled={isSubmitting || !f29Draft.empresa_id}>Generar F29</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Preparación anual</h2><p>Genera proceso anual, DDJJ y F22.</p></div></div>
+              <form className="entity-form" onSubmit={handleGenerateAnnual}>
+                <select value={annualDraft.empresa_id} onChange={(event) => setAnnualDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
+                  <option value="">Selecciona empresa</option>
+                  {empresas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.razon_social}</option>
+                  ))}
+                </select>
+                <input placeholder="Año tributario" value={annualDraft.anio_tributario} onChange={(event) => setAnnualDraft((current) => ({ ...current, anio_tributario: event.target.value }))} />
+                <button type="submit" className="button-primary" disabled={isSubmitting || !annualDraft.empresa_id}>Generar anual</button>
+              </form>
+            </section>
+          </section>
+
+          <TableBlock title="Capacidades SII" subtitle="Gate y ambiente por empresa/capacidad." rows={filteredCapacidadesSii} empty="No hay capacidades SII para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Capacidad', render: (row) => row.capacidad_key },
+            { label: 'Ambiente', render: (row) => row.ambiente },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_gate} tone={toneFor(row.estado_gate)} /> },
+          ]} />
+
+          <TableBlock title="DTE emitidos" subtitle="Borradores y estados manuales de DTE." rows={filteredDtes} empty="No hay DTE para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
+            { label: 'Pago', render: (row) => row.pago_mensual },
+            { label: 'Monto', render: (row) => row.monto_neto_clp },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_dte} tone={toneFor(row.estado_dte)} /> },
+            {
+              label: 'Acción',
+              render: (row) => (
+                <button
+                  type="button"
+                  className="button-ghost inline-action"
+                  onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/dtes/${row.id}/estado/`, { estado_dte: 'aceptado', sii_track_id: row.sii_track_id || 'TRACK-LOCAL', ultimo_estado_sii: 'ACEPTADO' }, 'Estado DTE actualizado correctamente.')}
+                  disabled={isSubmitting}
+                >
+                  Marcar aceptado
+                </button>
+              ),
+            },
+          ]} />
+
+          <TableBlock title="F29 mensuales" subtitle="Preparación mensual desde cierres aprobados." rows={filteredF29s} empty="No hay F29 para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
+            { label: 'Capacidad', render: (row) => capacidadSiiById.get(row.capacidad_tributaria)?.capacidad_key || row.capacidad_tributaria },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
+            {
+              label: 'Acción',
+              render: (row) => (
+                <button
+                  type="button"
+                  className="button-ghost inline-action"
+                  onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/f29/${row.id}/estado/`, { estado_preparacion: 'preparado', borrador_ref: row.borrador_ref || 'F29-LOCAL' }, 'Estado F29 actualizado correctamente.')}
+                  disabled={isSubmitting}
+                >
+                  Actualizar estado
+                </button>
+              ),
+            },
+          ]} />
+
+          <TableBlock title="Proceso renta anual" subtitle="Proceso consolidado por empresa y año tributario." rows={filteredProcesosAnuales} empty="No hay procesos anuales para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Año tributario', render: (row) => row.anio_tributario },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            { label: 'Preparación', render: (row) => row.fecha_preparacion || 'Sin fecha' },
+          ]} />
+
+          <TableBlock title="DDJJ preparadas" subtitle="Paquetes anuales listos o en preparación." rows={filteredDdjjs} empty="No hay DDJJ para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Año tributario', render: (row) => row.anio_tributario },
+            { label: 'Paquete', render: (row) => row.paquete_ref || 'Sin ref' },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
+            {
+              label: 'Acción',
+              render: (row) => (
+                <button
+                  type="button"
+                  className="button-ghost inline-action"
+                  onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/anual/ddjj/${row.id}/estado/`, { estado_preparacion: 'preparado', ref_value: row.paquete_ref || 'DDJJ-LOCAL' }, 'Estado DDJJ actualizado correctamente.')}
+                  disabled={isSubmitting}
+                >
+                  Actualizar estado
+                </button>
+              ),
+            },
+          ]} />
+
+          <TableBlock title="F22 preparados" subtitle="Borradores anuales por empresa." rows={filteredF22s} empty="No hay F22 para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Año tributario', render: (row) => row.anio_tributario },
+            { label: 'Borrador', render: (row) => row.borrador_ref || 'Sin ref' },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
+            {
+              label: 'Acción',
+              render: (row) => (
+                <button
+                  type="button"
+                  className="button-ghost inline-action"
+                  onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/anual/f22/${row.id}/estado/`, { estado_preparacion: 'preparado', ref_value: row.borrador_ref || 'F22-LOCAL' }, 'Estado F22 actualizado correctamente.')}
+                  disabled={isSubmitting}
+                >
+                  Actualizar estado
+                </button>
               ),
             },
           ]} />
