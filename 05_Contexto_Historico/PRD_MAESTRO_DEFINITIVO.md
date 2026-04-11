@@ -1549,3 +1549,4 @@ Variables e insumos externos esperados:
 | `Fallback prohibido` | salida no aceptada por el PRD aunque sea técnicamente posible |
 | `Readiness` | condición técnica, operativa y normativa mínima para activar una capacidad |
 
+

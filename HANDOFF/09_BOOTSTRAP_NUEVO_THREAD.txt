@@ -7,36 +7,59 @@ Antes de responder sustantivamente o proponer cambios, debes leer COMPLETO y EN 
 1. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/00_HANDOFF_INDEX.md
 2. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/01_CONTEXTO_MAESTRO.md
 3. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/04_DECISIONES_VIGENTES.md
-4. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/06_BORRADOR_ACTUAL.md
-5. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/03_CRONOLOGIA.md
-6. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/05_HALLAZGOS_Y_RIESGOS.md
-7. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/08_PENDIENTES_Y_PROXIMOS_PASOS.md
-8. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/02_FUENTES_Y_RUTAS.md
+4. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/03_CRONOLOGIA.md
+5. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/02_FUENTES_Y_RUTAS.md
+6. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/06_BORRADOR_ACTUAL.md
+7. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/05_HALLAZGOS_Y_RIESGOS.md
+8. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/08_PENDIENTES_Y_PROXIMOS_PASOS.md
 9. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/07_RESPUESTAS_EXTERNAS_LITERAL.md
 10. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/10_CONTROL_DE_CALIDAD.md
 11. D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF/11_MANIFEST.md
 
 Y luego abrir como fuentes principales:
 
-- D:/Proyectos/LeaseManager/Produccion 1.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md
-- D:/Proyectos/LeaseManager/Produccion 1.0/migration/enrichments.py
-- D:/Proyectos/LeaseManager/Produccion 1.0/migration/transformers.py
-- D:/Proyectos/LeaseManager/Produccion 1.0/migration/importers.py
+- D:/Proyectos/LeaseManager/Produccion 1.0/01_Set_Vigente/PRD_CANONICO.md
+- D:/Proyectos/LeaseManager/Produccion 1.0/03_Ejecucion_Tecnica/ROADMAP_TECNICO.md
+- D:/Proyectos/LeaseManager/Produccion 1.0/03_Ejecucion_Tecnica/MODULOS_Y_DEPENDENCIAS.md
+- D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/App.tsx
+- D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/permissions.py
+- D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/scope_access.py
+- D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/seed_demo_access.py
+- D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/tests_permissions.py
+- D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/tests_scope_access.py
+
+Contexto operativo clave:
+
+- el nombre vigente del proyecto nuevo es `LeaseManager`, no `LeaseControl`
+- el root activo ya tiene repo git propio
+- repo oficial nuevo: https://github.com/puigjoaco/LeaseManager
+- repo anterior: https://github.com/puigjoaco/LeaseManager-legacy
+- baseline local validado: `leasemanager_migration_run_20260409_v7`
+- staging remoto validado: Supabase `leasemanager-staging`
+- HEAD ya no es `c6add42`; verificar el `HEAD` actual antes de asumir el estado del repo
+- existen usuarios demo reproducibles (`demo-admin`, `demo-operador`, `demo-revisor`, `demo-socio`)
+- el backend ya tiene una primera capa real de scope tanto para lectura como para varias escrituras/acciones
+- el working tree puede seguir `dirty` por refresh documental, no por cambios funcionales de producto
 
 Despues de leer, debes:
 
 - confirmar brevemente cual es la decision central vigente;
-- indicar cual es el borrador principal a usar;
-- indicar cual fue el resultado final de la corrida de inspeccion (`56` contratos, `748` periodos, `66` mandatos, `0` manual resolutions abiertas);
-- y NO proponer implementacion ni responder de fondo hasta haber cargado ese contexto.
+- indicar cual es la base principal vigente para continuar;
+- indicar que la migración comunitaria está cerrada;
+- indicar que el backoffice ya cubre los módulos principales;
+- y NO responder de fondo hasta haber cargado ese contexto.
 
 Advertencias:
 
-- `D:/Proyectos/LeaseManager/Produccion 1.0` es el root activo.
-- `D:/Proyectos/LeaseManager` sigue siendo legacy read-only.
-- No rehacer scaffold.
-- No commit ni deploy.
-- No usar `git add .`.
-- No inventar owners, RUTs, direcciones, fechas ni montos.
-- No reabrir decisiones ya cerradas del backlog comunitario actual.
-- El siguiente paso recomendado ya no es rediseñar: es ejecutar la misma corrida sobre el entorno destino real del greenfield.
+- No reabrir el diseño comunitario.
+- No reintroducir el nombre `LeaseControl` dentro del root activo.
+- No empujar cambios al repo `LeaseManager-legacy`.
+- No versionar secretos locales.
+- No asumir que los datos `TEST LOCAL` existen en una base recreada desde cero.
+- El MCP de Playwright sigue roto; si necesitas automatización web, prefiere la vía CLI ya validada.
+
+Siguiente trabajo recomendado al retomar:
+
+- probar el sistema como `demo-operador`, `demo-revisor` y `demo-socio`;
+- corregir permisos finos o filtrado por scope que aparezcan en esa prueba;
+- y solo después decidir si conviene abrir módulos secundarios o modularizar más el frontend.

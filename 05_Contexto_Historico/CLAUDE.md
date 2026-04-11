@@ -192,3 +192,4 @@ The `analizar/` folder contains 26 PRD versions (prd1.txt through prd26.txt). Th
 - **prd1.txt**: Original "Rent Control" specification with detailed data models
 - **prd26.txt**: Most evolved "LeaseManager" with AI features and no-temp-solutions principle
 
+

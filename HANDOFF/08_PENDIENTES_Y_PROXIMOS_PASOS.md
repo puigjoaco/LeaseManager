@@ -2,101 +2,86 @@
 
 ## 1. Pendiente principal
 
-El pendiente principal ya no es de diseño ni de backlog manual del scope actual.  
-La corrida real local sobre PostgreSQL ya fue ejecutada y validada.
+El pendiente principal ya no es “abrir el siguiente módulo”, “cerrar migración” ni “sembrar roles”.
 
-El pendiente principal ahora pasa a ser, si hace falta:
+La etapa actual deja como pendiente principal:
 
-- **decidir si el staging Supabase ya validado debe tomarse como destino suficiente para la siguiente etapa o si aun debe promoverse a otro entorno adicional**.
+- **probar manualmente el sistema como `demo-operador`, `demo-revisor` y `demo-socio`, y cerrar cualquier hueco restante de visibilidad o mutación que aparezca en esa prueba**
 
-## 2. Que ya no falta verificar dentro del scope actual de comunidades
+## 2. Que ya no falta verificar
 
-Ya no falta verificar, para el backlog actual:
+Ya no falta verificar, para este tramo:
 
-- semantica de `representante`;
-- comunidades de 4 y 6 socios;
-- `Edificio Q Dpto 1014`;
-- `Edificio Q Bod. 17 / Est. 33`;
-- `Bulnes 699`;
-- `Paulina -> Estacionamiento 97`;
-- fecha por defecto de participaciones;
-- region por defecto de propiedades de Temuco.
-
-Todo eso ya quedo cerrado e incorporado al pipeline.
+- naming del greenfield;
+- separación del repo legacy;
+- baseline local y staging de migración comunitaria;
+- backoffice base por módulos principales;
+- navegación contextual;
+- edición de registros core;
+- permisos visibles en UI;
+- permisos efectivos de backend por rol;
+- seed reproducible de usuarios/roles/scopes demo;
+- primer hardening de scope por lectura y escritura.
 
 ## 3. Trabajo que sigue abierto
 
-### 3.1 Ejecucion real
+### 3.1 Validación manual por perfil
 
-- la ejecucion real local ya se completo sobre `leasemanager_migration_run_20260408_v3`;
-- el flujo correcto ya quedo probado asi:
-  1. regenerar bundle actual;
-  2. importar;
-  3. ejecutar [migration/scripts/resolve_current_community_resolutions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/scripts/resolve_current_community_resolutions.py);
-  4. rerun del import;
-  5. rerun adicional de idempotencia.
-- si se usa otro entorno, debe repetirse exactamente esta secuencia.
+- recorrer el backoffice local con:
+  - `demo-operador`
+  - `demo-revisor`
+  - `demo-socio`
+- anotar qué vistas, acciones o formularios todavía exponen más de lo debido;
+- ajustar esos puntos sobre backend y, si corresponde, sobre UI.
 
-### 3.2 Staging remoto
+### 3.2 Scope residual
 
-- el proyecto Supabase `leasemanager-staging` ya fue creado y validado;
-- el estado final remoto ya coincide con el esperado;
-- si se necesita rerun remoto, debe usarse `promote_current_migration_flow.py` con la conexion `Session pooler` del proyecto.
+- revisar si, además del hardening ya hecho, quedan endpoints o acciones sin scope efectivo;
+- detectar módulos secundarios donde un rol con lectura válida todavía vea un subconjunto incorrecto.
 
-### 3.2 Trazabilidad del pipeline
+### 3.3 Higiene/documentación
 
-- preservar como referencia del estado actual:
-  - [legacy_rows_supabase.json](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/bundles/legacy_rows_supabase.json)
-  - [legacy_seed_bundle.regenerated.json](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/bundles/legacy_seed_bundle.regenerated.json)
-  - [migration/enrichments.py](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/enrichments.py)
+- revisar si se quiere actualizar [README.md](/D:/Proyectos/LeaseManager/Produccion%201.0/README.md), que hoy subestima el estado real del frontend.
 
-### 3.3 Riesgo residual
+### 3.4 Módulos no expuestos todavía en frontend
 
-- si cambia la cartera actual, hay que mantener `migration/enrichments.py` alineado;
-- si el destino real ya contiene datos parciales, la corrida debe observar idempotencia y posibles diferencias de estado.
+El backend ya tiene superficie en:
+
+- `Documentos`
+- `Canales`
+- `Audit`
+- `Compliance`
+
+Todavía no están trabajados con el mismo nivel de UX/backoffice que los módulos principales ya cubiertos.
 
 ## 4. Proximo paso recomendado
 
 Secuencia recomendada para continuar correctamente:
 
-1. la base local baseline ya quedo fijada en `leasemanager_migration_run_20260409_v7`;
-2. el staging remoto baseline ya quedo fijado en Supabase `leasemanager-staging`;
-3. para rerun remoto, usar [legacy_seed_bundle.regenerated.current_2026-04-08.json](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/bundles/legacy_seed_bundle.regenerated.current_2026-04-08.json) y [migration/scripts/promote_current_migration_flow.py](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/scripts/promote_current_migration_flow.py);
-4. para rehearsal local desde cero, preferir [migration/scripts/rehearse_current_migration_flow.py](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/scripts/rehearse_current_migration_flow.py);
-5. solo si hace falta depurar, descomponer nuevamente en `import -> resolve_current_community_resolutions.py -> import -> import`;
-6. verificar en el destino:
-   - `56` contratos;
-   - `748` periodos;
-   - `66` mandatos;
-   - `0` `ManualResolution` abiertas;
-   - `70` participaciones comunitarias activas;
-   - `Inmobiliaria Puig SpA` como `EntidadFacturadora` en ambos casos de `Edificio Q`.
+1. mantener [puigjoaco/LeaseManager](https://github.com/puigjoaco/LeaseManager) como repo oficial;
+2. mantener `leasemanager_migration_run_20260409_v7` como baseline local;
+3. probar el sistema con cada perfil demo;
+4. corregir permisos finos o alcance por scope donde la experiencia real falle;
+5. recién después decidir si conviene:
+   - abrir `Documentos/Canales/Audit/Compliance` en frontend;
+   - o mejorar filtros persistentes y búsquedas.
 
-## 5. Que no hacer a continuacion
+## 5. Que no hacer a continuación
 
-- no volver a discutir el modelo comunitario como si siguiera abierto;
-- no correr una migracion real en un destino ambiguo;
-- no borrar ni ignorar `migration/enrichments.py`;
-- no reintroducir `Estacionamiento 96`, `José Ibáñez` o `Claudio Galdames` en la migracion actual;
-- no mover a Paulina de vuelta al `96`.
+- no reabrir el diseño comunitario;
+- no volver a discutir el naming `LeaseManager`;
+- no asumir que los datos `TEST LOCAL` están versionados;
+- no tratar la UI role-aware como sustituto del permiso backend;
+- no mezclar el refresh documental pendiente con cambios de producto sin revisar el alcance.
 
 ## 6. Trabajo reservado para la siguiente etapa
 
-### Etapa de promocion o repeticion
+### Etapa inmediata
 
-- aplicar la misma corrida a otro entorno del greenfield solo si hace falta salir del entorno local ya validado.
-
-### Etapa de verificacion post-corrida
-
-- comparar conteos reales con la inspeccion final:
-  - `56` contratos
-  - `748` periodos
-  - `66` mandatos
-  - `0` manual resolutions abiertas
+- pruebas de experiencia real como perfiles no-admin;
+- cierre de huecos residuales de scope.
 
 ### Etapa posterior
 
-- solo si el destino real difiere de la inspeccion:
-  - investigar la diferencia concreta;
-  - corregir pipeline o estado destino con evidencia.
-
+- apertura de módulos secundarios en frontend si sigue haciendo sentido;
+- o modularización adicional del frontend si el costo de cambio en `App.tsx` sigue creciendo.

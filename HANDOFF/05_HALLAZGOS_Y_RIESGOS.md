@@ -2,70 +2,72 @@
 
 ## 1. Hallazgos firmes
 
-### 1.1 Hallazgos de dominio
+### 1.1 Hallazgos de producto e implementación
 
-- El modelo viejo efectivamente era insuficiente para comunidades, recaudacion y atribucion economica.
-- La solucion final ya quedo implementada y no solo especificada.
-- Las comunidades actuales del backlog ya no tienen ambiguedad semantica relevante:
-  - Joaquin designado;
-  - comunidades estandar de 4 o 6 socios;
-  - `Edificio Q` como comunidad mixta.
+- El greenfield ya no es un “backend con shell”; ya existe una primera capa usable de backoffice.
+- El frontend actual concentra una parte material del estado del proyecto en [App.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/App.tsx).
+- El backend ya no depende solo de `IsAuthenticated`; ahora existe una política RBAC explícita en [permissions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/permissions.py).
+- El repo ya tiene seed reproducible de acceso demo en [seed_demo_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/seed_demo_access.py).
+- El backend ya tiene una primera capa explícita de filtrado por scope en [scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/scope_access.py).
+- Las pruebas nuevas de permisos confirman:
+  - `operator` se normaliza a `OperadorDeCartera`;
+  - el operador puede mutar módulos operativos;
+  - el operador no puede mutar módulos de control;
+  - el revisor puede leer control pero no escribir operativo;
+  - el `Socio` no puede leer reporting ajeno por la ruta de resumen propio.
 
-### 1.2 Hallazgos de implementacion
+### 1.2 Hallazgos de entorno
 
-- `Patrimonio`, `Operacion`, `Cobranza`, `SII`, `Contabilidad`, `Reporting` y `Audit` quedaron alineados al nuevo modelo.
-- `migration/enrichments.py` es parte material del pipeline actual, no una nota lateral.
-- Las pruebas de backend pasan sobre SQLite temporal con la implementacion actual.
+- Docker local, PostgreSQL, Redis, backend y frontend se levantaron correctamente en el entorno de trabajo.
+- El baseline local `v7` se pudo reconstruir sobre PostgreSQL real.
+- El sistema local ya soportó pruebas end-to-end sobre:
+  - contratos
+  - cobranza
+  - conciliación
+  - contabilidad
+  - SII
+  - reporting
 
-### 1.3 Hallazgos de migracion
+### 1.3 Hallazgos de seguridad
 
-- El extracto legacy real via Supabase no traia por si solo toda la verdad de negocio actual.
-- El bundle regenerado mas los enriquecimientos permitieron llevar la corrida de inspeccion a `0` resoluciones manuales abiertas.
-- La corrida de inspeccion final logro:
-  - `56` contratos;
-  - `748` periodos;
-  - `66` mandatos.
-- La corrida real local sobre PostgreSQL logro el mismo resultado final una vez resueltas las `16` propiedades comunitarias y preservadas sus participaciones en el rerun.
-
-### 1.4 Hallazgo tecnico nuevo
-
-- El importer tenia un bug real de idempotencia parcial:
-  - al rerun, borraba `ParticipacionPatrimonial` de comunidades resueltas manualmente;
-  - eso vaciaba las comunidades y dejaba a `Edificio Q` sin `EntidadFacturadora`;
-  - el problema ya fue corregido y cubierto por pruebas automatizadas.
+- La fuga de `DATABASE_URL` completa en artefactos versionados ya fue corregida en el árbol actual.
+- La capa de permisos ahora existe tanto en UI como en backend.
+- Ya no solo se endureció la lectura: también se cerró una primera tanda de writes/acciones con IDs directos para perfiles no-admin.
 
 ## 2. Hallazgos probables
 
-- Si se ejecuta el mismo pipeline sobre otro destino del greenfield con la misma base de codigo actual, el backlog comunitario del scope actual deberia entrar sin resoluciones manuales abiertas, siempre que se respete la misma secuencia:
-  - import inicial;
-  - resolucion de `16` propiedades comunitarias;
-  - rerun del import.
-- Los posibles bloqueos remanentes ya no deberian venir del modelo comunitario, sino del entorno concreto, diferencias de estado y forma de promover las resoluciones manuales ya trazadas.
+- El siguiente foco de bugs ya no debería estar en crear nuevos módulos base, sino en:
+  - validación manual de los perfiles demo ya sembrados;
+  - coherencia de permisos por rol en recorridos reales;
+  - y huecos residuales de scope en endpoints o formularios menos transitados.
+- El README del root activo quedó funcionalmente atrasado respecto del estado real del frontend y del hardening RBAC/scope.
+- La mayor parte del trabajo nuevo ya está en `frontend/src/App.tsx`, lo que probablemente vuelva más costoso seguir creciendo ahí sin futura modularización.
 
-## 3. Riesgos tecnicos
+## 3. Riesgos técnicos
 
-- El riesgo de diferencia entre SQLite de inspeccion y PostgreSQL local ya quedo sustancialmente mitigado.
-- Persiste el riesgo de que otro entorno destino tenga datos parciales que interactuen con la idempotencia de forma distinta a la base limpia `v3`.
-- Riesgo de que el uso de enriquecimientos confirmados por el usuario quede desalineado si la cartera actual cambia y no se actualiza `migration/enrichments.py`.
+- El frontend concentra demasiada superficie en un solo archivo `App.tsx`; el riesgo de fricción de mantenimiento ya es real.
+- La política RBAC backend ya tiene seed y filtrado inicial por scope, pero todavía puede haber huecos puntuales en módulos secundarios o acciones poco frecuentes.
+- La validación de experiencia multiusuario sigue incompleta mientras no se haga la pasada manual completa con los perfiles demo ya sembrados.
+- El MCP de Playwright sigue roto por permisos sobre `C:\\Windows\\System32\\.playwright-mcp`.
 
-## 4. Riesgos probatorios o de flujo
+## 4. Riesgos procesales o de flujo
 
-- Riesgo de ejecutar sobre el entorno equivocado.
-- Riesgo de asumir que el destino real ya tiene las mismas cuentas, constraints y estado que la inspeccion.
-- Riesgo de perder trazabilidad si la corrida real se hace sin preservar el bundle regenerado vigente y sus enriquecimientos.
+- Riesgo de que otro thread retome desde un handoff viejo y piense que “falta elegir el siguiente módulo”.
+- Riesgo de que alguien asuma que los datos `TEST LOCAL` del entorno están versionados o forman parte del baseline canónico.
+- Riesgo de que el dirty tree documental local se interprete como trabajo funcional pendiente del producto, cuando en realidad corresponde a continuidad.
 
-## 5. Riesgos narrativos
+## 5. Riesgos probatorios o de evidencia
 
-- Riesgo de olvidar que varios “hechos” del backlog actual no salieron de la fuente legacy cruda, sino de confirmaciones explicitas del usuario incorporadas en `migration/enrichments.py`.
-- Riesgo de leer el handoff viejo y creer que la semantica del representante sigue abierta.
+- Las respuestas externas literales archivadas siguen siendo válidas para el tramo comunitario, pero no describen el estado actual del backoffice ni del hardening RBAC/scope.
+- Las imágenes originales pegadas por el usuario no existen como archivos locales originales; solo quedó su absorción analítica.
 
-## 6. Riesgos estrategicos
+## 6. Riesgos narrativos
 
-- Si se omite la promocion a un entorno mas persistente o compartido cuando haga falta, el trabajo puede quedar validado solo en local.
-- Si se modifica la cartera actual sin actualizar los enriquecimientos, la migracion puede volver a arrastrar elementos que ya salieron de cartera.
+- README y handoff viejo pueden subestimar el estado real de la UI y del backend.
+- El historial reciente tiene varios commits pequeños y muy seguidos; si no se lee la cronología, es fácil perder el hilo de por qué el proyecto dejó de ser “siguiente módulo” y pasó a “hardening operativo”.
 
-## 7. Riesgo residual de handoff
+## 7. Riesgos estratégicos
 
-- El principal riesgo ya no es de modelo, sino de continuidad operativa:
-  - tomar este trabajo como “todo listo” sin ejecutar la corrida real;
-  - o ejecutar la corrida real sin releer primero la especificacion, los enriquecimientos y el estado de inspeccion.
+- Si no se hace la pasada manual con los usuarios demo ya sembrados, la capa RBAC puede quedar técnicamente correcta pero operativamente poco probada.
+- Si no se hace una pasada futura de modularización del frontend, el costo de cambio de `App.tsx` crecerá.
+- Si no se publica luego el refresh del handoff/documentación que hoy sigue local, otro thread externo a este workspace puede retomar con una foto desfasada.

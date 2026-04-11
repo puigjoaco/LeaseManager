@@ -640,3 +640,4 @@ Tabla de descartes estructurales:
 | límite `~15` como regla dura de usuarios/socios | era un supuesto operativo, no una restricción de dominio |
 | automatización total de IA/SII sin readiness | sobrepromesa no defendible para un PRD maestro |
 
+

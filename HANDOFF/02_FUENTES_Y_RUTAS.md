@@ -1,88 +1,92 @@
 # Fuentes y Rutas
 
-## 1. Fuentes primarias
+Nota:
 
-| Ruta absoluta | Tipo | Clasificacion | Tamano | Modificado |
-|---|---|---|---:|---|
-| [D:/Proyectos/LeaseManager/Produccion 1.0/01_Set_Vigente/PRD_CANONICO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/01_Set_Vigente/PRD_CANONICO.md) | Markdown | fuente primaria | 50051 | 2026-03-15 21:07:10 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/02_ADR_Activos/ADR_ARQUITECTURA_001_BANCA_MULTI_PROVIDER.md](/D:/Proyectos/LeaseManager/Produccion%201.0/02_ADR_Activos/ADR_ARQUITECTURA_001_BANCA_MULTI_PROVIDER.md) | Markdown | fuente primaria | 2385 | 2026-03-15 14:26:43 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/02_ADR_Activos/ADR_ARQUITECTURA_008_CONTABILIDAD_NATIVA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/02_ADR_Activos/ADR_ARQUITECTURA_008_CONTABILIDAD_NATIVA.md) | Markdown | fuente primaria | 5417 | 2026-03-15 20:54:26 |
-| [D:/Proyectos/LeaseManager/AGENTS.md](/D:/Proyectos/LeaseManager/AGENTS.md) | Markdown | fuente primaria operativa del legacy/proyecto general | 25373 | 2026-03-14 09:40:00 aprox. |
+- este inventario enumera los archivos y artefactos relevantes para retomar el trabajo activo al día de hoy;
+- prioriza lo normativo, lo operativo y lo realmente tocado en la etapa de backoffice + RBAC + scope;
+- no intenta listar cada archivo del repo.
+
+## 1. Fuentes primarias vigentes
+
+| Ruta absoluta | Tipo | Clasificación |
+|---|---|---|
+| [D:/Proyectos/LeaseManager/Produccion 1.0/01_Set_Vigente/PRD_CANONICO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/01_Set_Vigente/PRD_CANONICO.md) | Markdown | fuente primaria |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/02_ADR_Activos/ADR_ARQUITECTURA_001_BANCA_MULTI_PROVIDER.md](/D:/Proyectos/LeaseManager/Produccion%201.0/02_ADR_Activos/ADR_ARQUITECTURA_001_BANCA_MULTI_PROVIDER.md) | Markdown | fuente primaria |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/02_ADR_Activos/ADR_ARQUITECTURA_008_CONTABILIDAD_NATIVA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/02_ADR_Activos/ADR_ARQUITECTURA_008_CONTABILIDAD_NATIVA.md) | Markdown | fuente primaria |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/03_Ejecucion_Tecnica/ROADMAP_TECNICO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/03_Ejecucion_Tecnica/ROADMAP_TECNICO.md) | Markdown | fuente primaria de ejecución |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/03_Ejecucion_Tecnica/MODULOS_Y_DEPENDENCIAS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/03_Ejecucion_Tecnica/MODULOS_Y_DEPENDENCIAS.md) | Markdown | fuente primaria de ejecución |
+| [D:/Proyectos/LeaseManager/AGENTS.md](/D:/Proyectos/LeaseManager/AGENTS.md) | Markdown | fuente primaria operativa del proyecto general/legacy |
 
 ## 2. Contexto operativo del root activo
 
-| Ruta absoluta | Tipo | Clasificacion | Tamano | Modificado |
-|---|---|---|---:|---|
-| [D:/Proyectos/LeaseManager/Produccion 1.0/AGENTS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/AGENTS.md) | Markdown | contexto | 6029 | 2026-03-15 23:27:06 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/README.md](/D:/Proyectos/LeaseManager/Produccion%201.0/README.md) | Markdown | contexto | 2572 | 2026-03-16 09:48:39 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/ORDEN_DE_LECTURA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/ORDEN_DE_LECTURA.md) | Markdown | contexto | 2838 | 2026-03-15 22:24:13 |
+| Ruta absoluta | Tipo | Clasificación |
+|---|---|---|
+| [D:/Proyectos/LeaseManager/Produccion 1.0/README.md](/D:/Proyectos/LeaseManager/Produccion%201.0/README.md) | Markdown | contexto |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/AGENTS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/AGENTS.md) | Markdown | contexto |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/infra/docker-compose.yml](/D:/Proyectos/LeaseManager/Produccion%201.0/infra/docker-compose.yml) | YAML | infraestructura local |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/.env](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/.env) | Env | runtime local activo |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/.env.supabase-staging.local](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/.env.supabase-staging.local) | Env | runtime staging local |
 
-## 3. Piezas procesales e historicas
+## 3. Piezas de dominio y migración que siguen importando
 
-| Ruta absoluta | Tipo | Clasificacion | Tamano | Modificado |
-|---|---|---|---:|---|
-| [D:/Proyectos/LeaseManager/Produccion 1.0/docs/HANDOFF_GREENFIELD_2026-03-22.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/HANDOFF_GREENFIELD_2026-03-22.md) | Markdown | pieza procesal historica | 8759 | 2026-03-22 22:38:42 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/docs/AUDITORIA_DISENO_COMUNIDADES_Y_RECAUDACION_2026-04-05.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/AUDITORIA_DISENO_COMUNIDADES_Y_RECAUDACION_2026-04-05.md) | Markdown | pieza procesal / auditoria de diseño | 11965 | 2026-04-05 12:09:08 |
+| Ruta absoluta | Tipo | Clasificación |
+|---|---|---|
+| [D:/Proyectos/LeaseManager/Produccion 1.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md) | Markdown | borrador vigente del subdominio comunitario |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/docs/MIGRATION_RUNBOOK.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/MIGRATION_RUNBOOK.md) | Markdown | pieza operativa |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/docs/SUPABASE_STAGING_PLAYBOOK.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/SUPABASE_STAGING_PLAYBOOK.md) | Markdown | pieza operativa |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/migration/enrichments.py](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/enrichments.py) | Python | pieza de trabajo |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/migration/importers.py](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/importers.py) | Python | pieza de trabajo |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/migration/orchestration.py](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/orchestration.py) | Python | pieza de trabajo |
 
-## 4. Borrador vigente y base de trabajo actual
+## 4. Implementación viva relevante del estado actual
 
-| Ruta absoluta | Tipo | Clasificacion | Tamano | Modificado |
-|---|---|---|---:|---|
-| [D:/Proyectos/LeaseManager/Produccion 1.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md) | Markdown | borrador vigente / especificacion actual | 17714 | 2026-04-06 09:34:53 |
+| Ruta absoluta | Tipo | Clasificación |
+|---|---|---|
+| [D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/App.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/App.tsx) | TypeScript | implementación viva del backoffice |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/App.css](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/App.css) | CSS | implementación viva del backoffice |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/permissions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/permissions.py) | Python | implementación viva de RBAC backend |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/scope_access.py) | Python | helper central de scope |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/seed_demo_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/seed_demo_access.py) | Python | seed demo reproducible |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/tests_permissions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/tests_permissions.py) | Python | evidencia ejecutable de RBAC |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/tests_scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/tests_scope_access.py) | Python | evidencia ejecutable de scope |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/reporting/services.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/reporting/services.py) | Python | reporting ya endurecido por scope |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/patrimonio/views.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/patrimonio/views.py) | Python | implementación actual |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/operacion/views.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/operacion/views.py) | Python | implementación actual |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/contratos/views.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/contratos/views.py) | Python | implementación actual |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/cobranza/views.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/cobranza/views.py) | Python | implementación actual |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/conciliacion/views.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/conciliacion/views.py) | Python | implementación actual |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/contabilidad/views.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/contabilidad/views.py) | Python | implementación actual |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/sii/views.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/sii/views.py) | Python | implementación actual |
 
-## 5. Implementacion actual relevante
+## 5. Artefactos validados y evidencia de migración
 
-| Ruta absoluta | Tipo | Clasificacion | Tamano | Modificado |
-|---|---|---|---:|---|
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/patrimonio/models.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/patrimonio/models.py) | Python | fuente de implementacion | 16354 | 2026-04-05 13:08:35 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/operacion/models.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/operacion/models.py) | Python | fuente de implementacion | 21465 | 2026-04-05 13:24:17 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/cobranza/models.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/cobranza/models.py) | Python | fuente de implementacion | 14294 | 2026-04-05 13:29:27 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/cobranza/services.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/cobranza/services.py) | Python | fuente de implementacion | 12702 | 2026-04-05 13:29:42 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/conciliacion/services.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/conciliacion/services.py) | Python | fuente de implementacion | 6529 | 2026-04-05 13:30:29 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/contabilidad/services.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/contabilidad/services.py) | Python | fuente de implementacion | 16913 | 2026-04-05 13:35:10 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/sii/services.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/sii/services.py) | Python | fuente de implementacion | 11551 | 2026-04-05 13:32:18 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/reporting/services.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/reporting/services.py) | Python | fuente de implementacion | 11785 | 2026-04-05 13:36:09 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/audit/services.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/audit/services.py) | Python | fuente de implementacion / resolucion manual | 8872 | 2026-04-06 09:36:07 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/audit/views.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/audit/views.py) | Python | soporte API de resolucion manual | 3132 | 2026-04-05 23:12:10 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/audit/serializers.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/audit/serializers.py) | Python | contrato API de resolucion manual | 3017 | 2026-04-05 23:48:49 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/tests_migration_pipeline.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/tests_migration_pipeline.py) | Python | evidencia ejecutable del pipeline | 85585 | 2026-04-07 00:11:13 |
+| Ruta absoluta | Tipo | Clasificación |
+|---|---|---|
+| [D:/Proyectos/LeaseManager/Produccion 1.0/migration/bundles/supabase_staging_verification_2026-04-10.json](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/bundles/supabase_staging_verification_2026-04-10.json) | JSON | evidencia validada |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/migration/bundles/verify_current_migration_target_supabase.json](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/bundles/verify_current_migration_target_supabase.json) | JSON | evidencia validada |
+| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/bundle-inspect-final.db](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/bundle-inspect-final.db) | SQLite | evidencia histórica de inspección |
 
-## 6. Pipeline y enriquecimientos de migracion
+## 6. Contexto git y remotos
 
-| Ruta absoluta | Tipo | Clasificacion | Tamano | Modificado |
-|---|---|---|---:|---|
-| [D:/Proyectos/LeaseManager/Produccion 1.0/migration/transformers.py](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/transformers.py) | Python | fuente de implementacion del export canonical | 22231 | 2026-04-07 00:10:31 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/migration/importers.py](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/importers.py) | Python | fuente de implementacion del import canonical | 33445 | 2026-04-06 09:40:44 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/migration/enrichments.py](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/enrichments.py) | Python | pieza de trabajo / verdad de negocio confirmada para migracion actual | 8768 | 2026-04-07 00:10:25 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/migration/bundles/legacy_rows_supabase.json](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/bundles/legacy_rows_supabase.json) | JSON | artefacto derivado / extraccion read-only legacy | 537802 | 2026-04-05 23:40:06 |
-| [D:/Proyectos/LeaseManager/Produccion 1.0/migration/bundles/legacy_seed_bundle.regenerated.json](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/bundles/legacy_seed_bundle.regenerated.json) | JSON | artefacto derivado / bundle canonico vigente | 725504 | 2026-04-06 23:31:54 |
+Contexto operativo no basado en un archivo:
 
-## 7. Artefacto de corrida de inspeccion
+- git root activo: `D:/Proyectos/LeaseManager/Produccion 1.0`
+- `HEAD` actual: `bdde843`
+- commits relevantes recientes:
+  - `550becf` `feat: seed demo access profiles for rbac validation`
+  - `811b8ff` `fix: enforce scoped backend visibility for non-admin roles`
+  - `bdde843` `fix: scope write paths for non-admin backoffice actions`
+- working tree actual: `dirty` por refresh local de `HANDOFF/*` y docs.
 
-| Ruta absoluta | Tipo | Clasificacion | Tamano | Modificado |
-|---|---|---|---:|---|
-| [D:/Proyectos/LeaseManager/Produccion 1.0/backend/bundle-inspect-final.db](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/bundle-inspect-final.db) | SQLite | pieza procesal / corrida de inspeccion final | 1384448 | 2026-04-07 00:15:03 |
+## 7. Respuestas externas y material no versionado
 
-## 8. Contexto sensible local inspeccionado parcialmente
+### Respuestas externas
 
-| Ruta absoluta | Tipo | Clasificacion | Tamano | Modificado |
-|---|---|---|---:|---|
-| [D:/Proyectos/LeaseManager/.env.production.local](/D:/Proyectos/LeaseManager/.env.production.local) | Env | contexto sensible local | 2731 | 2026-01-11 00:33:36 |
+- las respuestas externas literales siguen archivadas en [07_RESPUESTAS_EXTERNAS_LITERAL.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/07_RESPUESTAS_EXTERNAS_LITERAL.md)
 
-Nota:
+### Material no versionado importante para continuidad
 
-- este archivo fue inspeccionado solo para confirmar disponibilidad de credenciales locales hacia Supabase legacy;
-- los valores secretos no se copian ni se transcriben en el handoff.
-
-## 9. Material del thread no almacenado como archivo
-
-Estas piezas existen solo en el contexto del thread actual y fueron incorporadas analiticamente:
-
-- capturas de pantalla con porcentajes y composicion de comunidades estandar de 4 socios;
-- captura de `Bulnes 699` como comunidad de 6 socios;
-- captura del listado actual de cartera de `Inmobiliaria Puig` usado para confirmar:
-  - `Paulina Fuenzalida` en `Estacionamiento 97`;
-  - salida de cartera de `Estacionamiento 96`;
-  - exclusiones actuales de `José Ibáñez` y `Claudio Galdames`.
-
-No existe ruta absoluta local para esas imagenes dentro del workspace.
+- datos `TEST LOCAL` en la base local `v7`;
+- usuario local `admin` de desarrollo;
+- usuarios demo `demo-admin`, `demo-operador`, `demo-revisor`, `demo-socio`;
+- estado vivo de Docker/PostgreSQL/Redis/backend/frontend.

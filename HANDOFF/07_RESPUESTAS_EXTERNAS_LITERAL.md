@@ -5,6 +5,16 @@
 En este thread el usuario pego de forma textual respuestas extensas de otro modelo / thread anterior.  
 Esas piezas se guardan aqui de forma literal completa en la medida en que fueron pegadas completas por el usuario.
 
+Actualizacion de esta version del handoff:
+
+- no se agregaron nuevas respuestas externas completas durante las iteraciones posteriores dedicadas al backoffice, UX o RBAC;
+- por lo tanto, este archivo sigue concentrando sobre todo el material externo relevante del tramo comunitario original.
+
+Nota adicional:
+
+- en este thread tambien se pegaron bloques de continuidad de un thread anterior con recap procesal y respuestas previas del asistente;
+- como ese material era mixto `usuario + asistente previo` y no una respuesta externa unica bien separada, se incorporo analiticamente en `01_CONTEXTO_MAESTRO.md`, `03_CRONOLOGIA.md`, `04_DECISIONES_VIGENTES.md` y `08_PENDIENTES_Y_PROXIMOS_PASOS.md`, pero no se duplica aqui como literal externo separado.
+
 ## Respuesta Externa 1
 
 Origen declarado en contexto: respuesta previa / auditoria externa pegada por el usuario.  

@@ -2,7 +2,7 @@
 
 ## 1. Archivos del paquete
 
-Archivos actualizados en esta version del handoff:
+Archivos actualizados en esta versión del handoff:
 
 - `00_HANDOFF_INDEX.md`
 - `01_CONTEXTO_MAESTRO.md`
@@ -21,59 +21,62 @@ Archivos actualizados en esta version del handoff:
 
 ### Completos
 
-- nuevo estado del backend;
-- nuevo borrador principal;
-- decisiones ya cerradas por el usuario;
-- enriquecimientos del pipeline;
-- corrida de inspeccion final;
-- corrida real local final sobre PostgreSQL;
-- correccion del bug de rerun del importer y su prueba automatizada;
-- estado final del backlog actual;
-- bootstrap de siguiente thread.
+- estado cerrado de migración comunitaria;
+- estado actual del repo y commits recientes;
+- estado del backoffice por módulos;
+- estado del RBAC en UI y backend;
+- seed reproducible de perfiles demo;
+- hardening inicial de lectura y escritura por scope;
+- next step recomendado;
+- bootstrap para nuevo thread.
 
-### Parciales o con limite conocido
+### Parciales o con límite conocido
 
-- las capturas de pantalla del thread no existen como archivos locales y, por lo tanto, solo quedaron integradas analiticamente;
-- el acceso a [D:/Proyectos/LeaseManager/.env.production.local](/D:/Proyectos/LeaseManager/.env.production.local) fue parcial y solo para confirmar existencia de credenciales locales; no se transcribieron secretos.
+- las respuestas externas archivadas siguen limitadas al tramo comunitario;
+- las imágenes originales aportadas por el usuario no existen como archivos locales originales;
+- el estado de datos `TEST LOCAL`, usuario admin local y usuarios demo pertenece a la base local, no al repositorio;
+- la validación manual completa con `demo-operador`, `demo-revisor` y `demo-socio` todavía no está cerrada.
 
 ## 3. Respuestas externas incorporadas literalmente
 
-Quedaron incorporadas literalmente:
+Siguen incorporadas literalmente:
 
-- la respuesta externa de auditoria pegada por el usuario sobre “la opcion 3”;
-- la respuesta externa pegada por el usuario sobre la revision secuencial y lineal;
-- la breve continuacion externa pegada por el usuario sobre “llevarlo al siguiente nivel útil”.
+- la auditoría externa sobre “la opción 3”;
+- la respuesta externa sobre revisión secuencial y lineal;
+- la continuación externa sobre llevar el diseño al siguiente nivel útil.
+
+No se agregaron nuevas respuestas externas completas en esta actualización.
 
 ## 4. Fuentes que no pudieron abrirse
 
-- no hubo fuentes locales relevantes imposibles de abrir entre las usadas para este handoff;
-- las imagenes del thread no tienen ruta local dentro del workspace.
+- no hubo fuentes locales relevantes imposibles de abrir entre las usadas para este refresh;
+- no existe ruta local para las imágenes originales pegadas por el usuario;
+- el MCP del navegador Playwright sigue fallando por permisos sobre `C:\\Windows\\System32\\.playwright-mcp`.
 
-## 5. Vacios que persisten
+## 5. Vacíos que persisten
 
-Vacios semanticos relevantes para el scope actual:
+### Vacíos semánticos
 
-- ninguno del backlog comunitario actual.
+- no quedan vacíos semánticos mayores en el dominio comunitario cerrado.
 
-Vacios operativos que persisten:
+### Vacíos operativos
 
-- ya no falta corrida real local del greenfield;
-- si se requiere ir mas alla del entorno local, falta solo decidir y ejecutar sobre otro entorno persistente o compartido.
+- todavía no se hizo la pasada manual completa con `demo-operador`, `demo-revisor` y `demo-socio`;
+- el frontend concentra demasiada superficie en `App.tsx`, aunque eso no bloquea continuidad inmediata.
 
 ## 6. Riesgo residual del handoff
 
-El riesgo principal ya no es de modelo, sino de ejecucion:
+Los riesgos principales del paquete hoy son:
 
-- leer el paquete anterior de 2026-04-05 y creer que el diseño sigue abierto;
-- no ejecutar el pipeline con `migration/enrichments.py`;
-- no usar el bundle regenerado actual si se quiere reproducir exactamente la corrida local de 2026-04-08;
-- o repetir la corrida en otro entorno sin incluir la resolucion de las `16` propiedades comunitarias.
+- retomar desde un handoff viejo y pensar que el trabajo sigue en “siguiente módulo”;
+- asumir que los datos `TEST LOCAL`, el usuario admin local o los usuarios demo están versionados;
+- o pensar que el hardening de scope ya quedó perfecto sin una pasada manual real por perfil.
 
 ## 7. Usabilidad del paquete
 
 Este handoff ya es utilizable para:
 
-- reabrir el problema en otro thread sin depender de memoria del chat;
-- entender el diseño final implementado;
-- entender las confirmaciones de negocio ya incorporadas;
-- y continuar directamente con la corrida real sobre el entorno destino.
+- reabrir el proyecto en otro thread sin depender de memoria del chat;
+- retomar el greenfield con su estado real de backoffice multmódulo;
+- entender el baseline local/remoto, el estado del repo y la política RBAC/scope actual;
+- y arrancar directamente el siguiente trabajo recomendado sin reabrir diseño comunitario ni naming.

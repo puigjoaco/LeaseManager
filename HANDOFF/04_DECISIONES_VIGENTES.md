@@ -2,116 +2,105 @@
 
 ## 1. Decisiones cerradas
 
-### 1.1 Root y fuentes
+### 1.1 Root, nombre y repositorio
 
-- `D:/Proyectos/LeaseManager/Produccion 1.0` es la codebase activa del greenfield.
-- `D:/Proyectos/LeaseManager` sigue siendo legacy read-only.
-- El set canonico manda sobre lo historico.
+- [D:/Proyectos/LeaseManager/Produccion 1.0](/D:/Proyectos/LeaseManager/Produccion%201.0) es la codebase activa del greenfield.
+- [D:/Proyectos/LeaseManager](/D:/Proyectos/LeaseManager) sigue siendo legacy read-only.
+- El nombre vigente del proyecto nuevo es `LeaseManager`.
+- `LeaseControl` deja de ser nombre activo dentro del root actual.
+- El remoto oficial del greenfield es [puigjoaco/LeaseManager](https://github.com/puigjoaco/LeaseManager).
+- El repo anterior queda como [puigjoaco/LeaseManager-legacy](https://github.com/puigjoaco/LeaseManager-legacy).
 
-### 1.2 Disciplina de trabajo
+### 1.2 Diseño comunitario y migración
 
-- no rehacer scaffold;
-- no commit ni deploy todavia;
-- no usar `git add .`;
-- usar `apply_patch` para ediciones manuales;
-- no copiar secretos al handoff ni al repo;
-- no inventar datos para cerrar backlog.
+Estas decisiones siguen cerradas y no deben reabrirse:
 
-### 1.3 Diseño de dominio
+- `MandatoOperacion` distingue `Propietario`, `AdministradorOperativo`, `Recaudador` y `EntidadFacturadora`.
+- `CuentaRecaudadora` pertenece exactamente al `Recaudador`.
+- `ComunidadPatrimonial` soporta participantes `Socio` o `Empresa`.
+- `RepresentacionComunidad` separa representante de administrador operativo.
+- `PagoMensual` representa el cobro total.
+- `DistribucionCobroMensual` representa la atribución económica y facturable.
+- `SII`, `Contabilidad` y `Reporting` consumen distribución y no el owner bancario como proxy.
+- baseline local cerrado: `leasemanager_migration_run_20260409_v7`.
+- baseline remoto cerrado: `leasemanager-staging`.
 
-Estas decisiones ya quedaron cerradas e implementadas:
+### 1.3 Arquitectura y stack
 
-- `MandatoOperacion` distingue `Propietario`, `AdministradorOperativo`, `Recaudador` y `EntidadFacturadora`;
-- `CuentaRecaudadora` debe pertenecer exactamente al `Recaudador`;
-- `ComunidadPatrimonial` soporta participantes `Socio` o `Empresa`;
-- `RepresentacionComunidad` separa representante de administrador operativo;
-- `PagoMensual` representa el cobro total;
-- `DistribucionCobroMensual` representa la atribucion economica;
-- `SII`, `Contabilidad` y `Reporting` consumen la capa de distribucion y no el owner bancario como proxy.
+- stack canónico:
+  - backend `Django 5`
+  - API `DRF`
+  - base de datos `PostgreSQL`
+  - colas `Celery + Redis`
+  - frontend `React + TypeScript + Vite`
+- no introducir como base:
+  - `Next.js`
+  - `Supabase` como modelo final
+  - `Django Ninja`
+  - `pgvector`
+  - microservicios
 
-### 1.4 Reglas de negocio del backlog actual
+### 1.4 Estado del producto/backoffice
 
-Estas reglas ya fueron confirmadas por el usuario y no deben reabrirse:
+Quedó cerrado que el backoffice actual ya cubre una primera versión operable de:
 
-- todas las comunidades actuales del backlog usan a `Joaquin Puig Vittini` como `representante_designado`;
-- cuando falta `vigente_desde` en participaciones legacy, se usa `2017-03-16`;
-- cuando la region falta y la comuna/ciudad es `Temuco`, se usa `La Araucania`;
-- `Bulnes 699` es comunidad de 6 socios;
-- `Edificio Q Dpto 1014` es comunidad mixta de 5 socios + `Inmobiliaria Puig SpA`;
-- `Edificio Q Bod. 17 / Est. 33` tiene exactamente la misma comunidad que `Edificio Q Dpto 1014`;
-- `Estacionamiento 96` queda fuera de la cartera actual;
-- `Paulina Fuenzalida` queda con RUT `19.076.873-2` y su contrato actual se reapunta al `Estacionamiento 97`;
-- `José Ibáñez` y `Claudio Galdames` quedan fuera de la migracion actual.
+- `Patrimonio`
+- `Operacion`
+- `Contratos`
+- `Cobranza`
+- `Conciliacion`
+- `Contabilidad`
+- `SII`
+- `Reporting`
 
-### 1.5 Estado de la corrida de inspeccion
+Y además ya incorpora:
 
-La corrida de inspeccion final sobre SQLite aislada se toma como validacion interna fuerte del pipeline actual:
+- creación rápida;
+- edición base de registros operativos;
+- navegación contextual;
+- controles visibles por rol;
+- permisos efectivos de backend por rol;
+- seed reproducible de perfiles demo;
+- primera capa real de filtrado por scope en lectura y escritura.
 
-- `56` contratos;
-- `748` periodos;
-- `66` mandatos;
-- `0` resoluciones manuales abiertas.
+### 1.5 Política de permisos vigente
 
-### 1.6 Estado de la corrida real local
+Quedó cerrada esta política RBAC inicial:
 
-La corrida real local sobre PostgreSQL `leasemanager_migration_run_20260408_v3` tambien queda validada:
-
-- `56` contratos;
-- `748` periodos;
-- `66` mandatos;
-- `0` resoluciones manuales abiertas.
-
-Decision tecnica ya cerrada durante esa ejecucion:
-
-- el rerun del importer no puede volver a borrar participaciones comunitarias resueltas manualmente;
-- la sincronizacion de `ParticipacionPatrimonial` debe hacerse por owner incluido en el bundle, preservando comunidades ya resueltas fuera del bundle deterministico.
-
-### 1.7 Baseline local elegida
-
-Decision operativa ya tomada:
-
-- la base local de referencia para esta etapa queda fijada en `leasemanager_migration_run_20260409_v7`;
-- [backend/.env](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/.env) queda apuntando a esa base;
-- esa base conserva el `final_state` validado del runner unico.
-
-### 1.8 Staging remoto elegido
-
-Decision operativa ya tomada:
-
-- el staging remoto oficial de esta etapa pasa a ser el proyecto Supabase `leasemanager-staging`;
-- organizacion: `Puig Projects`;
-- project ref: `ubccvzaklmkiavppnzcf`;
-- metodo de conexion aprobado para este entorno: `Session pooler` / `Shared Pooler` IPv4.
+- `AdministradorGlobal`: lectura y escritura total.
+- `OperadorDeCartera`: lectura y escritura en módulos operativos.
+- `RevisorFiscalExterno`: lectura en módulos de control.
+- `Socio`: acceso restringido a reporting y, en backend, solo a su propio resumen de socio si `metadata.socio_id` coincide.
+- los alias legacy como `operator` se normalizan a `OperadorDeCartera`.
 
 ## 2. Decisiones provisionales vigentes
 
-- la corrida importante ya se hizo sobre PostgreSQL local del greenfield;
-- si se requiere otra corrida posterior, ya no es para “salir de SQLite”, sino para promover o repetir el mismo flujo sobre otro entorno mas persistente o compartido;
-- los enriquecimientos en `migration/enrichments.py` son la fuente operativa vigente para esta migracion actual, mientras el legacy no refleje esa verdad de negocio.
+- el seed reproducible de usuarios/roles/scopes demo ya existe, pero todavía falta la pasada manual completa de validación con esos perfiles;
+- ya existe una primera capa de filtrado por scope en lectura y escritura, pero todavía puede haber huecos finos en recorridos reales del backoffice;
+- el siguiente trabajo recomendado ya no es abrir otro bounded context base, sino:
+  - probar el sistema con `demo-operador`, `demo-revisor` y `demo-socio`;
+  - y ajustar alcance/permisos donde falle la experiencia real.
 
 ## 3. Decisiones descartadas
 
-- seguir modelando comunidades en el esquema viejo;
-- usar la cuenta bancaria como prueba de administracion real;
-- tratar al `Recaudador` como lo mismo que `AdministradorOperativo`;
-- atribuir ingresos de empresa solo porque entran por una cuenta de empresa;
-- seguir abriendo resoluciones manuales por `missing_vigencia` para este backlog actual;
-- mantener `Estacionamiento 96`, `José Ibáñez` o `Claudio Galdames` dentro de la migracion actual.
+- seguir tratando el trabajo actual como “elegir el siguiente módulo”;
+- seguir confiando solo en el frontend para permisos;
+- versionar `DATABASE_URL` completa o metadata con credenciales;
+- seguir usando el repo legacy como remoto del greenfield;
+- reabrir el diseño comunitario como si siguiera pendiente.
 
 ## 4. Reglas que no deben volver a violarse
 
-- no reabrir decisiones ya cerradas salvo contradiccion documental real;
-- no volver a tratar `Edificio Q` como comunidad solo de socios;
-- no volver a confundir cobro total con monto facturable/atribuible;
-- no recrear el contrato actual de Paulina sobre el `96`;
-- no reintroducir a arrendatarios o propiedades excluidas de la cartera actual;
-- no usar el owner de la cuenta como fallback contable/reporting;
-- no inventar RUTs, direcciones, porcentajes o owners.
+- no reabrir decisiones comunitarias ya cerradas salvo contradicción documental real;
+- no volver a llamar `LeaseControl` al root activo;
+- no volver a exponer secretos o URLs completas de conexión en artefactos versionados;
+- no asumir que el frontend basta para controlar permisos;
+- no tratar la cuenta bancaria como proxy de ownership contable;
+- no empujar el greenfield al repo `LeaseManager-legacy`;
+- no asumir que los datos de prueba locales están versionados.
 
-## 5. Punto aun abierto
+## 5. Punto aún abierto
 
-No queda una decision semantica principal abierta dentro del scope actual de comunidades.  
-El punto operativo abierto es:
+No queda una decisión semántica principal abierta en migración comunitaria. El punto abierto actual es operativo:
 
-- **definir el entorno destino sobre el que se ejecutara la primera corrida real posterior a la corrida de inspeccion**.
-
+- **qué huecos reales siguen apareciendo al recorrer el sistema como `demo-operador`, `demo-revisor` y `demo-socio`, y qué último round de visibilidad/mutación scopeada todavía falta cerrar**

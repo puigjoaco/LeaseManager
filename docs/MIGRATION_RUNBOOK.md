@@ -85,3 +85,4 @@ Validación operativa realizada contra target PostgreSQL vacío:
 - base de prueba: `leasemanager_migration_run_20260410_v10`
 - artefacto: [promote_current_migration_flow_v10.json](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/bundles/promote_current_migration_flow_v10.json)
 
+

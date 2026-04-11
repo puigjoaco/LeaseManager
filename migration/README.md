@@ -126,3 +126,4 @@ Resultado esperado del estado final validado:
 - `66` mandatos operativos
 - `0` resoluciones manuales abiertas
 
+

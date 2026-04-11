@@ -1,128 +1,78 @@
 # Handoff Index
 
-Ultima actualizacion: 2026-04-07
+Ultima actualizacion: 2026-04-11
 
 Root activo: [D:/Proyectos/LeaseManager/Produccion 1.0](/D:/Proyectos/LeaseManager/Produccion%201.0)  
 Directorio de handoff: [D:/Proyectos/LeaseManager/Produccion 1.0/HANDOFF](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF)
 
 ## Estado actual del trabajo
 
-El greenfield `LeaseManager` sigue siendo la codebase activa.  
-El problema de dominio de comunidades, recaudacion y atribucion economica ya no esta solo auditado: fue **implementado** en el backend, validado por pruebas, contrastado con una corrida de inspeccion del pipeline sobre SQLite aislada y luego **ejecutado tambien sobre PostgreSQL local del greenfield**.
+El greenfield activo ya no está en fase de naming ni de migración comunitaria. Ese tramo quedó cerrado y validado.
 
-Estado de la corrida de inspeccion final:
+Estado real consolidado al cierre de este handoff:
 
-- `56` contratos importados;
-- `748` periodos importados;
-- `66` mandatos operativos;
-- `0` resoluciones manuales abiertas en la base de inspeccion.
-
-Estado de la corrida real local final sobre PostgreSQL:
-
-- base destino: `leasemanager_migration_run_20260408_v3`;
-- `56` contratos importados;
-- `748` periodos importados;
-- `66` mandatos operativos;
-- `0` resoluciones manuales abiertas.
-
-Durante esa corrida se detecto y corrigio un bug real del rerun:
-
-- `migration/importers.py` borraba participaciones comunitarias resueltas manualmente al hacer reimport;
-- eso dejaba a las comunidades sin participaciones activas y a `Edificio Q` sin `EntidadFacturadora`;
-- el importer fue corregido para sincronizar participaciones por owner del bundle sin borrar indiscriminadamente las comunidades ya resueltas.
-
-Ademas, el paso intermedio de resolucion comunitaria quedo automatizado y validado:
-
-- nuevo script reusable: `migration/scripts/resolve_current_community_resolutions.py`;
-- secuencia reusable validada: `import -> resolve_current_community_resolutions.py -> import -> import`;
-- base de validacion operativa final del flujo reusable: `leasemanager_migration_run_20260408_v6`.
-
-Luego se encapsulo tambien el flujo completo en un solo runner:
-
-- nuevo script: `migration/scripts/run_current_migration_flow.py`;
-- validado en limpio sobre `leasemanager_migration_run_20260409_v7`;
-- `final_state` del runner:
-  - `56` contratos;
-  - `748` periodos;
-  - `66` mandatos;
-  - `0` resoluciones manuales abiertas;
-- `16` comunidades;
-- `70` participaciones comunitarias activas.
-
-Luego se encapsulo tambien el rehearsal local completo:
-
-- nuevo script: `migration/scripts/rehearse_current_migration_flow.py`;
-- crea base nueva + migra + corre el runner completo;
-- validado en limpio sobre `leasemanager_migration_run_20260410_v9`;
-- artefacto: `migration/bundles/rehearse_current_migration_flow_v9.json`.
-
-Luego se agrego un gate de validacion automatica del estado final:
-
-- `run_current_migration_flow.py` ahora verifica por defecto que el resultado termine en el estado esperado;
-- validacion rechecqueada sobre la base baseline `leasemanager_migration_run_20260409_v7`;
-- artefacto: `migration/bundles/run_current_migration_flow_v7_recheck.json`.
-
-Luego se agrego el paso equivalente para target PostgreSQL ya existente:
-
-- nuevo script: `migration/scripts/promote_current_migration_flow.py`;
-- pensado para staging/Supabase o cualquier PostgreSQL remoto ya creado;
-- valida que el target quede vacio tras `migrate`;
-- validado localmente contra `leasemanager_migration_run_20260410_v10`;
-- artefacto: `migration/bundles/promote_current_migration_flow_v10.json`.
-
-Tambien quedo documentado el paso siguiente hacia Supabase:
-
-- nuevo documento: `docs/SUPABASE_STAGING_PLAYBOOK.md`;
-- indica cuando usar direct connection y cuando usar Supavisor session mode;
-- el comando recomendado usa `promote_current_migration_flow.py`.
-
-Estado mas reciente:
-
-- la organizacion Supabase fue renombrada a `Puig Projects`;
-- se creo un proyecto nuevo limpio `leasemanager-staging`;
-- se identifico como conexion correcta `Session pooler` / `Shared Pooler` en `aws-1-sa-east-1.pooler.supabase.com:5432`;
-- la base staging quedo validada con el estado esperado;
-- artefacto final: `migration/bundles/supabase_staging_verification_2026-04-10.json`.
-
-Tambien quedo un verificador reusable del target:
-
-- nuevo script: `migration/scripts/verify_current_migration_target.py`;
-- validado contra Supabase staging;
-- artefacto: `migration/bundles/verify_current_migration_target_supabase.json`.
-
-El trabajo ya no esta en “cerrar el diseno” ni en “probar solo en SQLite”.  
-El estado actual ya incluye **corrida real local del greenfield validada con integridad semantica**.
+- `LeaseManager` es el nombre vigente y exclusivo del greenfield activo.
+- el repo oficial del greenfield es [puigjoaco/LeaseManager](https://github.com/puigjoaco/LeaseManager).
+- el repo histórico separado es [puigjoaco/LeaseManager-legacy](https://github.com/puigjoaco/LeaseManager-legacy).
+- el baseline de migración comunitaria sigue validado en:
+  - local PostgreSQL: `leasemanager_migration_run_20260409_v7`
+  - staging Supabase: `leasemanager-staging`
+- el frontend/backoffice local ya cubre:
+  - `Patrimonio`
+  - `Operacion`
+  - `Contratos`
+  - `Cobranza`
+  - `Conciliacion`
+  - `Contabilidad`
+  - `SII`
+  - `Reporting`
+- el backend ya incorpora:
+  - RBAC efectivo por rol;
+  - seed reproducible de usuarios/roles/scopes demo;
+  - filtrado inicial por scope para lectura;
+  - hardening inicial de escrituras/acciones por scope.
 
 ## Borrador vigente
 
-Base principal hoy: [D:/Proyectos/LeaseManager/Produccion 1.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md)
+No existe un borrador documental único nuevo para el tramo actual de producto. La base principal vigente hoy se reparte entre:
+
+1. [D:/Proyectos/LeaseManager/Produccion 1.0/01_Set_Vigente/PRD_CANONICO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/01_Set_Vigente/PRD_CANONICO.md)
+2. [D:/Proyectos/LeaseManager/Produccion 1.0/03_Ejecucion_Tecnica/ROADMAP_TECNICO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/03_Ejecucion_Tecnica/ROADMAP_TECNICO.md)
+3. [D:/Proyectos/LeaseManager/Produccion 1.0/03_Ejecucion_Tecnica/MODULOS_Y_DEPENDENCIAS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/03_Ejecucion_Tecnica/MODULOS_Y_DEPENDENCIAS.md)
+4. [D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/App.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/App.tsx)
+5. [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/permissions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/permissions.py)
+6. [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/scope_access.py)
+7. [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/seed_demo_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/seed_demo_access.py)
+
+Para el subproblema comunitario ya cerrado, sigue mandando:
+
+- [D:/Proyectos/LeaseManager/Produccion 1.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md)
 
 ## Decision central vigente hoy
 
-La solucion vigente ya adoptada e implementada es:
+La decisión central vigente ya no es de diseño comunitario ni de elección de stack. La línea vigente hoy es:
 
-1. `MandatoOperacion` distingue `Propietario`, `AdministradorOperativo`, `Recaudador` y `EntidadFacturadora`;
-2. `ComunidadPatrimonial` soporta participantes `Socio` o `Empresa`;
-3. `PagoMensual` sigue siendo el cobro total, pero `SII`, `Contabilidad` y `Reporting` consumen `DistribucionCobroMensual`;
-4. para el backlog comunitario actual, `Joaquin Puig Vittini` queda como `representante_designado`;
-5. los vacios legacy confirmados por el usuario se resuelven mediante enriquecimientos explicitos del pipeline, no con parches manuales ad hoc.
+1. mantener cerrada la migración comunitaria y sus reglas ya confirmadas;
+2. tratar el backoffice actual como la base operativa del greenfield;
+3. endurecer el sistema desde “UI funcional” hacia “operación real con RBAC verificable”;
+4. no confiar solo en el frontend para permisos;
+5. validar el sistema con perfiles no-admin reales y cerrar los huecos finos de visibilidad y mutación que aparezcan.
 
 ## Pregunta abierta mas importante
 
-Ya no queda una pregunta semantica principal sobre comunidades dentro del scope actual.  
-La pregunta operativa principal ahora es:
+La pregunta abierta más importante ya no es “cómo sembrar roles/scopes”, porque esa base ya quedó implementada. La pregunta abierta más importante ahora es:
 
-- **si esta corrida local PostgreSQL debe tomarse como destino suficiente para esta etapa, o si el siguiente paso es repetir/promover el mismo flujo hacia otro entorno mas persistente o compartido del greenfield**
+- **qué desajustes reales siguen apareciendo al recorrer el backoffice local como `demo-operador`, `demo-revisor` y `demo-socio`, y qué round final de filtrado/permiso todavía falta cerrar a partir de esa prueba manual**
 
 ## Orden de lectura recomendado
 
 1. [01_CONTEXTO_MAESTRO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/01_CONTEXTO_MAESTRO.md)
 2. [04_DECISIONES_VIGENTES.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/04_DECISIONES_VIGENTES.md)
-3. [06_BORRADOR_ACTUAL.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/06_BORRADOR_ACTUAL.md)
-4. [03_CRONOLOGIA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/03_CRONOLOGIA.md)
-5. [05_HALLAZGOS_Y_RIESGOS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/05_HALLAZGOS_Y_RIESGOS.md)
-6. [08_PENDIENTES_Y_PROXIMOS_PASOS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/08_PENDIENTES_Y_PROXIMOS_PASOS.md)
-7. [02_FUENTES_Y_RUTAS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/02_FUENTES_Y_RUTAS.md)
+3. [03_CRONOLOGIA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/03_CRONOLOGIA.md)
+4. [02_FUENTES_Y_RUTAS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/02_FUENTES_Y_RUTAS.md)
+5. [06_BORRADOR_ACTUAL.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/06_BORRADOR_ACTUAL.md)
+6. [05_HALLAZGOS_Y_RIESGOS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/05_HALLAZGOS_Y_RIESGOS.md)
+7. [08_PENDIENTES_Y_PROXIMOS_PASOS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/08_PENDIENTES_Y_PROXIMOS_PASOS.md)
 8. [07_RESPUESTAS_EXTERNAS_LITERAL.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/07_RESPUESTAS_EXTERNAS_LITERAL.md)
 9. [10_CONTROL_DE_CALIDAD.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/10_CONTROL_DE_CALIDAD.md)
 10. [11_MANIFEST.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/11_MANIFEST.md)
@@ -130,16 +80,14 @@ La pregunta operativa principal ahora es:
 
 ## Que contiene cada archivo
 
-- `01_CONTEXTO_MAESTRO.md`: contexto consolidado, jerarquia de verdad, estado real del backend, estado real del pipeline y como leer el material hoy.
-- `02_FUENTES_Y_RUTAS.md`: inventario de fuentes primarias, piezas de trabajo, implementacion y artefactos de inspeccion, con rutas absolutas.
-- `03_CRONOLOGIA.md`: linea temporal del trabajo, incluyendo implementacion real, enriquecimientos y corrida de inspeccion final.
+- `01_CONTEXTO_MAESTRO.md`: estado consolidado del proyecto, jerarquía de verdad, rectificaciones, entorno local y cómo leer todo hoy.
+- `02_FUENTES_Y_RUTAS.md`: inventario actualizado de fuentes relevantes, con rutas absolutas y clasificación.
+- `03_CRONOLOGIA.md`: línea temporal completa desde el cierre de migración hasta el hardening de scope por lectura/escritura.
 - `04_DECISIONES_VIGENTES.md`: decisiones cerradas, provisionales, descartadas y reglas que ya no deben violarse.
-- `05_HALLAZGOS_Y_RIESGOS.md`: hallazgos firmes, riesgos tecnicos y riesgos operativos remanentes.
-- `06_BORRADOR_ACTUAL.md`: ranking del borrador vigente y cual debe usarse como base principal.
-- `07_RESPUESTAS_EXTERNAS_LITERAL.md`: respuestas externas pegadas por el usuario de forma literal completa y advertencias sobre material parcial.
-- `08_PENDIENTES_Y_PROXIMOS_PASOS.md`: estado del backlog real, trabajo restante y secuencia correcta para continuar.
-- `09_BOOTSTRAP_NUEVO_THREAD.txt`: prompt listo para abrir un thread nuevo sin reanalizar desde cero.
-- `10_CONTROL_DE_CALIDAD.md`: control de completitud, vacios y riesgos del paquete.
-- `11_MANIFEST.md`: manifiesto final de archivos clave con rol, metadata y si fueron realmente leidos.
-
-
+- `05_HALLAZGOS_Y_RIESGOS.md`: hallazgos firmes/probables y riesgos técnicos, procesales, narrativos y estratégicos.
+- `06_BORRADOR_ACTUAL.md`: base documental/canónica a usar hoy.
+- `07_RESPUESTAS_EXTERNAS_LITERAL.md`: respuestas externas antiguas conservadas literalmente.
+- `08_PENDIENTES_Y_PROXIMOS_PASOS.md`: siguiente trabajo real y secuencia recomendada desde el estado actual.
+- `09_BOOTSTRAP_NUEVO_THREAD.txt`: prompt listo para otro thread, con orden de lectura y advertencias de continuidad.
+- `10_CONTROL_DE_CALIDAD.md`: control de calidad del paquete, límites y riesgos remanentes.
+- `11_MANIFEST.md`: manifiesto final de archivos clave con rutas absolutas, metadata y confirmación de lectura efectiva.

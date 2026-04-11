@@ -46,3 +46,4 @@ Precondiciones para abrir `IA.Semantica`:
 - incluir `pgvector` desde el dia cero sin caso de uso: descartado.
 - usar un vector store externo como default inicial: descartado para v1.
 
+
