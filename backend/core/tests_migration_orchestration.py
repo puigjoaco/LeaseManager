@@ -7,7 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from migration.orchestration import read_backend_env_value, replace_database_name  # noqa: E402
+from migration.orchestration import describe_database_target, read_backend_env_value, replace_database_name  # noqa: E402
 from migration.importers import (  # noqa: E402
     validate_current_migration_empty_state,
     validate_current_migration_state,
@@ -26,6 +26,29 @@ class MigrationOrchestrationTests(SimpleTestCase):
     def test_read_backend_env_value_returns_empty_when_file_missing(self):
         missing_path = PROJECT_ROOT / 'backend' / '.env.does-not-exist'
         self.assertEqual(read_backend_env_value('DATABASE_URL', env_path=missing_path), '')
+
+    def test_describe_database_target_redacts_credentials_and_keeps_host_metadata(self):
+        description = describe_database_target(
+            'postgresql://postgres.secret-user:super-secret-password@aws-1-sa-east-1.pooler.supabase.com:5432/postgres'
+        )
+        self.assertEqual(
+            description,
+            {
+                'database_url_host': 'aws-1-sa-east-1.pooler.supabase.com',
+                'database_url_port': 5432,
+                'database_name': 'postgres',
+            },
+        )
+
+    def test_describe_database_target_returns_empty_metadata_when_url_is_missing(self):
+        self.assertEqual(
+            describe_database_target(''),
+            {
+                'database_url_host': '',
+                'database_url_port': None,
+                'database_name': '',
+            },
+        )
 
     def test_validate_current_migration_state_accepts_expected_snapshot(self):
         snapshot = {

@@ -42,6 +42,22 @@ def replace_database_name(connection_url: str, database_name: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, new_path, parsed.query, parsed.fragment))
 
 
+def describe_database_target(connection_url: str) -> dict:
+    if not connection_url:
+        return {
+            'database_url_host': '',
+            'database_url_port': None,
+            'database_name': '',
+        }
+
+    parsed = urlsplit(connection_url)
+    return {
+        'database_url_host': parsed.hostname or '',
+        'database_url_port': parsed.port,
+        'database_name': parsed.path.lstrip('/'),
+    }
+
+
 def postgres_admin_url(connection_url: str) -> str:
     return replace_database_name(connection_url, 'postgres')
 

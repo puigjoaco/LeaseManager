@@ -13,7 +13,12 @@ BACKEND_ROOT = PROJECT_ROOT / 'backend'
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from migration.orchestration import ensure_database_exists, read_backend_env_value, replace_database_name
+from migration.orchestration import (
+    describe_database_target,
+    ensure_database_exists,
+    read_backend_env_value,
+    replace_database_name,
+)
 
 
 def run_command(command: list[str], *, env: dict[str, str], cwd: Path) -> str:
@@ -71,7 +76,7 @@ def main():
 
     result = {
         'database_name': args.database_name,
-        'database_url': target_database_url,
+        **describe_database_target(target_database_url),
         'database_created': ensure_result['created'],
         'bundle_path': args.bundle_path,
         'migrate_stdout': migrate_stdout,

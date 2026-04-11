@@ -124,6 +124,7 @@ Regla de RBAC:
 |---|---|
 | `Propietario` | persona o entidad titular del activo o del derecho economico principal |
 | `AdministradorOperativo` | actor responsable del ciclo operacional del arriendo en la plataforma |
+| `Recaudador` | actor al que pertenece la `CuentaRecaudadora` y que recibe operativamente el flujo bancario |
 | `EntidadFacturadora` | actor habilitado para emitir documentos tributarios cuando el gate SII de la capacidad aplicable esta abierto |
 | `CuentaRecaudadora` | cuenta o instrumento de recaudacion asociado al cobro operativo |
 | `IdentidadDeEnvio` | identidad autenticada de salida para email o WhatsApp |
@@ -160,12 +161,14 @@ Reglas:
 |---|---|---|
 | `Socio` | `id`, `nombre`, `rut`, `email`, `telefono`, `domicilio`, `activo` | no puede eliminarse con participaciones activas |
 | `Empresa` | `id`, `razon_social`, `rut`, `domicilio`, `giro`, `codigo_actividad_sii`, `estado` | si opera en plataforma debe tener participacion total `100%` y al menos un `MandatoOperacion` valido para activos administrados |
-| `ParticipacionPatrimonial` | `id`, `owner_tipo`, `owner_id`, `socio_id`, `porcentaje`, `vigencia` | la suma por entidad debe ser exactamente `100%` |
-| `Propiedad` | `id`, `rol_avaluo`, `direccion`, `comuna`, `region`, `tipo_inmueble`, `owner_tipo`, `owner_id`, `codigo_propiedad`, `estado` | no puede pertenecer simultaneamente a empresa y comunidad; `codigo_propiedad` es operacional y unico dentro de la `CuentaRecaudadora` activa |
+| `ParticipacionPatrimonial` | `id`, `owner_tipo`, `owner_id`, `participante_socio_id`, `participante_empresa_id`, `porcentaje`, `vigente_desde`, `vigente_hasta`, `activo` | la suma activa por entidad debe ser exactamente `100%`; una empresa owner solo admite participantes `Socio`; una comunidad admite participantes `Socio` o `Empresa` |
+| `RepresentacionComunidad` | `id`, `comunidad_id`, `modo_representacion`, `socio_representante_id`, `vigente_desde`, `vigente_hasta`, `activo` | una comunidad activa debe tener exactamente una representacion activa vigente |
+| `Propiedad` | `id`, `rol_avaluo`, `direccion`, `comuna`, `region`, `tipo_inmueble`, `owner_tipo`, `owner_id`, `codigo_propiedad`, `estado` | no puede pertenecer simultaneamente a empresa, comunidad y socio; `codigo_propiedad` es operacional y unico dentro de la `CuentaRecaudadora` activa |
 
 Reglas adicionales:
 
-- si la propiedad pertenece a comunidad de socios, debe existir representante definido dentro de esa comunidad;
+- si la propiedad pertenece a comunidad, debe existir `RepresentacionComunidad` activa;
+- una comunidad patrimonial puede ser solo de socios o mixta con socios y empresas;
 - `codigo_propiedad` usa rango `001-999` por `CuentaRecaudadora`;
 - una `CuentaRecaudadora` soporta como maximo `999` propiedades activas que usen conciliacion por monto embebido.
 
@@ -173,7 +176,7 @@ Reglas adicionales:
 
 | Entidad | Campos minimos | Reglas canonicas |
 |---|---|---|
-| `MandatoOperacion` | `id`, `propiedad_o_pareja_id`, `propietario_ref`, `administrador_operativo_ref`, `entidad_facturadora_ref`, `cuenta_recaudadora_id`, `tipo_relacion_operativa`, `autoriza_recaudacion`, `autoriza_facturacion`, `autoriza_comunicacion`, `vigencia_desde`, `vigencia_hasta`, `estado` | debe existir antes de activar un contrato; fija quien recauda, quien comunica y quien factura |
+| `MandatoOperacion` | `id`, `propiedad_o_pareja_id`, `propietario_ref`, `administrador_operativo_ref`, `recaudador_ref`, `entidad_facturadora_ref`, `cuenta_recaudadora_id`, `tipo_relacion_operativa`, `autoriza_recaudacion`, `autoriza_facturacion`, `autoriza_comunicacion`, `vigencia_desde`, `vigencia_hasta`, `estado` | debe existir antes de activar un contrato; fija quien recauda, quien comunica y quien factura |
 | `CuentaRecaudadora` | `id`, `institucion`, `numero_cuenta`, `tipo_cuenta`, `titular_nombre`, `titular_rut`, `moneda_operativa`, `estado_operativo` | puede tener varias conexiones proveedoras, pero una sola conexion primaria activa por capacidad automatica |
 | `IdentidadDeEnvio` | `id`, `canal`, `owner_tipo`, `owner_id`, `remitente_visible`, `direccion_o_numero`, `credencial_ref`, `estado` | las credenciales pertenecen al owner de la identidad, nunca a la cuenta bancaria |
 | `AsignacionCanalOperacion` | `id`, `mandato_operacion_id`, `canal`, `identidad_envio_id`, `prioridad`, `estado` | resuelve la identidad por defecto por canal dentro del mandato |
@@ -183,8 +186,9 @@ Reglas adicionales:
 - un contrato puede tener override explicito de `IdentidadDeEnvio`; si no existe, usa la asignacion del `MandatoOperacion`;
 - si un canal no tiene identidad activa, el sistema no inventa un remitente sustituto.
 - para boundary contable-tributario activo, `EntidadFacturadora` debe ser una `Empresa` con `ConfiguracionFiscalEmpresa` activa;
-- si `Propietario`, `AdministradorOperativo` y `EntidadFacturadora` no coinciden, el `MandatoOperacion` debe declarar explicitamente la autorizacion de recaudar, facturar y comunicar;
-- `CuentaRecaudadora` debe pertenecer a `EntidadFacturadora` o a `AdministradorOperativo` expresamente autorizado en el `MandatoOperacion`;
+- si `Propietario`, `AdministradorOperativo`, `Recaudador` y `EntidadFacturadora` no coinciden, el `MandatoOperacion` debe declarar explicitamente la autorizacion de recaudar, facturar y comunicar;
+- `CuentaRecaudadora` debe pertenecer exactamente al `Recaudador` declarado por el `MandatoOperacion`;
+- si el `Propietario` es una comunidad y no tiene participantes empresa activos, `EntidadFacturadora` debe ser `null`;
 - la identidad de envio de documentos contractuales o tributarios debe pertenecer a `EntidadFacturadora` o a `AdministradorOperativo` expresamente autorizado.
 
 ### 4.3 Contratos
@@ -213,6 +217,7 @@ Reglas adicionales:
 | Entidad | Campos minimos | Reglas canonicas |
 |---|---|---|
 | `PagoMensual` | `id`, `contrato_id`, `periodo_contractual_id`, `mes`, `anio`, `monto_calculado_clp`, `monto_pagado_clp`, `fecha_vencimiento`, `fecha_deposito_banco`, `fecha_deteccion_sistema`, `estado_pago`, `dias_mora`, `codigo_conciliacion_efectivo` | existe uno por contrato por mes operativo |
+| `DistribucionCobroMensual` | `id`, `pago_mensual_id`, `beneficiario_tipo`, `beneficiario_id`, `porcentaje_snapshot`, `monto_devengado_clp`, `monto_conciliado_clp`, `monto_facturable_clp`, `requiere_dte` | representa la atribucion economica del cobro mensual; no reemplaza al pago total |
 | `AjusteContrato` | `id`, `contrato_id`, `tipo_ajuste`, `monto`, `moneda`, `mes_inicio`, `mes_fin`, `justificacion` | se aplica antes de insertar el codigo efectivo |
 | `GarantiaContractual` | `id`, `contrato_id`, `monto_pactado`, `monto_recibido`, `monto_devuelto`, `estado_garantia`, `fecha_recepcion`, `fecha_cierre` | pertenece al contrato, no a la propiedad individual |
 | `HistorialGarantia` | `id`, `contrato_id`, `tipo_movimiento`, `monto_clp`, `fecha`, `justificacion`, `movimiento_origen_id` | soporta deposito, devolucion y retencion parcial o total |
@@ -223,6 +228,8 @@ Reglas adicionales:
 
 Reglas adicionales:
 
+- `PagoMensual` representa siempre el cobro total del contrato;
+- `DistribucionCobroMensual` representa la atribucion economica y facturable derivada de ese cobro;
 - `estado_pago` admite al menos `Pendiente`, `Pagado`, `Atrasado`, `EnRepactacion`, `PagadoViaRepactacion`, `PagadoPorAcuerdoDeTermino` y `Condonado`;
 - `fecha_deposito_banco` representa la fecha reportada por el provider cuando existe y es confiable;
 - `fecha_deteccion_sistema` representa cuando LeaseManager conocio el movimiento;

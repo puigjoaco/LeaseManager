@@ -1,5 +1,7 @@
 {
-  "database_url": "postgresql://postgres.ubccvzaklmkiavppnzcf:IEr7UvmUHXooMN0k@aws-1-sa-east-1.pooler.supabase.com:5432/postgres",
+  "database_url_host": "aws-1-sa-east-1.pooler.supabase.com",
+  "database_url_port": 5432,
+  "database_name": "postgres",
   "snapshot": {
     "socios": 6,
     "empresas": 4,

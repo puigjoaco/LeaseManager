@@ -19,6 +19,7 @@ import django
 django.setup()
 
 from migration.importers import validate_current_migration_state  # noqa: E402
+from migration.orchestration import describe_database_target  # noqa: E402
 from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio  # noqa: E402
 from operacion.models import CuentaRecaudadora, MandatoOperacion  # noqa: E402
 from contratos.models import Arrendatario, Contrato, PeriodoContractual  # noqa: E402
@@ -81,7 +82,7 @@ def main():
     snapshot = collect_snapshot()
     validation = validate_current_migration_state(snapshot)
     result = {
-        'database_url': os.environ.get('DATABASE_URL', ''),
+        **describe_database_target(os.environ.get('DATABASE_URL', '')),
         'snapshot': snapshot,
         'validation': validation,
         **collect_semantic_checks(),
