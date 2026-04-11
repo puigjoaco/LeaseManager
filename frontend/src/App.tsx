@@ -254,7 +254,123 @@ type IngresoDesconocido = {
   sugerencia_asistida: { payment_candidate_ids?: number[] }
 }
 
-type ViewKey = 'overview' | 'patrimonio' | 'operacion' | 'contratos' | 'cobranza' | 'conciliacion'
+type RegimenTributario = {
+  id: number
+  codigo_regimen: string
+  descripcion: string
+  estado: string
+}
+
+type ConfiguracionFiscal = {
+  id: number
+  empresa: number
+  regimen_tributario: number
+  afecta_iva_arriendo: boolean
+  tasa_iva: string
+  aplica_ppm: boolean
+  ddjj_habilitadas: string[]
+  inicio_ejercicio: string
+  moneda_funcional: string
+  estado: string
+}
+
+type CuentaContable = {
+  id: number
+  empresa: number
+  plan_cuentas_version: string
+  codigo: string
+  nombre: string
+  naturaleza: string
+  nivel: number
+  padre: number | null
+  estado: string
+  es_control_obligatoria: boolean
+}
+
+type ReglaContable = {
+  id: number
+  empresa: number
+  evento_tipo: string
+  plan_cuentas_version: string
+  criterio_cargo: string
+  criterio_abono: string
+  vigencia_desde: string
+  vigencia_hasta: string | null
+  estado: string
+}
+
+type MatrizRegla = {
+  id: number
+  regla_contable: number
+  cuenta_debe: number
+  cuenta_haber: number
+  condicion_impuesto: string
+  estado: string
+}
+
+type EventoContable = {
+  id: number
+  empresa: number | null
+  evento_tipo: string
+  entidad_origen_tipo: string
+  entidad_origen_id: string
+  fecha_operativa: string
+  moneda: string
+  monto_base: string
+  payload_resumen: Record<string, unknown>
+  idempotency_key: string
+  estado_contable: string
+}
+
+type AsientoContable = {
+  id: number
+  evento_contable: number
+  fecha_contable: string
+  periodo_contable: string
+  estado: string
+  debe_total: string
+  haber_total: string
+  moneda_funcional: string
+  hash_integridad: string
+  movimientos: Array<{
+    id: number
+    cuenta_contable: number
+    tipo_movimiento: string
+    monto: string
+    glosa: string
+  }>
+}
+
+type ObligacionMensual = {
+  id: number
+  empresa: number
+  anio: number
+  mes: number
+  obligacion_tipo: string
+  base_imponible: string
+  monto_calculado: string
+  estado_preparacion: string
+}
+
+type CierreMensual = {
+  id: number
+  empresa: number
+  anio: number
+  mes: number
+  estado: string
+  fecha_preparacion: string | null
+  fecha_aprobacion: string | null
+  resumen_obligaciones: Record<string, unknown>
+}
+
+type ViewKey =
+  | 'overview'
+  | 'patrimonio'
+  | 'operacion'
+  | 'contratos'
+  | 'cobranza'
+  | 'conciliacion'
+  | 'contabilidad'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type Column<T> = { label: string; render: (row: T) => ReactNode }
 
@@ -417,6 +533,15 @@ function App() {
   const [conexionesBancarias, setConexionesBancarias] = useState<ConexionBancaria[]>([])
   const [movimientosBancarios, setMovimientosBancarios] = useState<MovimientoBancario[]>([])
   const [ingresosDesconocidos, setIngresosDesconocidos] = useState<IngresoDesconocido[]>([])
+  const [regimenesTributarios, setRegimenesTributarios] = useState<RegimenTributario[]>([])
+  const [configuracionesFiscales, setConfiguracionesFiscales] = useState<ConfiguracionFiscal[]>([])
+  const [cuentasContables, setCuentasContables] = useState<CuentaContable[]>([])
+  const [reglasContables, setReglasContables] = useState<ReglaContable[]>([])
+  const [matricesReglas, setMatricesReglas] = useState<MatrizRegla[]>([])
+  const [eventosContables, setEventosContables] = useState<EventoContable[]>([])
+  const [asientosContables, setAsientosContables] = useState<AsientoContable[]>([])
+  const [obligacionesMensuales, setObligacionesMensuales] = useState<ObligacionMensual[]>([])
+  const [cierresMensuales, setCierresMensuales] = useState<CierreMensual[]>([])
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -568,6 +693,60 @@ function App() {
     transaction_id_banco: '',
     notas_admin: '',
   })
+  const [configFiscalDraft, setConfigFiscalDraft] = useState({
+    empresa: '',
+    regimen_tributario: '',
+    afecta_iva_arriendo: false,
+    tasa_iva: '0.00',
+    aplica_ppm: true,
+    inicio_ejercicio: '2026-01-01',
+    moneda_funcional: 'CLP',
+    estado: 'activa',
+  })
+  const [cuentaContableDraft, setCuentaContableDraft] = useState({
+    empresa: '',
+    plan_cuentas_version: 'v1',
+    codigo: '',
+    nombre: '',
+    naturaleza: 'deudora',
+    nivel: '1',
+    padre: '',
+    estado: 'activa',
+    es_control_obligatoria: false,
+  })
+  const [reglaContableDraft, setReglaContableDraft] = useState({
+    empresa: '',
+    evento_tipo: 'PagoConciliadoArriendo',
+    plan_cuentas_version: 'v1',
+    criterio_cargo: '',
+    criterio_abono: '',
+    vigencia_desde: todayIso(),
+    vigencia_hasta: '',
+    estado: 'activa',
+  })
+  const [matrizDraft, setMatrizDraft] = useState({
+    regla_contable: '',
+    cuenta_debe: '',
+    cuenta_haber: '',
+    condicion_impuesto: '',
+    estado: 'activa',
+  })
+  const [eventoContableDraft, setEventoContableDraft] = useState({
+    empresa: '',
+    evento_tipo: 'PagoConciliadoArriendo',
+    entidad_origen_tipo: 'manual',
+    entidad_origen_id: '',
+    fecha_operativa: todayIso(),
+    moneda: 'CLP',
+    monto_base: '',
+    payload_resumen: '{}',
+    idempotency_key: '',
+  })
+  const [cierreDraft, setCierreDraft] = useState({
+    empresa_id: '',
+    anio: '2026',
+    mes: '5',
+  })
 
   async function loadHealth() {
     try {
@@ -604,6 +783,15 @@ function App() {
         conexionesPayload,
         movimientosPayload,
         ingresosPayload,
+        regimenesPayload,
+        configuracionesPayload,
+        cuentasContablesPayload,
+        reglasPayload,
+        matricesPayload,
+        eventosPayload,
+        asientosPayload,
+        obligacionesPayload,
+        cierresPayload,
       ] = await Promise.all([
         apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken }),
         apiRequest<Dashboard>('/api/v1/reporting/dashboard/operativo/', { token: activeToken }),
@@ -629,6 +817,15 @@ function App() {
         apiRequest<ConexionBancaria[]>('/api/v1/conciliacion/conexiones-bancarias/', { token: activeToken }),
         apiRequest<MovimientoBancario[]>('/api/v1/conciliacion/movimientos/', { token: activeToken }),
         apiRequest<IngresoDesconocido[]>('/api/v1/conciliacion/ingresos-desconocidos/', { token: activeToken }),
+        apiRequest<RegimenTributario[]>('/api/v1/contabilidad/regimenes-tributarios/', { token: activeToken }),
+        apiRequest<ConfiguracionFiscal[]>('/api/v1/contabilidad/configuraciones-fiscales/', { token: activeToken }),
+        apiRequest<CuentaContable[]>('/api/v1/contabilidad/cuentas-contables/', { token: activeToken }),
+        apiRequest<ReglaContable[]>('/api/v1/contabilidad/reglas-contables/', { token: activeToken }),
+        apiRequest<MatrizRegla[]>('/api/v1/contabilidad/matriz-reglas/', { token: activeToken }),
+        apiRequest<EventoContable[]>('/api/v1/contabilidad/eventos-contables/', { token: activeToken }),
+        apiRequest<AsientoContable[]>('/api/v1/contabilidad/asientos-contables/', { token: activeToken }),
+        apiRequest<ObligacionMensual[]>('/api/v1/contabilidad/obligaciones-mensuales/', { token: activeToken }),
+        apiRequest<CierreMensual[]>('/api/v1/contabilidad/cierres-mensuales/', { token: activeToken }),
       ])
       setCurrentUser(me)
       setDashboard(dashboardPayload)
@@ -652,6 +849,15 @@ function App() {
       setConexionesBancarias(conexionesPayload)
       setMovimientosBancarios(movimientosPayload)
       setIngresosDesconocidos(ingresosPayload)
+      setRegimenesTributarios(regimenesPayload)
+      setConfiguracionesFiscales(configuracionesPayload)
+      setCuentasContables(cuentasContablesPayload)
+      setReglasContables(reglasPayload)
+      setMatricesReglas(matricesPayload)
+      setEventosContables(eventosPayload)
+      setAsientosContables(asientosPayload)
+      setObligacionesMensuales(obligacionesPayload)
+      setCierresMensuales(cierresPayload)
       setLastLoadedAt(new Date().toISOString())
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -731,6 +937,15 @@ function App() {
     setConexionesBancarias([])
     setMovimientosBancarios([])
     setIngresosDesconocidos([])
+    setRegimenesTributarios([])
+    setConfiguracionesFiscales([])
+    setCuentasContables([])
+    setReglasContables([])
+    setMatricesReglas([])
+    setEventosContables([])
+    setAsientosContables([])
+    setObligacionesMensuales([])
+    setCierresMensuales([])
   }
 
   async function submitCreate(path: string, body: unknown, successMessage: string) {
@@ -1082,6 +1297,170 @@ function App() {
     }
   }
 
+  async function handleCreateConfigFiscal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/contabilidad/configuraciones-fiscales/', {
+      empresa: Number(configFiscalDraft.empresa),
+      regimen_tributario: Number(configFiscalDraft.regimen_tributario),
+      afecta_iva_arriendo: configFiscalDraft.afecta_iva_arriendo,
+      tasa_iva: configFiscalDraft.tasa_iva,
+      aplica_ppm: configFiscalDraft.aplica_ppm,
+      ddjj_habilitadas: [],
+      inicio_ejercicio: configFiscalDraft.inicio_ejercicio,
+      moneda_funcional: configFiscalDraft.moneda_funcional,
+      estado: configFiscalDraft.estado,
+    }, 'Configuración fiscal creada correctamente.')
+    if (ok) {
+      setConfigFiscalDraft({
+        empresa: '',
+        regimen_tributario: '',
+        afecta_iva_arriendo: false,
+        tasa_iva: '0.00',
+        aplica_ppm: true,
+        inicio_ejercicio: '2026-01-01',
+        moneda_funcional: 'CLP',
+        estado: 'activa',
+      })
+    }
+  }
+
+  async function handleCreateCuentaContable(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/contabilidad/cuentas-contables/', {
+      empresa: Number(cuentaContableDraft.empresa),
+      plan_cuentas_version: cuentaContableDraft.plan_cuentas_version,
+      codigo: cuentaContableDraft.codigo,
+      nombre: cuentaContableDraft.nombre,
+      naturaleza: cuentaContableDraft.naturaleza,
+      nivel: Number(cuentaContableDraft.nivel),
+      padre: cuentaContableDraft.padre ? Number(cuentaContableDraft.padre) : null,
+      estado: cuentaContableDraft.estado,
+      es_control_obligatoria: cuentaContableDraft.es_control_obligatoria,
+    }, 'Cuenta contable creada correctamente.')
+    if (ok) {
+      setCuentaContableDraft({
+        empresa: '',
+        plan_cuentas_version: 'v1',
+        codigo: '',
+        nombre: '',
+        naturaleza: 'deudora',
+        nivel: '1',
+        padre: '',
+        estado: 'activa',
+        es_control_obligatoria: false,
+      })
+    }
+  }
+
+  async function handleCreateReglaContable(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/contabilidad/reglas-contables/', {
+      empresa: Number(reglaContableDraft.empresa),
+      evento_tipo: reglaContableDraft.evento_tipo,
+      plan_cuentas_version: reglaContableDraft.plan_cuentas_version,
+      criterio_cargo: reglaContableDraft.criterio_cargo,
+      criterio_abono: reglaContableDraft.criterio_abono,
+      vigencia_desde: reglaContableDraft.vigencia_desde,
+      vigencia_hasta: reglaContableDraft.vigencia_hasta || null,
+      estado: reglaContableDraft.estado,
+    }, 'Regla contable creada correctamente.')
+    if (ok) {
+      setReglaContableDraft({
+        empresa: '',
+        evento_tipo: 'PagoConciliadoArriendo',
+        plan_cuentas_version: 'v1',
+        criterio_cargo: '',
+        criterio_abono: '',
+        vigencia_desde: todayIso(),
+        vigencia_hasta: '',
+        estado: 'activa',
+      })
+    }
+  }
+
+  async function handleCreateMatriz(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/contabilidad/matriz-reglas/', {
+      regla_contable: Number(matrizDraft.regla_contable),
+      cuenta_debe: Number(matrizDraft.cuenta_debe),
+      cuenta_haber: Number(matrizDraft.cuenta_haber),
+      condicion_impuesto: matrizDraft.condicion_impuesto,
+      estado: matrizDraft.estado,
+    }, 'Matriz de reglas creada correctamente.')
+    if (ok) {
+      setMatrizDraft({
+        regla_contable: '',
+        cuenta_debe: '',
+        cuenta_haber: '',
+        condicion_impuesto: '',
+        estado: 'activa',
+      })
+    }
+  }
+
+  async function handleCreateEventoContable(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    let payloadResumen: Record<string, unknown> = {}
+    try {
+      payloadResumen = JSON.parse(eventoContableDraft.payload_resumen || '{}')
+    } catch {
+      setFormError('payload_resumen debe ser un JSON válido.')
+      return
+    }
+    const ok = await submitCreate('/api/v1/contabilidad/eventos-contables/', {
+      empresa: Number(eventoContableDraft.empresa),
+      evento_tipo: eventoContableDraft.evento_tipo,
+      entidad_origen_tipo: eventoContableDraft.entidad_origen_tipo,
+      entidad_origen_id: eventoContableDraft.entidad_origen_id,
+      fecha_operativa: eventoContableDraft.fecha_operativa,
+      moneda: eventoContableDraft.moneda,
+      monto_base: eventoContableDraft.monto_base,
+      payload_resumen: payloadResumen,
+      idempotency_key: eventoContableDraft.idempotency_key,
+    }, 'Evento contable creado correctamente.')
+    if (ok) {
+      setEventoContableDraft({
+        empresa: '',
+        evento_tipo: 'PagoConciliadoArriendo',
+        entidad_origen_tipo: 'manual',
+        entidad_origen_id: '',
+        fecha_operativa: todayIso(),
+        moneda: 'CLP',
+        monto_base: '',
+        payload_resumen: '{}',
+        idempotency_key: '',
+      })
+    }
+  }
+
+  async function handlePrepareCierre(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/contabilidad/cierres-mensuales/preparar/', {
+      empresa_id: Number(cierreDraft.empresa_id),
+      anio: Number(cierreDraft.anio),
+      mes: Number(cierreDraft.mes),
+    }, 'Cierre mensual preparado correctamente.')
+    if (ok) {
+      setCierreDraft({ empresa_id: '', anio: '2026', mes: '5' })
+    }
+  }
+
+  async function handleAccountingAction(path: string, successMessage: string) {
+    if (!token) return
+    setIsSubmitting(true)
+    setFormMessage(null)
+    setFormError(null)
+    try {
+      await apiRequest(path, { method: 'POST', token, body: {} })
+      await loadWorkspace(token)
+      setFormMessage(successMessage)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo ejecutar la acción contable.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const normalizedSearch = searchText.trim().toLowerCase()
   const filteredSocios = useMemo(
     () => socios.filter((item) => matches(normalizedSearch, [item.nombre, item.rut, item.email, item.telefono])),
@@ -1278,6 +1657,66 @@ function App() {
       ),
     [ingresosDesconocidos, normalizedSearch],
   )
+  const filteredRegimenes = useMemo(
+    () => regimenesTributarios.filter((item) => matches(normalizedSearch, [item.codigo_regimen, item.descripcion, item.estado])),
+    [regimenesTributarios, normalizedSearch],
+  )
+  const filteredConfigsFiscales = useMemo(
+    () =>
+      configuracionesFiscales.filter((item) =>
+        matches(normalizedSearch, [item.empresa, item.moneda_funcional, item.estado, item.regimen_tributario]),
+      ),
+    [configuracionesFiscales, normalizedSearch],
+  )
+  const filteredCuentasContables = useMemo(
+    () =>
+      cuentasContables.filter((item) =>
+        matches(normalizedSearch, [item.codigo, item.nombre, item.plan_cuentas_version, item.naturaleza, item.estado]),
+      ),
+    [cuentasContables, normalizedSearch],
+  )
+  const filteredReglasContables = useMemo(
+    () =>
+      reglasContables.filter((item) =>
+        matches(normalizedSearch, [item.evento_tipo, item.plan_cuentas_version, item.criterio_cargo, item.criterio_abono, item.estado]),
+      ),
+    [reglasContables, normalizedSearch],
+  )
+  const filteredMatrices = useMemo(
+    () =>
+      matricesReglas.filter((item) =>
+        matches(normalizedSearch, [item.regla_contable, item.cuenta_debe, item.cuenta_haber, item.condicion_impuesto, item.estado]),
+      ),
+    [matricesReglas, normalizedSearch],
+  )
+  const filteredEventosContables = useMemo(
+    () =>
+      eventosContables.filter((item) =>
+        matches(normalizedSearch, [item.evento_tipo, item.entidad_origen_tipo, item.entidad_origen_id, item.monto_base, item.estado_contable]),
+      ),
+    [eventosContables, normalizedSearch],
+  )
+  const filteredAsientosContables = useMemo(
+    () =>
+      asientosContables.filter((item) =>
+        matches(normalizedSearch, [item.evento_contable, item.periodo_contable, item.estado, item.debe_total, item.haber_total]),
+      ),
+    [asientosContables, normalizedSearch],
+  )
+  const filteredObligaciones = useMemo(
+    () =>
+      obligacionesMensuales.filter((item) =>
+        matches(normalizedSearch, [item.empresa, item.anio, item.mes, item.obligacion_tipo, item.monto_calculado, item.estado_preparacion]),
+      ),
+    [obligacionesMensuales, normalizedSearch],
+  )
+  const filteredCierres = useMemo(
+    () =>
+      cierresMensuales.filter((item) =>
+        matches(normalizedSearch, [item.empresa, item.anio, item.mes, item.estado]),
+      ),
+    [cierresMensuales, normalizedSearch],
+  )
   const patrimonioOwners = useMemo(
     () => [
       ...empresas.map((item) => ({ tipo: 'empresa', id: item.id, label: item.razon_social })),
@@ -1297,6 +1736,10 @@ function App() {
   const mandatoById = useMemo(() => new Map(mandatos.map((item) => [item.id, item])), [mandatos])
   const contratoById = useMemo(() => new Map(contratos.map((item) => [item.id, item])), [contratos])
   const cuentaById = useMemo(() => new Map(cuentas.map((item) => [item.id, item])), [cuentas])
+  const empresaById = useMemo(() => new Map(empresas.map((item) => [item.id, item])), [empresas])
+  const regimenById = useMemo(() => new Map(regimenesTributarios.map((item) => [item.id, item])), [regimenesTributarios])
+  const reglaById = useMemo(() => new Map(reglasContables.map((item) => [item.id, item])), [reglasContables])
+  const cuentaContableById = useMemo(() => new Map(cuentasContables.map((item) => [item.id, item])), [cuentasContables])
 
   if (!token) {
     return (
@@ -1366,7 +1809,7 @@ function App() {
       </header>
 
       <section className="tab-strip">
-        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion'] as ViewKey[]).map((view) => (
+        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'contabilidad'] as ViewKey[]).map((view) => (
           <button
             key={view}
             type="button"
@@ -1383,7 +1826,9 @@ function App() {
                     ? 'Contratos'
                     : view === 'cobranza'
                       ? 'Cobranza'
-                      : 'Conciliación'}
+                      : view === 'conciliacion'
+                        ? 'Conciliación'
+                        : 'Contabilidad'}
           </button>
         ))}
       </section>
@@ -1453,7 +1898,9 @@ function App() {
                     ? 'Contratos'
                     : activeView === 'cobranza'
                       ? 'Cobranza'
-                      : 'Conciliación'}
+                      : activeView === 'conciliacion'
+                        ? 'Conciliación'
+                        : 'Contabilidad'}
             </p>
             <h2>
               {activeView === 'patrimonio'
@@ -1464,7 +1911,9 @@ function App() {
                     ? 'Arrendatarios, contratos y avisos'
                     : activeView === 'cobranza'
                       ? 'Pagos, UF, ajustes, garantías y estado de cuenta'
-                      : 'Conexiones, movimientos e ingresos desconocidos'}
+                      : activeView === 'conciliacion'
+                        ? 'Conexiones, movimientos e ingresos desconocidos'
+                        : 'Configuración fiscal, eventos, asientos y cierres'}
             </h2>
           </div>
           <label className="search-field">
@@ -1481,7 +1930,9 @@ function App() {
                       ? 'Código, arrendatario, propiedad o causal'
                       : activeView === 'cobranza'
                         ? 'Contrato, monto, estado, UF o garantía'
-                        : 'Movimiento, referencia, estado o ingreso desconocido'
+                        : activeView === 'conciliacion'
+                          ? 'Movimiento, referencia, estado o ingreso desconocido'
+                          : 'Empresa, evento, cuenta, cierre u obligación'
               }
             />
           </label>
@@ -2038,6 +2489,253 @@ function App() {
             { label: 'Descripción', render: (row) => row.descripcion_origen },
             { label: 'Sugerencia', render: (row) => row.sugerencia_asistida?.payment_candidate_ids?.length ? `Pagos candidatos: ${row.sugerencia_asistida.payment_candidate_ids.join(', ')}` : 'Sin sugerencia' },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+        </>
+      ) : null}
+
+      {activeView === 'contabilidad' ? (
+        <>
+          <section className="form-grid">
+            <section className="panel">
+              <div className="section-heading"><div><h2>Configuración fiscal</h2><p>Prerequisito para contabilización y cierre mensual oficial.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateConfigFiscal}>
+                <select value={configFiscalDraft.empresa} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, empresa: event.target.value }))}>
+                  <option value="">Selecciona empresa</option>
+                  {empresas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.razon_social}</option>
+                  ))}
+                </select>
+                <select value={configFiscalDraft.regimen_tributario} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, regimen_tributario: event.target.value }))}>
+                  <option value="">Selecciona régimen</option>
+                  {regimenesTributarios.map((item) => (
+                    <option key={item.id} value={item.id}>{item.codigo_regimen}</option>
+                  ))}
+                </select>
+                <input type="date" value={configFiscalDraft.inicio_ejercicio} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, inicio_ejercicio: event.target.value }))} />
+                <select value={configFiscalDraft.moneda_funcional} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, moneda_funcional: event.target.value }))}>
+                  <option value="CLP">CLP</option>
+                  <option value="UF">UF</option>
+                </select>
+                <input placeholder="Tasa IVA" value={configFiscalDraft.tasa_iva} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, tasa_iva: event.target.value }))} />
+                <select value={configFiscalDraft.estado} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, estado: event.target.value }))}>
+                  <option value="activa">Activa</option>
+                  <option value="borrador">Borrador</option>
+                  <option value="inactiva">Inactiva</option>
+                </select>
+                <label className="checkbox-row"><input type="checkbox" checked={configFiscalDraft.afecta_iva_arriendo} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, afecta_iva_arriendo: event.target.checked }))} />Afecta IVA arriendo</label>
+                <label className="checkbox-row"><input type="checkbox" checked={configFiscalDraft.aplica_ppm} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, aplica_ppm: event.target.checked }))} />Aplica PPM</label>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !configFiscalDraft.empresa || !configFiscalDraft.regimen_tributario}>Guardar configuración</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Cuenta contable</h2><p>Plan mínimo para reglas y asientos.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateCuentaContable}>
+                <select value={cuentaContableDraft.empresa} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, empresa: event.target.value }))}>
+                  <option value="">Selecciona empresa</option>
+                  {empresas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.razon_social}</option>
+                  ))}
+                </select>
+                <input placeholder="Versión plan" value={cuentaContableDraft.plan_cuentas_version} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, plan_cuentas_version: event.target.value }))} />
+                <input placeholder="Código" value={cuentaContableDraft.codigo} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, codigo: event.target.value }))} />
+                <input placeholder="Nombre" value={cuentaContableDraft.nombre} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, nombre: event.target.value }))} />
+                <select value={cuentaContableDraft.naturaleza} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, naturaleza: event.target.value }))}>
+                  <option value="deudora">Deudora</option>
+                  <option value="acreedora">Acreedora</option>
+                </select>
+                <input placeholder="Nivel" value={cuentaContableDraft.nivel} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, nivel: event.target.value }))} />
+                <select value={cuentaContableDraft.padre} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, padre: event.target.value }))}>
+                  <option value="">Sin padre</option>
+                  {cuentasContables
+                    .filter((item) => !cuentaContableDraft.empresa || item.empresa === Number(cuentaContableDraft.empresa))
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>{item.codigo} · {item.nombre}</option>
+                    ))}
+                </select>
+                <select value={cuentaContableDraft.estado} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, estado: event.target.value }))}>
+                  <option value="activa">Activa</option>
+                  <option value="inactiva">Inactiva</option>
+                </select>
+                <label className="checkbox-row"><input type="checkbox" checked={cuentaContableDraft.es_control_obligatoria} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, es_control_obligatoria: event.target.checked }))} />Cuenta de control obligatoria</label>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !cuentaContableDraft.empresa || !cuentaContableDraft.codigo || !cuentaContableDraft.nombre}>Guardar cuenta</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Regla y matriz</h2><p>Relaciona evento contable con cuentas debe/haber.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateReglaContable}>
+                <select value={reglaContableDraft.empresa} onChange={(event) => setReglaContableDraft((current) => ({ ...current, empresa: event.target.value }))}>
+                  <option value="">Selecciona empresa</option>
+                  {empresas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.razon_social}</option>
+                  ))}
+                </select>
+                <input placeholder="Evento tipo" value={reglaContableDraft.evento_tipo} onChange={(event) => setReglaContableDraft((current) => ({ ...current, evento_tipo: event.target.value }))} />
+                <input placeholder="Versión plan" value={reglaContableDraft.plan_cuentas_version} onChange={(event) => setReglaContableDraft((current) => ({ ...current, plan_cuentas_version: event.target.value }))} />
+                <input placeholder="Criterio cargo" value={reglaContableDraft.criterio_cargo} onChange={(event) => setReglaContableDraft((current) => ({ ...current, criterio_cargo: event.target.value }))} />
+                <input placeholder="Criterio abono" value={reglaContableDraft.criterio_abono} onChange={(event) => setReglaContableDraft((current) => ({ ...current, criterio_abono: event.target.value }))} />
+                <input type="date" value={reglaContableDraft.vigencia_desde} onChange={(event) => setReglaContableDraft((current) => ({ ...current, vigencia_desde: event.target.value }))} />
+                <button type="submit" className="button-primary" disabled={isSubmitting || !reglaContableDraft.empresa || !reglaContableDraft.evento_tipo}>Guardar regla</button>
+              </form>
+              <form className="entity-form subform" onSubmit={handleCreateMatriz}>
+                <select value={matrizDraft.regla_contable} onChange={(event) => setMatrizDraft((current) => ({ ...current, regla_contable: event.target.value }))}>
+                  <option value="">Selecciona regla</option>
+                  {reglasContables.map((item) => (
+                    <option key={item.id} value={item.id}>{item.evento_tipo} · {empresaById.get(item.empresa)?.razon_social || item.empresa}</option>
+                  ))}
+                </select>
+                <select value={matrizDraft.cuenta_debe} onChange={(event) => setMatrizDraft((current) => ({ ...current, cuenta_debe: event.target.value }))}>
+                  <option value="">Cuenta debe</option>
+                  {cuentasContables.map((item) => (
+                    <option key={item.id} value={item.id}>{item.codigo} · {item.nombre}</option>
+                  ))}
+                </select>
+                <select value={matrizDraft.cuenta_haber} onChange={(event) => setMatrizDraft((current) => ({ ...current, cuenta_haber: event.target.value }))}>
+                  <option value="">Cuenta haber</option>
+                  {cuentasContables.map((item) => (
+                    <option key={item.id} value={item.id}>{item.codigo} · {item.nombre}</option>
+                  ))}
+                </select>
+                <input placeholder="Condición impuesto" value={matrizDraft.condicion_impuesto} onChange={(event) => setMatrizDraft((current) => ({ ...current, condicion_impuesto: event.target.value }))} />
+                <button type="submit" className="button-secondary" disabled={isSubmitting || !matrizDraft.regla_contable || !matrizDraft.cuenta_debe || !matrizDraft.cuenta_haber}>Guardar matriz</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Evento y cierre</h2><p>Evento manual, preparación y acciones sobre cierres.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateEventoContable}>
+                <select value={eventoContableDraft.empresa} onChange={(event) => setEventoContableDraft((current) => ({ ...current, empresa: event.target.value }))}>
+                  <option value="">Selecciona empresa</option>
+                  {empresas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.razon_social}</option>
+                  ))}
+                </select>
+                <input placeholder="Evento tipo" value={eventoContableDraft.evento_tipo} onChange={(event) => setEventoContableDraft((current) => ({ ...current, evento_tipo: event.target.value }))} />
+                <input placeholder="Entidad origen tipo" value={eventoContableDraft.entidad_origen_tipo} onChange={(event) => setEventoContableDraft((current) => ({ ...current, entidad_origen_tipo: event.target.value }))} />
+                <input placeholder="Entidad origen id" value={eventoContableDraft.entidad_origen_id} onChange={(event) => setEventoContableDraft((current) => ({ ...current, entidad_origen_id: event.target.value }))} />
+                <input type="date" value={eventoContableDraft.fecha_operativa} onChange={(event) => setEventoContableDraft((current) => ({ ...current, fecha_operativa: event.target.value }))} />
+                <input placeholder="Monto base" value={eventoContableDraft.monto_base} onChange={(event) => setEventoContableDraft((current) => ({ ...current, monto_base: event.target.value }))} />
+                <input placeholder="Idempotency key" value={eventoContableDraft.idempotency_key} onChange={(event) => setEventoContableDraft((current) => ({ ...current, idempotency_key: event.target.value }))} />
+                <input placeholder="Payload resumen JSON" value={eventoContableDraft.payload_resumen} onChange={(event) => setEventoContableDraft((current) => ({ ...current, payload_resumen: event.target.value }))} />
+                <button type="submit" className="button-primary" disabled={isSubmitting || !eventoContableDraft.empresa || !eventoContableDraft.monto_base || !eventoContableDraft.idempotency_key}>Guardar evento</button>
+              </form>
+              <form className="entity-form subform" onSubmit={handlePrepareCierre}>
+                <select value={cierreDraft.empresa_id} onChange={(event) => setCierreDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
+                  <option value="">Selecciona empresa</option>
+                  {empresas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.razon_social}</option>
+                  ))}
+                </select>
+                <input placeholder="Año" value={cierreDraft.anio} onChange={(event) => setCierreDraft((current) => ({ ...current, anio: event.target.value }))} />
+                <input placeholder="Mes" value={cierreDraft.mes} onChange={(event) => setCierreDraft((current) => ({ ...current, mes: event.target.value }))} />
+                <button type="submit" className="button-secondary" disabled={isSubmitting || !cierreDraft.empresa_id}>Preparar cierre</button>
+              </form>
+            </section>
+          </section>
+
+          <TableBlock title="Regímenes tributarios" subtitle="Regímenes disponibles para configuración fiscal." rows={filteredRegimenes} empty="No hay regímenes para este filtro." columns={[
+            { label: 'Código', render: (row) => row.codigo_regimen },
+            { label: 'Descripción', render: (row) => row.descripcion },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+
+          <TableBlock title="Configuraciones fiscales" subtitle="Estado fiscal activo por empresa." rows={filteredConfigsFiscales} empty="No hay configuraciones fiscales para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Régimen', render: (row) => regimenById.get(row.regimen_tributario)?.codigo_regimen || row.regimen_tributario },
+            { label: 'Moneda', render: (row) => row.moneda_funcional },
+            { label: 'PPM', render: (row) => row.aplica_ppm ? 'Sí' : 'No' },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+
+          <TableBlock title="Cuentas contables" subtitle="Plan contable disponible por empresa." rows={filteredCuentasContables} empty="No hay cuentas contables para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Código', render: (row) => row.codigo },
+            { label: 'Nombre', render: (row) => row.nombre },
+            { label: 'Naturaleza', render: (row) => row.naturaleza },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+
+          <TableBlock title="Reglas y matrices" subtitle="Mapeo entre eventos y cuentas debe/haber." rows={filteredReglasContables} empty="No hay reglas contables para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Evento', render: (row) => row.evento_tipo },
+            { label: 'Versión', render: (row) => row.plan_cuentas_version },
+            { label: 'Cargo', render: (row) => row.criterio_cargo || 'Sin criterio' },
+            { label: 'Abono', render: (row) => row.criterio_abono || 'Sin criterio' },
+          ]} />
+
+          <TableBlock title="Matrices de reglas" subtitle="Detalle de cuentas usadas por regla activa." rows={filteredMatrices} empty="No hay matrices para este filtro." columns={[
+            { label: 'Regla', render: (row) => reglaById.get(row.regla_contable)?.evento_tipo || row.regla_contable },
+            { label: 'Debe', render: (row) => cuentaContableById.get(row.cuenta_debe)?.codigo || row.cuenta_debe },
+            { label: 'Haber', render: (row) => cuentaContableById.get(row.cuenta_haber)?.codigo || row.cuenta_haber },
+            { label: 'Condición', render: (row) => row.condicion_impuesto || 'Sin condición' },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+
+          <TableBlock title="Eventos contables" subtitle="Hechos económicos pendientes, en revisión o contabilizados." rows={filteredEventosContables} empty="No hay eventos contables para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa || 0)?.razon_social || row.empresa || 'Sin empresa' },
+            { label: 'Evento', render: (row) => row.evento_tipo },
+            { label: 'Origen', render: (row) => `${row.entidad_origen_tipo}:${row.entidad_origen_id}` },
+            { label: 'Monto', render: (row) => row.monto_base },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_contable} tone={toneFor(row.estado_contable)} /> },
+            {
+              label: 'Acción',
+              render: (row) => (
+                <button
+                  type="button"
+                  className="button-ghost inline-action"
+                  onClick={() => void handleAccountingAction(`/api/v1/contabilidad/eventos-contables/${row.id}/contabilizar/`, 'Reintento de contabilización ejecutado correctamente.')}
+                  disabled={isSubmitting}
+                >
+                  Contabilizar
+                </button>
+              ),
+            },
+          ]} />
+
+          <TableBlock title="Asientos contables" subtitle="Asientos balanceados generados desde eventos." rows={filteredAsientosContables} empty="No hay asientos para este filtro." columns={[
+            { label: 'Evento', render: (row) => row.evento_contable },
+            { label: 'Período', render: (row) => row.periodo_contable },
+            { label: 'Debe', render: (row) => row.debe_total },
+            { label: 'Haber', render: (row) => row.haber_total },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+
+          <TableBlock title="Obligaciones mensuales" subtitle="PPM e impuestos preparados desde los cierres." rows={filteredObligaciones} empty="No hay obligaciones mensuales para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
+            { label: 'Tipo', render: (row) => row.obligacion_tipo },
+            { label: 'Monto', render: (row) => row.monto_calculado },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
+          ]} />
+
+          <TableBlock title="Cierres mensuales" subtitle="Preparación, aprobación y reapertura del período." rows={filteredCierres} empty="No hay cierres mensuales para este filtro." columns={[
+            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+            { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            {
+              label: 'Acción',
+              render: (row) => (
+                <div className="inline-actions">
+                  <button
+                    type="button"
+                    className="button-ghost inline-action"
+                    onClick={() => void handleAccountingAction(`/api/v1/contabilidad/cierres-mensuales/${row.id}/aprobar/`, 'Cierre aprobado correctamente.')}
+                    disabled={isSubmitting}
+                  >
+                    Aprobar
+                  </button>
+                  <button
+                    type="button"
+                    className="button-ghost inline-action"
+                    onClick={() => void handleAccountingAction(`/api/v1/contabilidad/cierres-mensuales/${row.id}/reabrir/`, 'Cierre reabierto correctamente.')}
+                    disabled={isSubmitting}
+                  >
+                    Reabrir
+                  </button>
+                </div>
+              ),
+            },
           ]} />
         </>
       ) : null}

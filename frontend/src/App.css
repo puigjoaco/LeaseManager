@@ -276,6 +276,12 @@
   gap: 10px;
 }
 
+.subform {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #ecefe8;
+}
+
 .entity-form input,
 .entity-form select {
   width: 100%;
@@ -291,6 +297,16 @@
   align-items: center;
   gap: 8px;
   color: #566057;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inline-action {
+  padding: 8px 10px;
 }
 
 .table-scroll {
