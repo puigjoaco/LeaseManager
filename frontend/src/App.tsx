@@ -213,7 +213,48 @@ type EstadoCuenta = {
   observaciones: string
 }
 
-type ViewKey = 'overview' | 'patrimonio' | 'operacion' | 'contratos' | 'cobranza'
+type ConexionBancaria = {
+  id: number
+  cuenta_recaudadora: number
+  provider_key: string
+  credencial_ref: string
+  scope: string
+  expira_en: string | null
+  estado_conexion: string
+  primaria_movimientos: boolean
+  primaria_saldos: boolean
+  primaria_conectividad: boolean
+}
+
+type MovimientoBancario = {
+  id: number
+  conexion_bancaria: number
+  fecha_movimiento: string
+  tipo_movimiento: string
+  monto: string
+  descripcion_origen: string
+  numero_documento: string
+  saldo_reportado: string | null
+  referencia: string
+  transaction_id_banco: string
+  estado_conciliacion: string
+  pago_mensual: number | null
+  codigo_cobro_residual: number | null
+  notas_admin: string
+}
+
+type IngresoDesconocido = {
+  id: number
+  movimiento_bancario: number
+  cuenta_recaudadora: number
+  monto: string
+  fecha_movimiento: string
+  descripcion_origen: string
+  estado: string
+  sugerencia_asistida: { payment_candidate_ids?: number[] }
+}
+
+type ViewKey = 'overview' | 'patrimonio' | 'operacion' | 'contratos' | 'cobranza' | 'conciliacion'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type Column<T> = { label: string; render: (row: T) => ReactNode }
 
@@ -373,6 +414,9 @@ function App() {
   const [garantias, setGarantias] = useState<Garantia[]>([])
   const [historialGarantias, setHistorialGarantias] = useState<HistorialGarantia[]>([])
   const [estadosCuenta, setEstadosCuenta] = useState<EstadoCuenta[]>([])
+  const [conexionesBancarias, setConexionesBancarias] = useState<ConexionBancaria[]>([])
+  const [movimientosBancarios, setMovimientosBancarios] = useState<MovimientoBancario[]>([])
+  const [ingresosDesconocidos, setIngresosDesconocidos] = useState<IngresoDesconocido[]>([])
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -501,6 +545,29 @@ function App() {
   const [estadoCuentaDraft, setEstadoCuentaDraft] = useState({
     arrendatario_id: '',
   })
+  const [conexionDraft, setConexionDraft] = useState({
+    cuenta_recaudadora: '',
+    provider_key: 'banco_de_chile',
+    credencial_ref: 'local-test',
+    scope: 'movimientos',
+    expira_en: '',
+    estado_conexion: 'activa',
+    primaria_movimientos: true,
+    primaria_saldos: false,
+    primaria_conectividad: false,
+  })
+  const [movimientoDraft, setMovimientoDraft] = useState({
+    conexion_bancaria: '',
+    fecha_movimiento: todayIso(),
+    tipo_movimiento: 'abono',
+    monto: '',
+    descripcion_origen: '',
+    numero_documento: '',
+    saldo_reportado: '',
+    referencia: '',
+    transaction_id_banco: '',
+    notas_admin: '',
+  })
 
   async function loadHealth() {
     try {
@@ -534,6 +601,9 @@ function App() {
         garantiasPayload,
         historialGarantiasPayload,
         estadosCuentaPayload,
+        conexionesPayload,
+        movimientosPayload,
+        ingresosPayload,
       ] = await Promise.all([
         apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken }),
         apiRequest<Dashboard>('/api/v1/reporting/dashboard/operativo/', { token: activeToken }),
@@ -556,6 +626,9 @@ function App() {
         apiRequest<Garantia[]>('/api/v1/cobranza/garantias/', { token: activeToken }),
         apiRequest<HistorialGarantia[]>('/api/v1/cobranza/historial-garantias/', { token: activeToken }),
         apiRequest<EstadoCuenta[]>('/api/v1/cobranza/estados-cuenta/', { token: activeToken }),
+        apiRequest<ConexionBancaria[]>('/api/v1/conciliacion/conexiones-bancarias/', { token: activeToken }),
+        apiRequest<MovimientoBancario[]>('/api/v1/conciliacion/movimientos/', { token: activeToken }),
+        apiRequest<IngresoDesconocido[]>('/api/v1/conciliacion/ingresos-desconocidos/', { token: activeToken }),
       ])
       setCurrentUser(me)
       setDashboard(dashboardPayload)
@@ -576,6 +649,9 @@ function App() {
       setGarantias(garantiasPayload)
       setHistorialGarantias(historialGarantiasPayload)
       setEstadosCuenta(estadosCuentaPayload)
+      setConexionesBancarias(conexionesPayload)
+      setMovimientosBancarios(movimientosPayload)
+      setIngresosDesconocidos(ingresosPayload)
       setLastLoadedAt(new Date().toISOString())
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -652,6 +728,9 @@ function App() {
     setGarantias([])
     setHistorialGarantias([])
     setEstadosCuenta([])
+    setConexionesBancarias([])
+    setMovimientosBancarios([])
+    setIngresosDesconocidos([])
   }
 
   async function submitCreate(path: string, body: unknown, successMessage: string) {
@@ -938,6 +1017,71 @@ function App() {
     }
   }
 
+  async function handleCreateConexion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/conciliacion/conexiones-bancarias/', {
+      ...conexionDraft,
+      cuenta_recaudadora: Number(conexionDraft.cuenta_recaudadora),
+      expira_en: conexionDraft.expira_en || null,
+    }, 'Conexión bancaria creada correctamente.')
+    if (ok) {
+      setConexionDraft({
+        cuenta_recaudadora: '',
+        provider_key: 'banco_de_chile',
+        credencial_ref: 'local-test',
+        scope: 'movimientos',
+        expira_en: '',
+        estado_conexion: 'activa',
+        primaria_movimientos: true,
+        primaria_saldos: false,
+        primaria_conectividad: false,
+      })
+    }
+  }
+
+  async function handleCreateMovimiento(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/conciliacion/movimientos/', {
+      ...movimientoDraft,
+      conexion_bancaria: Number(movimientoDraft.conexion_bancaria),
+      saldo_reportado: movimientoDraft.saldo_reportado || null,
+    }, 'Movimiento bancario registrado correctamente.')
+    if (ok) {
+      setMovimientoDraft({
+        conexion_bancaria: '',
+        fecha_movimiento: todayIso(),
+        tipo_movimiento: 'abono',
+        monto: '',
+        descripcion_origen: '',
+        numero_documento: '',
+        saldo_reportado: '',
+        referencia: '',
+        transaction_id_banco: '',
+        notas_admin: '',
+      })
+    }
+  }
+
+  async function handleRetryMatch(movimientoId: number) {
+    if (!token) return
+    setIsSubmitting(true)
+    setFormMessage(null)
+    setFormError(null)
+    try {
+      await apiRequest(`/api/v1/conciliacion/movimientos/${movimientoId}/match-exacto/`, {
+        method: 'POST',
+        token,
+        body: {},
+      })
+      await loadWorkspace(token)
+      setFormMessage('Reintento de match ejecutado correctamente.')
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo reintentar el match.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const normalizedSearch = searchText.trim().toLowerCase()
   const filteredSocios = useMemo(
     () => socios.filter((item) => matches(normalizedSearch, [item.nombre, item.rut, item.email, item.telefono])),
@@ -1100,6 +1244,40 @@ function App() {
       ),
     [estadosCuenta, normalizedSearch],
   )
+  const filteredConexiones = useMemo(
+    () =>
+      conexionesBancarias.filter((item) =>
+        matches(normalizedSearch, [item.provider_key, item.credencial_ref, item.scope, item.estado_conexion, item.cuenta_recaudadora]),
+      ),
+    [conexionesBancarias, normalizedSearch],
+  )
+  const filteredMovimientos = useMemo(
+    () =>
+      movimientosBancarios.filter((item) =>
+        matches(normalizedSearch, [
+          item.fecha_movimiento,
+          item.tipo_movimiento,
+          item.monto,
+          item.descripcion_origen,
+          item.referencia,
+          item.estado_conciliacion,
+        ]),
+      ),
+    [movimientosBancarios, normalizedSearch],
+  )
+  const filteredIngresos = useMemo(
+    () =>
+      ingresosDesconocidos.filter((item) =>
+        matches(normalizedSearch, [
+          item.fecha_movimiento,
+          item.monto,
+          item.descripcion_origen,
+          item.estado,
+          item.sugerencia_asistida?.payment_candidate_ids?.join(','),
+        ]),
+      ),
+    [ingresosDesconocidos, normalizedSearch],
+  )
   const patrimonioOwners = useMemo(
     () => [
       ...empresas.map((item) => ({ tipo: 'empresa', id: item.id, label: item.razon_social })),
@@ -1118,6 +1296,7 @@ function App() {
   const arrendatarioById = useMemo(() => new Map(arrendatarios.map((item) => [item.id, item])), [arrendatarios])
   const mandatoById = useMemo(() => new Map(mandatos.map((item) => [item.id, item])), [mandatos])
   const contratoById = useMemo(() => new Map(contratos.map((item) => [item.id, item])), [contratos])
+  const cuentaById = useMemo(() => new Map(cuentas.map((item) => [item.id, item])), [cuentas])
 
   if (!token) {
     return (
@@ -1187,7 +1366,7 @@ function App() {
       </header>
 
       <section className="tab-strip">
-        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza'] as ViewKey[]).map((view) => (
+        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion'] as ViewKey[]).map((view) => (
           <button
             key={view}
             type="button"
@@ -1202,7 +1381,9 @@ function App() {
                   ? 'Operación'
                   : view === 'contratos'
                     ? 'Contratos'
-                    : 'Cobranza'}
+                    : view === 'cobranza'
+                      ? 'Cobranza'
+                      : 'Conciliación'}
           </button>
         ))}
       </section>
@@ -1270,7 +1451,9 @@ function App() {
                   ? 'Operación'
                   : activeView === 'contratos'
                     ? 'Contratos'
-                    : 'Cobranza'}
+                    : activeView === 'cobranza'
+                      ? 'Cobranza'
+                      : 'Conciliación'}
             </p>
             <h2>
               {activeView === 'patrimonio'
@@ -1279,7 +1462,9 @@ function App() {
                   ? 'Cuentas, identidades y mandatos'
                   : activeView === 'contratos'
                     ? 'Arrendatarios, contratos y avisos'
-                    : 'Pagos, UF, ajustes, garantías y estado de cuenta'}
+                    : activeView === 'cobranza'
+                      ? 'Pagos, UF, ajustes, garantías y estado de cuenta'
+                      : 'Conexiones, movimientos e ingresos desconocidos'}
             </h2>
           </div>
           <label className="search-field">
@@ -1294,7 +1479,9 @@ function App() {
                     ? 'Cuenta, owner, canal o mandato'
                     : activeView === 'contratos'
                       ? 'Código, arrendatario, propiedad o causal'
-                      : 'Contrato, monto, estado, UF o garantía'
+                      : activeView === 'cobranza'
+                        ? 'Contrato, monto, estado, UF o garantía'
+                        : 'Movimiento, referencia, estado o ingreso desconocido'
               }
             />
           </label>
@@ -1760,6 +1947,97 @@ function App() {
             { label: 'Pagos atrasados', render: (row) => count(row.resumen_operativo.pagos_atrasados) },
             { label: 'Saldo total', render: (row) => row.resumen_operativo.saldo_total_clp || '0.00' },
             { label: 'Score', render: (row) => row.score_pago ?? 'Sin score' },
+          ]} />
+        </>
+      ) : null}
+
+      {activeView === 'conciliacion' ? (
+        <>
+          <section className="form-grid">
+            <section className="panel">
+              <div className="section-heading"><div><h2>Conexión bancaria</h2><p>Conecta una cuenta recaudadora al provider operativo.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateConexion}>
+                <select value={conexionDraft.cuenta_recaudadora} onChange={(event) => setConexionDraft((current) => ({ ...current, cuenta_recaudadora: event.target.value }))}>
+                  <option value="">Selecciona cuenta</option>
+                  {cuentas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.numero_cuenta} · {item.owner_display}</option>
+                  ))}
+                </select>
+                <input placeholder="Provider key" value={conexionDraft.provider_key} onChange={(event) => setConexionDraft((current) => ({ ...current, provider_key: event.target.value }))} />
+                <input placeholder="Credencial ref" value={conexionDraft.credencial_ref} onChange={(event) => setConexionDraft((current) => ({ ...current, credencial_ref: event.target.value }))} />
+                <input placeholder="Scope" value={conexionDraft.scope} onChange={(event) => setConexionDraft((current) => ({ ...current, scope: event.target.value }))} />
+                <input type="datetime-local" value={conexionDraft.expira_en} onChange={(event) => setConexionDraft((current) => ({ ...current, expira_en: event.target.value }))} />
+                <select value={conexionDraft.estado_conexion} onChange={(event) => setConexionDraft((current) => ({ ...current, estado_conexion: event.target.value }))}>
+                  <option value="verificando">Verificando</option>
+                  <option value="activa">Activa</option>
+                  <option value="pausada">Pausada</option>
+                  <option value="inactiva">Inactiva</option>
+                </select>
+                <label className="checkbox-row"><input type="checkbox" checked={conexionDraft.primaria_movimientos} onChange={(event) => setConexionDraft((current) => ({ ...current, primaria_movimientos: event.target.checked }))} />Primaria movimientos</label>
+                <label className="checkbox-row"><input type="checkbox" checked={conexionDraft.primaria_saldos} onChange={(event) => setConexionDraft((current) => ({ ...current, primaria_saldos: event.target.checked }))} />Primaria saldos</label>
+                <label className="checkbox-row"><input type="checkbox" checked={conexionDraft.primaria_conectividad} onChange={(event) => setConexionDraft((current) => ({ ...current, primaria_conectividad: event.target.checked }))} />Primaria conectividad</label>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !conexionDraft.cuenta_recaudadora}>Guardar conexión</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Movimiento bancario</h2><p>Ingesta manual para probar match exacto, ingreso desconocido y cargo.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateMovimiento}>
+                <select value={movimientoDraft.conexion_bancaria} onChange={(event) => setMovimientoDraft((current) => ({ ...current, conexion_bancaria: event.target.value }))}>
+                  <option value="">Selecciona conexión</option>
+                  {conexionesBancarias.map((item) => (
+                    <option key={item.id} value={item.id}>{item.provider_key} · {cuentaById.get(item.cuenta_recaudadora)?.numero_cuenta || item.cuenta_recaudadora}</option>
+                  ))}
+                </select>
+                <input type="date" value={movimientoDraft.fecha_movimiento} onChange={(event) => setMovimientoDraft((current) => ({ ...current, fecha_movimiento: event.target.value }))} />
+                <select value={movimientoDraft.tipo_movimiento} onChange={(event) => setMovimientoDraft((current) => ({ ...current, tipo_movimiento: event.target.value }))}>
+                  <option value="abono">Abono</option>
+                  <option value="cargo">Cargo</option>
+                </select>
+                <input placeholder="Monto" value={movimientoDraft.monto} onChange={(event) => setMovimientoDraft((current) => ({ ...current, monto: event.target.value }))} />
+                <input placeholder="Descripción origen" value={movimientoDraft.descripcion_origen} onChange={(event) => setMovimientoDraft((current) => ({ ...current, descripcion_origen: event.target.value }))} />
+                <input placeholder="Número documento" value={movimientoDraft.numero_documento} onChange={(event) => setMovimientoDraft((current) => ({ ...current, numero_documento: event.target.value }))} />
+                <input placeholder="Saldo reportado" value={movimientoDraft.saldo_reportado} onChange={(event) => setMovimientoDraft((current) => ({ ...current, saldo_reportado: event.target.value }))} />
+                <input placeholder="Referencia" value={movimientoDraft.referencia} onChange={(event) => setMovimientoDraft((current) => ({ ...current, referencia: event.target.value }))} />
+                <input placeholder="Transaction ID banco" value={movimientoDraft.transaction_id_banco} onChange={(event) => setMovimientoDraft((current) => ({ ...current, transaction_id_banco: event.target.value }))} />
+                <input placeholder="Notas admin" value={movimientoDraft.notas_admin} onChange={(event) => setMovimientoDraft((current) => ({ ...current, notas_admin: event.target.value }))} />
+                <button type="submit" className="button-primary" disabled={isSubmitting || !movimientoDraft.conexion_bancaria || !movimientoDraft.monto || !movimientoDraft.descripcion_origen}>Guardar movimiento</button>
+              </form>
+            </section>
+          </section>
+
+          <TableBlock title="Conexiones bancarias" subtitle="Providers activos por cuenta recaudadora." rows={filteredConexiones} empty="No hay conexiones bancarias para este filtro." columns={[
+            { label: 'Cuenta', render: (row) => cuentaById.get(row.cuenta_recaudadora)?.numero_cuenta || row.cuenta_recaudadora },
+            { label: 'Provider', render: (row) => row.provider_key },
+            { label: 'Credencial', render: (row) => row.credencial_ref },
+            { label: 'Scope', render: (row) => row.scope || 'Sin scope' },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_conexion} tone={toneFor(row.estado_conexion)} /> },
+          ]} />
+
+          <TableBlock title="Movimientos bancarios" subtitle="Entrada importada y resultado de conciliación." rows={filteredMovimientos} empty="No hay movimientos para este filtro." columns={[
+            { label: 'Fecha', render: (row) => row.fecha_movimiento },
+            { label: 'Tipo', render: (row) => row.tipo_movimiento },
+            { label: 'Monto', render: (row) => row.monto },
+            { label: 'Descripción', render: (row) => row.descripcion_origen },
+            { label: 'Referencia', render: (row) => row.referencia || 'Sin referencia' },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_conciliacion} tone={toneFor(row.estado_conciliacion)} /> },
+            {
+              label: 'Acción',
+              render: (row) => (
+                <button type="button" className="button-ghost inline-action" onClick={() => void handleRetryMatch(row.id)} disabled={isSubmitting}>
+                  Reintentar match
+                </button>
+              ),
+            },
+          ]} />
+
+          <TableBlock title="Ingresos desconocidos" subtitle="Abonos sin match exacto que requieren revisión." rows={filteredIngresos} empty="No hay ingresos desconocidos para este filtro." columns={[
+            { label: 'Fecha', render: (row) => row.fecha_movimiento },
+            { label: 'Monto', render: (row) => row.monto },
+            { label: 'Cuenta', render: (row) => cuentaById.get(row.cuenta_recaudadora)?.numero_cuenta || row.cuenta_recaudadora },
+            { label: 'Descripción', render: (row) => row.descripcion_origen },
+            { label: 'Sugerencia', render: (row) => row.sugerencia_asistida?.payment_candidate_ids?.length ? `Pagos candidatos: ${row.sugerencia_asistida.payment_candidate_ids.join(', ')}` : 'Sin sugerencia' },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
           ]} />
         </>
       ) : null}
