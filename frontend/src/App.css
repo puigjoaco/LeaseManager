@@ -309,6 +309,18 @@
   padding: 8px 10px;
 }
 
+.json-block {
+  margin: 0;
+  padding: 14px;
+  background: #f7f8f5;
+  border: 1px solid #ecefe8;
+  border-radius: 6px;
+  overflow: auto;
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .table-scroll {
   overflow-x: auto;
 }
