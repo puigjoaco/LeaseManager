@@ -37,7 +37,15 @@ type ManualSummary = {
   categorias: Array<{ category: string; total: number }>
 }
 
-type Socio = { id: number; nombre: string; rut: string; email: string; telefono: string; activo: boolean }
+type Socio = {
+  id: number
+  nombre: string
+  rut: string
+  email: string
+  telefono: string
+  domicilio: string
+  activo: boolean
+}
 type Empresa = { id: number; razon_social: string; rut: string; estado: string; participaciones_detail: unknown[] }
 type Arrendatario = {
   id: number
@@ -59,11 +67,14 @@ type Comunidad = {
 }
 type Propiedad = {
   id: number
+  rol_avaluo: string
   codigo_propiedad: string
   direccion: string
   comuna: string
   region: string
+  tipo_inmueble: string
   owner_tipo: string
+  owner_id: number
   owner_display: string
   estado: string
 }
@@ -71,8 +82,12 @@ type Cuenta = {
   id: number
   institucion: string
   numero_cuenta: string
+  tipo_cuenta: string
   owner_tipo: string
+  owner_id: number
   owner_display: string
+  titular_nombre: string
+  titular_rut: string
   moneda_operativa: string
   estado_operativo: string
 }
@@ -89,12 +104,25 @@ type Mandato = {
   id: number
   propiedad_id: number
   propiedad_codigo: string
+  propietario_tipo: string
+  propietario_id: number
   propietario_display: string
+  administrador_operativo_tipo: string
+  administrador_operativo_id: number
   administrador_operativo_display: string
+  recaudador_tipo: string
+  recaudador_id: number
   recaudador_display: string
+  entidad_facturadora_id: number | null
   entidad_facturadora_display: string | null
+  cuenta_recaudadora_id: number
   cuenta_recaudadora_display: string
   tipo_relacion_operativa: string
+  autoriza_recaudacion: boolean
+  autoriza_facturacion: boolean
+  autoriza_comunicacion: boolean
+  vigencia_desde: string
+  vigencia_hasta: string | null
   estado: string
 }
 
@@ -110,6 +138,8 @@ type Contrato = {
   plazo_notificacion_termino_dias: number
   dias_prealerta_admin: number
   estado: string
+  tiene_tramos: boolean
+  tiene_gastos_comunes: boolean
   contrato_propiedades_detail: Array<{
     propiedad: number
     propiedad_codigo: string
@@ -122,6 +152,8 @@ type Contrato = {
     fecha_fin: string
     monto_base: string
     moneda_base: string
+    tipo_periodo: string
+    origen_periodo: string
   }>
 }
 
@@ -525,7 +557,7 @@ class ApiError extends Error {
 
 async function apiRequest<T>(
   path: string,
-  options: { method?: 'GET' | 'POST'; token?: string | null; body?: unknown } = {},
+  options: { method?: 'GET' | 'POST' | 'PATCH'; token?: string | null; body?: unknown } = {},
 ) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || 'GET',
@@ -693,6 +725,12 @@ function App() {
   const [formMessage, setFormMessage] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [editingSocioId, setEditingSocioId] = useState<number | null>(null)
+  const [editingPropiedadId, setEditingPropiedadId] = useState<number | null>(null)
+  const [editingCuentaId, setEditingCuentaId] = useState<number | null>(null)
+  const [editingMandatoId, setEditingMandatoId] = useState<number | null>(null)
+  const [editingArrendatarioId, setEditingArrendatarioId] = useState<number | null>(null)
+  const [editingContratoId, setEditingContratoId] = useState<number | null>(null)
   const [socioDraft, setSocioDraft] = useState({
     nombre: '',
     rut: '',
@@ -1155,13 +1193,18 @@ function App() {
     setF22s([])
   }
 
-  async function submitCreate(path: string, body: unknown, successMessage: string) {
+  async function submitMutation(
+    path: string,
+    method: 'POST' | 'PATCH',
+    body: unknown,
+    successMessage: string,
+  ) {
     if (!token) return
     setIsSubmitting(true)
     setFormMessage(null)
     setFormError(null)
     try {
-      await apiRequest(path, { method: 'POST', token, body })
+      await apiRequest(path, { method, token, body })
       await loadWorkspace(token)
       setFormMessage(successMessage)
       return true
@@ -1173,18 +1216,37 @@ function App() {
     }
   }
 
+  async function submitCreate(path: string, body: unknown, successMessage: string) {
+    return submitMutation(path, 'POST', body, successMessage)
+  }
+
   async function handleCreateSocio(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const ok = await submitCreate('/api/v1/patrimonio/socios/', socioDraft, 'Socio creado correctamente.')
-    if (ok) setSocioDraft({ nombre: '', rut: '', email: '', telefono: '', domicilio: '', activo: true })
+    const isEdit = editingSocioId != null
+    const ok = await submitMutation(
+      isEdit ? `/api/v1/patrimonio/socios/${editingSocioId}/` : '/api/v1/patrimonio/socios/',
+      isEdit ? 'PATCH' : 'POST',
+      socioDraft,
+      isEdit ? 'Socio actualizado correctamente.' : 'Socio creado correctamente.',
+    )
+    if (ok) {
+      setSocioDraft({ nombre: '', rut: '', email: '', telefono: '', domicilio: '', activo: true })
+      setEditingSocioId(null)
+    }
   }
 
   async function handleCreatePropiedad(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const ok = await submitCreate('/api/v1/patrimonio/propiedades/', {
-      ...propiedadDraft,
-      owner_id: Number(propiedadDraft.owner_id),
-    }, 'Propiedad creada correctamente.')
+    const isEdit = editingPropiedadId != null
+    const ok = await submitMutation(
+      isEdit ? `/api/v1/patrimonio/propiedades/${editingPropiedadId}/` : '/api/v1/patrimonio/propiedades/',
+      isEdit ? 'PATCH' : 'POST',
+      {
+        ...propiedadDraft,
+        owner_id: Number(propiedadDraft.owner_id),
+      },
+      isEdit ? 'Propiedad actualizada correctamente.' : 'Propiedad creada correctamente.',
+    )
     if (ok) {
       setPropiedadDraft({
         codigo_propiedad: '',
@@ -1197,15 +1259,24 @@ function App() {
         owner_tipo: 'empresa',
         owner_id: '',
       })
+      setEditingPropiedadId(null)
     }
   }
 
   async function handleCreateCuenta(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const ok = await submitCreate('/api/v1/operacion/cuentas-recaudadoras/', {
-      ...cuentaDraft,
-      owner_id: Number(cuentaDraft.owner_id),
-    }, 'Cuenta recaudadora creada correctamente.')
+    const isEdit = editingCuentaId != null
+    const ok = await submitMutation(
+      isEdit
+        ? `/api/v1/operacion/cuentas-recaudadoras/${editingCuentaId}/`
+        : '/api/v1/operacion/cuentas-recaudadoras/',
+      isEdit ? 'PATCH' : 'POST',
+      {
+        ...cuentaDraft,
+        owner_id: Number(cuentaDraft.owner_id),
+      },
+      isEdit ? 'Cuenta recaudadora actualizada correctamente.' : 'Cuenta recaudadora creada correctamente.',
+    )
     if (ok) {
       setCuentaDraft({
         institucion: 'Banco de Chile',
@@ -1218,21 +1289,28 @@ function App() {
         owner_tipo: 'empresa',
         owner_id: '',
       })
+      setEditingCuentaId(null)
     }
   }
 
   async function handleCreateMandato(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const ok = await submitCreate('/api/v1/operacion/mandatos/', {
-      ...mandatoDraft,
-      propiedad_id: Number(mandatoDraft.propiedad_id),
-      propietario_id: Number(mandatoDraft.propietario_id),
-      administrador_operativo_id: Number(mandatoDraft.administrador_operativo_id),
-      recaudador_id: Number(mandatoDraft.recaudador_id),
-      entidad_facturadora_id: mandatoDraft.entidad_facturadora_id ? Number(mandatoDraft.entidad_facturadora_id) : null,
-      cuenta_recaudadora_id: Number(mandatoDraft.cuenta_recaudadora_id),
-      vigencia_hasta: mandatoDraft.vigencia_hasta || null,
-    }, 'Mandato operativo creado correctamente.')
+    const isEdit = editingMandatoId != null
+    const ok = await submitMutation(
+      isEdit ? `/api/v1/operacion/mandatos/${editingMandatoId}/` : '/api/v1/operacion/mandatos/',
+      isEdit ? 'PATCH' : 'POST',
+      {
+        ...mandatoDraft,
+        propiedad_id: Number(mandatoDraft.propiedad_id),
+        propietario_id: Number(mandatoDraft.propietario_id),
+        administrador_operativo_id: Number(mandatoDraft.administrador_operativo_id),
+        recaudador_id: Number(mandatoDraft.recaudador_id),
+        entidad_facturadora_id: mandatoDraft.entidad_facturadora_id ? Number(mandatoDraft.entidad_facturadora_id) : null,
+        cuenta_recaudadora_id: Number(mandatoDraft.cuenta_recaudadora_id),
+        vigencia_hasta: mandatoDraft.vigencia_hasta || null,
+      },
+      isEdit ? 'Mandato operativo actualizado correctamente.' : 'Mandato operativo creado correctamente.',
+    )
     if (ok) {
       setMandatoDraft({
         propiedad_id: '',
@@ -1252,12 +1330,19 @@ function App() {
         vigencia_hasta: '',
         estado: 'activa',
       })
+      setEditingMandatoId(null)
     }
   }
 
   async function handleCreateArrendatario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const ok = await submitCreate('/api/v1/contratos/arrendatarios/', arrendatarioDraft, 'Arrendatario creado correctamente.')
+    const isEdit = editingArrendatarioId != null
+    const ok = await submitMutation(
+      isEdit ? `/api/v1/contratos/arrendatarios/${editingArrendatarioId}/` : '/api/v1/contratos/arrendatarios/',
+      isEdit ? 'PATCH' : 'POST',
+      arrendatarioDraft,
+      isEdit ? 'Arrendatario actualizado correctamente.' : 'Arrendatario creado correctamente.',
+    )
     if (ok) {
       setArrendatarioDraft({
         tipo_arrendatario: 'persona_natural',
@@ -1269,6 +1354,7 @@ function App() {
         estado_contacto: 'activo',
         whatsapp_bloqueado: false,
       })
+      setEditingArrendatarioId(null)
     }
   }
 
@@ -1280,41 +1366,47 @@ function App() {
       return
     }
     const code = effectiveCodeFromPropertyCode(selectedMandate.propiedad_codigo)
-    const ok = await submitCreate('/api/v1/contratos/contratos/', {
-      codigo_contrato: contratoDraft.codigo_contrato,
-      mandato_operacion: Number(contratoDraft.mandato_operacion),
-      arrendatario: Number(contratoDraft.arrendatario),
-      fecha_inicio: contratoDraft.fecha_inicio,
-      fecha_fin_vigente: contratoDraft.fecha_fin_vigente,
-      fecha_entrega: contratoDraft.fecha_entrega || null,
-      dia_pago_mensual: Number(contratoDraft.dia_pago_mensual),
-      plazo_notificacion_termino_dias: Number(contratoDraft.plazo_notificacion_termino_dias),
-      dias_prealerta_admin: Number(contratoDraft.dias_prealerta_admin),
-      estado: contratoDraft.estado,
-      tiene_tramos: contratoDraft.tiene_tramos,
-      tiene_gastos_comunes: contratoDraft.tiene_gastos_comunes,
-      snapshot_representante_legal: { source: 'frontend_backoffice' },
-      contrato_propiedades: [
-        {
-          propiedad_id: selectedMandate.propiedad_id,
-          rol_en_contrato: 'principal',
-          porcentaje_distribucion_interna: '100.00',
-          codigo_conciliacion_efectivo_snapshot: code,
-        },
-      ],
-      periodos_contractuales: [
-        {
-          numero_periodo: 1,
-          fecha_inicio: contratoDraft.fecha_inicio,
-          fecha_fin: contratoDraft.fecha_fin_vigente,
-          monto_base: contratoDraft.monto_base,
-          moneda_base: contratoDraft.moneda_base,
-          tipo_periodo: contratoDraft.tipo_periodo,
-          origen_periodo: contratoDraft.origen_periodo,
-        },
-      ],
-      codeudores_solidarios: [],
-    }, 'Contrato creado correctamente.')
+    const isEdit = editingContratoId != null
+    const ok = await submitMutation(
+      isEdit ? `/api/v1/contratos/contratos/${editingContratoId}/` : '/api/v1/contratos/contratos/',
+      isEdit ? 'PATCH' : 'POST',
+      {
+        codigo_contrato: contratoDraft.codigo_contrato,
+        mandato_operacion: Number(contratoDraft.mandato_operacion),
+        arrendatario: Number(contratoDraft.arrendatario),
+        fecha_inicio: contratoDraft.fecha_inicio,
+        fecha_fin_vigente: contratoDraft.fecha_fin_vigente,
+        fecha_entrega: contratoDraft.fecha_entrega || null,
+        dia_pago_mensual: Number(contratoDraft.dia_pago_mensual),
+        plazo_notificacion_termino_dias: Number(contratoDraft.plazo_notificacion_termino_dias),
+        dias_prealerta_admin: Number(contratoDraft.dias_prealerta_admin),
+        estado: contratoDraft.estado,
+        tiene_tramos: contratoDraft.tiene_tramos,
+        tiene_gastos_comunes: contratoDraft.tiene_gastos_comunes,
+        snapshot_representante_legal: { source: 'frontend_backoffice' },
+        contrato_propiedades: [
+          {
+            propiedad_id: selectedMandate.propiedad_id,
+            rol_en_contrato: 'principal',
+            porcentaje_distribucion_interna: '100.00',
+            codigo_conciliacion_efectivo_snapshot: code,
+          },
+        ],
+        periodos_contractuales: [
+          {
+            numero_periodo: 1,
+            fecha_inicio: contratoDraft.fecha_inicio,
+            fecha_fin: contratoDraft.fecha_fin_vigente,
+            monto_base: contratoDraft.monto_base,
+            moneda_base: contratoDraft.moneda_base,
+            tipo_periodo: contratoDraft.tipo_periodo,
+            origen_periodo: contratoDraft.origen_periodo,
+          },
+        ],
+        codeudores_solidarios: [],
+      },
+      isEdit ? 'Contrato actualizado correctamente.' : 'Contrato creado correctamente.',
+    )
     if (ok) {
       setContratoDraft({
         codigo_contrato: '',
@@ -1334,7 +1426,213 @@ function App() {
         tipo_periodo: 'base',
         origen_periodo: 'backoffice',
       })
+      setEditingContratoId(null)
     }
+  }
+
+  function startEditSocio(row: Socio) {
+    setEditingSocioId(row.id)
+    setSocioDraft({
+      nombre: row.nombre,
+      rut: row.rut,
+      email: row.email,
+      telefono: row.telefono,
+      domicilio: row.domicilio ?? '',
+      activo: row.activo,
+    })
+    navigateWithContext('patrimonio', row.nombre, `Editando socio: ${row.nombre}`)
+  }
+
+  function cancelEditSocio() {
+    setEditingSocioId(null)
+    setSocioDraft({ nombre: '', rut: '', email: '', telefono: '', domicilio: '', activo: true })
+    setActiveContextLabel(null)
+  }
+
+  function startEditPropiedad(row: Propiedad) {
+    setEditingPropiedadId(row.id)
+    setPropiedadDraft({
+      codigo_propiedad: row.codigo_propiedad,
+      direccion: row.direccion,
+      comuna: row.comuna,
+      region: row.region,
+      rol_avaluo: row.rol_avaluo,
+      tipo_inmueble: row.tipo_inmueble,
+      estado: row.estado,
+      owner_tipo: row.owner_tipo,
+      owner_id: String(row.owner_id),
+    })
+    navigateWithContext('patrimonio', row.codigo_propiedad, `Editando propiedad: ${row.codigo_propiedad}`)
+  }
+
+  function cancelEditPropiedad() {
+    setEditingPropiedadId(null)
+    setPropiedadDraft({
+      codigo_propiedad: '',
+      direccion: '',
+      comuna: 'Temuco',
+      region: 'La Araucania',
+      rol_avaluo: '',
+      tipo_inmueble: 'otro',
+      estado: 'borrador',
+      owner_tipo: 'empresa',
+      owner_id: '',
+    })
+    setActiveContextLabel(null)
+  }
+
+  function startEditCuenta(row: Cuenta) {
+    setEditingCuentaId(row.id)
+    setCuentaDraft({
+      institucion: row.institucion,
+      numero_cuenta: row.numero_cuenta,
+      tipo_cuenta: row.tipo_cuenta,
+      titular_nombre: row.titular_nombre,
+      titular_rut: row.titular_rut,
+      moneda_operativa: row.moneda_operativa,
+      estado_operativo: row.estado_operativo,
+      owner_tipo: row.owner_tipo,
+      owner_id: String(row.owner_id),
+    })
+    navigateWithContext('operacion', row.numero_cuenta, `Editando cuenta: ${row.numero_cuenta}`)
+  }
+
+  function cancelEditCuenta() {
+    setEditingCuentaId(null)
+    setCuentaDraft({
+      institucion: 'Banco de Chile',
+      numero_cuenta: '',
+      tipo_cuenta: 'corriente',
+      titular_nombre: '',
+      titular_rut: '',
+      moneda_operativa: 'CLP',
+      estado_operativo: 'activa',
+      owner_tipo: 'empresa',
+      owner_id: '',
+    })
+    setActiveContextLabel(null)
+  }
+
+  function startEditMandato(row: Mandato) {
+    setEditingMandatoId(row.id)
+    setMandatoDraft({
+      propiedad_id: String(row.propiedad_id),
+      propietario_tipo: row.propietario_tipo,
+      propietario_id: String(row.propietario_id),
+      administrador_operativo_tipo: row.administrador_operativo_tipo,
+      administrador_operativo_id: String(row.administrador_operativo_id),
+      recaudador_tipo: row.recaudador_tipo,
+      recaudador_id: String(row.recaudador_id),
+      entidad_facturadora_id: row.entidad_facturadora_id ? String(row.entidad_facturadora_id) : '',
+      cuenta_recaudadora_id: String(row.cuenta_recaudadora_id),
+      tipo_relacion_operativa: row.tipo_relacion_operativa,
+      autoriza_recaudacion: row.autoriza_recaudacion,
+      autoriza_facturacion: row.autoriza_facturacion,
+      autoriza_comunicacion: row.autoriza_comunicacion,
+      vigencia_desde: row.vigencia_desde,
+      vigencia_hasta: row.vigencia_hasta || '',
+      estado: row.estado,
+    })
+    navigateWithContext('operacion', row.propiedad_codigo, `Editando mandato: ${row.propiedad_codigo}`)
+  }
+
+  function cancelEditMandato() {
+    setEditingMandatoId(null)
+    setMandatoDraft({
+      propiedad_id: '',
+      propietario_tipo: 'empresa',
+      propietario_id: '',
+      administrador_operativo_tipo: 'empresa',
+      administrador_operativo_id: '',
+      recaudador_tipo: 'empresa',
+      recaudador_id: '',
+      entidad_facturadora_id: '',
+      cuenta_recaudadora_id: '',
+      tipo_relacion_operativa: 'operacion_directa',
+      autoriza_recaudacion: true,
+      autoriza_facturacion: true,
+      autoriza_comunicacion: true,
+      vigencia_desde: todayIso(),
+      vigencia_hasta: '',
+      estado: 'activa',
+    })
+    setActiveContextLabel(null)
+  }
+
+  function startEditArrendatario(row: Arrendatario) {
+    setEditingArrendatarioId(row.id)
+    setArrendatarioDraft({
+      tipo_arrendatario: row.tipo_arrendatario,
+      nombre_razon_social: row.nombre_razon_social,
+      rut: row.rut,
+      email: row.email,
+      telefono: row.telefono,
+      domicilio_notificaciones: row.domicilio_notificaciones,
+      estado_contacto: row.estado_contacto,
+      whatsapp_bloqueado: row.whatsapp_bloqueado,
+    })
+    navigateWithContext('contratos', row.nombre_razon_social, `Editando arrendatario: ${row.nombre_razon_social}`)
+  }
+
+  function cancelEditArrendatario() {
+    setEditingArrendatarioId(null)
+    setArrendatarioDraft({
+      tipo_arrendatario: 'persona_natural',
+      nombre_razon_social: '',
+      rut: '',
+      email: '',
+      telefono: '',
+      domicilio_notificaciones: '',
+      estado_contacto: 'activo',
+      whatsapp_bloqueado: false,
+    })
+    setActiveContextLabel(null)
+  }
+
+  function startEditContrato(row: Contrato) {
+    setEditingContratoId(row.id)
+    setContratoDraft({
+      codigo_contrato: row.codigo_contrato,
+      mandato_operacion: String(row.mandato_operacion),
+      arrendatario: String(row.arrendatario),
+      fecha_inicio: row.fecha_inicio,
+      fecha_fin_vigente: row.fecha_fin_vigente,
+      fecha_entrega: row.fecha_entrega || '',
+      dia_pago_mensual: String(row.dia_pago_mensual),
+      plazo_notificacion_termino_dias: String(row.plazo_notificacion_termino_dias),
+      dias_prealerta_admin: String(row.dias_prealerta_admin),
+      estado: row.estado,
+      tiene_tramos: row.tiene_tramos,
+      tiene_gastos_comunes: row.tiene_gastos_comunes,
+      monto_base: row.periodos_contractuales_detail[0]?.monto_base || '',
+      moneda_base: row.periodos_contractuales_detail[0]?.moneda_base || 'CLP',
+      tipo_periodo: row.periodos_contractuales_detail[0]?.tipo_periodo || 'base',
+      origen_periodo: row.periodos_contractuales_detail[0]?.origen_periodo || 'backoffice',
+    })
+    navigateWithContext('contratos', row.codigo_contrato, `Editando contrato: ${row.codigo_contrato}`)
+  }
+
+  function cancelEditContrato() {
+    setEditingContratoId(null)
+    setContratoDraft({
+      codigo_contrato: '',
+      mandato_operacion: '',
+      arrendatario: '',
+      fecha_inicio: todayIso(),
+      fecha_fin_vigente: todayIso(),
+      fecha_entrega: todayIso(),
+      dia_pago_mensual: '5',
+      plazo_notificacion_termino_dias: '60',
+      dias_prealerta_admin: '90',
+      estado: 'vigente',
+      tiene_tramos: false,
+      tiene_gastos_comunes: false,
+      monto_base: '',
+      moneda_base: 'CLP',
+      tipo_periodo: 'base',
+      origen_periodo: 'backoffice',
+    })
+    setActiveContextLabel(null)
   }
 
   async function handleCreateAviso(event: FormEvent<HTMLFormElement>) {
@@ -2441,7 +2739,7 @@ function App() {
         <>
           <section className="form-grid">
             <section className="panel">
-              <div className="section-heading"><div><h2>Alta rápida de socio</h2><p>Ingreso mínimo para participantes activos.</p></div></div>
+              <div className="section-heading"><div><h2>{editingSocioId ? 'Editar socio' : 'Alta rápida de socio'}</h2><p>Ingreso mínimo para participantes activos.</p></div></div>
               <form className="entity-form" onSubmit={handleCreateSocio}>
                 <input placeholder="Nombre completo" value={socioDraft.nombre} onChange={(event) => setSocioDraft((current) => ({ ...current, nombre: event.target.value }))} />
                 <input placeholder="RUT" value={socioDraft.rut} onChange={(event) => setSocioDraft((current) => ({ ...current, rut: event.target.value }))} />
@@ -2449,12 +2747,15 @@ function App() {
                 <input placeholder="Teléfono" value={socioDraft.telefono} onChange={(event) => setSocioDraft((current) => ({ ...current, telefono: event.target.value }))} />
                 <input placeholder="Domicilio" value={socioDraft.domicilio} onChange={(event) => setSocioDraft((current) => ({ ...current, domicilio: event.target.value }))} />
                 <label className="checkbox-row"><input type="checkbox" checked={socioDraft.activo} onChange={(event) => setSocioDraft((current) => ({ ...current, activo: event.target.checked }))} />Activo</label>
-                <button type="submit" className="button-primary" disabled={isSubmitting}>Guardar socio</button>
+                <div className="inline-actions">
+                  <button type="submit" className="button-primary" disabled={isSubmitting}>{editingSocioId ? 'Guardar cambios' : 'Guardar socio'}</button>
+                  {editingSocioId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditSocio}>Cancelar</button> : null}
+                </div>
               </form>
             </section>
 
             <section className="panel">
-              <div className="section-heading"><div><h2>Alta rápida de propiedad</h2><p>Owner explícito y código operativo desde el inicio.</p></div></div>
+              <div className="section-heading"><div><h2>{editingPropiedadId ? 'Editar propiedad' : 'Alta rápida de propiedad'}</h2><p>Owner explícito y código operativo desde el inicio.</p></div></div>
               <form className="entity-form" onSubmit={handleCreatePropiedad}>
                 <input placeholder="Código propiedad" value={propiedadDraft.codigo_propiedad} onChange={(event) => setPropiedadDraft((current) => ({ ...current, codigo_propiedad: event.target.value }))} />
                 <input placeholder="Dirección" value={propiedadDraft.direccion} onChange={(event) => setPropiedadDraft((current) => ({ ...current, direccion: event.target.value }))} />
@@ -2484,7 +2785,10 @@ function App() {
                     <option key={`${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>
                   ))}
                 </select>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !propiedadDraft.owner_id}>Guardar propiedad</button>
+                <div className="inline-actions">
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !propiedadDraft.owner_id}>{editingPropiedadId ? 'Guardar cambios' : 'Guardar propiedad'}</button>
+                  {editingPropiedadId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditPropiedad}>Cancelar</button> : null}
+                </div>
               </form>
             </section>
           </section>
@@ -2494,6 +2798,10 @@ function App() {
             { label: 'RUT', render: (row) => row.rut },
             { label: 'Contacto', render: (row) => row.email || row.telefono || 'Sin dato' },
             { label: 'Estado', render: (row) => <Badge label={row.activo ? 'activo' : 'inactivo'} tone={row.activo ? 'positive' : 'danger'} /> },
+            {
+              label: 'Acción',
+              render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditSocio(row)}>Editar</button>,
+            },
           ]} />
           <TableBlock title="Empresas" subtitle="Owners empresariales y participaciones vigentes." rows={filteredEmpresas} empty="No hay empresas para este filtro." columns={[
             { label: 'Razón social', render: (row) => row.razon_social },
@@ -2527,6 +2835,10 @@ function App() {
             { label: 'Ubicación', render: (row) => `${row.comuna}, ${row.region}` },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
             {
+              label: 'Editar',
+              render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditPropiedad(row)}>Editar</button>,
+            },
+            {
               label: 'Siguiente paso',
               render: (row) => (
                 <button
@@ -2549,7 +2861,7 @@ function App() {
         <>
           <section className="form-grid">
             <section className="panel">
-              <div className="section-heading"><div><h2>Alta rápida de cuenta</h2><p>Cuenta recaudadora con owner bancario explícito.</p></div></div>
+              <div className="section-heading"><div><h2>{editingCuentaId ? 'Editar cuenta' : 'Alta rápida de cuenta'}</h2><p>Cuenta recaudadora con owner bancario explícito.</p></div></div>
               <form className="entity-form" onSubmit={handleCreateCuenta}>
                 <input placeholder="Institución" value={cuentaDraft.institucion} onChange={(event) => setCuentaDraft((current) => ({ ...current, institucion: event.target.value }))} />
                 <input placeholder="Número de cuenta" value={cuentaDraft.numero_cuenta} onChange={(event) => setCuentaDraft((current) => ({ ...current, numero_cuenta: event.target.value }))} />
@@ -2577,12 +2889,15 @@ function App() {
                     <option key={`${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>
                   ))}
                 </select>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !cuentaDraft.owner_id}>Guardar cuenta</button>
+                <div className="inline-actions">
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !cuentaDraft.owner_id}>{editingCuentaId ? 'Guardar cambios' : 'Guardar cuenta'}</button>
+                  {editingCuentaId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditCuenta}>Cancelar</button> : null}
+                </div>
               </form>
             </section>
 
             <section className="panel">
-              <div className="section-heading"><div><h2>Alta rápida de mandato</h2><p>Separación explícita entre propietario, administrador, recaudador y facturadora.</p></div></div>
+              <div className="section-heading"><div><h2>{editingMandatoId ? 'Editar mandato' : 'Alta rápida de mandato'}</h2><p>Separación explícita entre propietario, administrador, recaudador y facturadora.</p></div></div>
               <form className="entity-form" onSubmit={handleCreateMandato}>
                 <select value={mandatoDraft.propiedad_id} onChange={(event) => setMandatoDraft((current) => ({ ...current, propiedad_id: event.target.value }))}>
                   <option value="">Selecciona propiedad</option>
@@ -2639,7 +2954,10 @@ function App() {
                 <label className="checkbox-row"><input type="checkbox" checked={mandatoDraft.autoriza_recaudacion} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoriza_recaudacion: event.target.checked }))} />Autoriza recaudación</label>
                 <label className="checkbox-row"><input type="checkbox" checked={mandatoDraft.autoriza_facturacion} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoriza_facturacion: event.target.checked }))} />Autoriza facturación</label>
                 <label className="checkbox-row"><input type="checkbox" checked={mandatoDraft.autoriza_comunicacion} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoriza_comunicacion: event.target.checked }))} />Autoriza comunicación</label>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !mandatoDraft.propiedad_id || !mandatoDraft.propietario_id || !mandatoDraft.administrador_operativo_id || !mandatoDraft.recaudador_id || !mandatoDraft.cuenta_recaudadora_id}>Guardar mandato</button>
+                <div className="inline-actions">
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !mandatoDraft.propiedad_id || !mandatoDraft.propietario_id || !mandatoDraft.administrador_operativo_id || !mandatoDraft.recaudador_id || !mandatoDraft.cuenta_recaudadora_id}>{editingMandatoId ? 'Guardar cambios' : 'Guardar mandato'}</button>
+                  {editingMandatoId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditMandato}>Cancelar</button> : null}
+                </div>
               </form>
             </section>
           </section>
@@ -2649,6 +2967,10 @@ function App() {
             { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo}` },
             { label: 'Moneda', render: (row) => row.moneda_operativa },
             { label: 'Estado', render: (row) => <Badge label={row.estado_operativo} tone={toneFor(row.estado_operativo)} /> },
+            {
+              label: 'Editar',
+              render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditCuenta(row)}>Editar</button>,
+            },
             {
               label: 'Siguiente paso',
               render: (row) => (
@@ -2681,6 +3003,10 @@ function App() {
             { label: 'Cuenta', render: (row) => row.cuenta_recaudadora_display },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
             {
+              label: 'Editar',
+              render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditMandato(row)}>Editar</button>,
+            },
+            {
               label: 'Siguiente paso',
               render: (row) => (
                 <button type="button" className="button-ghost inline-action" onClick={() => goToMandatoContext(row.id)}>
@@ -2696,7 +3022,7 @@ function App() {
         <>
           <section className="form-grid">
             <section className="panel">
-              <div className="section-heading"><div><h2>Alta rápida de arrendatario</h2><p>Base mínima para contratar sobre mandatos ya activos.</p></div></div>
+              <div className="section-heading"><div><h2>{editingArrendatarioId ? 'Editar arrendatario' : 'Alta rápida de arrendatario'}</h2><p>Base mínima para contratar sobre mandatos ya activos.</p></div></div>
               <form className="entity-form" onSubmit={handleCreateArrendatario}>
                 <select value={arrendatarioDraft.tipo_arrendatario} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, tipo_arrendatario: event.target.value }))}>
                   <option value="persona_natural">Persona natural</option>
@@ -2713,21 +3039,24 @@ function App() {
                   <option value="inactivo">Inactivo</option>
                 </select>
                 <label className="checkbox-row"><input type="checkbox" checked={arrendatarioDraft.whatsapp_bloqueado} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, whatsapp_bloqueado: event.target.checked }))} />WhatsApp bloqueado</label>
-                <button type="submit" className="button-primary" disabled={isSubmitting}>Guardar arrendatario</button>
+                <div className="inline-actions">
+                  <button type="submit" className="button-primary" disabled={isSubmitting}>{editingArrendatarioId ? 'Guardar cambios' : 'Guardar arrendatario'}</button>
+                  {editingArrendatarioId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditArrendatario}>Cancelar</button> : null}
+                </div>
               </form>
             </section>
 
             <section className="panel">
-              <div className="section-heading"><div><h2>Alta rápida de contrato</h2><p>Contrato simple con una propiedad principal y un primer período.</p></div></div>
+              <div className="section-heading"><div><h2>{editingContratoId ? 'Editar contrato' : 'Alta rápida de contrato'}</h2><p>Contrato simple con una propiedad principal y un primer período.</p></div></div>
               <form className="entity-form" onSubmit={handleCreateContrato}>
-                <input placeholder="Código contrato" value={contratoDraft.codigo_contrato} onChange={(event) => setContratoDraft((current) => ({ ...current, codigo_contrato: event.target.value }))} />
+                <input placeholder="Código contrato" value={contratoDraft.codigo_contrato} onChange={(event) => setContratoDraft((current) => ({ ...current, codigo_contrato: event.target.value }))} disabled={editingContratoId != null} />
                 <select value={contratoDraft.mandato_operacion} onChange={(event) => setContratoDraft((current) => ({ ...current, mandato_operacion: event.target.value }))}>
                   <option value="">Selecciona mandato</option>
                   {mandatos.map((item) => (
                     <option key={item.id} value={item.id}>{item.propiedad_codigo} · {item.propietario_display}</option>
                   ))}
                 </select>
-                <select value={contratoDraft.arrendatario} onChange={(event) => setContratoDraft((current) => ({ ...current, arrendatario: event.target.value }))}>
+                <select value={contratoDraft.arrendatario} onChange={(event) => setContratoDraft((current) => ({ ...current, arrendatario: event.target.value }))} disabled={editingContratoId != null}>
                   <option value="">Selecciona arrendatario</option>
                   {arrendatarios.map((item) => (
                     <option key={item.id} value={item.id}>{item.nombre_razon_social}</option>
@@ -2751,7 +3080,10 @@ function App() {
                 <input placeholder="Prealerta admin" value={contratoDraft.dias_prealerta_admin} onChange={(event) => setContratoDraft((current) => ({ ...current, dias_prealerta_admin: event.target.value }))} />
                 <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_tramos} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_tramos: event.target.checked }))} />Tiene tramos</label>
                 <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_gastos_comunes} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_gastos_comunes: event.target.checked }))} />Tiene gastos comunes</label>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !contratoDraft.codigo_contrato || !contratoDraft.mandato_operacion || !contratoDraft.arrendatario || !contratoDraft.monto_base}>Guardar contrato</button>
+                <div className="inline-actions">
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !contratoDraft.codigo_contrato || !contratoDraft.mandato_operacion || !contratoDraft.arrendatario || !contratoDraft.monto_base}>{editingContratoId ? 'Guardar cambios' : 'Guardar contrato'}</button>
+                  {editingContratoId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditContrato}>Cancelar</button> : null}
+                </div>
               </form>
             </section>
 
@@ -2782,6 +3114,10 @@ function App() {
             { label: 'Contacto', render: (row) => row.email || row.telefono || 'Sin dato' },
             { label: 'Estado', render: (row) => <Badge label={row.estado_contacto} tone={toneFor(row.estado_contacto)} /> },
             {
+              label: 'Editar',
+              render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditArrendatario(row)}>Editar</button>,
+            },
+            {
               label: 'Siguiente paso',
               render: (row) => (
                 <button type="button" className="button-ghost inline-action" onClick={() => goToArrendatarioContext(row.id)}>
@@ -2798,6 +3134,10 @@ function App() {
             { label: 'Propiedad', render: (row) => row.contrato_propiedades_detail[0] ? `${row.contrato_propiedades_detail[0].propiedad_codigo} · ${row.contrato_propiedades_detail[0].propiedad_direccion}` : 'Sin propiedad' },
             { label: 'Periodo', render: (row) => `${row.fecha_inicio} → ${row.fecha_fin_vigente}` },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            {
+              label: 'Editar',
+              render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditContrato(row)}>Editar</button>,
+            },
             {
               label: 'Siguiente paso',
               render: (row) => (
