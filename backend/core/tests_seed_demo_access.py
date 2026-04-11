@@ -69,7 +69,7 @@ class SeedDemoAccessCommandTests(TestCase):
             user__username='demo-revisor',
             effective_to__isnull=True,
         )
-        self.assertEqual(reviewer_assignment.scope.code, f'bank-account-{self.cuenta.id}')
+        self.assertEqual(reviewer_assignment.scope.code, f'company-{self.empresa.id}')
 
         self.assertIn('demo-admin', output.getvalue())
         self.assertIn('demo-socio', output.getvalue())

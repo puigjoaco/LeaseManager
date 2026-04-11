@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
+from core.scope_access import ScopedQuerysetMixin
 
 from .models import (
     AsientoContable,
@@ -95,74 +96,83 @@ class RegimenTributarioEmpresaDetailView(AuditCreateUpdateMixin, generics.Retrie
     audit_entity_label = 'regimen tributario'
 
 
-class ConfiguracionFiscalEmpresaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class ConfiguracionFiscalEmpresaListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = ConfiguracionFiscalEmpresaSerializer
     queryset = ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'configuracion_fiscal'
     audit_entity_label = 'configuracion fiscal'
 
 
-class ConfiguracionFiscalEmpresaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class ConfiguracionFiscalEmpresaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = ConfiguracionFiscalEmpresaSerializer
     queryset = ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'configuracion_fiscal'
     audit_entity_label = 'configuracion fiscal'
 
 
-class CuentaContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class CuentaContableListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = CuentaContableSerializer
     queryset = CuentaContable.objects.select_related('empresa', 'padre').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'cuenta_contable'
     audit_entity_label = 'cuenta contable'
 
 
-class CuentaContableDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class CuentaContableDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = CuentaContableSerializer
     queryset = CuentaContable.objects.select_related('empresa', 'padre').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'cuenta_contable'
     audit_entity_label = 'cuenta contable'
 
 
-class ReglaContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class ReglaContableListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = ReglaContableSerializer
     queryset = ReglaContable.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'regla_contable'
     audit_entity_label = 'regla contable'
 
 
-class ReglaContableDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class ReglaContableDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = ReglaContableSerializer
     queryset = ReglaContable.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'regla_contable'
     audit_entity_label = 'regla contable'
 
 
-class MatrizReglasContablesListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class MatrizReglasContablesListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = MatrizReglasContablesSerializer
     queryset = MatrizReglasContables.objects.select_related('regla_contable', 'cuenta_debe', 'cuenta_haber').all()
+    company_scope_paths = ('regla_contable__empresa_id',)
     audit_entity_type = 'matriz_reglas'
     audit_entity_label = 'matriz de reglas contables'
 
 
-class MatrizReglasContablesDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class MatrizReglasContablesDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = MatrizReglasContablesSerializer
     queryset = MatrizReglasContables.objects.select_related('regla_contable', 'cuenta_debe', 'cuenta_haber').all()
+    company_scope_paths = ('regla_contable__empresa_id',)
     audit_entity_type = 'matriz_reglas'
     audit_entity_label = 'matriz de reglas contables'
 
 
-class EventoContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class EventoContableListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = EventoContableSerializer
     queryset = EventoContable.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'evento_contable'
     audit_entity_label = 'evento contable'
 
@@ -180,10 +190,11 @@ class EventoContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAP
         )
 
 
-class EventoContableDetailView(generics.RetrieveAPIView):
+class EventoContableDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = EventoContableSerializer
     queryset = EventoContable.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
 
 
 class EventoContablePostView(APIView):
@@ -204,68 +215,78 @@ class EventoContablePostView(APIView):
         return Response(EventoContableSerializer(event).data, status=status.HTTP_200_OK)
 
 
-class AsientoContableListView(generics.ListAPIView):
+class AsientoContableListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = AsientoContableSerializer
     queryset = AsientoContable.objects.select_related('evento_contable').prefetch_related('movimientos').all()
+    company_scope_paths = ('evento_contable__empresa_id',)
 
 
-class AsientoContableDetailView(generics.RetrieveAPIView):
+class AsientoContableDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = AsientoContableSerializer
     queryset = AsientoContable.objects.select_related('evento_contable').prefetch_related('movimientos').all()
+    company_scope_paths = ('evento_contable__empresa_id',)
 
 
-class PoliticaReversoContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class PoliticaReversoContableListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = PoliticaReversoContableSerializer
     queryset = PoliticaReversoContable.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'politica_reverso'
     audit_entity_label = 'politica reverso contable'
 
 
-class PoliticaReversoContableDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class PoliticaReversoContableDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = PoliticaReversoContableSerializer
     queryset = PoliticaReversoContable.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'politica_reverso'
     audit_entity_label = 'politica reverso contable'
 
 
-class ObligacionTributariaMensualListView(generics.ListAPIView):
+class ObligacionTributariaMensualListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = ObligacionTributariaMensualSerializer
     queryset = ObligacionTributariaMensual.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
 
 
-class LibroDiarioListView(generics.ListAPIView):
+class LibroDiarioListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = LibroDiarioSerializer
     queryset = LibroDiario.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
 
 
-class LibroMayorListView(generics.ListAPIView):
+class LibroMayorListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = LibroMayorSerializer
     queryset = LibroMayor.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
 
 
-class BalanceComprobacionListView(generics.ListAPIView):
+class BalanceComprobacionListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = BalanceComprobacionSerializer
     queryset = BalanceComprobacion.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
 
 
-class CierreMensualContableListView(generics.ListAPIView):
+class CierreMensualContableListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = CierreMensualContableSerializer
     queryset = CierreMensualContable.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
 
 
-class CierreMensualContableDetailView(generics.RetrieveAPIView):
+class CierreMensualContableDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = CierreMensualContableSerializer
     queryset = CierreMensualContable.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
 
 
 class CierreMensualPrepareView(APIView):

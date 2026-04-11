@@ -1,5 +1,6 @@
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
+from core.scope_access import ScopedQuerysetMixin
 from rest_framework import generics
 
 from .models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio
@@ -49,39 +50,53 @@ class AuditCreateUpdateMixin:
         )
 
 
-class SocioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class SocioListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = SocioSerializer
     queryset = Socio.objects.all()
+    property_scope_paths = (
+        'propiedades_directas__id',
+        'representaciones_comunidad__comunidad__propiedades__id',
+        'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
+        'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
+    )
     audit_entity_type = 'socio'
     audit_entity_label = 'socio'
 
 
-class SocioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class SocioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = SocioSerializer
     queryset = Socio.objects.all()
+    property_scope_paths = (
+        'propiedades_directas__id',
+        'representaciones_comunidad__comunidad__propiedades__id',
+        'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
+        'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
+    )
     audit_entity_type = 'socio'
     audit_entity_label = 'socio'
 
 
-class EmpresaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class EmpresaListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = EmpresaSerializer
     queryset = Empresa.objects.prefetch_related('participaciones__participante_socio').all()
+    company_scope_paths = ('id',)
     audit_entity_type = 'empresa'
     audit_entity_label = 'empresa'
 
 
-class EmpresaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class EmpresaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = EmpresaSerializer
     queryset = Empresa.objects.prefetch_related('participaciones__participante_socio').all()
+    company_scope_paths = ('id',)
     audit_entity_type = 'empresa'
     audit_entity_label = 'empresa'
 
 
-class ComunidadListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class ComunidadListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ComunidadPatrimonialSerializer
     queryset = ComunidadPatrimonial.objects.prefetch_related(
@@ -89,11 +104,12 @@ class ComunidadListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView
         'participaciones__participante_socio',
         'participaciones__participante_empresa',
     )
+    property_scope_paths = ('propiedades__id',)
     audit_entity_type = 'comunidad'
     audit_entity_label = 'comunidad'
 
 
-class ComunidadDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class ComunidadDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ComunidadPatrimonialSerializer
     queryset = ComunidadPatrimonial.objects.prefetch_related(
@@ -101,27 +117,30 @@ class ComunidadDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView
         'participaciones__participante_socio',
         'participaciones__participante_empresa',
     )
+    property_scope_paths = ('propiedades__id',)
     audit_entity_type = 'comunidad'
     audit_entity_label = 'comunidad'
 
 
-class PropiedadListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class PropiedadListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = PropiedadSerializer
     queryset = Propiedad.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner').all()
+    property_scope_paths = ('id',)
     audit_entity_type = 'propiedad'
     audit_entity_label = 'propiedad'
 
 
-class PropiedadDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class PropiedadDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = PropiedadSerializer
     queryset = Propiedad.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner').all()
+    property_scope_paths = ('id',)
     audit_entity_type = 'propiedad'
     audit_entity_label = 'propiedad'
 
 
-class ParticipacionListView(generics.ListAPIView):
+class ParticipacionListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ParticipacionPatrimonialReadSerializer
     queryset = ParticipacionPatrimonial.objects.select_related(
@@ -130,9 +149,10 @@ class ParticipacionListView(generics.ListAPIView):
         'empresa_owner',
         'comunidad_owner',
     ).all()
+    property_scope_paths = ('empresa_owner__propiedades__id', 'comunidad_owner__propiedades__id')
 
 
-class ParticipacionDetailView(generics.RetrieveAPIView):
+class ParticipacionDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ParticipacionPatrimonialReadSerializer
     queryset = ParticipacionPatrimonial.objects.select_related(
@@ -141,3 +161,4 @@ class ParticipacionDetailView(generics.RetrieveAPIView):
         'empresa_owner',
         'comunidad_owner',
     ).all()
+    property_scope_paths = ('empresa_owner__propiedades__id', 'comunidad_owner__propiedades__id')

@@ -2,6 +2,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.permissions import PartnerOwnSummaryPermission, ReportingPermission
+from core.scope_access import get_scope_access
 from .services import (
     build_annual_tax_summary,
     build_financial_monthly_summary,
@@ -16,7 +17,7 @@ class OperationalDashboardView(APIView):
     permission_classes = [ReportingPermission]
 
     def get(self, request):
-        return Response(build_operational_dashboard())
+        return Response(build_operational_dashboard(access=get_scope_access(request.user)))
 
 
 class FinancialMonthlySummaryView(APIView):
@@ -26,14 +27,21 @@ class FinancialMonthlySummaryView(APIView):
         anio = int(request.query_params.get('anio'))
         mes = int(request.query_params.get('mes'))
         empresa_id = request.query_params.get('empresa_id')
-        return Response(build_financial_monthly_summary(anio, mes, int(empresa_id) if empresa_id else None))
+        return Response(
+            build_financial_monthly_summary(
+                anio,
+                mes,
+                int(empresa_id) if empresa_id else None,
+                access=get_scope_access(request.user),
+            )
+        )
 
 
 class PartnerSummaryView(APIView):
     permission_classes = [PartnerOwnSummaryPermission]
 
     def get(self, request, pk):
-        return Response(build_partner_summary(pk))
+        return Response(build_partner_summary(pk, access=get_scope_access(request.user)))
 
 
 class PeriodBooksSummaryView(APIView):
@@ -42,7 +50,7 @@ class PeriodBooksSummaryView(APIView):
     def get(self, request):
         empresa_id = int(request.query_params.get('empresa_id'))
         periodo = request.query_params.get('periodo')
-        return Response(build_period_books_summary(empresa_id, periodo))
+        return Response(build_period_books_summary(empresa_id, periodo, access=get_scope_access(request.user)))
 
 
 class AnnualTaxSummaryView(APIView):
@@ -51,7 +59,13 @@ class AnnualTaxSummaryView(APIView):
     def get(self, request):
         anio_tributario = int(request.query_params.get('anio_tributario'))
         empresa_id = request.query_params.get('empresa_id')
-        return Response(build_annual_tax_summary(anio_tributario, int(empresa_id) if empresa_id else None))
+        return Response(
+            build_annual_tax_summary(
+                anio_tributario,
+                int(empresa_id) if empresa_id else None,
+                access=get_scope_access(request.user),
+            )
+        )
 
 
 class MigrationManualResolutionSummaryView(APIView):
@@ -59,4 +73,4 @@ class MigrationManualResolutionSummaryView(APIView):
 
     def get(self, request):
         status = request.query_params.get('status', 'open')
-        return Response(build_migration_manual_resolution_summary(status=status))
+        return Response(build_migration_manual_resolution_summary(status=status, access=get_scope_access(request.user)))

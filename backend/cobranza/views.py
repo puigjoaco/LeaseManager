@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
+from core.scope_access import ScopedQuerysetMixin, ensure_queryset_scope, scope_queryset_for_user
 
 from .models import AjusteContrato, DistribucionCobroMensual, GarantiaContractual, HistorialGarantia, PagoMensual, ValorUFDiario
 from .serializers import (
@@ -79,32 +80,36 @@ class ValorUFDiarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPI
     audit_entity_label = 'valor UF'
 
 
-class AjusteContratoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class AjusteContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = AjusteContratoSerializer
     queryset = AjusteContrato.objects.select_related('contrato').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
     audit_entity_type = 'ajuste_contrato'
     audit_entity_label = 'ajuste de contrato'
 
 
-class AjusteContratoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class AjusteContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = AjusteContratoSerializer
     queryset = AjusteContrato.objects.select_related('contrato').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
     audit_entity_type = 'ajuste_contrato'
     audit_entity_label = 'ajuste de contrato'
 
 
-class PagoMensualListView(generics.ListAPIView):
+class PagoMensualListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = PagoMensualSerializer
     queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
 
 
-class PagoMensualDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = PagoMensualSerializer
     queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
     audit_entity_type = 'pago_mensual'
     audit_entity_label = 'pago mensual'
 
@@ -132,6 +137,11 @@ class PagoMensualGenerateView(APIView):
         serializer.is_valid(raise_exception=True)
 
         contrato = serializer.validated_data['contrato']
+        ensure_queryset_scope(
+            contrato.__class__.objects.filter(pk=contrato.pk),
+            request.user,
+            property_paths=('mandato_operacion__propiedad_id',),
+        )
         anio = serializer.validated_data['anio']
         mes = serializer.validated_data['mes']
 
@@ -169,7 +179,7 @@ class PagoMensualGenerateView(APIView):
         return Response(PagoMensualSerializer(payment).data, status=status.HTTP_201_CREATED)
 
 
-class DistribucionCobroMensualListView(generics.ListAPIView):
+class DistribucionCobroMensualListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = DistribucionCobroMensualSerializer
     queryset = DistribucionCobroMensual.objects.select_related(
@@ -177,9 +187,11 @@ class DistribucionCobroMensualListView(generics.ListAPIView):
         'beneficiario_socio_owner',
         'beneficiario_empresa_owner',
     ).all()
+    company_scope_paths = ('beneficiario_empresa_owner_id',)
+    property_scope_paths = ('pago_mensual__contrato__mandato_operacion__propiedad_id',)
 
 
-class DistribucionCobroMensualDetailView(generics.RetrieveAPIView):
+class DistribucionCobroMensualDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = DistribucionCobroMensualSerializer
     queryset = DistribucionCobroMensual.objects.select_related(
@@ -187,41 +199,54 @@ class DistribucionCobroMensualDetailView(generics.RetrieveAPIView):
         'beneficiario_socio_owner',
         'beneficiario_empresa_owner',
     ).all()
+    company_scope_paths = ('beneficiario_empresa_owner_id',)
+    property_scope_paths = ('pago_mensual__contrato__mandato_operacion__propiedad_id',)
 
 
-class GarantiaContractualListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class GarantiaContractualListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = GarantiaContractualSerializer
     queryset = GarantiaContractual.objects.select_related('contrato').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
     audit_entity_type = 'garantia_contractual'
     audit_entity_label = 'garantia contractual'
 
 
-class GarantiaContractualDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class GarantiaContractualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = GarantiaContractualSerializer
     queryset = GarantiaContractual.objects.select_related('contrato').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
     audit_entity_type = 'garantia_contractual'
     audit_entity_label = 'garantia contractual'
 
 
-class HistorialGarantiaListView(generics.ListAPIView):
+class HistorialGarantiaListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = HistorialGarantiaReadSerializer
     queryset = HistorialGarantia.objects.select_related('garantia_contractual', 'garantia_contractual__contrato').all()
+    property_scope_paths = ('garantia_contractual__contrato__mandato_operacion__propiedad_id',)
 
 
-class HistorialGarantiaDetailView(generics.RetrieveAPIView):
+class HistorialGarantiaDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = HistorialGarantiaReadSerializer
     queryset = HistorialGarantia.objects.select_related('garantia_contractual', 'garantia_contractual__contrato').all()
+    property_scope_paths = ('garantia_contractual__contrato__mandato_operacion__propiedad_id',)
 
 
 class GarantiaMovimientoCreateView(APIView):
     permission_classes = [OperationalModulePermission]
 
     def post(self, request, pk):
-        garantia = generics.get_object_or_404(GarantiaContractual.objects.select_related('contrato'), pk=pk)
+        garantia = generics.get_object_or_404(
+            scope_queryset_for_user(
+                GarantiaContractual.objects.select_related('contrato'),
+                request.user,
+                property_paths=('contrato__mandato_operacion__propiedad_id',),
+            ),
+            pk=pk,
+        )
         previous_state = garantia.estado_garantia
         serializer = GarantiaMovimientoSerializer(data=request.data, context={'garantia': garantia})
         serializer.is_valid(raise_exception=True)
@@ -266,48 +291,66 @@ class GarantiaMovimientoCreateView(APIView):
         return Response(HistorialGarantiaReadSerializer(movimiento).data, status=status.HTTP_201_CREATED)
 
 
-class RepactacionDeudaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class RepactacionDeudaListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = RepactacionDeudaSerializer
     queryset = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen').all()
+    property_scope_paths = (
+        'contrato_origen__mandato_operacion__propiedad_id',
+        'arrendatario__contratos__mandato_operacion__propiedad_id',
+    )
     audit_entity_type = 'repactacion_deuda'
     audit_entity_label = 'repactacion de deuda'
 
 
-class RepactacionDeudaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class RepactacionDeudaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = RepactacionDeudaSerializer
     queryset = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen').all()
+    property_scope_paths = (
+        'contrato_origen__mandato_operacion__propiedad_id',
+        'arrendatario__contratos__mandato_operacion__propiedad_id',
+    )
     audit_entity_type = 'repactacion_deuda'
     audit_entity_label = 'repactacion de deuda'
 
 
-class CodigoCobroResidualListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class CodigoCobroResidualListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = CodigoCobroResidualSerializer
     queryset = CodigoCobroResidual.objects.select_related('arrendatario', 'contrato_origen').all()
+    property_scope_paths = (
+        'contrato_origen__mandato_operacion__propiedad_id',
+        'arrendatario__contratos__mandato_operacion__propiedad_id',
+    )
     audit_entity_type = 'codigo_cobro_residual'
     audit_entity_label = 'codigo de cobro residual'
 
 
-class CodigoCobroResidualDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class CodigoCobroResidualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = CodigoCobroResidualSerializer
     queryset = CodigoCobroResidual.objects.select_related('arrendatario', 'contrato_origen').all()
+    property_scope_paths = (
+        'contrato_origen__mandato_operacion__propiedad_id',
+        'arrendatario__contratos__mandato_operacion__propiedad_id',
+    )
     audit_entity_type = 'codigo_cobro_residual'
     audit_entity_label = 'codigo de cobro residual'
 
 
-class EstadoCuentaArrendatarioListView(generics.ListAPIView):
+class EstadoCuentaArrendatarioListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = EstadoCuentaArrendatarioSerializer
     queryset = EstadoCuentaArrendatario.objects.select_related('arrendatario').all()
+    property_scope_paths = ('arrendatario__contratos__mandato_operacion__propiedad_id',)
 
 
-class EstadoCuentaArrendatarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class EstadoCuentaArrendatarioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = EstadoCuentaArrendatarioSerializer
     queryset = EstadoCuentaArrendatario.objects.select_related('arrendatario').all()
+    property_scope_paths = ('arrendatario__contratos__mandato_operacion__propiedad_id',)
     audit_entity_type = 'estado_cuenta_arrendatario'
     audit_entity_label = 'estado de cuenta arrendatario'
 
@@ -319,6 +362,11 @@ class EstadoCuentaArrendatarioRebuildView(APIView):
         serializer = EstadoCuentaRecalculoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         arrendatario = serializer.validated_data['arrendatario']
+        ensure_queryset_scope(
+            arrendatario.__class__.objects.filter(pk=arrendatario.pk),
+            request.user,
+            property_paths=('contratos__mandato_operacion__propiedad_id',),
+        )
         estado = rebuild_account_state(arrendatario)
         create_audit_event(
             event_type='cobranza.estado_cuenta_arrendatario.rebuilt',

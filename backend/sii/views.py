@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
+from core.scope_access import ScopedQuerysetMixin
 
 from .models import CapacidadTributariaSII, DTEEmitido, F29PreparacionMensual
 from .serializers import (
@@ -68,23 +69,25 @@ class AuditCreateUpdateMixin:
         )
 
 
-class CapacidadTributariaSIIListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class CapacidadTributariaSIIListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = CapacidadTributariaSIISerializer
     queryset = CapacidadTributariaSII.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'capacidad_sii'
     audit_entity_label = 'capacidad SII'
 
 
-class CapacidadTributariaSIIDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class CapacidadTributariaSIIDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = CapacidadTributariaSIISerializer
     queryset = CapacidadTributariaSII.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
     audit_entity_type = 'capacidad_sii'
     audit_entity_label = 'capacidad SII'
 
 
-class DTEEmitidoListView(generics.ListAPIView):
+class DTEEmitidoListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = DTEEmitidoSerializer
     queryset = DTEEmitido.objects.select_related(
@@ -95,9 +98,10 @@ class DTEEmitidoListView(generics.ListAPIView):
         'distribucion_cobro_mensual',
         'arrendatario',
     ).all()
+    company_scope_paths = ('empresa_id',)
 
 
-class DTEEmitidoDetailView(generics.RetrieveAPIView):
+class DTEEmitidoDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = DTEEmitidoSerializer
     queryset = DTEEmitido.objects.select_related(
@@ -108,6 +112,7 @@ class DTEEmitidoDetailView(generics.RetrieveAPIView):
         'distribucion_cobro_mensual',
         'arrendatario',
     ).all()
+    company_scope_paths = ('empresa_id',)
 
 
 class DTEGenerateView(APIView):
@@ -157,16 +162,18 @@ class DTEStatusUpdateView(APIView):
         return Response(DTEEmitidoSerializer(dte).data, status=status.HTTP_200_OK)
 
 
-class F29PreparacionListView(generics.ListAPIView):
+class F29PreparacionListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = F29PreparacionMensualSerializer
     queryset = F29PreparacionMensual.objects.select_related('empresa', 'capacidad_tributaria', 'cierre_mensual').all()
+    company_scope_paths = ('empresa_id',)
 
 
-class F29PreparacionDetailView(generics.RetrieveAPIView):
+class F29PreparacionDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = F29PreparacionMensualSerializer
     queryset = F29PreparacionMensual.objects.select_related('empresa', 'capacidad_tributaria', 'cierre_mensual').all()
+    company_scope_paths = ('empresa_id',)
 
 
 class F29GenerateView(APIView):
@@ -218,22 +225,25 @@ class F29StatusUpdateView(APIView):
         return Response(F29PreparacionMensualSerializer(draft).data, status=status.HTTP_200_OK)
 
 
-class ProcesoRentaAnualListView(generics.ListAPIView):
+class ProcesoRentaAnualListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = ProcesoRentaAnualSerializer
     queryset = ProcesoRentaAnual.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
 
 
-class DDJJPreparacionAnualListView(generics.ListAPIView):
+class DDJJPreparacionAnualListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = DDJJPreparacionAnualSerializer
     queryset = DDJJPreparacionAnual.objects.select_related('empresa', 'capacidad_tributaria', 'proceso_renta_anual').all()
+    company_scope_paths = ('empresa_id',)
 
 
-class F22PreparacionAnualListView(generics.ListAPIView):
+class F22PreparacionAnualListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = F22PreparacionAnualSerializer
     queryset = F22PreparacionAnual.objects.select_related('empresa', 'capacidad_tributaria', 'proceso_renta_anual').all()
+    company_scope_paths = ('empresa_id',)
 
 
 class AnnualGenerateView(APIView):

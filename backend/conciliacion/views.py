@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
+from core.scope_access import ScopedQuerysetMixin, scope_queryset_for_user
 
 from .models import ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
 from .serializers import ConexionBancariaSerializer, IngresoDesconocidoSerializer, MovimientoBancarioImportadoSerializer
@@ -53,23 +54,25 @@ class AuditCreateUpdateMixin:
         )
 
 
-class ConexionBancariaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class ConexionBancariaListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ConexionBancariaSerializer
     queryset = ConexionBancaria.objects.select_related('cuenta_recaudadora').all()
+    bank_account_scope_paths = ('cuenta_recaudadora_id',)
     audit_entity_type = 'conexion_bancaria'
     audit_entity_label = 'conexion bancaria'
 
 
-class ConexionBancariaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class ConexionBancariaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ConexionBancariaSerializer
     queryset = ConexionBancaria.objects.select_related('cuenta_recaudadora').all()
+    bank_account_scope_paths = ('cuenta_recaudadora_id',)
     audit_entity_type = 'conexion_bancaria'
     audit_entity_label = 'conexion bancaria'
 
 
-class MovimientoBancarioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class MovimientoBancarioListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = MovimientoBancarioImportadoSerializer
     queryset = MovimientoBancarioImportado.objects.select_related(
@@ -77,6 +80,7 @@ class MovimientoBancarioListCreateView(AuditCreateUpdateMixin, generics.ListCrea
         'pago_mensual',
         'codigo_cobro_residual',
     ).all()
+    bank_account_scope_paths = ('conexion_bancaria__cuenta_recaudadora_id',)
     audit_entity_type = 'movimiento_bancario'
     audit_entity_label = 'movimiento bancario'
 
@@ -94,7 +98,7 @@ class MovimientoBancarioListCreateView(AuditCreateUpdateMixin, generics.ListCrea
         )
 
 
-class MovimientoBancarioDetailView(generics.RetrieveAPIView):
+class MovimientoBancarioDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = MovimientoBancarioImportadoSerializer
     queryset = MovimientoBancarioImportado.objects.select_related(
@@ -102,6 +106,7 @@ class MovimientoBancarioDetailView(generics.RetrieveAPIView):
         'pago_mensual',
         'codigo_cobro_residual',
     ).all()
+    bank_account_scope_paths = ('conexion_bancaria__cuenta_recaudadora_id',)
 
 
 class MovimientoBancarioRetryMatchView(APIView):
@@ -109,7 +114,11 @@ class MovimientoBancarioRetryMatchView(APIView):
 
     def post(self, request, pk):
         movimiento = generics.get_object_or_404(
-            MovimientoBancarioImportado.objects.select_related('conexion_bancaria'),
+            scope_queryset_for_user(
+                MovimientoBancarioImportado.objects.select_related('conexion_bancaria'),
+                request.user,
+                bank_account_paths=('conexion_bancaria__cuenta_recaudadora_id',),
+            ),
             pk=pk,
         )
         result = reconcile_exact_movement(movimiento)
@@ -125,13 +134,15 @@ class MovimientoBancarioRetryMatchView(APIView):
         return Response(MovimientoBancarioImportadoSerializer(movimiento).data, status=status.HTTP_200_OK)
 
 
-class IngresoDesconocidoListView(generics.ListAPIView):
+class IngresoDesconocidoListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = IngresoDesconocidoSerializer
     queryset = IngresoDesconocido.objects.select_related('movimiento_bancario', 'cuenta_recaudadora').all()
+    bank_account_scope_paths = ('cuenta_recaudadora_id',)
 
 
-class IngresoDesconocidoDetailView(generics.RetrieveAPIView):
+class IngresoDesconocidoDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = IngresoDesconocidoSerializer
     queryset = IngresoDesconocido.objects.select_related('movimiento_bancario', 'cuenta_recaudadora').all()
+    bank_account_scope_paths = ('cuenta_recaudadora_id',)

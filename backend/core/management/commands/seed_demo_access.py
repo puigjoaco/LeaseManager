@@ -65,7 +65,7 @@ USER_PLANS = (
         display_name='Demo Revisor Fiscal Externo',
         role_code='RevisorFiscalExterno',
         email_local_part='demo-revisor',
-        scope_kind='bank_account',
+        scope_kind='company',
     ),
     DemoUserPlan(
         username_suffix='socio',
@@ -452,4 +452,3 @@ class Command(BaseCommand):
         assignment.metadata = {'seed_source': 'seed_demo_access'}
         assignment.effective_to = None
         assignment.save(update_fields=['is_primary', 'metadata', 'effective_to'])
-

@@ -6,6 +6,7 @@ from audit.models import ManualResolution
 from canales.models import MensajeSaliente
 from cobranza.models import DistribucionCobroMensual, EstadoCuentaArrendatario, PagoMensual
 from conciliacion.models import IngresoDesconocido
+from core.scope_access import ScopeAccess, scope_queryset_for_access
 from contabilidad.models import (
     AsientoContable,
     BalanceComprobacion,
@@ -20,34 +21,98 @@ from patrimonio.models import ParticipacionPatrimonial, Socio, Propiedad
 from sii.models import DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, ProcesoRentaAnual
 
 
-def build_operational_dashboard():
+def build_operational_dashboard(access: ScopeAccess | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    propiedades = scope_queryset_for_access(Propiedad.objects.filter(estado='activa'), access, property_paths=('id',))
+    contratos_vigentes = scope_queryset_for_access(
+        Contrato.objects.filter(estado='vigente'),
+        access,
+        property_paths=('mandato_operacion__propiedad_id',),
+    )
+    contratos_futuros = scope_queryset_for_access(
+        Contrato.objects.filter(estado='futuro'),
+        access,
+        property_paths=('mandato_operacion__propiedad_id',),
+    )
+    pagos_pendientes = scope_queryset_for_access(
+        PagoMensual.objects.filter(estado_pago='pendiente'),
+        access,
+        property_paths=('contrato__mandato_operacion__propiedad_id',),
+    )
+    pagos_atrasados = scope_queryset_for_access(
+        PagoMensual.objects.filter(estado_pago='atrasado'),
+        access,
+        property_paths=('contrato__mandato_operacion__propiedad_id',),
+    )
+    ingresos_desconocidos = scope_queryset_for_access(
+        IngresoDesconocido.objects.filter(estado='pendiente_revision'),
+        access,
+        bank_account_paths=('cuenta_recaudadora_id',),
+    )
+    cierres_preparados = scope_queryset_for_access(
+        CierreMensualContable.objects.filter(estado='preparado'),
+        access,
+        company_paths=('empresa_id',),
+    )
+    cierres_aprobados = scope_queryset_for_access(
+        CierreMensualContable.objects.filter(estado='aprobado'),
+        access,
+        company_paths=('empresa_id',),
+    )
+    dtes_borrador = scope_queryset_for_access(
+        DTEEmitido.objects.filter(estado_dte='borrador'),
+        access,
+        company_paths=('empresa_id',),
+    )
+    mensajes_preparados = scope_queryset_for_access(
+        MensajeSaliente.objects.filter(estado='preparado'),
+        access,
+        property_paths=('contrato__mandato_operacion__propiedad_id', 'arrendatario__contratos__mandato_operacion__propiedad_id'),
+    )
+    mensajes_bloqueados = scope_queryset_for_access(
+        MensajeSaliente.objects.filter(estado='bloqueado'),
+        access,
+        property_paths=('contrato__mandato_operacion__propiedad_id', 'arrendatario__contratos__mandato_operacion__propiedad_id'),
+    )
+    resoluciones_abiertas = ManualResolution.objects.none() if access.restricted else ManualResolution.objects.filter(status='open')
+
     return {
-        'propiedades_activas': Propiedad.objects.filter(estado='activa').count(),
-        'contratos_vigentes': Contrato.objects.filter(estado='vigente').count(),
-        'contratos_futuros': Contrato.objects.filter(estado='futuro').count(),
-        'pagos_pendientes': PagoMensual.objects.filter(estado_pago='pendiente').count(),
-        'pagos_atrasados': PagoMensual.objects.filter(estado_pago='atrasado').count(),
-        'ingresos_desconocidos_abiertos': IngresoDesconocido.objects.filter(estado='pendiente_revision').count(),
-        'resoluciones_manuales_abiertas': ManualResolution.objects.filter(status='open').count(),
-        'cierres_preparados': CierreMensualContable.objects.filter(estado='preparado').count(),
-        'cierres_aprobados': CierreMensualContable.objects.filter(estado='aprobado').count(),
-        'dtes_borrador': DTEEmitido.objects.filter(estado_dte='borrador').count(),
-        'mensajes_preparados': MensajeSaliente.objects.filter(estado='preparado').count(),
-        'mensajes_bloqueados': MensajeSaliente.objects.filter(estado='bloqueado').count(),
+        'propiedades_activas': propiedades.count(),
+        'contratos_vigentes': contratos_vigentes.count(),
+        'contratos_futuros': contratos_futuros.count(),
+        'pagos_pendientes': pagos_pendientes.count(),
+        'pagos_atrasados': pagos_atrasados.count(),
+        'ingresos_desconocidos_abiertos': ingresos_desconocidos.count(),
+        'resoluciones_manuales_abiertas': resoluciones_abiertas.count(),
+        'cierres_preparados': cierres_preparados.count(),
+        'cierres_aprobados': cierres_aprobados.count(),
+        'dtes_borrador': dtes_borrador.count(),
+        'mensajes_preparados': mensajes_preparados.count(),
+        'mensajes_bloqueados': mensajes_bloqueados.count(),
     }
 
 
-def build_financial_monthly_summary(anio, mes, empresa_id=None):
+def build_financial_monthly_summary(anio, mes, empresa_id=None, access: ScopeAccess | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
     if empresa_id is None:
-        payments = PagoMensual.objects.filter(anio=anio, mes=mes)
+        payments = scope_queryset_for_access(
+            PagoMensual.objects.filter(anio=anio, mes=mes),
+            access,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+        )
         pagos_generados = payments.count()
         facturable_total = payments.aggregate(total=Sum('monto_facturable_clp'))['total'] or Decimal('0.00')
         cobrado_total = payments.aggregate(total=Sum('monto_pagado_clp'))['total'] or Decimal('0.00')
     else:
-        distributions = DistribucionCobroMensual.objects.filter(
-            pago_mensual__anio=anio,
-            pago_mensual__mes=mes,
-            beneficiario_empresa_owner_id=empresa_id,
+        distributions = scope_queryset_for_access(
+            DistribucionCobroMensual.objects.filter(
+                pago_mensual__anio=anio,
+                pago_mensual__mes=mes,
+                beneficiario_empresa_owner_id=empresa_id,
+            ),
+            access,
+            company_paths=('beneficiario_empresa_owner_id',),
+            property_paths=('pago_mensual__contrato__mandato_operacion__propiedad_id',),
         )
         pagos_generados = distributions.values('pago_mensual_id').distinct().count()
         facturable_total = distributions.aggregate(total=Sum('monto_facturable_clp'))['total'] or Decimal('0.00')
@@ -56,18 +121,34 @@ def build_financial_monthly_summary(anio, mes, empresa_id=None):
     event_filters = Q(fecha_operativa__year=anio, fecha_operativa__month=mes, estado_contable='contabilizado')
     if empresa_id is not None:
         event_filters &= Q(empresa_id=empresa_id)
-    events = EventoContable.objects.filter(event_filters)
+    events = scope_queryset_for_access(
+        EventoContable.objects.filter(event_filters),
+        access,
+        company_paths=('empresa_id',),
+    )
     event_total = events.aggregate(total=Sum('monto_base'))['total'] or Decimal('0.00')
 
-    obligations = ObligacionTributariaMensual.objects.filter(anio=anio, mes=mes)
+    obligations = scope_queryset_for_access(
+        ObligacionTributariaMensual.objects.filter(anio=anio, mes=mes),
+        access,
+        company_paths=('empresa_id',),
+    )
     if empresa_id is not None:
         obligations = obligations.filter(empresa_id=empresa_id)
 
-    closures = CierreMensualContable.objects.filter(anio=anio, mes=mes)
+    closures = scope_queryset_for_access(
+        CierreMensualContable.objects.filter(anio=anio, mes=mes),
+        access,
+        company_paths=('empresa_id',),
+    )
     if empresa_id is not None:
         closures = closures.filter(empresa_id=empresa_id)
 
-    dtes = DTEEmitido.objects.filter(fecha_emision__year=anio, fecha_emision__month=mes)
+    dtes = scope_queryset_for_access(
+        DTEEmitido.objects.filter(fecha_emision__year=anio, fecha_emision__month=mes),
+        access,
+        company_paths=('empresa_id',),
+    )
     if empresa_id is not None:
         dtes = dtes.filter(empresa_id=empresa_id)
 
@@ -102,7 +183,8 @@ def build_financial_monthly_summary(anio, mes, empresa_id=None):
     }
 
 
-def build_partner_summary(socio_id):
+def build_partner_summary(socio_id, access: ScopeAccess | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
     socio = Socio.objects.get(pk=socio_id)
     participaciones = ParticipacionPatrimonial.objects.filter(participante_socio=socio, activo=True).select_related(
         'participante_socio',
@@ -110,7 +192,16 @@ def build_partner_summary(socio_id):
         'empresa_owner',
         'comunidad_owner',
     )
-    direct_properties = Propiedad.objects.filter(socio_owner=socio).order_by('codigo_propiedad')
+    participaciones = scope_queryset_for_access(
+        participaciones,
+        access,
+        property_paths=('empresa_owner__propiedades__id', 'comunidad_owner__propiedades__id'),
+    )
+    direct_properties = scope_queryset_for_access(
+        Propiedad.objects.filter(socio_owner=socio).order_by('codigo_propiedad'),
+        access,
+        property_paths=('id',),
+    )
 
     company_shares = [
         {
@@ -131,12 +222,22 @@ def build_partner_summary(socio_id):
         if item.comunidad_owner_id
     ]
 
-    active_direct_contracts = Contrato.objects.filter(
-        estado__in=['vigente', 'futuro'],
-        contrato_propiedades__propiedad__in=direct_properties,
-    ).distinct()
+    active_direct_contracts = scope_queryset_for_access(
+        Contrato.objects.filter(
+            estado__in=['vigente', 'futuro'],
+            contrato_propiedades__propiedad__in=direct_properties,
+        ).distinct(),
+        access,
+        property_paths=('mandato_operacion__propiedad_id',),
+    )
 
-    state = EstadoCuentaArrendatario.objects.filter(arrendatario__contratos__mandato_operacion__propiedad__socio_owner=socio).distinct()
+    state = scope_queryset_for_access(
+        EstadoCuentaArrendatario.objects.filter(
+            arrendatario__contratos__mandato_operacion__propiedad__socio_owner=socio
+        ).distinct(),
+        access,
+        property_paths=('arrendatario__contratos__mandato_operacion__propiedad_id',),
+    )
 
     return {
         'socio': {
@@ -161,10 +262,23 @@ def build_partner_summary(socio_id):
     }
 
 
-def build_period_books_summary(empresa_id, periodo):
-    libro_diario = LibroDiario.objects.filter(empresa_id=empresa_id, periodo=periodo).first()
-    libro_mayor = LibroMayor.objects.filter(empresa_id=empresa_id, periodo=periodo).first()
-    balance = BalanceComprobacion.objects.filter(empresa_id=empresa_id, periodo=periodo).first()
+def build_period_books_summary(empresa_id, periodo, access: ScopeAccess | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    libro_diario = scope_queryset_for_access(
+        LibroDiario.objects.filter(empresa_id=empresa_id, periodo=periodo),
+        access,
+        company_paths=('empresa_id',),
+    ).first()
+    libro_mayor = scope_queryset_for_access(
+        LibroMayor.objects.filter(empresa_id=empresa_id, periodo=periodo),
+        access,
+        company_paths=('empresa_id',),
+    ).first()
+    balance = scope_queryset_for_access(
+        BalanceComprobacion.objects.filter(empresa_id=empresa_id, periodo=periodo),
+        access,
+        company_paths=('empresa_id',),
+    ).first()
 
     return {
         'empresa_id': empresa_id,
@@ -190,16 +304,29 @@ def build_period_books_summary(empresa_id, periodo):
     }
 
 
-def build_annual_tax_summary(anio_tributario, empresa_id=None):
-    process_queryset = ProcesoRentaAnual.objects.filter(anio_tributario=anio_tributario)
+def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAccess | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    process_queryset = scope_queryset_for_access(
+        ProcesoRentaAnual.objects.filter(anio_tributario=anio_tributario),
+        access,
+        company_paths=('empresa_id',),
+    )
     if empresa_id is not None:
         process_queryset = process_queryset.filter(empresa_id=empresa_id)
 
-    ddjj_queryset = DDJJPreparacionAnual.objects.filter(anio_tributario=anio_tributario)
+    ddjj_queryset = scope_queryset_for_access(
+        DDJJPreparacionAnual.objects.filter(anio_tributario=anio_tributario),
+        access,
+        company_paths=('empresa_id',),
+    )
     if empresa_id is not None:
         ddjj_queryset = ddjj_queryset.filter(empresa_id=empresa_id)
 
-    f22_queryset = F22PreparacionAnual.objects.filter(anio_tributario=anio_tributario)
+    f22_queryset = scope_queryset_for_access(
+        F22PreparacionAnual.objects.filter(anio_tributario=anio_tributario),
+        access,
+        company_paths=('empresa_id',),
+    )
     if empresa_id is not None:
         f22_queryset = f22_queryset.filter(empresa_id=empresa_id)
 
@@ -236,7 +363,16 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None):
     }
 
 
-def build_migration_manual_resolution_summary(status='open'):
+def build_migration_manual_resolution_summary(status='open', access: ScopeAccess | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    if access.restricted:
+        return {
+            'status': status,
+            'total': 0,
+            'categorias': [],
+            'scope_types': [],
+            'propiedades_owner_manual_required': [],
+        }
     resolutions = ManualResolution.objects.filter(category__startswith='migration.')
     if status:
         resolutions = resolutions.filter(status=status)

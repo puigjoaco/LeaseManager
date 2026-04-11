@@ -3,6 +3,7 @@ from rest_framework import generics
 
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
+from core.scope_access import ScopedQuerysetMixin
 
 from .models import Arrendatario, AvisoTermino, CodeudorSolidario, Contrato, ContratoPropiedad, PeriodoContractual
 from .serializers import (
@@ -53,23 +54,25 @@ class AuditCreateUpdateMixin:
         )
 
 
-class ArrendatarioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class ArrendatarioListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ArrendatarioSerializer
     queryset = Arrendatario.objects.all()
+    property_scope_paths = ('contratos__mandato_operacion__propiedad_id',)
     audit_entity_type = 'arrendatario'
     audit_entity_label = 'arrendatario'
 
 
-class ArrendatarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class ArrendatarioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ArrendatarioSerializer
     queryset = Arrendatario.objects.all()
+    property_scope_paths = ('contratos__mandato_operacion__propiedad_id',)
     audit_entity_type = 'arrendatario'
     audit_entity_label = 'arrendatario'
 
 
-class ContratoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class ContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ContratoSerializer
     queryset = Contrato.objects.select_related('mandato_operacion', 'arrendatario').prefetch_related(
@@ -77,11 +80,12 @@ class ContratoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView)
         'periodos_contractuales',
         'codeudores_solidarios',
     )
+    property_scope_paths = ('mandato_operacion__propiedad_id',)
     audit_entity_type = 'contrato'
     audit_entity_label = 'contrato'
 
 
-class ContratoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class ContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ContratoSerializer
     queryset = Contrato.objects.select_related('mandato_operacion', 'arrendatario').prefetch_related(
@@ -89,57 +93,66 @@ class ContratoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView)
         'periodos_contractuales',
         'codeudores_solidarios',
     )
+    property_scope_paths = ('mandato_operacion__propiedad_id',)
     audit_entity_type = 'contrato'
     audit_entity_label = 'contrato'
 
 
-class AvisoTerminoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+class AvisoTerminoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = AvisoTerminoSerializer
     queryset = AvisoTermino.objects.select_related('contrato', 'registrado_por').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
     audit_entity_type = 'aviso_termino'
     audit_entity_label = 'aviso de termino'
 
 
-class AvisoTerminoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+class AvisoTerminoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = AvisoTerminoSerializer
     queryset = AvisoTermino.objects.select_related('contrato', 'registrado_por').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
     audit_entity_type = 'aviso_termino'
     audit_entity_label = 'aviso de termino'
 
 
-class ContratoPropiedadListView(generics.ListAPIView):
+class ContratoPropiedadListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ContratoPropiedadReadSerializer
     queryset = ContratoPropiedad.objects.select_related('contrato', 'propiedad').all()
+    property_scope_paths = ('propiedad_id',)
 
 
-class ContratoPropiedadDetailView(generics.RetrieveAPIView):
+class ContratoPropiedadDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ContratoPropiedadReadSerializer
     queryset = ContratoPropiedad.objects.select_related('contrato', 'propiedad').all()
+    property_scope_paths = ('propiedad_id',)
 
 
-class PeriodoContractualListView(generics.ListAPIView):
+class PeriodoContractualListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = PeriodoContractualReadSerializer
     queryset = PeriodoContractual.objects.select_related('contrato').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
 
 
-class PeriodoContractualDetailView(generics.RetrieveAPIView):
+class PeriodoContractualDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = PeriodoContractualReadSerializer
     queryset = PeriodoContractual.objects.select_related('contrato').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
 
 
-class CodeudorSolidarioListView(generics.ListAPIView):
+class CodeudorSolidarioListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = CodeudorSolidarioReadSerializer
     queryset = CodeudorSolidario.objects.select_related('contrato').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
 
 
-class CodeudorSolidarioDetailView(generics.RetrieveAPIView):
+class CodeudorSolidarioDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = CodeudorSolidarioReadSerializer
     queryset = CodeudorSolidario.objects.select_related('contrato').all()
+    property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
