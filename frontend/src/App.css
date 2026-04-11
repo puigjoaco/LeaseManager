@@ -164,6 +164,19 @@
   color: #1d6f4e;
 }
 
+.context-banner {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  background: #fbf7eb;
+  border: 1px solid #dfcfaa;
+  border-radius: 6px;
+  color: #8a6113;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

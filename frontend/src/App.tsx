@@ -688,6 +688,7 @@ function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<ViewKey>('overview')
+  const [activeContextLabel, setActiveContextLabel] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
   const [formMessage, setFormMessage] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
@@ -1813,15 +1814,17 @@ function App() {
     )
   }
 
-  function navigateWithContext(view: ViewKey, search = '') {
+  function navigateWithContext(view: ViewKey, search = '', label = '') {
     setActiveView(view)
     setSearchText(search)
+    setActiveContextLabel(label || search || null)
     setFormMessage(null)
     setFormError(null)
   }
 
   function goToEmpresaContext(empresaId: number) {
-    navigateWithContext('contabilidad', empresaById.get(empresaId)?.razon_social || '')
+    const companyLabel = empresaById.get(empresaId)?.razon_social || ''
+    navigateWithContext('contabilidad', companyLabel, `Empresa: ${companyLabel}`)
     const defaultRegimenId = regimenesTributarios[0]?.id
     setConfigFiscalDraft((current) => ({
       ...current,
@@ -1840,7 +1843,11 @@ function App() {
 
   function goToMandatoContext(mandatoId: number) {
     const mandate = mandatoById.get(mandatoId)
-    navigateWithContext('contratos', mandate?.propiedad_codigo || '')
+    navigateWithContext(
+      'contratos',
+      mandate?.propiedad_codigo || '',
+      `Mandato: ${mandate?.propiedad_codigo || mandatoId}`,
+    )
     setContratoDraft((current) => ({
       ...current,
       mandato_operacion: String(mandatoId),
@@ -1849,7 +1856,11 @@ function App() {
 
   function goToContratoContext(contratoId: number) {
     const contract = contratoById.get(contratoId)
-    navigateWithContext('cobranza', contract?.codigo_contrato || '')
+    navigateWithContext(
+      'cobranza',
+      contract?.codigo_contrato || '',
+      `Contrato: ${contract?.codigo_contrato || contratoId}`,
+    )
     setAjusteDraft((current) => ({ ...current, contrato: String(contratoId) }))
     setPagoDraft((current) => ({ ...current, contrato_id: String(contratoId) }))
     setGarantiaDraft((current) => ({ ...current, contrato: String(contratoId) }))
@@ -1857,13 +1868,21 @@ function App() {
 
   function goToPagoContext(pagoId: number) {
     const payment = pagos.find((item) => item.id === pagoId)
-    navigateWithContext('sii', payment ? `${payment.mes}/${payment.anio}` : '')
+    navigateWithContext(
+      'sii',
+      payment ? `${payment.mes}/${payment.anio}` : '',
+      payment ? `Pago: ${payment.mes}/${payment.anio}` : `Pago: ${pagoId}`,
+    )
     setDteDraft((current) => ({ ...current, pago_mensual_id: String(pagoId) }))
   }
 
   function goToArrendatarioContext(arrendatarioId: number) {
     const tenant = arrendatarioById.get(arrendatarioId)
-    navigateWithContext('cobranza', tenant?.nombre_razon_social || '')
+    navigateWithContext(
+      'cobranza',
+      tenant?.nombre_razon_social || '',
+      `Arrendatario: ${tenant?.nombre_razon_social || arrendatarioId}`,
+    )
     setEstadoCuentaDraft({ arrendatario_id: String(arrendatarioId) })
   }
 
@@ -2263,7 +2282,10 @@ function App() {
             key={view}
             type="button"
             className={activeView === view ? 'tab-button is-active' : 'tab-button'}
-            onClick={() => setActiveView(view)}
+            onClick={() => {
+              setActiveView(view)
+              setActiveContextLabel(null)
+            }}
           >
             {view === 'overview'
               ? 'Resumen'
@@ -2287,6 +2309,14 @@ function App() {
       </section>
 
       {workspaceError ? <div className="banner-error">{workspaceError}</div> : null}
+      {activeView !== 'overview' && activeContextLabel ? (
+        <div className="context-banner">
+          <span>{activeContextLabel}</span>
+          <button type="button" className="button-ghost inline-action" onClick={() => setActiveContextLabel(null)}>
+            Limpiar contexto
+          </button>
+        </div>
+      ) : null}
 
       {activeView === 'overview' ? (
         <>
@@ -2496,6 +2526,21 @@ function App() {
             { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo.replaceAll('_', ' ')}` },
             { label: 'Ubicación', render: (row) => `${row.comuna}, ${row.region}` },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            {
+              label: 'Siguiente paso',
+              render: (row) => (
+                <button
+                  type="button"
+                  className="button-ghost inline-action"
+                  onClick={() => {
+                    navigateWithContext('operacion', row.codigo_propiedad, `Propiedad: ${row.codigo_propiedad}`)
+                    setMandatoDraft((current) => ({ ...current, propiedad_id: String(row.id) }))
+                  }}
+                >
+                  Crear mandato
+                </button>
+              ),
+            },
           ]} />
         </>
       ) : null}
@@ -2604,6 +2649,21 @@ function App() {
             { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo}` },
             { label: 'Moneda', render: (row) => row.moneda_operativa },
             { label: 'Estado', render: (row) => <Badge label={row.estado_operativo} tone={toneFor(row.estado_operativo)} /> },
+            {
+              label: 'Siguiente paso',
+              render: (row) => (
+                <button
+                  type="button"
+                  className="button-ghost inline-action"
+                  onClick={() => {
+                    navigateWithContext('conciliacion', row.numero_cuenta, `Cuenta: ${row.numero_cuenta}`)
+                    setConexionDraft((current) => ({ ...current, cuenta_recaudadora: String(row.id) }))
+                  }}
+                >
+                  Conectar banco
+                </button>
+              ),
+            },
           ]} />
           <TableBlock title="Identidades de envío" subtitle="Canales autorizados para salida." rows={filteredIdentidades} empty="No hay identidades para este filtro." columns={[
             { label: 'Remitente', render: (row) => row.remitente_visible },
@@ -3196,14 +3256,31 @@ function App() {
             {
               label: 'Acción',
               render: (row) => (
-                <button
-                  type="button"
-                  className="button-ghost inline-action"
-                  onClick={() => void handleAccountingAction(`/api/v1/contabilidad/eventos-contables/${row.id}/contabilizar/`, 'Reintento de contabilización ejecutado correctamente.')}
-                  disabled={isSubmitting}
-                >
-                  Contabilizar
-                </button>
+                <div className="inline-actions">
+                  <button
+                    type="button"
+                    className="button-ghost inline-action"
+                    onClick={() => void handleAccountingAction(`/api/v1/contabilidad/eventos-contables/${row.id}/contabilizar/`, 'Reintento de contabilización ejecutado correctamente.')}
+                    disabled={isSubmitting}
+                  >
+                    Contabilizar
+                  </button>
+                  {row.empresa ? (
+                    <button
+                      type="button"
+                      className="button-ghost inline-action"
+                      onClick={() => {
+                        if (row.empresa == null) return
+                        const companyId = row.empresa
+                        const companyName = empresaById.get(companyId)?.razon_social || String(companyId)
+                        navigateWithContext('reporting', companyName, `Empresa: ${companyName}`)
+                        setReportingFinancialDraft((current) => ({ ...current, empresa_id: String(companyId) }))
+                      }}
+                    >
+                      Ver impacto
+                    </button>
+                  ) : null}
+                </div>
               ),
             },
           ]} />
