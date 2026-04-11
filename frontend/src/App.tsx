@@ -929,30 +929,6 @@ function App() {
   const [reportingBooksSummary, setReportingBooksSummary] = useState<ReportingBooksSummary | null>(null)
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
-  const [reportingFinancialDraft, setReportingFinancialDraft] = useState({
-    anio: '2026',
-    mes: '5',
-    empresa_id: '',
-  })
-  const [reportingPartnerDraft, setReportingPartnerDraft] = useState({
-    socio_id: '',
-  })
-  const [reportingBooksDraft, setReportingBooksDraft] = useState({
-    empresa_id: '',
-    periodo: '2026-05',
-  })
-  const [reportingAnnualDraft, setReportingAnnualDraft] = useState({
-    anio_tributario: '2027',
-    empresa_id: '',
-  })
-  const [reportingMigrationDraft, setReportingMigrationDraft] = useState({
-    status: 'open',
-  })
-  const [reportingFinancialSummary, setReportingFinancialSummary] = useState<ReportingFinancialSummary | null>(null)
-  const [reportingPartnerSummary, setReportingPartnerSummary] = useState<ReportingPartnerSummary | null>(null)
-  const [reportingBooksSummary, setReportingBooksSummary] = useState<ReportingBooksSummary | null>(null)
-  const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
-  const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
 
   async function loadHealth() {
     try {
@@ -1837,83 +1813,58 @@ function App() {
     )
   }
 
-  async function fetchReportingData<T>(path: string, onSuccess: (payload: T) => void, successMessage: string) {
-    if (!token) return
-    setIsSubmitting(true)
+  function navigateWithContext(view: ViewKey, search = '') {
+    setActiveView(view)
+    setSearchText(search)
     setFormMessage(null)
     setFormError(null)
-    try {
-      const payload = await apiRequest<T>(path, { token })
-      onSuccess(payload)
-      setFormMessage(successMessage)
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'No se pudo cargar el reporte.')
-    } finally {
-      setIsSubmitting(false)
-    }
   }
 
-  async function handleFetchFinancialSummary(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const query = new URLSearchParams({
-      anio: reportingFinancialDraft.anio,
-      mes: reportingFinancialDraft.mes,
-    })
-    if (reportingFinancialDraft.empresa_id) {
-      query.set('empresa_id', reportingFinancialDraft.empresa_id)
-    }
-    await fetchReportingData<ReportingFinancialSummary>(
-      `/api/v1/reporting/financiero/mensual/?${query.toString()}`,
-      setReportingFinancialSummary,
-      'Resumen financiero cargado correctamente.',
-    )
+  function goToEmpresaContext(empresaId: number) {
+    navigateWithContext('contabilidad', empresaById.get(empresaId)?.razon_social || '')
+    const defaultRegimenId = regimenesTributarios[0]?.id
+    setConfigFiscalDraft((current) => ({
+      ...current,
+      empresa: String(empresaId),
+      regimen_tributario: current.regimen_tributario || (defaultRegimenId ? String(defaultRegimenId) : ''),
+    }))
+    setCuentaContableDraft((current) => ({ ...current, empresa: String(empresaId) }))
+    setReglaContableDraft((current) => ({ ...current, empresa: String(empresaId) }))
+    setCierreDraft((current) => ({ ...current, empresa_id: String(empresaId) }))
+    setCapacidadSiiDraft((current) => ({ ...current, empresa: String(empresaId) }))
+    setF29Draft((current) => ({ ...current, empresa_id: String(empresaId) }))
+    setAnnualDraft((current) => ({ ...current, empresa_id: String(empresaId) }))
+    setReportingFinancialDraft((current) => ({ ...current, empresa_id: String(empresaId) }))
+    setReportingAnnualDraft((current) => ({ ...current, empresa_id: String(empresaId) }))
   }
 
-  async function handleFetchPartnerSummary(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    await fetchReportingData<ReportingPartnerSummary>(
-      `/api/v1/reporting/socios/${Number(reportingPartnerDraft.socio_id)}/resumen/`,
-      setReportingPartnerSummary,
-      'Resumen de socio cargado correctamente.',
-    )
+  function goToMandatoContext(mandatoId: number) {
+    const mandate = mandatoById.get(mandatoId)
+    navigateWithContext('contratos', mandate?.propiedad_codigo || '')
+    setContratoDraft((current) => ({
+      ...current,
+      mandato_operacion: String(mandatoId),
+    }))
   }
 
-  async function handleFetchBooksSummary(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const query = new URLSearchParams({
-      empresa_id: reportingBooksDraft.empresa_id,
-      periodo: reportingBooksDraft.periodo,
-    })
-    await fetchReportingData<ReportingBooksSummary>(
-      `/api/v1/reporting/contabilidad/libros-periodo/?${query.toString()}`,
-      setReportingBooksSummary,
-      'Resumen de libros cargado correctamente.',
-    )
+  function goToContratoContext(contratoId: number) {
+    const contract = contratoById.get(contratoId)
+    navigateWithContext('cobranza', contract?.codigo_contrato || '')
+    setAjusteDraft((current) => ({ ...current, contrato: String(contratoId) }))
+    setPagoDraft((current) => ({ ...current, contrato_id: String(contratoId) }))
+    setGarantiaDraft((current) => ({ ...current, contrato: String(contratoId) }))
   }
 
-  async function handleFetchAnnualSummary(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const query = new URLSearchParams({
-      anio_tributario: reportingAnnualDraft.anio_tributario,
-    })
-    if (reportingAnnualDraft.empresa_id) {
-      query.set('empresa_id', reportingAnnualDraft.empresa_id)
-    }
-    await fetchReportingData<ReportingAnnualSummary>(
-      `/api/v1/reporting/tributario/anual/?${query.toString()}`,
-      setReportingAnnualSummary,
-      'Resumen anual cargado correctamente.',
-    )
+  function goToPagoContext(pagoId: number) {
+    const payment = pagos.find((item) => item.id === pagoId)
+    navigateWithContext('sii', payment ? `${payment.mes}/${payment.anio}` : '')
+    setDteDraft((current) => ({ ...current, pago_mensual_id: String(pagoId) }))
   }
 
-  async function handleFetchMigrationSummary(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const query = new URLSearchParams({ status: reportingMigrationDraft.status })
-    await fetchReportingData<ReportingMigrationSummary>(
-      `/api/v1/reporting/migracion/resoluciones-manuales/?${query.toString()}`,
-      setReportingMigrationSummary,
-      'Resumen de resoluciones manuales cargado correctamente.',
-    )
+  function goToArrendatarioContext(arrendatarioId: number) {
+    const tenant = arrendatarioById.get(arrendatarioId)
+    navigateWithContext('cobranza', tenant?.nombre_razon_social || '')
+    setEstadoCuentaDraft({ arrendatario_id: String(arrendatarioId) })
   }
 
   const normalizedSearch = searchText.trim().toLowerCase()
@@ -2519,6 +2470,19 @@ function App() {
             { label: 'RUT', render: (row) => row.rut },
             { label: 'Participaciones', render: (row) => count(row.participaciones_detail.length) },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            {
+              label: 'Siguiente paso',
+              render: (row) => (
+                <div className="inline-actions">
+                  <button type="button" className="button-ghost inline-action" onClick={() => goToEmpresaContext(row.id)}>
+                    Contabilidad
+                  </button>
+                  <button type="button" className="button-ghost inline-action" onClick={() => { navigateWithContext('sii', row.razon_social); setCapacidadSiiDraft((current) => ({ ...current, empresa: String(row.id) })) }}>
+                    SII
+                  </button>
+                </div>
+              ),
+            },
           ]} />
           <TableBlock title="Comunidades" subtitle="Representación vigente y composición comunitaria." rows={filteredComunidades} empty="No hay comunidades para este filtro." columns={[
             { label: 'Nombre', render: (row) => row.nombre },
@@ -2656,6 +2620,14 @@ function App() {
             { label: 'Facturadora', render: (row) => row.entidad_facturadora_display || 'Sin facturadora' },
             { label: 'Cuenta', render: (row) => row.cuenta_recaudadora_display },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            {
+              label: 'Siguiente paso',
+              render: (row) => (
+                <button type="button" className="button-ghost inline-action" onClick={() => goToMandatoContext(row.id)}>
+                  Crear contrato
+                </button>
+              ),
+            },
           ]} />
         </>
       ) : null}
@@ -2749,6 +2721,14 @@ function App() {
             { label: 'Tipo', render: (row) => row.tipo_arrendatario.replaceAll('_', ' ') },
             { label: 'Contacto', render: (row) => row.email || row.telefono || 'Sin dato' },
             { label: 'Estado', render: (row) => <Badge label={row.estado_contacto} tone={toneFor(row.estado_contacto)} /> },
+            {
+              label: 'Siguiente paso',
+              render: (row) => (
+                <button type="button" className="button-ghost inline-action" onClick={() => goToArrendatarioContext(row.id)}>
+                  Estado de cuenta
+                </button>
+              ),
+            },
           ]} />
 
           <TableBlock title="Contratos" subtitle="Contratos cargados sobre mandatos ya vigentes." rows={filteredContratos} empty="No hay contratos para este filtro." columns={[
@@ -2758,6 +2738,14 @@ function App() {
             { label: 'Propiedad', render: (row) => row.contrato_propiedades_detail[0] ? `${row.contrato_propiedades_detail[0].propiedad_codigo} · ${row.contrato_propiedades_detail[0].propiedad_direccion}` : 'Sin propiedad' },
             { label: 'Periodo', render: (row) => `${row.fecha_inicio} → ${row.fecha_fin_vigente}` },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            {
+              label: 'Siguiente paso',
+              render: (row) => (
+                <button type="button" className="button-ghost inline-action" onClick={() => goToContratoContext(row.id)}>
+                  Cobranza
+                </button>
+              ),
+            },
           ]} />
 
           <TableBlock title="Avisos de término" subtitle="Base para no renovación y contratos futuros." rows={filteredAvisos} empty="No hay avisos para este filtro." columns={[
@@ -2888,6 +2876,19 @@ function App() {
             { label: 'Calculado', render: (row) => row.monto_calculado_clp },
             { label: 'Pagado', render: (row) => row.monto_pagado_clp },
             { label: 'Estado', render: (row) => <Badge label={row.estado_pago} tone={toneFor(row.estado_pago)} /> },
+            {
+              label: 'Siguiente paso',
+              render: (row) => (
+                <div className="inline-actions">
+                  <button type="button" className="button-ghost inline-action" onClick={() => { navigateWithContext('conciliacion', `${row.mes}/${row.anio}`) }}>
+                    Conciliar
+                  </button>
+                  <button type="button" className="button-ghost inline-action" onClick={() => goToPagoContext(row.id)}>
+                    DTE
+                  </button>
+                </div>
+              ),
+            },
           ]} />
 
           <TableBlock title="Garantías" subtitle="Saldos y estado actual de cada contrato." rows={filteredGarantias} empty="No hay garantías para este filtro." columns={[
@@ -3354,14 +3355,23 @@ function App() {
             {
               label: 'Acción',
               render: (row) => (
-                <button
-                  type="button"
-                  className="button-ghost inline-action"
-                  onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/dtes/${row.id}/estado/`, { estado_dte: 'aceptado', sii_track_id: row.sii_track_id || 'TRACK-LOCAL', ultimo_estado_sii: 'ACEPTADO' }, 'Estado DTE actualizado correctamente.')}
-                  disabled={isSubmitting}
-                >
-                  Marcar aceptado
-                </button>
+                <div className="inline-actions">
+                  <button
+                    type="button"
+                    className="button-ghost inline-action"
+                    onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/dtes/${row.id}/estado/`, { estado_dte: 'aceptado', sii_track_id: row.sii_track_id || 'TRACK-LOCAL', ultimo_estado_sii: 'ACEPTADO' }, 'Estado DTE actualizado correctamente.')}
+                    disabled={isSubmitting}
+                  >
+                    Marcar aceptado
+                  </button>
+                  <button
+                    type="button"
+                    className="button-ghost inline-action"
+                    onClick={() => { navigateWithContext('reporting', empresaById.get(row.empresa)?.razon_social || ''); setReportingFinancialDraft((current) => ({ ...current, empresa_id: String(row.empresa) })) }}
+                  >
+                    Reporting
+                  </button>
+                </div>
               ),
             },
           ]} />
