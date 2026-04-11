@@ -149,6 +149,10 @@ function count(value: number | undefined) {
   return new Intl.NumberFormat('es-CL').format(value ?? 0)
 }
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 function stamp(value: string | null) {
   if (!value) return 'Sin refresco reciente'
   return new Intl.DateTimeFormat('es-CL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
@@ -235,6 +239,57 @@ function App() {
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<ViewKey>('overview')
   const [searchText, setSearchText] = useState('')
+  const [formMessage, setFormMessage] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [socioDraft, setSocioDraft] = useState({
+    nombre: '',
+    rut: '',
+    email: '',
+    telefono: '',
+    domicilio: '',
+    activo: true,
+  })
+  const [propiedadDraft, setPropiedadDraft] = useState({
+    codigo_propiedad: '',
+    direccion: '',
+    comuna: 'Temuco',
+    region: 'La Araucania',
+    rol_avaluo: '',
+    tipo_inmueble: 'otro',
+    estado: 'borrador',
+    owner_tipo: 'empresa',
+    owner_id: '',
+  })
+  const [cuentaDraft, setCuentaDraft] = useState({
+    institucion: 'Banco de Chile',
+    numero_cuenta: '',
+    tipo_cuenta: 'corriente',
+    titular_nombre: '',
+    titular_rut: '',
+    moneda_operativa: 'CLP',
+    estado_operativo: 'activa',
+    owner_tipo: 'empresa',
+    owner_id: '',
+  })
+  const [mandatoDraft, setMandatoDraft] = useState({
+    propiedad_id: '',
+    propietario_tipo: 'empresa',
+    propietario_id: '',
+    administrador_operativo_tipo: 'empresa',
+    administrador_operativo_id: '',
+    recaudador_tipo: 'empresa',
+    recaudador_id: '',
+    entidad_facturadora_id: '',
+    cuenta_recaudadora_id: '',
+    tipo_relacion_operativa: 'operacion_directa',
+    autoriza_recaudacion: true,
+    autoriza_facturacion: true,
+    autoriza_comunicacion: true,
+    vigencia_desde: todayIso(),
+    vigencia_hasta: '',
+    estado: 'activa',
+  })
 
   async function loadHealth() {
     try {
@@ -352,6 +407,98 @@ function App() {
     setMandatos([])
   }
 
+  async function submitCreate(path: string, body: unknown, successMessage: string) {
+    if (!token) return
+    setIsSubmitting(true)
+    setFormMessage(null)
+    setFormError(null)
+    try {
+      await apiRequest(path, { method: 'POST', token, body })
+      await loadWorkspace(token)
+      setFormMessage(successMessage)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo guardar el registro.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleCreateSocio(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await submitCreate('/api/v1/patrimonio/socios/', socioDraft, 'Socio creado correctamente.')
+    setSocioDraft({ nombre: '', rut: '', email: '', telefono: '', domicilio: '', activo: true })
+  }
+
+  async function handleCreatePropiedad(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await submitCreate('/api/v1/patrimonio/propiedades/', {
+      ...propiedadDraft,
+      owner_id: Number(propiedadDraft.owner_id),
+    }, 'Propiedad creada correctamente.')
+    setPropiedadDraft({
+      codigo_propiedad: '',
+      direccion: '',
+      comuna: 'Temuco',
+      region: 'La Araucania',
+      rol_avaluo: '',
+      tipo_inmueble: 'otro',
+      estado: 'borrador',
+      owner_tipo: 'empresa',
+      owner_id: '',
+    })
+  }
+
+  async function handleCreateCuenta(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await submitCreate('/api/v1/operacion/cuentas-recaudadoras/', {
+      ...cuentaDraft,
+      owner_id: Number(cuentaDraft.owner_id),
+    }, 'Cuenta recaudadora creada correctamente.')
+    setCuentaDraft({
+      institucion: 'Banco de Chile',
+      numero_cuenta: '',
+      tipo_cuenta: 'corriente',
+      titular_nombre: '',
+      titular_rut: '',
+      moneda_operativa: 'CLP',
+      estado_operativo: 'activa',
+      owner_tipo: 'empresa',
+      owner_id: '',
+    })
+  }
+
+  async function handleCreateMandato(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await submitCreate('/api/v1/operacion/mandatos/', {
+      ...mandatoDraft,
+      propiedad_id: Number(mandatoDraft.propiedad_id),
+      propietario_id: Number(mandatoDraft.propietario_id),
+      administrador_operativo_id: Number(mandatoDraft.administrador_operativo_id),
+      recaudador_id: Number(mandatoDraft.recaudador_id),
+      entidad_facturadora_id: mandatoDraft.entidad_facturadora_id ? Number(mandatoDraft.entidad_facturadora_id) : null,
+      cuenta_recaudadora_id: Number(mandatoDraft.cuenta_recaudadora_id),
+      vigencia_hasta: mandatoDraft.vigencia_hasta || null,
+    }, 'Mandato operativo creado correctamente.')
+    setMandatoDraft({
+      propiedad_id: '',
+      propietario_tipo: 'empresa',
+      propietario_id: '',
+      administrador_operativo_tipo: 'empresa',
+      administrador_operativo_id: '',
+      recaudador_tipo: 'empresa',
+      recaudador_id: '',
+      entidad_facturadora_id: '',
+      cuenta_recaudadora_id: '',
+      tipo_relacion_operativa: 'operacion_directa',
+      autoriza_recaudacion: true,
+      autoriza_facturacion: true,
+      autoriza_comunicacion: true,
+      vigencia_desde: todayIso(),
+      vigencia_hasta: '',
+      estado: 'activa',
+    })
+  }
+
   const normalizedSearch = searchText.trim().toLowerCase()
   const filteredSocios = useMemo(
     () => socios.filter((item) => matches(normalizedSearch, [item.nombre, item.rut, item.email, item.telefono])),
@@ -423,6 +570,21 @@ function App() {
         ]),
       ),
     [mandatos, normalizedSearch],
+  )
+  const patrimonioOwners = useMemo(
+    () => [
+      ...empresas.map((item) => ({ tipo: 'empresa', id: item.id, label: item.razon_social })),
+      ...comunidades.map((item) => ({ tipo: 'comunidad', id: item.id, label: item.nombre })),
+      ...socios.map((item) => ({ tipo: 'socio', id: item.id, label: item.nombre })),
+    ],
+    [empresas, comunidades, socios],
+  )
+  const simpleOwners = useMemo(
+    () => [
+      ...empresas.map((item) => ({ tipo: 'empresa', id: item.id, label: item.razon_social })),
+      ...socios.map((item) => ({ tipo: 'socio', id: item.id, label: item.nombre })),
+    ],
+    [empresas, socios],
   )
 
   if (!token) {
@@ -575,8 +737,61 @@ function App() {
         </section>
       ) : null}
 
+      {activeView !== 'overview' && formMessage ? <div className="banner-success">{formMessage}</div> : null}
+      {activeView !== 'overview' && formError ? <div className="banner-error">{formError}</div> : null}
+
       {activeView === 'patrimonio' ? (
         <>
+          <section className="form-grid">
+            <section className="panel">
+              <div className="section-heading"><div><h2>Alta rápida de socio</h2><p>Ingreso mínimo para participantes activos.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateSocio}>
+                <input placeholder="Nombre completo" value={socioDraft.nombre} onChange={(event) => setSocioDraft((current) => ({ ...current, nombre: event.target.value }))} />
+                <input placeholder="RUT" value={socioDraft.rut} onChange={(event) => setSocioDraft((current) => ({ ...current, rut: event.target.value }))} />
+                <input placeholder="Email" value={socioDraft.email} onChange={(event) => setSocioDraft((current) => ({ ...current, email: event.target.value }))} />
+                <input placeholder="Teléfono" value={socioDraft.telefono} onChange={(event) => setSocioDraft((current) => ({ ...current, telefono: event.target.value }))} />
+                <input placeholder="Domicilio" value={socioDraft.domicilio} onChange={(event) => setSocioDraft((current) => ({ ...current, domicilio: event.target.value }))} />
+                <label className="checkbox-row"><input type="checkbox" checked={socioDraft.activo} onChange={(event) => setSocioDraft((current) => ({ ...current, activo: event.target.checked }))} />Activo</label>
+                <button type="submit" className="button-primary" disabled={isSubmitting}>Guardar socio</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Alta rápida de propiedad</h2><p>Owner explícito y código operativo desde el inicio.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreatePropiedad}>
+                <input placeholder="Código propiedad" value={propiedadDraft.codigo_propiedad} onChange={(event) => setPropiedadDraft((current) => ({ ...current, codigo_propiedad: event.target.value }))} />
+                <input placeholder="Dirección" value={propiedadDraft.direccion} onChange={(event) => setPropiedadDraft((current) => ({ ...current, direccion: event.target.value }))} />
+                <input placeholder="Comuna" value={propiedadDraft.comuna} onChange={(event) => setPropiedadDraft((current) => ({ ...current, comuna: event.target.value }))} />
+                <input placeholder="Región" value={propiedadDraft.region} onChange={(event) => setPropiedadDraft((current) => ({ ...current, region: event.target.value }))} />
+                <input placeholder="Rol avalúo" value={propiedadDraft.rol_avaluo} onChange={(event) => setPropiedadDraft((current) => ({ ...current, rol_avaluo: event.target.value }))} />
+                <select value={propiedadDraft.tipo_inmueble} onChange={(event) => setPropiedadDraft((current) => ({ ...current, tipo_inmueble: event.target.value }))}>
+                  <option value="otro">Otro</option>
+                  <option value="departamento">Departamento</option>
+                  <option value="casa">Casa</option>
+                  <option value="local">Local</option>
+                  <option value="oficina">Oficina</option>
+                  <option value="bodega">Bodega</option>
+                  <option value="estacionamiento">Estacionamiento</option>
+                </select>
+                <select value={propiedadDraft.estado} onChange={(event) => setPropiedadDraft((current) => ({ ...current, estado: event.target.value }))}>
+                  <option value="borrador">Borrador</option>
+                  <option value="activa">Activa</option>
+                  <option value="inactiva">Inactiva</option>
+                </select>
+                <select value={`${propiedadDraft.owner_tipo}:${propiedadDraft.owner_id}`} onChange={(event) => {
+                  const [tipo, id] = event.target.value.split(':')
+                  setPropiedadDraft((current) => ({ ...current, owner_tipo: tipo, owner_id: id || '' }))
+                }}>
+                  <option value="">Selecciona owner</option>
+                  {patrimonioOwners.map((owner) => (
+                    <option key={`${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>
+                  ))}
+                </select>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !propiedadDraft.owner_id}>Guardar propiedad</button>
+              </form>
+            </section>
+          </section>
+
           <TableBlock title="Socios" subtitle="Participantes y representantes activos." rows={filteredSocios} empty="No hay socios para este filtro." columns={[
             { label: 'Nombre', render: (row) => row.nombre },
             { label: 'RUT', render: (row) => row.rut },
@@ -607,6 +822,103 @@ function App() {
 
       {activeView === 'operacion' ? (
         <>
+          <section className="form-grid">
+            <section className="panel">
+              <div className="section-heading"><div><h2>Alta rápida de cuenta</h2><p>Cuenta recaudadora con owner bancario explícito.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateCuenta}>
+                <input placeholder="Institución" value={cuentaDraft.institucion} onChange={(event) => setCuentaDraft((current) => ({ ...current, institucion: event.target.value }))} />
+                <input placeholder="Número de cuenta" value={cuentaDraft.numero_cuenta} onChange={(event) => setCuentaDraft((current) => ({ ...current, numero_cuenta: event.target.value }))} />
+                <input placeholder="Titular" value={cuentaDraft.titular_nombre} onChange={(event) => setCuentaDraft((current) => ({ ...current, titular_nombre: event.target.value }))} />
+                <input placeholder="RUT titular" value={cuentaDraft.titular_rut} onChange={(event) => setCuentaDraft((current) => ({ ...current, titular_rut: event.target.value }))} />
+                <select value={cuentaDraft.tipo_cuenta} onChange={(event) => setCuentaDraft((current) => ({ ...current, tipo_cuenta: event.target.value }))}>
+                  <option value="corriente">Corriente</option>
+                  <option value="vista">Vista</option>
+                  <option value="ahorro">Ahorro</option>
+                </select>
+                <select value={cuentaDraft.moneda_operativa} onChange={(event) => setCuentaDraft((current) => ({ ...current, moneda_operativa: event.target.value }))}>
+                  <option value="CLP">CLP</option>
+                  <option value="UF">UF</option>
+                </select>
+                <select value={cuentaDraft.estado_operativo} onChange={(event) => setCuentaDraft((current) => ({ ...current, estado_operativo: event.target.value }))}>
+                  <option value="activa">Activa</option>
+                  <option value="inactiva">Inactiva</option>
+                </select>
+                <select value={`${cuentaDraft.owner_tipo}:${cuentaDraft.owner_id}`} onChange={(event) => {
+                  const [tipo, id] = event.target.value.split(':')
+                  setCuentaDraft((current) => ({ ...current, owner_tipo: tipo, owner_id: id || '' }))
+                }}>
+                  <option value="">Selecciona owner</option>
+                  {simpleOwners.map((owner) => (
+                    <option key={`${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>
+                  ))}
+                </select>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !cuentaDraft.owner_id}>Guardar cuenta</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Alta rápida de mandato</h2><p>Separación explícita entre propietario, administrador, recaudador y facturadora.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateMandato}>
+                <select value={mandatoDraft.propiedad_id} onChange={(event) => setMandatoDraft((current) => ({ ...current, propiedad_id: event.target.value }))}>
+                  <option value="">Selecciona propiedad</option>
+                  {propiedades.map((item) => (
+                    <option key={item.id} value={item.id}>{item.codigo_propiedad} · {item.direccion}</option>
+                  ))}
+                </select>
+                <select value={`${mandatoDraft.propietario_tipo}:${mandatoDraft.propietario_id}`} onChange={(event) => {
+                  const [tipo, id] = event.target.value.split(':')
+                  setMandatoDraft((current) => ({ ...current, propietario_tipo: tipo, propietario_id: id || '' }))
+                }}>
+                  <option value="">Selecciona propietario</option>
+                  {patrimonioOwners.map((owner) => (
+                    <option key={`prop-${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>
+                  ))}
+                </select>
+                <select value={`${mandatoDraft.administrador_operativo_tipo}:${mandatoDraft.administrador_operativo_id}`} onChange={(event) => {
+                  const [tipo, id] = event.target.value.split(':')
+                  setMandatoDraft((current) => ({ ...current, administrador_operativo_tipo: tipo, administrador_operativo_id: id || '' }))
+                }}>
+                  <option value="">Selecciona administrador</option>
+                  {simpleOwners.map((owner) => (
+                    <option key={`admin-${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>
+                  ))}
+                </select>
+                <select value={`${mandatoDraft.recaudador_tipo}:${mandatoDraft.recaudador_id}`} onChange={(event) => {
+                  const [tipo, id] = event.target.value.split(':')
+                  setMandatoDraft((current) => ({ ...current, recaudador_tipo: tipo, recaudador_id: id || '' }))
+                }}>
+                  <option value="">Selecciona recaudador</option>
+                  {simpleOwners.map((owner) => (
+                    <option key={`rec-${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>
+                  ))}
+                </select>
+                <select value={mandatoDraft.entidad_facturadora_id} onChange={(event) => setMandatoDraft((current) => ({ ...current, entidad_facturadora_id: event.target.value }))}>
+                  <option value="">Sin facturadora</option>
+                  {empresas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.razon_social}</option>
+                  ))}
+                </select>
+                <select value={mandatoDraft.cuenta_recaudadora_id} onChange={(event) => setMandatoDraft((current) => ({ ...current, cuenta_recaudadora_id: event.target.value }))}>
+                  <option value="">Selecciona cuenta</option>
+                  {cuentas.map((item) => (
+                    <option key={item.id} value={item.id}>{item.numero_cuenta} · {item.owner_display}</option>
+                  ))}
+                </select>
+                <input placeholder="Tipo relación operativa" value={mandatoDraft.tipo_relacion_operativa} onChange={(event) => setMandatoDraft((current) => ({ ...current, tipo_relacion_operativa: event.target.value }))} />
+                <input type="date" value={mandatoDraft.vigencia_desde} onChange={(event) => setMandatoDraft((current) => ({ ...current, vigencia_desde: event.target.value }))} />
+                <select value={mandatoDraft.estado} onChange={(event) => setMandatoDraft((current) => ({ ...current, estado: event.target.value }))}>
+                  <option value="activa">Activa</option>
+                  <option value="inactiva">Inactiva</option>
+                  <option value="borrador">Borrador</option>
+                </select>
+                <label className="checkbox-row"><input type="checkbox" checked={mandatoDraft.autoriza_recaudacion} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoriza_recaudacion: event.target.checked }))} />Autoriza recaudación</label>
+                <label className="checkbox-row"><input type="checkbox" checked={mandatoDraft.autoriza_facturacion} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoriza_facturacion: event.target.checked }))} />Autoriza facturación</label>
+                <label className="checkbox-row"><input type="checkbox" checked={mandatoDraft.autoriza_comunicacion} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoriza_comunicacion: event.target.checked }))} />Autoriza comunicación</label>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !mandatoDraft.propiedad_id || !mandatoDraft.propietario_id || !mandatoDraft.administrador_operativo_id || !mandatoDraft.recaudador_id || !mandatoDraft.cuenta_recaudadora_id}>Guardar mandato</button>
+              </form>
+            </section>
+          </section>
+
           <TableBlock title="Cuentas recaudadoras" subtitle="Ownership bancario operativo." rows={filteredCuentas} empty="No hay cuentas para este filtro." columns={[
             { label: 'Cuenta', render: (row) => `${row.institucion} · ${row.numero_cuenta}` },
             { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo}` },
