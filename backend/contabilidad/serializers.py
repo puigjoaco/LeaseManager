@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from core.scope_access import scope_queryset_for_user
 from patrimonio.models import Empresa
 
 from .models import (
@@ -33,6 +34,15 @@ def build_validation_candidate(instance, model_class):
     return model_class.objects.get(pk=instance.pk)
 
 
+def _request_user(serializer):
+    request = serializer.context.get('request')
+    return getattr(request, 'user', None)
+
+
+def _scoped_empresa_queryset(user):
+    return scope_queryset_for_user(Empresa.objects.all(), user, company_paths=('id',))
+
+
 class RegimenTributarioEmpresaSerializer(serializers.ModelSerializer):
     class Meta:
         model = RegimenTributarioEmpresa
@@ -58,6 +68,12 @@ class ConfiguracionFiscalEmpresaSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, ConfiguracionFiscalEmpresa)
@@ -89,6 +105,18 @@ class CuentaContableSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
+        self.fields['padre'].queryset = scope_queryset_for_user(
+            CuentaContable.objects.all(),
+            user,
+            company_paths=('empresa_id',),
+        )
+
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, CuentaContable)
         for field, value in attrs.items():
@@ -118,6 +146,12 @@ class ReglaContableSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
+
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, ReglaContable)
         for field, value in attrs.items():
@@ -143,6 +177,20 @@ class MatrizReglasContablesSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['regla_contable'].queryset = scope_queryset_for_user(
+            ReglaContable.objects.all(),
+            user,
+            company_paths=('empresa_id',),
+        )
+        scoped_cuentas = scope_queryset_for_user(CuentaContable.objects.all(), user, company_paths=('empresa_id',))
+        self.fields['cuenta_debe'].queryset = scoped_cuentas
+        self.fields['cuenta_haber'].queryset = scoped_cuentas
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, MatrizReglasContables)
@@ -174,6 +222,12 @@ class EventoContableSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'estado_contable', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
 
 
 class MovimientoAsientoSerializer(serializers.ModelSerializer):
@@ -230,6 +284,12 @@ class PoliticaReversoContableSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
 
 
 class ObligacionTributariaMensualSerializer(serializers.ModelSerializer):
@@ -294,3 +354,9 @@ class CierreMensualPrepareSerializer(serializers.Serializer):
     empresa_id = serializers.PrimaryKeyRelatedField(source='empresa', queryset=Empresa.objects.all())
     anio = serializers.IntegerField(min_value=2000, max_value=9999)
     mes = serializers.IntegerField(min_value=1, max_value=12)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['empresa_id'].queryset = _scoped_empresa_queryset(user)

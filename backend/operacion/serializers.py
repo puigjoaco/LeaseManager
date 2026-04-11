@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import EmailValidator
 from rest_framework import serializers
 
+from core.scope_access import scope_queryset_for_user
 from patrimonio.models import ComunidadPatrimonial, Empresa, Propiedad, Socio
 
 from .models import (
@@ -25,28 +26,83 @@ def build_validation_candidate(instance, model_class):
     return model_class.objects.get(pk=instance.pk)
 
 
-def resolve_simple_owner(owner_tipo, owner_id):
+SOCIO_SCOPE_PATHS = (
+    'propiedades_directas__id',
+    'representaciones_comunidad__comunidad__propiedades__id',
+    'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
+    'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
+)
+
+
+def _request_user(serializer):
+    request = serializer.context.get('request')
+    return getattr(request, 'user', None)
+
+
+def _scoped_empresa_queryset(user):
+    return scope_queryset_for_user(Empresa.objects.all(), user, company_paths=('id',))
+
+
+def _scoped_socio_queryset(user):
+    return scope_queryset_for_user(Socio.objects.all(), user, property_paths=SOCIO_SCOPE_PATHS)
+
+
+def _scoped_propiedad_queryset(user):
+    return scope_queryset_for_user(Propiedad.objects.all(), user, property_paths=('id',))
+
+
+def _scoped_cuenta_queryset(user):
+    return scope_queryset_for_user(CuentaRecaudadora.objects.all(), user, bank_account_paths=('id',))
+
+
+def _scoped_mandato_queryset(user):
+    return scope_queryset_for_user(
+        MandatoOperacion.objects.all(),
+        user,
+        property_paths=('propiedad_id',),
+        bank_account_paths=('cuenta_recaudadora_id',),
+    )
+
+
+def _scoped_identidad_queryset(user):
+    return scope_queryset_for_user(
+        IdentidadDeEnvio.objects.all(),
+        user,
+        company_paths=('empresa_owner_id',),
+        property_paths=('asignaciones_operacion__mandato_operacion__propiedad_id',),
+    )
+
+
+def resolve_simple_owner(owner_tipo, owner_id, *, user=None):
     model_map = {
         'empresa': Empresa,
         'socio': Socio,
     }
-    model = model_map[owner_tipo]
+    queryset_map = {
+        'empresa': _scoped_empresa_queryset(user) if user else Empresa.objects.all(),
+        'socio': _scoped_socio_queryset(user) if user else Socio.objects.all(),
+    }
+    queryset = queryset_map[owner_tipo]
     try:
-        return model.objects.get(pk=owner_id)
-    except model.DoesNotExist as exc:
+        return queryset.get(pk=owner_id)
+    except queryset.model.DoesNotExist as exc:
         raise serializers.ValidationError({'owner_id': 'El owner indicado no existe.'}) from exc
 
 
-def resolve_patrimonio_owner(owner_tipo, owner_id):
-    model_map = {
-        'empresa': Empresa,
-        'comunidad': ComunidadPatrimonial,
-        'socio': Socio,
+def resolve_patrimonio_owner(owner_tipo, owner_id, *, user=None):
+    queryset_map = {
+        'empresa': _scoped_empresa_queryset(user) if user else Empresa.objects.all(),
+        'comunidad': scope_queryset_for_user(
+            ComunidadPatrimonial.objects.all(),
+            user,
+            property_paths=('propiedades__id',),
+        ) if user else ComunidadPatrimonial.objects.all(),
+        'socio': _scoped_socio_queryset(user) if user else Socio.objects.all(),
     }
-    model = model_map[owner_tipo]
+    queryset = queryset_map[owner_tipo]
     try:
-        return model.objects.get(pk=owner_id)
-    except model.DoesNotExist as exc:
+        return queryset.get(pk=owner_id)
+    except queryset.model.DoesNotExist as exc:
         raise serializers.ValidationError({'propietario_id': 'El propietario indicado no existe.'}) from exc
 
 
@@ -81,6 +137,7 @@ class CuentaRecaudadoraSerializer(serializers.ModelSerializer):
         return data
 
     def validate(self, attrs):
+        user = _request_user(self)
         owner_tipo = attrs.pop('owner_tipo', None)
         owner_id = attrs.pop('owner_id', None)
 
@@ -90,7 +147,7 @@ class CuentaRecaudadoraSerializer(serializers.ModelSerializer):
         elif owner_tipo is None or owner_id is None:
             raise serializers.ValidationError('Debe enviar owner_tipo y owner_id.')
 
-        owner = resolve_simple_owner(owner_tipo, owner_id)
+        owner = resolve_simple_owner(owner_tipo, owner_id, user=user)
         attrs['empresa_owner'] = owner if owner_tipo == 'empresa' else None
         attrs['socio_owner'] = owner if owner_tipo == 'socio' else None
 
@@ -134,6 +191,7 @@ class IdentidadDeEnvioSerializer(serializers.ModelSerializer):
         return data
 
     def validate(self, attrs):
+        user = _request_user(self)
         owner_tipo = attrs.pop('owner_tipo', None)
         owner_id = attrs.pop('owner_id', None)
 
@@ -143,7 +201,7 @@ class IdentidadDeEnvioSerializer(serializers.ModelSerializer):
         elif owner_tipo is None or owner_id is None:
             raise serializers.ValidationError('Debe enviar owner_tipo y owner_id.')
 
-        owner = resolve_simple_owner(owner_tipo, owner_id)
+        owner = resolve_simple_owner(owner_tipo, owner_id, user=user)
         attrs['empresa_owner'] = owner if owner_tipo == 'empresa' else None
         attrs['socio_owner'] = owner if owner_tipo == 'socio' else None
 
@@ -250,6 +308,15 @@ class MandatoOperacionSerializer(serializers.ModelSerializer):
         data['recaudador_id'] = instance.recaudador_id
         return data
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['propiedad_id'].queryset = _scoped_propiedad_queryset(user)
+        self.fields['entidad_facturadora_id'].queryset = _scoped_empresa_queryset(user)
+        self.fields['cuenta_recaudadora_id'].queryset = _scoped_cuenta_queryset(user)
+
     def get_propietario_display(self, obj):
         if obj.propietario_empresa_owner_id:
             return obj.propietario_empresa_owner.razon_social
@@ -268,6 +335,7 @@ class MandatoOperacionSerializer(serializers.ModelSerializer):
         return obj.recaudador_socio_owner.nombre
 
     def validate(self, attrs):
+        user = _request_user(self)
         propietario_tipo = attrs.pop('propietario_tipo', None)
         propietario_id = attrs.pop('propietario_id', None)
         admin_tipo = attrs.pop('administrador_operativo_tipo', None)
@@ -295,9 +363,9 @@ class MandatoOperacionSerializer(serializers.ModelSerializer):
         elif recaudador_tipo is None or recaudador_id is None:
             raise serializers.ValidationError('Debe enviar recaudador_tipo y recaudador_id.')
 
-        propietario = resolve_patrimonio_owner(propietario_tipo, propietario_id)
-        admin = resolve_simple_owner(admin_tipo, admin_id)
-        recaudador = resolve_simple_owner(recaudador_tipo, recaudador_id)
+        propietario = resolve_patrimonio_owner(propietario_tipo, propietario_id, user=user)
+        admin = resolve_simple_owner(admin_tipo, admin_id, user=user)
+        recaudador = resolve_simple_owner(recaudador_tipo, recaudador_id, user=user)
 
         attrs['propietario_empresa_owner'] = propietario if propietario_tipo == 'empresa' else None
         attrs['propietario_comunidad_owner'] = propietario if propietario_tipo == 'comunidad' else None
@@ -343,6 +411,14 @@ class AsignacionCanalOperacionSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'identidad_envio_display', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['mandato_operacion_id'].queryset = _scoped_mandato_queryset(user)
+        self.fields['identidad_envio_id'].queryset = _scoped_identidad_queryset(user)
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, AsignacionCanalOperacion)

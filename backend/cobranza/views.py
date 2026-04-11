@@ -133,7 +133,7 @@ class PagoMensualGenerateView(APIView):
     permission_classes = [OperationalModulePermission]
 
     def post(self, request):
-        serializer = PagoMensualGenerateSerializer(data=request.data)
+        serializer = PagoMensualGenerateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         contrato = serializer.validated_data['contrato']
@@ -248,7 +248,7 @@ class GarantiaMovimientoCreateView(APIView):
             pk=pk,
         )
         previous_state = garantia.estado_garantia
-        serializer = GarantiaMovimientoSerializer(data=request.data, context={'garantia': garantia})
+        serializer = GarantiaMovimientoSerializer(data=request.data, context={'garantia': garantia, 'request': request})
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -359,7 +359,7 @@ class EstadoCuentaArrendatarioRebuildView(APIView):
     permission_classes = [OperationalModulePermission]
 
     def post(self, request):
-        serializer = EstadoCuentaRecalculoSerializer(data=request.data)
+        serializer = EstadoCuentaRecalculoSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         arrendatario = serializer.validated_data['arrendatario']
         ensure_queryset_scope(

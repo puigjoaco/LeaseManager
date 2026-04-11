@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
+from core.scope_access import scope_queryset_for_user
 from contratos.models import Contrato
 
 from .models import (
@@ -39,6 +40,31 @@ def build_validation_candidate(instance, model_class):
     return model_class.objects.get(pk=instance.pk)
 
 
+def _request_user(serializer):
+    request = serializer.context.get('request')
+    return getattr(request, 'user', None)
+
+
+def _scoped_contrato_queryset(user):
+    return scope_queryset_for_user(Contrato.objects.all(), user, property_paths=('mandato_operacion__propiedad_id',))
+
+
+def _scoped_arrendatario_queryset(user):
+    return scope_queryset_for_user(
+        EstadoCuentaArrendatario._meta.get_field('arrendatario').remote_field.model.objects.all(),
+        user,
+        property_paths=('contratos__mandato_operacion__propiedad_id',),
+    )
+
+
+def _scoped_historial_queryset(user):
+    return scope_queryset_for_user(
+        HistorialGarantia.objects.all(),
+        user,
+        property_paths=('garantia_contractual__contrato__mandato_operacion__propiedad_id',),
+    )
+
+
 class ValorUFDiarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = ValorUFDiario
@@ -63,6 +89,12 @@ class AjusteContratoSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['contrato'].queryset = _scoped_contrato_queryset(user)
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, AjusteContrato)
@@ -166,6 +198,12 @@ class PagoMensualGenerateSerializer(serializers.Serializer):
     anio = serializers.IntegerField(min_value=2000, max_value=9999)
     mes = serializers.IntegerField(min_value=1, max_value=12)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['contrato_id'].queryset = _scoped_contrato_queryset(user)
+
 
 class DistribucionCobroMensualSerializer(serializers.ModelSerializer):
     beneficiario_tipo = serializers.CharField(read_only=True)
@@ -224,6 +262,12 @@ class GarantiaContractualSerializer(serializers.ModelSerializer):
             'updated_at',
         )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['contrato'].queryset = _scoped_contrato_queryset(user)
+
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, GarantiaContractual)
         for field, value in attrs.items():
@@ -265,6 +309,12 @@ class GarantiaMovimientoSerializer(serializers.Serializer):
         allow_null=True,
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['movimiento_origen'].queryset = _scoped_historial_queryset(user)
+
     def create(self, validated_data):
         garantia = self.context['garantia']
         return apply_guarantee_movement(garantia=garantia, **validated_data)
@@ -286,6 +336,14 @@ class RepactacionDeudaSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['arrendatario'].queryset = _scoped_arrendatario_queryset(user)
+        self.fields['contrato_origen'].queryset = _scoped_contrato_queryset(user)
 
     def validate(self, attrs):
         if not self.instance and 'saldo_pendiente' not in attrs:
@@ -315,6 +373,14 @@ class CodigoCobroResidualSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'referencia_visible', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['arrendatario'].queryset = _scoped_arrendatario_queryset(user)
+        self.fields['contrato_origen'].queryset = _scoped_contrato_queryset(user)
 
     def validate(self, attrs):
         if not self.instance:
@@ -346,3 +412,9 @@ class EstadoCuentaArrendatarioSerializer(serializers.ModelSerializer):
 
 class EstadoCuentaRecalculoSerializer(serializers.Serializer):
     arrendatario_id = serializers.PrimaryKeyRelatedField(source='arrendatario', queryset=EstadoCuentaArrendatario._meta.get_field('arrendatario').remote_field.model.objects.all())
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['arrendatario_id'].queryset = _scoped_arrendatario_queryset(user)

@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
-from core.scope_access import ScopedQuerysetMixin
+from core.scope_access import ScopedQuerysetMixin, scope_queryset_for_user
 
 from .models import CapacidadTributariaSII, DTEEmitido, F29PreparacionMensual
 from .serializers import (
@@ -119,7 +119,7 @@ class DTEGenerateView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request):
-        serializer = DTEGenerateSerializer(data=request.data)
+        serializer = DTEGenerateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -146,7 +146,14 @@ class DTEStatusUpdateView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
-        dte = generics.get_object_or_404(DTEEmitido, pk=pk)
+        dte = generics.get_object_or_404(
+            scope_queryset_for_user(
+                DTEEmitido.objects.all(),
+                request.user,
+                company_paths=('empresa_id',),
+            ),
+            pk=pk,
+        )
         serializer = DTEStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         dte = register_dte_status(dte, **serializer.validated_data)
@@ -180,7 +187,7 @@ class F29GenerateView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request):
-        serializer = F29GenerateSerializer(data=request.data)
+        serializer = F29GenerateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         try:
             draft, created = generate_f29_draft(
@@ -209,7 +216,14 @@ class F29StatusUpdateView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
-        draft = generics.get_object_or_404(F29PreparacionMensual, pk=pk)
+        draft = generics.get_object_or_404(
+            scope_queryset_for_user(
+                F29PreparacionMensual.objects.all(),
+                request.user,
+                company_paths=('empresa_id',),
+            ),
+            pk=pk,
+        )
         serializer = F29StatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         draft = register_f29_status(draft, **serializer.validated_data)
@@ -250,7 +264,7 @@ class AnnualGenerateView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request):
-        serializer = AnnualGenerateSerializer(data=request.data)
+        serializer = AnnualGenerateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         try:
             process, ddjj, f22 = generate_annual_preparation(
@@ -282,7 +296,14 @@ class DDJJStatusUpdateView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
-        document = generics.get_object_or_404(DDJJPreparacionAnual, pk=pk)
+        document = generics.get_object_or_404(
+            scope_queryset_for_user(
+                DDJJPreparacionAnual.objects.all(),
+                request.user,
+                company_paths=('empresa_id',),
+            ),
+            pk=pk,
+        )
         serializer = AnnualStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         document = register_annual_status(document, **serializer.validated_data)
@@ -302,7 +323,14 @@ class F22StatusUpdateView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
-        document = generics.get_object_or_404(F22PreparacionAnual, pk=pk)
+        document = generics.get_object_or_404(
+            scope_queryset_for_user(
+                F22PreparacionAnual.objects.all(),
+                request.user,
+                company_paths=('empresa_id',),
+            ),
+            pk=pk,
+        )
         serializer = AnnualStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         document = register_annual_status(document, **serializer.validated_data)

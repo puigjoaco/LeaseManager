@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from core.scope_access import scope_queryset_for_user
 from cobranza.models import PagoMensual
 
 from patrimonio.models import Empresa
@@ -29,6 +30,13 @@ class CapacidadTributariaSIISerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['empresa'].queryset = scope_queryset_for_user(Empresa.objects.all(), user, company_paths=('id',))
 
 
 class DTEEmitidoSerializer(serializers.ModelSerializer):
@@ -71,6 +79,17 @@ class DTEGenerateSerializer(serializers.Serializer):
     pago_mensual_id = serializers.PrimaryKeyRelatedField(source='pago_mensual', queryset=PagoMensual.objects.all())
     tipo_dte = serializers.ChoiceField(choices=DTEEmitido._meta.get_field('tipo_dte').choices, required=False, default='34')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['pago_mensual_id'].queryset = scope_queryset_for_user(
+                PagoMensual.objects.all(),
+                user,
+                property_paths=('contrato__mandato_operacion__propiedad_id',),
+            )
+
 
 class DTEStatusSerializer(serializers.Serializer):
     estado_dte = serializers.ChoiceField(choices=DTEEmitido._meta.get_field('estado_dte').choices)
@@ -103,6 +122,13 @@ class F29GenerateSerializer(serializers.Serializer):
     empresa_id = serializers.PrimaryKeyRelatedField(source='empresa', queryset=Empresa.objects.all())
     anio = serializers.IntegerField(min_value=2000, max_value=9999)
     mes = serializers.IntegerField(min_value=1, max_value=12)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['empresa_id'].queryset = scope_queryset_for_user(Empresa.objects.all(), user, company_paths=('id',))
 
 
 class F29StatusSerializer(serializers.Serializer):
@@ -170,6 +196,13 @@ class F22PreparacionAnualSerializer(serializers.ModelSerializer):
 class AnnualGenerateSerializer(serializers.Serializer):
     empresa_id = serializers.PrimaryKeyRelatedField(source='empresa', queryset=Empresa.objects.all())
     anio_tributario = serializers.IntegerField(min_value=2000, max_value=9999)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['empresa_id'].queryset = scope_queryset_for_user(Empresa.objects.all(), user, company_paths=('id',))
 
 
 class AnnualStatusSerializer(serializers.Serializer):

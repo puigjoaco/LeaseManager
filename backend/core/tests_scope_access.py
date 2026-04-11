@@ -246,4 +246,86 @@ class ScopeFilteringAPITests(APITestCase):
             format='json',
         )
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_operator_cannot_create_mandato_with_property_outside_scope(self):
+        user = self.user_model.objects.create_user(
+            username='operator-mandato-bypass',
+            password='secret123',
+            default_role_code='OperadorDeCartera',
+        )
+        self._assign_company_scope(user, self.operator_role, self.company_a)
+        self.client.force_authenticate(user)
+
+        response = self.client.post(
+            reverse('operacion-mandato-list'),
+            {
+                'propiedad_id': self.context_b['propiedad'].id,
+                'propietario_tipo': 'empresa',
+                'propietario_id': self.company_b.id,
+                'administrador_operativo_tipo': 'empresa',
+                'administrador_operativo_id': self.company_b.id,
+                'recaudador_tipo': 'empresa',
+                'recaudador_id': self.company_b.id,
+                'entidad_facturadora_id': self.company_b.id,
+                'cuenta_recaudadora_id': self.context_b['cuenta'].id,
+                'tipo_relacion_operativa': 'mandato_externo',
+                'autoriza_recaudacion': True,
+                'autoriza_facturacion': True,
+                'autoriza_comunicacion': True,
+                'vigencia_desde': '2026-01-01',
+                'estado': 'activa',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_operator_cannot_create_contract_with_mandato_outside_scope(self):
+        user = self.user_model.objects.create_user(
+            username='operator-contract-bypass',
+            password='secret123',
+            default_role_code='OperadorDeCartera',
+        )
+        self._assign_company_scope(user, self.operator_role, self.company_a)
+        self.client.force_authenticate(user)
+
+        response = self.client.post(
+            reverse('contratos-contrato-list'),
+            {
+                'codigo_contrato': 'CTR-BYPASS',
+                'mandato_operacion': self.context_b['mandato'].id,
+                'arrendatario': self.context_a['arrendatario'].id,
+                'fecha_inicio': '2026-02-01',
+                'fecha_fin_vigente': '2026-12-31',
+                'fecha_entrega': '2026-02-01',
+                'dia_pago_mensual': 5,
+                'plazo_notificacion_termino_dias': 60,
+                'dias_prealerta_admin': 90,
+                'estado': 'vigente',
+                'tiene_tramos': False,
+                'tiene_gastos_comunes': False,
+                'contrato_propiedades': [
+                    {
+                        'propiedad_id': self.context_b['propiedad'].id,
+                        'rol_en_contrato': 'principal',
+                        'porcentaje_distribucion_interna': '100.00',
+                        'codigo_conciliacion_efectivo_snapshot': '111',
+                    }
+                ],
+                'periodos_contractuales': [
+                    {
+                        'numero_periodo': 1,
+                        'fecha_inicio': '2026-02-01',
+                        'fecha_fin': '2026-12-31',
+                        'monto_base': '100000.00',
+                        'moneda_base': 'CLP',
+                        'tipo_periodo': 'inicial',
+                        'origen_periodo': 'manual',
+                    }
+                ],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

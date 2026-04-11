@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
-from core.scope_access import ScopedQuerysetMixin
+from core.scope_access import ScopedQuerysetMixin, scope_queryset_for_user
 
 from .models import (
     AsientoContable,
@@ -201,7 +201,14 @@ class EventoContablePostView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
-        event = generics.get_object_or_404(EventoContable.objects.select_related('empresa'), pk=pk)
+        event = generics.get_object_or_404(
+            scope_queryset_for_user(
+                EventoContable.objects.select_related('empresa'),
+                request.user,
+                company_paths=('empresa_id',),
+            ),
+            pk=pk,
+        )
         asiento = post_accounting_event(event)
         create_audit_event(
             event_type='contabilidad.evento_contable.post_retried',
@@ -293,7 +300,7 @@ class CierreMensualPrepareView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request):
-        serializer = CierreMensualPrepareSerializer(data=request.data)
+        serializer = CierreMensualPrepareSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         try:
             close = prepare_monthly_close(
@@ -319,7 +326,14 @@ class CierreMensualApproveView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
-        close = generics.get_object_or_404(CierreMensualContable, pk=pk)
+        close = generics.get_object_or_404(
+            scope_queryset_for_user(
+                CierreMensualContable.objects.all(),
+                request.user,
+                company_paths=('empresa_id',),
+            ),
+            pk=pk,
+        )
         try:
             close = approve_monthly_close(close)
         except ValueError as error:
@@ -339,7 +353,14 @@ class CierreMensualReopenView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
-        close = generics.get_object_or_404(CierreMensualContable, pk=pk)
+        close = generics.get_object_or_404(
+            scope_queryset_for_user(
+                CierreMensualContable.objects.all(),
+                request.user,
+                company_paths=('empresa_id',),
+            ),
+            pk=pk,
+        )
         try:
             close = reopen_monthly_close(close)
         except ValueError as error:

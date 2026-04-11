@@ -5,6 +5,9 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from core.scope_access import scope_queryset_for_user
+from operacion.models import MandatoOperacion
+from patrimonio.models import Propiedad
 from patrimonio.validators import validate_rut
 
 from .models import (
@@ -31,6 +34,35 @@ def build_validation_candidate(instance, model_class):
     if instance is None:
         return model_class()
     return model_class.objects.get(pk=instance.pk)
+
+
+def _request_user(serializer):
+    request = serializer.context.get('request')
+    return getattr(request, 'user', None)
+
+
+def _scoped_propiedad_queryset(user):
+    return scope_queryset_for_user(Propiedad.objects.all(), user, property_paths=('id',))
+
+
+def _scoped_mandato_queryset(user):
+    return scope_queryset_for_user(MandatoOperacion.objects.all(), user, property_paths=('propiedad_id',))
+
+
+def _scoped_arrendatario_queryset(user):
+    return scope_queryset_for_user(
+        Arrendatario.objects.all(),
+        user,
+        property_paths=('contratos__mandato_operacion__propiedad_id',),
+    )
+
+
+def _scoped_contrato_queryset(user):
+    return scope_queryset_for_user(
+        Contrato.objects.all(),
+        user,
+        property_paths=('mandato_operacion__propiedad_id',),
+    )
 
 
 class ArrendatarioSerializer(serializers.ModelSerializer):
@@ -108,6 +140,12 @@ class ContratoPropiedadWriteSerializer(serializers.Serializer):
     rol_en_contrato = serializers.ChoiceField(choices=RolContratoPropiedad.choices)
     porcentaje_distribucion_interna = serializers.DecimalField(max_digits=5, decimal_places=2)
     codigo_conciliacion_efectivo_snapshot = serializers.RegexField(regex=r'^\d{3}$')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['propiedad_id'].queryset = _scoped_propiedad_queryset(user)
 
 
 class PeriodoContractualReadSerializer(serializers.ModelSerializer):
@@ -193,6 +231,14 @@ class ContratoSerializer(serializers.ModelSerializer):
 
     def get_codeudores_solidarios_detail(self, obj):
         return CodeudorSolidarioReadSerializer(obj.codeudores_solidarios.all(), many=True).data
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['mandato_operacion'].queryset = _scoped_mandato_queryset(user)
+        self.fields['arrendatario'].queryset = _scoped_arrendatario_queryset(user)
 
     def _get_nested_payload(self, attrs, attr_name, queryset):
         if attr_name in attrs:
@@ -482,6 +528,12 @@ class AvisoTerminoSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = ('id', 'registrado_por', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['contrato'].queryset = _scoped_contrato_queryset(user)
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, AvisoTermino)
