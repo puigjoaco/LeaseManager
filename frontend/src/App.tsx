@@ -133,7 +133,87 @@ type AvisoTermino = {
   estado: string
 }
 
-type ViewKey = 'overview' | 'patrimonio' | 'operacion' | 'contratos'
+type ValorUF = {
+  id: number
+  fecha: string
+  valor: string
+  source_key: string
+}
+
+type AjusteContrato = {
+  id: number
+  contrato: number
+  tipo_ajuste: string
+  monto: string
+  moneda: string
+  mes_inicio: string
+  mes_fin: string
+  justificacion: string
+  activo: boolean
+}
+
+type PagoMensual = {
+  id: number
+  contrato: number
+  periodo_contractual: number
+  mes: number
+  anio: number
+  monto_facturable_clp: string
+  monto_calculado_clp: string
+  monto_pagado_clp: string
+  fecha_vencimiento: string
+  fecha_deposito_banco: string | null
+  fecha_deteccion_sistema: string | null
+  estado_pago: string
+  dias_mora: number
+  codigo_conciliacion_efectivo: string
+  distribuciones_detail: Array<{
+    id: number
+    beneficiario_tipo: string
+    beneficiario_display: string
+    monto_devengado_clp: string
+    monto_conciliado_clp: string
+    monto_facturable_clp: string
+    requiere_dte: boolean
+  }>
+}
+
+type Garantia = {
+  id: number
+  contrato: number
+  monto_pactado: string
+  monto_recibido: string
+  monto_devuelto: string
+  monto_aplicado: string
+  saldo_vigente: string
+  estado_garantia: string
+}
+
+type HistorialGarantia = {
+  id: number
+  garantia_contractual: number
+  contrato_id: number
+  tipo_movimiento: string
+  monto_clp: string
+  fecha: string
+  justificacion: string
+}
+
+type EstadoCuenta = {
+  id: number
+  arrendatario: number
+  resumen_operativo: {
+    pagos_abiertos?: number
+    pagos_atrasados?: number
+    repactaciones_activas?: number
+    cobranzas_residuales_activas?: number
+    saldo_total_clp?: string
+  }
+  score_pago: number | null
+  observaciones: string
+}
+
+type ViewKey = 'overview' | 'patrimonio' | 'operacion' | 'contratos' | 'cobranza'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type Column<T> = { label: string; render: (row: T) => ReactNode }
 
@@ -287,6 +367,12 @@ function App() {
   const [mandatos, setMandatos] = useState<Mandato[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [avisos, setAvisos] = useState<AvisoTermino[]>([])
+  const [valoresUf, setValoresUf] = useState<ValorUF[]>([])
+  const [ajustes, setAjustes] = useState<AjusteContrato[]>([])
+  const [pagos, setPagos] = useState<PagoMensual[]>([])
+  const [garantias, setGarantias] = useState<Garantia[]>([])
+  const [historialGarantias, setHistorialGarantias] = useState<HistorialGarantia[]>([])
+  const [estadosCuenta, setEstadosCuenta] = useState<EstadoCuenta[]>([])
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -381,6 +467,40 @@ function App() {
     causal: '',
     estado: 'registrado',
   })
+  const [ufDraft, setUfDraft] = useState({
+    fecha: todayIso(),
+    valor: '',
+    source_key: 'manual',
+  })
+  const [ajusteDraft, setAjusteDraft] = useState({
+    contrato: '',
+    tipo_ajuste: 'cargo_extra',
+    monto: '',
+    moneda: 'CLP',
+    mes_inicio: todayIso(),
+    mes_fin: todayIso(),
+    justificacion: '',
+    activo: true,
+  })
+  const [pagoDraft, setPagoDraft] = useState({
+    contrato_id: '',
+    anio: '2026',
+    mes: '4',
+  })
+  const [garantiaDraft, setGarantiaDraft] = useState({
+    contrato: '',
+    monto_pactado: '',
+  })
+  const [garantiaMovimientoDraft, setGarantiaMovimientoDraft] = useState({
+    garantiaId: '',
+    tipo_movimiento: 'deposito',
+    monto_clp: '',
+    fecha: todayIso(),
+    justificacion: '',
+  })
+  const [estadoCuentaDraft, setEstadoCuentaDraft] = useState({
+    arrendatario_id: '',
+  })
 
   async function loadHealth() {
     try {
@@ -408,6 +528,12 @@ function App() {
         mandatosPayload,
         contratosPayload,
         avisosPayload,
+        valoresUfPayload,
+        ajustesPayload,
+        pagosPayload,
+        garantiasPayload,
+        historialGarantiasPayload,
+        estadosCuentaPayload,
       ] = await Promise.all([
         apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken }),
         apiRequest<Dashboard>('/api/v1/reporting/dashboard/operativo/', { token: activeToken }),
@@ -424,6 +550,12 @@ function App() {
         apiRequest<Mandato[]>('/api/v1/operacion/mandatos/', { token: activeToken }),
         apiRequest<Contrato[]>('/api/v1/contratos/contratos/', { token: activeToken }),
         apiRequest<AvisoTermino[]>('/api/v1/contratos/avisos-termino/', { token: activeToken }),
+        apiRequest<ValorUF[]>('/api/v1/cobranza/valores-uf/', { token: activeToken }),
+        apiRequest<AjusteContrato[]>('/api/v1/cobranza/ajustes-contrato/', { token: activeToken }),
+        apiRequest<PagoMensual[]>('/api/v1/cobranza/pagos-mensuales/', { token: activeToken }),
+        apiRequest<Garantia[]>('/api/v1/cobranza/garantias/', { token: activeToken }),
+        apiRequest<HistorialGarantia[]>('/api/v1/cobranza/historial-garantias/', { token: activeToken }),
+        apiRequest<EstadoCuenta[]>('/api/v1/cobranza/estados-cuenta/', { token: activeToken }),
       ])
       setCurrentUser(me)
       setDashboard(dashboardPayload)
@@ -438,6 +570,12 @@ function App() {
       setMandatos(mandatosPayload)
       setContratos(contratosPayload)
       setAvisos(avisosPayload)
+      setValoresUf(valoresUfPayload)
+      setAjustes(ajustesPayload)
+      setPagos(pagosPayload)
+      setGarantias(garantiasPayload)
+      setHistorialGarantias(historialGarantiasPayload)
+      setEstadosCuenta(estadosCuentaPayload)
       setLastLoadedAt(new Date().toISOString())
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -508,6 +646,12 @@ function App() {
     setMandatos([])
     setContratos([])
     setAvisos([])
+    setValoresUf([])
+    setAjustes([])
+    setPagos([])
+    setGarantias([])
+    setHistorialGarantias([])
+    setEstadosCuenta([])
   }
 
   async function submitCreate(path: string, body: unknown, successMessage: string) {
@@ -710,6 +854,90 @@ function App() {
     }
   }
 
+  async function handleCreateUf(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/cobranza/valores-uf/', ufDraft, 'Valor UF creado correctamente.')
+    if (ok) {
+      setUfDraft({ fecha: todayIso(), valor: '', source_key: 'manual' })
+    }
+  }
+
+  async function handleCreateAjuste(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/cobranza/ajustes-contrato/', {
+      ...ajusteDraft,
+      contrato: Number(ajusteDraft.contrato),
+    }, 'Ajuste creado correctamente.')
+    if (ok) {
+      setAjusteDraft({
+        contrato: '',
+        tipo_ajuste: 'cargo_extra',
+        monto: '',
+        moneda: 'CLP',
+        mes_inicio: todayIso(),
+        mes_fin: todayIso(),
+        justificacion: '',
+        activo: true,
+      })
+    }
+  }
+
+  async function handleGeneratePago(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/cobranza/pagos-mensuales/generar/', {
+      contrato_id: Number(pagoDraft.contrato_id),
+      anio: Number(pagoDraft.anio),
+      mes: Number(pagoDraft.mes),
+    }, 'Pago mensual generado correctamente.')
+    if (ok) {
+      setPagoDraft({ contrato_id: '', anio: '2026', mes: '4' })
+    }
+  }
+
+  async function handleCreateGarantia(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/cobranza/garantias/', {
+      contrato: Number(garantiaDraft.contrato),
+      monto_pactado: garantiaDraft.monto_pactado,
+    }, 'Garantía creada correctamente.')
+    if (ok) {
+      setGarantiaDraft({ contrato: '', monto_pactado: '' })
+    }
+  }
+
+  async function handleGarantiaMovimiento(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!garantiaMovimientoDraft.garantiaId) {
+      setFormError('Debes seleccionar una garantía válida.')
+      return
+    }
+    const ok = await submitCreate(`/api/v1/cobranza/garantias/${Number(garantiaMovimientoDraft.garantiaId)}/movimientos/`, {
+      tipo_movimiento: garantiaMovimientoDraft.tipo_movimiento,
+      monto_clp: garantiaMovimientoDraft.monto_clp,
+      fecha: garantiaMovimientoDraft.fecha,
+      justificacion: garantiaMovimientoDraft.justificacion,
+    }, 'Movimiento de garantía registrado correctamente.')
+    if (ok) {
+      setGarantiaMovimientoDraft({
+        garantiaId: '',
+        tipo_movimiento: 'deposito',
+        monto_clp: '',
+        fecha: todayIso(),
+        justificacion: '',
+      })
+    }
+  }
+
+  async function handleRebuildEstadoCuenta(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const ok = await submitCreate('/api/v1/cobranza/estados-cuenta/recalcular/', {
+      arrendatario_id: Number(estadoCuentaDraft.arrendatario_id),
+    }, 'Estado de cuenta recalculado correctamente.')
+    if (ok) {
+      setEstadoCuentaDraft({ arrendatario_id: '' })
+    }
+  }
+
   const normalizedSearch = searchText.trim().toLowerCase()
   const filteredSocios = useMemo(
     () => socios.filter((item) => matches(normalizedSearch, [item.nombre, item.rut, item.email, item.telefono])),
@@ -815,6 +1043,63 @@ function App() {
       ),
     [avisos, normalizedSearch],
   )
+  const filteredValoresUf = useMemo(
+    () => valoresUf.filter((item) => matches(normalizedSearch, [item.fecha, item.valor, item.source_key])),
+    [valoresUf, normalizedSearch],
+  )
+  const filteredAjustes = useMemo(
+    () =>
+      ajustes.filter((item) =>
+        matches(normalizedSearch, [
+          item.tipo_ajuste,
+          item.monto,
+          item.moneda,
+          item.justificacion,
+          item.contrato,
+        ]),
+      ),
+    [ajustes, normalizedSearch],
+  )
+  const filteredPagos = useMemo(
+    () =>
+      pagos.filter((item) =>
+        matches(normalizedSearch, [
+          item.contrato,
+          item.anio,
+          item.mes,
+          item.estado_pago,
+          item.codigo_conciliacion_efectivo,
+          item.monto_calculado_clp,
+        ]),
+      ),
+    [pagos, normalizedSearch],
+  )
+  const filteredGarantias = useMemo(
+    () =>
+      garantias.filter((item) =>
+        matches(normalizedSearch, [
+          item.contrato,
+          item.estado_garantia,
+          item.monto_pactado,
+          item.saldo_vigente,
+        ]),
+      ),
+    [garantias, normalizedSearch],
+  )
+  const filteredHistorialGarantias = useMemo(
+    () =>
+      historialGarantias.filter((item) =>
+        matches(normalizedSearch, [item.contrato_id, item.tipo_movimiento, item.monto_clp, item.justificacion]),
+      ),
+    [historialGarantias, normalizedSearch],
+  )
+  const filteredEstadosCuenta = useMemo(
+    () =>
+      estadosCuenta.filter((item) =>
+        matches(normalizedSearch, [item.arrendatario, item.score_pago, item.resumen_operativo.saldo_total_clp]),
+      ),
+    [estadosCuenta, normalizedSearch],
+  )
   const patrimonioOwners = useMemo(
     () => [
       ...empresas.map((item) => ({ tipo: 'empresa', id: item.id, label: item.razon_social })),
@@ -902,7 +1187,7 @@ function App() {
       </header>
 
       <section className="tab-strip">
-        {(['overview', 'patrimonio', 'operacion', 'contratos'] as ViewKey[]).map((view) => (
+        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza'] as ViewKey[]).map((view) => (
           <button
             key={view}
             type="button"
@@ -915,7 +1200,9 @@ function App() {
                 ? 'Patrimonio'
                 : view === 'operacion'
                   ? 'Operación'
-                  : 'Contratos'}
+                  : view === 'contratos'
+                    ? 'Contratos'
+                    : 'Cobranza'}
           </button>
         ))}
       </section>
@@ -977,14 +1264,22 @@ function App() {
         <section className="section-toolbar">
           <div>
             <p className="section-tag">
-              {activeView === 'patrimonio' ? 'Patrimonio' : activeView === 'operacion' ? 'Operación' : 'Contratos'}
+              {activeView === 'patrimonio'
+                ? 'Patrimonio'
+                : activeView === 'operacion'
+                  ? 'Operación'
+                  : activeView === 'contratos'
+                    ? 'Contratos'
+                    : 'Cobranza'}
             </p>
             <h2>
               {activeView === 'patrimonio'
                 ? 'Owners, comunidades y propiedades'
                 : activeView === 'operacion'
                   ? 'Cuentas, identidades y mandatos'
-                  : 'Arrendatarios, contratos y avisos'}
+                  : activeView === 'contratos'
+                    ? 'Arrendatarios, contratos y avisos'
+                    : 'Pagos, UF, ajustes, garantías y estado de cuenta'}
             </h2>
           </div>
           <label className="search-field">
@@ -997,7 +1292,9 @@ function App() {
                   ? 'Nombre, RUT, dirección u owner'
                   : activeView === 'operacion'
                     ? 'Cuenta, owner, canal o mandato'
-                    : 'Código, arrendatario, propiedad o causal'
+                    : activeView === 'contratos'
+                      ? 'Código, arrendatario, propiedad o causal'
+                      : 'Contrato, monto, estado, UF o garantía'
               }
             />
           </label>
@@ -1316,6 +1613,153 @@ function App() {
             { label: 'Fecha efectiva', render: (row) => row.fecha_efectiva },
             { label: 'Causal', render: (row) => row.causal },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+        </>
+      ) : null}
+
+      {activeView === 'cobranza' ? (
+        <>
+          <section className="form-grid">
+            <section className="panel">
+              <div className="section-heading"><div><h2>Valor UF</h2><p>Registro diario mínimo para contratos en UF.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateUf}>
+                <input type="date" value={ufDraft.fecha} onChange={(event) => setUfDraft((current) => ({ ...current, fecha: event.target.value }))} />
+                <input placeholder="Valor UF" value={ufDraft.valor} onChange={(event) => setUfDraft((current) => ({ ...current, valor: event.target.value }))} />
+                <input placeholder="Source key" value={ufDraft.source_key} onChange={(event) => setUfDraft((current) => ({ ...current, source_key: event.target.value }))} />
+                <button type="submit" className="button-primary" disabled={isSubmitting || !ufDraft.valor}>Guardar UF</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Ajuste de contrato</h2><p>Cargos o descuentos vigentes por rango mensual.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateAjuste}>
+                <select value={ajusteDraft.contrato} onChange={(event) => setAjusteDraft((current) => ({ ...current, contrato: event.target.value }))}>
+                  <option value="">Selecciona contrato</option>
+                  {contratos.map((item) => (
+                    <option key={item.id} value={item.id}>{item.codigo_contrato}</option>
+                  ))}
+                </select>
+                <input placeholder="Tipo ajuste" value={ajusteDraft.tipo_ajuste} onChange={(event) => setAjusteDraft((current) => ({ ...current, tipo_ajuste: event.target.value }))} />
+                <input placeholder="Monto" value={ajusteDraft.monto} onChange={(event) => setAjusteDraft((current) => ({ ...current, monto: event.target.value }))} />
+                <select value={ajusteDraft.moneda} onChange={(event) => setAjusteDraft((current) => ({ ...current, moneda: event.target.value }))}>
+                  <option value="CLP">CLP</option>
+                  <option value="UF">UF</option>
+                </select>
+                <input type="date" value={ajusteDraft.mes_inicio} onChange={(event) => setAjusteDraft((current) => ({ ...current, mes_inicio: event.target.value }))} />
+                <input type="date" value={ajusteDraft.mes_fin} onChange={(event) => setAjusteDraft((current) => ({ ...current, mes_fin: event.target.value }))} />
+                <input placeholder="Justificación" value={ajusteDraft.justificacion} onChange={(event) => setAjusteDraft((current) => ({ ...current, justificacion: event.target.value }))} />
+                <label className="checkbox-row"><input type="checkbox" checked={ajusteDraft.activo} onChange={(event) => setAjusteDraft((current) => ({ ...current, activo: event.target.checked }))} />Activo</label>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !ajusteDraft.contrato || !ajusteDraft.monto}>Guardar ajuste</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Generar pago mensual</h2><p>Usa el período vigente, UF y ajustes activos del contrato.</p></div></div>
+              <form className="entity-form" onSubmit={handleGeneratePago}>
+                <select value={pagoDraft.contrato_id} onChange={(event) => setPagoDraft((current) => ({ ...current, contrato_id: event.target.value }))}>
+                  <option value="">Selecciona contrato</option>
+                  {contratos.map((item) => (
+                    <option key={item.id} value={item.id}>{item.codigo_contrato}</option>
+                  ))}
+                </select>
+                <input placeholder="Año" value={pagoDraft.anio} onChange={(event) => setPagoDraft((current) => ({ ...current, anio: event.target.value }))} />
+                <input placeholder="Mes" value={pagoDraft.mes} onChange={(event) => setPagoDraft((current) => ({ ...current, mes: event.target.value }))} />
+                <button type="submit" className="button-primary" disabled={isSubmitting || !pagoDraft.contrato_id}>Generar pago</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Garantía contractual</h2><p>Alta de garantía y movimientos principales.</p></div></div>
+              <form className="entity-form" onSubmit={handleCreateGarantia}>
+                <select value={garantiaDraft.contrato} onChange={(event) => setGarantiaDraft((current) => ({ ...current, contrato: event.target.value }))}>
+                  <option value="">Selecciona contrato</option>
+                  {contratos.map((item) => (
+                    <option key={item.id} value={item.id}>{item.codigo_contrato}</option>
+                  ))}
+                </select>
+                <input placeholder="Monto pactado" value={garantiaDraft.monto_pactado} onChange={(event) => setGarantiaDraft((current) => ({ ...current, monto_pactado: event.target.value }))} />
+                <button type="submit" className="button-primary" disabled={isSubmitting || !garantiaDraft.contrato || !garantiaDraft.monto_pactado}>Guardar garantía</button>
+              </form>
+              <form className="entity-form subform" onSubmit={handleGarantiaMovimiento}>
+                <select value={garantiaMovimientoDraft.garantiaId} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, garantiaId: event.target.value }))}>
+                  <option value="">Selecciona garantía</option>
+                  {garantias.map((item) => (
+                    <option key={item.id} value={item.id}>{contratoById.get(item.contrato)?.codigo_contrato || item.contrato}</option>
+                  ))}
+                </select>
+                <select value={garantiaMovimientoDraft.tipo_movimiento} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, tipo_movimiento: event.target.value }))}>
+                  <option value="deposito">Depósito</option>
+                  <option value="devolucion_parcial">Devolución parcial</option>
+                  <option value="devolucion_total">Devolución total</option>
+                  <option value="retencion_parcial">Retención parcial</option>
+                  <option value="retencion_total">Retención total</option>
+                </select>
+                <input placeholder="Monto movimiento" value={garantiaMovimientoDraft.monto_clp} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, monto_clp: event.target.value }))} />
+                <input type="date" value={garantiaMovimientoDraft.fecha} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, fecha: event.target.value }))} />
+                <input placeholder="Justificación" value={garantiaMovimientoDraft.justificacion} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, justificacion: event.target.value }))} />
+                <button type="submit" className="button-secondary" disabled={isSubmitting || !garantiaMovimientoDraft.garantiaId || !garantiaMovimientoDraft.monto_clp}>Registrar movimiento</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading"><div><h2>Estado de cuenta</h2><p>Reconstrucción del resumen operativo por arrendatario.</p></div></div>
+              <form className="entity-form" onSubmit={handleRebuildEstadoCuenta}>
+                <select value={estadoCuentaDraft.arrendatario_id} onChange={(event) => setEstadoCuentaDraft({ arrendatario_id: event.target.value })}>
+                  <option value="">Selecciona arrendatario</option>
+                  {arrendatarios.map((item) => (
+                    <option key={item.id} value={item.id}>{item.nombre_razon_social}</option>
+                  ))}
+                </select>
+                <button type="submit" className="button-primary" disabled={isSubmitting || !estadoCuentaDraft.arrendatario_id}>Recalcular estado</button>
+              </form>
+            </section>
+          </section>
+
+          <TableBlock title="Valores UF" subtitle="Fuente de conversión mensual para contratos en UF." rows={filteredValoresUf} empty="No hay valores UF para este filtro." columns={[
+            { label: 'Fecha', render: (row) => row.fecha },
+            { label: 'Valor', render: (row) => row.valor },
+            { label: 'Source', render: (row) => row.source_key },
+          ]} />
+
+          <TableBlock title="Ajustes de contrato" subtitle="Ajustes activos y programados por contrato." rows={filteredAjustes} empty="No hay ajustes para este filtro." columns={[
+            { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
+            { label: 'Tipo', render: (row) => row.tipo_ajuste },
+            { label: 'Monto', render: (row) => `${row.monto} ${row.moneda}` },
+            { label: 'Rango', render: (row) => `${row.mes_inicio} → ${row.mes_fin}` },
+            { label: 'Activo', render: (row) => <Badge label={row.activo ? 'activo' : 'inactivo'} tone={row.activo ? 'positive' : 'danger'} /> },
+          ]} />
+
+          <TableBlock title="Pagos mensuales" subtitle="Cobro calculado, estado y distribución económica." rows={filteredPagos} empty="No hay pagos para este filtro." columns={[
+            { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
+            { label: 'Periodo', render: (row) => `${row.mes}/${row.anio}` },
+            { label: 'Facturable', render: (row) => row.monto_facturable_clp },
+            { label: 'Calculado', render: (row) => row.monto_calculado_clp },
+            { label: 'Pagado', render: (row) => row.monto_pagado_clp },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_pago} tone={toneFor(row.estado_pago)} /> },
+          ]} />
+
+          <TableBlock title="Garantías" subtitle="Saldos y estado actual de cada contrato." rows={filteredGarantias} empty="No hay garantías para este filtro." columns={[
+            { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
+            { label: 'Pactado', render: (row) => row.monto_pactado },
+            { label: 'Recibido', render: (row) => row.monto_recibido },
+            { label: 'Saldo', render: (row) => row.saldo_vigente },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_garantia} tone={toneFor(row.estado_garantia)} /> },
+          ]} />
+
+          <TableBlock title="Historial de garantías" subtitle="Movimientos auditables sobre depósitos, devoluciones y retenciones." rows={filteredHistorialGarantias} empty="No hay movimientos de garantía para este filtro." columns={[
+            { label: 'Contrato', render: (row) => contratoById.get(row.contrato_id)?.codigo_contrato || row.contrato_id },
+            { label: 'Tipo', render: (row) => row.tipo_movimiento },
+            { label: 'Monto', render: (row) => row.monto_clp },
+            { label: 'Fecha', render: (row) => row.fecha },
+            { label: 'Justificación', render: (row) => row.justificacion || 'Sin nota' },
+          ]} />
+
+          <TableBlock title="Estado de cuenta" subtitle="Resumen operativo consolidado por arrendatario." rows={filteredEstadosCuenta} empty="No hay estados de cuenta para este filtro." columns={[
+            { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
+            { label: 'Pagos abiertos', render: (row) => count(row.resumen_operativo.pagos_abiertos) },
+            { label: 'Pagos atrasados', render: (row) => count(row.resumen_operativo.pagos_atrasados) },
+            { label: 'Saldo total', render: (row) => row.resumen_operativo.saldo_total_clp || '0.00' },
+            { label: 'Score', render: (row) => row.score_pago ?? 'Sin score' },
           ]} />
         </>
       ) : null}
