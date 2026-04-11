@@ -929,6 +929,30 @@ function App() {
   const [reportingBooksSummary, setReportingBooksSummary] = useState<ReportingBooksSummary | null>(null)
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
+  const [reportingFinancialDraft, setReportingFinancialDraft] = useState({
+    anio: '2026',
+    mes: '5',
+    empresa_id: '',
+  })
+  const [reportingPartnerDraft, setReportingPartnerDraft] = useState({
+    socio_id: '',
+  })
+  const [reportingBooksDraft, setReportingBooksDraft] = useState({
+    empresa_id: '',
+    periodo: '2026-05',
+  })
+  const [reportingAnnualDraft, setReportingAnnualDraft] = useState({
+    anio_tributario: '2027',
+    empresa_id: '',
+  })
+  const [reportingMigrationDraft, setReportingMigrationDraft] = useState({
+    status: 'open',
+  })
+  const [reportingFinancialSummary, setReportingFinancialSummary] = useState<ReportingFinancialSummary | null>(null)
+  const [reportingPartnerSummary, setReportingPartnerSummary] = useState<ReportingPartnerSummary | null>(null)
+  const [reportingBooksSummary, setReportingBooksSummary] = useState<ReportingBooksSummary | null>(null)
+  const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
+  const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
 
   async function loadHealth() {
     try {
@@ -1736,6 +1760,81 @@ function App() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  async function fetchReportingData<T>(path: string, onSuccess: (payload: T) => void, successMessage: string) {
+    if (!token) return
+    setIsSubmitting(true)
+    setFormMessage(null)
+    setFormError(null)
+    try {
+      const payload = await apiRequest<T>(path, { token })
+      onSuccess(payload)
+      setFormMessage(successMessage)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo cargar el reporte.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleFetchFinancialSummary(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const query = new URLSearchParams({
+      anio: reportingFinancialDraft.anio,
+      mes: reportingFinancialDraft.mes,
+    })
+    if (reportingFinancialDraft.empresa_id) query.set('empresa_id', reportingFinancialDraft.empresa_id)
+    await fetchReportingData<ReportingFinancialSummary>(
+      `/api/v1/reporting/financiero/mensual/?${query.toString()}`,
+      setReportingFinancialSummary,
+      'Resumen financiero cargado correctamente.',
+    )
+  }
+
+  async function handleFetchPartnerSummary(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await fetchReportingData<ReportingPartnerSummary>(
+      `/api/v1/reporting/socios/${Number(reportingPartnerDraft.socio_id)}/resumen/`,
+      setReportingPartnerSummary,
+      'Resumen de socio cargado correctamente.',
+    )
+  }
+
+  async function handleFetchBooksSummary(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const query = new URLSearchParams({
+      empresa_id: reportingBooksDraft.empresa_id,
+      periodo: reportingBooksDraft.periodo,
+    })
+    await fetchReportingData<ReportingBooksSummary>(
+      `/api/v1/reporting/contabilidad/libros-periodo/?${query.toString()}`,
+      setReportingBooksSummary,
+      'Resumen de libros cargado correctamente.',
+    )
+  }
+
+  async function handleFetchAnnualSummary(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const query = new URLSearchParams({
+      anio_tributario: reportingAnnualDraft.anio_tributario,
+    })
+    if (reportingAnnualDraft.empresa_id) query.set('empresa_id', reportingAnnualDraft.empresa_id)
+    await fetchReportingData<ReportingAnnualSummary>(
+      `/api/v1/reporting/tributario/anual/?${query.toString()}`,
+      setReportingAnnualSummary,
+      'Resumen anual cargado correctamente.',
+    )
+  }
+
+  async function handleFetchMigrationSummary(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const query = new URLSearchParams({ status: reportingMigrationDraft.status })
+    await fetchReportingData<ReportingMigrationSummary>(
+      `/api/v1/reporting/migracion/resoluciones-manuales/?${query.toString()}`,
+      setReportingMigrationSummary,
+      'Resumen de resoluciones manuales cargado correctamente.',
+    )
   }
 
   async function fetchReportingData<T>(path: string, onSuccess: (payload: T) => void, successMessage: string) {
