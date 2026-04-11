@@ -1,6 +1,6 @@
 from audit.services import create_audit_event
+from core.permissions import OperationalModulePermission
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
 
 from .models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio
 from .serializers import (
@@ -50,7 +50,7 @@ class AuditCreateUpdateMixin:
 
 
 class SocioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = SocioSerializer
     queryset = Socio.objects.all()
     audit_entity_type = 'socio'
@@ -58,7 +58,7 @@ class SocioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
 
 
 class SocioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = SocioSerializer
     queryset = Socio.objects.all()
     audit_entity_type = 'socio'
@@ -66,7 +66,7 @@ class SocioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
 
 
 class EmpresaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = EmpresaSerializer
     queryset = Empresa.objects.prefetch_related('participaciones__participante_socio').all()
     audit_entity_type = 'empresa'
@@ -74,7 +74,7 @@ class EmpresaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
 
 
 class EmpresaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = EmpresaSerializer
     queryset = Empresa.objects.prefetch_related('participaciones__participante_socio').all()
     audit_entity_type = 'empresa'
@@ -82,7 +82,7 @@ class EmpresaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
 
 
 class ComunidadListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ComunidadPatrimonialSerializer
     queryset = ComunidadPatrimonial.objects.prefetch_related(
         'representaciones__socio_representante',
@@ -94,7 +94,7 @@ class ComunidadListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView
 
 
 class ComunidadDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ComunidadPatrimonialSerializer
     queryset = ComunidadPatrimonial.objects.prefetch_related(
         'representaciones__socio_representante',
@@ -106,7 +106,7 @@ class ComunidadDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView
 
 
 class PropiedadListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = PropiedadSerializer
     queryset = Propiedad.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner').all()
     audit_entity_type = 'propiedad'
@@ -114,7 +114,7 @@ class PropiedadListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView
 
 
 class PropiedadDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = PropiedadSerializer
     queryset = Propiedad.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner').all()
     audit_entity_type = 'propiedad'
@@ -122,7 +122,7 @@ class PropiedadDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView
 
 
 class ParticipacionListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ParticipacionPatrimonialReadSerializer
     queryset = ParticipacionPatrimonial.objects.select_related(
         'participante_socio',
@@ -133,7 +133,7 @@ class ParticipacionListView(generics.ListAPIView):
 
 
 class ParticipacionDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ParticipacionPatrimonialReadSerializer
     queryset = ParticipacionPatrimonial.objects.select_related(
         'participante_socio',

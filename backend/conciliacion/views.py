@@ -1,10 +1,10 @@
 from django.db import transaction
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
+from core.permissions import OperationalModulePermission
 
 from .models import ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
 from .serializers import ConexionBancariaSerializer, IngresoDesconocidoSerializer, MovimientoBancarioImportadoSerializer
@@ -54,7 +54,7 @@ class AuditCreateUpdateMixin:
 
 
 class ConexionBancariaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ConexionBancariaSerializer
     queryset = ConexionBancaria.objects.select_related('cuenta_recaudadora').all()
     audit_entity_type = 'conexion_bancaria'
@@ -62,7 +62,7 @@ class ConexionBancariaListCreateView(AuditCreateUpdateMixin, generics.ListCreate
 
 
 class ConexionBancariaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ConexionBancariaSerializer
     queryset = ConexionBancaria.objects.select_related('cuenta_recaudadora').all()
     audit_entity_type = 'conexion_bancaria'
@@ -70,7 +70,7 @@ class ConexionBancariaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdate
 
 
 class MovimientoBancarioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = MovimientoBancarioImportadoSerializer
     queryset = MovimientoBancarioImportado.objects.select_related(
         'conexion_bancaria',
@@ -95,7 +95,7 @@ class MovimientoBancarioListCreateView(AuditCreateUpdateMixin, generics.ListCrea
 
 
 class MovimientoBancarioDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = MovimientoBancarioImportadoSerializer
     queryset = MovimientoBancarioImportado.objects.select_related(
         'conexion_bancaria',
@@ -105,7 +105,7 @@ class MovimientoBancarioDetailView(generics.RetrieveAPIView):
 
 
 class MovimientoBancarioRetryMatchView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
 
     def post(self, request, pk):
         movimiento = generics.get_object_or_404(
@@ -126,13 +126,12 @@ class MovimientoBancarioRetryMatchView(APIView):
 
 
 class IngresoDesconocidoListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = IngresoDesconocidoSerializer
     queryset = IngresoDesconocido.objects.select_related('movimiento_bancario', 'cuenta_recaudadora').all()
 
 
 class IngresoDesconocidoDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = IngresoDesconocidoSerializer
     queryset = IngresoDesconocido.objects.select_related('movimiento_bancario', 'cuenta_recaudadora').all()
-

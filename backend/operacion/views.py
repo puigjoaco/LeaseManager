@@ -1,6 +1,6 @@
 from audit.services import create_audit_event
+from core.permissions import OperationalModulePermission
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
 
 from .models import AsignacionCanalOperacion, CuentaRecaudadora, IdentidadDeEnvio, MandatoOperacion
 from .serializers import (
@@ -48,7 +48,7 @@ class AuditCreateUpdateMixin:
 
 
 class CuentaRecaudadoraListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = CuentaRecaudadoraSerializer
     queryset = CuentaRecaudadora.objects.select_related('empresa_owner', 'socio_owner').all()
     audit_entity_type = 'cuenta_recaudadora'
@@ -56,7 +56,7 @@ class CuentaRecaudadoraListCreateView(AuditCreateUpdateMixin, generics.ListCreat
 
 
 class CuentaRecaudadoraDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = CuentaRecaudadoraSerializer
     queryset = CuentaRecaudadora.objects.select_related('empresa_owner', 'socio_owner').all()
     audit_entity_type = 'cuenta_recaudadora'
@@ -64,7 +64,7 @@ class CuentaRecaudadoraDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdat
 
 
 class IdentidadDeEnvioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = IdentidadDeEnvioSerializer
     queryset = IdentidadDeEnvio.objects.select_related('empresa_owner', 'socio_owner').all()
     audit_entity_type = 'identidad_envio'
@@ -72,7 +72,7 @@ class IdentidadDeEnvioListCreateView(AuditCreateUpdateMixin, generics.ListCreate
 
 
 class IdentidadDeEnvioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = IdentidadDeEnvioSerializer
     queryset = IdentidadDeEnvio.objects.select_related('empresa_owner', 'socio_owner').all()
     audit_entity_type = 'identidad_envio'
@@ -80,7 +80,7 @@ class IdentidadDeEnvioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdate
 
 
 class MandatoOperacionListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = MandatoOperacionSerializer
     queryset = MandatoOperacion.objects.select_related(
         'propiedad',
@@ -99,7 +99,7 @@ class MandatoOperacionListCreateView(AuditCreateUpdateMixin, generics.ListCreate
 
 
 class MandatoOperacionDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = MandatoOperacionSerializer
     queryset = MandatoOperacion.objects.select_related(
         'propiedad',
@@ -118,7 +118,7 @@ class MandatoOperacionDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdate
 
 
 class AsignacionCanalOperacionListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = AsignacionCanalOperacionSerializer
     queryset = AsignacionCanalOperacion.objects.select_related(
         'mandato_operacion',
@@ -129,7 +129,7 @@ class AsignacionCanalOperacionListCreateView(AuditCreateUpdateMixin, generics.Li
 
 
 class AsignacionCanalOperacionDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = AsignacionCanalOperacionSerializer
     queryset = AsignacionCanalOperacion.objects.select_related(
         'mandato_operacion',

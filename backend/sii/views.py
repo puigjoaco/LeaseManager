@@ -1,9 +1,9 @@
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
+from core.permissions import ControlModulePermission
 
 from .models import CapacidadTributariaSII, DTEEmitido, F29PreparacionMensual
 from .serializers import (
@@ -69,7 +69,7 @@ class AuditCreateUpdateMixin:
 
 
 class CapacidadTributariaSIIListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = CapacidadTributariaSIISerializer
     queryset = CapacidadTributariaSII.objects.select_related('empresa').all()
     audit_entity_type = 'capacidad_sii'
@@ -77,7 +77,7 @@ class CapacidadTributariaSIIListCreateView(AuditCreateUpdateMixin, generics.List
 
 
 class CapacidadTributariaSIIDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = CapacidadTributariaSIISerializer
     queryset = CapacidadTributariaSII.objects.select_related('empresa').all()
     audit_entity_type = 'capacidad_sii'
@@ -85,7 +85,7 @@ class CapacidadTributariaSIIDetailView(AuditCreateUpdateMixin, generics.Retrieve
 
 
 class DTEEmitidoListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = DTEEmitidoSerializer
     queryset = DTEEmitido.objects.select_related(
         'empresa',
@@ -98,7 +98,7 @@ class DTEEmitidoListView(generics.ListAPIView):
 
 
 class DTEEmitidoDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = DTEEmitidoSerializer
     queryset = DTEEmitido.objects.select_related(
         'empresa',
@@ -111,7 +111,7 @@ class DTEEmitidoDetailView(generics.RetrieveAPIView):
 
 
 class DTEGenerateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request):
         serializer = DTEGenerateSerializer(data=request.data)
@@ -138,7 +138,7 @@ class DTEGenerateView(APIView):
 
 
 class DTEStatusUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
         dte = generics.get_object_or_404(DTEEmitido, pk=pk)
@@ -158,19 +158,19 @@ class DTEStatusUpdateView(APIView):
 
 
 class F29PreparacionListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = F29PreparacionMensualSerializer
     queryset = F29PreparacionMensual.objects.select_related('empresa', 'capacidad_tributaria', 'cierre_mensual').all()
 
 
 class F29PreparacionDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = F29PreparacionMensualSerializer
     queryset = F29PreparacionMensual.objects.select_related('empresa', 'capacidad_tributaria', 'cierre_mensual').all()
 
 
 class F29GenerateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request):
         serializer = F29GenerateSerializer(data=request.data)
@@ -199,7 +199,7 @@ class F29GenerateView(APIView):
 
 
 class F29StatusUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
         draft = generics.get_object_or_404(F29PreparacionMensual, pk=pk)
@@ -219,25 +219,25 @@ class F29StatusUpdateView(APIView):
 
 
 class ProcesoRentaAnualListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = ProcesoRentaAnualSerializer
     queryset = ProcesoRentaAnual.objects.select_related('empresa').all()
 
 
 class DDJJPreparacionAnualListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = DDJJPreparacionAnualSerializer
     queryset = DDJJPreparacionAnual.objects.select_related('empresa', 'capacidad_tributaria', 'proceso_renta_anual').all()
 
 
 class F22PreparacionAnualListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = F22PreparacionAnualSerializer
     queryset = F22PreparacionAnual.objects.select_related('empresa', 'capacidad_tributaria', 'proceso_renta_anual').all()
 
 
 class AnnualGenerateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request):
         serializer = AnnualGenerateSerializer(data=request.data)
@@ -269,7 +269,7 @@ class AnnualGenerateView(APIView):
 
 
 class DDJJStatusUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
         document = generics.get_object_or_404(DDJJPreparacionAnual, pk=pk)
@@ -289,7 +289,7 @@ class DDJJStatusUpdateView(APIView):
 
 
 class F22StatusUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
         document = generics.get_object_or_404(F22PreparacionAnual, pk=pk)

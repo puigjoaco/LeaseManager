@@ -1,9 +1,9 @@
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
+from core.permissions import OperationalModulePermission
 
 from .models import CanalMensajeria, MensajeSaliente
 from .serializers import (
@@ -53,7 +53,7 @@ class AuditCreateUpdateMixin:
 
 
 class CanalMensajeriaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = CanalMensajeriaSerializer
     queryset = CanalMensajeria.objects.all()
     audit_entity_type = 'canal_mensajeria'
@@ -61,7 +61,7 @@ class CanalMensajeriaListCreateView(AuditCreateUpdateMixin, generics.ListCreateA
 
 
 class CanalMensajeriaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = CanalMensajeriaSerializer
     queryset = CanalMensajeria.objects.all()
     audit_entity_type = 'canal_mensajeria'
@@ -69,7 +69,7 @@ class CanalMensajeriaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateA
 
 
 class MensajeSalienteListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = MensajeSalienteSerializer
     queryset = MensajeSaliente.objects.select_related(
         'canal_mensajeria',
@@ -82,7 +82,7 @@ class MensajeSalienteListView(generics.ListAPIView):
 
 
 class MensajeSalienteDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = MensajeSalienteSerializer
     queryset = MensajeSaliente.objects.select_related(
         'canal_mensajeria',
@@ -95,7 +95,7 @@ class MensajeSalienteDetailView(generics.RetrieveAPIView):
 
 
 class MensajePrepararView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
 
     def post(self, request):
         serializer = MensajePrepararSerializer(data=request.data)
@@ -130,7 +130,7 @@ class MensajePrepararView(APIView):
 
 
 class MensajeRegistrarEnvioView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
 
     def post(self, request, pk):
         message = generics.get_object_or_404(MensajeSaliente, pk=pk)
@@ -152,4 +152,3 @@ class MensajeRegistrarEnvioView(APIView):
             metadata={'external_ref': message.external_ref},
         )
         return Response(MensajeSalienteSerializer(message).data, status=status.HTTP_200_OK)
-

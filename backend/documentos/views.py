@@ -1,11 +1,11 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
+from core.permissions import OperationalModulePermission
 
 from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria
 from .serializers import (
@@ -61,7 +61,7 @@ class AuditCreateUpdateMixin:
 
 
 class ExpedienteDocumentalListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ExpedienteDocumentalSerializer
     queryset = ExpedienteDocumental.objects.all()
     audit_entity_type = 'expediente'
@@ -69,7 +69,7 @@ class ExpedienteDocumentalListCreateView(AuditCreateUpdateMixin, generics.ListCr
 
 
 class ExpedienteDocumentalDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ExpedienteDocumentalSerializer
     queryset = ExpedienteDocumental.objects.all()
     audit_entity_type = 'expediente'
@@ -77,7 +77,7 @@ class ExpedienteDocumentalDetailView(AuditCreateUpdateMixin, generics.RetrieveUp
 
 
 class PoliticaFirmaYNotariaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = PoliticaFirmaYNotariaSerializer
     queryset = PoliticaFirmaYNotaria.objects.all()
     audit_entity_type = 'politica_firma'
@@ -85,7 +85,7 @@ class PoliticaFirmaYNotariaListCreateView(AuditCreateUpdateMixin, generics.ListC
 
 
 class PoliticaFirmaYNotariaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = PoliticaFirmaYNotariaSerializer
     queryset = PoliticaFirmaYNotaria.objects.all()
     audit_entity_type = 'politica_firma'
@@ -93,7 +93,7 @@ class PoliticaFirmaYNotariaDetailView(AuditCreateUpdateMixin, generics.RetrieveU
 
 
 class DocumentoEmitidoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = DocumentoEmitidoSerializer
     queryset = DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial').all()
     audit_entity_type = 'documento_emitido'
@@ -101,7 +101,7 @@ class DocumentoEmitidoListCreateView(AuditCreateUpdateMixin, generics.ListCreate
 
 
 class DocumentoEmitidoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = DocumentoEmitidoSerializer
     queryset = DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial').all()
     audit_entity_type = 'documento_emitido'
@@ -109,7 +109,7 @@ class DocumentoEmitidoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdate
 
 
 class DocumentoFormalizarView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
 
     def post(self, request, pk):
         document = generics.get_object_or_404(

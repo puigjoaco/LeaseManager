@@ -1,8 +1,8 @@
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.permissions import AuditReadPermission, AuditResolutionPermission
 from .models import AuditEvent, ManualResolution
 from .serializers import (
     AuditEventSerializer,
@@ -13,13 +13,13 @@ from .services import resolve_migration_property_owner_manual_resolution
 
 
 class AuditEventListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditReadPermission]
     serializer_class = AuditEventSerializer
     queryset = AuditEvent.objects.all()[:100]
 
 
 class ManualResolutionListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditResolutionPermission]
     serializer_class = ManualResolutionSerializer
     queryset = ManualResolution.objects.all()
 
@@ -42,13 +42,13 @@ class ManualResolutionListCreateView(generics.ListCreateAPIView):
 
 
 class ManualResolutionDetailView(generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditResolutionPermission]
     serializer_class = ManualResolutionSerializer
     queryset = ManualResolution.objects.all()
 
 
 class ResolveMigrationPropertyOwnerView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AuditResolutionPermission]
 
     def post(self, request, pk):
         resolution = generics.get_object_or_404(ManualResolution, pk=pk)

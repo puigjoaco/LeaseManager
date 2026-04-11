@@ -1,10 +1,10 @@
 from django.db import transaction
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
+from core.permissions import ControlModulePermission
 
 from .models import (
     AsientoContable,
@@ -80,7 +80,7 @@ class AuditCreateUpdateMixin:
 
 
 class RegimenTributarioEmpresaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = RegimenTributarioEmpresaSerializer
     queryset = RegimenTributarioEmpresa.objects.all()
     audit_entity_type = 'regimen_tributario'
@@ -88,7 +88,7 @@ class RegimenTributarioEmpresaListCreateView(AuditCreateUpdateMixin, generics.Li
 
 
 class RegimenTributarioEmpresaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = RegimenTributarioEmpresaSerializer
     queryset = RegimenTributarioEmpresa.objects.all()
     audit_entity_type = 'regimen_tributario'
@@ -96,7 +96,7 @@ class RegimenTributarioEmpresaDetailView(AuditCreateUpdateMixin, generics.Retrie
 
 
 class ConfiguracionFiscalEmpresaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = ConfiguracionFiscalEmpresaSerializer
     queryset = ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario').all()
     audit_entity_type = 'configuracion_fiscal'
@@ -104,7 +104,7 @@ class ConfiguracionFiscalEmpresaListCreateView(AuditCreateUpdateMixin, generics.
 
 
 class ConfiguracionFiscalEmpresaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = ConfiguracionFiscalEmpresaSerializer
     queryset = ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario').all()
     audit_entity_type = 'configuracion_fiscal'
@@ -112,7 +112,7 @@ class ConfiguracionFiscalEmpresaDetailView(AuditCreateUpdateMixin, generics.Retr
 
 
 class CuentaContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = CuentaContableSerializer
     queryset = CuentaContable.objects.select_related('empresa', 'padre').all()
     audit_entity_type = 'cuenta_contable'
@@ -120,7 +120,7 @@ class CuentaContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAP
 
 
 class CuentaContableDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = CuentaContableSerializer
     queryset = CuentaContable.objects.select_related('empresa', 'padre').all()
     audit_entity_type = 'cuenta_contable'
@@ -128,7 +128,7 @@ class CuentaContableDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAP
 
 
 class ReglaContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = ReglaContableSerializer
     queryset = ReglaContable.objects.select_related('empresa').all()
     audit_entity_type = 'regla_contable'
@@ -136,7 +136,7 @@ class ReglaContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPI
 
 
 class ReglaContableDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = ReglaContableSerializer
     queryset = ReglaContable.objects.select_related('empresa').all()
     audit_entity_type = 'regla_contable'
@@ -144,7 +144,7 @@ class ReglaContableDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPI
 
 
 class MatrizReglasContablesListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = MatrizReglasContablesSerializer
     queryset = MatrizReglasContables.objects.select_related('regla_contable', 'cuenta_debe', 'cuenta_haber').all()
     audit_entity_type = 'matriz_reglas'
@@ -152,7 +152,7 @@ class MatrizReglasContablesListCreateView(AuditCreateUpdateMixin, generics.ListC
 
 
 class MatrizReglasContablesDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = MatrizReglasContablesSerializer
     queryset = MatrizReglasContables.objects.select_related('regla_contable', 'cuenta_debe', 'cuenta_haber').all()
     audit_entity_type = 'matriz_reglas'
@@ -160,7 +160,7 @@ class MatrizReglasContablesDetailView(AuditCreateUpdateMixin, generics.RetrieveU
 
 
 class EventoContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = EventoContableSerializer
     queryset = EventoContable.objects.select_related('empresa').all()
     audit_entity_type = 'evento_contable'
@@ -181,13 +181,13 @@ class EventoContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAP
 
 
 class EventoContableDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = EventoContableSerializer
     queryset = EventoContable.objects.select_related('empresa').all()
 
 
 class EventoContablePostView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
         event = generics.get_object_or_404(EventoContable.objects.select_related('empresa'), pk=pk)
@@ -205,19 +205,19 @@ class EventoContablePostView(APIView):
 
 
 class AsientoContableListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = AsientoContableSerializer
     queryset = AsientoContable.objects.select_related('evento_contable').prefetch_related('movimientos').all()
 
 
 class AsientoContableDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = AsientoContableSerializer
     queryset = AsientoContable.objects.select_related('evento_contable').prefetch_related('movimientos').all()
 
 
 class PoliticaReversoContableListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = PoliticaReversoContableSerializer
     queryset = PoliticaReversoContable.objects.select_related('empresa').all()
     audit_entity_type = 'politica_reverso'
@@ -225,7 +225,7 @@ class PoliticaReversoContableListCreateView(AuditCreateUpdateMixin, generics.Lis
 
 
 class PoliticaReversoContableDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = PoliticaReversoContableSerializer
     queryset = PoliticaReversoContable.objects.select_related('empresa').all()
     audit_entity_type = 'politica_reverso'
@@ -233,43 +233,43 @@ class PoliticaReversoContableDetailView(AuditCreateUpdateMixin, generics.Retriev
 
 
 class ObligacionTributariaMensualListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = ObligacionTributariaMensualSerializer
     queryset = ObligacionTributariaMensual.objects.select_related('empresa').all()
 
 
 class LibroDiarioListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = LibroDiarioSerializer
     queryset = LibroDiario.objects.select_related('empresa').all()
 
 
 class LibroMayorListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = LibroMayorSerializer
     queryset = LibroMayor.objects.select_related('empresa').all()
 
 
 class BalanceComprobacionListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = BalanceComprobacionSerializer
     queryset = BalanceComprobacion.objects.select_related('empresa').all()
 
 
 class CierreMensualContableListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = CierreMensualContableSerializer
     queryset = CierreMensualContable.objects.select_related('empresa').all()
 
 
 class CierreMensualContableDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
     serializer_class = CierreMensualContableSerializer
     queryset = CierreMensualContable.objects.select_related('empresa').all()
 
 
 class CierreMensualPrepareView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request):
         serializer = CierreMensualPrepareSerializer(data=request.data)
@@ -295,7 +295,7 @@ class CierreMensualPrepareView(APIView):
 
 
 class CierreMensualApproveView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
         close = generics.get_object_or_404(CierreMensualContable, pk=pk)
@@ -315,7 +315,7 @@ class CierreMensualApproveView(APIView):
 
 
 class CierreMensualReopenView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
         close = generics.get_object_or_404(CierreMensualContable, pk=pk)

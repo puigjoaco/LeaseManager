@@ -1,7 +1,7 @@
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.permissions import PartnerOwnSummaryPermission, ReportingPermission
 from .services import (
     build_annual_tax_summary,
     build_financial_monthly_summary,
@@ -13,14 +13,14 @@ from .services import (
 
 
 class OperationalDashboardView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ReportingPermission]
 
     def get(self, request):
         return Response(build_operational_dashboard())
 
 
 class FinancialMonthlySummaryView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ReportingPermission]
 
     def get(self, request):
         anio = int(request.query_params.get('anio'))
@@ -30,14 +30,14 @@ class FinancialMonthlySummaryView(APIView):
 
 
 class PartnerSummaryView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [PartnerOwnSummaryPermission]
 
     def get(self, request, pk):
         return Response(build_partner_summary(pk))
 
 
 class PeriodBooksSummaryView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ReportingPermission]
 
     def get(self, request):
         empresa_id = int(request.query_params.get('empresa_id'))
@@ -46,7 +46,7 @@ class PeriodBooksSummaryView(APIView):
 
 
 class AnnualTaxSummaryView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ReportingPermission]
 
     def get(self, request):
         anio_tributario = int(request.query_params.get('anio_tributario'))
@@ -55,7 +55,7 @@ class AnnualTaxSummaryView(APIView):
 
 
 class MigrationManualResolutionSummaryView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [ReportingPermission]
 
     def get(self, request):
         status = request.query_params.get('status', 'open')

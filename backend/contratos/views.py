@@ -1,8 +1,8 @@
 from django.db import transaction
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
 
 from audit.services import create_audit_event
+from core.permissions import OperationalModulePermission
 
 from .models import Arrendatario, AvisoTermino, CodeudorSolidario, Contrato, ContratoPropiedad, PeriodoContractual
 from .serializers import (
@@ -54,7 +54,7 @@ class AuditCreateUpdateMixin:
 
 
 class ArrendatarioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ArrendatarioSerializer
     queryset = Arrendatario.objects.all()
     audit_entity_type = 'arrendatario'
@@ -62,7 +62,7 @@ class ArrendatarioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIV
 
 
 class ArrendatarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ArrendatarioSerializer
     queryset = Arrendatario.objects.all()
     audit_entity_type = 'arrendatario'
@@ -70,7 +70,7 @@ class ArrendatarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIV
 
 
 class ContratoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ContratoSerializer
     queryset = Contrato.objects.select_related('mandato_operacion', 'arrendatario').prefetch_related(
         'contrato_propiedades__propiedad',
@@ -82,7 +82,7 @@ class ContratoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView)
 
 
 class ContratoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ContratoSerializer
     queryset = Contrato.objects.select_related('mandato_operacion', 'arrendatario').prefetch_related(
         'contrato_propiedades__propiedad',
@@ -94,7 +94,7 @@ class ContratoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView)
 
 
 class AvisoTerminoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = AvisoTerminoSerializer
     queryset = AvisoTermino.objects.select_related('contrato', 'registrado_por').all()
     audit_entity_type = 'aviso_termino'
@@ -102,7 +102,7 @@ class AvisoTerminoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIV
 
 
 class AvisoTerminoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = AvisoTerminoSerializer
     queryset = AvisoTermino.objects.select_related('contrato', 'registrado_por').all()
     audit_entity_type = 'aviso_termino'
@@ -110,37 +110,36 @@ class AvisoTerminoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIV
 
 
 class ContratoPropiedadListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ContratoPropiedadReadSerializer
     queryset = ContratoPropiedad.objects.select_related('contrato', 'propiedad').all()
 
 
 class ContratoPropiedadDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ContratoPropiedadReadSerializer
     queryset = ContratoPropiedad.objects.select_related('contrato', 'propiedad').all()
 
 
 class PeriodoContractualListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = PeriodoContractualReadSerializer
     queryset = PeriodoContractual.objects.select_related('contrato').all()
 
 
 class PeriodoContractualDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = PeriodoContractualReadSerializer
     queryset = PeriodoContractual.objects.select_related('contrato').all()
 
 
 class CodeudorSolidarioListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = CodeudorSolidarioReadSerializer
     queryset = CodeudorSolidario.objects.select_related('contrato').all()
 
 
 class CodeudorSolidarioDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = CodeudorSolidarioReadSerializer
     queryset = CodeudorSolidario.objects.select_related('contrato').all()
-

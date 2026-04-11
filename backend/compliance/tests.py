@@ -15,7 +15,11 @@ from .models import ExportacionSensible, PoliticaRetencionDatos
 class ComplianceAPITests(APITestCase):
     def setUp(self):
         user_model = get_user_model()
-        self.user = user_model.objects.create_user(username='compliance', password='secret123')
+        self.user = user_model.objects.create_user(
+            username='compliance',
+            password='secret123',
+            default_role_code='AdministradorGlobal',
+        )
         self.client.force_authenticate(self.user)
         helper = ReportingAPITests()
         helper.client = self.client

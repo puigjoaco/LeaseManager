@@ -1,9 +1,9 @@
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
+from core.permissions import AdminOnlyPermission
 
 from .models import ExportacionSensible, PoliticaRetencionDatos
 from .serializers import (
@@ -50,7 +50,7 @@ class AuditCreateUpdateMixin:
 
 
 class PoliticaRetencionDatosListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AdminOnlyPermission]
     serializer_class = PoliticaRetencionDatosSerializer
     queryset = PoliticaRetencionDatos.objects.all()
     audit_entity_type = 'politica_retencion'
@@ -58,7 +58,7 @@ class PoliticaRetencionDatosListCreateView(AuditCreateUpdateMixin, generics.List
 
 
 class PoliticaRetencionDatosDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AdminOnlyPermission]
     serializer_class = PoliticaRetencionDatosSerializer
     queryset = PoliticaRetencionDatos.objects.all()
     audit_entity_type = 'politica_retencion'
@@ -66,19 +66,19 @@ class PoliticaRetencionDatosDetailView(AuditCreateUpdateMixin, generics.Retrieve
 
 
 class ExportacionSensibleListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AdminOnlyPermission]
     serializer_class = ExportacionSensibleSerializer
     queryset = ExportacionSensible.objects.select_related('created_by').all()
 
 
 class ExportacionSensibleDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AdminOnlyPermission]
     serializer_class = ExportacionSensibleSerializer
     queryset = ExportacionSensible.objects.select_related('created_by').all()
 
 
 class ExportacionPrepareView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AdminOnlyPermission]
 
     def post(self, request):
         serializer = ExportacionPrepareSerializer(data=request.data)
@@ -109,7 +109,7 @@ class ExportacionPrepareView(APIView):
 
 
 class ExportacionContentView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AdminOnlyPermission]
 
     def get(self, request, pk):
         export = generics.get_object_or_404(ExportacionSensible, pk=pk)
@@ -137,7 +137,7 @@ class ExportacionContentView(APIView):
 
 
 class ExportacionRevokeView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AdminOnlyPermission]
 
     def post(self, request, pk):
         export = generics.get_object_or_404(ExportacionSensible, pk=pk)
@@ -151,4 +151,3 @@ class ExportacionRevokeView(APIView):
             ip_address=request.META.get('REMOTE_ADDR'),
         )
         return Response(ExportacionSensibleSerializer(export).data, status=status.HTTP_200_OK)
-

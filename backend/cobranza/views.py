@@ -1,10 +1,10 @@
 from django.db import transaction
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
+from core.permissions import OperationalModulePermission
 
 from .models import AjusteContrato, DistribucionCobroMensual, GarantiaContractual, HistorialGarantia, PagoMensual, ValorUFDiario
 from .serializers import (
@@ -64,7 +64,7 @@ class AuditCreateUpdateMixin:
 
 
 class ValorUFDiarioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ValorUFDiarioSerializer
     queryset = ValorUFDiario.objects.all()
     audit_entity_type = 'valor_uf'
@@ -72,7 +72,7 @@ class ValorUFDiarioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPI
 
 
 class ValorUFDiarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = ValorUFDiarioSerializer
     queryset = ValorUFDiario.objects.all()
     audit_entity_type = 'valor_uf'
@@ -80,7 +80,7 @@ class ValorUFDiarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPI
 
 
 class AjusteContratoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = AjusteContratoSerializer
     queryset = AjusteContrato.objects.select_related('contrato').all()
     audit_entity_type = 'ajuste_contrato'
@@ -88,7 +88,7 @@ class AjusteContratoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAP
 
 
 class AjusteContratoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = AjusteContratoSerializer
     queryset = AjusteContrato.objects.select_related('contrato').all()
     audit_entity_type = 'ajuste_contrato'
@@ -96,13 +96,13 @@ class AjusteContratoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAP
 
 
 class PagoMensualListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = PagoMensualSerializer
     queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual').all()
 
 
 class PagoMensualDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = PagoMensualSerializer
     queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual').all()
     audit_entity_type = 'pago_mensual'
@@ -125,7 +125,7 @@ class PagoMensualDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIVi
 
 
 class PagoMensualGenerateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
 
     def post(self, request):
         serializer = PagoMensualGenerateSerializer(data=request.data)
@@ -170,7 +170,7 @@ class PagoMensualGenerateView(APIView):
 
 
 class DistribucionCobroMensualListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = DistribucionCobroMensualSerializer
     queryset = DistribucionCobroMensual.objects.select_related(
         'pago_mensual',
@@ -180,7 +180,7 @@ class DistribucionCobroMensualListView(generics.ListAPIView):
 
 
 class DistribucionCobroMensualDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = DistribucionCobroMensualSerializer
     queryset = DistribucionCobroMensual.objects.select_related(
         'pago_mensual',
@@ -190,7 +190,7 @@ class DistribucionCobroMensualDetailView(generics.RetrieveAPIView):
 
 
 class GarantiaContractualListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = GarantiaContractualSerializer
     queryset = GarantiaContractual.objects.select_related('contrato').all()
     audit_entity_type = 'garantia_contractual'
@@ -198,7 +198,7 @@ class GarantiaContractualListCreateView(AuditCreateUpdateMixin, generics.ListCre
 
 
 class GarantiaContractualDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = GarantiaContractualSerializer
     queryset = GarantiaContractual.objects.select_related('contrato').all()
     audit_entity_type = 'garantia_contractual'
@@ -206,19 +206,19 @@ class GarantiaContractualDetailView(AuditCreateUpdateMixin, generics.RetrieveUpd
 
 
 class HistorialGarantiaListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = HistorialGarantiaReadSerializer
     queryset = HistorialGarantia.objects.select_related('garantia_contractual', 'garantia_contractual__contrato').all()
 
 
 class HistorialGarantiaDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = HistorialGarantiaReadSerializer
     queryset = HistorialGarantia.objects.select_related('garantia_contractual', 'garantia_contractual__contrato').all()
 
 
 class GarantiaMovimientoCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
 
     def post(self, request, pk):
         garantia = generics.get_object_or_404(GarantiaContractual.objects.select_related('contrato'), pk=pk)
@@ -267,7 +267,7 @@ class GarantiaMovimientoCreateView(APIView):
 
 
 class RepactacionDeudaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = RepactacionDeudaSerializer
     queryset = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen').all()
     audit_entity_type = 'repactacion_deuda'
@@ -275,7 +275,7 @@ class RepactacionDeudaListCreateView(AuditCreateUpdateMixin, generics.ListCreate
 
 
 class RepactacionDeudaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = RepactacionDeudaSerializer
     queryset = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen').all()
     audit_entity_type = 'repactacion_deuda'
@@ -283,7 +283,7 @@ class RepactacionDeudaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdate
 
 
 class CodigoCobroResidualListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = CodigoCobroResidualSerializer
     queryset = CodigoCobroResidual.objects.select_related('arrendatario', 'contrato_origen').all()
     audit_entity_type = 'codigo_cobro_residual'
@@ -291,7 +291,7 @@ class CodigoCobroResidualListCreateView(AuditCreateUpdateMixin, generics.ListCre
 
 
 class CodigoCobroResidualDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = CodigoCobroResidualSerializer
     queryset = CodigoCobroResidual.objects.select_related('arrendatario', 'contrato_origen').all()
     audit_entity_type = 'codigo_cobro_residual'
@@ -299,13 +299,13 @@ class CodigoCobroResidualDetailView(AuditCreateUpdateMixin, generics.RetrieveUpd
 
 
 class EstadoCuentaArrendatarioListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = EstadoCuentaArrendatarioSerializer
     queryset = EstadoCuentaArrendatario.objects.select_related('arrendatario').all()
 
 
 class EstadoCuentaArrendatarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
     serializer_class = EstadoCuentaArrendatarioSerializer
     queryset = EstadoCuentaArrendatario.objects.select_related('arrendatario').all()
     audit_entity_type = 'estado_cuenta_arrendatario'
@@ -313,7 +313,7 @@ class EstadoCuentaArrendatarioDetailView(AuditCreateUpdateMixin, generics.Retrie
 
 
 class EstadoCuentaArrendatarioRebuildView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OperationalModulePermission]
 
     def post(self, request):
         serializer = EstadoCuentaRecalculoSerializer(data=request.data)
