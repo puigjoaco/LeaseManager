@@ -7,16 +7,36 @@ from .models import AuditEvent, ManualResolution
 
 
 class AuditEventSerializer(serializers.ModelSerializer):
+    actor_user_display = serializers.SerializerMethodField()
+
     class Meta:
         model = AuditEvent
         fields = '__all__'
 
+    def get_actor_user_display(self, obj):
+        if obj.actor_user_id:
+            return obj.actor_user.display_name or obj.actor_user.username
+        return obj.actor_identifier or 'Sistema'
+
 
 class ManualResolutionSerializer(serializers.ModelSerializer):
+    requested_by_display = serializers.SerializerMethodField()
+    resolved_by_display = serializers.SerializerMethodField()
+
     class Meta:
         model = ManualResolution
         fields = '__all__'
         read_only_fields = ('id', 'created_at', 'resolved_at')
+
+    def get_requested_by_display(self, obj):
+        if obj.requested_by_id:
+            return obj.requested_by.display_name or obj.requested_by.username
+        return ''
+
+    def get_resolved_by_display(self, obj):
+        if obj.resolved_by_id:
+            return obj.resolved_by.display_name or obj.resolved_by.username
+        return ''
 
 
 class ResolveMigrationPropertyOwnerParticipationSerializer(serializers.Serializer):

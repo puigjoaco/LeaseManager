@@ -396,6 +396,39 @@ type CierreMensual = {
   resumen_obligaciones: Record<string, unknown>
 }
 
+type AuditEventItem = {
+  id: number
+  actor_user: number | null
+  actor_user_display: string
+  actor_identifier: string
+  event_type: string
+  severity: string
+  entity_type: string
+  entity_id: string
+  summary: string
+  metadata: Record<string, unknown>
+  request_id: string
+  ip_address: string | null
+  created_at: string
+}
+
+type ManualResolutionItem = {
+  id: string
+  category: string
+  status: string
+  scope_type: string
+  scope_reference: string
+  summary: string
+  rationale: string
+  requested_by: number | null
+  requested_by_display: string
+  resolved_by: number | null
+  resolved_by_display: string
+  metadata: Record<string, unknown>
+  created_at: string
+  resolved_at: string | null
+}
+
 type ViewKey =
   | 'overview'
   | 'patrimonio'
@@ -403,6 +436,7 @@ type ViewKey =
   | 'contratos'
   | 'cobranza'
   | 'conciliacion'
+  | 'audit'
   | 'contabilidad'
   | 'sii'
   | 'reporting'
@@ -413,6 +447,7 @@ type SectionKey =
   | 'contratos'
   | 'cobranza'
   | 'conciliacion'
+  | 'audit'
   | 'contabilidad'
   | 'sii'
   | 'reporting'
@@ -648,13 +683,13 @@ function defaultViewForRole(roleCode: string | null | undefined): ViewKey {
 function allowedViewsForRole(roleCode: string | null | undefined): ViewKey[] {
   const role = canonicalRole(roleCode)
   if (role === 'AdministradorGlobal') {
-    return ['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'contabilidad', 'sii', 'reporting']
+    return ['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting']
   }
   if (role === 'OperadorDeCartera') {
-    return ['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion']
+    return ['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'audit']
   }
   if (role === 'RevisorFiscalExterno') {
-    return ['contabilidad', 'sii', 'reporting']
+    return ['audit', 'contabilidad', 'sii', 'reporting']
   }
   if (role === 'Socio') {
     return ['reporting']
@@ -682,6 +717,26 @@ function reportingHeadingForRole(roleCode: string | null | undefined) {
   }
 }
 
+function auditHeadingForRole(roleCode: string | null | undefined) {
+  const role = canonicalRole(roleCode)
+  if (role === 'RevisorFiscalExterno') {
+    return {
+      title: 'Eventos auditables',
+      subtitle: 'Trazabilidad reciente en solo lectura.',
+    }
+  }
+  if (role === 'OperadorDeCartera') {
+    return {
+      title: 'Resoluciones manuales',
+      subtitle: 'Cola asistida y seguimiento operativo.',
+    }
+  }
+  return {
+    title: 'Eventos y resoluciones',
+    subtitle: 'Trazabilidad transversal del sistema.',
+  }
+}
+
 function Badge({ label, tone = 'neutral' }: { label: string; tone?: Tone }) {
   return <span className={`status-badge tone-${tone}`}>{label}</span>
 }
@@ -695,7 +750,7 @@ function Metric({ label, value, tone = 'neutral' }: { label: string; value: stri
   )
 }
 
-function TableBlock<T extends { id: number }>({
+function TableBlock<T extends { id: number | string }>({
   title,
   subtitle,
   rows,
@@ -775,6 +830,8 @@ function App() {
   const [asientosContables, setAsientosContables] = useState<AsientoContable[]>([])
   const [obligacionesMensuales, setObligacionesMensuales] = useState<ObligacionMensual[]>([])
   const [cierresMensuales, setCierresMensuales] = useState<CierreMensual[]>([])
+  const [auditEvents, setAuditEvents] = useState<AuditEventItem[]>([])
+  const [manualResolutions, setManualResolutions] = useState<ManualResolutionItem[]>([])
   const [capacidadesSii, setCapacidadesSii] = useState<CapacidadSii[]>([])
   const [dtes, setDtes] = useState<DteEmitido[]>([])
   const [f29s, setF29s] = useState<F29Preparacion[]>([])
@@ -1037,10 +1094,16 @@ function App() {
   const [reportingBooksSummary, setReportingBooksSummary] = useState<ReportingBooksSummary | null>(null)
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
+  const [editingManualResolutionId, setEditingManualResolutionId] = useState<string | null>(null)
+  const [manualResolutionDraft, setManualResolutionDraft] = useState({
+    status: 'open',
+    rationale: '',
+  })
 
   const effectiveRole = canonicalRole(currentUser?.default_role_code)
   const activeAssignments = currentUser?.assignments || []
   const reportingHeading = reportingHeadingForRole(effectiveRole)
+  const auditHeading = auditHeadingForRole(effectiveRole)
 
   function canAccessView(view: ViewKey) {
     return allowedViewsForRole(effectiveRole).includes(view)
@@ -1049,7 +1112,7 @@ function App() {
   function canMutateSection(section: SectionKey) {
     if (effectiveRole === 'AdministradorGlobal') return true
     if (effectiveRole === 'OperadorDeCartera') {
-      return ['patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion'].includes(section)
+      return ['patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'audit'].includes(section)
     }
     return false
   }
@@ -1059,6 +1122,7 @@ function App() {
   const canEditContratos = canMutateSection('contratos')
   const canEditCobranza = canMutateSection('cobranza')
   const canEditConciliacion = canMutateSection('conciliacion')
+  const canEditAudit = canMutateSection('audit')
   const canEditContabilidad = canMutateSection('contabilidad')
   const canEditSii = canMutateSection('sii')
 
@@ -1083,6 +1147,8 @@ function App() {
 
       const canReadOverview = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
       const canReadOperational = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
+      const canReadAuditEvents = role === 'AdministradorGlobal' || role === 'RevisorFiscalExterno'
+      const canReadManualResolutions = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
       const canReadControl = role === 'AdministradorGlobal' || role === 'RevisorFiscalExterno'
       const canReadOwnPartnerSummary = role === 'Socio'
 
@@ -1122,6 +1188,8 @@ function App() {
         asientosPayload,
         obligacionesPayload,
         cierresPayload,
+        auditEventsPayload,
+        manualResolutionsPayload,
         capacidadesSiiPayload,
         dtesPayload,
         f29Payload,
@@ -1160,6 +1228,8 @@ function App() {
         requestIf<AsientoContable[]>(canReadControl, '/api/v1/contabilidad/asientos-contables/', []),
         requestIf<ObligacionMensual[]>(canReadControl, '/api/v1/contabilidad/obligaciones-mensuales/', []),
         requestIf<CierreMensual[]>(canReadControl, '/api/v1/contabilidad/cierres-mensuales/', []),
+        requestIf<AuditEventItem[]>(canReadAuditEvents, '/api/v1/audit/events/', []),
+        requestIf<ManualResolutionItem[]>(canReadManualResolutions, '/api/v1/audit/manual-resolutions/', []),
         requestIf<CapacidadSii[]>(canReadControl, '/api/v1/sii/capacidades/', []),
         requestIf<DteEmitido[]>(canReadControl, '/api/v1/sii/dtes/', []),
         requestIf<F29Preparacion[]>(canReadControl, '/api/v1/sii/f29/', []),
@@ -1202,6 +1272,8 @@ function App() {
       setAsientosContables(asientosPayload)
       setObligacionesMensuales(obligacionesPayload)
       setCierresMensuales(cierresPayload)
+      setAuditEvents(auditEventsPayload)
+      setManualResolutions(manualResolutionsPayload)
       setCapacidadesSii(capacidadesSiiPayload)
       setDtes(dtesPayload)
       setF29s(f29Payload)
@@ -1318,12 +1390,15 @@ function App() {
     setAsientosContables([])
     setObligacionesMensuales([])
     setCierresMensuales([])
+    setAuditEvents([])
+    setManualResolutions([])
     setCapacidadesSii([])
     setDtes([])
     setF29s([])
     setProcesosAnuales([])
     setDdjjs([])
     setF22s([])
+    setEditingManualResolutionId(null)
   }
 
   async function submitMutation(
@@ -2278,6 +2353,22 @@ function App() {
     )
   }
 
+  async function handleUpdateManualResolution(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditAudit || !editingManualResolutionId) return
+    const success = await submitMutation(
+      `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/`,
+      'PATCH',
+      manualResolutionDraft,
+      'Resolución manual actualizada correctamente.',
+      'audit',
+    )
+    if (!success || !token) return
+    setEditingManualResolutionId(null)
+    setManualResolutionDraft({ status: 'open', rationale: '' })
+    void loadWorkspace(token)
+  }
+
   function navigateWithContext(view: ViewKey, search = '', label = '') {
     setActiveView(view)
     setSearchText(search)
@@ -2348,6 +2439,19 @@ function App() {
       `Arrendatario: ${tenant?.nombre_razon_social || arrendatarioId}`,
     )
     setEstadoCuentaDraft({ arrendatario_id: String(arrendatarioId) })
+  }
+
+  function startEditManualResolution(row: ManualResolutionItem) {
+    setEditingManualResolutionId(row.id)
+    setManualResolutionDraft({
+      status: row.status,
+      rationale: row.rationale || '',
+    })
+  }
+
+  function cancelEditManualResolution() {
+    setEditingManualResolutionId(null)
+    setManualResolutionDraft({ status: 'open', rationale: '' })
   }
 
   const normalizedSearch = searchText.trim().toLowerCase()
@@ -2606,6 +2710,35 @@ function App() {
       ),
     [cierresMensuales, normalizedSearch],
   )
+  const filteredAuditEvents = useMemo(
+    () =>
+      auditEvents.filter((item) =>
+        matches(normalizedSearch, [
+          item.event_type,
+          item.severity,
+          item.entity_type,
+          item.entity_id,
+          item.summary,
+          item.actor_user_display,
+        ]),
+      ),
+    [auditEvents, normalizedSearch],
+  )
+  const filteredManualResolutions = useMemo(
+    () =>
+      manualResolutions.filter((item) =>
+        matches(normalizedSearch, [
+          item.category,
+          item.status,
+          item.scope_type,
+          item.scope_reference,
+          item.summary,
+          item.requested_by_display,
+          item.resolved_by_display,
+        ]),
+      ),
+    [manualResolutions, normalizedSearch],
+  )
   const filteredCapacidadesSii = useMemo(
     () =>
       capacidadesSii.filter((item) =>
@@ -2672,6 +2805,10 @@ function App() {
   const reglaById = useMemo(() => new Map(reglasContables.map((item) => [item.id, item])), [reglasContables])
   const cuentaContableById = useMemo(() => new Map(cuentasContables.map((item) => [item.id, item])), [cuentasContables])
   const capacidadSiiById = useMemo(() => new Map(capacidadesSii.map((item) => [item.id, item])), [capacidadesSii])
+  const activeManualResolution = useMemo(
+    () => manualResolutions.find((item) => item.id === editingManualResolutionId) || null,
+    [manualResolutions, editingManualResolutionId],
+  )
 
   if (!token) {
     return (
@@ -2753,7 +2890,7 @@ function App() {
       </header>
 
       <section className="tab-strip">
-        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'contabilidad', 'sii', 'reporting'] as ViewKey[])
+        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting'] as ViewKey[])
           .filter((view) => canAccessView(view))
           .map((view) => (
           <button
@@ -2773,10 +2910,12 @@ function App() {
                   ? 'Operación'
                   : view === 'contratos'
                     ? 'Contratos'
-                    : view === 'cobranza'
+                      : view === 'cobranza'
                       ? 'Cobranza'
                       : view === 'conciliacion'
                         ? 'Conciliación'
+                        : view === 'audit'
+                          ? 'Audit'
                         : view === 'contabilidad'
                         ? 'Contabilidad'
                           : view === 'sii'
@@ -2857,10 +2996,12 @@ function App() {
                   ? 'Operación'
                   : activeView === 'contratos'
                     ? 'Contratos'
-                    : activeView === 'cobranza'
+                      : activeView === 'cobranza'
                       ? 'Cobranza'
                       : activeView === 'conciliacion'
                         ? 'Conciliación'
+                        : activeView === 'audit'
+                          ? 'Audit'
                         : activeView === 'contabilidad'
                         ? 'Contabilidad'
                           : activeView === 'sii'
@@ -2874,13 +3015,15 @@ function App() {
                   ? 'Cuentas, identidades y mandatos'
                   : activeView === 'contratos'
                     ? 'Arrendatarios, contratos y avisos'
-                    : activeView === 'cobranza'
-                      ? 'Pagos, UF, ajustes, garantías y estado de cuenta'
+                      : activeView === 'cobranza'
+                        ? 'Pagos, UF, ajustes, garantías y estado de cuenta'
                       : activeView === 'conciliacion'
                         ? 'Conexiones, movimientos e ingresos desconocidos'
-                      : activeView === 'contabilidad'
-                        ? 'Configuración fiscal, eventos, asientos y cierres'
-                        : activeView === 'sii'
+                        : activeView === 'audit'
+                          ? auditHeading.title
+                        : activeView === 'contabilidad'
+                          ? 'Configuración fiscal, eventos, asientos y cierres'
+                          : activeView === 'sii'
                           ? 'Capacidades, DTE, F29 y preparación anual'
                             : reportingHeading.title}
             </h2>
@@ -2899,11 +3042,13 @@ function App() {
                       ? 'Código, arrendatario, propiedad o causal'
                       : activeView === 'cobranza'
                         ? 'Contrato, monto, estado, UF o garantía'
-                        : activeView === 'conciliacion'
-                          ? 'Movimiento, referencia, estado o ingreso desconocido'
-                          : activeView === 'contabilidad'
-                            ? 'Empresa, evento, cuenta, cierre u obligación'
-                            : activeView === 'sii'
+                      : activeView === 'conciliacion'
+                        ? 'Movimiento, referencia, estado o ingreso desconocido'
+                        : activeView === 'audit'
+                          ? 'Evento, severidad, categoría o scope'
+                        : activeView === 'contabilidad'
+                          ? 'Empresa, evento, cuenta, cierre u obligación'
+                          : activeView === 'sii'
                               ? 'Empresa, DTE, F29, DDJJ o F22'
                               : reportingHeading.placeholder
               }
@@ -3590,6 +3735,71 @@ function App() {
             { label: 'Sugerencia', render: (row) => row.sugerencia_asistida?.payment_candidate_ids?.length ? `Pagos candidatos: ${row.sugerencia_asistida.payment_candidate_ids.join(', ')}` : 'Sin sugerencia' },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
           ]} />
+        </>
+      ) : null}
+
+      {activeView === 'audit' ? (
+        <>
+          {!canEditAudit ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Audit.</div> : null}
+          {canEditAudit ? (
+            <section className="form-grid">
+              <section className="panel">
+                <div className="section-heading"><div><h2>{editingManualResolutionId ? 'Editar resolución manual' : 'Cola de resolución manual'}</h2><p>{auditHeading.subtitle}</p></div></div>
+                {activeManualResolution ? (
+                  <div className="list-stack">
+                    <div className="list-row"><span>Categoría</span><strong>{activeManualResolution.category}</strong></div>
+                    <div className="list-row"><span>Scope</span><strong>{activeManualResolution.scope_type} · {activeManualResolution.scope_reference}</strong></div>
+                    <div className="list-row"><span>Resumen</span><strong>{activeManualResolution.summary}</strong></div>
+                  </div>
+                ) : (
+                  <div className="empty-state compact">Selecciona una resolución desde la tabla para actualizar su estado o rationale.</div>
+                )}
+                <form className="entity-form subform" onSubmit={handleUpdateManualResolution}>
+                  <select value={manualResolutionDraft.status} onChange={(event) => setManualResolutionDraft((current) => ({ ...current, status: event.target.value }))}>
+                    <option value="open">Open</option>
+                    <option value="in_review">In review</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                  <input placeholder="Rationale" value={manualResolutionDraft.rationale} onChange={(event) => setManualResolutionDraft((current) => ({ ...current, rationale: event.target.value }))} />
+                  <div className="inline-actions">
+                    <button type="submit" className="button-primary" disabled={isSubmitting || !editingManualResolutionId}>Guardar resolución</button>
+                    {editingManualResolutionId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditManualResolution}>Cancelar</button> : null}
+                  </div>
+                </form>
+              </section>
+              <section className="panel">
+                <div className="section-heading"><div><h2>Metadata</h2><p>Contexto crudo de la resolución seleccionada.</p></div></div>
+                {activeManualResolution ? (
+                  <pre className="json-block">{JSON.stringify(activeManualResolution.metadata, null, 2)}</pre>
+                ) : (
+                  <div className="empty-state">No hay resolución seleccionada.</div>
+                )}
+              </section>
+            </section>
+          ) : null}
+
+          {effectiveRole !== 'OperadorDeCartera' ? (
+            <TableBlock title="Eventos auditables" subtitle="Trazabilidad reciente del sistema." rows={filteredAuditEvents} empty="No hay eventos auditables para este filtro." columns={[
+              { label: 'Fecha', render: (row) => stamp(row.created_at) },
+              { label: 'Severidad', render: (row) => <Badge label={row.severity} tone={toneFor(row.severity)} /> },
+              { label: 'Evento', render: (row) => row.event_type },
+              { label: 'Entidad', render: (row) => `${row.entity_type}${row.entity_id ? ` · ${row.entity_id}` : ''}` },
+              { label: 'Actor', render: (row) => row.actor_user_display || 'Sistema' },
+              { label: 'Resumen', render: (row) => row.summary },
+            ]} />
+          ) : null}
+
+          {effectiveRole !== 'RevisorFiscalExterno' ? (
+            <TableBlock title="Resoluciones manuales" subtitle="Backlog manual y estado de cierre." rows={filteredManualResolutions} empty="No hay resoluciones manuales para este filtro." columns={[
+              { label: 'Estado', render: (row) => <Badge label={row.status} tone={toneFor(row.status)} /> },
+              { label: 'Categoría', render: (row) => row.category },
+              { label: 'Scope', render: (row) => `${row.scope_type} · ${row.scope_reference}` },
+              { label: 'Resumen', render: (row) => row.summary },
+              { label: 'Solicitado por', render: (row) => row.requested_by_display || 'Sistema' },
+              { label: 'Resuelto por', render: (row) => row.resolved_by_display || 'Pendiente' },
+              { label: 'Acción', render: (row) => canEditAudit ? <button type="button" className="button-ghost inline-action" onClick={() => startEditManualResolution(row)}>Editar</button> : 'Solo lectura' },
+            ]} />
+          ) : null}
         </>
       ) : null}
 
