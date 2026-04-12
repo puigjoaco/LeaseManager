@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import heroImage from './assets/hero.png'
+import { ApiError, apiRequest, API_BASE_URL, fallbackHealth, TOKEN_STORAGE_KEY } from './backoffice/api'
 import { Metric, count, toneFor } from './backoffice/shared'
 import { ContextBanner, SectionToolbar, WorkspaceHeader, WorkspaceTabs } from './backoffice/shell'
+import { effectiveCodeFromPropertyCode, matches, todayIso } from './backoffice/utils'
 import { allowedViewsForRole, auditHeadingForRole, canMutateSection, defaultViewForRole, reportingHeadingForRole, sectionTitleForView, searchPlaceholderForView, type SectionKey, type ViewKey, VIEW_LABELS, canonicalRole } from './backoffice/view-config'
 import { AuditWorkspace } from './backoffice/workspaces/AuditWorkspace'
 import { CanalesWorkspace } from './backoffice/workspaces/CanalesWorkspace'
@@ -637,77 +639,6 @@ type ReportingMigrationSummary = {
     socios: Array<{ socio_nombre?: string; porcentaje?: string }>
   }>
 }
-
-function resolveApiBaseUrl() {
-  const configured = (import.meta.env.VITE_API_BASE_URL || '').trim()
-  if (configured) return configured
-  if (typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
-    return 'http://localhost:8000'
-  }
-  return ''
-}
-
-const API_BASE_URL = resolveApiBaseUrl()
-const TOKEN_STORAGE_KEY = 'leasemanager.auth.token'
-const fallbackHealth: HealthPayload = {
-  service: 'leasemanager-api',
-  status: 'unreachable',
-  environment: 'unknown',
-  services: { database: { status: 'down' }, redis: { status: 'down' } },
-}
-
-class ApiError extends Error {
-  status: number
-  constructor(status: number, message: string) {
-    super(message)
-    this.status = status
-  }
-}
-
-async function apiRequest<T>(
-  path: string,
-  options: { method?: 'GET' | 'POST' | 'PATCH'; token?: string | null; body?: unknown } = {},
-) {
-  if (!API_BASE_URL) {
-    throw new ApiError(500, 'VITE_API_BASE_URL no está configurado para este entorno.')
-  }
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: options.method || 'GET',
-    headers: {
-      ...(options.token ? { Authorization: `Token ${options.token}` } : {}),
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  })
-  let payload: unknown = null
-  if (response.status !== 204) {
-    payload = await response.json()
-  }
-  if (!response.ok) {
-    const detail =
-      payload && typeof payload === 'object' && 'detail' in payload && typeof payload.detail === 'string'
-        ? payload.detail
-        : 'No se pudo completar la operación.'
-    throw new ApiError(response.status, detail)
-  }
-  return payload as T
-}
-
-function matches(search: string, values: Array<string | number | boolean | null | undefined>) {
-  if (!search) return true
-  return values.some((value) => String(value ?? '').toLowerCase().includes(search))
-}
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function effectiveCodeFromPropertyCode(value: string) {
-  const digits = value.replace(/\D/g, '')
-  if (!digits) return ''
-  return digits.slice(-3).padStart(3, '0')
-}
-
 
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY))
