@@ -3421,7 +3421,7 @@ function App() {
         />
       ) : null}
 
-      {false ? (
+      {activeView === 'contratos' ? (
         <ContratosWorkspace
           canEditContratos={canEditContratos}
           editingArrendatarioId={editingArrendatarioId}
@@ -3626,7 +3626,7 @@ function App() {
         </>
       ) : null}
 
-      {activeView === 'contratos' ? (
+      {false ? (
         <>
           {!canEditContratos ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Contratos.</div> : null}
           <section className="form-grid">
