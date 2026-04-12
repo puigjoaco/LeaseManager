@@ -3570,7 +3570,7 @@ function App() {
       {activeView === 'contabilidad' ? (
         <>
           {!canEditContabilidad ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Contabilidad.</div> : null}
-          <section className="form-grid">
+          {canEditContabilidad ? <section className="form-grid">
             <section className="panel">
               <div className="section-heading"><div><h2>Configuración fiscal</h2><p>Prerequisito para contabilización y cierre mensual oficial.</p></div></div>
               <form className="entity-form" onSubmit={handleCreateConfigFiscal}>
@@ -3707,7 +3707,7 @@ function App() {
                 <button type="submit" className="button-secondary" disabled={isSubmitting || !cierreDraft.empresa_id}>Preparar cierre</button>
               </form>
             </section>
-          </section>
+          </section> : null}
 
           <TableBlock title="Regímenes tributarios" subtitle="Regímenes disponibles para configuración fiscal." rows={filteredRegimenes} empty="No hay regímenes para este filtro." columns={[
             { label: 'Código', render: (row) => row.codigo_regimen },
@@ -3756,6 +3756,7 @@ function App() {
             {
               label: 'Acción',
               render: (row) => (
+                !canEditContabilidad ? 'Solo lectura' : (
                 <div className="inline-actions">
                   <button
                     type="button"
@@ -3781,6 +3782,7 @@ function App() {
                     </button>
                   ) : null}
                 </div>
+                )
               ),
             },
           ]} />
@@ -3808,6 +3810,7 @@ function App() {
             {
               label: 'Acción',
               render: (row) => (
+                !canEditContabilidad ? 'Solo lectura' : (
                 <div className="inline-actions">
                   <button
                     type="button"
@@ -3826,6 +3829,7 @@ function App() {
                     Reabrir
                   </button>
                 </div>
+                )
               ),
             },
           ]} />
@@ -3835,7 +3839,7 @@ function App() {
       {activeView === 'sii' ? (
         <>
           {!canEditSii ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en SII.</div> : null}
-          <section className="form-grid">
+          {canEditSii ? <section className="form-grid">
             <section className="panel">
               <div className="section-heading"><div><h2>Capacidad SII</h2><p>Gate operativo por empresa y capacidad tributaria.</p></div></div>
               <form className="entity-form" onSubmit={handleCreateCapacidadSii}>
@@ -3915,7 +3919,7 @@ function App() {
                 <button type="submit" className="button-primary" disabled={isSubmitting || !annualDraft.empresa_id}>Generar anual</button>
               </form>
             </section>
-          </section>
+          </section> : null}
 
           <TableBlock title="Capacidades SII" subtitle="Gate y ambiente por empresa/capacidad." rows={filteredCapacidadesSii} empty="No hay capacidades SII para este filtro." columns={[
             { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
@@ -3933,6 +3937,7 @@ function App() {
             {
               label: 'Acción',
               render: (row) => (
+                !canEditSii ? 'Solo lectura' : (
                 <div className="inline-actions">
                   <button
                     type="button"
@@ -3950,6 +3955,7 @@ function App() {
                     Reporting
                   </button>
                 </div>
+                )
               ),
             },
           ]} />
@@ -3962,6 +3968,7 @@ function App() {
             {
               label: 'Acción',
               render: (row) => (
+                !canEditSii ? 'Solo lectura' : (
                 <button
                   type="button"
                   className="button-ghost inline-action"
@@ -3970,6 +3977,7 @@ function App() {
                 >
                   Actualizar estado
                 </button>
+                )
               ),
             },
           ]} />
@@ -3989,6 +3997,7 @@ function App() {
             {
               label: 'Acción',
               render: (row) => (
+                !canEditSii ? 'Solo lectura' : (
                 <button
                   type="button"
                   className="button-ghost inline-action"
@@ -3997,6 +4006,7 @@ function App() {
                 >
                   Actualizar estado
                 </button>
+                )
               ),
             },
           ]} />
@@ -4009,6 +4019,7 @@ function App() {
             {
               label: 'Acción',
               render: (row) => (
+                !canEditSii ? 'Solo lectura' : (
                 <button
                   type="button"
                   className="button-ghost inline-action"
@@ -4017,6 +4028,7 @@ function App() {
                 >
                   Actualizar estado
                 </button>
+                )
               ),
             },
           ]} />
