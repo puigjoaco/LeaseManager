@@ -188,11 +188,13 @@ class ScopeFilteringAPITests(APITestCase):
         mandatos = self.client.get(reverse('operacion-mandato-list'))
         contratos = self.client.get(reverse('contratos-contrato-list'))
         dashboard = self.client.get(reverse('reporting-dashboard-operativo'))
+        control_read = self.client.get(reverse('contabilidad-config-list'))
 
         self.assertEqual(cuentas.status_code, status.HTTP_200_OK)
         self.assertEqual(mandatos.status_code, status.HTTP_200_OK)
         self.assertEqual(contratos.status_code, status.HTTP_200_OK)
         self.assertEqual(dashboard.status_code, status.HTTP_200_OK)
+        self.assertEqual(control_read.status_code, status.HTTP_403_FORBIDDEN)
 
         self.assertEqual(len(cuentas.data), 1)
         self.assertEqual(cuentas.data[0]['id'], self.context_a['cuenta'].id)
@@ -217,6 +219,7 @@ class ScopeFilteringAPITests(APITestCase):
         financial = self.client.get(
             f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={self.company_b.id}"
         )
+        dashboard = self.client.get(reverse('reporting-dashboard-operativo'))
 
         self.assertEqual(configs.status_code, status.HTTP_200_OK)
         self.assertEqual(len(configs.data), 1)
@@ -226,6 +229,7 @@ class ScopeFilteringAPITests(APITestCase):
         self.assertEqual(financial.data['empresa_id'], self.company_b.id)
         self.assertEqual(financial.data['pagos_generados'], 1)
         self.assertEqual(financial.data['monto_facturable_total_clp'], '100000.00')
+        self.assertEqual(dashboard.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_operator_cannot_generate_payment_for_contract_outside_scope(self):
         user = self.user_model.objects.create_user(

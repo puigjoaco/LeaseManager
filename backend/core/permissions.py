@@ -71,17 +71,17 @@ class AuditResolutionPermission(RolePermission):
 
 
 class ControlModulePermission(RolePermission):
-    read_roles = {ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER}
+    read_roles = {ROLE_ADMIN, ROLE_REVIEWER}
     write_roles = {ROLE_ADMIN}
 
 
 class ReportingPermission(RolePermission):
-    read_roles = {ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER}
+    read_roles = {ROLE_ADMIN, ROLE_REVIEWER}
     write_roles = set()
 
 
 class PartnerOwnSummaryPermission(RolePermission):
-    read_roles = {ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER, ROLE_PARTNER}
+    read_roles = {ROLE_ADMIN, ROLE_REVIEWER, ROLE_PARTNER}
     write_roles = set()
 
     def has_permission(self, request, view):
@@ -101,3 +101,8 @@ class PartnerOwnSummaryPermission(RolePermission):
 class AdminOnlyPermission(RolePermission):
     read_roles = {ROLE_ADMIN}
     write_roles = {ROLE_ADMIN}
+
+
+class OperationalOverviewPermission(RolePermission):
+    read_roles = {ROLE_ADMIN, ROLE_OPERATOR}
+    write_roles = set()

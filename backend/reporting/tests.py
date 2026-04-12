@@ -18,7 +18,11 @@ from sii.models import CapacidadTributariaSII, DDJJPreparacionAnual, DTEEmitido,
 class ReportingAPITests(APITestCase):
     def setUp(self):
         user_model = get_user_model()
-        self.user = user_model.objects.create_user(username='reporting', password='secret123')
+        self.user = user_model.objects.create_user(
+            username='reporting',
+            password='secret123',
+            default_role_code='AdministradorGlobal',
+        )
         self.client.force_authenticate(self.user)
 
     def _create_context(self, codigo='RPT', owner_kind='socio', with_facturadora=False):

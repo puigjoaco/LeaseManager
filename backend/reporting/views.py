@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import PartnerOwnSummaryPermission, ReportingPermission
+from core.permissions import OperationalOverviewPermission, PartnerOwnSummaryPermission, ReportingPermission
 from core.scope_access import get_scope_access
 from .services import (
     build_annual_tax_summary,
@@ -14,7 +14,7 @@ from .services import (
 
 
 class OperationalDashboardView(APIView):
-    permission_classes = [ReportingPermission]
+    permission_classes = [OperationalOverviewPermission]
 
     def get(self, request):
         return Response(build_operational_dashboard(access=get_scope_access(request.user)))
@@ -69,7 +69,7 @@ class AnnualTaxSummaryView(APIView):
 
 
 class MigrationManualResolutionSummaryView(APIView):
-    permission_classes = [ReportingPermission]
+    permission_classes = [OperationalOverviewPermission]
 
     def get(self, request):
         status = request.query_params.get('status', 'open')

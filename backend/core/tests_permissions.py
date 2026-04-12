@@ -55,6 +55,13 @@ class RolePermissionTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_operador_cannot_read_control_modules(self):
+        self._force_user(username='operator-control-read', role_code='operator')
+
+        response = self.client.get(reverse('contabilidad-regimen-list'))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_reviewer_can_read_control_modules_but_not_operational_write(self):
         self._force_user(username='reviewer-role', role_code='RevisorFiscalExterno')
 
@@ -70,6 +77,15 @@ class RolePermissionTests(APITestCase):
             format='json',
         )
         self.assertEqual(operational_write.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_reviewer_can_read_reporting_but_not_operational_dashboard(self):
+        self._force_user(username='reviewer-reporting', role_code='RevisorFiscalExterno')
+
+        financial_read = self.client.get(reverse('reporting-tributario-anual'), {'anio_tributario': 2027})
+        dashboard_read = self.client.get(reverse('reporting-dashboard-operativo'))
+
+        self.assertEqual(financial_read.status_code, status.HTTP_200_OK)
+        self.assertEqual(dashboard_read.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_socio_can_only_access_own_partner_summary(self):
         own_socio = Socio.objects.create(nombre='Socio Propio', rut='12.345.678-5', activo=True)
