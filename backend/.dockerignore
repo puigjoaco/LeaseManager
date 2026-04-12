@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*/__pycache__/
+.env
+.env.*
+staticfiles/
+media/
+*.sqlite3
+*.db
+bundle-inspect*.db
+runserver.log
+runserver.err.log
+gunicorn.log
+gunicorn.err.log
+test-codex.db

@@ -58,6 +58,37 @@ python manage.py collectstatic --noinput
 gunicorn leasemanager_api.wsgi:application --bind 0.0.0.0:$PORT --log-file -
 ```
 
+## Ruta Docker
+
+Artefactos ya preparados:
+
+- [backend/Dockerfile](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/Dockerfile)
+- [backend/.dockerignore](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/.dockerignore)
+- [backend/docker-entrypoint.sh](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/docker-entrypoint.sh)
+
+Build:
+
+```bash
+docker build -t leasemanager-backend ./backend
+```
+
+Run:
+
+```bash
+docker run --rm -p 8000:8000 \
+  -e DJANGO_SECRET_KEY=replace-me \
+  -e DJANGO_DEBUG=false \
+  -e DJANGO_ALLOWED_HOSTS=your-host \
+  -e DJANGO_CORS_ALLOWED_ORIGINS=https://your-frontend \
+  -e DJANGO_CSRF_TRUSTED_ORIGINS=https://your-frontend \
+  -e DATABASE_URL=postgresql://... \
+  -e REDIS_URL=redis://... \
+  -e CELERY_RESULT_BACKEND=redis://... \
+  -e FRONTEND_URL=https://your-frontend \
+  -e LEGACY_ROOT_PATH=/app \
+  leasemanager-backend
+```
+
 ## Nota de validación local
 
 - `collectstatic --noinput` ya quedó validado localmente;
