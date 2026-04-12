@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import heroImage from './assets/hero.png'
+import { AuditWorkspace } from './backoffice/workspaces/AuditWorkspace'
+import { DocumentosWorkspace } from './backoffice/workspaces/DocumentosWorkspace'
 import './App.css'
 
 type HealthPayload = {
@@ -3136,7 +3138,6 @@ function App() {
   const contratoById = useMemo(() => new Map(contratos.map((item) => [item.id, item])), [contratos])
   const cuentaById = useMemo(() => new Map(cuentas.map((item) => [item.id, item])), [cuentas])
   const empresaById = useMemo(() => new Map(empresas.map((item) => [item.id, item])), [empresas])
-  const expedienteById = useMemo(() => new Map(expedientes.map((item) => [item.id, item])), [expedientes])
   const regimenById = useMemo(() => new Map(regimenesTributarios.map((item) => [item.id, item])), [regimenesTributarios])
   const reglaById = useMemo(() => new Map(reglasContables.map((item) => [item.id, item])), [reglasContables])
   const cuentaContableById = useMemo(() => new Map(cuentasContables.map((item) => [item.id, item])), [cuentasContables])
@@ -3855,148 +3856,31 @@ function App() {
       ) : null}
 
       {activeView === 'documentos' ? (
-        <>
-          {!canEditDocumentos ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Documentos.</div> : null}
-          {canEditDocumentos ? (
-            <section className="form-grid">
-              <section className="panel">
-                <div className="section-heading"><div><h2>{editingExpedienteId ? 'Editar expediente' : 'Expediente documental'}</h2><p>Agrupa documentos por entidad operativa.</p></div></div>
-                <form className="entity-form" onSubmit={handleCreateExpediente}>
-                  <select value={expedienteDraft.entidad_tipo} onChange={(event) => setExpedienteDraft((current) => ({ ...current, entidad_tipo: event.target.value }))}>
-                    <option value="contrato">Contrato</option>
-                    <option value="arrendatario">Arrendatario</option>
-                    <option value="manual">Manual</option>
-                  </select>
-                  <input placeholder="Entidad ID" value={expedienteDraft.entidad_id} onChange={(event) => setExpedienteDraft((current) => ({ ...current, entidad_id: event.target.value }))} />
-                  <select value={expedienteDraft.estado} onChange={(event) => setExpedienteDraft((current) => ({ ...current, estado: event.target.value }))}>
-                    <option value="abierto">Abierto</option>
-                    <option value="cerrado">Cerrado</option>
-                    <option value="archivado">Archivado</option>
-                  </select>
-                  <input placeholder="Owner operativo" value={expedienteDraft.owner_operativo} onChange={(event) => setExpedienteDraft((current) => ({ ...current, owner_operativo: event.target.value }))} />
-                  <div className="inline-actions">
-                    <button type="submit" className="button-primary" disabled={isSubmitting || !expedienteDraft.entidad_id || !expedienteDraft.owner_operativo}>{editingExpedienteId ? 'Guardar expediente' : 'Guardar expediente'}</button>
-                    {editingExpedienteId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditExpediente}>Cancelar</button> : null}
-                  </div>
-                </form>
-              </section>
-
-              <section className="panel">
-                <div className="section-heading"><div><h2>Política de firma</h2><p>Reglas activas por tipo documental.</p></div></div>
-                <form className="entity-form" onSubmit={handleCreatePoliticaFirma}>
-                  <select value={politicaFirmaDraft.tipo_documental} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, tipo_documental: event.target.value }))}>
-                    <option value="contrato_principal">Contrato principal</option>
-                    <option value="anexo">Anexo</option>
-                    <option value="carta_aviso">Carta de aviso</option>
-                    <option value="liquidacion_garantia">Liquidación de garantía</option>
-                    <option value="respaldo_tributario">Respaldo tributario</option>
-                    <option value="comprobante_notarial">Comprobante notarial</option>
-                    <option value="evidencia_resolucion_manual">Evidencia de resolución manual</option>
-                  </select>
-                  <select value={politicaFirmaDraft.modo_firma_permitido} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, modo_firma_permitido: event.target.value }))}>
-                    <option value="firma_simple">Firma simple</option>
-                    <option value="firma_avanzada">Firma avanzada</option>
-                    <option value="mixta">Mixta</option>
-                    <option value="manual">Manual</option>
-                  </select>
-                  <select value={politicaFirmaDraft.estado} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, estado: event.target.value }))}>
-                    <option value="activa">Activa</option>
-                    <option value="inactiva">Inactiva</option>
-                  </select>
-                  <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_firma_arrendador} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_firma_arrendador: event.target.checked }))} />Firma arrendador</label>
-                  <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_firma_arrendatario} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_firma_arrendatario: event.target.checked }))} />Firma arrendatario</label>
-                  <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_codeudor} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_codeudor: event.target.checked }))} />Firma codeudor</label>
-                  <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_notaria} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_notaria: event.target.checked }))} />Requiere notaría</label>
-                  <button type="submit" className="button-primary" disabled={isSubmitting}>Guardar política</button>
-                </form>
-              </section>
-
-              <section className="panel">
-                <div className="section-heading"><div><h2>Documento emitido</h2><p>Registro de documento y estado documental.</p></div></div>
-                <form className="entity-form" onSubmit={handleCreateDocumento}>
-                  <select value={documentoDraft.expediente} onChange={(event) => setDocumentoDraft((current) => ({ ...current, expediente: event.target.value }))}>
-                    <option value="">Selecciona expediente</option>
-                    {expedientes.map((item) => (
-                      <option key={item.id} value={item.id}>{item.entidad_tipo} · {item.entidad_id}</option>
-                    ))}
-                  </select>
-                  <select value={documentoDraft.tipo_documental} onChange={(event) => setDocumentoDraft((current) => ({ ...current, tipo_documental: event.target.value }))}>
-                    <option value="contrato_principal">Contrato principal</option>
-                    <option value="anexo">Anexo</option>
-                    <option value="carta_aviso">Carta de aviso</option>
-                    <option value="liquidacion_garantia">Liquidación de garantía</option>
-                    <option value="respaldo_tributario">Respaldo tributario</option>
-                    <option value="comprobante_notarial">Comprobante notarial</option>
-                    <option value="evidencia_resolucion_manual">Evidencia de resolución manual</option>
-                  </select>
-                  <input placeholder="Versión plantilla" value={documentoDraft.version_plantilla} onChange={(event) => setDocumentoDraft((current) => ({ ...current, version_plantilla: event.target.value }))} />
-                  <input placeholder="Checksum" value={documentoDraft.checksum} onChange={(event) => setDocumentoDraft((current) => ({ ...current, checksum: event.target.value }))} />
-                  <input type="datetime-local" value={documentoDraft.fecha_carga} onChange={(event) => setDocumentoDraft((current) => ({ ...current, fecha_carga: event.target.value }))} />
-                  <select value={documentoDraft.origen} onChange={(event) => setDocumentoDraft((current) => ({ ...current, origen: event.target.value }))}>
-                    <option value="generado_sistema">Generado por sistema</option>
-                    <option value="carga_externa_controlada">Carga externa controlada</option>
-                  </select>
-                  <select value={documentoDraft.estado} onChange={(event) => setDocumentoDraft((current) => ({ ...current, estado: event.target.value }))}>
-                    <option value="borrador">Borrador</option>
-                    <option value="emitido">Emitido</option>
-                    <option value="archivado">Archivado</option>
-                    <option value="cancelado">Cancelado</option>
-                  </select>
-                  <input placeholder="Storage ref" value={documentoDraft.storage_ref} onChange={(event) => setDocumentoDraft((current) => ({ ...current, storage_ref: event.target.value }))} />
-                  <button type="submit" className="button-primary" disabled={isSubmitting || !documentoDraft.expediente || !documentoDraft.checksum || !documentoDraft.storage_ref}>Guardar documento</button>
-                </form>
-              </section>
-
-              <section className="panel">
-                <div className="section-heading"><div><h2>Formalizar documento</h2><p>Registro de firmas y comprobante notarial cuando aplique.</p></div></div>
-                <form className="entity-form" onSubmit={handleFormalizeDocumento}>
-                  <select value={documentoFormalizarDraft.documentoId} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, documentoId: event.target.value }))}>
-                    <option value="">Selecciona documento</option>
-                    {documentosEmitidos.map((item) => (
-                      <option key={item.id} value={item.id}>{item.tipo_documental} · {item.storage_ref}</option>
-                    ))}
-                  </select>
-                  <select value={documentoFormalizarDraft.comprobante_notarial} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, comprobante_notarial: event.target.value }))}>
-                    <option value="">Sin comprobante</option>
-                    {documentosEmitidos.filter((item) => item.tipo_documental === 'comprobante_notarial').map((item) => (
-                      <option key={item.id} value={item.id}>{item.storage_ref}</option>
-                    ))}
-                  </select>
-                  <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.firma_arrendador_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, firma_arrendador_registrada: event.target.checked }))} />Firma arrendador</label>
-                  <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.firma_arrendatario_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, firma_arrendatario_registrada: event.target.checked }))} />Firma arrendatario</label>
-                  <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.firma_codeudor_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, firma_codeudor_registrada: event.target.checked }))} />Firma codeudor</label>
-                  <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.recepcion_notarial_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, recepcion_notarial_registrada: event.target.checked }))} />Recepción notarial</label>
-                  <button type="submit" className="button-primary" disabled={isSubmitting || !documentoFormalizarDraft.documentoId}>Formalizar documento</button>
-                </form>
-              </section>
-            </section>
-          ) : null}
-
-          <TableBlock title="Expedientes" subtitle="Agrupación documental por entidad operativa." rows={filteredExpedientes} empty="No hay expedientes para este filtro." columns={[
-            { label: 'Entidad', render: (row) => `${row.entidad_tipo} · ${row.entidad_id}` },
-            { label: 'Owner operativo', render: (row) => row.owner_operativo },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-            { label: 'Acción', render: (row) => canEditDocumentos ? <button type="button" className="button-ghost inline-action" onClick={() => startEditExpediente(row)}>Editar</button> : 'Solo lectura' },
-          ]} />
-
-          <TableBlock title="Políticas de firma" subtitle="Reglas activas por tipo documental." rows={filteredPoliticasFirma} empty="No hay políticas para este filtro." columns={[
-            { label: 'Tipo documental', render: (row) => row.tipo_documental },
-            { label: 'Modo firma', render: (row) => row.modo_firma_permitido },
-            { label: 'Arrendador', render: (row) => row.requiere_firma_arrendador ? 'Sí' : 'No' },
-            { label: 'Arrendatario', render: (row) => row.requiere_firma_arrendatario ? 'Sí' : 'No' },
-            { label: 'Notaría', render: (row) => row.requiere_notaria ? 'Sí' : 'No' },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-          ]} />
-
-          <TableBlock title="Documentos emitidos" subtitle="Estado documental y storage asociado." rows={filteredDocumentosEmitidos} empty="No hay documentos emitidos para este filtro." columns={[
-            { label: 'Expediente', render: (row) => `${expedienteById.get(row.expediente)?.entidad_tipo || 'expediente'} · ${expedienteById.get(row.expediente)?.entidad_id || row.expediente}` },
-            { label: 'Tipo', render: (row) => row.tipo_documental },
-            { label: 'Origen', render: (row) => row.origen },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-            { label: 'Storage', render: (row) => row.storage_ref },
-            { label: 'Acción', render: (row) => canEditDocumentos ? <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => setDocumentoFormalizarDraft((current) => ({ ...current, documentoId: String(row.id) }))}>Formalizar</button><button type="button" className="button-ghost inline-action" onClick={() => goToDocumentoContext(row.id)}>Canales</button></div> : 'Solo lectura' },
-          ]} />
-        </>
+        <DocumentosWorkspace
+          canEditDocumentos={canEditDocumentos}
+          editingExpedienteId={editingExpedienteId}
+          expedienteDraft={expedienteDraft}
+          setExpedienteDraft={setExpedienteDraft}
+          handleCreateExpediente={handleCreateExpediente}
+          cancelEditExpediente={cancelEditExpediente}
+          politicaFirmaDraft={politicaFirmaDraft}
+          setPoliticaFirmaDraft={setPoliticaFirmaDraft}
+          handleCreatePoliticaFirma={handleCreatePoliticaFirma}
+          documentoDraft={documentoDraft}
+          setDocumentoDraft={setDocumentoDraft}
+          handleCreateDocumento={handleCreateDocumento}
+          documentoFormalizarDraft={documentoFormalizarDraft}
+          setDocumentoFormalizarDraft={setDocumentoFormalizarDraft}
+          handleFormalizeDocumento={handleFormalizeDocumento}
+          expedientes={expedientes}
+          documentosEmitidos={documentosEmitidos}
+          filteredExpedientes={filteredExpedientes}
+          filteredPoliticasFirma={filteredPoliticasFirma}
+          filteredDocumentosEmitidos={filteredDocumentosEmitidos}
+          isSubmitting={isSubmitting}
+          startEditExpediente={startEditExpediente}
+          goToDocumentoContext={goToDocumentoContext}
+        />
       ) : null}
 
       {activeView === 'canales' ? (
@@ -4354,68 +4238,21 @@ function App() {
       ) : null}
 
       {activeView === 'audit' ? (
-        <>
-          {!canEditAudit ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Audit.</div> : null}
-          {canEditAudit ? (
-            <section className="form-grid">
-              <section className="panel">
-                <div className="section-heading"><div><h2>{editingManualResolutionId ? 'Editar resolución manual' : 'Cola de resolución manual'}</h2><p>{auditHeading.subtitle}</p></div></div>
-                {activeManualResolution ? (
-                  <div className="list-stack">
-                    <div className="list-row"><span>Categoría</span><strong>{activeManualResolution.category}</strong></div>
-                    <div className="list-row"><span>Scope</span><strong>{activeManualResolution.scope_type} · {activeManualResolution.scope_reference}</strong></div>
-                    <div className="list-row"><span>Resumen</span><strong>{activeManualResolution.summary}</strong></div>
-                  </div>
-                ) : (
-                  <div className="empty-state compact">Selecciona una resolución desde la tabla para actualizar su estado o rationale.</div>
-                )}
-                <form className="entity-form subform" onSubmit={handleUpdateManualResolution}>
-                  <select value={manualResolutionDraft.status} onChange={(event) => setManualResolutionDraft((current) => ({ ...current, status: event.target.value }))}>
-                    <option value="open">Open</option>
-                    <option value="in_review">In review</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
-                  <input placeholder="Rationale" value={manualResolutionDraft.rationale} onChange={(event) => setManualResolutionDraft((current) => ({ ...current, rationale: event.target.value }))} />
-                  <div className="inline-actions">
-                    <button type="submit" className="button-primary" disabled={isSubmitting || !editingManualResolutionId}>Guardar resolución</button>
-                    {editingManualResolutionId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditManualResolution}>Cancelar</button> : null}
-                  </div>
-                </form>
-              </section>
-              <section className="panel">
-                <div className="section-heading"><div><h2>Metadata</h2><p>Contexto crudo de la resolución seleccionada.</p></div></div>
-                {activeManualResolution ? (
-                  <pre className="json-block">{JSON.stringify(activeManualResolution.metadata, null, 2)}</pre>
-                ) : (
-                  <div className="empty-state">No hay resolución seleccionada.</div>
-                )}
-              </section>
-            </section>
-          ) : null}
-
-          {effectiveRole !== 'OperadorDeCartera' ? (
-            <TableBlock title="Eventos auditables" subtitle="Trazabilidad reciente del sistema." rows={filteredAuditEvents} empty="No hay eventos auditables para este filtro." columns={[
-              { label: 'Fecha', render: (row) => stamp(row.created_at) },
-              { label: 'Severidad', render: (row) => <Badge label={row.severity} tone={toneFor(row.severity)} /> },
-              { label: 'Evento', render: (row) => row.event_type },
-              { label: 'Entidad', render: (row) => `${row.entity_type}${row.entity_id ? ` · ${row.entity_id}` : ''}` },
-              { label: 'Actor', render: (row) => row.actor_user_display || 'Sistema' },
-              { label: 'Resumen', render: (row) => row.summary },
-            ]} />
-          ) : null}
-
-          {effectiveRole !== 'RevisorFiscalExterno' ? (
-            <TableBlock title="Resoluciones manuales" subtitle="Backlog manual y estado de cierre." rows={filteredManualResolutions} empty="No hay resoluciones manuales para este filtro." columns={[
-              { label: 'Estado', render: (row) => <Badge label={row.status} tone={toneFor(row.status)} /> },
-              { label: 'Categoría', render: (row) => row.category },
-              { label: 'Scope', render: (row) => `${row.scope_type} · ${row.scope_reference}` },
-              { label: 'Resumen', render: (row) => row.summary },
-              { label: 'Solicitado por', render: (row) => row.requested_by_display || 'Sistema' },
-              { label: 'Resuelto por', render: (row) => row.resolved_by_display || 'Pendiente' },
-              { label: 'Acción', render: (row) => canEditAudit ? <button type="button" className="button-ghost inline-action" onClick={() => startEditManualResolution(row)}>Editar</button> : 'Solo lectura' },
-            ]} />
-          ) : null}
-        </>
+        <AuditWorkspace
+          effectiveRole={effectiveRole}
+          canEditAudit={canEditAudit}
+          auditHeading={auditHeading}
+          activeManualResolution={activeManualResolution}
+          editingManualResolutionId={editingManualResolutionId}
+          manualResolutionDraft={manualResolutionDraft}
+          setManualResolutionDraft={setManualResolutionDraft}
+          handleUpdateManualResolution={handleUpdateManualResolution}
+          cancelEditManualResolution={cancelEditManualResolution}
+          filteredAuditEvents={filteredAuditEvents}
+          filteredManualResolutions={filteredManualResolutions}
+          startEditManualResolution={startEditManualResolution}
+          isSubmitting={isSubmitting}
+        />
       ) : null}
 
       {activeView === 'contabilidad' ? (
