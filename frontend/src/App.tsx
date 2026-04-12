@@ -657,7 +657,16 @@ type ReportingMigrationSummary = {
   }>
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+function resolveApiBaseUrl() {
+  const configured = (import.meta.env.VITE_API_BASE_URL || '').trim()
+  if (configured) return configured
+  if (typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+    return 'http://localhost:8000'
+  }
+  return ''
+}
+
+const API_BASE_URL = resolveApiBaseUrl()
 const TOKEN_STORAGE_KEY = 'leasemanager.auth.token'
 const fallbackHealth: HealthPayload = {
   service: 'leasemanager-api',
@@ -678,6 +687,9 @@ async function apiRequest<T>(
   path: string,
   options: { method?: 'GET' | 'POST' | 'PATCH'; token?: string | null; body?: unknown } = {},
 ) {
+  if (!API_BASE_URL) {
+    throw new ApiError(500, 'VITE_API_BASE_URL no está configurado para este entorno.')
+  }
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || 'GET',
     headers: {
@@ -1161,6 +1173,7 @@ function App() {
   const activeAssignments = currentUser?.assignments || []
   const reportingHeading = reportingHeadingForRole(effectiveRole)
   const auditHeading = auditHeadingForRole(effectiveRole)
+  const apiConfigError = !API_BASE_URL ? 'VITE_API_BASE_URL no está configurado para este entorno.' : null
 
   function canAccessView(view: ViewKey) {
     return allowedViewsForRole(effectiveRole).includes(view)
@@ -3104,6 +3117,7 @@ function App() {
               {isLoggingIn ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
+          {apiConfigError ? <p className="form-message error-text">{apiConfigError}</p> : null}
           {loginError ? <p className="form-message error-text">{loginError}</p> : null}
           <div className="metric-grid compact-grid">
             <Metric label="API" value={health.status} tone={toneFor(health.status)} />
@@ -3188,6 +3202,7 @@ function App() {
         ))}
       </section>
 
+      {apiConfigError ? <div className="banner-error">{apiConfigError}</div> : null}
       {workspaceError ? <div className="banner-error">{workspaceError}</div> : null}
       {activeView !== 'overview' && activeContextLabel ? (
         <div className="context-banner">
