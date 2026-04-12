@@ -2,86 +2,98 @@
 
 ## 1. Pendiente principal
 
-El pendiente principal ya no es “abrir el siguiente módulo”, “cerrar migración” ni “sembrar roles”.
+El pendiente principal ya no es “abrir el siguiente modulo”, “cerrar migracion”, “sembrar roles” ni “conectar backend y frontend”.
 
 La etapa actual deja como pendiente principal:
 
-- **probar manualmente el sistema como `demo-operador`, `demo-revisor` y `demo-socio`, y cerrar cualquier hueco restante de visibilidad o mutación que aparezca en esa prueba**
+- **aprovechar correctamente el stack publico ya online, empezando por mejorar la representatividad de la data remota y luego elegir el siguiente frente funcional real sin romper la topologia publica ya cerrada**
 
 ## 2. Que ya no falta verificar
 
 Ya no falta verificar, para este tramo:
 
 - naming del greenfield;
-- separación del repo legacy;
-- baseline local y staging de migración comunitaria;
-- backoffice base por módulos principales;
-- navegación contextual;
-- edición de registros core;
-- permisos visibles en UI;
-- permisos efectivos de backend por rol;
+- separacion del repo legacy;
+- baseline local y staging de migracion comunitaria;
+- backoffice base por modulos principales;
 - seed reproducible de usuarios/roles/scopes demo;
-- primer hardening de scope por lectura y escritura.
+- hardening inicial de scope por lectura y escritura;
+- apertura de `Audit`, `Documentos` y `Canales` en frontend;
+- modularizacion fuerte del frontend;
+- frontend publico en Vercel;
+- backend publico en Railway;
+- `VITE_API_BASE_URL` conectada;
+- login publico para `demo-admin`, `demo-operador`, `demo-revisor` y `demo-socio`;
+- smoke publico basico por perfil en navegador real.
 
 ## 3. Trabajo que sigue abierto
 
-### 3.1 Validación manual por perfil
+### 3.1 Data remota / representatividad
 
-- recorrer el backoffice local con:
-  - `demo-operador`
-  - `demo-revisor`
-  - `demo-socio`
-- anotar qué vistas, acciones o formularios todavía exponen más de lo debido;
-- ajustar esos puntos sobre backend y, si corresponde, sobre UI.
+- hoy el entorno publico funciona, pero muestra muy poca data operativa;
+- conviene decidir si:
+  - se carga un seed remoto mas representativo;
+  - se migra un subconjunto seguro de data util;
+  - o se deja el entorno publico como smoke-only y se sigue trabajando principalmente contra local.
 
-### 3.2 Scope residual
+### 3.2 Validacion publica residual
 
-- revisar si, además del hardening ya hecho, quedan endpoints o acciones sin scope efectivo;
-- detectar módulos secundarios donde un rol con lectura válida todavía vea un subconjunto incorrecto.
+- aunque ya hubo smoke checks reales por los cuatro perfiles demo, todavia conviene seguir probando:
+  - navegacion contextual con data real;
+  - acciones operativas con registros no vacios;
+  - lectura de reporting con payloads mas ricos;
+  - consistencia entre frontend publico y backend publico en escenarios menos triviales.
 
-### 3.3 Higiene/documentación
+### 3.3 Scope residual
 
-- revisar si se quiere actualizar [README.md](/D:/Proyectos/LeaseManager/Produccion%201.0/README.md), que hoy subestima el estado real del frontend.
+- revisar si quedan endpoints o acciones sin scope efectivo en modulos menos transitados;
+- en particular, conviene seguir mirando modulos secundarios sobre data no vacia, donde las fugas son mas faciles de detectar.
 
-### 3.4 Módulos no expuestos todavía en frontend
+### 3.4 Siguiente frente funcional
 
 El backend ya tiene superficie en:
 
-- `Documentos`
-- `Canales`
-- `Audit`
 - `Compliance`
 
-Todavía no están trabajados con el mismo nivel de UX/backoffice que los módulos principales ya cubiertos.
+Y el proyecto podria seguir por una de estas dos lineas:
+
+- abrir `Compliance` en frontend;
+- o priorizar primero otro frente funcional con mejor retorno una vez que el entorno remoto tenga data util.
 
 ## 4. Proximo paso recomendado
 
 Secuencia recomendada para continuar correctamente:
 
 1. mantener [puigjoaco/LeaseManager](https://github.com/puigjoaco/LeaseManager) como repo oficial;
-2. mantener `leasemanager_migration_run_20260409_v7` como baseline local;
-3. probar el sistema con cada perfil demo;
-4. corregir permisos finos o alcance por scope donde la experiencia real falle;
-5. recién después decidir si conviene:
-   - abrir `Documentos/Canales/Audit/Compliance` en frontend;
-   - o mejorar filtros persistentes y búsquedas.
+2. mantener [https://leasemanager-backoffice.vercel.app](https://leasemanager-backoffice.vercel.app) como frontend publico vigente;
+3. mantener [https://surprising-balance-production.up.railway.app](https://surprising-balance-production.up.railway.app) como backend publico vigente;
+4. no mover `Root Directory=frontend` ni desconectar Git en Vercel;
+5. no tocar Railway web/worker/Redis sin revalidacion completa;
+6. enriquecer la data remota para que el entorno publico sea mas representativo;
+7. hacer un smoke publico corto sobre escenarios con data real/no vacia;
+8. recien despues elegir el siguiente frente funcional del producto.
 
-## 5. Que no hacer a continuación
+## 5. Que no hacer a continuacion
 
-- no reabrir el diseño comunitario;
+- no reabrir el diseno comunitario;
 - no volver a discutir el naming `LeaseManager`;
-- no asumir que los datos `TEST LOCAL` están versionados;
-- no tratar la UI role-aware como sustituto del permiso backend;
-- no mezclar el refresh documental pendiente con cambios de producto sin revisar el alcance.
+- no asumir que los datos `TEST LOCAL` estan versionados;
+- no volver a tratar `Vercel + Railway` como bootstrap pendiente;
+- no romper `VITE_API_BASE_URL`, el root `frontend` o el wiring Git;
+- no versionar secretos o valores sensibles del runtime remoto;
+- no inferir que una vista “vacia” implica bug si el dataset remoto sigue siendo escaso.
 
 ## 6. Trabajo reservado para la siguiente etapa
 
 ### Etapa inmediata
 
-- pruebas de experiencia real como perfiles no-admin;
-- cierre de huecos residuales de scope.
+- refresh documental del handoff con estado real actual;
+- enriquecimiento de data remota o decision explicita de mantener entorno smoke-only;
+- smoke publico corto sobre escenarios con data mas util.
 
 ### Etapa posterior
 
-- apertura de módulos secundarios en frontend si sigue haciendo sentido;
-- o modularización adicional del frontend si el costo de cambio en `App.tsx` sigue creciendo.
+- elegir el siguiente frente funcional real:
+  - `Compliance`,
+  - profundizacion de workflows operativos,
+  - o nuevo hardening puntual sobre endpoints/acciones residuales.

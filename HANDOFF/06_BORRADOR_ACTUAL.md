@@ -2,18 +2,20 @@
 
 ## 1. Situacion actual del “borrador”
 
-No existe un nuevo documento único que reemplace al código como entregable principal del tramo actual.
+No existe un documento unico que reemplace al codigo como entregable principal del tramo actual.
 
-El entregable vigente hoy es una combinación de:
+El entregable vigente hoy es una combinacion de:
 
-- set canónico (`PRD`, `ADR`, roadmap);
-- implementación real del backoffice;
+- set canonico (`PRD`, `ADR`, roadmap);
+- implementacion real del backoffice;
 - permisos RBAC efectivos en backend;
-- seed demo y hardening inicial de scope.
+- seed demo y hardening real de scope;
+- topologia publica ya operativa en `Vercel + Railway`;
+- smoke publico validado por perfil.
 
 Por eso, para esta etapa, “borrador actual” significa:
 
-- **base de trabajo vigente para continuar el siguiente thread**
+- **base de trabajo vigente para continuar el siguiente thread sin reabrir infraestructura ya cerrada**
 
 ## 2. Ranking de piezas vigentes hoy
 
@@ -23,7 +25,7 @@ Por eso, para esta etapa, “borrador actual” significa:
 
 Motivo:
 
-- sigue siendo la fuente primaria de producto, dominio y permisos críticos;
+- sigue siendo la fuente primaria de producto, dominio y permisos criticos;
 - fija actores, restricciones, acceptance y boundary.
 
 ### Ranking 2
@@ -33,18 +35,35 @@ Motivo:
 
 Motivo:
 
-- hoy son la mejor base para entender qué ya se cubrió y por qué el siguiente paso ya no es “otro módulo base”.
+- siguen siendo la mejor base para decidir continuidad de producto y dependencias.
 
 ### Ranking 3
 
-[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/App.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/App.tsx)
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/App.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/App.tsx)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/api.ts](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/api.ts)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/shell.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/shell.tsx)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/view-config.ts](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/view-config.ts)
 
 Motivo:
 
-- concentra el estado real del backoffice;
-- si hay duda sobre qué ya existe en UI, esta pieza manda.
+- hoy mandan si hay duda sobre que ya existe en UI, tabs visibles, wiring con API y comportamiento por rol;
+- representan la forma actual del frontend, no la foto vieja del handoff.
 
 ### Ranking 4
+
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/workspaces/AuditWorkspace.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/workspaces/AuditWorkspace.tsx)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/workspaces/DocumentosWorkspace.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/workspaces/DocumentosWorkspace.tsx)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/workspaces/CanalesWorkspace.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/workspaces/CanalesWorkspace.tsx)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/workspaces/ReportingWorkspace.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/workspaces/ReportingWorkspace.tsx)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/workspaces/ContabilidadWorkspace.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/workspaces/ContabilidadWorkspace.tsx)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/workspaces/SiiWorkspace.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/workspaces/SiiWorkspace.tsx)
+
+Motivo:
+
+- representan la modularizacion efectiva ya conseguida;
+- son la referencia practica de las superficies publicas y por rol.
+
+### Ranking 5
 
 [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/permissions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/permissions.py)  
 [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/scope_access.py)  
@@ -55,9 +74,22 @@ Motivo:
 Motivo:
 
 - definen, siembran y prueban el estado actual de RBAC + scope efectivo del backend;
-- son base obligatoria para cualquier trabajo nuevo sobre validación manual de perfiles o permisos finos.
+- siguen siendo base obligatoria para cualquier trabajo nuevo sobre permisos finos o validacion por perfil.
 
-### Ranking 5
+### Ranking 6
+
+[D:/Proyectos/LeaseManager/Produccion 1.0/docs/DEPLOY_FRONTEND_VERCEL.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/DEPLOY_FRONTEND_VERCEL.md)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/docs/DEPLOY_BACKEND_GREENFIELD.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/DEPLOY_BACKEND_GREENFIELD.md)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/docs/ROLL_OUT_BACKEND_FRONTEND.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ROLL_OUT_BACKEND_FRONTEND.md)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/backend/railway.web.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.web.json)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/backend/railway.worker.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.worker.json)
+
+Motivo:
+
+- ya no son docs marginales: hoy forman parte de la continuidad real del sistema;
+- describen la topologia publica actualmente operativa.
+
+### Ranking 7
 
 [D:/Proyectos/LeaseManager/Produccion 1.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md)
 
@@ -71,8 +103,8 @@ Motivo:
 Estado actual:
 
 - no hay un solo documento nuevo pendiente de cierre para esta etapa;
-- la base principal de continuidad ya es mayormente código;
-- el proyecto está en una fase de endurecimiento operativo y de validación por perfil.
+- la base principal de continuidad ya es mayormente codigo + runtime publico;
+- el proyecto esta en una fase de consolidacion del stack publico, permisos efectivos y proximo frente funcional.
 
 ## 4. Base a usar en el siguiente thread
 
@@ -82,15 +114,24 @@ Usar como base principal, en este orden:
 2. [ROADMAP_TECNICO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/03_Ejecucion_Tecnica/ROADMAP_TECNICO.md)
 3. [MODULOS_Y_DEPENDENCIAS.md](/D:/Proyectos/LeaseManager/Produccion%201.0/03_Ejecucion_Tecnica/MODULOS_Y_DEPENDENCIAS.md)
 4. [App.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/App.tsx)
-5. [permissions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/permissions.py)
-6. [scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/scope_access.py)
-7. [seed_demo_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/seed_demo_access.py)
-8. [tests_permissions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/tests_permissions.py)
-9. [tests_scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/tests_scope_access.py)
-10. [01_CONTEXTO_MAESTRO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/01_CONTEXTO_MAESTRO.md)
-11. [04_DECISIONES_VIGENTES.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/04_DECISIONES_VIGENTES.md)
-12. [03_CRONOLOGIA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/03_CRONOLOGIA.md)
+5. [api.ts](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/api.ts)
+6. [shell.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/shell.tsx)
+7. [view-config.ts](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/view-config.ts)
+8. workspaces del backoffice ya extraidos
+9. [permissions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/permissions.py)
+10. [scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/scope_access.py)
+11. [seed_demo_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/seed_demo_access.py)
+12. [tests_permissions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/tests_permissions.py)
+13. [tests_scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/tests_scope_access.py)
+14. [documentos/scope.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/documentos/scope.py)
+15. [canales/scope.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/canales/scope.py)
+16. [DEPLOY_FRONTEND_VERCEL.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/DEPLOY_FRONTEND_VERCEL.md)
+17. [DEPLOY_BACKEND_GREENFIELD.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/DEPLOY_BACKEND_GREENFIELD.md)
+18. [ROLL_OUT_BACKEND_FRONTEND.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ROLL_OUT_BACKEND_FRONTEND.md)
+19. [01_CONTEXTO_MAESTRO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/01_CONTEXTO_MAESTRO.md)
+20. [04_DECISIONES_VIGENTES.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/04_DECISIONES_VIGENTES.md)
+21. [03_CRONOLOGIA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/03_CRONOLOGIA.md)
 
-Para cualquier consulta puntual sobre el dominio comunitario ya cerrado, reinyectar además:
+Para cualquier consulta puntual sobre el dominio comunitario ya cerrado, reinyectar ademas:
 
-13. [ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md)
+22. [ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md)

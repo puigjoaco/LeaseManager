@@ -22,11 +22,20 @@ Y luego abrir como fuentes principales:
 - D:/Proyectos/LeaseManager/Produccion 1.0/03_Ejecucion_Tecnica/ROADMAP_TECNICO.md
 - D:/Proyectos/LeaseManager/Produccion 1.0/03_Ejecucion_Tecnica/MODULOS_Y_DEPENDENCIAS.md
 - D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/App.tsx
+- D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/api.ts
+- D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/shell.tsx
+- D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/view-config.ts
 - D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/permissions.py
 - D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/scope_access.py
 - D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/seed_demo_access.py
 - D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/tests_permissions.py
 - D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/tests_scope_access.py
+- D:/Proyectos/LeaseManager/Produccion 1.0/backend/documentos/scope.py
+- D:/Proyectos/LeaseManager/Produccion 1.0/backend/canales/scope.py
+- D:/Proyectos/LeaseManager/Produccion 1.0/docs/DEPLOY_FRONTEND_VERCEL.md
+- D:/Proyectos/LeaseManager/Produccion 1.0/docs/DEPLOY_BACKEND_GREENFIELD.md
+- D:/Proyectos/LeaseManager/Produccion 1.0/docs/ROLL_OUT_BACKEND_FRONTEND.md
+- D:/Proyectos/LeaseManager/Produccion 1.0/backend/health/views.py
 
 Contexto operativo clave:
 
@@ -36,30 +45,38 @@ Contexto operativo clave:
 - repo anterior: https://github.com/puigjoaco/LeaseManager-legacy
 - baseline local validado: `leasemanager_migration_run_20260409_v7`
 - staging remoto validado: Supabase `leasemanager-staging`
-- HEAD ya no es `c6add42`; verificar el `HEAD` actual antes de asumir el estado del repo
-- existen usuarios demo reproducibles (`demo-admin`, `demo-operador`, `demo-revisor`, `demo-socio`)
-- el backend ya tiene una primera capa real de scope tanto para lectura como para varias escrituras/acciones
-- el working tree puede seguir `dirty` por refresh documental, no por cambios funcionales de producto
+- `HEAD` funcional de referencia previo a este refresh: `9068f7e`
+- frontend publico vigente: https://leasemanager-backoffice.vercel.app
+- backend publico vigente: https://surprising-balance-production.up.railway.app
+- Vercel ya esta conectado al repo Git y usa `Root Directory=frontend`
+- Railway ya esta conectado al repo Git y corre web + worker + Redis
+- existen usuarios demo reproducibles (`demo-admin`, `demo-operador`, `demo-revisor`, `demo-socio`) tanto localmente como en la base remota actual
+- el backend ya tiene RBAC + scope reales
+- `Audit`, `Documentos` y `Canales` ya estan visibles en el backoffice
+- la modularizacion del frontend ya paso el corte inicial
 
 Despues de leer, debes:
 
 - confirmar brevemente cual es la decision central vigente;
 - indicar cual es la base principal vigente para continuar;
-- indicar que la migración comunitaria está cerrada;
-- indicar que el backoffice ya cubre los módulos principales;
+- indicar que la migracion comunitaria esta cerrada;
+- indicar que el backoffice ya cubre modulos principales y secundarios relevantes;
+- indicar que el stack publico ya esta online;
 - y NO responder de fondo hasta haber cargado ese contexto.
 
 Advertencias:
 
-- No reabrir el diseño comunitario.
+- No reabrir el diseno comunitario.
 - No reintroducir el nombre `LeaseControl` dentro del root activo.
 - No empujar cambios al repo `LeaseManager-legacy`.
-- No versionar secretos locales.
-- No asumir que los datos `TEST LOCAL` existen en una base recreada desde cero.
-- El MCP de Playwright sigue roto; si necesitas automatización web, prefiere la vía CLI ya validada.
+- No versionar secretos locales o remotos.
+- No asumir que los datos `TEST LOCAL` o la data remota actual existiran si las bases se recrean.
+- El estado de Playwright MCP depende del entorno local del usuario y no del repo.
+- Si ves ruido transitorio del browser automation, valida con `health`, `ready` y respuestas HTTP directas antes de concluir que el sistema esta caido.
 
 Siguiente trabajo recomendado al retomar:
 
-- probar el sistema como `demo-operador`, `demo-revisor` y `demo-socio`;
-- corregir permisos finos o filtrado por scope que aparezcan en esa prueba;
-- y solo después decidir si conviene abrir módulos secundarios o modularizar más el frontend.
+- asumir que el rollout `Vercel + Railway` ya esta cerrado;
+- mantener el wiring publico como baseline;
+- enriquecer la data remota para que el entorno publico sea mas representativo;
+- y luego elegir el siguiente frente funcional real del producto.

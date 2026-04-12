@@ -2,7 +2,7 @@
 
 ## 1. Archivos del paquete
 
-Archivos actualizados en esta versión del handoff:
+Archivos actualizados en esta version del handoff:
 
 - `00_HANDOFF_INDEX.md`
 - `01_CONTEXTO_MAESTRO.md`
@@ -11,7 +11,6 @@ Archivos actualizados en esta versión del handoff:
 - `04_DECISIONES_VIGENTES.md`
 - `05_HALLAZGOS_Y_RIESGOS.md`
 - `06_BORRADOR_ACTUAL.md`
-- `07_RESPUESTAS_EXTERNAS_LITERAL.md`
 - `08_PENDIENTES_Y_PROXIMOS_PASOS.md`
 - `09_BOOTSTRAP_NUEVO_THREAD.txt`
 - `10_CONTROL_DE_CALIDAD.md`
@@ -21,62 +20,69 @@ Archivos actualizados en esta versión del handoff:
 
 ### Completos
 
-- estado cerrado de migración comunitaria;
-- estado actual del repo y commits recientes;
-- estado del backoffice por módulos;
+- estado cerrado de migracion comunitaria;
+- estado actual del repo y commits recientes relevantes;
+- estado del backoffice por modulos principales y secundarios ya abiertos;
 - estado del RBAC en UI y backend;
 - seed reproducible de perfiles demo;
-- hardening inicial de lectura y escritura por scope;
-- next step recomendado;
-- bootstrap para nuevo thread.
+- hardening de lectura y escritura por scope;
+- rollout publico `Vercel + Railway`;
+- estado del frontend publico y backend publico;
+- smoke publico basico por `demo-admin`, `demo-operador`, `demo-revisor` y `demo-socio`;
+- bootstrap para nuevo thread desde la foto correcta.
 
-### Parciales o con límite conocido
+### Parciales o con limite conocido
 
-- las respuestas externas archivadas siguen limitadas al tramo comunitario;
-- las imágenes originales aportadas por el usuario no existen como archivos locales originales;
-- el estado de datos `TEST LOCAL`, usuario admin local y usuarios demo pertenece a la base local, no al repositorio;
-- la validación manual completa con `demo-operador`, `demo-revisor` y `demo-socio` todavía no está cerrada.
+- las respuestas externas archivadas siguen limitadas al tramo comunitario original;
+- las imagenes originales aportadas por el usuario no existen como archivos locales originales;
+- el estado de datos `TEST LOCAL` y usuarios locales pertenece a la base local, no al repositorio;
+- la data remota publica sigue siendo escasa y no representa aun una cartera rica;
+- el backend publico actual usa el Postgres de staging Supabase como runtime operativo vigente;
+- la validacion publica sigue siendo smoke y no un barrido exhaustivo de todos los flujos con data representativa.
 
 ## 3. Respuestas externas incorporadas literalmente
 
 Siguen incorporadas literalmente:
 
-- la auditoría externa sobre “la opción 3”;
-- la respuesta externa sobre revisión secuencial y lineal;
-- la continuación externa sobre llevar el diseño al siguiente nivel útil.
+- la auditoria externa sobre “la opcion 3”;
+- la respuesta externa sobre revision secuencial y lineal;
+- la continuacion externa sobre llevar el diseno al siguiente nivel util.
 
-No se agregaron nuevas respuestas externas completas en esta actualización.
+No se agregaron nuevas respuestas externas completas en esta actualizacion.
 
 ## 4. Fuentes que no pudieron abrirse
 
 - no hubo fuentes locales relevantes imposibles de abrir entre las usadas para este refresh;
-- no existe ruta local para las imágenes originales pegadas por el usuario;
-- el MCP del navegador Playwright sigue fallando por permisos sobre `C:\\Windows\\System32\\.playwright-mcp`.
+- no existe ruta local para las imagenes originales pegadas por el usuario;
+- no se versiona ni expone la configuracion sensible completa del runtime remoto;
+- parte de la validacion de runtime se hizo con browser automation y parte con HTTP directo, porque el browser mostro ruido transitorio en algunos momentos.
 
-## 5. Vacíos que persisten
+## 5. Vacios que persisten
 
-### Vacíos semánticos
+### Vacios semanticos
 
-- no quedan vacíos semánticos mayores en el dominio comunitario cerrado.
+- no quedan vacios semanticos mayores en el dominio comunitario cerrado.
 
-### Vacíos operativos
+### Vacios operativos
 
-- todavía no se hizo la pasada manual completa con `demo-operador`, `demo-revisor` y `demo-socio`;
-- el frontend concentra demasiada superficie en `App.tsx`, aunque eso no bloquea continuidad inmediata.
+- la data remota publica sigue siendo poco representativa;
+- `Compliance` sigue sin superficie equivalente en frontend;
+- el siguiente frente funcional aun debe elegirse explicitamente despues de este refresh.
 
 ## 6. Riesgo residual del handoff
 
 Los riesgos principales del paquete hoy son:
 
-- retomar desde un handoff viejo y pensar que el trabajo sigue en “siguiente módulo”;
-- asumir que los datos `TEST LOCAL`, el usuario admin local o los usuarios demo están versionados;
-- o pensar que el hardening de scope ya quedó perfecto sin una pasada manual real por perfil.
+- retomar desde un handoff viejo y pensar que el backend publico aun no existe;
+- creer que `VITE_API_BASE_URL` o el wiring `Vercel + Railway` siguen pendientes;
+- confundir una vista remota vacia con un bug de arquitectura cuando el problema real es falta de data;
+- o tocar Vercel/Railway como si siguieran siendo bootstrap descartable.
 
 ## 7. Usabilidad del paquete
 
 Este handoff ya es utilizable para:
 
 - reabrir el proyecto en otro thread sin depender de memoria del chat;
-- retomar el greenfield con su estado real de backoffice multmódulo;
-- entender el baseline local/remoto, el estado del repo y la política RBAC/scope actual;
-- y arrancar directamente el siguiente trabajo recomendado sin reabrir diseño comunitario ni naming.
+- retomar el greenfield con su estado real de backoffice multmodulo y stack publico online;
+- entender el baseline local/remoto, el estado del repo y la politica RBAC/scope actual;
+- continuar directamente desde el entorno publico ya conectado, sin reabrir diseno comunitario, naming ni bootstrap de deploy.
