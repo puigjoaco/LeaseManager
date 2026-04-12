@@ -71,6 +71,18 @@ Se ejecuto una secuencia verificable adicional:
   - `demo-operador`
   - `demo-revisor`
   - `demo-socio`
+- se abrio `Compliance` en el frontend del backoffice para admin;
+- se corrigio el manejo de claves de cifrado de `Compliance` en [settings.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/leasemanager_api/settings.py);
+- se versionaron commands de bootstrap demo remoto para:
+  - datos operativos;
+  - baseline de control;
+  - exportaciones demo de `Compliance`;
+- se enriquecio la base remota con:
+  - valores UF de abril y mayo 2026;
+  - pagos derivados para abril y mayo;
+  - estados de cuenta recalculados;
+  - baseline minimo de control para la empresa 1;
+  - exportaciones sensibles demo preparadas.
 
 ## 3. Estado real del repo, del runtime y del codigo
 
@@ -82,10 +94,13 @@ Estado verificado al momento de este refresh:
 - remoto oficial: [https://github.com/puigjoaco/LeaseManager.git](https://github.com/puigjoaco/LeaseManager.git)
 - remoto legacy: [https://github.com/puigjoaco/LeaseManager-legacy.git](https://github.com/puigjoaco/LeaseManager-legacy.git)
 - `HEAD` funcional previo a esta actualizacion documental:
-  - `9068f7e` `chore: trigger vercel build with frontend root`
+  - `6877014` `feat: add demo compliance export bootstrap command`
 - commits de infraestructura/rollout inmediatamente relevantes:
   - `3850612` `chore: trigger connected deployment rebuilds`
   - `9068f7e` `chore: trigger vercel build with frontend root`
+  - `f83dafb` `feat: add compliance workspace to backoffice`
+  - `5aa2fca` `fix: normalize compliance export encryption keys`
+  - `6877014` `feat: add demo compliance export bootstrap command`
 - working tree al iniciar este refresh:
   - los archivos bajo `HANDOFF/` ya venian modificados respecto del commit anterior;
   - este refresh debe tratarse como actualizacion documental consciente, no como sorpresa del arbol.
@@ -154,10 +169,11 @@ La jerarquia correcta hoy es:
    - [api.ts](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/api.ts)
    - [shell.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/shell.tsx)
    - [view-config.ts](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/view-config.ts)
-   - workspaces extraidos del backoffice;
+   - workspaces extraidos del backoffice, incluido `Compliance`;
    - [permissions.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/permissions.py)
    - [scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/scope_access.py)
    - [seed_demo_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/seed_demo_access.py)
+   - commands versionados de bootstrap demo remoto;
    - vistas, serializers, scopes y tests de `audit`, `documentos` y `canales`;
    - [health/views.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/health/views.py)
 4. topologia de deploy y runtime:
@@ -234,6 +250,20 @@ Estado actual:
 - el `Root Directory` quedo fijado a `frontend`;
 - los rebuilds productivos ya se disparan desde `main`.
 
+### 5.5 Divergencia corregida sobre Compliance
+
+El estado anterior todavia no recogia el tramo mas nuevo:
+
+- `Compliance` sin superficie en frontend;
+- exportaciones sensibles fallando por clave invalida;
+- ausencia de comandos versionados para poblar el entorno remoto.
+
+Estado actual:
+
+- `Compliance` ya existe en el backoffice para admin;
+- la normalizacion de `DATA_EXPORT_ENCRYPTION_KEY` ya evita 500 por claves no-Fernet;
+- existen commands idempotentes para bootstrap demo remoto.
+
 ### 5.5 Ruido puntual de browser automation
 
 Durante parte de la validacion publica:
@@ -269,5 +299,6 @@ La forma correcta de retomar hoy es:
 5. usar el codigo actual y el runtime publico como foto viva del producto;
 6. tratar como siguiente trabajo real:
    - mantener el handoff alineado con el estado real;
-   - enriquecer la data remota para que el entorno publico sea mas representativo;
+   - usar los commands versionados para bootstrap demo remoto cuando haga falta;
+   - terminar de validar `Compliance` en el sitio publico con datos reales;
    - y luego elegir el siguiente frente funcional del producto sin reabrir infraestructura ya cerrada.

@@ -45,7 +45,7 @@ Contexto operativo clave:
 - repo anterior: https://github.com/puigjoaco/LeaseManager-legacy
 - baseline local validado: `leasemanager_migration_run_20260409_v7`
 - staging remoto validado: Supabase `leasemanager-staging`
-- `HEAD` funcional de referencia previo a este refresh: `9068f7e`
+- `HEAD` funcional de referencia previo a este refresh: `6877014`
 - frontend publico vigente: https://leasemanager-backoffice.vercel.app
 - backend publico vigente: https://surprising-balance-production.up.railway.app
 - Vercel ya esta conectado al repo Git y usa `Root Directory=frontend`
@@ -54,6 +54,11 @@ Contexto operativo clave:
 - el backend ya tiene RBAC + scope reales
 - `Audit`, `Documentos` y `Canales` ya estan visibles en el backoffice
 - la modularizacion del frontend ya paso el corte inicial
+- `Compliance` ya existe en frontend para admin
+- existen commands versionados para bootstrap demo remoto de:
+  - datos operativos
+  - baseline de control
+  - exportaciones de `Compliance`
 
 Despues de leer, debes:
 
@@ -78,5 +83,6 @@ Siguiente trabajo recomendado al retomar:
 
 - asumir que el rollout `Vercel + Railway` ya esta cerrado;
 - mantener el wiring publico como baseline;
-- enriquecer la data remota para que el entorno publico sea mas representativo;
+- usar los commands versionados si hace falta enriquecer la data remota;
+- hacer una smoke publica dedicada de `Compliance`;
 - y luego elegir el siguiente frente funcional real del producto.

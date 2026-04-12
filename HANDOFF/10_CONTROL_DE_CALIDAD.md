@@ -11,6 +11,7 @@ Archivos actualizados en esta version del handoff:
 - `04_DECISIONES_VIGENTES.md`
 - `05_HALLAZGOS_Y_RIESGOS.md`
 - `06_BORRADOR_ACTUAL.md`
+- `07_RESPUESTAS_EXTERNAS_LITERAL.md`
 - `08_PENDIENTES_Y_PROXIMOS_PASOS.md`
 - `09_BOOTSTRAP_NUEVO_THREAD.txt`
 - `10_CONTROL_DE_CALIDAD.md`
@@ -23,11 +24,13 @@ Archivos actualizados en esta version del handoff:
 - estado cerrado de migracion comunitaria;
 - estado actual del repo y commits recientes relevantes;
 - estado del backoffice por modulos principales y secundarios ya abiertos;
+- `Compliance` abierto en frontend para admin;
 - estado del RBAC en UI y backend;
 - seed reproducible de perfiles demo;
 - hardening de lectura y escritura por scope;
 - rollout publico `Vercel + Railway`;
 - estado del frontend publico y backend publico;
+- commands versionados para bootstrap demo remoto;
 - smoke publico basico por `demo-admin`, `demo-operador`, `demo-revisor` y `demo-socio`;
 - bootstrap para nuevo thread desde la foto correcta.
 
@@ -36,9 +39,10 @@ Archivos actualizados en esta version del handoff:
 - las respuestas externas archivadas siguen limitadas al tramo comunitario original;
 - las imagenes originales aportadas por el usuario no existen como archivos locales originales;
 - el estado de datos `TEST LOCAL` y usuarios locales pertenece a la base local, no al repositorio;
-- la data remota publica sigue siendo escasa y no representa aun una cartera rica;
+- la data remota publica ya es mas util que antes, pero sigue sin representar una cartera rica completa;
 - el backend publico actual usa el Postgres de staging Supabase como runtime operativo vigente;
-- la validacion publica sigue siendo smoke y no un barrido exhaustivo de todos los flujos con data representativa.
+- la validacion publica sigue siendo smoke y no un barrido exhaustivo de todos los flujos con data representativa;
+- `Compliance` aun no tiene una smoke publica dedicada equivalente a la ya hecha por `demo-operador`, `demo-revisor` y `demo-socio`.
 
 ## 3. Respuestas externas incorporadas literalmente
 
@@ -56,6 +60,7 @@ No se agregaron nuevas respuestas externas completas en esta actualizacion.
 - no existe ruta local para las imagenes originales pegadas por el usuario;
 - no se versiona ni expone la configuracion sensible completa del runtime remoto;
 - parte de la validacion de runtime se hizo con browser automation y parte con HTTP directo, porque el browser mostro ruido transitorio en algunos momentos.
+- `manage.py test compliance` no quedo cerrado dentro del timeout local; el fix se valido con `manage.py check`, reproduccion local y respuesta correcta del endpoint remoto.
 
 ## 5. Vacios que persisten
 
@@ -66,7 +71,7 @@ No se agregaron nuevas respuestas externas completas en esta actualizacion.
 ### Vacios operativos
 
 - la data remota publica sigue siendo poco representativa;
-- `Compliance` sigue sin superficie equivalente en frontend;
+- `Compliance` ya existe en frontend pero le falta una smoke publica dedicada;
 - el siguiente frente funcional aun debe elegirse explicitamente despues de este refresh.
 
 ## 6. Riesgo residual del handoff

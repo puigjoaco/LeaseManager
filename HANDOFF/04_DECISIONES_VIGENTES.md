@@ -54,6 +54,7 @@ Quedo cerrado que el backoffice actual ya cubre una primera version operable de:
 - `Audit`
 - `Contabilidad`
 - `SII`
+- `Compliance`
 - `Reporting`
 
 Y ademas ya incorpora:
@@ -93,12 +94,22 @@ Quedo cerrada como baseline operativa la topologia actual:
 - `Vercel Root Directory = frontend`
 - Vercel y Railway ya quedaron conectados al repo Git oficial.
 
+### 1.7 Bootstrap demo versionado
+
+Quedo cerrado que el enriquecimiento del entorno remoto ya no depende de ritual manual no versionado.
+
+Hoy existen commands reproducibles para:
+
+- UF + pagos + estados de cuenta demo;
+- baseline minimo de control para empresa;
+- exportaciones sensibles demo de `Compliance`.
+
 ## 2. Decisiones provisionales vigentes
 
 - la validacion publica por perfil ya avanzo mucho, pero sigue siendo smoke y no un barrido exhaustivo de todas las acciones con data real;
 - el backend publico actualmente usa el Postgres de staging Supabase como base de datos operativa; eso es operativo hoy, pero no debe asumirse como decision final de largo plazo;
 - el dataset remoto sigue siendo escaso, por lo que varias vistas publicas muestran `0 registros` aunque la app y los permisos funcionen bien;
-- `Compliance` sigue sin superficie equivalente en frontend.
+- `Compliance` ya tiene superficie en frontend, pero falta una smoke publica dedicada de su flujo admin-only.
 
 ## 3. Decisiones descartadas
 
@@ -120,6 +131,7 @@ Quedo cerrada como baseline operativa la topologia actual:
 - no asumir que los datos de prueba locales o remotos estan versionados;
 - no romper `VITE_API_BASE_URL`, el enlace Git de Vercel o `Root Directory=frontend` sin revalidacion completa;
 - no tocar Railway web/worker/Redis como si fueran scaffolding descartable: hoy son parte del estado operativo real.
+- no volver a enriquecer el entorno remoto solo con comandos ad hoc si ya existe un command versionado para el mismo fin.
 
 ## 5. Punto aun abierto
 
@@ -127,4 +139,4 @@ No queda una decision semantica principal abierta en migracion comunitaria.
 
 El punto abierto actual es operativo y de producto:
 
-- **como continuar el trabajo sobre un stack publico ya operativo, empezando por mejorar la representatividad de la data remota y luego elegir el siguiente frente funcional real sin perder el wiring de produccion publica**
+- **como continuar el trabajo sobre un stack publico ya operativo ahora que `Compliance` ya existe y que el bootstrap demo remoto esta versionado, priorizando el siguiente frente funcional real sin perder la calidad del entorno publico**

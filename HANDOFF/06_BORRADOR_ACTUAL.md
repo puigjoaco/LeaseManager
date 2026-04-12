@@ -91,6 +91,18 @@ Motivo:
 
 ### Ranking 7
 
+[D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/workspaces/ComplianceWorkspace.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/workspaces/ComplianceWorkspace.tsx)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_operational_data.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_operational_data.py)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_control_baseline.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_control_baseline.py)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_compliance_exports.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_compliance_exports.py)
+
+Motivo:
+
+- representan el ultimo tramo funcional real del proyecto;
+- convierten el entorno remoto en algo reproducible y no solo “estado tocado a mano”.
+
+### Ranking 8
+
 [D:/Proyectos/LeaseManager/Produccion 1.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md)
 
 Motivo:
@@ -128,10 +140,14 @@ Usar como base principal, en este orden:
 16. [DEPLOY_FRONTEND_VERCEL.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/DEPLOY_FRONTEND_VERCEL.md)
 17. [DEPLOY_BACKEND_GREENFIELD.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/DEPLOY_BACKEND_GREENFIELD.md)
 18. [ROLL_OUT_BACKEND_FRONTEND.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ROLL_OUT_BACKEND_FRONTEND.md)
-19. [01_CONTEXTO_MAESTRO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/01_CONTEXTO_MAESTRO.md)
-20. [04_DECISIONES_VIGENTES.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/04_DECISIONES_VIGENTES.md)
-21. [03_CRONOLOGIA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/03_CRONOLOGIA.md)
+19. [ComplianceWorkspace.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/workspaces/ComplianceWorkspace.tsx)
+20. [bootstrap_demo_operational_data.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_operational_data.py)
+21. [bootstrap_demo_control_baseline.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_control_baseline.py)
+22. [bootstrap_demo_compliance_exports.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_compliance_exports.py)
+23. [01_CONTEXTO_MAESTRO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/01_CONTEXTO_MAESTRO.md)
+24. [04_DECISIONES_VIGENTES.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/04_DECISIONES_VIGENTES.md)
+25. [03_CRONOLOGIA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/03_CRONOLOGIA.md)
 
 Para cualquier consulta puntual sobre el dominio comunitario ya cerrado, reinyectar ademas:
 
-22. [ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md)
+26. [ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md)

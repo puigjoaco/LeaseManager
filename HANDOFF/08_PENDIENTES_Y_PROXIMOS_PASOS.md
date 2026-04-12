@@ -51,14 +51,12 @@ Ya no falta verificar, para este tramo:
 
 ### 3.4 Siguiente frente funcional
 
-El backend ya tiene superficie en:
+`Compliance` ya quedo abierto en frontend para admin y ya tiene bootstrap demo remoto.
 
-- `Compliance`
+El proyecto podria seguir por una de estas dos lineas:
 
-Y el proyecto podria seguir por una de estas dos lineas:
-
-- abrir `Compliance` en frontend;
-- o priorizar primero otro frente funcional con mejor retorno una vez que el entorno remoto tenga data util.
+- hacer una smoke publica dedicada de `Compliance` y cerrar ese modulo como realmente validado;
+- o priorizar el siguiente frente funcional con mejor retorno, ahora que el entorno remoto ya tiene mas datos derivados.
 
 ## 4. Proximo paso recomendado
 
@@ -69,9 +67,10 @@ Secuencia recomendada para continuar correctamente:
 3. mantener [https://surprising-balance-production.up.railway.app](https://surprising-balance-production.up.railway.app) como backend publico vigente;
 4. no mover `Root Directory=frontend` ni desconectar Git en Vercel;
 5. no tocar Railway web/worker/Redis sin revalidacion completa;
-6. enriquecer la data remota para que el entorno publico sea mas representativo;
-7. hacer un smoke publico corto sobre escenarios con data real/no vacia;
-8. recien despues elegir el siguiente frente funcional del producto.
+6. usar los commands versionados de bootstrap demo remoto cuando haga falta;
+7. hacer una smoke publica dedicada de `Compliance`;
+8. enriquecer la data remota donde aun siga vacia;
+9. recien despues elegir el siguiente frente funcional del producto.
 
 ## 5. Que no hacer a continuacion
 
@@ -88,12 +87,12 @@ Secuencia recomendada para continuar correctamente:
 ### Etapa inmediata
 
 - refresh documental del handoff con estado real actual;
-- enriquecimiento de data remota o decision explicita de mantener entorno smoke-only;
-- smoke publico corto sobre escenarios con data mas util.
+- smoke publica dedicada de `Compliance`;
+- seguir enriqueciendo la data remota solo a traves de commands versionados o decisiones explicitas.
 
 ### Etapa posterior
 
 - elegir el siguiente frente funcional real:
-  - `Compliance`,
   - profundizacion de workflows operativos,
+  - mas vida en `Contabilidad` / `SII`,
   - o nuevo hardening puntual sobre endpoints/acciones residuales.

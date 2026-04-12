@@ -21,3 +21,8 @@
 | 2026-04-12 | Runtime actions sobre Vercel y Railway | docs `DEPLOY_*`, `ROLL_OUT_*`, Railway/Vercel UI, health publico | Se conecta Git en ambos providers, Vercel queda con `Root Directory=frontend`, Railway queda con web+worker+Redis y backend publico funcional |
 | 2026-04-12 | Commits `3850612` y `9068f7e` | triggers de rebuild conectado | Se fuerzan rebuilds desde `main` para que Vercel y Railway tomen la configuracion final conectada al repo |
 | 2026-04-12 | Seed remoto + smoke publico por perfil | `seed_demo_access`, backend publico, frontend publico, Playwright | Se validan `demo-admin`, `demo-operador`, `demo-revisor` y `demo-socio` en el sitio publico con RBAC/UI coherentes |
+| 2026-04-12 | Commit `8709297` | `docs: refresh handoff after public rollout` | El handoff se alinea por primera vez con el stack publico realmente operativo |
+| 2026-04-12 | Commits `9e2197a` y `e1e3055` | bootstrap demo remoto operativo y de control | Se versionan commands para UF/pagos/estados de cuenta y baseline minimo de contabilidad/SII |
+| 2026-04-12 | Commit `f83dafb` | `feat: add compliance workspace to backoffice` | `Compliance` se abre en frontend para admin |
+| 2026-04-12 | Commit `5aa2fca` | `fix: normalize compliance export encryption keys` | Se corrige el 500 de exportaciones sensibles causado por claves no-Fernet |
+| 2026-04-12 | Commit `6877014` | `feat: add demo compliance export bootstrap command` | Se versiona el bootstrap reproducible de exportaciones demo de `Compliance` |

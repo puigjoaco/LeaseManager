@@ -7,7 +7,7 @@ Esas piezas se guardan aqui de forma literal completa en la medida en que fueron
 
 Actualizacion de esta version del handoff:
 
-- no se agregaron nuevas respuestas externas completas durante las iteraciones posteriores dedicadas a backoffice, UX, RBAC, `Audit`, `Documentos`, `Canales` o modularización del frontend;
+- no se agregaron nuevas respuestas externas completas durante las iteraciones posteriores dedicadas a backoffice, UX, RBAC, `Audit`, `Documentos`, `Canales`, modularizacion del frontend, rollout publico, `Compliance` o bootstrap demo remoto;
 - por lo tanto, este archivo sigue concentrando sobre todo el material externo relevante del tramo comunitario original.
 
 Nota adicional:

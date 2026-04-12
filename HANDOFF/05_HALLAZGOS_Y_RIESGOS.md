@@ -11,6 +11,7 @@
 - El backend ya tiene filtrado por scope en [scope_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/scope_access.py).
 - `Audit`, `Documentos` y `Canales` ya tienen superficie real en frontend.
 - La modularizacion del frontend ya paso del corte inicial y hoy incluye `api.ts`, `shell.tsx`, `view-config.ts` y workspaces extraidos para los bloques mas sensibles.
+- `Compliance` ya tiene superficie real en frontend para admin.
 
 ### 1.2 Hallazgos de entorno y rollout
 
@@ -29,6 +30,7 @@
 - El hardening ya cubre no solo lectura, sino tambien varias escrituras/acciones con IDs directos para perfiles no-admin.
 - El backend publico responde correctamente con CORS para el origen del frontend publico.
 - El login al endpoint publico se valido por HTTP directo desde el origen del frontend.
+- La normalizacion de `DATA_EXPORT_ENCRYPTION_KEY` ya evita 500 de `Compliance` por claves no-Fernet.
 
 ### 1.4 Hallazgos de validacion publica
 
@@ -36,6 +38,12 @@
 - `demo-operador` inicia sesion en el sitio publico y solo ve superficie operativa + `Audit`.
 - `demo-revisor` inicia sesion en el sitio publico y solo ve `Audit`, `Contabilidad`, `SII` y `Reporting`, con banners readonly coherentes.
 - `demo-socio` inicia sesion en el sitio publico y solo ve `Reporting`, con lectura propia.
+- El entorno remoto ya se enriquecio con datos derivados reales:
+  - UF de abril y mayo 2026;
+  - pagos de abril y mayo;
+  - estados de cuenta recalculados;
+  - baseline minimo de control para empresa 1;
+  - exportaciones demo de `Compliance`.
 
 ## 2. Hallazgos probables
 
@@ -49,6 +57,7 @@
 
 - El backend publico actual usa el Postgres de staging Supabase; eso funciona hoy, pero es una dependencia operativa delicada si se deja sin decision explicita posterior.
 - La data remota es todavia escasa; eso puede hacer parecer “vacias” vistas que en realidad estan bien cableadas.
+- `Compliance` aun necesita una smoke publica dedicada de su flujo admin-only para considerarse tan validado como los otros modulos.
 - El wiring manual entre Vercel y Railway ya existe y funciona, pero puede degradarse si alguien cambia root, dominios o variables sin revalidacion.
 - Aunque `App.tsx` bajo mucho de peso, sigue siendo una pieza importante; el costo de cambio todavia existe.
 
@@ -58,6 +67,7 @@
   - el backend publico aun no existe;
   - `VITE_API_BASE_URL` sigue faltando;
   - o que el trabajo real sigue siendo “terminar de modularizar”.
+- Riesgo de que se siga enriqueciendo el entorno remoto con comandos manuales puntuales y se pierda la trazabilidad, pese a que ya hay commands versionados.
 - Riesgo de que se abra un frente funcional nuevo sin antes preservar la continuidad documental del rollout publico ya cerrado.
 
 ## 5. Riesgos probatorios o de evidencia

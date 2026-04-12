@@ -36,6 +36,7 @@ Estado real consolidado al cierre de este handoff:
   - `Audit`
   - `Contabilidad`
   - `SII`
+  - `Compliance`
   - `Reporting`
 - el backend ya incorpora:
   - RBAC efectivo por rol;
@@ -53,6 +54,10 @@ Estado real consolidado al cierre de este handoff:
   - `demo-operador`
   - `demo-revisor`
   - `demo-socio`
+- ya existen commands versionados para bootstrap demo remoto:
+  - `bootstrap_demo_operational_data`
+  - `bootstrap_demo_control_baseline`
+  - `bootstrap_demo_compliance_exports`
 
 ## Borrador vigente
 
@@ -73,6 +78,10 @@ La base principal vigente hoy se reparte entre:
 11. [D:/Proyectos/LeaseManager/Produccion 1.0/docs/DEPLOY_FRONTEND_VERCEL.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/DEPLOY_FRONTEND_VERCEL.md)
 12. [D:/Proyectos/LeaseManager/Produccion 1.0/docs/DEPLOY_BACKEND_GREENFIELD.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/DEPLOY_BACKEND_GREENFIELD.md)
 13. [D:/Proyectos/LeaseManager/Produccion 1.0/docs/ROLL_OUT_BACKEND_FRONTEND.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ROLL_OUT_BACKEND_FRONTEND.md)
+14. [D:/Proyectos/LeaseManager/Produccion 1.0/frontend/src/backoffice/workspaces/ComplianceWorkspace.tsx](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/src/backoffice/workspaces/ComplianceWorkspace.tsx)
+15. [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_operational_data.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_operational_data.py)
+16. [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_control_baseline.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_control_baseline.py)
+17. [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_compliance_exports.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_compliance_exports.py)
 
 Para el subproblema comunitario ya cerrado, sigue mandando:
 
@@ -80,7 +89,7 @@ Para el subproblema comunitario ya cerrado, sigue mandando:
 
 ## Decision central vigente hoy
 
-La decision central vigente ya no es de diseno comunitario ni de modularizacion primaria.
+La decision central vigente ya no es de diseno comunitario, modularizacion primaria ni wiring de deploy.
 
 La linea vigente hoy es:
 
@@ -89,13 +98,14 @@ La linea vigente hoy es:
 3. tratar el stack publico `Vercel + Railway` ya online como baseline de continuidad;
 4. no confiar solo en el frontend para permisos;
 5. usar el backend como fuente de verdad de RBAC/scope;
-6. no volver a romper el wiring de `VITE_API_BASE_URL`, `Root Directory=frontend` o la topologia publica del backend.
+6. no volver a romper el wiring de `VITE_API_BASE_URL`, `Root Directory=frontend` o la topologia publica del backend;
+7. usar el entorno remoto enriquecido como base de trabajo, sin depender de comandos manuales no versionados.
 
 ## Pregunta abierta mas importante
 
 La pregunta abierta mas importante ahora es:
 
-- **como seguir el trabajo de producto sobre un stack publico ya operativo, empezando por mantener el handoff alineado, enriquecer la data remota para que el entorno publico sea mas representativo, y luego elegir el siguiente frente funcional real sin reabrir infraestructura ya cerrada**
+- **como seguir el trabajo de producto sobre un stack publico ya operativo ahora que `Compliance` tambien quedo abierto y que ya existen commands reproducibles para bootstrap demo remoto, sin reabrir infraestructura ya cerrada**
 
 ## Orden de lectura recomendado
 
@@ -113,9 +123,9 @@ La pregunta abierta mas importante ahora es:
 
 ## Que contiene cada archivo
 
-- `01_CONTEXTO_MAESTRO.md`: contexto consolidado del proyecto, jerarquia de verdad, arquitectura de fuentes, rollout publico y rectificaciones relevantes.
+- `01_CONTEXTO_MAESTRO.md`: contexto consolidado del proyecto, jerarquia de verdad, arquitectura de fuentes, rollout publico, `Compliance` y rectificaciones relevantes.
 - `02_FUENTES_Y_RUTAS.md`: inventario de fuentes y piezas clave con rutas absolutas, metadatos y contexto de runtime publico.
-- `03_CRONOLOGIA.md`: linea temporal secuencial desde el cierre comunitario hasta la modularizacion, el rollout `Railway + Vercel` y la smoke matrix publica.
+- `03_CRONOLOGIA.md`: linea temporal secuencial desde el cierre comunitario hasta la modularizacion, el rollout `Railway + Vercel`, `Compliance` y los bootstrap demo remotos.
 - `04_DECISIONES_VIGENTES.md`: decisiones cerradas, provisionales, descartadas y reglas que no deben volver a violarse.
 - `05_HALLAZGOS_Y_RIESGOS.md`: hallazgos firmes/probables y riesgos tecnicos, procesales, narrativos y estrategicos.
 - `06_BORRADOR_ACTUAL.md`: ranking de piezas vigentes y base principal para continuar.
