@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import heroImage from './assets/hero.png'
-import { Badge, Metric, count, stamp, toneFor } from './backoffice/shared'
+import { Metric, count, toneFor } from './backoffice/shared'
+import { ContextBanner, SectionToolbar, WorkspaceHeader, WorkspaceTabs } from './backoffice/shell'
 import { AuditWorkspace } from './backoffice/workspaces/AuditWorkspace'
 import { CanalesWorkspace } from './backoffice/workspaces/CanalesWorkspace'
 import { CobranzaWorkspace } from './backoffice/workspaces/CobranzaWorkspace'
@@ -10,6 +11,7 @@ import { ContabilidadWorkspace } from './backoffice/workspaces/ContabilidadWorks
 import { DocumentosWorkspace } from './backoffice/workspaces/DocumentosWorkspace'
 import { ContratosWorkspace } from './backoffice/workspaces/ContratosWorkspace'
 import { OperacionWorkspace } from './backoffice/workspaces/OperacionWorkspace'
+import { OverviewWorkspace } from './backoffice/workspaces/OverviewWorkspace'
 import { PatrimonioWorkspace } from './backoffice/workspaces/PatrimonioWorkspace'
 import { ReportingWorkspace } from './backoffice/workspaces/ReportingWorkspace'
 import { SiiWorkspace } from './backoffice/workspaces/SiiWorkspace'
@@ -766,6 +768,49 @@ function allowedViewsForRole(roleCode: string | null | undefined): ViewKey[] {
   return ['overview']
 }
 
+const VIEW_LABELS: Record<ViewKey, string> = {
+  overview: 'Resumen',
+  patrimonio: 'Patrimonio',
+  operacion: 'Operación',
+  contratos: 'Contratos',
+  documentos: 'Documentos',
+  canales: 'Canales',
+  cobranza: 'Cobranza',
+  conciliacion: 'Conciliación',
+  audit: 'Audit',
+  contabilidad: 'Contabilidad',
+  sii: 'SII',
+  reporting: 'Reporting',
+}
+
+function sectionTitleForView(view: ViewKey, auditTitle: string, reportingTitle: string) {
+  if (view === 'patrimonio') return 'Owners, comunidades y propiedades'
+  if (view === 'operacion') return 'Cuentas, identidades y mandatos'
+  if (view === 'contratos') return 'Arrendatarios, contratos y avisos'
+  if (view === 'documentos') return 'Expedientes, políticas y documentos emitidos'
+  if (view === 'canales') return 'Gates operativos y mensajes salientes'
+  if (view === 'cobranza') return 'Pagos, UF, ajustes, garantías y estado de cuenta'
+  if (view === 'conciliacion') return 'Conexiones, movimientos e ingresos desconocidos'
+  if (view === 'audit') return auditTitle
+  if (view === 'contabilidad') return 'Configuración fiscal, eventos, asientos y cierres'
+  if (view === 'sii') return 'Capacidades, DTE, F29 y preparación anual'
+  return reportingTitle
+}
+
+function searchPlaceholderForView(view: ViewKey, reportingPlaceholder: string) {
+  if (view === 'patrimonio') return 'Nombre, RUT, dirección u owner'
+  if (view === 'operacion') return 'Cuenta, owner, canal o mandato'
+  if (view === 'contratos') return 'Código, arrendatario, propiedad o causal'
+  if (view === 'documentos') return 'Expediente, tipo documental, estado o storage'
+  if (view === 'canales') return 'Canal, estado, destinatario o external ref'
+  if (view === 'cobranza') return 'Contrato, monto, estado, UF o garantía'
+  if (view === 'conciliacion') return 'Movimiento, referencia, estado o ingreso desconocido'
+  if (view === 'audit') return 'Evento, severidad, categoría o scope'
+  if (view === 'contabilidad') return 'Empresa, evento, cuenta, cierre u obligación'
+  if (view === 'sii') return 'Empresa, DTE, F29, DDJJ o F22'
+  return reportingPlaceholder
+}
+
 function reportingHeadingForRole(roleCode: string | null | undefined) {
   const role = canonicalRole(roleCode)
   if (role === 'Socio') {
@@ -1179,6 +1224,10 @@ function App() {
   const reportingHeading = reportingHeadingForRole(effectiveRole)
   const auditHeading = auditHeadingForRole(effectiveRole)
   const apiConfigError = !API_BASE_URL ? 'VITE_API_BASE_URL no está configurado para este entorno.' : null
+  const visibleTabs = allowedViewsForRole(effectiveRole).map((view) => ({ key: view, label: VIEW_LABELS[view] }))
+  const currentSectionTag = VIEW_LABELS[activeView]
+  const currentSectionTitle = sectionTitleForView(activeView, auditHeading.title, reportingHeading.title)
+  const currentSearchPlaceholder = searchPlaceholderForView(activeView, reportingHeading.placeholder)
 
   function canAccessView(view: ViewKey) {
     return allowedViewsForRole(effectiveRole).includes(view)
@@ -3136,221 +3185,48 @@ function App() {
 
   return (
     <main className="workspace-shell">
-      <header className="workspace-header">
-        <div>
-          <p className="section-tag">Backoffice</p>
-          <h1>LeaseManager</h1>
-          <p className="header-copy">
-            {currentUser ? `${currentUser.display_name || currentUser.username} · ${currentUser.default_role_code}` : 'Cargando sesión...'}
-          </p>
-          {currentUser ? (
-            <div className="scope-strip">
-              <Badge label={effectiveRole} tone="neutral" />
-              {activeAssignments.map((assignment, index) => (
-                <Badge
-                  key={`${assignment.role}-${assignment.scope || 'global'}-${index}`}
-                  label={assignment.scope ? `${assignment.role} · ${assignment.scope}` : assignment.role}
-                  tone={assignment.is_primary ? 'positive' : 'neutral'}
-                />
-              ))}
-            </div>
-          ) : null}
-        </div>
-        <div className="header-actions">
-          <span className="refresh-label">{stamp(lastLoadedAt)}</span>
-          <button type="button" className="button-secondary" onClick={() => token && void loadWorkspace(token)} disabled={isRefreshing}>
-            {isRefreshing ? 'Actualizando...' : 'Actualizar'}
-          </button>
-          <button type="button" className="button-ghost" onClick={() => void handleLogout()}>
-            Salir
-          </button>
-        </div>
-      </header>
+      <WorkspaceHeader
+        userLabel={currentUser ? `${currentUser.display_name || currentUser.username} · ${currentUser.default_role_code}` : 'Cargando sesión...'}
+        effectiveRole={effectiveRole}
+        assignments={activeAssignments}
+        lastLoadedAt={lastLoadedAt}
+        isRefreshing={isRefreshing}
+        onRefresh={() => { if (token) void loadWorkspace(token) }}
+        onLogout={() => void handleLogout()}
+      />
 
-      <section className="tab-strip">
-        {(['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting'] as ViewKey[])
-          .filter((view) => canAccessView(view))
-          .map((view) => (
-          <button
-            key={view}
-            type="button"
-            className={activeView === view ? 'tab-button is-active' : 'tab-button'}
-            onClick={() => {
-              setActiveView(view)
-              setActiveContextLabel(null)
-            }}
-          >
-            {view === 'overview'
-              ? 'Resumen'
-              : view === 'patrimonio'
-                ? 'Patrimonio'
-                : view === 'operacion'
-                  ? 'Operación'
-                  : view === 'contratos'
-                    ? 'Contratos'
-                    : view === 'documentos'
-                      ? 'Documentos'
-                    : view === 'canales'
-                      ? 'Canales'
-                    : view === 'cobranza'
-                      ? 'Cobranza'
-                      : view === 'conciliacion'
-                        ? 'Conciliación'
-                        : view === 'audit'
-                          ? 'Audit'
-                        : view === 'contabilidad'
-                        ? 'Contabilidad'
-                          : view === 'sii'
-                            ? 'SII'
-                            : 'Reporting'}
-          </button>
-        ))}
-      </section>
+      <WorkspaceTabs
+        tabs={visibleTabs}
+        activeView={activeView}
+        onSelect={(view) => {
+          setActiveView(view as ViewKey)
+          setActiveContextLabel(null)
+        }}
+      />
 
       {apiConfigError ? <div className="banner-error">{apiConfigError}</div> : null}
       {workspaceError ? <div className="banner-error">{workspaceError}</div> : null}
-      {activeView !== 'overview' && activeContextLabel ? (
-        <div className="context-banner">
-          <span>{activeContextLabel}</span>
-          <button type="button" className="button-ghost inline-action" onClick={() => setActiveContextLabel(null)}>
-            Limpiar contexto
-          </button>
-        </div>
-      ) : null}
+      {activeView !== 'overview' && activeContextLabel ? <ContextBanner label={activeContextLabel} onClear={() => setActiveContextLabel(null)} /> : null}
 
       {activeView === 'overview' ? (
-        <>
-          <section className="metric-grid">
-            <Metric label="Propiedades activas" value={count(dashboard?.propiedades_activas)} tone="positive" />
-            <Metric label="Contratos vigentes" value={count(dashboard?.contratos_vigentes)} tone="positive" />
-            <Metric label="Pagos pendientes" value={count(dashboard?.pagos_pendientes)} tone="warning" />
-            <Metric label="Pagos atrasados" value={count(dashboard?.pagos_atrasados)} tone="danger" />
-            <Metric label="Resoluciones abiertas" value={count(manualSummary?.total)} tone={manualSummary?.total ? 'warning' : 'positive'} />
-            <Metric label="DTE borrador" value={count(dashboard?.dtes_borrador)} tone="neutral" />
-          </section>
-
-          <section className="panel-grid">
-            <section className="panel">
-              <div className="section-heading"><div><h2>Patrimonio</h2><p>Owners, comunidades y propiedades activas.</p></div></div>
-              <div className="list-stack">
-                <div className="list-row"><span>Socios</span><strong>{count(socios.length)}</strong></div>
-                <div className="list-row"><span>Empresas</span><strong>{count(empresas.length)}</strong></div>
-                <div className="list-row"><span>Comunidades</span><strong>{count(comunidades.length)}</strong></div>
-                <div className="list-row"><span>Propiedades</span><strong>{count(propiedades.length)}</strong></div>
-              </div>
-            </section>
-            <section className="panel">
-              <div className="section-heading"><div><h2>Operación</h2><p>Cuentas, identidades y mandatos vigentes.</p></div></div>
-              <div className="list-stack">
-                <div className="list-row"><span>Cuentas recaudadoras</span><strong>{count(cuentas.length)}</strong></div>
-                <div className="list-row"><span>Identidades de envío</span><strong>{count(identidades.length)}</strong></div>
-                <div className="list-row"><span>Mandatos</span><strong>{count(mandatos.length)}</strong></div>
-                <div className="list-row"><span>Mensajes preparados</span><strong>{count(dashboard?.mensajes_preparados)}</strong></div>
-              </div>
-            </section>
-            <section className="panel">
-              <div className="section-heading"><div><h2>Salud técnica</h2><p>Estado inmediato de los servicios base.</p></div></div>
-              <div className="list-stack">
-                <div className="list-row"><span>API</span><Badge label={health.status} tone={toneFor(health.status)} /></div>
-                <div className="list-row"><span>Base de datos</span><Badge label={health.services.database.status} tone={toneFor(health.services.database.status)} /></div>
-                <div className="list-row"><span>Redis</span><Badge label={health.services.redis.status} tone={toneFor(health.services.redis.status)} /></div>
-              </div>
-            </section>
-            <section className="panel">
-              <div className="section-heading"><div><h2>Cola manual</h2><p>Resumen rápido del backlog asistido.</p></div></div>
-              <div className="list-stack">
-                {(manualSummary?.categorias || []).slice(0, 4).map((item) => (
-                  <div className="list-row" key={item.category}><span>{item.category.replaceAll('_', ' ')}</span><strong>{count(item.total)}</strong></div>
-                ))}
-                {!manualSummary?.categorias.length ? <div className="empty-state compact">No hay categorías abiertas.</div> : null}
-              </div>
-            </section>
-          </section>
-        </>
+        <OverviewWorkspace
+          dashboard={dashboard}
+          manualSummary={manualSummary}
+          health={health}
+          counts={{
+            socios: socios.length,
+            empresas: empresas.length,
+            comunidades: comunidades.length,
+            propiedades: propiedades.length,
+            cuentas: cuentas.length,
+            identidades: identidades.length,
+            mandatos: mandatos.length,
+          }}
+          toneFor={toneFor}
+        />
       ) : null}
 
-      {activeView !== 'overview' ? (
-        <section className="section-toolbar">
-          <div>
-            <p className="section-tag">
-              {activeView === 'patrimonio'
-                ? 'Patrimonio'
-                : activeView === 'operacion'
-                  ? 'Operación'
-                  : activeView === 'contratos'
-                    ? 'Contratos'
-                    : activeView === 'documentos'
-                      ? 'Documentos'
-                    : activeView === 'canales'
-                      ? 'Canales'
-                    : activeView === 'cobranza'
-                      ? 'Cobranza'
-                      : activeView === 'conciliacion'
-                        ? 'Conciliación'
-                        : activeView === 'audit'
-                          ? 'Audit'
-                        : activeView === 'contabilidad'
-                        ? 'Contabilidad'
-                          : activeView === 'sii'
-                            ? 'SII'
-                            : 'Reporting'}
-            </p>
-            <h2>
-              {activeView === 'patrimonio'
-                ? 'Owners, comunidades y propiedades'
-                : activeView === 'operacion'
-                  ? 'Cuentas, identidades y mandatos'
-                  : activeView === 'contratos'
-                    ? 'Arrendatarios, contratos y avisos'
-                    : activeView === 'documentos'
-                      ? 'Expedientes, políticas y documentos emitidos'
-                    : activeView === 'canales'
-                      ? 'Gates operativos y mensajes salientes'
-                    : activeView === 'cobranza'
-                        ? 'Pagos, UF, ajustes, garantías y estado de cuenta'
-                      : activeView === 'conciliacion'
-                        ? 'Conexiones, movimientos e ingresos desconocidos'
-                        : activeView === 'audit'
-                          ? auditHeading.title
-                        : activeView === 'contabilidad'
-                          ? 'Configuración fiscal, eventos, asientos y cierres'
-                          : activeView === 'sii'
-                          ? 'Capacidades, DTE, F29 y preparación anual'
-                            : reportingHeading.title}
-            </h2>
-          </div>
-          <label className="search-field">
-            <span>Buscar</span>
-            <input
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-              placeholder={
-                activeView === 'patrimonio'
-                  ? 'Nombre, RUT, dirección u owner'
-                  : activeView === 'operacion'
-                    ? 'Cuenta, owner, canal o mandato'
-                    : activeView === 'contratos'
-                      ? 'Código, arrendatario, propiedad o causal'
-                      : activeView === 'documentos'
-                        ? 'Expediente, tipo documental, estado o storage'
-                        : activeView === 'canales'
-                          ? 'Canal, estado, destinatario o external ref'
-                      : activeView === 'cobranza'
-                        ? 'Contrato, monto, estado, UF o garantía'
-                      : activeView === 'conciliacion'
-                        ? 'Movimiento, referencia, estado o ingreso desconocido'
-                        : activeView === 'audit'
-                          ? 'Evento, severidad, categoría o scope'
-                        : activeView === 'contabilidad'
-                          ? 'Empresa, evento, cuenta, cierre u obligación'
-                          : activeView === 'sii'
-                              ? 'Empresa, DTE, F29, DDJJ o F22'
-                              : reportingHeading.placeholder
-              }
-            />
-          </label>
-        </section>
-      ) : null}
+      {activeView !== 'overview' ? <SectionToolbar tag={currentSectionTag} title={currentSectionTitle} placeholder={currentSearchPlaceholder} searchText={searchText} onSearchChange={setSearchText} /> : null}
 
       {activeView !== 'overview' && formMessage ? <div className="banner-success">{formMessage}</div> : null}
       {activeView !== 'overview' && formError ? <div className="banner-error">{formError}</div> : null}
