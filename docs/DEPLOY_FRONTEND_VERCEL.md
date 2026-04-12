@@ -51,7 +51,7 @@ vercel --prod --yes --scope joaquins-projects-72185699
 ## Requisitos locales
 
 - Vercel CLI instalada
-- sesión válida de Vercel CLI
+- sesión válida de Vercel CLI o variable de entorno `VERCEL_TOKEN`
 - `frontend/` enlazado al proyecto `leasemanager-backoffice`
 
 ## Qué no hacer
