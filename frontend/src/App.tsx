@@ -1012,7 +1012,7 @@ function App() {
   const activeAssignments = currentUser?.assignments || []
   const reportingHeading = reportingHeadingForRole(effectiveRole)
   const auditHeading = auditHeadingForRole(effectiveRole)
-  const apiConfigError = !API_BASE_URL ? 'VITE_API_BASE_URL no está configurado para este entorno.' : null
+  const apiConfigError = !API_BASE_URL ? 'Falta conectar el backend canónico para este entorno. Configura VITE_API_BASE_URL para habilitar el acceso.' : null
   const visibleTabs = allowedViewsForRole(effectiveRole).map((view) => ({ key: view, label: VIEW_LABELS[view] }))
   const currentSectionTag = VIEW_LABELS[activeView]
   const currentSectionTitle = sectionTitleForView(activeView, auditHeading.title, reportingHeading.title)
@@ -2932,13 +2932,13 @@ function App() {
           <div className="section-heading">
             <div>
               <h2>Continuar sesión</h2>
-              <p>Usa las credenciales del backend canónico.</p>
+              <p>{apiConfigError ? 'El frontend ya está arriba, pero todavía no tiene un backend configurado para este entorno.' : 'Usa las credenciales del backend canónico.'}</p>
             </div>
           </div>
           <form className="login-form" onSubmit={handleLogin}>
             <label>
               <span>Usuario</span>
-              <input value={username} onChange={(event) => setUsername(event.target.value)} />
+              <input value={username} onChange={(event) => setUsername(event.target.value)} disabled={Boolean(apiConfigError)} />
             </label>
             <label>
               <span>Contraseña</span>
@@ -2946,9 +2946,10 @@ function App() {
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                disabled={Boolean(apiConfigError)}
               />
             </label>
-            <button type="submit" className="button-primary" disabled={isLoggingIn}>
+            <button type="submit" className="button-primary" disabled={isLoggingIn || Boolean(apiConfigError)}>
               {isLoggingIn ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
