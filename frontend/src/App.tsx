@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import heroImage from './assets/hero.png'
 import { Metric, count, toneFor } from './backoffice/shared'
 import { ContextBanner, SectionToolbar, WorkspaceHeader, WorkspaceTabs } from './backoffice/shell'
+import { allowedViewsForRole, auditHeadingForRole, canMutateSection, defaultViewForRole, reportingHeadingForRole, sectionTitleForView, searchPlaceholderForView, type SectionKey, type ViewKey, VIEW_LABELS, canonicalRole } from './backoffice/view-config'
 import { AuditWorkspace } from './backoffice/workspaces/AuditWorkspace'
 import { CanalesWorkspace } from './backoffice/workspaces/CanalesWorkspace'
 import { CobranzaWorkspace } from './backoffice/workspaces/CobranzaWorkspace'
@@ -508,33 +509,6 @@ type ManualResolutionItem = {
   resolved_at: string | null
 }
 
-type ViewKey =
-  | 'overview'
-  | 'patrimonio'
-  | 'operacion'
-  | 'contratos'
-  | 'documentos'
-  | 'canales'
-  | 'cobranza'
-  | 'conciliacion'
-  | 'audit'
-  | 'contabilidad'
-  | 'sii'
-  | 'reporting'
-
-type SectionKey =
-  | 'patrimonio'
-  | 'operacion'
-  | 'contratos'
-  | 'documentos'
-  | 'canales'
-  | 'cobranza'
-  | 'conciliacion'
-  | 'audit'
-  | 'contabilidad'
-  | 'sii'
-  | 'reporting'
-
 type CapacidadSii = {
   id: number
   empresa: number
@@ -734,122 +708,6 @@ function effectiveCodeFromPropertyCode(value: string) {
   return digits.slice(-3).padStart(3, '0')
 }
 
-
-function canonicalRole(roleCode: string | null | undefined) {
-  const normalized = String(roleCode || '').trim().toLowerCase()
-  if (normalized === 'administradorglobal') return 'AdministradorGlobal'
-  if (normalized === 'operadordecartera' || normalized === 'operator') return 'OperadorDeCartera'
-  if (normalized === 'socio') return 'Socio'
-  if (normalized === 'revisorfiscalexterno') return 'RevisorFiscalExterno'
-  return roleCode || 'SinRol'
-}
-
-function defaultViewForRole(roleCode: string | null | undefined): ViewKey {
-  const role = canonicalRole(roleCode)
-  if (role === 'RevisorFiscalExterno') return 'contabilidad'
-  if (role === 'Socio') return 'reporting'
-  return 'overview'
-}
-
-function allowedViewsForRole(roleCode: string | null | undefined): ViewKey[] {
-  const role = canonicalRole(roleCode)
-  if (role === 'AdministradorGlobal') {
-    return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting']
-  }
-  if (role === 'OperadorDeCartera') {
-    return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit']
-  }
-  if (role === 'RevisorFiscalExterno') {
-    return ['audit', 'contabilidad', 'sii', 'reporting']
-  }
-  if (role === 'Socio') {
-    return ['reporting']
-  }
-  return ['overview']
-}
-
-const VIEW_LABELS: Record<ViewKey, string> = {
-  overview: 'Resumen',
-  patrimonio: 'Patrimonio',
-  operacion: 'Operación',
-  contratos: 'Contratos',
-  documentos: 'Documentos',
-  canales: 'Canales',
-  cobranza: 'Cobranza',
-  conciliacion: 'Conciliación',
-  audit: 'Audit',
-  contabilidad: 'Contabilidad',
-  sii: 'SII',
-  reporting: 'Reporting',
-}
-
-function sectionTitleForView(view: ViewKey, auditTitle: string, reportingTitle: string) {
-  if (view === 'patrimonio') return 'Owners, comunidades y propiedades'
-  if (view === 'operacion') return 'Cuentas, identidades y mandatos'
-  if (view === 'contratos') return 'Arrendatarios, contratos y avisos'
-  if (view === 'documentos') return 'Expedientes, políticas y documentos emitidos'
-  if (view === 'canales') return 'Gates operativos y mensajes salientes'
-  if (view === 'cobranza') return 'Pagos, UF, ajustes, garantías y estado de cuenta'
-  if (view === 'conciliacion') return 'Conexiones, movimientos e ingresos desconocidos'
-  if (view === 'audit') return auditTitle
-  if (view === 'contabilidad') return 'Configuración fiscal, eventos, asientos y cierres'
-  if (view === 'sii') return 'Capacidades, DTE, F29 y preparación anual'
-  return reportingTitle
-}
-
-function searchPlaceholderForView(view: ViewKey, reportingPlaceholder: string) {
-  if (view === 'patrimonio') return 'Nombre, RUT, dirección u owner'
-  if (view === 'operacion') return 'Cuenta, owner, canal o mandato'
-  if (view === 'contratos') return 'Código, arrendatario, propiedad o causal'
-  if (view === 'documentos') return 'Expediente, tipo documental, estado o storage'
-  if (view === 'canales') return 'Canal, estado, destinatario o external ref'
-  if (view === 'cobranza') return 'Contrato, monto, estado, UF o garantía'
-  if (view === 'conciliacion') return 'Movimiento, referencia, estado o ingreso desconocido'
-  if (view === 'audit') return 'Evento, severidad, categoría o scope'
-  if (view === 'contabilidad') return 'Empresa, evento, cuenta, cierre u obligación'
-  if (view === 'sii') return 'Empresa, DTE, F29, DDJJ o F22'
-  return reportingPlaceholder
-}
-
-function reportingHeadingForRole(roleCode: string | null | undefined) {
-  const role = canonicalRole(roleCode)
-  if (role === 'Socio') {
-    return {
-      title: 'Mi posición patrimonial',
-      placeholder: 'Comunidad, porcentaje o propiedad',
-    }
-  }
-  if (role === 'RevisorFiscalExterno') {
-    return {
-      title: 'Lectura de control y reporting',
-      placeholder: 'Empresa, período o estado',
-    }
-  }
-  return {
-    title: 'Dashboard, socios, libros y resumen anual',
-    placeholder: 'Empresa, socio, libro o resolución',
-  }
-}
-
-function auditHeadingForRole(roleCode: string | null | undefined) {
-  const role = canonicalRole(roleCode)
-  if (role === 'RevisorFiscalExterno') {
-    return {
-      title: 'Eventos auditables',
-      subtitle: 'Trazabilidad reciente en solo lectura.',
-    }
-  }
-  if (role === 'OperadorDeCartera') {
-    return {
-      title: 'Resoluciones manuales',
-      subtitle: 'Cola asistida y seguimiento operativo.',
-    }
-  }
-  return {
-    title: 'Eventos y resoluciones',
-    subtitle: 'Trazabilidad transversal del sistema.',
-  }
-}
 
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY))
@@ -1233,24 +1091,16 @@ function App() {
     return allowedViewsForRole(effectiveRole).includes(view)
   }
 
-  function canMutateSection(section: SectionKey) {
-    if (effectiveRole === 'AdministradorGlobal') return true
-    if (effectiveRole === 'OperadorDeCartera') {
-      return ['patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit'].includes(section)
-    }
-    return false
-  }
-
-  const canEditPatrimonio = canMutateSection('patrimonio')
-  const canEditOperacion = canMutateSection('operacion')
-  const canEditContratos = canMutateSection('contratos')
-  const canEditDocumentos = canMutateSection('documentos')
-  const canEditCanales = canMutateSection('canales')
-  const canEditCobranza = canMutateSection('cobranza')
-  const canEditConciliacion = canMutateSection('conciliacion')
-  const canEditAudit = canMutateSection('audit')
-  const canEditContabilidad = canMutateSection('contabilidad')
-  const canEditSii = canMutateSection('sii')
+  const canEditPatrimonio = canMutateSection(effectiveRole, 'patrimonio')
+  const canEditOperacion = canMutateSection(effectiveRole, 'operacion')
+  const canEditContratos = canMutateSection(effectiveRole, 'contratos')
+  const canEditDocumentos = canMutateSection(effectiveRole, 'documentos')
+  const canEditCanales = canMutateSection(effectiveRole, 'canales')
+  const canEditCobranza = canMutateSection(effectiveRole, 'cobranza')
+  const canEditConciliacion = canMutateSection(effectiveRole, 'conciliacion')
+  const canEditAudit = canMutateSection(effectiveRole, 'audit')
+  const canEditContabilidad = canMutateSection(effectiveRole, 'contabilidad')
+  const canEditSii = canMutateSection(effectiveRole, 'sii')
 
   async function loadHealth() {
     try {
@@ -1554,7 +1404,7 @@ function App() {
     successMessage: string,
     section?: SectionKey,
   ) {
-    if (section && !canMutateSection(section)) {
+    if (section && !canMutateSection(effectiveRole, section)) {
       setFormError('Tu rol actual no tiene permisos para modificar esta sección.')
       return false
     }
