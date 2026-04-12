@@ -77,19 +77,17 @@ if errorlevel 1 (
 )
 
 echo [4/4] Deploying greenfield frontend on Vercel...
-pushd frontend >nul
+set "FRONTEND_DIR=%~dp0frontend"
 if defined VERCEL_TOKEN (
-    vercel --prod --yes --scope joaquins-projects-72185699 --token %VERCEL_TOKEN%
+    vercel --cwd "%FRONTEND_DIR%" --prod --yes --scope joaquins-projects-72185699 --token %VERCEL_TOKEN%
 ) else (
-    vercel --prod --yes --scope joaquins-projects-72185699
+    vercel --cwd "%FRONTEND_DIR%" --prod --yes --scope joaquins-projects-72185699
 )
 if errorlevel 1 (
-    popd >nul
     echo ERROR: Vercel deploy failed
     echo Ensure the Vercel CLI is authenticated or set VERCEL_TOKEN, and keep the frontend project linked.
     exit /b 1
 )
-popd >nul
 
 echo.
 echo ================================================
