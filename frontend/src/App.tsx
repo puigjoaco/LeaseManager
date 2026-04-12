@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import heroImage from './assets/hero.png'
 import { AuditWorkspace } from './backoffice/workspaces/AuditWorkspace'
+import { CanalesWorkspace } from './backoffice/workspaces/CanalesWorkspace'
+import { ContabilidadWorkspace } from './backoffice/workspaces/ContabilidadWorkspace'
 import { DocumentosWorkspace } from './backoffice/workspaces/DocumentosWorkspace'
+import { ReportingWorkspace } from './backoffice/workspaces/ReportingWorkspace'
+import { SiiWorkspace } from './backoffice/workspaces/SiiWorkspace'
 import './App.css'
 
 type HealthPayload = {
@@ -713,11 +717,6 @@ function matches(search: string, values: Array<string | number | boolean | null 
 
 function count(value: number | undefined) {
   return new Intl.NumberFormat('es-CL').format(value ?? 0)
-}
-
-function sumPercentages(values: Array<{ porcentaje: string }>) {
-  const total = values.reduce((accumulator, item) => accumulator + Number(item.porcentaje || 0), 0)
-  return `${total.toFixed(2)}%`
 }
 
 function todayIso() {
@@ -3884,104 +3883,29 @@ function App() {
       ) : null}
 
       {activeView === 'canales' ? (
-        <>
-          {!canEditCanales ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Canales.</div> : null}
-          {canEditCanales ? (
-            <section className="form-grid">
-              <section className="panel">
-                <div className="section-heading"><div><h2>Gate de canal</h2><p>Estado operativo por canal y provider.</p></div></div>
-                <form className="entity-form" onSubmit={handleCreateGateCanal}>
-                  <select value={gateCanalDraft.canal} onChange={(event) => setGateCanalDraft((current) => ({ ...current, canal: event.target.value }))}>
-                    <option value="email">Email</option>
-                    <option value="whatsapp">WhatsApp</option>
-                  </select>
-                  <input placeholder="Provider key" value={gateCanalDraft.provider_key} onChange={(event) => setGateCanalDraft((current) => ({ ...current, provider_key: event.target.value }))} />
-                  <select value={gateCanalDraft.estado_gate} onChange={(event) => setGateCanalDraft((current) => ({ ...current, estado_gate: event.target.value }))}>
-                    <option value="abierto">Abierto</option>
-                    <option value="condicionado">Condicionado</option>
-                    <option value="cerrado">Cerrado</option>
-                    <option value="suspendido">Suspendido</option>
-                  </select>
-                  <input placeholder="Evidencia ref" value={gateCanalDraft.evidencia_ref} onChange={(event) => setGateCanalDraft((current) => ({ ...current, evidencia_ref: event.target.value }))} />
-                  <button type="submit" className="button-primary" disabled={isSubmitting || !gateCanalDraft.provider_key}>Guardar gate</button>
-                </form>
-              </section>
-
-              <section className="panel">
-                <div className="section-heading"><div><h2>Preparar mensaje</h2><p>Usa contrato, arrendatario o documento como contexto del envío.</p></div></div>
-                <form className="entity-form" onSubmit={handlePrepareMensaje}>
-                  <select value={mensajeDraft.canal} onChange={(event) => setMensajeDraft((current) => ({ ...current, canal: event.target.value }))}>
-                    <option value="email">Email</option>
-                    <option value="whatsapp">WhatsApp</option>
-                  </select>
-                  <select value={mensajeDraft.canal_mensajeria} onChange={(event) => setMensajeDraft((current) => ({ ...current, canal_mensajeria: event.target.value }))}>
-                    <option value="">Selecciona gate</option>
-                    {gatesCanales.filter((item) => item.canal === mensajeDraft.canal).map((item) => (
-                      <option key={item.id} value={item.id}>{item.canal} · {item.provider_key}</option>
-                    ))}
-                  </select>
-                  <select value={mensajeDraft.identidad_envio} onChange={(event) => setMensajeDraft((current) => ({ ...current, identidad_envio: event.target.value }))}>
-                    <option value="">Sin override de identidad</option>
-                    {identidades.filter((item) => item.canal === mensajeDraft.canal).map((item) => (
-                      <option key={item.id} value={item.id}>{item.remitente_visible} · {item.direccion_o_numero}</option>
-                    ))}
-                  </select>
-                  <select value={mensajeDraft.contrato} onChange={(event) => setMensajeDraft((current) => ({ ...current, contrato: event.target.value }))}>
-                    <option value="">Sin contrato</option>
-                    {contratos.map((item) => (
-                      <option key={item.id} value={item.id}>{item.codigo_contrato}</option>
-                    ))}
-                  </select>
-                  <select value={mensajeDraft.arrendatario} onChange={(event) => setMensajeDraft((current) => ({ ...current, arrendatario: event.target.value }))}>
-                    <option value="">Sin arrendatario</option>
-                    {arrendatarios.map((item) => (
-                      <option key={item.id} value={item.id}>{item.nombre_razon_social}</option>
-                    ))}
-                  </select>
-                  <select value={mensajeDraft.documento_emitido} onChange={(event) => setMensajeDraft((current) => ({ ...current, documento_emitido: event.target.value }))}>
-                    <option value="">Sin documento</option>
-                    {documentosEmitidos.map((item) => (
-                      <option key={item.id} value={item.id}>{item.tipo_documental} · {item.storage_ref}</option>
-                    ))}
-                  </select>
-                  <input placeholder="Asunto" value={mensajeDraft.asunto} onChange={(event) => setMensajeDraft((current) => ({ ...current, asunto: event.target.value }))} />
-                  <input placeholder="Cuerpo" value={mensajeDraft.cuerpo} onChange={(event) => setMensajeDraft((current) => ({ ...current, cuerpo: event.target.value }))} />
-                  <button type="submit" className="button-primary" disabled={isSubmitting || !mensajeDraft.canal_mensajeria}>Preparar mensaje</button>
-                </form>
-              </section>
-
-              <section className="panel">
-                <div className="section-heading"><div><h2>Registrar envío</h2><p>Marca un mensaje preparado como enviado manualmente.</p></div></div>
-                <form className="entity-form" onSubmit={handleRegistrarEnvioMensaje}>
-                  <select value={mensajeEnvioDraft.mensajeId} onChange={(event) => setMensajeEnvioDraft((current) => ({ ...current, mensajeId: event.target.value }))}>
-                    <option value="">Selecciona mensaje</option>
-                    {mensajesSalientes.filter((item) => item.estado === 'preparado').map((item) => (
-                      <option key={item.id} value={item.id}>{item.canal} · {item.destinatario || item.asunto || item.id}</option>
-                    ))}
-                  </select>
-                  <input placeholder="External ref" value={mensajeEnvioDraft.external_ref} onChange={(event) => setMensajeEnvioDraft((current) => ({ ...current, external_ref: event.target.value }))} />
-                  <button type="submit" className="button-primary" disabled={isSubmitting || !mensajeEnvioDraft.mensajeId}>Registrar envío</button>
-                </form>
-              </section>
-            </section>
-          ) : null}
-
-          <TableBlock title="Gates de canal" subtitle="Estado operativo por canal." rows={filteredGatesCanales} empty="No hay gates de canal para este filtro." columns={[
-            { label: 'Canal', render: (row) => row.canal },
-            { label: 'Provider', render: (row) => row.provider_key },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_gate} tone={toneFor(row.estado_gate)} /> },
-            { label: 'Evidencia', render: (row) => row.evidencia_ref || 'Sin evidencia' },
-          ]} />
-
-          <TableBlock title="Mensajes salientes" subtitle="Preparados, bloqueados o enviados manualmente." rows={filteredMensajesSalientes} empty="No hay mensajes salientes para este filtro." columns={[
-            { label: 'Canal', render: (row) => row.canal },
-            { label: 'Destinatario', render: (row) => row.destinatario || 'Sin destinatario' },
-            { label: 'Contrato', render: (row) => row.contrato ? (contratoById.get(row.contrato)?.codigo_contrato || row.contrato) : 'Sin contrato' },
-            { label: 'Documento', render: (row) => row.documento_emitido ? (documentosEmitidos.find((item) => item.id === row.documento_emitido)?.storage_ref || row.documento_emitido) : 'Sin documento' },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-            { label: 'Motivo', render: (row) => row.motivo_bloqueo || row.external_ref || 'Sin observación' },
-          ]} />
-        </>
+        <CanalesWorkspace
+          canEditCanales={canEditCanales}
+          gateCanalDraft={gateCanalDraft}
+          setGateCanalDraft={setGateCanalDraft}
+          handleCreateGateCanal={handleCreateGateCanal}
+          mensajeDraft={mensajeDraft}
+          setMensajeDraft={setMensajeDraft}
+          handlePrepareMensaje={handlePrepareMensaje}
+          mensajeEnvioDraft={mensajeEnvioDraft}
+          setMensajeEnvioDraft={setMensajeEnvioDraft}
+          handleRegistrarEnvioMensaje={handleRegistrarEnvioMensaje}
+          gatesCanales={gatesCanales}
+          identidades={identidades}
+          contratos={contratos}
+          arrendatarios={arrendatarios}
+          documentosEmitidos={documentosEmitidos}
+          mensajesSalientes={mensajesSalientes}
+          filteredGatesCanales={filteredGatesCanales}
+          filteredMensajesSalientes={filteredMensajesSalientes}
+          isSubmitting={isSubmitting}
+          contratoById={contratoById}
+          toneFor={toneFor}
+        />
       ) : null}
 
       {activeView === 'cobranza' ? (
@@ -4256,678 +4180,122 @@ function App() {
       ) : null}
 
       {activeView === 'contabilidad' ? (
-        <>
-          {!canEditContabilidad ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Contabilidad.</div> : null}
-          {canEditContabilidad ? <section className="form-grid">
-            <section className="panel">
-              <div className="section-heading"><div><h2>Configuración fiscal</h2><p>Prerequisito para contabilización y cierre mensual oficial.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateConfigFiscal}>
-                <select value={configFiscalDraft.empresa} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, empresa: event.target.value }))}>
-                  <option value="">Selecciona empresa</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <select value={configFiscalDraft.regimen_tributario} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, regimen_tributario: event.target.value }))}>
-                  <option value="">Selecciona régimen</option>
-                  {regimenesTributarios.map((item) => (
-                    <option key={item.id} value={item.id}>{item.codigo_regimen}</option>
-                  ))}
-                </select>
-                <input type="date" value={configFiscalDraft.inicio_ejercicio} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, inicio_ejercicio: event.target.value }))} />
-                <select value={configFiscalDraft.moneda_funcional} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, moneda_funcional: event.target.value }))}>
-                  <option value="CLP">CLP</option>
-                  <option value="UF">UF</option>
-                </select>
-                <input placeholder="Tasa IVA" value={configFiscalDraft.tasa_iva} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, tasa_iva: event.target.value }))} />
-                <select value={configFiscalDraft.estado} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, estado: event.target.value }))}>
-                  <option value="activa">Activa</option>
-                  <option value="borrador">Borrador</option>
-                  <option value="inactiva">Inactiva</option>
-                </select>
-                <label className="checkbox-row"><input type="checkbox" checked={configFiscalDraft.afecta_iva_arriendo} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, afecta_iva_arriendo: event.target.checked }))} />Afecta IVA arriendo</label>
-                <label className="checkbox-row"><input type="checkbox" checked={configFiscalDraft.aplica_ppm} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, aplica_ppm: event.target.checked }))} />Aplica PPM</label>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !configFiscalDraft.empresa || !configFiscalDraft.regimen_tributario}>Guardar configuración</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Cuenta contable</h2><p>Plan mínimo para reglas y asientos.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateCuentaContable}>
-                <select value={cuentaContableDraft.empresa} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, empresa: event.target.value }))}>
-                  <option value="">Selecciona empresa</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <input placeholder="Versión plan" value={cuentaContableDraft.plan_cuentas_version} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, plan_cuentas_version: event.target.value }))} />
-                <input placeholder="Código" value={cuentaContableDraft.codigo} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, codigo: event.target.value }))} />
-                <input placeholder="Nombre" value={cuentaContableDraft.nombre} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, nombre: event.target.value }))} />
-                <select value={cuentaContableDraft.naturaleza} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, naturaleza: event.target.value }))}>
-                  <option value="deudora">Deudora</option>
-                  <option value="acreedora">Acreedora</option>
-                </select>
-                <input placeholder="Nivel" value={cuentaContableDraft.nivel} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, nivel: event.target.value }))} />
-                <select value={cuentaContableDraft.padre} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, padre: event.target.value }))}>
-                  <option value="">Sin padre</option>
-                  {cuentasContables
-                    .filter((item) => !cuentaContableDraft.empresa || item.empresa === Number(cuentaContableDraft.empresa))
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>{item.codigo} · {item.nombre}</option>
-                    ))}
-                </select>
-                <select value={cuentaContableDraft.estado} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, estado: event.target.value }))}>
-                  <option value="activa">Activa</option>
-                  <option value="inactiva">Inactiva</option>
-                </select>
-                <label className="checkbox-row"><input type="checkbox" checked={cuentaContableDraft.es_control_obligatoria} onChange={(event) => setCuentaContableDraft((current) => ({ ...current, es_control_obligatoria: event.target.checked }))} />Cuenta de control obligatoria</label>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !cuentaContableDraft.empresa || !cuentaContableDraft.codigo || !cuentaContableDraft.nombre}>Guardar cuenta</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Regla y matriz</h2><p>Relaciona evento contable con cuentas debe/haber.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateReglaContable}>
-                <select value={reglaContableDraft.empresa} onChange={(event) => setReglaContableDraft((current) => ({ ...current, empresa: event.target.value }))}>
-                  <option value="">Selecciona empresa</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <input placeholder="Evento tipo" value={reglaContableDraft.evento_tipo} onChange={(event) => setReglaContableDraft((current) => ({ ...current, evento_tipo: event.target.value }))} />
-                <input placeholder="Versión plan" value={reglaContableDraft.plan_cuentas_version} onChange={(event) => setReglaContableDraft((current) => ({ ...current, plan_cuentas_version: event.target.value }))} />
-                <input placeholder="Criterio cargo" value={reglaContableDraft.criterio_cargo} onChange={(event) => setReglaContableDraft((current) => ({ ...current, criterio_cargo: event.target.value }))} />
-                <input placeholder="Criterio abono" value={reglaContableDraft.criterio_abono} onChange={(event) => setReglaContableDraft((current) => ({ ...current, criterio_abono: event.target.value }))} />
-                <input type="date" value={reglaContableDraft.vigencia_desde} onChange={(event) => setReglaContableDraft((current) => ({ ...current, vigencia_desde: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting || !reglaContableDraft.empresa || !reglaContableDraft.evento_tipo}>Guardar regla</button>
-              </form>
-              <form className="entity-form subform" onSubmit={handleCreateMatriz}>
-                <select value={matrizDraft.regla_contable} onChange={(event) => setMatrizDraft((current) => ({ ...current, regla_contable: event.target.value }))}>
-                  <option value="">Selecciona regla</option>
-                  {reglasContables.map((item) => (
-                    <option key={item.id} value={item.id}>{item.evento_tipo} · {empresaById.get(item.empresa)?.razon_social || item.empresa}</option>
-                  ))}
-                </select>
-                <select value={matrizDraft.cuenta_debe} onChange={(event) => setMatrizDraft((current) => ({ ...current, cuenta_debe: event.target.value }))}>
-                  <option value="">Cuenta debe</option>
-                  {cuentasContables.map((item) => (
-                    <option key={item.id} value={item.id}>{item.codigo} · {item.nombre}</option>
-                  ))}
-                </select>
-                <select value={matrizDraft.cuenta_haber} onChange={(event) => setMatrizDraft((current) => ({ ...current, cuenta_haber: event.target.value }))}>
-                  <option value="">Cuenta haber</option>
-                  {cuentasContables.map((item) => (
-                    <option key={item.id} value={item.id}>{item.codigo} · {item.nombre}</option>
-                  ))}
-                </select>
-                <input placeholder="Condición impuesto" value={matrizDraft.condicion_impuesto} onChange={(event) => setMatrizDraft((current) => ({ ...current, condicion_impuesto: event.target.value }))} />
-                <button type="submit" className="button-secondary" disabled={isSubmitting || !matrizDraft.regla_contable || !matrizDraft.cuenta_debe || !matrizDraft.cuenta_haber}>Guardar matriz</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Evento y cierre</h2><p>Evento manual, preparación y acciones sobre cierres.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateEventoContable}>
-                <select value={eventoContableDraft.empresa} onChange={(event) => setEventoContableDraft((current) => ({ ...current, empresa: event.target.value }))}>
-                  <option value="">Selecciona empresa</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <input placeholder="Evento tipo" value={eventoContableDraft.evento_tipo} onChange={(event) => setEventoContableDraft((current) => ({ ...current, evento_tipo: event.target.value }))} />
-                <input placeholder="Entidad origen tipo" value={eventoContableDraft.entidad_origen_tipo} onChange={(event) => setEventoContableDraft((current) => ({ ...current, entidad_origen_tipo: event.target.value }))} />
-                <input placeholder="Entidad origen id" value={eventoContableDraft.entidad_origen_id} onChange={(event) => setEventoContableDraft((current) => ({ ...current, entidad_origen_id: event.target.value }))} />
-                <input type="date" value={eventoContableDraft.fecha_operativa} onChange={(event) => setEventoContableDraft((current) => ({ ...current, fecha_operativa: event.target.value }))} />
-                <input placeholder="Monto base" value={eventoContableDraft.monto_base} onChange={(event) => setEventoContableDraft((current) => ({ ...current, monto_base: event.target.value }))} />
-                <input placeholder="Idempotency key" value={eventoContableDraft.idempotency_key} onChange={(event) => setEventoContableDraft((current) => ({ ...current, idempotency_key: event.target.value }))} />
-                <input placeholder="Payload resumen JSON" value={eventoContableDraft.payload_resumen} onChange={(event) => setEventoContableDraft((current) => ({ ...current, payload_resumen: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting || !eventoContableDraft.empresa || !eventoContableDraft.monto_base || !eventoContableDraft.idempotency_key}>Guardar evento</button>
-              </form>
-              <form className="entity-form subform" onSubmit={handlePrepareCierre}>
-                <select value={cierreDraft.empresa_id} onChange={(event) => setCierreDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
-                  <option value="">Selecciona empresa</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <input placeholder="Año" value={cierreDraft.anio} onChange={(event) => setCierreDraft((current) => ({ ...current, anio: event.target.value }))} />
-                <input placeholder="Mes" value={cierreDraft.mes} onChange={(event) => setCierreDraft((current) => ({ ...current, mes: event.target.value }))} />
-                <button type="submit" className="button-secondary" disabled={isSubmitting || !cierreDraft.empresa_id}>Preparar cierre</button>
-              </form>
-            </section>
-          </section> : null}
-
-          <TableBlock title="Regímenes tributarios" subtitle="Regímenes disponibles para configuración fiscal." rows={filteredRegimenes} empty="No hay regímenes para este filtro." columns={[
-            { label: 'Código', render: (row) => row.codigo_regimen },
-            { label: 'Descripción', render: (row) => row.descripcion },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-          ]} />
-
-          <TableBlock title="Configuraciones fiscales" subtitle="Estado fiscal activo por empresa." rows={filteredConfigsFiscales} empty="No hay configuraciones fiscales para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Régimen', render: (row) => regimenById.get(row.regimen_tributario)?.codigo_regimen || row.regimen_tributario },
-            { label: 'Moneda', render: (row) => row.moneda_funcional },
-            { label: 'PPM', render: (row) => row.aplica_ppm ? 'Sí' : 'No' },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-          ]} />
-
-          <TableBlock title="Cuentas contables" subtitle="Plan contable disponible por empresa." rows={filteredCuentasContables} empty="No hay cuentas contables para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Código', render: (row) => row.codigo },
-            { label: 'Nombre', render: (row) => row.nombre },
-            { label: 'Naturaleza', render: (row) => row.naturaleza },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-          ]} />
-
-          <TableBlock title="Reglas y matrices" subtitle="Mapeo entre eventos y cuentas debe/haber." rows={filteredReglasContables} empty="No hay reglas contables para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Evento', render: (row) => row.evento_tipo },
-            { label: 'Versión', render: (row) => row.plan_cuentas_version },
-            { label: 'Cargo', render: (row) => row.criterio_cargo || 'Sin criterio' },
-            { label: 'Abono', render: (row) => row.criterio_abono || 'Sin criterio' },
-          ]} />
-
-          <TableBlock title="Matrices de reglas" subtitle="Detalle de cuentas usadas por regla activa." rows={filteredMatrices} empty="No hay matrices para este filtro." columns={[
-            { label: 'Regla', render: (row) => reglaById.get(row.regla_contable)?.evento_tipo || row.regla_contable },
-            { label: 'Debe', render: (row) => cuentaContableById.get(row.cuenta_debe)?.codigo || row.cuenta_debe },
-            { label: 'Haber', render: (row) => cuentaContableById.get(row.cuenta_haber)?.codigo || row.cuenta_haber },
-            { label: 'Condición', render: (row) => row.condicion_impuesto || 'Sin condición' },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-          ]} />
-
-          <TableBlock title="Eventos contables" subtitle="Hechos económicos pendientes, en revisión o contabilizados." rows={filteredEventosContables} empty="No hay eventos contables para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa || 0)?.razon_social || row.empresa || 'Sin empresa' },
-            { label: 'Evento', render: (row) => row.evento_tipo },
-            { label: 'Origen', render: (row) => `${row.entidad_origen_tipo}:${row.entidad_origen_id}` },
-            { label: 'Monto', render: (row) => row.monto_base },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_contable} tone={toneFor(row.estado_contable)} /> },
-            {
-              label: 'Acción',
-              render: (row) => (
-                !canEditContabilidad ? 'Solo lectura' : (
-                <div className="inline-actions">
-                  <button
-                    type="button"
-                    className="button-ghost inline-action"
-                    onClick={() => void handleAccountingAction(`/api/v1/contabilidad/eventos-contables/${row.id}/contabilizar/`, 'Reintento de contabilización ejecutado correctamente.')}
-                    disabled={isSubmitting}
-                  >
-                    Contabilizar
-                  </button>
-                  {row.empresa ? (
-                    <button
-                      type="button"
-                      className="button-ghost inline-action"
-                      onClick={() => {
-                        if (row.empresa == null) return
-                        const companyId = row.empresa
-                        const companyName = empresaById.get(companyId)?.razon_social || String(companyId)
-                        navigateWithContext('reporting', companyName, `Empresa: ${companyName}`)
-                        setReportingFinancialDraft((current) => ({ ...current, empresa_id: String(companyId) }))
-                      }}
-                    >
-                      Ver impacto
-                    </button>
-                  ) : null}
-                </div>
-                )
-              ),
-            },
-          ]} />
-
-          <TableBlock title="Asientos contables" subtitle="Asientos balanceados generados desde eventos." rows={filteredAsientosContables} empty="No hay asientos para este filtro." columns={[
-            { label: 'Evento', render: (row) => row.evento_contable },
-            { label: 'Período', render: (row) => row.periodo_contable },
-            { label: 'Debe', render: (row) => row.debe_total },
-            { label: 'Haber', render: (row) => row.haber_total },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-          ]} />
-
-          <TableBlock title="Obligaciones mensuales" subtitle="PPM e impuestos preparados desde los cierres." rows={filteredObligaciones} empty="No hay obligaciones mensuales para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
-            { label: 'Tipo', render: (row) => row.obligacion_tipo },
-            { label: 'Monto', render: (row) => row.monto_calculado },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
-          ]} />
-
-          <TableBlock title="Cierres mensuales" subtitle="Preparación, aprobación y reapertura del período." rows={filteredCierres} empty="No hay cierres mensuales para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-            {
-              label: 'Acción',
-              render: (row) => (
-                !canEditContabilidad ? 'Solo lectura' : (
-                <div className="inline-actions">
-                  <button
-                    type="button"
-                    className="button-ghost inline-action"
-                    onClick={() => void handleAccountingAction(`/api/v1/contabilidad/cierres-mensuales/${row.id}/aprobar/`, 'Cierre aprobado correctamente.')}
-                    disabled={isSubmitting}
-                  >
-                    Aprobar
-                  </button>
-                  <button
-                    type="button"
-                    className="button-ghost inline-action"
-                    onClick={() => void handleAccountingAction(`/api/v1/contabilidad/cierres-mensuales/${row.id}/reabrir/`, 'Cierre reabierto correctamente.')}
-                    disabled={isSubmitting}
-                  >
-                    Reabrir
-                  </button>
-                </div>
-                )
-              ),
-            },
-          ]} />
-        </>
+        <ContabilidadWorkspace
+          canEditContabilidad={canEditContabilidad}
+          configFiscalDraft={configFiscalDraft}
+          setConfigFiscalDraft={setConfigFiscalDraft}
+          handleCreateConfigFiscal={handleCreateConfigFiscal}
+          cuentaContableDraft={cuentaContableDraft}
+          setCuentaContableDraft={setCuentaContableDraft}
+          handleCreateCuentaContable={handleCreateCuentaContable}
+          reglaContableDraft={reglaContableDraft}
+          setReglaContableDraft={setReglaContableDraft}
+          handleCreateReglaContable={handleCreateReglaContable}
+          matrizDraft={matrizDraft}
+          setMatrizDraft={setMatrizDraft}
+          handleCreateMatriz={handleCreateMatriz}
+          eventoContableDraft={eventoContableDraft}
+          setEventoContableDraft={setEventoContableDraft}
+          handleCreateEventoContable={handleCreateEventoContable}
+          cierreDraft={cierreDraft}
+          setCierreDraft={setCierreDraft}
+          handlePrepareCierre={handlePrepareCierre}
+          filteredRegimenes={filteredRegimenes}
+          filteredConfigsFiscales={filteredConfigsFiscales}
+          filteredCuentasContables={filteredCuentasContables}
+          filteredReglasContables={filteredReglasContables}
+          filteredMatrices={filteredMatrices}
+          filteredEventosContables={filteredEventosContables}
+          filteredAsientosContables={filteredAsientosContables}
+          filteredObligaciones={filteredObligaciones}
+          filteredCierres={filteredCierres}
+          empresas={empresas}
+          regimenesTributarios={regimenesTributarios}
+          cuentasContables={cuentasContables}
+          reglasContables={reglasContables}
+          empresaById={empresaById}
+          regimenById={regimenById}
+          reglaById={reglaById}
+          cuentaContableById={cuentaContableById}
+          toneFor={toneFor}
+          isSubmitting={isSubmitting}
+          handleAccountingAction={handleAccountingAction}
+          onViewImpact={(companyId) => {
+            const companyName = empresaById.get(companyId)?.razon_social || String(companyId)
+            navigateWithContext('reporting', companyName, `Empresa: ${companyName}`)
+            setReportingFinancialDraft((current) => ({ ...current, empresa_id: String(companyId) }))
+          }}
+        />
       ) : null}
 
       {activeView === 'sii' ? (
-        <>
-          {!canEditSii ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en SII.</div> : null}
-          {canEditSii ? <section className="form-grid">
-            <section className="panel">
-              <div className="section-heading"><div><h2>Capacidad SII</h2><p>Gate operativo por empresa y capacidad tributaria.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateCapacidadSii}>
-                <select value={capacidadSiiDraft.empresa} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, empresa: event.target.value }))}>
-                  <option value="">Selecciona empresa</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <select value={capacidadSiiDraft.capacidad_key} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, capacidad_key: event.target.value }))}>
-                  <option value="DTEEmision">DTE Emisión</option>
-                  <option value="DTEConsultaEstado">DTE Consulta Estado</option>
-                  <option value="F29Preparacion">F29 Preparación</option>
-                  <option value="F29Presentacion">F29 Presentación</option>
-                  <option value="DDJJPreparacion">DDJJ Preparación</option>
-                  <option value="F22Preparacion">F22 Preparación</option>
-                </select>
-                <input placeholder="Certificado ref" value={capacidadSiiDraft.certificado_ref} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, certificado_ref: event.target.value }))} />
-                <select value={capacidadSiiDraft.ambiente} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, ambiente: event.target.value }))}>
-                  <option value="certificacion">Certificación</option>
-                  <option value="produccion">Producción</option>
-                </select>
-                <select value={capacidadSiiDraft.estado_gate} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, estado_gate: event.target.value }))}>
-                  <option value="abierto">Abierto</option>
-                  <option value="condicionado">Condicionado</option>
-                  <option value="cerrado">Cerrado</option>
-                  <option value="suspendido">Suspendido</option>
-                  <option value="podado">Podado</option>
-                </select>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !capacidadSiiDraft.empresa}>Guardar capacidad</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Generar DTE</h2><p>Borrador desde un pago mensual con distribución facturable.</p></div></div>
-              <form className="entity-form" onSubmit={handleGenerateDte}>
-                <select value={dteDraft.pago_mensual_id} onChange={(event) => setDteDraft((current) => ({ ...current, pago_mensual_id: event.target.value }))}>
-                  <option value="">Selecciona pago</option>
-                  {pagos.map((item) => (
-                    <option key={item.id} value={item.id}>{contratoById.get(item.contrato)?.codigo_contrato || item.contrato} · {item.mes}/{item.anio}</option>
-                  ))}
-                </select>
-                <select value={dteDraft.tipo_dte} onChange={(event) => setDteDraft((current) => ({ ...current, tipo_dte: event.target.value }))}>
-                  <option value="34">34 · Factura Exenta</option>
-                  <option value="56">56 · Nota Débito</option>
-                  <option value="61">61 · Nota Crédito</option>
-                </select>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !dteDraft.pago_mensual_id}>Generar DTE</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Generar F29</h2><p>Borrador mensual desde cierre contable preparado.</p></div></div>
-              <form className="entity-form" onSubmit={handleGenerateF29}>
-                <select value={f29Draft.empresa_id} onChange={(event) => setF29Draft((current) => ({ ...current, empresa_id: event.target.value }))}>
-                  <option value="">Selecciona empresa</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <input placeholder="Año" value={f29Draft.anio} onChange={(event) => setF29Draft((current) => ({ ...current, anio: event.target.value }))} />
-                <input placeholder="Mes" value={f29Draft.mes} onChange={(event) => setF29Draft((current) => ({ ...current, mes: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting || !f29Draft.empresa_id}>Generar F29</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Preparación anual</h2><p>Genera proceso anual, DDJJ y F22.</p></div></div>
-              <form className="entity-form" onSubmit={handleGenerateAnnual}>
-                <select value={annualDraft.empresa_id} onChange={(event) => setAnnualDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
-                  <option value="">Selecciona empresa</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <input placeholder="Año tributario" value={annualDraft.anio_tributario} onChange={(event) => setAnnualDraft((current) => ({ ...current, anio_tributario: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting || !annualDraft.empresa_id}>Generar anual</button>
-              </form>
-            </section>
-          </section> : null}
-
-          <TableBlock title="Capacidades SII" subtitle="Gate y ambiente por empresa/capacidad." rows={filteredCapacidadesSii} empty="No hay capacidades SII para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Capacidad', render: (row) => row.capacidad_key },
-            { label: 'Ambiente', render: (row) => row.ambiente },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_gate} tone={toneFor(row.estado_gate)} /> },
-          ]} />
-
-          <TableBlock title="DTE emitidos" subtitle="Borradores y estados manuales de DTE." rows={filteredDtes} empty="No hay DTE para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
-            { label: 'Pago', render: (row) => row.pago_mensual },
-            { label: 'Monto', render: (row) => row.monto_neto_clp },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_dte} tone={toneFor(row.estado_dte)} /> },
-            {
-              label: 'Acción',
-              render: (row) => (
-                !canEditSii ? 'Solo lectura' : (
-                <div className="inline-actions">
-                  <button
-                    type="button"
-                    className="button-ghost inline-action"
-                    onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/dtes/${row.id}/estado/`, { estado_dte: 'aceptado', sii_track_id: row.sii_track_id || 'TRACK-LOCAL', ultimo_estado_sii: 'ACEPTADO' }, 'Estado DTE actualizado correctamente.')}
-                    disabled={isSubmitting}
-                  >
-                    Marcar aceptado
-                  </button>
-                  <button
-                    type="button"
-                    className="button-ghost inline-action"
-                    onClick={() => { navigateWithContext('reporting', empresaById.get(row.empresa)?.razon_social || ''); setReportingFinancialDraft((current) => ({ ...current, empresa_id: String(row.empresa) })) }}
-                  >
-                    Reporting
-                  </button>
-                </div>
-                )
-              ),
-            },
-          ]} />
-
-          <TableBlock title="F29 mensuales" subtitle="Preparación mensual desde cierres aprobados." rows={filteredF29s} empty="No hay F29 para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
-            { label: 'Capacidad', render: (row) => capacidadSiiById.get(row.capacidad_tributaria)?.capacidad_key || row.capacidad_tributaria },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
-            {
-              label: 'Acción',
-              render: (row) => (
-                !canEditSii ? 'Solo lectura' : (
-                <button
-                  type="button"
-                  className="button-ghost inline-action"
-                  onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/f29/${row.id}/estado/`, { estado_preparacion: 'preparado', borrador_ref: row.borrador_ref || 'F29-LOCAL' }, 'Estado F29 actualizado correctamente.')}
-                  disabled={isSubmitting}
-                >
-                  Actualizar estado
-                </button>
-                )
-              ),
-            },
-          ]} />
-
-          <TableBlock title="Proceso renta anual" subtitle="Proceso consolidado por empresa y año tributario." rows={filteredProcesosAnuales} empty="No hay procesos anuales para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Año tributario', render: (row) => row.anio_tributario },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-            { label: 'Preparación', render: (row) => row.fecha_preparacion || 'Sin fecha' },
-          ]} />
-
-          <TableBlock title="DDJJ preparadas" subtitle="Paquetes anuales listos o en preparación." rows={filteredDdjjs} empty="No hay DDJJ para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Año tributario', render: (row) => row.anio_tributario },
-            { label: 'Paquete', render: (row) => row.paquete_ref || 'Sin ref' },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
-            {
-              label: 'Acción',
-              render: (row) => (
-                !canEditSii ? 'Solo lectura' : (
-                <button
-                  type="button"
-                  className="button-ghost inline-action"
-                  onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/anual/ddjj/${row.id}/estado/`, { estado_preparacion: 'preparado', ref_value: row.paquete_ref || 'DDJJ-LOCAL' }, 'Estado DDJJ actualizado correctamente.')}
-                  disabled={isSubmitting}
-                >
-                  Actualizar estado
-                </button>
-                )
-              ),
-            },
-          ]} />
-
-          <TableBlock title="F22 preparados" subtitle="Borradores anuales por empresa." rows={filteredF22s} empty="No hay F22 para este filtro." columns={[
-            { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
-            { label: 'Año tributario', render: (row) => row.anio_tributario },
-            { label: 'Borrador', render: (row) => row.borrador_ref || 'Sin ref' },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
-            {
-              label: 'Acción',
-              render: (row) => (
-                !canEditSii ? 'Solo lectura' : (
-                <button
-                  type="button"
-                  className="button-ghost inline-action"
-                  onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/anual/f22/${row.id}/estado/`, { estado_preparacion: 'preparado', ref_value: row.borrador_ref || 'F22-LOCAL' }, 'Estado F22 actualizado correctamente.')}
-                  disabled={isSubmitting}
-                >
-                  Actualizar estado
-                </button>
-                )
-              ),
-            },
-          ]} />
-        </>
+        <SiiWorkspace
+          canEditSii={canEditSii}
+          capacidadSiiDraft={capacidadSiiDraft}
+          setCapacidadSiiDraft={setCapacidadSiiDraft}
+          handleCreateCapacidadSii={handleCreateCapacidadSii}
+          dteDraft={dteDraft}
+          setDteDraft={setDteDraft}
+          handleGenerateDte={handleGenerateDte}
+          f29Draft={f29Draft}
+          setF29Draft={setF29Draft}
+          handleGenerateF29={handleGenerateF29}
+          annualDraft={annualDraft}
+          setAnnualDraft={setAnnualDraft}
+          handleGenerateAnnual={handleGenerateAnnual}
+          empresas={empresas}
+          pagos={pagos}
+          contratoById={contratoById}
+          filteredCapacidadesSii={filteredCapacidadesSii}
+          filteredDtes={filteredDtes}
+          filteredF29s={filteredF29s}
+          filteredProcesosAnuales={filteredProcesosAnuales}
+          filteredDdjjs={filteredDdjjs}
+          filteredF22s={filteredF22s}
+          empresaById={empresaById}
+          capacidadSiiById={capacidadSiiById}
+          toneFor={toneFor}
+          isSubmitting={isSubmitting}
+          handleSiiStatusUpdate={handleSiiStatusUpdate}
+          onViewReporting={(companyId) => {
+            const companyName = empresaById.get(companyId)?.razon_social || String(companyId)
+            navigateWithContext('reporting', companyName, `Empresa: ${companyName}`)
+            setReportingFinancialDraft((current) => ({ ...current, empresa_id: String(companyId) }))
+          }}
+        />
       ) : null}
 
       {activeView === 'reporting' ? (
-        <>
-          {effectiveRole === 'Socio' ? (
-            <>
-              <section className="panel">
-                <div className="section-heading"><div><h2>Resumen propio</h2><p>Participaciones, propiedades y estado relacionado.</p></div></div>
-                <div className="list-stack">
-                  <div className="list-row"><span>Perfil</span><strong>{currentUser?.display_name || currentUser?.username}</strong></div>
-                  <div className="list-row"><span>Socio vinculado</span><strong>{reportingPartnerSummary?.socio.nombre || 'Sin resumen cargado'}</strong></div>
-                  <div className="list-row"><span>RUT</span><strong>{reportingPartnerSummary?.socio.rut || 'Sin dato'}</strong></div>
-                </div>
-              </section>
-              {reportingPartnerSummary ? (
-                <section className="metric-grid compact-grid">
-                  <Metric label="Empresas" value={count(reportingPartnerSummary.participaciones_empresas.length)} tone="neutral" />
-                  <Metric label="Comunidades" value={count(reportingPartnerSummary.participaciones_comunidades.length)} tone="neutral" />
-                  <Metric label="Propiedades directas" value={count(reportingPartnerSummary.propiedades_directas.length)} tone="neutral" />
-                  <Metric label="Contratos directos" value={count(reportingPartnerSummary.contratos_directos_activos)} tone="positive" />
-                  <Metric label="Estados de cuenta" value={count(reportingPartnerSummary.estados_cuenta_relacionados)} tone="neutral" />
-                  <Metric label="Participación comunitaria" value={sumPercentages(reportingPartnerSummary.participaciones_comunidades)} tone="positive" />
-                </section>
-              ) : null}
-            </>
-          ) : (
-            <section className="form-grid">
-              <section className="panel">
-                <div className="section-heading"><div><h2>Resumen financiero mensual</h2><p>Pagos, eventos, cierres y obligaciones por período.</p></div></div>
-                <form className="entity-form" onSubmit={handleFetchFinancialSummary}>
-                  <select value={reportingFinancialDraft.empresa_id} onChange={(event) => setReportingFinancialDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
-                    <option value="">Todas las empresas</option>
-                    {empresas.map((item) => (
-                      <option key={item.id} value={item.id}>{item.razon_social}</option>
-                    ))}
-                  </select>
-                  <input placeholder="Año" value={reportingFinancialDraft.anio} onChange={(event) => setReportingFinancialDraft((current) => ({ ...current, anio: event.target.value }))} />
-                  <input placeholder="Mes" value={reportingFinancialDraft.mes} onChange={(event) => setReportingFinancialDraft((current) => ({ ...current, mes: event.target.value }))} />
-                  <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar resumen</button>
-                </form>
-              </section>
-
-              <section className="panel">
-                <div className="section-heading"><div><h2>Resumen por socio</h2><p>Participaciones, propiedades directas y estado relacionado.</p></div></div>
-                <form className="entity-form" onSubmit={handleFetchPartnerSummary}>
-                  <select value={reportingPartnerDraft.socio_id} onChange={(event) => setReportingPartnerDraft({ socio_id: event.target.value })}>
-                    <option value="">Selecciona socio</option>
-                    {socios.map((item) => (
-                      <option key={item.id} value={item.id}>{item.nombre}</option>
-                    ))}
-                  </select>
-                  <button type="submit" className="button-primary" disabled={isSubmitting || !reportingPartnerDraft.socio_id}>Cargar socio</button>
-                </form>
-              </section>
-
-              <section className="panel">
-                <div className="section-heading"><div><h2>Libros por período</h2><p>Libro diario, mayor y balance de comprobación.</p></div></div>
-                <form className="entity-form" onSubmit={handleFetchBooksSummary}>
-                  <select value={reportingBooksDraft.empresa_id} onChange={(event) => setReportingBooksDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
-                    <option value="">Selecciona empresa</option>
-                    {empresas.map((item) => (
-                      <option key={item.id} value={item.id}>{item.razon_social}</option>
-                    ))}
-                  </select>
-                  <input placeholder="Período YYYY-MM" value={reportingBooksDraft.periodo} onChange={(event) => setReportingBooksDraft((current) => ({ ...current, periodo: event.target.value }))} />
-                  <button type="submit" className="button-primary" disabled={isSubmitting || !reportingBooksDraft.empresa_id}>Cargar libros</button>
-                </form>
-              </section>
-
-              <section className="panel">
-                <div className="section-heading"><div><h2>Resumen tributario anual</h2><p>Proceso renta, DDJJ y F22 consolidados.</p></div></div>
-                <form className="entity-form" onSubmit={handleFetchAnnualSummary}>
-                  <select value={reportingAnnualDraft.empresa_id} onChange={(event) => setReportingAnnualDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
-                    <option value="">Todas las empresas</option>
-                    {empresas.map((item) => (
-                      <option key={item.id} value={item.id}>{item.razon_social}</option>
-                    ))}
-                  </select>
-                  <input placeholder="Año tributario" value={reportingAnnualDraft.anio_tributario} onChange={(event) => setReportingAnnualDraft((current) => ({ ...current, anio_tributario: event.target.value }))} />
-                  <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar anual</button>
-                </form>
-              </section>
-
-              <section className="panel">
-                <div className="section-heading"><div><h2>Resoluciones manuales</h2><p>Backlog de migración pendiente o resuelto.</p></div></div>
-                <form className="entity-form" onSubmit={handleFetchMigrationSummary}>
-                  <select value={reportingMigrationDraft.status} onChange={(event) => setReportingMigrationDraft({ status: event.target.value })}>
-                    <option value="open">Open</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="in_review">In review</option>
-                  </select>
-                  <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar backlog</button>
-                </form>
-              </section>
-            </section>
-          )}
-
-          {reportingFinancialSummary ? (
-            <>
-              <section className="metric-grid">
-                <Metric label="Pagos generados" value={count(reportingFinancialSummary.pagos_generados)} tone="neutral" />
-                <Metric label="Facturable total" value={reportingFinancialSummary.monto_facturable_total_clp} tone="positive" />
-                <Metric label="Cobrado total" value={reportingFinancialSummary.monto_cobrado_total_clp} tone="positive" />
-                <Metric label="Eventos posteados" value={count(reportingFinancialSummary.eventos_contables_posteados)} tone="neutral" />
-                <Metric label="Asientos" value={count(reportingFinancialSummary.asientos_contables)} tone="neutral" />
-                <Metric label="DTE emitidos" value={count(reportingFinancialSummary.dtes_emitidos)} tone="neutral" />
-              </section>
-              <TableBlock title="Obligaciones del período" subtitle="Obligaciones tributarias del resumen financiero." rows={reportingFinancialSummary.obligaciones.map((item, index) => ({ id: index + 1, ...item }))} empty="No hay obligaciones en este resumen." columns={[
-                { label: 'Tipo', render: (row) => row.tipo },
-                { label: 'Monto', render: (row) => row.monto_calculado },
-                { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
-              ]} />
-            </>
-          ) : null}
-
-          {reportingPartnerSummary ? (
-            <>
-              <section className="panel-grid">
-                <section className="panel">
-                  <div className="section-heading"><div><h2>Socio</h2><p>{reportingPartnerSummary.socio.nombre}</p></div></div>
-                  <div className="list-stack">
-                    <div className="list-row"><span>RUT</span><strong>{reportingPartnerSummary.socio.rut}</strong></div>
-                    <div className="list-row"><span>Email</span><strong>{reportingPartnerSummary.socio.email || 'Sin email'}</strong></div>
-                    <div className="list-row"><span>Contratos directos</span><strong>{count(reportingPartnerSummary.contratos_directos_activos)}</strong></div>
-                    <div className="list-row"><span>Estados cuenta</span><strong>{count(reportingPartnerSummary.estados_cuenta_relacionados)}</strong></div>
-                  </div>
-                </section>
-                <section className="panel">
-                  <div className="section-heading"><div><h2>Propiedades directas</h2><p>Visión resumida del socio seleccionado.</p></div></div>
-                  <div className="list-stack">
-                    {reportingPartnerSummary.propiedades_directas.map((item) => (
-                      <div className="list-row" key={item.propiedad_id}><span>{item.codigo_propiedad}</span><strong>{item.estado}</strong></div>
-                    ))}
-                    {reportingPartnerSummary.propiedades_directas.length === 0 ? <div className="empty-state compact">Sin propiedades directas.</div> : null}
-                  </div>
-                </section>
-              </section>
-              <TableBlock title="Participaciones en empresas" subtitle="Participación patrimonial del socio." rows={reportingPartnerSummary.participaciones_empresas.map((item) => ({ id: item.empresa_id, ...item }))} empty="No hay participaciones en empresas." columns={[
-                { label: 'Empresa', render: (row) => row.empresa },
-                { label: 'Porcentaje', render: (row) => row.porcentaje },
-              ]} />
-              <TableBlock title="Participaciones en comunidades" subtitle="Participación patrimonial comunitaria del socio." rows={reportingPartnerSummary.participaciones_comunidades.map((item) => ({ id: item.comunidad_id, ...item }))} empty="No hay participaciones en comunidades." columns={[
-                { label: 'Comunidad', render: (row) => row.comunidad },
-                { label: 'Porcentaje', render: (row) => row.porcentaje },
-              ]} />
-            </>
-          ) : null}
-
-          {reportingBooksSummary ? (
-            <section className="panel-grid">
-              <section className="panel">
-                <div className="section-heading"><div><h2>Libro diario</h2><p>{reportingBooksSummary.periodo}</p></div></div>
-                <pre className="json-block">{JSON.stringify(reportingBooksSummary.libro_diario.resumen, null, 2)}</pre>
-              </section>
-              <section className="panel">
-                <div className="section-heading"><div><h2>Libro mayor</h2><p>{reportingBooksSummary.periodo}</p></div></div>
-                <pre className="json-block">{JSON.stringify(reportingBooksSummary.libro_mayor.resumen, null, 2)}</pre>
-              </section>
-              <section className="panel">
-                <div className="section-heading"><div><h2>Balance comprobación</h2><p>{reportingBooksSummary.periodo}</p></div></div>
-                <pre className="json-block">{JSON.stringify(reportingBooksSummary.balance_comprobacion.resumen, null, 2)}</pre>
-              </section>
-            </section>
-          ) : null}
-
-          {reportingAnnualSummary ? (
-            <>
-              <TableBlock title="Procesos renta anual" subtitle="Resumen consolidado por empresa." rows={reportingAnnualSummary.procesos_renta.map((item) => ({ id: item.empresa_id, ...item }))} empty="No hay procesos de renta para este filtro." columns={[
-                { label: 'Empresa', render: (row) => empresaById.get(row.empresa_id)?.razon_social || row.empresa_id },
-                { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-                { label: 'Preparación', render: (row) => row.fecha_preparacion || 'Sin fecha' },
-              ]} />
-              <TableBlock title="DDJJ preparadas" subtitle="Paquetes DDJJ por empresa." rows={reportingAnnualSummary.ddjj_preparadas.map((item) => ({ id: item.empresa_id, ...item }))} empty="No hay DDJJ para este resumen." columns={[
-                { label: 'Empresa', render: (row) => empresaById.get(row.empresa_id)?.razon_social || row.empresa_id },
-                { label: 'Paquete', render: (row) => row.paquete_ref || 'Sin ref' },
-                { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
-              ]} />
-              <TableBlock title="F22 preparados" subtitle="Borradores F22 por empresa." rows={reportingAnnualSummary.f22_preparados.map((item) => ({ id: item.empresa_id, ...item }))} empty="No hay F22 para este resumen." columns={[
-                { label: 'Empresa', render: (row) => empresaById.get(row.empresa_id)?.razon_social || row.empresa_id },
-                { label: 'Borrador', render: (row) => row.borrador_ref || 'Sin ref' },
-                { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
-              ]} />
-            </>
-          ) : null}
-
-          {reportingMigrationSummary ? (
-            <>
-              <section className="metric-grid">
-                <Metric label="Resoluciones" value={count(reportingMigrationSummary.total)} tone={reportingMigrationSummary.total ? 'warning' : 'positive'} />
-              </section>
-              <TableBlock title="Categorías de backlog" subtitle="Conteo de resoluciones manuales por categoría." rows={reportingMigrationSummary.categorias.map((item, index) => ({ id: index + 1, ...item }))} empty="No hay categorías para este estado." columns={[
-                { label: 'Categoría', render: (row) => row.category },
-                { label: 'Total', render: (row) => count(row.total) },
-              ]} />
-              <TableBlock title="Propiedades owner manual required" subtitle="Detalle del backlog manual de migración." rows={reportingMigrationSummary.propiedades_owner_manual_required.map((item, index) => {
-                const { id: _ignoredId, ...rest } = item
-                return { id: index + 1, ...rest }
-              })} empty="No hay propiedades manuales en este estado." columns={[
-                { label: 'Código', render: (row) => row.codigo },
-                { label: 'Dirección', render: (row) => row.direccion },
-                { label: 'Modelo', render: (row) => row.candidate_owner_model },
-                { label: 'Participaciones', render: (row) => count(row.participaciones_count) },
-                { label: 'Contratos bloqueados', render: (row) => row.blocked_contract_legacy_ids.join(', ') || 'Ninguno' },
-              ]} />
-            </>
-          ) : null}
-        </>
+        <ReportingWorkspace
+          effectiveRole={effectiveRole}
+          currentUser={currentUser}
+          reportingFinancialDraft={reportingFinancialDraft}
+          setReportingFinancialDraft={setReportingFinancialDraft}
+          handleFetchFinancialSummary={handleFetchFinancialSummary}
+          reportingPartnerDraft={reportingPartnerDraft}
+          setReportingPartnerDraft={setReportingPartnerDraft}
+          handleFetchPartnerSummary={handleFetchPartnerSummary}
+          reportingBooksDraft={reportingBooksDraft}
+          setReportingBooksDraft={setReportingBooksDraft}
+          handleFetchBooksSummary={handleFetchBooksSummary}
+          reportingAnnualDraft={reportingAnnualDraft}
+          setReportingAnnualDraft={setReportingAnnualDraft}
+          handleFetchAnnualSummary={handleFetchAnnualSummary}
+          reportingMigrationDraft={reportingMigrationDraft}
+          setReportingMigrationDraft={setReportingMigrationDraft}
+          handleFetchMigrationSummary={handleFetchMigrationSummary}
+          reportingFinancialSummary={reportingFinancialSummary}
+          reportingPartnerSummary={reportingPartnerSummary}
+          reportingBooksSummary={reportingBooksSummary}
+          reportingAnnualSummary={reportingAnnualSummary}
+          reportingMigrationSummary={reportingMigrationSummary}
+          empresas={empresas}
+          socios={socios}
+          empresaById={empresaById}
+          isSubmitting={isSubmitting}
+          toneFor={toneFor}
+          count={count}
+        />
       ) : null}
     </main>
   )
