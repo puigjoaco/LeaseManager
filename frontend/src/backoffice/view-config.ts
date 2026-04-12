@@ -10,6 +10,7 @@ export type ViewKey =
   | 'audit'
   | 'contabilidad'
   | 'sii'
+  | 'compliance'
   | 'reporting'
 
 export type SectionKey =
@@ -23,6 +24,7 @@ export type SectionKey =
   | 'audit'
   | 'contabilidad'
   | 'sii'
+  | 'compliance'
   | 'reporting'
 
 export function canonicalRole(roleCode: string | null | undefined) {
@@ -44,7 +46,7 @@ export function defaultViewForRole(roleCode: string | null | undefined): ViewKey
 export function allowedViewsForRole(roleCode: string | null | undefined): ViewKey[] {
   const role = canonicalRole(roleCode)
   if (role === 'AdministradorGlobal') {
-    return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting']
+    return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'compliance', 'reporting']
   }
   if (role === 'OperadorDeCartera') {
     return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit']
@@ -70,6 +72,7 @@ export const VIEW_LABELS: Record<ViewKey, string> = {
   audit: 'Audit',
   contabilidad: 'Contabilidad',
   sii: 'SII',
+  compliance: 'Compliance',
   reporting: 'Reporting',
 }
 
@@ -84,6 +87,7 @@ export function sectionTitleForView(view: ViewKey, auditTitle: string, reporting
   if (view === 'audit') return auditTitle
   if (view === 'contabilidad') return 'Configuración fiscal, eventos, asientos y cierres'
   if (view === 'sii') return 'Capacidades, DTE, F29 y preparación anual'
+  if (view === 'compliance') return 'Retención, exports y datos sensibles'
   return reportingTitle
 }
 
@@ -98,6 +102,7 @@ export function searchPlaceholderForView(view: ViewKey, reportingPlaceholder: st
   if (view === 'audit') return 'Evento, severidad, categoría o scope'
   if (view === 'contabilidad') return 'Empresa, evento, cuenta, cierre u obligación'
   if (view === 'sii') return 'Empresa, DTE, F29, DDJJ o F22'
+  if (view === 'compliance') return 'Categoría, export, hash o estado'
   return reportingPlaceholder
 }
 

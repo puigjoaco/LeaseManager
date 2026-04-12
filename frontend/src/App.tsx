@@ -8,6 +8,7 @@ import { effectiveCodeFromPropertyCode, matches, todayIso } from './backoffice/u
 import { allowedViewsForRole, auditHeadingForRole, canMutateSection, defaultViewForRole, reportingHeadingForRole, sectionTitleForView, searchPlaceholderForView, type SectionKey, type ViewKey, VIEW_LABELS, canonicalRole } from './backoffice/view-config'
 import { AuditWorkspace } from './backoffice/workspaces/AuditWorkspace'
 import { CanalesWorkspace } from './backoffice/workspaces/CanalesWorkspace'
+import { ComplianceWorkspace } from './backoffice/workspaces/ComplianceWorkspace'
 import { CobranzaWorkspace } from './backoffice/workspaces/CobranzaWorkspace'
 import { ConciliacionWorkspace } from './backoffice/workspaces/ConciliacionWorkspace'
 import { ContabilidadWorkspace } from './backoffice/workspaces/ContabilidadWorkspace'
@@ -581,6 +582,38 @@ type F22Preparacion = {
   observaciones: string
 }
 
+type PoliticaRetencionDatos = {
+  id: number
+  categoria_dato: string
+  evento_inicio: string
+  plazo_minimo_anos: number
+  permite_borrado_logico: boolean
+  permite_purga_fisica: boolean
+  requiere_hold: boolean
+  estado: string
+}
+
+type ExportacionSensible = {
+  id: number
+  categoria_dato: string
+  export_kind: string
+  scope_resumen: Record<string, unknown>
+  motivo: string
+  payload_hash: string
+  encrypted_ref: string
+  expires_at: string
+  hold_activo: boolean
+  estado: string
+  created_by: number | null
+}
+
+type ExportacionSensiblePreview = {
+  id: number
+  export_kind: string
+  payload_hash: string
+  payload: unknown
+} | null
+
 type ReportingFinancialSummary = {
   anio: number
   mes: number
@@ -687,6 +720,9 @@ function App() {
   const [procesosAnuales, setProcesosAnuales] = useState<ProcesoRentaAnual[]>([])
   const [ddjjs, setDdjjs] = useState<DdjjPreparacion[]>([])
   const [f22s, setF22s] = useState<F22Preparacion[]>([])
+  const [compliancePolicies, setCompliancePolicies] = useState<PoliticaRetencionDatos[]>([])
+  const [complianceExports, setComplianceExports] = useState<ExportacionSensible[]>([])
+  const [complianceExportPreview, setComplianceExportPreview] = useState<ExportacionSensiblePreview>(null)
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -1007,6 +1043,27 @@ function App() {
     status: 'open',
     rationale: '',
   })
+  const [politicaRetencionDraft, setPoliticaRetencionDraft] = useState({
+    categoria_dato: 'financiero',
+    evento_inicio: 'ultimo_evento_relevante',
+    plazo_minimo_anos: '6',
+    permite_borrado_logico: true,
+    permite_purga_fisica: false,
+    requiere_hold: false,
+    estado: 'activa',
+  })
+  const [exportacionPrepareDraft, setExportacionPrepareDraft] = useState({
+    categoria_dato: 'financiero',
+    export_kind: 'financiero_mensual',
+    motivo: '',
+    hold_activo: false,
+    anio: '2026',
+    mes: '5',
+    anio_tributario: '2027',
+    empresa_id: '',
+    socio_id: '',
+    periodo: '2026-05',
+  })
 
   const effectiveRole = canonicalRole(currentUser?.default_role_code)
   const activeAssignments = currentUser?.assignments || []
@@ -1032,6 +1089,7 @@ function App() {
   const canEditAudit = canMutateSection(effectiveRole, 'audit')
   const canEditContabilidad = canMutateSection(effectiveRole, 'contabilidad')
   const canEditSii = canMutateSection(effectiveRole, 'sii')
+  const canEditCompliance = canMutateSection(effectiveRole, 'compliance')
 
   async function loadHealth() {
     try {
@@ -1057,6 +1115,7 @@ function App() {
       const canReadAuditEvents = role === 'AdministradorGlobal' || role === 'RevisorFiscalExterno'
       const canReadManualResolutions = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
       const canReadControl = role === 'AdministradorGlobal' || role === 'RevisorFiscalExterno'
+      const canReadCompliance = role === 'AdministradorGlobal'
       const canReadOwnPartnerSummary = role === 'Socio'
 
       async function requestIf<T>(enabled: boolean, path: string, fallback: T): Promise<T> {
@@ -1108,6 +1167,8 @@ function App() {
         procesosAnualesPayload,
         ddjjsPayload,
         f22sPayload,
+        compliancePoliciesPayload,
+        complianceExportsPayload,
         ownPartnerSummary,
       ] = await Promise.all([
         requestIf<Dashboard | null>(canReadOverview, '/api/v1/reporting/dashboard/operativo/', null),
@@ -1153,6 +1214,8 @@ function App() {
         requestIf<ProcesoRentaAnual[]>(canReadControl, '/api/v1/sii/anual/', []),
         requestIf<DdjjPreparacion[]>(canReadControl, '/api/v1/sii/anual/ddjj/', []),
         requestIf<F22Preparacion[]>(canReadControl, '/api/v1/sii/anual/f22/', []),
+        requestIf<PoliticaRetencionDatos[]>(canReadCompliance, '/api/v1/compliance/politicas-retencion/', []),
+        requestIf<ExportacionSensible[]>(canReadCompliance, '/api/v1/compliance/exportes/', []),
         requestIf<ReportingPartnerSummary | null>(
           canReadOwnPartnerSummary && typeof me.metadata?.socio_id === 'number',
           `/api/v1/reporting/socios/${me.metadata.socio_id}/resumen/`,
@@ -1202,6 +1265,8 @@ function App() {
       setProcesosAnuales(procesosAnualesPayload)
       setDdjjs(ddjjsPayload)
       setF22s(f22sPayload)
+      setCompliancePolicies(compliancePoliciesPayload)
+      setComplianceExports(complianceExportsPayload)
       if (ownPartnerSummary) {
         setReportingPartnerSummary(ownPartnerSummary)
         setReportingPartnerDraft({ socio_id: String(ownPartnerSummary.socio.id) })
@@ -1325,6 +1390,9 @@ function App() {
     setProcesosAnuales([])
     setDdjjs([])
     setF22s([])
+    setCompliancePolicies([])
+    setComplianceExports([])
+    setComplianceExportPreview(null)
     setEditingManualResolutionId(null)
   }
 
@@ -2280,6 +2348,96 @@ function App() {
     )
   }
 
+  async function handleCreatePoliticaRetencion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCompliance) return
+    const success = await submitMutation(
+      '/api/v1/compliance/politicas-retencion/',
+      'POST',
+      {
+        categoria_dato: politicaRetencionDraft.categoria_dato,
+        evento_inicio: politicaRetencionDraft.evento_inicio,
+        plazo_minimo_anos: Number(politicaRetencionDraft.plazo_minimo_anos),
+        permite_borrado_logico: politicaRetencionDraft.permite_borrado_logico,
+        permite_purga_fisica: politicaRetencionDraft.permite_purga_fisica,
+        requiere_hold: politicaRetencionDraft.requiere_hold,
+        estado: politicaRetencionDraft.estado,
+      },
+      'Política de retención creada correctamente.',
+      'compliance',
+    )
+    if (!success) return
+    setPoliticaRetencionDraft({
+      categoria_dato: 'financiero',
+      evento_inicio: 'ultimo_evento_relevante',
+      plazo_minimo_anos: '6',
+      permite_borrado_logico: true,
+      permite_purga_fisica: false,
+      requiere_hold: false,
+      estado: 'activa',
+    })
+  }
+
+  async function handlePrepareExportacion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCompliance) return
+    const body: Record<string, unknown> = {
+      categoria_dato: exportacionPrepareDraft.categoria_dato,
+      export_kind: exportacionPrepareDraft.export_kind,
+      motivo: exportacionPrepareDraft.motivo,
+      hold_activo: exportacionPrepareDraft.hold_activo,
+    }
+    if (exportacionPrepareDraft.empresa_id) body.empresa_id = Number(exportacionPrepareDraft.empresa_id)
+    if (exportacionPrepareDraft.socio_id) body.socio_id = Number(exportacionPrepareDraft.socio_id)
+    if (exportacionPrepareDraft.anio) body.anio = Number(exportacionPrepareDraft.anio)
+    if (exportacionPrepareDraft.mes) body.mes = Number(exportacionPrepareDraft.mes)
+    if (exportacionPrepareDraft.anio_tributario) body.anio_tributario = Number(exportacionPrepareDraft.anio_tributario)
+    if (exportacionPrepareDraft.periodo) body.periodo = exportacionPrepareDraft.periodo
+    const success = await submitMutation(
+      '/api/v1/compliance/exportes/preparar/',
+      'POST',
+      body,
+      'Exportación sensible preparada correctamente.',
+      'compliance',
+    )
+    if (!success) return
+    setExportacionPrepareDraft((current) => ({
+      ...current,
+      motivo: '',
+      hold_activo: false,
+    }))
+  }
+
+  async function handleViewExportacionContenido(exportId: number) {
+    if (!token) return
+    setIsSubmitting(true)
+    setFormMessage(null)
+    setFormError(null)
+    try {
+      const payload = await apiRequest<ExportacionSensiblePreview>(`/api/v1/compliance/exportes/${exportId}/contenido/`, { token })
+      setComplianceExportPreview(payload)
+      setFormMessage('Contenido de exportación cargado correctamente.')
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo cargar el contenido de la exportación.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleRevokeExportacion(exportId: number) {
+    if (!canEditCompliance) return
+    const success = await submitMutation(
+      `/api/v1/compliance/exportes/${exportId}/revocar/`,
+      'POST',
+      {},
+      'Exportación sensible revocada correctamente.',
+      'compliance',
+    )
+    if (success && complianceExportPreview?.id === exportId) {
+      setComplianceExportPreview(null)
+    }
+  }
+
   async function handleCreateExpediente(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditDocumentos) return
@@ -2888,6 +3046,32 @@ function App() {
       ),
     [f22s, normalizedSearch],
   )
+  const filteredCompliancePolicies = useMemo(
+    () =>
+      compliancePolicies.filter((item) =>
+        matches(normalizedSearch, [
+          item.categoria_dato,
+          item.evento_inicio,
+          item.plazo_minimo_anos,
+          item.estado,
+        ]),
+      ),
+    [compliancePolicies, normalizedSearch],
+  )
+  const filteredComplianceExports = useMemo(
+    () =>
+      complianceExports.filter((item) =>
+        matches(normalizedSearch, [
+          item.categoria_dato,
+          item.export_kind,
+          item.payload_hash,
+          item.encrypted_ref,
+          item.estado,
+          item.motivo,
+        ]),
+      ),
+    [complianceExports, normalizedSearch],
+  )
   const patrimonioOwners = useMemo(
     () => [
       ...empresas.map((item) => ({ tipo: 'empresa', id: item.id, label: item.razon_social })),
@@ -3340,6 +3524,26 @@ function App() {
             navigateWithContext('reporting', companyName, `Empresa: ${companyName}`)
             setReportingFinancialDraft((current) => ({ ...current, empresa_id: String(companyId) }))
           }}
+        />
+      ) : null}
+
+      {activeView === 'compliance' ? (
+        <ComplianceWorkspace
+          canEditCompliance={canEditCompliance}
+          politicaRetencionDraft={politicaRetencionDraft}
+          setPoliticaRetencionDraft={setPoliticaRetencionDraft}
+          handleCreatePoliticaRetencion={handleCreatePoliticaRetencion}
+          exportacionPrepareDraft={exportacionPrepareDraft}
+          setExportacionPrepareDraft={setExportacionPrepareDraft}
+          handlePrepareExportacion={handlePrepareExportacion}
+          filteredCompliancePolicies={filteredCompliancePolicies}
+          filteredComplianceExports={filteredComplianceExports}
+          complianceExportPreview={complianceExportPreview}
+          handleViewExportacionContenido={handleViewExportacionContenido}
+          handleRevokeExportacion={handleRevokeExportacion}
+          empresas={empresas}
+          socios={socios}
+          isSubmitting={isSubmitting}
         />
       ) : null}
 
