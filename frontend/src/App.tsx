@@ -16,6 +16,7 @@ type CurrentUser = {
   email: string
   display_name: string
   default_role_code: string
+  metadata: { socio_id?: number }
   assignments: Array<{ role: string; scope: string | null; is_primary: boolean }>
 }
 
@@ -632,6 +633,30 @@ function canonicalRole(roleCode: string | null | undefined) {
   return roleCode || 'SinRol'
 }
 
+function defaultViewForRole(roleCode: string | null | undefined): ViewKey {
+  const role = canonicalRole(roleCode)
+  if (role === 'RevisorFiscalExterno') return 'contabilidad'
+  if (role === 'Socio') return 'reporting'
+  return 'overview'
+}
+
+function allowedViewsForRole(roleCode: string | null | undefined): ViewKey[] {
+  const role = canonicalRole(roleCode)
+  if (role === 'AdministradorGlobal') {
+    return ['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'contabilidad', 'sii', 'reporting']
+  }
+  if (role === 'OperadorDeCartera') {
+    return ['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion']
+  }
+  if (role === 'RevisorFiscalExterno') {
+    return ['contabilidad', 'sii', 'reporting']
+  }
+  if (role === 'Socio') {
+    return ['reporting']
+  }
+  return ['overview']
+}
+
 function Badge({ label, tone = 'neutral' }: { label: string; tone?: Tone }) {
   return <span className={`status-badge tone-${tone}`}>{label}</span>
 }
@@ -992,13 +1017,7 @@ function App() {
   const activeAssignments = currentUser?.assignments || []
 
   function canAccessView(view: ViewKey) {
-    if (effectiveRole === 'AdministradorGlobal') return true
-    if (effectiveRole === 'OperadorDeCartera') return true
-    if (effectiveRole === 'Socio') return view === 'overview' || view === 'reporting'
-    if (effectiveRole === 'RevisorFiscalExterno') {
-      return ['overview', 'contabilidad', 'sii', 'reporting'].includes(view)
-    }
-    return view === 'overview'
+    return allowedViewsForRole(effectiveRole).includes(view)
   }
 
   function canMutateSection(section: SectionKey) {
@@ -1029,8 +1048,24 @@ function App() {
     setIsRefreshing(true)
     setWorkspaceError(null)
     try {
+      const me = await apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken })
+      const role = canonicalRole(me.default_role_code)
+      setCurrentUser(me)
+      setActiveView((current) => (
+        allowedViewsForRole(role).includes(current) ? current : defaultViewForRole(role)
+      ))
+
+      const canReadOverview = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
+      const canReadOperational = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
+      const canReadControl = role === 'AdministradorGlobal' || role === 'RevisorFiscalExterno'
+      const canReadOwnPartnerSummary = role === 'Socio'
+
+      async function requestIf<T>(enabled: boolean, path: string, fallback: T): Promise<T> {
+        if (!enabled) return fallback
+        return apiRequest<T>(path, { token: activeToken })
+      }
+
       const [
-        me,
         dashboardPayload,
         manualPayload,
         sociosPayload,
@@ -1067,48 +1102,50 @@ function App() {
         procesosAnualesPayload,
         ddjjsPayload,
         f22sPayload,
+        ownPartnerSummary,
       ] = await Promise.all([
-        apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken }),
-        apiRequest<Dashboard>('/api/v1/reporting/dashboard/operativo/', { token: activeToken }),
-        apiRequest<ManualSummary>('/api/v1/reporting/migracion/resoluciones-manuales/?status=open', {
-          token: activeToken,
-        }),
-        apiRequest<Socio[]>('/api/v1/patrimonio/socios/', { token: activeToken }),
-        apiRequest<Empresa[]>('/api/v1/patrimonio/empresas/', { token: activeToken }),
-        apiRequest<Arrendatario[]>('/api/v1/contratos/arrendatarios/', { token: activeToken }),
-        apiRequest<Comunidad[]>('/api/v1/patrimonio/comunidades/', { token: activeToken }),
-        apiRequest<Propiedad[]>('/api/v1/patrimonio/propiedades/', { token: activeToken }),
-        apiRequest<Cuenta[]>('/api/v1/operacion/cuentas-recaudadoras/', { token: activeToken }),
-        apiRequest<Identidad[]>('/api/v1/operacion/identidades-envio/', { token: activeToken }),
-        apiRequest<Mandato[]>('/api/v1/operacion/mandatos/', { token: activeToken }),
-        apiRequest<Contrato[]>('/api/v1/contratos/contratos/', { token: activeToken }),
-        apiRequest<AvisoTermino[]>('/api/v1/contratos/avisos-termino/', { token: activeToken }),
-        apiRequest<ValorUF[]>('/api/v1/cobranza/valores-uf/', { token: activeToken }),
-        apiRequest<AjusteContrato[]>('/api/v1/cobranza/ajustes-contrato/', { token: activeToken }),
-        apiRequest<PagoMensual[]>('/api/v1/cobranza/pagos-mensuales/', { token: activeToken }),
-        apiRequest<Garantia[]>('/api/v1/cobranza/garantias/', { token: activeToken }),
-        apiRequest<HistorialGarantia[]>('/api/v1/cobranza/historial-garantias/', { token: activeToken }),
-        apiRequest<EstadoCuenta[]>('/api/v1/cobranza/estados-cuenta/', { token: activeToken }),
-        apiRequest<ConexionBancaria[]>('/api/v1/conciliacion/conexiones-bancarias/', { token: activeToken }),
-        apiRequest<MovimientoBancario[]>('/api/v1/conciliacion/movimientos/', { token: activeToken }),
-        apiRequest<IngresoDesconocido[]>('/api/v1/conciliacion/ingresos-desconocidos/', { token: activeToken }),
-        apiRequest<RegimenTributario[]>('/api/v1/contabilidad/regimenes-tributarios/', { token: activeToken }),
-        apiRequest<ConfiguracionFiscal[]>('/api/v1/contabilidad/configuraciones-fiscales/', { token: activeToken }),
-        apiRequest<CuentaContable[]>('/api/v1/contabilidad/cuentas-contables/', { token: activeToken }),
-        apiRequest<ReglaContable[]>('/api/v1/contabilidad/reglas-contables/', { token: activeToken }),
-        apiRequest<MatrizRegla[]>('/api/v1/contabilidad/matriz-reglas/', { token: activeToken }),
-        apiRequest<EventoContable[]>('/api/v1/contabilidad/eventos-contables/', { token: activeToken }),
-        apiRequest<AsientoContable[]>('/api/v1/contabilidad/asientos-contables/', { token: activeToken }),
-        apiRequest<ObligacionMensual[]>('/api/v1/contabilidad/obligaciones-mensuales/', { token: activeToken }),
-        apiRequest<CierreMensual[]>('/api/v1/contabilidad/cierres-mensuales/', { token: activeToken }),
-        apiRequest<CapacidadSii[]>('/api/v1/sii/capacidades/', { token: activeToken }),
-        apiRequest<DteEmitido[]>('/api/v1/sii/dtes/', { token: activeToken }),
-        apiRequest<F29Preparacion[]>('/api/v1/sii/f29/', { token: activeToken }),
-        apiRequest<ProcesoRentaAnual[]>('/api/v1/sii/anual/', { token: activeToken }),
-        apiRequest<DdjjPreparacion[]>('/api/v1/sii/anual/ddjj/', { token: activeToken }),
-        apiRequest<F22Preparacion[]>('/api/v1/sii/anual/f22/', { token: activeToken }),
+        requestIf<Dashboard | null>(canReadOverview, '/api/v1/reporting/dashboard/operativo/', null),
+        requestIf<ManualSummary | null>(canReadOverview, '/api/v1/reporting/migracion/resoluciones-manuales/?status=open', null),
+        requestIf<Socio[]>(canReadOperational, '/api/v1/patrimonio/socios/', []),
+        requestIf<Empresa[]>(canReadOperational, '/api/v1/patrimonio/empresas/', []),
+        requestIf<Arrendatario[]>(canReadOperational, '/api/v1/contratos/arrendatarios/', []),
+        requestIf<Comunidad[]>(canReadOperational, '/api/v1/patrimonio/comunidades/', []),
+        requestIf<Propiedad[]>(canReadOperational, '/api/v1/patrimonio/propiedades/', []),
+        requestIf<Cuenta[]>(canReadOperational, '/api/v1/operacion/cuentas-recaudadoras/', []),
+        requestIf<Identidad[]>(canReadOperational, '/api/v1/operacion/identidades-envio/', []),
+        requestIf<Mandato[]>(canReadOperational, '/api/v1/operacion/mandatos/', []),
+        requestIf<Contrato[]>(canReadOperational, '/api/v1/contratos/contratos/', []),
+        requestIf<AvisoTermino[]>(canReadOperational, '/api/v1/contratos/avisos-termino/', []),
+        requestIf<ValorUF[]>(canReadOperational, '/api/v1/cobranza/valores-uf/', []),
+        requestIf<AjusteContrato[]>(canReadOperational, '/api/v1/cobranza/ajustes-contrato/', []),
+        requestIf<PagoMensual[]>(canReadOperational, '/api/v1/cobranza/pagos-mensuales/', []),
+        requestIf<Garantia[]>(canReadOperational, '/api/v1/cobranza/garantias/', []),
+        requestIf<HistorialGarantia[]>(canReadOperational, '/api/v1/cobranza/historial-garantias/', []),
+        requestIf<EstadoCuenta[]>(canReadOperational, '/api/v1/cobranza/estados-cuenta/', []),
+        requestIf<ConexionBancaria[]>(canReadOperational, '/api/v1/conciliacion/conexiones-bancarias/', []),
+        requestIf<MovimientoBancario[]>(canReadOperational, '/api/v1/conciliacion/movimientos/', []),
+        requestIf<IngresoDesconocido[]>(canReadOperational, '/api/v1/conciliacion/ingresos-desconocidos/', []),
+        requestIf<RegimenTributario[]>(canReadControl, '/api/v1/contabilidad/regimenes-tributarios/', []),
+        requestIf<ConfiguracionFiscal[]>(canReadControl, '/api/v1/contabilidad/configuraciones-fiscales/', []),
+        requestIf<CuentaContable[]>(canReadControl, '/api/v1/contabilidad/cuentas-contables/', []),
+        requestIf<ReglaContable[]>(canReadControl, '/api/v1/contabilidad/reglas-contables/', []),
+        requestIf<MatrizRegla[]>(canReadControl, '/api/v1/contabilidad/matriz-reglas/', []),
+        requestIf<EventoContable[]>(canReadControl, '/api/v1/contabilidad/eventos-contables/', []),
+        requestIf<AsientoContable[]>(canReadControl, '/api/v1/contabilidad/asientos-contables/', []),
+        requestIf<ObligacionMensual[]>(canReadControl, '/api/v1/contabilidad/obligaciones-mensuales/', []),
+        requestIf<CierreMensual[]>(canReadControl, '/api/v1/contabilidad/cierres-mensuales/', []),
+        requestIf<CapacidadSii[]>(canReadControl, '/api/v1/sii/capacidades/', []),
+        requestIf<DteEmitido[]>(canReadControl, '/api/v1/sii/dtes/', []),
+        requestIf<F29Preparacion[]>(canReadControl, '/api/v1/sii/f29/', []),
+        requestIf<ProcesoRentaAnual[]>(canReadControl, '/api/v1/sii/anual/', []),
+        requestIf<DdjjPreparacion[]>(canReadControl, '/api/v1/sii/anual/ddjj/', []),
+        requestIf<F22Preparacion[]>(canReadControl, '/api/v1/sii/anual/f22/', []),
+        requestIf<ReportingPartnerSummary | null>(
+          canReadOwnPartnerSummary && typeof me.metadata?.socio_id === 'number',
+          `/api/v1/reporting/socios/${me.metadata.socio_id}/resumen/`,
+          null,
+        ),
       ])
-      setCurrentUser(me)
       setDashboard(dashboardPayload)
       setManualSummary(manualPayload)
       setSocios(sociosPayload)
@@ -1145,6 +1182,21 @@ function App() {
       setProcesosAnuales(procesosAnualesPayload)
       setDdjjs(ddjjsPayload)
       setF22s(f22sPayload)
+      if (ownPartnerSummary) {
+        setReportingPartnerSummary(ownPartnerSummary)
+        setReportingPartnerDraft({ socio_id: String(ownPartnerSummary.socio.id) })
+        setSocios([
+          {
+            id: ownPartnerSummary.socio.id,
+            nombre: ownPartnerSummary.socio.nombre,
+            rut: ownPartnerSummary.socio.rut,
+            email: ownPartnerSummary.socio.email || '',
+            telefono: '',
+            domicilio: '',
+            activo: true,
+          },
+        ])
+      }
       setLastLoadedAt(new Date().toISOString())
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -1174,7 +1226,7 @@ function App() {
 
   useEffect(() => {
     if (!canAccessView(activeView)) {
-      setActiveView('overview')
+      setActiveView(defaultViewForRole(effectiveRole))
       setActiveContextLabel(null)
     }
   }, [activeView, effectiveRole])
@@ -3973,75 +4025,85 @@ function App() {
 
       {activeView === 'reporting' ? (
         <>
-          <section className="form-grid">
+          {effectiveRole === 'Socio' ? (
             <section className="panel">
-              <div className="section-heading"><div><h2>Resumen financiero mensual</h2><p>Pagos, eventos, cierres y obligaciones por período.</p></div></div>
-              <form className="entity-form" onSubmit={handleFetchFinancialSummary}>
-                <select value={reportingFinancialDraft.empresa_id} onChange={(event) => setReportingFinancialDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
-                  <option value="">Todas las empresas</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <input placeholder="Año" value={reportingFinancialDraft.anio} onChange={(event) => setReportingFinancialDraft((current) => ({ ...current, anio: event.target.value }))} />
-                <input placeholder="Mes" value={reportingFinancialDraft.mes} onChange={(event) => setReportingFinancialDraft((current) => ({ ...current, mes: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar resumen</button>
-              </form>
+              <div className="section-heading"><div><h2>Resumen propio</h2><p>Participaciones, propiedades y estado relacionado.</p></div></div>
+              <div className="list-stack">
+                <div className="list-row"><span>Perfil</span><strong>{currentUser?.display_name || currentUser?.username}</strong></div>
+                <div className="list-row"><span>Socio vinculado</span><strong>{reportingPartnerSummary?.socio.nombre || 'Sin resumen cargado'}</strong></div>
+              </div>
             </section>
+          ) : (
+            <section className="form-grid">
+              <section className="panel">
+                <div className="section-heading"><div><h2>Resumen financiero mensual</h2><p>Pagos, eventos, cierres y obligaciones por período.</p></div></div>
+                <form className="entity-form" onSubmit={handleFetchFinancialSummary}>
+                  <select value={reportingFinancialDraft.empresa_id} onChange={(event) => setReportingFinancialDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
+                    <option value="">Todas las empresas</option>
+                    {empresas.map((item) => (
+                      <option key={item.id} value={item.id}>{item.razon_social}</option>
+                    ))}
+                  </select>
+                  <input placeholder="Año" value={reportingFinancialDraft.anio} onChange={(event) => setReportingFinancialDraft((current) => ({ ...current, anio: event.target.value }))} />
+                  <input placeholder="Mes" value={reportingFinancialDraft.mes} onChange={(event) => setReportingFinancialDraft((current) => ({ ...current, mes: event.target.value }))} />
+                  <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar resumen</button>
+                </form>
+              </section>
 
-            <section className="panel">
-              <div className="section-heading"><div><h2>Resumen por socio</h2><p>Participaciones, propiedades directas y estado relacionado.</p></div></div>
-              <form className="entity-form" onSubmit={handleFetchPartnerSummary}>
-                <select value={reportingPartnerDraft.socio_id} onChange={(event) => setReportingPartnerDraft({ socio_id: event.target.value })}>
-                  <option value="">Selecciona socio</option>
-                  {socios.map((item) => (
-                    <option key={item.id} value={item.id}>{item.nombre}</option>
-                  ))}
-                </select>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !reportingPartnerDraft.socio_id}>Cargar socio</button>
-              </form>
-            </section>
+              <section className="panel">
+                <div className="section-heading"><div><h2>Resumen por socio</h2><p>Participaciones, propiedades directas y estado relacionado.</p></div></div>
+                <form className="entity-form" onSubmit={handleFetchPartnerSummary}>
+                  <select value={reportingPartnerDraft.socio_id} onChange={(event) => setReportingPartnerDraft({ socio_id: event.target.value })}>
+                    <option value="">Selecciona socio</option>
+                    {socios.map((item) => (
+                      <option key={item.id} value={item.id}>{item.nombre}</option>
+                    ))}
+                  </select>
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !reportingPartnerDraft.socio_id}>Cargar socio</button>
+                </form>
+              </section>
 
-            <section className="panel">
-              <div className="section-heading"><div><h2>Libros por período</h2><p>Libro diario, mayor y balance de comprobación.</p></div></div>
-              <form className="entity-form" onSubmit={handleFetchBooksSummary}>
-                <select value={reportingBooksDraft.empresa_id} onChange={(event) => setReportingBooksDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
-                  <option value="">Selecciona empresa</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <input placeholder="Período YYYY-MM" value={reportingBooksDraft.periodo} onChange={(event) => setReportingBooksDraft((current) => ({ ...current, periodo: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting || !reportingBooksDraft.empresa_id}>Cargar libros</button>
-              </form>
-            </section>
+              <section className="panel">
+                <div className="section-heading"><div><h2>Libros por período</h2><p>Libro diario, mayor y balance de comprobación.</p></div></div>
+                <form className="entity-form" onSubmit={handleFetchBooksSummary}>
+                  <select value={reportingBooksDraft.empresa_id} onChange={(event) => setReportingBooksDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
+                    <option value="">Selecciona empresa</option>
+                    {empresas.map((item) => (
+                      <option key={item.id} value={item.id}>{item.razon_social}</option>
+                    ))}
+                  </select>
+                  <input placeholder="Período YYYY-MM" value={reportingBooksDraft.periodo} onChange={(event) => setReportingBooksDraft((current) => ({ ...current, periodo: event.target.value }))} />
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !reportingBooksDraft.empresa_id}>Cargar libros</button>
+                </form>
+              </section>
 
-            <section className="panel">
-              <div className="section-heading"><div><h2>Resumen tributario anual</h2><p>Proceso renta, DDJJ y F22 consolidados.</p></div></div>
-              <form className="entity-form" onSubmit={handleFetchAnnualSummary}>
-                <select value={reportingAnnualDraft.empresa_id} onChange={(event) => setReportingAnnualDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
-                  <option value="">Todas las empresas</option>
-                  {empresas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.razon_social}</option>
-                  ))}
-                </select>
-                <input placeholder="Año tributario" value={reportingAnnualDraft.anio_tributario} onChange={(event) => setReportingAnnualDraft((current) => ({ ...current, anio_tributario: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar anual</button>
-              </form>
-            </section>
+              <section className="panel">
+                <div className="section-heading"><div><h2>Resumen tributario anual</h2><p>Proceso renta, DDJJ y F22 consolidados.</p></div></div>
+                <form className="entity-form" onSubmit={handleFetchAnnualSummary}>
+                  <select value={reportingAnnualDraft.empresa_id} onChange={(event) => setReportingAnnualDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
+                    <option value="">Todas las empresas</option>
+                    {empresas.map((item) => (
+                      <option key={item.id} value={item.id}>{item.razon_social}</option>
+                    ))}
+                  </select>
+                  <input placeholder="Año tributario" value={reportingAnnualDraft.anio_tributario} onChange={(event) => setReportingAnnualDraft((current) => ({ ...current, anio_tributario: event.target.value }))} />
+                  <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar anual</button>
+                </form>
+              </section>
 
-            <section className="panel">
-              <div className="section-heading"><div><h2>Resoluciones manuales</h2><p>Backlog de migración pendiente o resuelto.</p></div></div>
-              <form className="entity-form" onSubmit={handleFetchMigrationSummary}>
-                <select value={reportingMigrationDraft.status} onChange={(event) => setReportingMigrationDraft({ status: event.target.value })}>
-                  <option value="open">Open</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="in_review">In review</option>
-                </select>
-                <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar backlog</button>
-              </form>
+              <section className="panel">
+                <div className="section-heading"><div><h2>Resoluciones manuales</h2><p>Backlog de migración pendiente o resuelto.</p></div></div>
+                <form className="entity-form" onSubmit={handleFetchMigrationSummary}>
+                  <select value={reportingMigrationDraft.status} onChange={(event) => setReportingMigrationDraft({ status: event.target.value })}>
+                    <option value="open">Open</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="in_review">In review</option>
+                  </select>
+                  <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar backlog</button>
+                </form>
+              </section>
             </section>
-          </section>
+          )}
 
           {reportingFinancialSummary ? (
             <>

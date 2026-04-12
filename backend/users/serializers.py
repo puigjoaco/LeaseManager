@@ -21,6 +21,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             'email',
             'display_name',
             'default_role_code',
+            'metadata',
             'assignments',
         )
 
