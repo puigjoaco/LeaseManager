@@ -4,6 +4,8 @@ import heroImage from './assets/hero.png'
 import { Badge, Metric, TableBlock, count, stamp, toneFor } from './backoffice/shared'
 import { AuditWorkspace } from './backoffice/workspaces/AuditWorkspace'
 import { CanalesWorkspace } from './backoffice/workspaces/CanalesWorkspace'
+import { CobranzaWorkspace } from './backoffice/workspaces/CobranzaWorkspace'
+import { ConciliacionWorkspace } from './backoffice/workspaces/ConciliacionWorkspace'
 import { ContabilidadWorkspace } from './backoffice/workspaces/ContabilidadWorkspace'
 import { DocumentosWorkspace } from './backoffice/workspaces/DocumentosWorkspace'
 import { ReportingWorkspace } from './backoffice/workspaces/ReportingWorkspace'
@@ -3847,256 +3849,63 @@ function App() {
       ) : null}
 
       {activeView === 'cobranza' ? (
-        <>
-          {!canEditCobranza ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Cobranza.</div> : null}
-          <section className="form-grid">
-            <section className="panel">
-              <div className="section-heading"><div><h2>Valor UF</h2><p>Registro diario mínimo para contratos en UF.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateUf}>
-                <input type="date" value={ufDraft.fecha} onChange={(event) => setUfDraft((current) => ({ ...current, fecha: event.target.value }))} />
-                <input placeholder="Valor UF" value={ufDraft.valor} onChange={(event) => setUfDraft((current) => ({ ...current, valor: event.target.value }))} />
-                <input placeholder="Source key" value={ufDraft.source_key} onChange={(event) => setUfDraft((current) => ({ ...current, source_key: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting || !ufDraft.valor}>Guardar UF</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Ajuste de contrato</h2><p>Cargos o descuentos vigentes por rango mensual.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateAjuste}>
-                <select value={ajusteDraft.contrato} onChange={(event) => setAjusteDraft((current) => ({ ...current, contrato: event.target.value }))}>
-                  <option value="">Selecciona contrato</option>
-                  {contratos.map((item) => (
-                    <option key={item.id} value={item.id}>{item.codigo_contrato}</option>
-                  ))}
-                </select>
-                <input placeholder="Tipo ajuste" value={ajusteDraft.tipo_ajuste} onChange={(event) => setAjusteDraft((current) => ({ ...current, tipo_ajuste: event.target.value }))} />
-                <input placeholder="Monto" value={ajusteDraft.monto} onChange={(event) => setAjusteDraft((current) => ({ ...current, monto: event.target.value }))} />
-                <select value={ajusteDraft.moneda} onChange={(event) => setAjusteDraft((current) => ({ ...current, moneda: event.target.value }))}>
-                  <option value="CLP">CLP</option>
-                  <option value="UF">UF</option>
-                </select>
-                <input type="date" value={ajusteDraft.mes_inicio} onChange={(event) => setAjusteDraft((current) => ({ ...current, mes_inicio: event.target.value }))} />
-                <input type="date" value={ajusteDraft.mes_fin} onChange={(event) => setAjusteDraft((current) => ({ ...current, mes_fin: event.target.value }))} />
-                <input placeholder="Justificación" value={ajusteDraft.justificacion} onChange={(event) => setAjusteDraft((current) => ({ ...current, justificacion: event.target.value }))} />
-                <label className="checkbox-row"><input type="checkbox" checked={ajusteDraft.activo} onChange={(event) => setAjusteDraft((current) => ({ ...current, activo: event.target.checked }))} />Activo</label>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !ajusteDraft.contrato || !ajusteDraft.monto}>Guardar ajuste</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Generar pago mensual</h2><p>Usa el período vigente, UF y ajustes activos del contrato.</p></div></div>
-              <form className="entity-form" onSubmit={handleGeneratePago}>
-                <select value={pagoDraft.contrato_id} onChange={(event) => setPagoDraft((current) => ({ ...current, contrato_id: event.target.value }))}>
-                  <option value="">Selecciona contrato</option>
-                  {contratos.map((item) => (
-                    <option key={item.id} value={item.id}>{item.codigo_contrato}</option>
-                  ))}
-                </select>
-                <input placeholder="Año" value={pagoDraft.anio} onChange={(event) => setPagoDraft((current) => ({ ...current, anio: event.target.value }))} />
-                <input placeholder="Mes" value={pagoDraft.mes} onChange={(event) => setPagoDraft((current) => ({ ...current, mes: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting || !pagoDraft.contrato_id}>Generar pago</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Garantía contractual</h2><p>Alta de garantía y movimientos principales.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateGarantia}>
-                <select value={garantiaDraft.contrato} onChange={(event) => setGarantiaDraft((current) => ({ ...current, contrato: event.target.value }))}>
-                  <option value="">Selecciona contrato</option>
-                  {contratos.map((item) => (
-                    <option key={item.id} value={item.id}>{item.codigo_contrato}</option>
-                  ))}
-                </select>
-                <input placeholder="Monto pactado" value={garantiaDraft.monto_pactado} onChange={(event) => setGarantiaDraft((current) => ({ ...current, monto_pactado: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting || !garantiaDraft.contrato || !garantiaDraft.monto_pactado}>Guardar garantía</button>
-              </form>
-              <form className="entity-form subform" onSubmit={handleGarantiaMovimiento}>
-                <select value={garantiaMovimientoDraft.garantiaId} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, garantiaId: event.target.value }))}>
-                  <option value="">Selecciona garantía</option>
-                  {garantias.map((item) => (
-                    <option key={item.id} value={item.id}>{contratoById.get(item.contrato)?.codigo_contrato || item.contrato}</option>
-                  ))}
-                </select>
-                <select value={garantiaMovimientoDraft.tipo_movimiento} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, tipo_movimiento: event.target.value }))}>
-                  <option value="deposito">Depósito</option>
-                  <option value="devolucion_parcial">Devolución parcial</option>
-                  <option value="devolucion_total">Devolución total</option>
-                  <option value="retencion_parcial">Retención parcial</option>
-                  <option value="retencion_total">Retención total</option>
-                </select>
-                <input placeholder="Monto movimiento" value={garantiaMovimientoDraft.monto_clp} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, monto_clp: event.target.value }))} />
-                <input type="date" value={garantiaMovimientoDraft.fecha} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, fecha: event.target.value }))} />
-                <input placeholder="Justificación" value={garantiaMovimientoDraft.justificacion} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, justificacion: event.target.value }))} />
-                <button type="submit" className="button-secondary" disabled={isSubmitting || !garantiaMovimientoDraft.garantiaId || !garantiaMovimientoDraft.monto_clp}>Registrar movimiento</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Estado de cuenta</h2><p>Reconstrucción del resumen operativo por arrendatario.</p></div></div>
-              <form className="entity-form" onSubmit={handleRebuildEstadoCuenta}>
-                <select value={estadoCuentaDraft.arrendatario_id} onChange={(event) => setEstadoCuentaDraft({ arrendatario_id: event.target.value })}>
-                  <option value="">Selecciona arrendatario</option>
-                  {arrendatarios.map((item) => (
-                    <option key={item.id} value={item.id}>{item.nombre_razon_social}</option>
-                  ))}
-                </select>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !estadoCuentaDraft.arrendatario_id}>Recalcular estado</button>
-              </form>
-            </section>
-          </section>
-
-          <TableBlock title="Valores UF" subtitle="Fuente de conversión mensual para contratos en UF." rows={filteredValoresUf} empty="No hay valores UF para este filtro." columns={[
-            { label: 'Fecha', render: (row) => row.fecha },
-            { label: 'Valor', render: (row) => row.valor },
-            { label: 'Source', render: (row) => row.source_key },
-          ]} />
-
-          <TableBlock title="Ajustes de contrato" subtitle="Ajustes activos y programados por contrato." rows={filteredAjustes} empty="No hay ajustes para este filtro." columns={[
-            { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
-            { label: 'Tipo', render: (row) => row.tipo_ajuste },
-            { label: 'Monto', render: (row) => `${row.monto} ${row.moneda}` },
-            { label: 'Rango', render: (row) => `${row.mes_inicio} → ${row.mes_fin}` },
-            { label: 'Activo', render: (row) => <Badge label={row.activo ? 'activo' : 'inactivo'} tone={row.activo ? 'positive' : 'danger'} /> },
-          ]} />
-
-          <TableBlock title="Pagos mensuales" subtitle="Cobro calculado, estado y distribución económica." rows={filteredPagos} empty="No hay pagos para este filtro." columns={[
-            { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
-            { label: 'Periodo', render: (row) => `${row.mes}/${row.anio}` },
-            { label: 'Facturable', render: (row) => row.monto_facturable_clp },
-            { label: 'Calculado', render: (row) => row.monto_calculado_clp },
-            { label: 'Pagado', render: (row) => row.monto_pagado_clp },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_pago} tone={toneFor(row.estado_pago)} /> },
-            {
-              label: 'Siguiente paso',
-              render: (row) => (
-                <div className="inline-actions">
-                  <button type="button" className="button-ghost inline-action" onClick={() => { navigateWithContext('conciliacion', `${row.mes}/${row.anio}`) }}>
-                    Conciliar
-                  </button>
-                  <button type="button" className="button-ghost inline-action" onClick={() => goToPagoContext(row.id)}>
-                    DTE
-                  </button>
-                </div>
-              ),
-            },
-          ]} />
-
-          <TableBlock title="Garantías" subtitle="Saldos y estado actual de cada contrato." rows={filteredGarantias} empty="No hay garantías para este filtro." columns={[
-            { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
-            { label: 'Pactado', render: (row) => row.monto_pactado },
-            { label: 'Recibido', render: (row) => row.monto_recibido },
-            { label: 'Saldo', render: (row) => row.saldo_vigente },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_garantia} tone={toneFor(row.estado_garantia)} /> },
-          ]} />
-
-          <TableBlock title="Historial de garantías" subtitle="Movimientos auditables sobre depósitos, devoluciones y retenciones." rows={filteredHistorialGarantias} empty="No hay movimientos de garantía para este filtro." columns={[
-            { label: 'Contrato', render: (row) => contratoById.get(row.contrato_id)?.codigo_contrato || row.contrato_id },
-            { label: 'Tipo', render: (row) => row.tipo_movimiento },
-            { label: 'Monto', render: (row) => row.monto_clp },
-            { label: 'Fecha', render: (row) => row.fecha },
-            { label: 'Justificación', render: (row) => row.justificacion || 'Sin nota' },
-          ]} />
-
-          <TableBlock title="Estado de cuenta" subtitle="Resumen operativo consolidado por arrendatario." rows={filteredEstadosCuenta} empty="No hay estados de cuenta para este filtro." columns={[
-            { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
-            { label: 'Pagos abiertos', render: (row) => count(row.resumen_operativo.pagos_abiertos) },
-            { label: 'Pagos atrasados', render: (row) => count(row.resumen_operativo.pagos_atrasados) },
-            { label: 'Saldo total', render: (row) => row.resumen_operativo.saldo_total_clp || '0.00' },
-            { label: 'Score', render: (row) => row.score_pago ?? 'Sin score' },
-          ]} />
-        </>
+        <CobranzaWorkspace
+          canEditCobranza={canEditCobranza}
+          ufDraft={ufDraft}
+          setUfDraft={setUfDraft}
+          handleCreateUf={handleCreateUf}
+          ajusteDraft={ajusteDraft}
+          setAjusteDraft={setAjusteDraft}
+          handleCreateAjuste={handleCreateAjuste}
+          pagoDraft={pagoDraft}
+          setPagoDraft={setPagoDraft}
+          handleGeneratePago={handleGeneratePago}
+          garantiaDraft={garantiaDraft}
+          setGarantiaDraft={setGarantiaDraft}
+          handleCreateGarantia={handleCreateGarantia}
+          garantiaMovimientoDraft={garantiaMovimientoDraft}
+          setGarantiaMovimientoDraft={setGarantiaMovimientoDraft}
+          handleGarantiaMovimiento={handleGarantiaMovimiento}
+          estadoCuentaDraft={estadoCuentaDraft}
+          setEstadoCuentaDraft={setEstadoCuentaDraft}
+          handleRebuildEstadoCuenta={handleRebuildEstadoCuenta}
+          contratos={contratos}
+          garantias={garantias}
+          arrendatarios={arrendatarios}
+          filteredValoresUf={filteredValoresUf}
+          filteredAjustes={filteredAjustes}
+          filteredPagos={filteredPagos}
+          filteredGarantias={filteredGarantias}
+          filteredHistorialGarantias={filteredHistorialGarantias}
+          filteredEstadosCuenta={filteredEstadosCuenta}
+          contratoById={contratoById}
+          arrendatarioById={arrendatarioById}
+          toneFor={toneFor}
+          isSubmitting={isSubmitting}
+          navigateToConciliacion={(row) => { navigateWithContext('conciliacion', `${row.mes}/${row.anio}`) }}
+          goToPagoContext={goToPagoContext}
+        />
       ) : null}
 
       {activeView === 'conciliacion' ? (
-        <>
-          {!canEditConciliacion ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Conciliación.</div> : null}
-          <section className="form-grid">
-            <section className="panel">
-              <div className="section-heading"><div><h2>Conexión bancaria</h2><p>Conecta una cuenta recaudadora al provider operativo.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateConexion}>
-                <select value={conexionDraft.cuenta_recaudadora} onChange={(event) => setConexionDraft((current) => ({ ...current, cuenta_recaudadora: event.target.value }))}>
-                  <option value="">Selecciona cuenta</option>
-                  {cuentas.map((item) => (
-                    <option key={item.id} value={item.id}>{item.numero_cuenta} · {item.owner_display}</option>
-                  ))}
-                </select>
-                <input placeholder="Provider key" value={conexionDraft.provider_key} onChange={(event) => setConexionDraft((current) => ({ ...current, provider_key: event.target.value }))} />
-                <input placeholder="Credencial ref" value={conexionDraft.credencial_ref} onChange={(event) => setConexionDraft((current) => ({ ...current, credencial_ref: event.target.value }))} />
-                <input placeholder="Scope" value={conexionDraft.scope} onChange={(event) => setConexionDraft((current) => ({ ...current, scope: event.target.value }))} />
-                <input type="datetime-local" value={conexionDraft.expira_en} onChange={(event) => setConexionDraft((current) => ({ ...current, expira_en: event.target.value }))} />
-                <select value={conexionDraft.estado_conexion} onChange={(event) => setConexionDraft((current) => ({ ...current, estado_conexion: event.target.value }))}>
-                  <option value="verificando">Verificando</option>
-                  <option value="activa">Activa</option>
-                  <option value="pausada">Pausada</option>
-                  <option value="inactiva">Inactiva</option>
-                </select>
-                <label className="checkbox-row"><input type="checkbox" checked={conexionDraft.primaria_movimientos} onChange={(event) => setConexionDraft((current) => ({ ...current, primaria_movimientos: event.target.checked }))} />Primaria movimientos</label>
-                <label className="checkbox-row"><input type="checkbox" checked={conexionDraft.primaria_saldos} onChange={(event) => setConexionDraft((current) => ({ ...current, primaria_saldos: event.target.checked }))} />Primaria saldos</label>
-                <label className="checkbox-row"><input type="checkbox" checked={conexionDraft.primaria_conectividad} onChange={(event) => setConexionDraft((current) => ({ ...current, primaria_conectividad: event.target.checked }))} />Primaria conectividad</label>
-                <button type="submit" className="button-primary" disabled={isSubmitting || !conexionDraft.cuenta_recaudadora}>Guardar conexión</button>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>Movimiento bancario</h2><p>Ingesta manual para probar match exacto, ingreso desconocido y cargo.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateMovimiento}>
-                <select value={movimientoDraft.conexion_bancaria} onChange={(event) => setMovimientoDraft((current) => ({ ...current, conexion_bancaria: event.target.value }))}>
-                  <option value="">Selecciona conexión</option>
-                  {conexionesBancarias.map((item) => (
-                    <option key={item.id} value={item.id}>{item.provider_key} · {cuentaById.get(item.cuenta_recaudadora)?.numero_cuenta || item.cuenta_recaudadora}</option>
-                  ))}
-                </select>
-                <input type="date" value={movimientoDraft.fecha_movimiento} onChange={(event) => setMovimientoDraft((current) => ({ ...current, fecha_movimiento: event.target.value }))} />
-                <select value={movimientoDraft.tipo_movimiento} onChange={(event) => setMovimientoDraft((current) => ({ ...current, tipo_movimiento: event.target.value }))}>
-                  <option value="abono">Abono</option>
-                  <option value="cargo">Cargo</option>
-                </select>
-                <input placeholder="Monto" value={movimientoDraft.monto} onChange={(event) => setMovimientoDraft((current) => ({ ...current, monto: event.target.value }))} />
-                <input placeholder="Descripción origen" value={movimientoDraft.descripcion_origen} onChange={(event) => setMovimientoDraft((current) => ({ ...current, descripcion_origen: event.target.value }))} />
-                <input placeholder="Número documento" value={movimientoDraft.numero_documento} onChange={(event) => setMovimientoDraft((current) => ({ ...current, numero_documento: event.target.value }))} />
-                <input placeholder="Saldo reportado" value={movimientoDraft.saldo_reportado} onChange={(event) => setMovimientoDraft((current) => ({ ...current, saldo_reportado: event.target.value }))} />
-                <input placeholder="Referencia" value={movimientoDraft.referencia} onChange={(event) => setMovimientoDraft((current) => ({ ...current, referencia: event.target.value }))} />
-                <input placeholder="Transaction ID banco" value={movimientoDraft.transaction_id_banco} onChange={(event) => setMovimientoDraft((current) => ({ ...current, transaction_id_banco: event.target.value }))} />
-                <input placeholder="Notas admin" value={movimientoDraft.notas_admin} onChange={(event) => setMovimientoDraft((current) => ({ ...current, notas_admin: event.target.value }))} />
-                <button type="submit" className="button-primary" disabled={isSubmitting || !movimientoDraft.conexion_bancaria || !movimientoDraft.monto || !movimientoDraft.descripcion_origen}>Guardar movimiento</button>
-              </form>
-            </section>
-          </section>
-
-          <TableBlock title="Conexiones bancarias" subtitle="Providers activos por cuenta recaudadora." rows={filteredConexiones} empty="No hay conexiones bancarias para este filtro." columns={[
-            { label: 'Cuenta', render: (row) => cuentaById.get(row.cuenta_recaudadora)?.numero_cuenta || row.cuenta_recaudadora },
-            { label: 'Provider', render: (row) => row.provider_key },
-            { label: 'Credencial', render: (row) => row.credencial_ref },
-            { label: 'Scope', render: (row) => row.scope || 'Sin scope' },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_conexion} tone={toneFor(row.estado_conexion)} /> },
-          ]} />
-
-          <TableBlock title="Movimientos bancarios" subtitle="Entrada importada y resultado de conciliación." rows={filteredMovimientos} empty="No hay movimientos para este filtro." columns={[
-            { label: 'Fecha', render: (row) => row.fecha_movimiento },
-            { label: 'Tipo', render: (row) => row.tipo_movimiento },
-            { label: 'Monto', render: (row) => row.monto },
-            { label: 'Descripción', render: (row) => row.descripcion_origen },
-            { label: 'Referencia', render: (row) => row.referencia || 'Sin referencia' },
-            { label: 'Estado', render: (row) => <Badge label={row.estado_conciliacion} tone={toneFor(row.estado_conciliacion)} /> },
-            {
-              label: 'Acción',
-              render: (row) => (
-                <button type="button" className="button-ghost inline-action" onClick={() => void handleRetryMatch(row.id)} disabled={isSubmitting}>
-                  Reintentar match
-                </button>
-              ),
-            },
-          ]} />
-
-          <TableBlock title="Ingresos desconocidos" subtitle="Abonos sin match exacto que requieren revisión." rows={filteredIngresos} empty="No hay ingresos desconocidos para este filtro." columns={[
-            { label: 'Fecha', render: (row) => row.fecha_movimiento },
-            { label: 'Monto', render: (row) => row.monto },
-            { label: 'Cuenta', render: (row) => cuentaById.get(row.cuenta_recaudadora)?.numero_cuenta || row.cuenta_recaudadora },
-            { label: 'Descripción', render: (row) => row.descripcion_origen },
-            { label: 'Sugerencia', render: (row) => row.sugerencia_asistida?.payment_candidate_ids?.length ? `Pagos candidatos: ${row.sugerencia_asistida.payment_candidate_ids.join(', ')}` : 'Sin sugerencia' },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-          ]} />
-        </>
+        <ConciliacionWorkspace
+          canEditConciliacion={canEditConciliacion}
+          conexionDraft={conexionDraft}
+          setConexionDraft={setConexionDraft}
+          handleCreateConexion={handleCreateConexion}
+          movimientoDraft={movimientoDraft}
+          setMovimientoDraft={setMovimientoDraft}
+          handleCreateMovimiento={handleCreateMovimiento}
+          filteredConexiones={filteredConexiones}
+          filteredMovimientos={filteredMovimientos}
+          filteredIngresos={filteredIngresos}
+          cuentas={cuentas}
+          conexionesBancarias={conexionesBancarias}
+          cuentaById={cuentaById}
+          toneFor={toneFor}
+          isSubmitting={isSubmitting}
+          handleRetryMatch={handleRetryMatch}
+        />
       ) : null}
 
       {activeView === 'audit' ? (
