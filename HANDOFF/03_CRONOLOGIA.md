@@ -26,3 +26,4 @@
 | 2026-04-12 | Commit `f83dafb` | `feat: add compliance workspace to backoffice` | `Compliance` se abre en frontend para admin |
 | 2026-04-12 | Commit `5aa2fca` | `fix: normalize compliance export encryption keys` | Se corrige el 500 de exportaciones sensibles causado por claves no-Fernet |
 | 2026-04-12 | Commit `6877014` | `feat: add demo compliance export bootstrap command` | Se versiona el bootstrap reproducible de exportaciones demo de `Compliance` |
+| 2026-04-12 | Smoke publica dedicada de `Compliance` + baseline demo de politicas | navegador real, API publica, `bootstrap_demo_compliance_policies.py` | `Compliance` queda validado en flujo admin-only y el entorno remoto deja de tener la tabla de politicas vacia |

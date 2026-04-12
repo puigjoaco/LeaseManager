@@ -38,12 +38,18 @@
 - `demo-operador` inicia sesion en el sitio publico y solo ve superficie operativa + `Audit`.
 - `demo-revisor` inicia sesion en el sitio publico y solo ve `Audit`, `Contabilidad`, `SII` y `Reporting`, con banners readonly coherentes.
 - `demo-socio` inicia sesion en el sitio publico y solo ve `Reporting`, con lectura propia.
+- `Compliance` ya quedo validado en flujo admin-only sobre el sitio publico:
+  - lee exportaciones sensibles existentes;
+  - descifra payloads correctamente;
+  - permite preparar nuevas exportaciones;
+  - permite revocarlas;
 - El entorno remoto ya se enriquecio con datos derivados reales:
   - UF de abril y mayo 2026;
   - pagos de abril y mayo;
   - estados de cuenta recalculados;
   - baseline minimo de control para empresa 1;
-  - exportaciones demo de `Compliance`.
+  - exportaciones demo de `Compliance`;
+  - baseline demo de politicas de retencion de `Compliance`.
 
 ## 2. Hallazgos probables
 
@@ -57,7 +63,7 @@
 
 - El backend publico actual usa el Postgres de staging Supabase; eso funciona hoy, pero es una dependencia operativa delicada si se deja sin decision explicita posterior.
 - La data remota es todavia escasa; eso puede hacer parecer “vacias” vistas que en realidad estan bien cableadas.
-- `Compliance` aun necesita una smoke publica dedicada de su flujo admin-only para considerarse tan validado como los otros modulos.
+- las politicas de retencion demo de `Compliance` ya existen y son consistentes con tests y PRD minimo, pero no equivalen todavia a una politica legal-operativa final cerrada fuera del entorno demo.
 - El wiring manual entre Vercel y Railway ya existe y funciona, pero puede degradarse si alguien cambia root, dominios o variables sin revalidacion.
 - Aunque `App.tsx` bajo mucho de peso, sigue siendo una pieza importante; el costo de cambio todavia existe.
 

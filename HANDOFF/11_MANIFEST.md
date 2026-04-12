@@ -47,6 +47,7 @@ Nota metodologica:
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_operational_data.py` | 7515 | 2026-04-12 18:40:18 | bootstrap reproducible de UF/pagos/estados de cuenta demo | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_control_baseline.py` | 6954 | 2026-04-12 18:42:23 | bootstrap reproducible de baseline contable/SII demo | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_compliance_exports.py` | 4077 | 2026-04-12 18:58:53 | bootstrap reproducible de exportaciones demo de Compliance | leido |
+| `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_compliance_policies.py` | 2173 | 2026-04-12 19:27:00 aprox. | bootstrap reproducible de políticas demo de retención para Compliance | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\tests_permissions.py` | 5089 | 2026-04-11 23:23:53 | evidencia ejecutable de RBAC | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\tests_scope_access.py` | 14174 | 2026-04-11 23:24:03 | evidencia ejecutable de lectura y escritura scopeada | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\compliance\models.py` | 2788 | 2026-03-22 06:47:37 | modelo canonico de retencion y exportes sensibles | leido |

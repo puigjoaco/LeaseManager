@@ -32,6 +32,7 @@ Archivos actualizados en esta version del handoff:
 - estado del frontend publico y backend publico;
 - commands versionados para bootstrap demo remoto;
 - smoke publico basico por `demo-admin`, `demo-operador`, `demo-revisor` y `demo-socio`;
+- smoke publica dedicada de `Compliance` en flujo admin-only;
 - bootstrap para nuevo thread desde la foto correcta.
 
 ### Parciales o con limite conocido
@@ -42,7 +43,7 @@ Archivos actualizados en esta version del handoff:
 - la data remota publica ya es mas util que antes, pero sigue sin representar una cartera rica completa;
 - el backend publico actual usa el Postgres de staging Supabase como runtime operativo vigente;
 - la validacion publica sigue siendo smoke y no un barrido exhaustivo de todos los flujos con data representativa;
-- `Compliance` aun no tiene una smoke publica dedicada equivalente a la ya hecha por `demo-operador`, `demo-revisor` y `demo-socio`.
+- el baseline demo de `Compliance` ya es util, pero no debe confundirse con politica legal final del producto.
 
 ## 3. Respuestas externas incorporadas literalmente
 
@@ -71,7 +72,6 @@ No se agregaron nuevas respuestas externas completas en esta actualizacion.
 ### Vacios operativos
 
 - la data remota publica sigue siendo poco representativa;
-- `Compliance` ya existe en frontend pero le falta una smoke publica dedicada;
 - el siguiente frente funcional aun debe elegirse explicitamente despues de este refresh.
 
 ## 6. Riesgo residual del handoff

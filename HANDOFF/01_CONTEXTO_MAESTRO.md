@@ -77,12 +77,20 @@ Se ejecuto una secuencia verificable adicional:
   - datos operativos;
   - baseline de control;
   - exportaciones demo de `Compliance`;
+  - baseline demo de politicas de retencion de `Compliance`;
 - se enriquecio la base remota con:
   - valores UF de abril y mayo 2026;
   - pagos derivados para abril y mayo;
   - estados de cuenta recalculados;
   - baseline minimo de control para la empresa 1;
-  - exportaciones sensibles demo preparadas.
+  - exportaciones sensibles demo preparadas;
+  - `5` politicas de retencion demo para `Compliance`;
+- se completo una smoke publica dedicada de `Compliance`:
+  - lectura de exportaciones;
+  - descifrado de payload;
+  - preparacion de nueva exportacion;
+  - revocacion admin-only;
+  - confirmacion de que el hueco visible restante era dataset, no permisos ni wiring.
 
 ## 3. Estado real del repo, del runtime y del codigo
 
@@ -262,7 +270,9 @@ Estado actual:
 
 - `Compliance` ya existe en el backoffice para admin;
 - la normalizacion de `DATA_EXPORT_ENCRYPTION_KEY` ya evita 500 por claves no-Fernet;
-- existen commands idempotentes para bootstrap demo remoto.
+- existen commands idempotentes para bootstrap demo remoto;
+- la smoke admin-only ya quedo validada en el sitio publico;
+- el baseline demo remoto de `Compliance` ya incluye politicas de retencion y exportaciones sensibles.
 
 ### 5.5 Ruido puntual de browser automation
 
@@ -300,5 +310,5 @@ La forma correcta de retomar hoy es:
 6. tratar como siguiente trabajo real:
    - mantener el handoff alineado con el estado real;
    - usar los commands versionados para bootstrap demo remoto cuando haga falta;
-   - terminar de validar `Compliance` en el sitio publico con datos reales;
+   - tratar `Compliance` como modulo ya validado en smoke admin-only, no como bloque aun pendiente de wiring;
    - y luego elegir el siguiente frente funcional del producto sin reabrir infraestructura ya cerrada.

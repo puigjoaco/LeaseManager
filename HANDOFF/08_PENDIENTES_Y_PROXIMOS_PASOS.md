@@ -51,12 +51,12 @@ Ya no falta verificar, para este tramo:
 
 ### 3.4 Siguiente frente funcional
 
-`Compliance` ya quedo abierto en frontend para admin y ya tiene bootstrap demo remoto.
+`Compliance` ya quedo abierto en frontend para admin, ya tiene bootstrap demo remoto y ya paso smoke admin-only dedicada.
 
 El proyecto podria seguir por una de estas dos lineas:
 
-- hacer una smoke publica dedicada de `Compliance` y cerrar ese modulo como realmente validado;
-- o priorizar el siguiente frente funcional con mejor retorno, ahora que el entorno remoto ya tiene mas datos derivados.
+- profundizar la utilidad de `Contabilidad` / `SII` / `Reporting` ahora que el entorno remoto ya tiene mas datos derivados;
+- o priorizar el siguiente frente funcional con mejor retorno, sin volver a abrir infraestructura ni el modulo `Compliance` como si siguiera sin validar.
 
 ## 4. Proximo paso recomendado
 
@@ -68,7 +68,7 @@ Secuencia recomendada para continuar correctamente:
 4. no mover `Root Directory=frontend` ni desconectar Git en Vercel;
 5. no tocar Railway web/worker/Redis sin revalidacion completa;
 6. usar los commands versionados de bootstrap demo remoto cuando haga falta;
-7. hacer una smoke publica dedicada de `Compliance`;
+7. tratar `Compliance` como modulo ya cerrado en smoke admin-only;
 8. enriquecer la data remota donde aun siga vacia;
 9. recien despues elegir el siguiente frente funcional del producto.
 
@@ -87,7 +87,6 @@ Secuencia recomendada para continuar correctamente:
 ### Etapa inmediata
 
 - refresh documental del handoff con estado real actual;
-- smoke publica dedicada de `Compliance`;
 - seguir enriqueciendo la data remota solo a traves de commands versionados o decisiones explicitas.
 
 ### Etapa posterior

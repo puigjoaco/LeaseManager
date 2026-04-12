@@ -54,10 +54,19 @@ Estado real consolidado al cierre de este handoff:
   - `demo-operador`
   - `demo-revisor`
   - `demo-socio`
+- `Compliance` ya tiene smoke admin-only dedicada en el sitio publico:
+  - lectura de exportaciones sensibles;
+  - descifrado de payload;
+  - preparacion de exportacion;
+  - revocacion;
+- el baseline demo remoto de `Compliance` ya no tiene solo exportaciones:
+  - `5` politicas de retencion;
+  - `5` exportaciones sensibles, con una revocada en la smoke;
 - ya existen commands versionados para bootstrap demo remoto:
   - `bootstrap_demo_operational_data`
   - `bootstrap_demo_control_baseline`
   - `bootstrap_demo_compliance_exports`
+  - `bootstrap_demo_compliance_policies`
 
 ## Borrador vigente
 
@@ -106,6 +115,7 @@ La linea vigente hoy es:
 La pregunta abierta mas importante ahora es:
 
 - **como seguir el trabajo de producto sobre un stack publico ya operativo ahora que `Compliance` tambien quedo abierto y que ya existen commands reproducibles para bootstrap demo remoto, sin reabrir infraestructura ya cerrada**
+- **como seguir el trabajo de producto sobre un stack publico ya operativo ahora que `Compliance` tambien quedo validado en flujo admin-only y que ya existen commands reproducibles para bootstrap demo remoto, sin reabrir infraestructura ya cerrada**
 
 ## Orden de lectura recomendado
 
