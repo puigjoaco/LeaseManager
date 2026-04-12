@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
 
+from .scope import scope_documento_queryset, scope_expediente_queryset
 from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria
 from .serializers import (
     DocumentoEmitidoSerializer,
@@ -67,6 +68,9 @@ class ExpedienteDocumentalListCreateView(AuditCreateUpdateMixin, generics.ListCr
     audit_entity_type = 'expediente'
     audit_entity_label = 'expediente documental'
 
+    def get_queryset(self):
+        return scope_expediente_queryset(super().get_queryset(), self.request.user)
+
 
 class ExpedienteDocumentalDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
@@ -74,6 +78,9 @@ class ExpedienteDocumentalDetailView(AuditCreateUpdateMixin, generics.RetrieveUp
     queryset = ExpedienteDocumental.objects.all()
     audit_entity_type = 'expediente'
     audit_entity_label = 'expediente documental'
+
+    def get_queryset(self):
+        return scope_expediente_queryset(super().get_queryset(), self.request.user)
 
 
 class PoliticaFirmaYNotariaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
@@ -99,6 +106,9 @@ class DocumentoEmitidoListCreateView(AuditCreateUpdateMixin, generics.ListCreate
     audit_entity_type = 'documento_emitido'
     audit_entity_label = 'documento emitido'
 
+    def get_queryset(self):
+        return scope_documento_queryset(super().get_queryset(), self.request.user)
+
 
 class DocumentoEmitidoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
@@ -107,13 +117,19 @@ class DocumentoEmitidoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdate
     audit_entity_type = 'documento_emitido'
     audit_entity_label = 'documento emitido'
 
+    def get_queryset(self):
+        return scope_documento_queryset(super().get_queryset(), self.request.user)
+
 
 class DocumentoFormalizarView(APIView):
     permission_classes = [OperationalModulePermission]
 
     def post(self, request, pk):
         document = generics.get_object_or_404(
-            DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial'),
+            scope_documento_queryset(
+                DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial'),
+                request.user,
+            ),
             pk=pk,
         )
         previous_state = document.estado

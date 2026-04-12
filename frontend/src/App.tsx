@@ -396,6 +396,43 @@ type CierreMensual = {
   resumen_obligaciones: Record<string, unknown>
 }
 
+type ExpedienteDocumental = {
+  id: number
+  entidad_tipo: string
+  entidad_id: string
+  estado: string
+  owner_operativo: string
+}
+
+type PoliticaFirma = {
+  id: number
+  tipo_documental: string
+  requiere_firma_arrendador: boolean
+  requiere_firma_arrendatario: boolean
+  requiere_codeudor: boolean
+  requiere_notaria: boolean
+  modo_firma_permitido: string
+  estado: string
+}
+
+type DocumentoEmitidoItem = {
+  id: number
+  expediente: number
+  tipo_documental: string
+  version_plantilla: string
+  checksum: string
+  fecha_carga: string
+  usuario: number | null
+  origen: string
+  estado: string
+  storage_ref: string
+  firma_arrendador_registrada: boolean
+  firma_arrendatario_registrada: boolean
+  firma_codeudor_registrada: boolean
+  recepcion_notarial_registrada: boolean
+  comprobante_notarial: number | null
+}
+
 type AuditEventItem = {
   id: number
   actor_user: number | null
@@ -434,6 +471,7 @@ type ViewKey =
   | 'patrimonio'
   | 'operacion'
   | 'contratos'
+  | 'documentos'
   | 'cobranza'
   | 'conciliacion'
   | 'audit'
@@ -445,6 +483,7 @@ type SectionKey =
   | 'patrimonio'
   | 'operacion'
   | 'contratos'
+  | 'documentos'
   | 'cobranza'
   | 'conciliacion'
   | 'audit'
@@ -683,10 +722,10 @@ function defaultViewForRole(roleCode: string | null | undefined): ViewKey {
 function allowedViewsForRole(roleCode: string | null | undefined): ViewKey[] {
   const role = canonicalRole(roleCode)
   if (role === 'AdministradorGlobal') {
-    return ['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting']
+    return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting']
   }
   if (role === 'OperadorDeCartera') {
-    return ['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'audit']
+    return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'cobranza', 'conciliacion', 'audit']
   }
   if (role === 'RevisorFiscalExterno') {
     return ['audit', 'contabilidad', 'sii', 'reporting']
@@ -811,6 +850,9 @@ function App() {
   const [identidades, setIdentidades] = useState<Identidad[]>([])
   const [mandatos, setMandatos] = useState<Mandato[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
+  const [expedientes, setExpedientes] = useState<ExpedienteDocumental[]>([])
+  const [politicasFirma, setPoliticasFirma] = useState<PoliticaFirma[]>([])
+  const [documentosEmitidos, setDocumentosEmitidos] = useState<DocumentoEmitidoItem[]>([])
   const [avisos, setAvisos] = useState<AvisoTermino[]>([])
   const [valoresUf, setValoresUf] = useState<ValorUF[]>([])
   const [ajustes, setAjustes] = useState<AjusteContrato[]>([])
@@ -857,6 +899,7 @@ function App() {
   const [editingMandatoId, setEditingMandatoId] = useState<number | null>(null)
   const [editingArrendatarioId, setEditingArrendatarioId] = useState<number | null>(null)
   const [editingContratoId, setEditingContratoId] = useState<number | null>(null)
+  const [editingExpedienteId, setEditingExpedienteId] = useState<number | null>(null)
   const [socioDraft, setSocioDraft] = useState({
     nombre: '',
     rut: '',
@@ -932,6 +975,44 @@ function App() {
     moneda_base: 'CLP',
     tipo_periodo: 'base',
     origen_periodo: 'backoffice',
+  })
+  const [expedienteDraft, setExpedienteDraft] = useState({
+    entidad_tipo: 'contrato',
+    entidad_id: '',
+    estado: 'abierto',
+    owner_operativo: '',
+  })
+  const [politicaFirmaDraft, setPoliticaFirmaDraft] = useState({
+    tipo_documental: 'contrato_principal',
+    requiere_firma_arrendador: true,
+    requiere_firma_arrendatario: true,
+    requiere_codeudor: false,
+    requiere_notaria: false,
+    modo_firma_permitido: 'firma_simple',
+    estado: 'activa',
+  })
+  const [documentoDraft, setDocumentoDraft] = useState({
+    expediente: '',
+    tipo_documental: 'contrato_principal',
+    version_plantilla: 'v1',
+    checksum: '',
+    fecha_carga: `${todayIso()}T12:00`,
+    origen: 'generado_sistema',
+    estado: 'emitido',
+    storage_ref: '',
+    firma_arrendador_registrada: false,
+    firma_arrendatario_registrada: false,
+    firma_codeudor_registrada: false,
+    recepcion_notarial_registrada: false,
+    comprobante_notarial: '',
+  })
+  const [documentoFormalizarDraft, setDocumentoFormalizarDraft] = useState({
+    documentoId: '',
+    firma_arrendador_registrada: true,
+    firma_arrendatario_registrada: true,
+    firma_codeudor_registrada: false,
+    recepcion_notarial_registrada: false,
+    comprobante_notarial: '',
   })
   const [avisoDraft, setAvisoDraft] = useState({
     contrato: '',
@@ -1112,7 +1193,7 @@ function App() {
   function canMutateSection(section: SectionKey) {
     if (effectiveRole === 'AdministradorGlobal') return true
     if (effectiveRole === 'OperadorDeCartera') {
-      return ['patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'audit'].includes(section)
+      return ['patrimonio', 'operacion', 'contratos', 'documentos', 'cobranza', 'conciliacion', 'audit'].includes(section)
     }
     return false
   }
@@ -1120,6 +1201,7 @@ function App() {
   const canEditPatrimonio = canMutateSection('patrimonio')
   const canEditOperacion = canMutateSection('operacion')
   const canEditContratos = canMutateSection('contratos')
+  const canEditDocumentos = canMutateSection('documentos')
   const canEditCobranza = canMutateSection('cobranza')
   const canEditConciliacion = canMutateSection('conciliacion')
   const canEditAudit = canMutateSection('audit')
@@ -1169,6 +1251,9 @@ function App() {
         identidadesPayload,
         mandatosPayload,
         contratosPayload,
+        expedientesPayload,
+        politicasFirmaPayload,
+        documentosEmitidosPayload,
         avisosPayload,
         valoresUfPayload,
         ajustesPayload,
@@ -1209,6 +1294,9 @@ function App() {
         requestIf<Identidad[]>(canReadOperational, '/api/v1/operacion/identidades-envio/', []),
         requestIf<Mandato[]>(canReadOperational, '/api/v1/operacion/mandatos/', []),
         requestIf<Contrato[]>(canReadOperational, '/api/v1/contratos/contratos/', []),
+        requestIf<ExpedienteDocumental[]>(canReadOperational, '/api/v1/documentos/expedientes/', []),
+        requestIf<PoliticaFirma[]>(canReadOperational, '/api/v1/documentos/politicas-firma/', []),
+        requestIf<DocumentoEmitidoItem[]>(canReadOperational, '/api/v1/documentos/documentos-emitidos/', []),
         requestIf<AvisoTermino[]>(canReadOperational, '/api/v1/contratos/avisos-termino/', []),
         requestIf<ValorUF[]>(canReadOperational, '/api/v1/cobranza/valores-uf/', []),
         requestIf<AjusteContrato[]>(canReadOperational, '/api/v1/cobranza/ajustes-contrato/', []),
@@ -1253,6 +1341,9 @@ function App() {
       setIdentidades(identidadesPayload)
       setMandatos(mandatosPayload)
       setContratos(contratosPayload)
+      setExpedientes(expedientesPayload)
+      setPoliticasFirma(politicasFirmaPayload)
+      setDocumentosEmitidos(documentosEmitidosPayload)
       setAvisos(avisosPayload)
       setValoresUf(valoresUfPayload)
       setAjustes(ajustesPayload)
@@ -1371,6 +1462,9 @@ function App() {
     setIdentidades([])
     setMandatos([])
     setContratos([])
+    setExpedientes([])
+    setPoliticasFirma([])
+    setDocumentosEmitidos([])
     setAvisos([])
     setValoresUf([])
     setAjustes([])
@@ -2353,6 +2447,75 @@ function App() {
     )
   }
 
+  async function handleCreateExpediente(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditDocumentos) return
+    const isEdit = editingExpedienteId != null
+    const success = await submitMutation(
+      isEdit ? `/api/v1/documentos/expedientes/${editingExpedienteId}/` : '/api/v1/documentos/expedientes/',
+      isEdit ? 'PATCH' : 'POST',
+      expedienteDraft,
+      isEdit ? 'Expediente actualizado correctamente.' : 'Expediente creado correctamente.',
+      'documentos',
+    )
+    if (!success || !token) return
+    setEditingExpedienteId(null)
+    setExpedienteDraft({ entidad_tipo: 'contrato', entidad_id: '', estado: 'abierto', owner_operativo: '' })
+    void loadWorkspace(token)
+  }
+
+  async function handleCreatePoliticaFirma(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditDocumentos) return
+    const success = await submitMutation(
+      '/api/v1/documentos/politicas-firma/',
+      'POST',
+      politicaFirmaDraft,
+      'Política documental creada correctamente.',
+      'documentos',
+    )
+    if (!success || !token) return
+    void loadWorkspace(token)
+  }
+
+  async function handleCreateDocumento(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditDocumentos) return
+    const success = await submitMutation(
+      '/api/v1/documentos/documentos-emitidos/',
+      'POST',
+      {
+        ...documentoDraft,
+        fecha_carga: documentoDraft.fecha_carga ? new Date(documentoDraft.fecha_carga).toISOString() : undefined,
+        comprobante_notarial: documentoDraft.comprobante_notarial || null,
+      },
+      'Documento emitido creado correctamente.',
+      'documentos',
+    )
+    if (!success || !token) return
+    void loadWorkspace(token)
+  }
+
+  async function handleFormalizeDocumento(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditDocumentos || !documentoFormalizarDraft.documentoId) return
+    const success = await submitMutation(
+      `/api/v1/documentos/documentos-emitidos/${documentoFormalizarDraft.documentoId}/formalizar/`,
+      'POST',
+      {
+        firma_arrendador_registrada: documentoFormalizarDraft.firma_arrendador_registrada,
+        firma_arrendatario_registrada: documentoFormalizarDraft.firma_arrendatario_registrada,
+        firma_codeudor_registrada: documentoFormalizarDraft.firma_codeudor_registrada,
+        recepcion_notarial_registrada: documentoFormalizarDraft.recepcion_notarial_registrada,
+        comprobante_notarial: documentoFormalizarDraft.comprobante_notarial || null,
+      },
+      'Documento formalizado correctamente.',
+      'documentos',
+    )
+    if (!success || !token) return
+    void loadWorkspace(token)
+  }
+
   async function handleUpdateManualResolution(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditAudit || !editingManualResolutionId) return
@@ -2454,6 +2617,21 @@ function App() {
     setManualResolutionDraft({ status: 'open', rationale: '' })
   }
 
+  function startEditExpediente(row: ExpedienteDocumental) {
+    setEditingExpedienteId(row.id)
+    setExpedienteDraft({
+      entidad_tipo: row.entidad_tipo,
+      entidad_id: row.entidad_id,
+      estado: row.estado,
+      owner_operativo: row.owner_operativo,
+    })
+  }
+
+  function cancelEditExpediente() {
+    setEditingExpedienteId(null)
+    setExpedienteDraft({ entidad_tipo: 'contrato', entidad_id: '', estado: 'abierto', owner_operativo: '' })
+  }
+
   const normalizedSearch = searchText.trim().toLowerCase()
   const filteredSocios = useMemo(
     () => socios.filter((item) => matches(normalizedSearch, [item.nombre, item.rut, item.email, item.telefono])),
@@ -2551,6 +2729,27 @@ function App() {
         ]),
       ),
     [contratos, normalizedSearch],
+  )
+  const filteredExpedientes = useMemo(
+    () =>
+      expedientes.filter((item) =>
+        matches(normalizedSearch, [item.entidad_tipo, item.entidad_id, item.estado, item.owner_operativo]),
+      ),
+    [expedientes, normalizedSearch],
+  )
+  const filteredPoliticasFirma = useMemo(
+    () =>
+      politicasFirma.filter((item) =>
+        matches(normalizedSearch, [item.tipo_documental, item.modo_firma_permitido, item.estado]),
+      ),
+    [politicasFirma, normalizedSearch],
+  )
+  const filteredDocumentosEmitidos = useMemo(
+    () =>
+      documentosEmitidos.filter((item) =>
+        matches(normalizedSearch, [item.tipo_documental, item.version_plantilla, item.estado, item.origen, item.storage_ref]),
+      ),
+    [documentosEmitidos, normalizedSearch],
   )
   const filteredAvisos = useMemo(
     () =>
@@ -2801,6 +3000,7 @@ function App() {
   const contratoById = useMemo(() => new Map(contratos.map((item) => [item.id, item])), [contratos])
   const cuentaById = useMemo(() => new Map(cuentas.map((item) => [item.id, item])), [cuentas])
   const empresaById = useMemo(() => new Map(empresas.map((item) => [item.id, item])), [empresas])
+  const expedienteById = useMemo(() => new Map(expedientes.map((item) => [item.id, item])), [expedientes])
   const regimenById = useMemo(() => new Map(regimenesTributarios.map((item) => [item.id, item])), [regimenesTributarios])
   const reglaById = useMemo(() => new Map(reglasContables.map((item) => [item.id, item])), [reglasContables])
   const cuentaContableById = useMemo(() => new Map(cuentasContables.map((item) => [item.id, item])), [cuentasContables])
@@ -2890,7 +3090,7 @@ function App() {
       </header>
 
       <section className="tab-strip">
-        {(['overview', 'patrimonio', 'operacion', 'contratos', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting'] as ViewKey[])
+        {(['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting'] as ViewKey[])
           .filter((view) => canAccessView(view))
           .map((view) => (
           <button
@@ -2910,7 +3110,9 @@ function App() {
                   ? 'Operación'
                   : view === 'contratos'
                     ? 'Contratos'
-                      : view === 'cobranza'
+                    : view === 'documentos'
+                      ? 'Documentos'
+                    : view === 'cobranza'
                       ? 'Cobranza'
                       : view === 'conciliacion'
                         ? 'Conciliación'
@@ -2996,7 +3198,9 @@ function App() {
                   ? 'Operación'
                   : activeView === 'contratos'
                     ? 'Contratos'
-                      : activeView === 'cobranza'
+                    : activeView === 'documentos'
+                      ? 'Documentos'
+                    : activeView === 'cobranza'
                       ? 'Cobranza'
                       : activeView === 'conciliacion'
                         ? 'Conciliación'
@@ -3015,7 +3219,9 @@ function App() {
                   ? 'Cuentas, identidades y mandatos'
                   : activeView === 'contratos'
                     ? 'Arrendatarios, contratos y avisos'
-                      : activeView === 'cobranza'
+                    : activeView === 'documentos'
+                      ? 'Expedientes, políticas y documentos emitidos'
+                    : activeView === 'cobranza'
                         ? 'Pagos, UF, ajustes, garantías y estado de cuenta'
                       : activeView === 'conciliacion'
                         ? 'Conexiones, movimientos e ingresos desconocidos'
@@ -3040,6 +3246,8 @@ function App() {
                     ? 'Cuenta, owner, canal o mandato'
                     : activeView === 'contratos'
                       ? 'Código, arrendatario, propiedad o causal'
+                      : activeView === 'documentos'
+                        ? 'Expediente, tipo documental, estado o storage'
                       : activeView === 'cobranza'
                         ? 'Contrato, monto, estado, UF o garantía'
                       : activeView === 'conciliacion'
@@ -3469,9 +3677,26 @@ function App() {
             {
               label: 'Siguiente paso',
               render: (row) => (
-                <button type="button" className="button-ghost inline-action" onClick={() => goToContratoContext(row.id)}>
-                  Cobranza
-                </button>
+                <div className="inline-actions">
+                  <button type="button" className="button-ghost inline-action" onClick={() => goToContratoContext(row.id)}>
+                    Cobranza
+                  </button>
+                  <button
+                    type="button"
+                    className="button-ghost inline-action"
+                    onClick={() => {
+                      navigateWithContext('documentos', row.codigo_contrato, `Contrato: ${row.codigo_contrato}`)
+                      setExpedienteDraft((current) => ({
+                        ...current,
+                        entidad_tipo: 'contrato',
+                        entidad_id: String(row.id),
+                        owner_operativo: `mandato:${row.mandato_operacion}`,
+                      }))
+                    }}
+                  >
+                    Documentos
+                  </button>
+                </div>
               ),
             },
           ]} />
@@ -3481,6 +3706,151 @@ function App() {
             { label: 'Fecha efectiva', render: (row) => row.fecha_efectiva },
             { label: 'Causal', render: (row) => row.causal },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+        </>
+      ) : null}
+
+      {activeView === 'documentos' ? (
+        <>
+          {!canEditDocumentos ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Documentos.</div> : null}
+          {canEditDocumentos ? (
+            <section className="form-grid">
+              <section className="panel">
+                <div className="section-heading"><div><h2>{editingExpedienteId ? 'Editar expediente' : 'Expediente documental'}</h2><p>Agrupa documentos por entidad operativa.</p></div></div>
+                <form className="entity-form" onSubmit={handleCreateExpediente}>
+                  <select value={expedienteDraft.entidad_tipo} onChange={(event) => setExpedienteDraft((current) => ({ ...current, entidad_tipo: event.target.value }))}>
+                    <option value="contrato">Contrato</option>
+                    <option value="arrendatario">Arrendatario</option>
+                    <option value="manual">Manual</option>
+                  </select>
+                  <input placeholder="Entidad ID" value={expedienteDraft.entidad_id} onChange={(event) => setExpedienteDraft((current) => ({ ...current, entidad_id: event.target.value }))} />
+                  <select value={expedienteDraft.estado} onChange={(event) => setExpedienteDraft((current) => ({ ...current, estado: event.target.value }))}>
+                    <option value="abierto">Abierto</option>
+                    <option value="cerrado">Cerrado</option>
+                    <option value="archivado">Archivado</option>
+                  </select>
+                  <input placeholder="Owner operativo" value={expedienteDraft.owner_operativo} onChange={(event) => setExpedienteDraft((current) => ({ ...current, owner_operativo: event.target.value }))} />
+                  <div className="inline-actions">
+                    <button type="submit" className="button-primary" disabled={isSubmitting || !expedienteDraft.entidad_id || !expedienteDraft.owner_operativo}>{editingExpedienteId ? 'Guardar expediente' : 'Guardar expediente'}</button>
+                    {editingExpedienteId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditExpediente}>Cancelar</button> : null}
+                  </div>
+                </form>
+              </section>
+
+              <section className="panel">
+                <div className="section-heading"><div><h2>Política de firma</h2><p>Reglas activas por tipo documental.</p></div></div>
+                <form className="entity-form" onSubmit={handleCreatePoliticaFirma}>
+                  <select value={politicaFirmaDraft.tipo_documental} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, tipo_documental: event.target.value }))}>
+                    <option value="contrato_principal">Contrato principal</option>
+                    <option value="anexo">Anexo</option>
+                    <option value="carta_aviso">Carta de aviso</option>
+                    <option value="liquidacion_garantia">Liquidación de garantía</option>
+                    <option value="respaldo_tributario">Respaldo tributario</option>
+                    <option value="comprobante_notarial">Comprobante notarial</option>
+                    <option value="evidencia_resolucion_manual">Evidencia de resolución manual</option>
+                  </select>
+                  <select value={politicaFirmaDraft.modo_firma_permitido} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, modo_firma_permitido: event.target.value }))}>
+                    <option value="firma_simple">Firma simple</option>
+                    <option value="firma_avanzada">Firma avanzada</option>
+                    <option value="mixta">Mixta</option>
+                    <option value="manual">Manual</option>
+                  </select>
+                  <select value={politicaFirmaDraft.estado} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, estado: event.target.value }))}>
+                    <option value="activa">Activa</option>
+                    <option value="inactiva">Inactiva</option>
+                  </select>
+                  <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_firma_arrendador} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_firma_arrendador: event.target.checked }))} />Firma arrendador</label>
+                  <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_firma_arrendatario} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_firma_arrendatario: event.target.checked }))} />Firma arrendatario</label>
+                  <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_codeudor} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_codeudor: event.target.checked }))} />Firma codeudor</label>
+                  <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_notaria} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_notaria: event.target.checked }))} />Requiere notaría</label>
+                  <button type="submit" className="button-primary" disabled={isSubmitting}>Guardar política</button>
+                </form>
+              </section>
+
+              <section className="panel">
+                <div className="section-heading"><div><h2>Documento emitido</h2><p>Registro de documento y estado documental.</p></div></div>
+                <form className="entity-form" onSubmit={handleCreateDocumento}>
+                  <select value={documentoDraft.expediente} onChange={(event) => setDocumentoDraft((current) => ({ ...current, expediente: event.target.value }))}>
+                    <option value="">Selecciona expediente</option>
+                    {expedientes.map((item) => (
+                      <option key={item.id} value={item.id}>{item.entidad_tipo} · {item.entidad_id}</option>
+                    ))}
+                  </select>
+                  <select value={documentoDraft.tipo_documental} onChange={(event) => setDocumentoDraft((current) => ({ ...current, tipo_documental: event.target.value }))}>
+                    <option value="contrato_principal">Contrato principal</option>
+                    <option value="anexo">Anexo</option>
+                    <option value="carta_aviso">Carta de aviso</option>
+                    <option value="liquidacion_garantia">Liquidación de garantía</option>
+                    <option value="respaldo_tributario">Respaldo tributario</option>
+                    <option value="comprobante_notarial">Comprobante notarial</option>
+                    <option value="evidencia_resolucion_manual">Evidencia de resolución manual</option>
+                  </select>
+                  <input placeholder="Versión plantilla" value={documentoDraft.version_plantilla} onChange={(event) => setDocumentoDraft((current) => ({ ...current, version_plantilla: event.target.value }))} />
+                  <input placeholder="Checksum" value={documentoDraft.checksum} onChange={(event) => setDocumentoDraft((current) => ({ ...current, checksum: event.target.value }))} />
+                  <input type="datetime-local" value={documentoDraft.fecha_carga} onChange={(event) => setDocumentoDraft((current) => ({ ...current, fecha_carga: event.target.value }))} />
+                  <select value={documentoDraft.origen} onChange={(event) => setDocumentoDraft((current) => ({ ...current, origen: event.target.value }))}>
+                    <option value="generado_sistema">Generado por sistema</option>
+                    <option value="carga_externa_controlada">Carga externa controlada</option>
+                  </select>
+                  <select value={documentoDraft.estado} onChange={(event) => setDocumentoDraft((current) => ({ ...current, estado: event.target.value }))}>
+                    <option value="borrador">Borrador</option>
+                    <option value="emitido">Emitido</option>
+                    <option value="archivado">Archivado</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                  <input placeholder="Storage ref" value={documentoDraft.storage_ref} onChange={(event) => setDocumentoDraft((current) => ({ ...current, storage_ref: event.target.value }))} />
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !documentoDraft.expediente || !documentoDraft.checksum || !documentoDraft.storage_ref}>Guardar documento</button>
+                </form>
+              </section>
+
+              <section className="panel">
+                <div className="section-heading"><div><h2>Formalizar documento</h2><p>Registro de firmas y comprobante notarial cuando aplique.</p></div></div>
+                <form className="entity-form" onSubmit={handleFormalizeDocumento}>
+                  <select value={documentoFormalizarDraft.documentoId} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, documentoId: event.target.value }))}>
+                    <option value="">Selecciona documento</option>
+                    {documentosEmitidos.map((item) => (
+                      <option key={item.id} value={item.id}>{item.tipo_documental} · {item.storage_ref}</option>
+                    ))}
+                  </select>
+                  <select value={documentoFormalizarDraft.comprobante_notarial} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, comprobante_notarial: event.target.value }))}>
+                    <option value="">Sin comprobante</option>
+                    {documentosEmitidos.filter((item) => item.tipo_documental === 'comprobante_notarial').map((item) => (
+                      <option key={item.id} value={item.id}>{item.storage_ref}</option>
+                    ))}
+                  </select>
+                  <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.firma_arrendador_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, firma_arrendador_registrada: event.target.checked }))} />Firma arrendador</label>
+                  <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.firma_arrendatario_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, firma_arrendatario_registrada: event.target.checked }))} />Firma arrendatario</label>
+                  <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.firma_codeudor_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, firma_codeudor_registrada: event.target.checked }))} />Firma codeudor</label>
+                  <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.recepcion_notarial_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, recepcion_notarial_registrada: event.target.checked }))} />Recepción notarial</label>
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !documentoFormalizarDraft.documentoId}>Formalizar documento</button>
+                </form>
+              </section>
+            </section>
+          ) : null}
+
+          <TableBlock title="Expedientes" subtitle="Agrupación documental por entidad operativa." rows={filteredExpedientes} empty="No hay expedientes para este filtro." columns={[
+            { label: 'Entidad', render: (row) => `${row.entidad_tipo} · ${row.entidad_id}` },
+            { label: 'Owner operativo', render: (row) => row.owner_operativo },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            { label: 'Acción', render: (row) => canEditDocumentos ? <button type="button" className="button-ghost inline-action" onClick={() => startEditExpediente(row)}>Editar</button> : 'Solo lectura' },
+          ]} />
+
+          <TableBlock title="Políticas de firma" subtitle="Reglas activas por tipo documental." rows={filteredPoliticasFirma} empty="No hay políticas para este filtro." columns={[
+            { label: 'Tipo documental', render: (row) => row.tipo_documental },
+            { label: 'Modo firma', render: (row) => row.modo_firma_permitido },
+            { label: 'Arrendador', render: (row) => row.requiere_firma_arrendador ? 'Sí' : 'No' },
+            { label: 'Arrendatario', render: (row) => row.requiere_firma_arrendatario ? 'Sí' : 'No' },
+            { label: 'Notaría', render: (row) => row.requiere_notaria ? 'Sí' : 'No' },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+          ]} />
+
+          <TableBlock title="Documentos emitidos" subtitle="Estado documental y storage asociado." rows={filteredDocumentosEmitidos} empty="No hay documentos emitidos para este filtro." columns={[
+            { label: 'Expediente', render: (row) => `${expedienteById.get(row.expediente)?.entidad_tipo || 'expediente'} · ${expedienteById.get(row.expediente)?.entidad_id || row.expediente}` },
+            { label: 'Tipo', render: (row) => row.tipo_documental },
+            { label: 'Origen', render: (row) => row.origen },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            { label: 'Storage', render: (row) => row.storage_ref },
+            { label: 'Acción', render: (row) => canEditDocumentos ? <button type="button" className="button-ghost inline-action" onClick={() => setDocumentoFormalizarDraft((current) => ({ ...current, documentoId: String(row.id) }))}>Formalizar</button> : 'Solo lectura' },
           ]} />
         </>
       ) : null}
