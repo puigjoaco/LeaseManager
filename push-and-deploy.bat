@@ -78,11 +78,11 @@ if errorlevel 1 (
 
 echo [4/4] Deploying greenfield frontend on Vercel...
 pushd frontend >nul
-set "VERCEL_ARGS=--prod --yes --scope joaquins-projects-72185699"
 if defined VERCEL_TOKEN (
-    set "VERCEL_ARGS=!VERCEL_ARGS! --token %VERCEL_TOKEN%"
+    vercel --prod --yes --scope joaquins-projects-72185699 --token %VERCEL_TOKEN%
+) else (
+    vercel --prod --yes --scope joaquins-projects-72185699
 )
-vercel !VERCEL_ARGS!
 if errorlevel 1 (
     popd >nul
     echo ERROR: Vercel deploy failed
