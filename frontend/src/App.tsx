@@ -8,6 +8,9 @@ import { CobranzaWorkspace } from './backoffice/workspaces/CobranzaWorkspace'
 import { ConciliacionWorkspace } from './backoffice/workspaces/ConciliacionWorkspace'
 import { ContabilidadWorkspace } from './backoffice/workspaces/ContabilidadWorkspace'
 import { DocumentosWorkspace } from './backoffice/workspaces/DocumentosWorkspace'
+import { ContratosWorkspace } from './backoffice/workspaces/ContratosWorkspace'
+import { OperacionWorkspace } from './backoffice/workspaces/OperacionWorkspace'
+import { PatrimonioWorkspace } from './backoffice/workspaces/PatrimonioWorkspace'
 import { ReportingWorkspace } from './backoffice/workspaces/ReportingWorkspace'
 import { SiiWorkspace } from './backoffice/workspaces/SiiWorkspace'
 import './App.css'
@@ -3353,129 +3356,115 @@ function App() {
       {activeView !== 'overview' && formError ? <div className="banner-error">{formError}</div> : null}
 
       {activeView === 'patrimonio' ? (
-        <>
-          {!canEditPatrimonio ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Patrimonio.</div> : null}
-          <section className="form-grid">
-            <section className="panel">
-              <div className="section-heading"><div><h2>{editingSocioId ? 'Editar socio' : 'Alta rápida de socio'}</h2><p>Ingreso mínimo para participantes activos.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreateSocio}>
-                <input placeholder="Nombre completo" value={socioDraft.nombre} onChange={(event) => setSocioDraft((current) => ({ ...current, nombre: event.target.value }))} />
-                <input placeholder="RUT" value={socioDraft.rut} onChange={(event) => setSocioDraft((current) => ({ ...current, rut: event.target.value }))} />
-                <input placeholder="Email" value={socioDraft.email} onChange={(event) => setSocioDraft((current) => ({ ...current, email: event.target.value }))} />
-                <input placeholder="Teléfono" value={socioDraft.telefono} onChange={(event) => setSocioDraft((current) => ({ ...current, telefono: event.target.value }))} />
-                <input placeholder="Domicilio" value={socioDraft.domicilio} onChange={(event) => setSocioDraft((current) => ({ ...current, domicilio: event.target.value }))} />
-                <label className="checkbox-row"><input type="checkbox" checked={socioDraft.activo} onChange={(event) => setSocioDraft((current) => ({ ...current, activo: event.target.checked }))} />Activo</label>
-                <div className="inline-actions">
-                  <button type="submit" className="button-primary" disabled={isSubmitting}>{editingSocioId ? 'Guardar cambios' : 'Guardar socio'}</button>
-                  {editingSocioId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditSocio}>Cancelar</button> : null}
-                </div>
-              </form>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading"><div><h2>{editingPropiedadId ? 'Editar propiedad' : 'Alta rápida de propiedad'}</h2><p>Owner explícito y código operativo desde el inicio.</p></div></div>
-              <form className="entity-form" onSubmit={handleCreatePropiedad}>
-                <input placeholder="Código propiedad" value={propiedadDraft.codigo_propiedad} onChange={(event) => setPropiedadDraft((current) => ({ ...current, codigo_propiedad: event.target.value }))} />
-                <input placeholder="Dirección" value={propiedadDraft.direccion} onChange={(event) => setPropiedadDraft((current) => ({ ...current, direccion: event.target.value }))} />
-                <input placeholder="Comuna" value={propiedadDraft.comuna} onChange={(event) => setPropiedadDraft((current) => ({ ...current, comuna: event.target.value }))} />
-                <input placeholder="Región" value={propiedadDraft.region} onChange={(event) => setPropiedadDraft((current) => ({ ...current, region: event.target.value }))} />
-                <input placeholder="Rol avalúo" value={propiedadDraft.rol_avaluo} onChange={(event) => setPropiedadDraft((current) => ({ ...current, rol_avaluo: event.target.value }))} />
-                <select value={propiedadDraft.tipo_inmueble} onChange={(event) => setPropiedadDraft((current) => ({ ...current, tipo_inmueble: event.target.value }))}>
-                  <option value="otro">Otro</option>
-                  <option value="departamento">Departamento</option>
-                  <option value="casa">Casa</option>
-                  <option value="local">Local</option>
-                  <option value="oficina">Oficina</option>
-                  <option value="bodega">Bodega</option>
-                  <option value="estacionamiento">Estacionamiento</option>
-                </select>
-                <select value={propiedadDraft.estado} onChange={(event) => setPropiedadDraft((current) => ({ ...current, estado: event.target.value }))}>
-                  <option value="borrador">Borrador</option>
-                  <option value="activa">Activa</option>
-                  <option value="inactiva">Inactiva</option>
-                </select>
-                <select value={`${propiedadDraft.owner_tipo}:${propiedadDraft.owner_id}`} onChange={(event) => {
-                  const [tipo, id] = event.target.value.split(':')
-                  setPropiedadDraft((current) => ({ ...current, owner_tipo: tipo, owner_id: id || '' }))
-                }}>
-                  <option value="">Selecciona owner</option>
-                  {patrimonioOwners.map((owner) => (
-                    <option key={`${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>
-                  ))}
-                </select>
-                <div className="inline-actions">
-                  <button type="submit" className="button-primary" disabled={isSubmitting || !propiedadDraft.owner_id}>{editingPropiedadId ? 'Guardar cambios' : 'Guardar propiedad'}</button>
-                  {editingPropiedadId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditPropiedad}>Cancelar</button> : null}
-                </div>
-              </form>
-            </section>
-          </section>
-
-          <TableBlock title="Socios" subtitle="Participantes y representantes activos." rows={filteredSocios} empty="No hay socios para este filtro." columns={[
-            { label: 'Nombre', render: (row) => row.nombre },
-            { label: 'RUT', render: (row) => row.rut },
-            { label: 'Contacto', render: (row) => row.email || row.telefono || 'Sin dato' },
-            { label: 'Estado', render: (row) => <Badge label={row.activo ? 'activo' : 'inactivo'} tone={row.activo ? 'positive' : 'danger'} /> },
-            {
-              label: 'Acción',
-              render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditSocio(row)}>Editar</button>,
-            },
-          ]} />
-          <TableBlock title="Empresas" subtitle="Owners empresariales y participaciones vigentes." rows={filteredEmpresas} empty="No hay empresas para este filtro." columns={[
-            { label: 'Razón social', render: (row) => row.razon_social },
-            { label: 'RUT', render: (row) => row.rut },
-            { label: 'Participaciones', render: (row) => count(row.participaciones_detail.length) },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-            {
-              label: 'Siguiente paso',
-              render: (row) => (
-                <div className="inline-actions">
-                  <button type="button" className="button-ghost inline-action" onClick={() => goToEmpresaContext(row.id)}>
-                    Contabilidad
-                  </button>
-                  <button type="button" className="button-ghost inline-action" onClick={() => { navigateWithContext('sii', row.razon_social); setCapacidadSiiDraft((current) => ({ ...current, empresa: String(row.id) })) }}>
-                    SII
-                  </button>
-                </div>
-              ),
-            },
-          ]} />
-          <TableBlock title="Comunidades" subtitle="Representación vigente y composición comunitaria." rows={filteredComunidades} empty="No hay comunidades para este filtro." columns={[
-            { label: 'Nombre', render: (row) => row.nombre },
-            { label: 'Representación', render: (row) => row.representacion_vigente ? `${row.representacion_vigente.socio_representante_nombre} · ${row.representacion_vigente.modo_representacion.replaceAll('_', ' ')}` : 'Sin representación' },
-            { label: 'Participaciones', render: (row) => count(row.participaciones_detail.length) },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-          ]} />
-          <TableBlock title="Propiedades" subtitle="Inventario elegible dentro del greenfield." rows={filteredPropiedades} empty="No hay propiedades para este filtro." columns={[
-            { label: 'Código', render: (row) => row.codigo_propiedad },
-            { label: 'Dirección', render: (row) => row.direccion },
-            { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo.replaceAll('_', ' ')}` },
-            { label: 'Ubicación', render: (row) => `${row.comuna}, ${row.region}` },
-            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-            {
-              label: 'Editar',
-              render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditPropiedad(row)}>Editar</button>,
-            },
-            {
-              label: 'Siguiente paso',
-              render: (row) => (
-                <button
-                  type="button"
-                  className="button-ghost inline-action"
-                  onClick={() => {
-                    navigateWithContext('operacion', row.codigo_propiedad, `Propiedad: ${row.codigo_propiedad}`)
-                    setMandatoDraft((current) => ({ ...current, propiedad_id: String(row.id) }))
-                  }}
-                >
-                  Crear mandato
-                </button>
-              ),
-            },
-          ]} />
-        </>
+        <PatrimonioWorkspace
+          canEditPatrimonio={canEditPatrimonio}
+          editingSocioId={editingSocioId}
+          socioDraft={socioDraft}
+          setSocioDraft={setSocioDraft}
+          handleCreateSocio={handleCreateSocio}
+          cancelEditSocio={cancelEditSocio}
+          editingPropiedadId={editingPropiedadId}
+          propiedadDraft={propiedadDraft}
+          setPropiedadDraft={setPropiedadDraft}
+          handleCreatePropiedad={handleCreatePropiedad}
+          cancelEditPropiedad={cancelEditPropiedad}
+          patrimonioOwners={patrimonioOwners}
+          filteredSocios={filteredSocios}
+          filteredEmpresas={filteredEmpresas}
+          filteredComunidades={filteredComunidades}
+          filteredPropiedades={filteredPropiedades}
+          toneFor={toneFor}
+          isSubmitting={isSubmitting}
+          startEditSocio={startEditSocio}
+          startEditPropiedad={startEditPropiedad}
+          goToEmpresaContext={goToEmpresaContext}
+          goToEmpresaSiiContext={(empresaId, razonSocial) => {
+            navigateWithContext('sii', razonSocial)
+            setCapacidadSiiDraft((current) => ({ ...current, empresa: String(empresaId) }))
+          }}
+          goToPropertyOperationContext={(propiedadId, codigoPropiedad) => {
+            navigateWithContext('operacion', codigoPropiedad, `Propiedad: ${codigoPropiedad}`)
+            setMandatoDraft((current) => ({ ...current, propiedad_id: String(propiedadId) }))
+          }}
+        />
       ) : null}
 
       {activeView === 'operacion' ? (
+        <OperacionWorkspace
+          canEditOperacion={canEditOperacion}
+          editingCuentaId={editingCuentaId}
+          cuentaDraft={cuentaDraft}
+          setCuentaDraft={setCuentaDraft}
+          handleCreateCuenta={handleCreateCuenta}
+          cancelEditCuenta={cancelEditCuenta}
+          editingMandatoId={editingMandatoId}
+          mandatoDraft={mandatoDraft}
+          setMandatoDraft={setMandatoDraft}
+          handleCreateMandato={handleCreateMandato}
+          cancelEditMandato={cancelEditMandato}
+          simpleOwners={simpleOwners}
+          patrimonioOwners={patrimonioOwners}
+          propiedades={propiedades}
+          cuentas={cuentas}
+          filteredCuentas={filteredCuentas}
+          filteredIdentidades={filteredIdentidades}
+          filteredMandatos={filteredMandatos}
+          toneFor={toneFor}
+          isSubmitting={isSubmitting}
+          startEditCuenta={startEditCuenta}
+          startEditMandato={startEditMandato}
+          goToCuentaConciliacion={(cuentaId, numeroCuenta) => {
+            navigateWithContext('conciliacion', numeroCuenta, `Cuenta: ${numeroCuenta}`)
+            setConexionDraft((current) => ({ ...current, cuenta_recaudadora: String(cuentaId) }))
+          }}
+          goToMandatoContext={goToMandatoContext}
+        />
+      ) : null}
+
+      {false ? (
+        <ContratosWorkspace
+          canEditContratos={canEditContratos}
+          editingArrendatarioId={editingArrendatarioId}
+          arrendatarioDraft={arrendatarioDraft}
+          setArrendatarioDraft={setArrendatarioDraft}
+          handleCreateArrendatario={handleCreateArrendatario}
+          cancelEditArrendatario={cancelEditArrendatario}
+          editingContratoId={editingContratoId}
+          contratoDraft={contratoDraft}
+          setContratoDraft={setContratoDraft}
+          handleCreateContrato={handleCreateContrato}
+          cancelEditContrato={cancelEditContrato}
+          avisoDraft={avisoDraft}
+          setAvisoDraft={setAvisoDraft}
+          handleCreateAviso={handleCreateAviso}
+          mandatos={mandatos}
+          arrendatarios={arrendatarios}
+          contratos={contratos}
+          filteredArrendatarios={filteredArrendatarios}
+          filteredContratos={filteredContratos}
+          filteredAvisos={filteredAvisos}
+          arrendatarioById={arrendatarioById}
+          mandatoById={mandatoById}
+          contratoById={contratoById}
+          toneFor={toneFor}
+          isSubmitting={isSubmitting}
+          startEditArrendatario={startEditArrendatario}
+          startEditContrato={startEditContrato}
+          goToArrendatarioContext={goToArrendatarioContext}
+          goToContratoContext={goToContratoContext}
+          prepareExpedienteForContract={(row) => {
+            navigateWithContext('documentos', row.codigo_contrato, `Contrato: ${row.codigo_contrato}`)
+            setExpedienteDraft((current) => ({
+              ...current,
+              entidad_tipo: 'contrato',
+              entidad_id: String(row.id),
+              owner_operativo: `mandato:${row.mandato_operacion}`,
+            }))
+          }}
+        />
+      ) : null}
+
+      {false ? (
         <>
           {!canEditOperacion ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Operación.</div> : null}
           <section className="form-grid">
