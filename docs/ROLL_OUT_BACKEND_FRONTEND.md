@@ -103,6 +103,22 @@ Valor esperado:
 
 - la URL pública HTTPS del `backend-web`
 
+Automatización preparada:
+
+- [scripts/connect-frontend-to-backend.ps1](/D:/Proyectos/LeaseManager/Produccion%201.0/scripts/connect-frontend-to-backend.ps1)
+
+Ejemplo:
+
+```powershell
+.\scripts\connect-frontend-to-backend.ps1 -BackendUrl "https://backend-web-production.up.railway.app"
+```
+
+Ese script:
+
+1. hace upsert de `VITE_API_BASE_URL` en Vercel;
+2. actualiza `production` y `preview`;
+3. dispara redeploy del frontend.
+
 ## Checklist de cierre
 
 - `backend-web` responde `200` en `/api/v1/health/`
