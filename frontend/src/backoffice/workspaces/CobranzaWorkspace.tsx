@@ -55,6 +55,7 @@ export function CobranzaWorkspace({
   isSubmitting,
   navigateToConciliacion,
   goToPagoContext,
+  canOpenSii,
 }: {
   canEditCobranza: boolean
   ufDraft: UfDraft
@@ -90,6 +91,7 @@ export function CobranzaWorkspace({
   isSubmitting: boolean
   navigateToConciliacion: (row: PagoMensualItem) => void
   goToPagoContext: (pagoId: number) => void
+  canOpenSii: boolean
 }) {
   return (
     <>
@@ -199,7 +201,7 @@ export function CobranzaWorkspace({
         { label: 'Calculado', render: (row) => row.monto_calculado_clp },
         { label: 'Pagado', render: (row) => row.monto_pagado_clp },
         { label: 'Estado', render: (row) => <Badge label={row.estado_pago} tone={toneFor(row.estado_pago)} /> },
-        { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => navigateToConciliacion(row)}>Conciliar</button><button type="button" className="button-ghost inline-action" onClick={() => goToPagoContext(row.id)}>DTE</button></div> },
+        { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => navigateToConciliacion(row)}>Conciliar</button>{canOpenSii ? <button type="button" className="button-ghost inline-action" onClick={() => goToPagoContext(row.id)}>DTE</button> : null}</div> },
       ]} />
       <TableBlock title="Garantías" subtitle="Saldos y estado actual de cada contrato." rows={filteredGarantias} empty="No hay garantías para este filtro." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },

@@ -3112,6 +3112,8 @@ function App() {
             navigateWithContext('operacion', codigoPropiedad, `Propiedad: ${codigoPropiedad}`)
             setMandatoDraft((current) => ({ ...current, propiedad_id: String(propiedadId) }))
           }}
+          canOpenContabilidad={canAccessView('contabilidad')}
+          canOpenSii={canAccessView('sii')}
         />
       ) : null}
 
@@ -3280,6 +3282,7 @@ function App() {
           isSubmitting={isSubmitting}
           navigateToConciliacion={(row) => { navigateWithContext('conciliacion', `${row.mes}/${row.anio}`) }}
           goToPagoContext={goToPagoContext}
+          canOpenSii={canAccessView('sii')}
         />
       ) : null}
 

@@ -35,6 +35,8 @@ export function PatrimonioWorkspace({
   goToEmpresaContext,
   goToEmpresaSiiContext,
   goToPropertyOperationContext,
+  canOpenContabilidad,
+  canOpenSii,
 }: {
   canEditPatrimonio: boolean
   editingSocioId: number | null
@@ -59,6 +61,8 @@ export function PatrimonioWorkspace({
   goToEmpresaContext: (empresaId: number) => void
   goToEmpresaSiiContext: (empresaId: number, razonSocial: string) => void
   goToPropertyOperationContext: (propiedadId: number, codigoPropiedad: string) => void
+  canOpenContabilidad: boolean
+  canOpenSii: boolean
 }) {
   return (
     <>
@@ -118,7 +122,7 @@ export function PatrimonioWorkspace({
         { label: 'RUT', render: (row) => row.rut },
         { label: 'Participaciones', render: (row) => String(row.participaciones_detail.length) },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-        { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => goToEmpresaContext(row.id)}>Contabilidad</button><button type="button" className="button-ghost inline-action" onClick={() => goToEmpresaSiiContext(row.id, row.razon_social)}>SII</button></div> },
+        { label: 'Siguiente paso', render: (row) => <div className="inline-actions">{canOpenContabilidad ? <button type="button" className="button-ghost inline-action" onClick={() => goToEmpresaContext(row.id)}>Contabilidad</button> : null}{canOpenSii ? <button type="button" className="button-ghost inline-action" onClick={() => goToEmpresaSiiContext(row.id, row.razon_social)}>SII</button> : null}{!canOpenContabilidad && !canOpenSii ? 'Sin acceso adicional' : null}</div> },
       ]} />
       <TableBlock title="Comunidades" subtitle="Representación vigente y composición comunitaria." rows={filteredComunidades} empty="No hay comunidades para este filtro." columns={[
         { label: 'Nombre', render: (row) => row.nombre },
