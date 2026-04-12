@@ -157,9 +157,11 @@ export function ReportingWorkspace({
   count: (value: number | undefined) => string
 }) {
   const canReadMigrationBacklog = effectiveRole === 'AdministradorGlobal'
+  const isReadOnlyReporting = effectiveRole === 'RevisorFiscalExterno' || effectiveRole === 'Socio'
 
   return (
     <>
+      {isReadOnlyReporting ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Reporting.</div> : null}
       {effectiveRole === 'Socio' ? (
         <>
           <section className="panel">
