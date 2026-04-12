@@ -102,6 +102,8 @@ Config as code preparada:
 
 - [backend/railway.web.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.web.json)
 - [backend/railway.worker.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.worker.json)
+- [backend/.env.railway.example](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/.env.railway.example)
+- [scripts/railway-backend-bootstrap.ps1](/D:/Proyectos/LeaseManager/Produccion%201.0/scripts/railway-backend-bootstrap.ps1)
 
 ### Servicio web
 
@@ -124,6 +126,12 @@ Config as code preparada:
 ### Nota
 
 La validación de estas configuraciones queda pendiente de crear el proyecto Railway real del backend, pero la estructura ya está lista para usarse sin improvisación.
+
+Bootstrap asistido:
+
+```powershell
+.\scripts\railway-backend-bootstrap.ps1 -CreateRedis
+```
 
 ## Nota de validación local
 
