@@ -8,10 +8,10 @@ export function toneFor(value: string): Tone {
   if (['ok', 'up', 'activa', 'activo', 'abierto', 'prepared', 'preparado', 'pagado', 'contabilizado', 'emitido', 'formalizado', 'sent', 'enviado', 'resolved', 'aceptado', 'approved', 'aprobado'].includes(normalized)) {
     return 'positive'
   }
-  if (['warning', 'pendiente', 'pendiente_revision', 'pendiente_revision_contable', 'pendiente_datos', 'condicionado', 'borrador', 'draft', 'in_review'].includes(normalized)) {
+  if (['warning', 'pendiente', 'pendiente_revision', 'pendiente_revision_contable', 'pendiente_datos', 'condicionado', 'borrador', 'draft', 'in_review', 'futuro'].includes(normalized)) {
     return 'warning'
   }
-  if (['danger', 'down', 'blocked', 'bloqueado', 'cerrado', 'suspendido', 'atrasado', 'fallido', 'cancelado', 'rejected', 'forbidden', 'inactivo', 'archivado'].includes(normalized)) {
+  if (['danger', 'down', 'blocked', 'bloqueado', 'cerrado', 'suspendido', 'atrasado', 'fallido', 'cancelado', 'rejected', 'forbidden', 'inactivo', 'archivado', 'unreachable'].includes(normalized)) {
     return 'danger'
   }
   return 'neutral'

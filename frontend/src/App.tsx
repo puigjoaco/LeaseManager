@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { FormEvent } from 'react'
 import heroImage from './assets/hero.png'
+import { Badge, Metric, TableBlock, count, stamp, toneFor } from './backoffice/shared'
 import { AuditWorkspace } from './backoffice/workspaces/AuditWorkspace'
 import { CanalesWorkspace } from './backoffice/workspaces/CanalesWorkspace'
 import { ContabilidadWorkspace } from './backoffice/workspaces/ContabilidadWorkspace'
@@ -656,9 +657,6 @@ type ReportingMigrationSummary = {
   }>
 }
 
-type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
-type Column<T> = { label: string; render: (row: T) => ReactNode }
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 const TOKEN_STORAGE_KEY = 'leasemanager.auth.token'
 const fallbackHealth: HealthPayload = {
@@ -702,21 +700,9 @@ async function apiRequest<T>(
   return payload as T
 }
 
-function toneFor(value: string): Tone {
-  const normalized = value.toLowerCase()
-  if (['activa', 'activo', 'aprobado', 'up', 'ok'].some((item) => normalized.includes(item))) return 'positive'
-  if (['pendiente', 'preparado', 'borrador', 'futuro'].some((item) => normalized.includes(item))) return 'warning'
-  if (['atrasado', 'bloqueado', 'down', 'unreachable'].some((item) => normalized.includes(item))) return 'danger'
-  return 'neutral'
-}
-
 function matches(search: string, values: Array<string | number | boolean | null | undefined>) {
   if (!search) return true
   return values.some((value) => String(value ?? '').toLowerCase().includes(search))
-}
-
-function count(value: number | undefined) {
-  return new Intl.NumberFormat('es-CL').format(value ?? 0)
 }
 
 function todayIso() {
@@ -729,10 +715,6 @@ function effectiveCodeFromPropertyCode(value: string) {
   return digits.slice(-3).padStart(3, '0')
 }
 
-function stamp(value: string | null) {
-  if (!value) return 'Sin refresco reciente'
-  return new Intl.DateTimeFormat('es-CL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
-}
 
 function canonicalRole(roleCode: string | null | undefined) {
   const normalized = String(roleCode || '').trim().toLowerCase()
@@ -805,65 +787,6 @@ function auditHeadingForRole(roleCode: string | null | undefined) {
     title: 'Eventos y resoluciones',
     subtitle: 'Trazabilidad transversal del sistema.',
   }
-}
-
-function Badge({ label, tone = 'neutral' }: { label: string; tone?: Tone }) {
-  return <span className={`status-badge tone-${tone}`}>{label}</span>
-}
-
-function Metric({ label, value, tone = 'neutral' }: { label: string; value: string; tone?: Tone }) {
-  return (
-    <article className={`metric-tile metric-${tone}`}>
-      <span className="metric-label">{label}</span>
-      <strong className="metric-value">{value}</strong>
-    </article>
-  )
-}
-
-function TableBlock<T extends { id: number | string }>({
-  title,
-  subtitle,
-  rows,
-  columns,
-  empty,
-}: {
-  title: string
-  subtitle: string
-  rows: T[]
-  columns: Column<T>[]
-  empty: string
-}) {
-  return (
-    <section className="data-block">
-      <div className="section-heading">
-        <div>
-          <h3>{title}</h3>
-          <p>{subtitle}</p>
-        </div>
-        <Badge label={`${count(rows.length)} registros`} />
-      </div>
-      {rows.length === 0 ? (
-        <div className="empty-state">{empty}</div>
-      ) : (
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>{columns.map((column) => <th key={column.label}>{column.label}</th>)}</tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  {columns.map((column) => (
-                    <td key={column.label}>{column.render(row)}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  )
 }
 
 function App() {
