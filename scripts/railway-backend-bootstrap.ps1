@@ -2,7 +2,7 @@ param(
     [string]$ProjectName = "leasemanager-backend",
     [string]$Workspace = "joaquins-projects-72185699",
     [string]$Environment = "production",
-    [string]$BackendEnvPath = "D:\\Proyectos\\LeaseManager\\Produccion 1.0\\backend\\.env.railway.example",
+    [string]$BackendEnvPath = "D:\\Proyectos\\LeaseManager\\Produccion 1.0\\backend\\railway.env.example",
     [switch]$CreateRedis,
     [switch]$CreatePostgres
 )

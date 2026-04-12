@@ -102,7 +102,7 @@ Config as code preparada:
 
 - [backend/railway.web.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.web.json)
 - [backend/railway.worker.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.worker.json)
-- [backend/.env.railway.example](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/.env.railway.example)
+- [backend/railway.env.example](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.env.example)
 - [scripts/railway-backend-bootstrap.ps1](/D:/Proyectos/LeaseManager/Produccion%201.0/scripts/railway-backend-bootstrap.ps1)
 
 ### Servicio web
