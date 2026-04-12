@@ -609,6 +609,11 @@ function count(value: number | undefined) {
   return new Intl.NumberFormat('es-CL').format(value ?? 0)
 }
 
+function sumPercentages(values: Array<{ porcentaje: string }>) {
+  const total = values.reduce((accumulator, item) => accumulator + Number(item.porcentaje || 0), 0)
+  return `${total.toFixed(2)}%`
+}
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -655,6 +660,26 @@ function allowedViewsForRole(roleCode: string | null | undefined): ViewKey[] {
     return ['reporting']
   }
   return ['overview']
+}
+
+function reportingHeadingForRole(roleCode: string | null | undefined) {
+  const role = canonicalRole(roleCode)
+  if (role === 'Socio') {
+    return {
+      title: 'Mi posición patrimonial',
+      placeholder: 'Comunidad, porcentaje o propiedad',
+    }
+  }
+  if (role === 'RevisorFiscalExterno') {
+    return {
+      title: 'Lectura de control y reporting',
+      placeholder: 'Empresa, período o estado',
+    }
+  }
+  return {
+    title: 'Dashboard, socios, libros y resumen anual',
+    placeholder: 'Empresa, socio, libro o resolución',
+  }
 }
 
 function Badge({ label, tone = 'neutral' }: { label: string; tone?: Tone }) {
@@ -1015,6 +1040,7 @@ function App() {
 
   const effectiveRole = canonicalRole(currentUser?.default_role_code)
   const activeAssignments = currentUser?.assignments || []
+  const reportingHeading = reportingHeadingForRole(effectiveRole)
 
   function canAccessView(view: ViewKey) {
     return allowedViewsForRole(effectiveRole).includes(view)
@@ -2852,11 +2878,11 @@ function App() {
                       ? 'Pagos, UF, ajustes, garantías y estado de cuenta'
                       : activeView === 'conciliacion'
                         ? 'Conexiones, movimientos e ingresos desconocidos'
-                        : activeView === 'contabilidad'
-                          ? 'Configuración fiscal, eventos, asientos y cierres'
-                          : activeView === 'sii'
-                            ? 'Capacidades, DTE, F29 y preparación anual'
-                            : 'Dashboard, socios, libros y resumen anual'}
+                      : activeView === 'contabilidad'
+                        ? 'Configuración fiscal, eventos, asientos y cierres'
+                        : activeView === 'sii'
+                          ? 'Capacidades, DTE, F29 y preparación anual'
+                            : reportingHeading.title}
             </h2>
           </div>
           <label className="search-field">
@@ -2879,7 +2905,7 @@ function App() {
                             ? 'Empresa, evento, cuenta, cierre u obligación'
                             : activeView === 'sii'
                               ? 'Empresa, DTE, F29, DDJJ o F22'
-                              : 'Empresa, socio, libro o resolución'
+                              : reportingHeading.placeholder
               }
             />
           </label>
@@ -4038,13 +4064,26 @@ function App() {
       {activeView === 'reporting' ? (
         <>
           {effectiveRole === 'Socio' ? (
-            <section className="panel">
-              <div className="section-heading"><div><h2>Resumen propio</h2><p>Participaciones, propiedades y estado relacionado.</p></div></div>
-              <div className="list-stack">
-                <div className="list-row"><span>Perfil</span><strong>{currentUser?.display_name || currentUser?.username}</strong></div>
-                <div className="list-row"><span>Socio vinculado</span><strong>{reportingPartnerSummary?.socio.nombre || 'Sin resumen cargado'}</strong></div>
-              </div>
-            </section>
+            <>
+              <section className="panel">
+                <div className="section-heading"><div><h2>Resumen propio</h2><p>Participaciones, propiedades y estado relacionado.</p></div></div>
+                <div className="list-stack">
+                  <div className="list-row"><span>Perfil</span><strong>{currentUser?.display_name || currentUser?.username}</strong></div>
+                  <div className="list-row"><span>Socio vinculado</span><strong>{reportingPartnerSummary?.socio.nombre || 'Sin resumen cargado'}</strong></div>
+                  <div className="list-row"><span>RUT</span><strong>{reportingPartnerSummary?.socio.rut || 'Sin dato'}</strong></div>
+                </div>
+              </section>
+              {reportingPartnerSummary ? (
+                <section className="metric-grid compact-grid">
+                  <Metric label="Empresas" value={count(reportingPartnerSummary.participaciones_empresas.length)} tone="neutral" />
+                  <Metric label="Comunidades" value={count(reportingPartnerSummary.participaciones_comunidades.length)} tone="neutral" />
+                  <Metric label="Propiedades directas" value={count(reportingPartnerSummary.propiedades_directas.length)} tone="neutral" />
+                  <Metric label="Contratos directos" value={count(reportingPartnerSummary.contratos_directos_activos)} tone="positive" />
+                  <Metric label="Estados de cuenta" value={count(reportingPartnerSummary.estados_cuenta_relacionados)} tone="neutral" />
+                  <Metric label="Participación comunitaria" value={sumPercentages(reportingPartnerSummary.participaciones_comunidades)} tone="positive" />
+                </section>
+              ) : null}
+            </>
           ) : (
             <section className="form-grid">
               <section className="panel">
