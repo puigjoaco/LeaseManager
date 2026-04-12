@@ -76,6 +76,7 @@ Se ejecuto una secuencia verificable adicional:
 - se versionaron commands de bootstrap demo remoto para:
   - datos operativos;
   - baseline de control;
+  - actividad mensual demo de control;
   - exportaciones demo de `Compliance`;
   - baseline demo de politicas de retencion de `Compliance`;
 - se enriquecio la base remota con:
@@ -91,6 +92,13 @@ Se ejecuto una secuencia verificable adicional:
   - preparacion de nueva exportacion;
   - revocacion admin-only;
   - confirmacion de que el hueco visible restante era dataset, no permisos ni wiring.
+- se enriquecio tambien el bloque publico de control:
+  - capacidades `SII` demo de empresa `1` con `certificado_ref` no sensible;
+  - `1` evento contable demo posteado para `2026-05`;
+  - `1` asiento contable;
+  - `1` cierre mensual aprobado;
+  - `1` borrador `F29`;
+  - snapshots contables no vacios para reporting por periodo.
 
 ## 3. Estado real del repo, del runtime y del codigo
 
@@ -273,6 +281,7 @@ Estado actual:
 - existen commands idempotentes para bootstrap demo remoto;
 - la smoke admin-only ya quedo validada en el sitio publico;
 - el baseline demo remoto de `Compliance` ya incluye politicas de retencion y exportaciones sensibles.
+- `Contabilidad` / `SII` / `Reporting` ya no estan solo con baseline estructural: existe una primera actividad mensual demo reproducible visible en remoto.
 
 ### 5.5 Ruido puntual de browser automation
 

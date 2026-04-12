@@ -43,11 +43,19 @@
   - descifra payloads correctamente;
   - permite preparar nuevas exportaciones;
   - permite revocarlas;
+- `Contabilidad` / `SII` / `Reporting` ya tienen una primera huella demo no vacia en remoto:
+  - `1` evento contable posteado;
+  - `1` asiento contable;
+  - `1` obligacion mensual;
+  - `1` cierre aprobado;
+  - `1` borrador `F29`;
+  - snapshots contables por periodo;
 - El entorno remoto ya se enriquecio con datos derivados reales:
   - UF de abril y mayo 2026;
   - pagos de abril y mayo;
   - estados de cuenta recalculados;
   - baseline minimo de control para empresa 1;
+  - actividad mensual demo de control para empresa 1 en `2026-05`;
   - exportaciones demo de `Compliance`;
   - baseline demo de politicas de retencion de `Compliance`.
 

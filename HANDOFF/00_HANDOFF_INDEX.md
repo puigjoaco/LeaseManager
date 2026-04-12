@@ -65,8 +65,17 @@ Estado real consolidado al cierre de este handoff:
 - ya existen commands versionados para bootstrap demo remoto:
   - `bootstrap_demo_operational_data`
   - `bootstrap_demo_control_baseline`
+  - `bootstrap_demo_control_activity`
   - `bootstrap_demo_compliance_exports`
   - `bootstrap_demo_compliance_policies`
+- el entorno remoto ya no tiene solo baseline estructural de control:
+  - empresa `1`, periodo `2026-05` con `1` evento contable posteado;
+  - `1` asiento contable;
+  - `1` obligacion mensual;
+  - `1` cierre mensual aprobado;
+  - `1` borrador `F29` en estado `pendiente_datos`;
+  - snapshots de `LibroDiario`, `LibroMayor` y `BalanceComprobacion`;
+  - capacidades `SII` de la empresa `1` con `certificado_ref` demo no sensible.
 
 ## Borrador vigente
 

@@ -52,10 +52,11 @@ Ya no falta verificar, para este tramo:
 ### 3.4 Siguiente frente funcional
 
 `Compliance` ya quedo abierto en frontend para admin, ya tiene bootstrap demo remoto y ya paso smoke admin-only dedicada.
+`Contabilidad` / `SII` / `Reporting` ya tienen una primera base mensual no vacia para empresa `1`, pero siguen lejos de un dataset rico.
 
 El proyecto podria seguir por una de estas dos lineas:
 
-- profundizar la utilidad de `Contabilidad` / `SII` / `Reporting` ahora que el entorno remoto ya tiene mas datos derivados;
+- profundizar la utilidad de `Contabilidad` / `SII` / `Reporting` ahora que el entorno remoto ya tiene base estructural y una primera actividad mensual;
 - o priorizar el siguiente frente funcional con mejor retorno, sin volver a abrir infraestructura ni el modulo `Compliance` como si siguiera sin validar.
 
 ## 4. Proximo paso recomendado
