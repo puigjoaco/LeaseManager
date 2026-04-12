@@ -2,6 +2,7 @@ from pathlib import Path
 import base64
 import hashlib
 
+from cryptography.fernet import Fernet
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -157,12 +158,27 @@ CELERY_TIMEZONE = TIME_ZONE
 LEGACY_ROOT_PATH = env('LEGACY_ROOT_PATH')
 
 _data_export_encryption_key = env('DATA_EXPORT_ENCRYPTION_KEY')
-if _data_export_encryption_key:
-    DATA_EXPORT_ENCRYPTION_KEY = _data_export_encryption_key
-else:
-    DATA_EXPORT_ENCRYPTION_KEY = base64.urlsafe_b64encode(
-        hashlib.sha256(SECRET_KEY.encode('utf-8')).digest()
-    ).decode('ascii')
+
+
+def _normalize_data_export_encryption_key(raw_value: str, *, secret_key: str) -> str:
+    if not raw_value:
+        return base64.urlsafe_b64encode(
+            hashlib.sha256(secret_key.encode('utf-8')).digest()
+        ).decode('ascii')
+
+    try:
+        Fernet(raw_value.encode('ascii'))
+        return raw_value
+    except Exception:
+        return base64.urlsafe_b64encode(
+            hashlib.sha256(raw_value.encode('utf-8')).digest()
+        ).decode('ascii')
+
+
+DATA_EXPORT_ENCRYPTION_KEY = _normalize_data_export_encryption_key(
+    _data_export_encryption_key,
+    secret_key=SECRET_KEY,
+)
 
 LOGGING = {
     'version': 1,
