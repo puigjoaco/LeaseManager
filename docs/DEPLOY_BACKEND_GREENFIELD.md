@@ -31,6 +31,10 @@ Usar [backend/.env.example](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/
 - `DJANGO_ALLOWED_HOSTS`
 - `DJANGO_CORS_ALLOWED_ORIGINS`
 - `DJANGO_CSRF_TRUSTED_ORIGINS`
+- `DJANGO_SECURE_SSL_REDIRECT`
+- `DJANGO_SECURE_HSTS_SECONDS`
+- `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS`
+- `DJANGO_SECURE_HSTS_PRELOAD`
 - `DATABASE_URL`
 - `REDIS_URL`
 - `CELERY_RESULT_BACKEND`
@@ -110,6 +114,7 @@ Config as code preparada:
 - root directory: `/backend`
 - config path: `/backend/railway.web.json`
 - usa el `Dockerfile` del backend
+- healthcheck real: `/api/v1/health/ready/`
 
 ### Servicio worker
 
@@ -120,6 +125,10 @@ Config as code preparada:
 ### Variables adicionales útiles
 
 - `DJANGO_DEBUG=false`
+- `DJANGO_SECURE_SSL_REDIRECT=true`
+- `DJANGO_SECURE_HSTS_SECONDS=31536000`
+- `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS=true`
+- `DJANGO_SECURE_HSTS_PRELOAD=false`
 - `CELERY_LOGLEVEL=info`
 - `PORT` gestionado por Railway
 
@@ -149,4 +158,5 @@ python manage.py runserver 127.0.0.1:8000
 - este documento no fija todavía una plataforma final de hosting;
 - la URL pública final del backend sigue siendo un dato externo pendiente;
 - cuando esa URL exista, debe conectarse con el frontend vía `VITE_API_BASE_URL`;
-- si la plataforma usa proxy HTTPS, [settings.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/leasemanager_api/settings.py) ya quedó preparado con `SECURE_PROXY_SSL_HEADER`.
+- si la plataforma usa proxy HTTPS, [settings.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/leasemanager_api/settings.py) ya quedó preparado con `SECURE_PROXY_SSL_HEADER`;
+- cuando `DJANGO_DEBUG=false`, el backend ya aplica cookies seguras, `X_FRAME_OPTIONS=DENY`, `SECURE_CONTENT_TYPE_NOSNIFF` y HSTS configurable.
