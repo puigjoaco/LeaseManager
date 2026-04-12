@@ -433,6 +433,34 @@ type DocumentoEmitidoItem = {
   comprobante_notarial: number | null
 }
 
+type CanalMensajeriaItem = {
+  id: number
+  canal: string
+  provider_key: string
+  estado_gate: string
+  restricciones_operativas: Record<string, unknown>
+  evidencia_ref: string
+}
+
+type MensajeSalienteItem = {
+  id: number
+  canal: string
+  canal_mensajeria: number
+  identidad_envio: number | null
+  contrato: number | null
+  arrendatario: number | null
+  documento_emitido: number | null
+  destinatario: string
+  asunto: string
+  cuerpo: string
+  estado: string
+  motivo_bloqueo: string
+  external_ref: string
+  usuario: number | null
+  provider_payload: Record<string, unknown>
+  enviado_at: string | null
+}
+
 type AuditEventItem = {
   id: number
   actor_user: number | null
@@ -472,6 +500,7 @@ type ViewKey =
   | 'operacion'
   | 'contratos'
   | 'documentos'
+  | 'canales'
   | 'cobranza'
   | 'conciliacion'
   | 'audit'
@@ -484,6 +513,7 @@ type SectionKey =
   | 'operacion'
   | 'contratos'
   | 'documentos'
+  | 'canales'
   | 'cobranza'
   | 'conciliacion'
   | 'audit'
@@ -722,10 +752,10 @@ function defaultViewForRole(roleCode: string | null | undefined): ViewKey {
 function allowedViewsForRole(roleCode: string | null | undefined): ViewKey[] {
   const role = canonicalRole(roleCode)
   if (role === 'AdministradorGlobal') {
-    return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting']
+    return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting']
   }
   if (role === 'OperadorDeCartera') {
-    return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'cobranza', 'conciliacion', 'audit']
+    return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit']
   }
   if (role === 'RevisorFiscalExterno') {
     return ['audit', 'contabilidad', 'sii', 'reporting']
@@ -853,6 +883,8 @@ function App() {
   const [expedientes, setExpedientes] = useState<ExpedienteDocumental[]>([])
   const [politicasFirma, setPoliticasFirma] = useState<PoliticaFirma[]>([])
   const [documentosEmitidos, setDocumentosEmitidos] = useState<DocumentoEmitidoItem[]>([])
+  const [gatesCanales, setGatesCanales] = useState<CanalMensajeriaItem[]>([])
+  const [mensajesSalientes, setMensajesSalientes] = useState<MensajeSalienteItem[]>([])
   const [avisos, setAvisos] = useState<AvisoTermino[]>([])
   const [valoresUf, setValoresUf] = useState<ValorUF[]>([])
   const [ajustes, setAjustes] = useState<AjusteContrato[]>([])
@@ -1013,6 +1045,26 @@ function App() {
     firma_codeudor_registrada: false,
     recepcion_notarial_registrada: false,
     comprobante_notarial: '',
+  })
+  const [gateCanalDraft, setGateCanalDraft] = useState({
+    canal: 'email',
+    provider_key: 'gmail_api',
+    estado_gate: 'condicionado',
+    evidencia_ref: '',
+  })
+  const [mensajeDraft, setMensajeDraft] = useState({
+    canal: 'email',
+    canal_mensajeria: '',
+    identidad_envio: '',
+    contrato: '',
+    arrendatario: '',
+    documento_emitido: '',
+    asunto: '',
+    cuerpo: '',
+  })
+  const [mensajeEnvioDraft, setMensajeEnvioDraft] = useState({
+    mensajeId: '',
+    external_ref: '',
   })
   const [avisoDraft, setAvisoDraft] = useState({
     contrato: '',
@@ -1193,7 +1245,7 @@ function App() {
   function canMutateSection(section: SectionKey) {
     if (effectiveRole === 'AdministradorGlobal') return true
     if (effectiveRole === 'OperadorDeCartera') {
-      return ['patrimonio', 'operacion', 'contratos', 'documentos', 'cobranza', 'conciliacion', 'audit'].includes(section)
+      return ['patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit'].includes(section)
     }
     return false
   }
@@ -1202,6 +1254,7 @@ function App() {
   const canEditOperacion = canMutateSection('operacion')
   const canEditContratos = canMutateSection('contratos')
   const canEditDocumentos = canMutateSection('documentos')
+  const canEditCanales = canMutateSection('canales')
   const canEditCobranza = canMutateSection('cobranza')
   const canEditConciliacion = canMutateSection('conciliacion')
   const canEditAudit = canMutateSection('audit')
@@ -1254,6 +1307,8 @@ function App() {
         expedientesPayload,
         politicasFirmaPayload,
         documentosEmitidosPayload,
+        gatesCanalesPayload,
+        mensajesSalientesPayload,
         avisosPayload,
         valoresUfPayload,
         ajustesPayload,
@@ -1297,6 +1352,8 @@ function App() {
         requestIf<ExpedienteDocumental[]>(canReadOperational, '/api/v1/documentos/expedientes/', []),
         requestIf<PoliticaFirma[]>(canReadOperational, '/api/v1/documentos/politicas-firma/', []),
         requestIf<DocumentoEmitidoItem[]>(canReadOperational, '/api/v1/documentos/documentos-emitidos/', []),
+        requestIf<CanalMensajeriaItem[]>(canReadOperational, '/api/v1/canales/gates/', []),
+        requestIf<MensajeSalienteItem[]>(canReadOperational, '/api/v1/canales/mensajes/', []),
         requestIf<AvisoTermino[]>(canReadOperational, '/api/v1/contratos/avisos-termino/', []),
         requestIf<ValorUF[]>(canReadOperational, '/api/v1/cobranza/valores-uf/', []),
         requestIf<AjusteContrato[]>(canReadOperational, '/api/v1/cobranza/ajustes-contrato/', []),
@@ -1344,6 +1401,8 @@ function App() {
       setExpedientes(expedientesPayload)
       setPoliticasFirma(politicasFirmaPayload)
       setDocumentosEmitidos(documentosEmitidosPayload)
+      setGatesCanales(gatesCanalesPayload)
+      setMensajesSalientes(mensajesSalientesPayload)
       setAvisos(avisosPayload)
       setValoresUf(valoresUfPayload)
       setAjustes(ajustesPayload)
@@ -1465,6 +1524,8 @@ function App() {
     setExpedientes([])
     setPoliticasFirma([])
     setDocumentosEmitidos([])
+    setGatesCanales([])
+    setMensajesSalientes([])
     setAvisos([])
     setValoresUf([])
     setAjustes([])
@@ -2516,6 +2577,57 @@ function App() {
     void loadWorkspace(token)
   }
 
+  async function handleCreateGateCanal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCanales) return
+    const success = await submitMutation(
+      '/api/v1/canales/gates/',
+      'POST',
+      { ...gateCanalDraft, restricciones_operativas: {} },
+      'Gate de canal creado correctamente.',
+      'canales',
+    )
+    if (!success || !token) return
+    void loadWorkspace(token)
+  }
+
+  async function handlePrepareMensaje(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCanales) return
+    const success = await submitMutation(
+      '/api/v1/canales/mensajes/preparar/',
+      'POST',
+      {
+        canal: mensajeDraft.canal,
+        canal_mensajeria: mensajeDraft.canal_mensajeria,
+        identidad_envio: mensajeDraft.identidad_envio || null,
+        contrato: mensajeDraft.contrato || null,
+        arrendatario: mensajeDraft.arrendatario || null,
+        documento_emitido: mensajeDraft.documento_emitido || null,
+        asunto: mensajeDraft.asunto,
+        cuerpo: mensajeDraft.cuerpo,
+      },
+      'Mensaje preparado correctamente.',
+      'canales',
+    )
+    if (!success || !token) return
+    void loadWorkspace(token)
+  }
+
+  async function handleRegistrarEnvioMensaje(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCanales || !mensajeEnvioDraft.mensajeId) return
+    const success = await submitMutation(
+      `/api/v1/canales/mensajes/${mensajeEnvioDraft.mensajeId}/registrar-envio/`,
+      'POST',
+      { external_ref: mensajeEnvioDraft.external_ref },
+      'Envío manual registrado correctamente.',
+      'canales',
+    )
+    if (!success || !token) return
+    void loadWorkspace(token)
+  }
+
   async function handleUpdateManualResolution(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditAudit || !editingManualResolutionId) return
@@ -2630,6 +2742,16 @@ function App() {
   function cancelEditExpediente() {
     setEditingExpedienteId(null)
     setExpedienteDraft({ entidad_tipo: 'contrato', entidad_id: '', estado: 'abierto', owner_operativo: '' })
+  }
+
+  function goToDocumentoContext(documentoId: number) {
+    const document = documentosEmitidos.find((item) => item.id === documentoId)
+    navigateWithContext(
+      'canales',
+      document?.storage_ref || '',
+      document ? `Documento: ${document.storage_ref}` : `Documento: ${documentoId}`,
+    )
+    setMensajeDraft((current) => ({ ...current, documento_emitido: String(documentoId) }))
   }
 
   const normalizedSearch = searchText.trim().toLowerCase()
@@ -2750,6 +2872,20 @@ function App() {
         matches(normalizedSearch, [item.tipo_documental, item.version_plantilla, item.estado, item.origen, item.storage_ref]),
       ),
     [documentosEmitidos, normalizedSearch],
+  )
+  const filteredGatesCanales = useMemo(
+    () =>
+      gatesCanales.filter((item) =>
+        matches(normalizedSearch, [item.canal, item.provider_key, item.estado_gate, item.evidencia_ref]),
+      ),
+    [gatesCanales, normalizedSearch],
+  )
+  const filteredMensajesSalientes = useMemo(
+    () =>
+      mensajesSalientes.filter((item) =>
+        matches(normalizedSearch, [item.canal, item.destinatario, item.asunto, item.estado, item.external_ref, item.cuerpo]),
+      ),
+    [mensajesSalientes, normalizedSearch],
   )
   const filteredAvisos = useMemo(
     () =>
@@ -3090,7 +3226,7 @@ function App() {
       </header>
 
       <section className="tab-strip">
-        {(['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting'] as ViewKey[])
+        {(['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'reporting'] as ViewKey[])
           .filter((view) => canAccessView(view))
           .map((view) => (
           <button
@@ -3112,6 +3248,8 @@ function App() {
                     ? 'Contratos'
                     : view === 'documentos'
                       ? 'Documentos'
+                    : view === 'canales'
+                      ? 'Canales'
                     : view === 'cobranza'
                       ? 'Cobranza'
                       : view === 'conciliacion'
@@ -3200,6 +3338,8 @@ function App() {
                     ? 'Contratos'
                     : activeView === 'documentos'
                       ? 'Documentos'
+                    : activeView === 'canales'
+                      ? 'Canales'
                     : activeView === 'cobranza'
                       ? 'Cobranza'
                       : activeView === 'conciliacion'
@@ -3221,6 +3361,8 @@ function App() {
                     ? 'Arrendatarios, contratos y avisos'
                     : activeView === 'documentos'
                       ? 'Expedientes, políticas y documentos emitidos'
+                    : activeView === 'canales'
+                      ? 'Gates operativos y mensajes salientes'
                     : activeView === 'cobranza'
                         ? 'Pagos, UF, ajustes, garantías y estado de cuenta'
                       : activeView === 'conciliacion'
@@ -3248,6 +3390,8 @@ function App() {
                       ? 'Código, arrendatario, propiedad o causal'
                       : activeView === 'documentos'
                         ? 'Expediente, tipo documental, estado o storage'
+                        : activeView === 'canales'
+                          ? 'Canal, estado, destinatario o external ref'
                       : activeView === 'cobranza'
                         ? 'Contrato, monto, estado, UF o garantía'
                       : activeView === 'conciliacion'
@@ -3850,7 +3994,108 @@ function App() {
             { label: 'Origen', render: (row) => row.origen },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
             { label: 'Storage', render: (row) => row.storage_ref },
-            { label: 'Acción', render: (row) => canEditDocumentos ? <button type="button" className="button-ghost inline-action" onClick={() => setDocumentoFormalizarDraft((current) => ({ ...current, documentoId: String(row.id) }))}>Formalizar</button> : 'Solo lectura' },
+            { label: 'Acción', render: (row) => canEditDocumentos ? <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => setDocumentoFormalizarDraft((current) => ({ ...current, documentoId: String(row.id) }))}>Formalizar</button><button type="button" className="button-ghost inline-action" onClick={() => goToDocumentoContext(row.id)}>Canales</button></div> : 'Solo lectura' },
+          ]} />
+        </>
+      ) : null}
+
+      {activeView === 'canales' ? (
+        <>
+          {!canEditCanales ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Canales.</div> : null}
+          {canEditCanales ? (
+            <section className="form-grid">
+              <section className="panel">
+                <div className="section-heading"><div><h2>Gate de canal</h2><p>Estado operativo por canal y provider.</p></div></div>
+                <form className="entity-form" onSubmit={handleCreateGateCanal}>
+                  <select value={gateCanalDraft.canal} onChange={(event) => setGateCanalDraft((current) => ({ ...current, canal: event.target.value }))}>
+                    <option value="email">Email</option>
+                    <option value="whatsapp">WhatsApp</option>
+                  </select>
+                  <input placeholder="Provider key" value={gateCanalDraft.provider_key} onChange={(event) => setGateCanalDraft((current) => ({ ...current, provider_key: event.target.value }))} />
+                  <select value={gateCanalDraft.estado_gate} onChange={(event) => setGateCanalDraft((current) => ({ ...current, estado_gate: event.target.value }))}>
+                    <option value="abierto">Abierto</option>
+                    <option value="condicionado">Condicionado</option>
+                    <option value="cerrado">Cerrado</option>
+                    <option value="suspendido">Suspendido</option>
+                  </select>
+                  <input placeholder="Evidencia ref" value={gateCanalDraft.evidencia_ref} onChange={(event) => setGateCanalDraft((current) => ({ ...current, evidencia_ref: event.target.value }))} />
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !gateCanalDraft.provider_key}>Guardar gate</button>
+                </form>
+              </section>
+
+              <section className="panel">
+                <div className="section-heading"><div><h2>Preparar mensaje</h2><p>Usa contrato, arrendatario o documento como contexto del envío.</p></div></div>
+                <form className="entity-form" onSubmit={handlePrepareMensaje}>
+                  <select value={mensajeDraft.canal} onChange={(event) => setMensajeDraft((current) => ({ ...current, canal: event.target.value }))}>
+                    <option value="email">Email</option>
+                    <option value="whatsapp">WhatsApp</option>
+                  </select>
+                  <select value={mensajeDraft.canal_mensajeria} onChange={(event) => setMensajeDraft((current) => ({ ...current, canal_mensajeria: event.target.value }))}>
+                    <option value="">Selecciona gate</option>
+                    {gatesCanales.filter((item) => item.canal === mensajeDraft.canal).map((item) => (
+                      <option key={item.id} value={item.id}>{item.canal} · {item.provider_key}</option>
+                    ))}
+                  </select>
+                  <select value={mensajeDraft.identidad_envio} onChange={(event) => setMensajeDraft((current) => ({ ...current, identidad_envio: event.target.value }))}>
+                    <option value="">Sin override de identidad</option>
+                    {identidades.filter((item) => item.canal === mensajeDraft.canal).map((item) => (
+                      <option key={item.id} value={item.id}>{item.remitente_visible} · {item.direccion_o_numero}</option>
+                    ))}
+                  </select>
+                  <select value={mensajeDraft.contrato} onChange={(event) => setMensajeDraft((current) => ({ ...current, contrato: event.target.value }))}>
+                    <option value="">Sin contrato</option>
+                    {contratos.map((item) => (
+                      <option key={item.id} value={item.id}>{item.codigo_contrato}</option>
+                    ))}
+                  </select>
+                  <select value={mensajeDraft.arrendatario} onChange={(event) => setMensajeDraft((current) => ({ ...current, arrendatario: event.target.value }))}>
+                    <option value="">Sin arrendatario</option>
+                    {arrendatarios.map((item) => (
+                      <option key={item.id} value={item.id}>{item.nombre_razon_social}</option>
+                    ))}
+                  </select>
+                  <select value={mensajeDraft.documento_emitido} onChange={(event) => setMensajeDraft((current) => ({ ...current, documento_emitido: event.target.value }))}>
+                    <option value="">Sin documento</option>
+                    {documentosEmitidos.map((item) => (
+                      <option key={item.id} value={item.id}>{item.tipo_documental} · {item.storage_ref}</option>
+                    ))}
+                  </select>
+                  <input placeholder="Asunto" value={mensajeDraft.asunto} onChange={(event) => setMensajeDraft((current) => ({ ...current, asunto: event.target.value }))} />
+                  <input placeholder="Cuerpo" value={mensajeDraft.cuerpo} onChange={(event) => setMensajeDraft((current) => ({ ...current, cuerpo: event.target.value }))} />
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !mensajeDraft.canal_mensajeria}>Preparar mensaje</button>
+                </form>
+              </section>
+
+              <section className="panel">
+                <div className="section-heading"><div><h2>Registrar envío</h2><p>Marca un mensaje preparado como enviado manualmente.</p></div></div>
+                <form className="entity-form" onSubmit={handleRegistrarEnvioMensaje}>
+                  <select value={mensajeEnvioDraft.mensajeId} onChange={(event) => setMensajeEnvioDraft((current) => ({ ...current, mensajeId: event.target.value }))}>
+                    <option value="">Selecciona mensaje</option>
+                    {mensajesSalientes.filter((item) => item.estado === 'preparado').map((item) => (
+                      <option key={item.id} value={item.id}>{item.canal} · {item.destinatario || item.asunto || item.id}</option>
+                    ))}
+                  </select>
+                  <input placeholder="External ref" value={mensajeEnvioDraft.external_ref} onChange={(event) => setMensajeEnvioDraft((current) => ({ ...current, external_ref: event.target.value }))} />
+                  <button type="submit" className="button-primary" disabled={isSubmitting || !mensajeEnvioDraft.mensajeId}>Registrar envío</button>
+                </form>
+              </section>
+            </section>
+          ) : null}
+
+          <TableBlock title="Gates de canal" subtitle="Estado operativo por canal." rows={filteredGatesCanales} empty="No hay gates de canal para este filtro." columns={[
+            { label: 'Canal', render: (row) => row.canal },
+            { label: 'Provider', render: (row) => row.provider_key },
+            { label: 'Estado', render: (row) => <Badge label={row.estado_gate} tone={toneFor(row.estado_gate)} /> },
+            { label: 'Evidencia', render: (row) => row.evidencia_ref || 'Sin evidencia' },
+          ]} />
+
+          <TableBlock title="Mensajes salientes" subtitle="Preparados, bloqueados o enviados manualmente." rows={filteredMensajesSalientes} empty="No hay mensajes salientes para este filtro." columns={[
+            { label: 'Canal', render: (row) => row.canal },
+            { label: 'Destinatario', render: (row) => row.destinatario || 'Sin destinatario' },
+            { label: 'Contrato', render: (row) => row.contrato ? (contratoById.get(row.contrato)?.codigo_contrato || row.contrato) : 'Sin contrato' },
+            { label: 'Documento', render: (row) => row.documento_emitido ? (documentosEmitidos.find((item) => item.id === row.documento_emitido)?.storage_ref || row.documento_emitido) : 'Sin documento' },
+            { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            { label: 'Motivo', render: (row) => row.motivo_bloqueo || row.external_ref || 'Sin observación' },
           ]} />
         </>
       ) : null}

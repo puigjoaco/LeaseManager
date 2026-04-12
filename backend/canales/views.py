@@ -6,6 +6,7 @@ from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
 
 from .models import CanalMensajeria, MensajeSaliente
+from .scope import scope_mensaje_queryset
 from .serializers import (
     CanalMensajeriaSerializer,
     MensajePrepararSerializer,
@@ -80,6 +81,9 @@ class MensajeSalienteListView(generics.ListAPIView):
         'usuario',
     ).all()
 
+    def get_queryset(self):
+        return scope_mensaje_queryset(super().get_queryset(), self.request.user)
+
 
 class MensajeSalienteDetailView(generics.RetrieveAPIView):
     permission_classes = [OperationalModulePermission]
@@ -93,12 +97,15 @@ class MensajeSalienteDetailView(generics.RetrieveAPIView):
         'usuario',
     ).all()
 
+    def get_queryset(self):
+        return scope_mensaje_queryset(super().get_queryset(), self.request.user)
+
 
 class MensajePrepararView(APIView):
     permission_classes = [OperationalModulePermission]
 
     def post(self, request):
-        serializer = MensajePrepararSerializer(data=request.data)
+        serializer = MensajePrepararSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
@@ -133,7 +140,10 @@ class MensajeRegistrarEnvioView(APIView):
     permission_classes = [OperationalModulePermission]
 
     def post(self, request, pk):
-        message = generics.get_object_or_404(MensajeSaliente, pk=pk)
+        message = generics.get_object_or_404(
+            scope_mensaje_queryset(MensajeSaliente.objects.all(), request.user),
+            pk=pk,
+        )
         serializer = MensajeRegistrarEnvioSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

@@ -1,7 +1,9 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from core.scope_access import scope_queryset_for_user
 from contratos.models import Arrendatario, Contrato
+from documentos.scope import scope_documento_queryset
 from documentos.models import DocumentoEmitido
 from operacion.models import IdentidadDeEnvio
 
@@ -18,6 +20,11 @@ def build_validation_candidate(instance, model_class):
     if instance is None:
         return model_class()
     return model_class.objects.get(pk=instance.pk)
+
+
+def _request_user(serializer):
+    request = serializer.context.get('request')
+    return getattr(request, 'user', None)
 
 
 class CanalMensajeriaSerializer(serializers.ModelSerializer):
@@ -82,6 +89,31 @@ class MensajePrepararSerializer(serializers.Serializer):
     asunto = serializers.CharField(required=False, allow_blank=True)
     cuerpo = serializers.CharField(required=False, allow_blank=True)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['identidad_envio'].queryset = scope_queryset_for_user(
+            IdentidadDeEnvio.objects.all(),
+            user,
+            company_paths=('empresa_owner_id',),
+            property_paths=('asignaciones_operacion__mandato_operacion__propiedad_id',),
+        )
+        self.fields['contrato'].queryset = scope_queryset_for_user(
+            Contrato.objects.all(),
+            user,
+            property_paths=('mandato_operacion__propiedad_id',),
+            bank_account_paths=('mandato_operacion__cuenta_recaudadora_id',),
+        )
+        self.fields['arrendatario'].queryset = scope_queryset_for_user(
+            Arrendatario.objects.all(),
+            user,
+            property_paths=('contratos__mandato_operacion__propiedad_id',),
+            bank_account_paths=('contratos__mandato_operacion__cuenta_recaudadora_id',),
+        )
+        self.fields['documento_emitido'].queryset = scope_documento_queryset(DocumentoEmitido.objects.all(), user)
+
     def validate(self, attrs):
         candidate = build_validation_candidate(None, MensajeSaliente)
         candidate.canal = attrs['canal']
@@ -102,4 +134,3 @@ class MensajePrepararSerializer(serializers.Serializer):
 
 class MensajeRegistrarEnvioSerializer(serializers.Serializer):
     external_ref = serializers.CharField(required=False, allow_blank=True)
-
