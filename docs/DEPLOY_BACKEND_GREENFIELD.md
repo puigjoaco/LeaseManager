@@ -89,6 +89,42 @@ docker run --rm -p 8000:8000 \
   leasemanager-backend
 ```
 
+## Ruta Railway recomendada
+
+Topología sugerida dentro de un mismo proyecto Railway:
+
+1. servicio `backend-web`
+2. servicio `backend-worker`
+3. PostgreSQL
+4. Redis
+
+Config as code preparada:
+
+- [backend/railway.web.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.web.json)
+- [backend/railway.worker.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.worker.json)
+
+### Servicio web
+
+- root directory: `/backend`
+- config path: `/backend/railway.web.json`
+- usa el `Dockerfile` del backend
+
+### Servicio worker
+
+- root directory: `/backend`
+- config path: `/backend/railway.worker.json`
+- usa la misma imagen, pero sobreescribe `startCommand` para Celery worker
+
+### Variables adicionales útiles
+
+- `DJANGO_DEBUG=false`
+- `CELERY_LOGLEVEL=info`
+- `PORT` gestionado por Railway
+
+### Nota
+
+La validación de estas configuraciones queda pendiente de crear el proyecto Railway real del backend, pero la estructura ya está lista para usarse sin improvisación.
+
 ## Nota de validación local
 
 - `collectstatic --noinput` ya quedó validado localmente;
