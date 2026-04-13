@@ -1109,6 +1109,8 @@ function App() {
     try {
       const me = await apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken })
       const role = canonicalRole(me.default_role_code)
+      const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
+      const bootstrapOverviewOnly = targetView === 'overview'
       setCurrentUser(me)
       setActiveView((current) => (
         allowedViewsForRole(role).includes(current) ? current : defaultViewForRole(role)
@@ -1165,23 +1167,23 @@ function App() {
         requestIf<Cuenta[]>(canReadOperational, '/api/v1/operacion/cuentas-recaudadoras/', []),
         requestIf<Identidad[]>(canReadOperational, '/api/v1/operacion/identidades-envio/', []),
         requestIf<Mandato[]>(canReadOperational, '/api/v1/operacion/mandatos/', []),
-        requestIf<RegimenTributario[]>(canReadControl, '/api/v1/contabilidad/regimenes-tributarios/', []),
-        requestIf<ConfiguracionFiscal[]>(canReadControl, '/api/v1/contabilidad/configuraciones-fiscales/', []),
-        requestIf<CuentaContable[]>(canReadControl, '/api/v1/contabilidad/cuentas-contables/', []),
-        requestIf<ReglaContable[]>(canReadControl, '/api/v1/contabilidad/reglas-contables/', []),
-        requestIf<MatrizRegla[]>(canReadControl, '/api/v1/contabilidad/matriz-reglas/', []),
-        requestIf<EventoContable[]>(canReadControl, '/api/v1/contabilidad/eventos-contables/', []),
-        requestIf<AsientoContable[]>(canReadControl, '/api/v1/contabilidad/asientos-contables/', []),
-        requestIf<ObligacionMensual[]>(canReadControl, '/api/v1/contabilidad/obligaciones-mensuales/', []),
-        requestIf<CierreMensual[]>(canReadControl, '/api/v1/contabilidad/cierres-mensuales/', []),
-        requestIf<CapacidadSii[]>(canReadControl, '/api/v1/sii/capacidades/', []),
-        requestIf<DteEmitido[]>(canReadControl, '/api/v1/sii/dtes/', []),
-        requestIf<F29Preparacion[]>(canReadControl, '/api/v1/sii/f29/', []),
-        requestIf<ProcesoRentaAnual[]>(canReadControl, '/api/v1/sii/anual/', []),
-        requestIf<DdjjPreparacion[]>(canReadControl, '/api/v1/sii/anual/ddjj/', []),
-        requestIf<F22Preparacion[]>(canReadControl, '/api/v1/sii/anual/f22/', []),
-        requestIf<PoliticaRetencionDatos[]>(canReadCompliance, '/api/v1/compliance/politicas-retencion/', []),
-        requestIf<ExportacionSensible[]>(canReadCompliance, '/api/v1/compliance/exportes/', []),
+        requestIf<RegimenTributario[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/regimenes-tributarios/', []),
+        requestIf<ConfiguracionFiscal[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/configuraciones-fiscales/', []),
+        requestIf<CuentaContable[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/cuentas-contables/', []),
+        requestIf<ReglaContable[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/reglas-contables/', []),
+        requestIf<MatrizRegla[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/matriz-reglas/', []),
+        requestIf<EventoContable[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/eventos-contables/', []),
+        requestIf<AsientoContable[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/asientos-contables/', []),
+        requestIf<ObligacionMensual[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/obligaciones-mensuales/', []),
+        requestIf<CierreMensual[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/cierres-mensuales/', []),
+        requestIf<CapacidadSii[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/capacidades/', []),
+        requestIf<DteEmitido[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/dtes/', []),
+        requestIf<F29Preparacion[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/f29/', []),
+        requestIf<ProcesoRentaAnual[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/anual/', []),
+        requestIf<DdjjPreparacion[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/anual/ddjj/', []),
+        requestIf<F22Preparacion[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/anual/f22/', []),
+        requestIf<PoliticaRetencionDatos[]>(canReadCompliance && !bootstrapOverviewOnly, '/api/v1/compliance/politicas-retencion/', []),
+        requestIf<ExportacionSensible[]>(canReadCompliance && !bootstrapOverviewOnly, '/api/v1/compliance/exportes/', []),
         requestIf<ReportingPartnerSummary | null>(
           canReadOwnPartnerSummary && typeof me.metadata?.socio_id === 'number',
           `/api/v1/reporting/socios/${me.metadata.socio_id}/resumen/`,
