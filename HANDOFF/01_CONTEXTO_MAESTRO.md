@@ -103,7 +103,11 @@ Se ejecuto una secuencia verificable adicional:
 - se abrio ademas el primer flujo tributario mensual demo visible:
   - conciliacion exacta de un pago real facturable de `Inmobiliaria Puig SpA`;
   - `DTE` borrador generado para ese pago;
+  - `F29` recalculado y ya en estado `preparado`;
   - reporting financiero mensual de empresa `1` ya con `dtes_emitidos = 1` y `monto_cobrado_total_clp > 0`.
+- se corrigio ademas un bloqueo de producto en `Contabilidad`:
+  - `tasa_ppm_vigente` ya se expone por serializer;
+  - el workspace de `Contabilidad` ya permite editar la configuracion fiscal base sin depender de shell.
 
 ## 3. Estado real del repo, del runtime y del codigo
 

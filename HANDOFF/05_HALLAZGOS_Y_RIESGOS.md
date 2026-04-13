@@ -53,7 +53,11 @@
 - `SII` ya tiene tambien su primer artefacto transaccional visible en remoto:
   - `1` pago conciliado exacto;
   - `1` `DTE` borrador para empresa `1`;
+  - `1` `F29` preparada para empresa `1`, periodo `2026-05`;
   - reporting financiero mensual con `dtes_emitidos = 1`.
+- el ajuste de `tasa_ppm_vigente` ya no requiere shell o acceso directo a BD:
+  - se puede leer y actualizar por API;
+  - el backoffice ya tiene superficie base para editarlo.
 - El entorno remoto ya se enriquecio con datos derivados reales:
   - UF de abril y mayo 2026;
   - pagos de abril y mayo;

@@ -80,7 +80,11 @@ Estado real consolidado al cierre de este handoff:
 - el entorno remoto ya tiene tambien un primer flujo tributario mensual visible para empresa `1`, periodo `2026-05`:
   - `1` pago conciliado exacto;
   - `1` `DTE` en borrador;
+  - `F29` en estado `preparado`;
   - reporting financiero mensual con `dtes_emitidos = 1` y `monto_cobrado_total_clp > 0`.
+- la configuracion fiscal ya no depende de shell para `tasa_ppm_vigente`:
+  - el backend la expone por API;
+  - el backoffice la expone para edicion base en `Contabilidad`.
 
 ## Borrador vigente
 
