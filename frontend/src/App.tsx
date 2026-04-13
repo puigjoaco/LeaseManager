@@ -318,6 +318,7 @@ type ConfiguracionFiscal = {
   regimen_tributario: number
   afecta_iva_arriendo: boolean
   tasa_iva: string
+  tasa_ppm_vigente: string | null
   aplica_ppm: boolean
   ddjj_habilitadas: string[]
   inicio_ejercicio: string
@@ -740,6 +741,7 @@ function App() {
   const [editingPropiedadId, setEditingPropiedadId] = useState<number | null>(null)
   const [editingCuentaId, setEditingCuentaId] = useState<number | null>(null)
   const [editingMandatoId, setEditingMandatoId] = useState<number | null>(null)
+  const [editingConfigFiscalId, setEditingConfigFiscalId] = useState<number | null>(null)
   const [editingArrendatarioId, setEditingArrendatarioId] = useState<number | null>(null)
   const [editingContratoId, setEditingContratoId] = useState<number | null>(null)
   const [editingExpedienteId, setEditingExpedienteId] = useState<number | null>(null)
@@ -945,6 +947,7 @@ function App() {
     regimen_tributario: '',
     afecta_iva_arriendo: false,
     tasa_iva: '0.00',
+    tasa_ppm_vigente: '',
     aplica_ppm: true,
     inicio_ejercicio: '2026-01-01',
     moneda_funcional: 'CLP',
@@ -1695,6 +1698,38 @@ function App() {
     setActiveContextLabel(null)
   }
 
+  function startEditConfigFiscal(row: ConfiguracionFiscal) {
+    setEditingConfigFiscalId(row.id)
+    setConfigFiscalDraft({
+      empresa: String(row.empresa),
+      regimen_tributario: String(row.regimen_tributario),
+      afecta_iva_arriendo: row.afecta_iva_arriendo,
+      tasa_iva: row.tasa_iva,
+      tasa_ppm_vigente: row.tasa_ppm_vigente || '',
+      aplica_ppm: row.aplica_ppm,
+      inicio_ejercicio: row.inicio_ejercicio,
+      moneda_funcional: row.moneda_funcional,
+      estado: row.estado,
+    })
+    navigateWithContext('contabilidad', String(row.empresa), `Editando config fiscal: empresa ${row.empresa}`)
+  }
+
+  function cancelEditConfigFiscal() {
+    setEditingConfigFiscalId(null)
+    setConfigFiscalDraft({
+      empresa: '',
+      regimen_tributario: '',
+      afecta_iva_arriendo: false,
+      tasa_iva: '0.00',
+      tasa_ppm_vigente: '',
+      aplica_ppm: true,
+      inicio_ejercicio: '2026-01-01',
+      moneda_funcional: 'CLP',
+      estado: 'activa',
+    })
+    setActiveContextLabel(null)
+  }
+
   function startEditCuenta(row: Cuenta) {
     setEditingCuentaId(row.id)
     setCuentaDraft({
@@ -2029,28 +2064,38 @@ function App() {
   async function handleCreateConfigFiscal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditContabilidad) return
-    const ok = await submitCreate('/api/v1/contabilidad/configuraciones-fiscales/', {
-      empresa: Number(configFiscalDraft.empresa),
-      regimen_tributario: Number(configFiscalDraft.regimen_tributario),
-      afecta_iva_arriendo: configFiscalDraft.afecta_iva_arriendo,
-      tasa_iva: configFiscalDraft.tasa_iva,
-      aplica_ppm: configFiscalDraft.aplica_ppm,
-      ddjj_habilitadas: [],
-      inicio_ejercicio: configFiscalDraft.inicio_ejercicio,
-      moneda_funcional: configFiscalDraft.moneda_funcional,
-      estado: configFiscalDraft.estado,
-    }, 'Configuración fiscal creada correctamente.')
+    const isEdit = editingConfigFiscalId != null
+    const currentConfig = isEdit ? configuracionesFiscales.find((item) => item.id === editingConfigFiscalId) : null
+    const ok = await submitMutation(
+      isEdit ? `/api/v1/contabilidad/configuraciones-fiscales/${editingConfigFiscalId}/` : '/api/v1/contabilidad/configuraciones-fiscales/',
+      isEdit ? 'PATCH' : 'POST',
+      {
+        empresa: Number(configFiscalDraft.empresa),
+        regimen_tributario: Number(configFiscalDraft.regimen_tributario),
+        afecta_iva_arriendo: configFiscalDraft.afecta_iva_arriendo,
+        tasa_iva: configFiscalDraft.tasa_iva,
+        tasa_ppm_vigente: configFiscalDraft.tasa_ppm_vigente || null,
+        aplica_ppm: configFiscalDraft.aplica_ppm,
+        ddjj_habilitadas: currentConfig?.ddjj_habilitadas || [],
+        inicio_ejercicio: configFiscalDraft.inicio_ejercicio,
+        moneda_funcional: configFiscalDraft.moneda_funcional,
+        estado: configFiscalDraft.estado,
+      },
+      isEdit ? 'Configuración fiscal actualizada correctamente.' : 'Configuración fiscal creada correctamente.',
+    )
     if (ok) {
       setConfigFiscalDraft({
         empresa: '',
         regimen_tributario: '',
         afecta_iva_arriendo: false,
         tasa_iva: '0.00',
+        tasa_ppm_vigente: '',
         aplica_ppm: true,
         inicio_ejercicio: '2026-01-01',
         moneda_funcional: 'CLP',
         estado: 'activa',
       })
+      setEditingConfigFiscalId(null)
     }
   }
 
@@ -3444,9 +3489,11 @@ function App() {
       {activeView === 'contabilidad' ? (
         <ContabilidadWorkspace
           canEditContabilidad={canEditContabilidad}
+          editingConfigFiscalId={editingConfigFiscalId}
           configFiscalDraft={configFiscalDraft}
           setConfigFiscalDraft={setConfigFiscalDraft}
           handleCreateConfigFiscal={handleCreateConfigFiscal}
+          cancelEditConfigFiscal={cancelEditConfigFiscal}
           cuentaContableDraft={cuentaContableDraft}
           setCuentaContableDraft={setCuentaContableDraft}
           handleCreateCuentaContable={handleCreateCuentaContable}
@@ -3482,6 +3529,7 @@ function App() {
           toneFor={toneFor}
           isSubmitting={isSubmitting}
           handleAccountingAction={handleAccountingAction}
+          startEditConfigFiscal={startEditConfigFiscal}
           onViewImpact={(companyId) => {
             const companyName = empresaById.get(companyId)?.razon_social || String(companyId)
             navigateWithContext('reporting', companyName, `Empresa: ${companyName}`)

@@ -6,7 +6,7 @@ type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
 type EmpresaItem = { id: number; razon_social: string }
 type RegimenTributarioItem = { id: number; codigo_regimen: string; descripcion: string; estado: string }
-type ConfiguracionFiscalItem = { id: number; empresa: number; regimen_tributario: number; moneda_funcional: string; aplica_ppm: boolean; estado: string }
+type ConfiguracionFiscalItem = { id: number; empresa: number; regimen_tributario: number; moneda_funcional: string; aplica_ppm: boolean; tasa_ppm_vigente: string | null; afecta_iva_arriendo: boolean; tasa_iva: string; ddjj_habilitadas: string[]; inicio_ejercicio: string; estado: string }
 type CuentaContableItem = { id: number; empresa: number; codigo: string; nombre: string; naturaleza: string; estado: string }
 type ReglaContableItem = { id: number; empresa: number; evento_tipo: string; plan_cuentas_version: string; criterio_cargo: string; criterio_abono: string }
 type MatrizReglaItem = { id: number; regla_contable: number; cuenta_debe: number; cuenta_haber: number; condicion_impuesto: string; estado: string }
@@ -20,6 +20,7 @@ type ConfigFiscalDraft = {
   regimen_tributario: string
   afecta_iva_arriendo: boolean
   tasa_iva: string
+  tasa_ppm_vigente: string
   aplica_ppm: boolean
   inicio_ejercicio: string
   moneda_funcional: string
@@ -77,9 +78,11 @@ type CierreDraft = {
 
 export function ContabilidadWorkspace({
   canEditContabilidad,
+  editingConfigFiscalId,
   configFiscalDraft,
   setConfigFiscalDraft,
   handleCreateConfigFiscal,
+  cancelEditConfigFiscal,
   cuentaContableDraft,
   setCuentaContableDraft,
   handleCreateCuentaContable,
@@ -115,12 +118,15 @@ export function ContabilidadWorkspace({
   toneFor,
   isSubmitting,
   handleAccountingAction,
+  startEditConfigFiscal,
   onViewImpact,
 }: {
   canEditContabilidad: boolean
+  editingConfigFiscalId: number | null
   configFiscalDraft: ConfigFiscalDraft
   setConfigFiscalDraft: Dispatch<SetStateAction<ConfigFiscalDraft>>
   handleCreateConfigFiscal: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  cancelEditConfigFiscal: () => void
   cuentaContableDraft: CuentaContableDraft
   setCuentaContableDraft: Dispatch<SetStateAction<CuentaContableDraft>>
   handleCreateCuentaContable: (event: FormEvent<HTMLFormElement>) => Promise<void>
@@ -156,6 +162,7 @@ export function ContabilidadWorkspace({
   toneFor: (value: string) => Tone
   isSubmitting: boolean
   handleAccountingAction: (path: string, successMessage: string) => Promise<void>
+  startEditConfigFiscal: (row: ConfiguracionFiscalItem) => void
   onViewImpact: (companyId: number) => void
 }) {
   return (
@@ -163,7 +170,7 @@ export function ContabilidadWorkspace({
       {!canEditContabilidad ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Contabilidad.</div> : null}
       {canEditContabilidad ? <section className="form-grid">
         <section className="panel">
-          <div className="section-heading"><div><h2>Configuración fiscal</h2><p>Prerequisito para contabilización y cierre mensual oficial.</p></div></div>
+          <div className="section-heading"><div><h2>{editingConfigFiscalId ? 'Editar configuración fiscal' : 'Configuración fiscal'}</h2><p>Prerequisito para contabilización y cierre mensual oficial.</p></div></div>
           <form className="entity-form" onSubmit={handleCreateConfigFiscal}>
             <select value={configFiscalDraft.empresa} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, empresa: event.target.value }))}>
               <option value="">Selecciona empresa</option>
@@ -179,6 +186,7 @@ export function ContabilidadWorkspace({
               <option value="UF">UF</option>
             </select>
             <input placeholder="Tasa IVA" value={configFiscalDraft.tasa_iva} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, tasa_iva: event.target.value }))} />
+            <input placeholder="Tasa PPM vigente" value={configFiscalDraft.tasa_ppm_vigente} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, tasa_ppm_vigente: event.target.value }))} />
             <select value={configFiscalDraft.estado} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, estado: event.target.value }))}>
               <option value="activa">Activa</option>
               <option value="borrador">Borrador</option>
@@ -186,7 +194,10 @@ export function ContabilidadWorkspace({
             </select>
             <label className="checkbox-row"><input type="checkbox" checked={configFiscalDraft.afecta_iva_arriendo} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, afecta_iva_arriendo: event.target.checked }))} />Afecta IVA arriendo</label>
             <label className="checkbox-row"><input type="checkbox" checked={configFiscalDraft.aplica_ppm} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, aplica_ppm: event.target.checked }))} />Aplica PPM</label>
-            <button type="submit" className="button-primary" disabled={isSubmitting || !configFiscalDraft.empresa || !configFiscalDraft.regimen_tributario}>Guardar configuración</button>
+            <div className="inline-actions">
+              <button type="submit" className="button-primary" disabled={isSubmitting || !configFiscalDraft.empresa || !configFiscalDraft.regimen_tributario}>{editingConfigFiscalId ? 'Guardar cambios' : 'Guardar configuración'}</button>
+              {editingConfigFiscalId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditConfigFiscal}>Cancelar</button> : null}
+            </div>
           </form>
         </section>
 
@@ -289,8 +300,9 @@ export function ContabilidadWorkspace({
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Régimen', render: (row) => regimenById.get(row.regimen_tributario)?.codigo_regimen || row.regimen_tributario },
         { label: 'Moneda', render: (row) => row.moneda_funcional },
-        { label: 'PPM', render: (row) => row.aplica_ppm ? 'Sí' : 'No' },
+        { label: 'PPM', render: (row) => row.aplica_ppm ? (row.tasa_ppm_vigente ? `${row.tasa_ppm_vigente}%` : 'Sí') : 'No' },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+        { label: 'Acción', render: (row) => !canEditContabilidad ? 'Solo lectura' : <button type="button" className="button-ghost inline-action" onClick={() => startEditConfigFiscal(row)}>Editar</button> },
       ]} />
       <TableBlock title="Cuentas contables" subtitle="Plan contable disponible por empresa." rows={filteredCuentasContables} empty="No hay cuentas contables para este filtro." columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },

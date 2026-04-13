@@ -59,6 +59,7 @@ class ConfiguracionFiscalEmpresaSerializer(serializers.ModelSerializer):
             'regimen_tributario',
             'afecta_iva_arriendo',
             'tasa_iva',
+            'tasa_ppm_vigente',
             'aplica_ppm',
             'ddjj_habilitadas',
             'inicio_ejercicio',

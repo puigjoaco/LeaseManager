@@ -216,6 +216,40 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(event.estado_contable, 'pendiente_revision_contable')
         self.assertFalse(AsientoContable.objects.filter(evento_contable=event).exists())
 
+    def test_create_and_patch_configuracion_fiscal_with_tasa_ppm_vigente(self):
+        empresa = self._create_active_empresa(nombre='FiscalCo', rut='78787878-7')
+        regime = ensure_default_regime()
+
+        created = self.client.post(
+            reverse('contabilidad-config-list'),
+            {
+                'empresa': empresa.id,
+                'regimen_tributario': regime.id,
+                'afecta_iva_arriendo': False,
+                'tasa_iva': '0.00',
+                'tasa_ppm_vigente': '10.00',
+                'aplica_ppm': True,
+                'ddjj_habilitadas': [],
+                'inicio_ejercicio': '2026-01-01',
+                'moneda_funcional': 'CLP',
+                'estado': 'activa',
+            },
+            format='json',
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data['tasa_ppm_vigente'], '10.00')
+
+        updated = self.client.patch(
+            reverse('contabilidad-config-detail', args=[created.data['id']]),
+            {'tasa_ppm_vigente': '12.50'},
+            format='json',
+        )
+        self.assertEqual(updated.status_code, status.HTTP_200_OK)
+        self.assertEqual(updated.data['tasa_ppm_vigente'], '12.50')
+
+        config = ConfiguracionFiscalEmpresa.objects.get(pk=created.data['id'])
+        self.assertEqual(str(config.tasa_ppm_vigente), '12.50')
+
     def test_retry_post_after_setup_creates_balanced_asiento(self):
         empresa = self._create_active_empresa(nombre='RetryCo', rut='99999999-9')
         response = self.client.post(
