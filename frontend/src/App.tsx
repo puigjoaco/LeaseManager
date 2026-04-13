@@ -948,6 +948,7 @@ function App() {
     afecta_iva_arriendo: false,
     tasa_iva: '0.00',
     tasa_ppm_vigente: '',
+    ddjj_habilitadas_text: '',
     aplica_ppm: true,
     inicio_ejercicio: '2026-01-01',
     moneda_funcional: 'CLP',
@@ -1706,6 +1707,7 @@ function App() {
       afecta_iva_arriendo: row.afecta_iva_arriendo,
       tasa_iva: row.tasa_iva,
       tasa_ppm_vigente: row.tasa_ppm_vigente || '',
+      ddjj_habilitadas_text: row.ddjj_habilitadas.join(', '),
       aplica_ppm: row.aplica_ppm,
       inicio_ejercicio: row.inicio_ejercicio,
       moneda_funcional: row.moneda_funcional,
@@ -1722,6 +1724,7 @@ function App() {
       afecta_iva_arriendo: false,
       tasa_iva: '0.00',
       tasa_ppm_vigente: '',
+      ddjj_habilitadas_text: '',
       aplica_ppm: true,
       inicio_ejercicio: '2026-01-01',
       moneda_funcional: 'CLP',
@@ -2066,6 +2069,10 @@ function App() {
     if (!canEditContabilidad) return
     const isEdit = editingConfigFiscalId != null
     const currentConfig = isEdit ? configuracionesFiscales.find((item) => item.id === editingConfigFiscalId) : null
+    const ddjjHabilitadas = configFiscalDraft.ddjj_habilitadas_text
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
     const ok = await submitMutation(
       isEdit ? `/api/v1/contabilidad/configuraciones-fiscales/${editingConfigFiscalId}/` : '/api/v1/contabilidad/configuraciones-fiscales/',
       isEdit ? 'PATCH' : 'POST',
@@ -2076,7 +2083,7 @@ function App() {
         tasa_iva: configFiscalDraft.tasa_iva,
         tasa_ppm_vigente: configFiscalDraft.tasa_ppm_vigente || null,
         aplica_ppm: configFiscalDraft.aplica_ppm,
-        ddjj_habilitadas: currentConfig?.ddjj_habilitadas || [],
+        ddjj_habilitadas: ddjjHabilitadas.length ? ddjjHabilitadas : (currentConfig?.ddjj_habilitadas || []),
         inicio_ejercicio: configFiscalDraft.inicio_ejercicio,
         moneda_funcional: configFiscalDraft.moneda_funcional,
         estado: configFiscalDraft.estado,
@@ -2090,6 +2097,7 @@ function App() {
         afecta_iva_arriendo: false,
         tasa_iva: '0.00',
         tasa_ppm_vigente: '',
+        ddjj_habilitadas_text: '',
         aplica_ppm: true,
         inicio_ejercicio: '2026-01-01',
         moneda_funcional: 'CLP',

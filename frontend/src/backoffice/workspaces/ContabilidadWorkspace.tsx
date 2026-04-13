@@ -21,6 +21,7 @@ type ConfigFiscalDraft = {
   afecta_iva_arriendo: boolean
   tasa_iva: string
   tasa_ppm_vigente: string
+  ddjj_habilitadas_text: string
   aplica_ppm: boolean
   inicio_ejercicio: string
   moneda_funcional: string
@@ -187,6 +188,7 @@ export function ContabilidadWorkspace({
             </select>
             <input placeholder="Tasa IVA" value={configFiscalDraft.tasa_iva} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, tasa_iva: event.target.value }))} />
             <input placeholder="Tasa PPM vigente" value={configFiscalDraft.tasa_ppm_vigente} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, tasa_ppm_vigente: event.target.value }))} />
+            <input placeholder="DDJJ habilitadas (coma separada)" value={configFiscalDraft.ddjj_habilitadas_text} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, ddjj_habilitadas_text: event.target.value }))} />
             <select value={configFiscalDraft.estado} onChange={(event) => setConfigFiscalDraft((current) => ({ ...current, estado: event.target.value }))}>
               <option value="activa">Activa</option>
               <option value="borrador">Borrador</option>

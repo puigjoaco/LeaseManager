@@ -30,3 +30,4 @@
 | 2026-04-12 | Bootstrap demo de actividad mensual de control | API publica, reporting remoto, `bootstrap_demo_control_activity.py` | `Contabilidad` / `SII` / `Reporting` dejan de verse totalmente vacios para empresa `1` en `2026-05` |
 | 2026-04-12 | Bootstrap demo de flujo tributario mensual | API publica + `bootstrap_demo_tax_monthly_flow.py` | Se concilia un pago facturable de empresa `1`, se genera el primer `DTE` borrador y `SII` deja de verse totalmente vacio en público |
 | 2026-04-12 | Exposición de `tasa_ppm_vigente` en API/UI y reproceso de mayo | `contabilidad/serializers.py`, `App.tsx`, `ContabilidadWorkspace.tsx`, API publica | `F29` de empresa `1` para `2026-05` pasa a `preparado` sin depender de shell para ajustar PPM |
+| 2026-04-12 | Bootstrap demo de flujo tributario anual | API publica + `bootstrap_demo_tax_annual_flow.py` | Empresa `1` queda con `ProcesoRentaAnual`, `DDJJ` y `F22` en `preparado` para `2027` |

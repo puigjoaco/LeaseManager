@@ -78,6 +78,7 @@ Se ejecuto una secuencia verificable adicional:
   - baseline de control;
   - actividad mensual demo de control;
   - flujo tributario mensual demo;
+  - flujo tributario anual demo;
   - exportaciones demo de `Compliance`;
   - baseline demo de politicas de retencion de `Compliance`;
 - se enriquecio la base remota con:
@@ -108,6 +109,10 @@ Se ejecuto una secuencia verificable adicional:
 - se corrigio ademas un bloqueo de producto en `Contabilidad`:
   - `tasa_ppm_vigente` ya se expone por serializer;
   - el workspace de `Contabilidad` ya permite editar la configuracion fiscal base sin depender de shell.
+- se abrio tambien el primer flujo anual demo visible:
+  - se completo empresa `1` con doce cierres `2026` aprobados;
+  - `ddjj_habilitadas` quedo en `['1887']`;
+  - `ProcesoRentaAnual`, `DDJJ` y `F22` de `2027` quedaron en `preparado`.
 
 ## 3. Estado real del repo, del runtime y del codigo
 

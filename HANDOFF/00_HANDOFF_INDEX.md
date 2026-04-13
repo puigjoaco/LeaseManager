@@ -67,6 +67,7 @@ Estado real consolidado al cierre de este handoff:
   - `bootstrap_demo_control_baseline`
   - `bootstrap_demo_control_activity`
   - `bootstrap_demo_tax_monthly_flow`
+  - `bootstrap_demo_tax_annual_flow`
   - `bootstrap_demo_compliance_exports`
   - `bootstrap_demo_compliance_policies`
 - el entorno remoto ya no tiene solo baseline estructural de control:
@@ -85,6 +86,12 @@ Estado real consolidado al cierre de este handoff:
 - la configuracion fiscal ya no depende de shell para `tasa_ppm_vigente`:
   - el backend la expone por API;
   - el backoffice la expone para edicion base en `Contabilidad`.
+- el entorno remoto ya tiene tambien un primer flujo anual visible para empresa `1`, año tributario `2027`:
+  - `ProcesoRentaAnual` en `preparado`;
+  - `DDJJ` en `preparado`;
+  - `F22` en `preparado`;
+  - `ddjj_habilitadas = ['1887']`;
+  - doce cierres mensuales aprobados del año comercial `2026`.
 
 ## Borrador vigente
 

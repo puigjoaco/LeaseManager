@@ -58,6 +58,8 @@
 - el ajuste de `tasa_ppm_vigente` ya no requiere shell o acceso directo a BD:
   - se puede leer y actualizar por API;
   - el backoffice ya tiene superficie base para editarlo.
+- el bloque anual ya no esta completamente vacio en remoto:
+  - empresa `1` tiene `ProcesoRentaAnual`, `DDJJ` y `F22` en `preparado` para `2027`.
 - El entorno remoto ya se enriquecio con datos derivados reales:
   - UF de abril y mayo 2026;
   - pagos de abril y mayo;
@@ -65,6 +67,7 @@
   - baseline minimo de control para empresa 1;
   - actividad mensual demo de control para empresa 1 en `2026-05`;
   - primer flujo tributario mensual demo de empresa 1;
+  - primer flujo tributario anual demo de empresa 1 para `2027`;
   - exportaciones demo de `Compliance`;
   - baseline demo de politicas de retencion de `Compliance`.
 
