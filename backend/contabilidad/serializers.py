@@ -72,6 +72,8 @@ class ConfiguracionFiscalEmpresaSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if 'data' not in kwargs:
+            return
         user = _request_user(self)
         if user and getattr(user, 'is_authenticated', False):
             self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
@@ -108,6 +110,8 @@ class CuentaContableSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if 'data' not in kwargs:
+            return
         user = _request_user(self)
         if not user or not getattr(user, 'is_authenticated', False):
             return
@@ -149,6 +153,8 @@ class ReglaContableSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if 'data' not in kwargs:
+            return
         user = _request_user(self)
         if user and getattr(user, 'is_authenticated', False):
             self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
@@ -181,6 +187,8 @@ class MatrizReglasContablesSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if 'data' not in kwargs:
+            return
         user = _request_user(self)
         if not user or not getattr(user, 'is_authenticated', False):
             return
@@ -226,6 +234,8 @@ class EventoContableSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if 'data' not in kwargs:
+            return
         user = _request_user(self)
         if user and getattr(user, 'is_authenticated', False):
             self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
@@ -288,6 +298,8 @@ class PoliticaReversoContableSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if 'data' not in kwargs:
+            return
         user = _request_user(self)
         if user and getattr(user, 'is_authenticated', False):
             self.fields['empresa'].queryset = _scoped_empresa_queryset(user)

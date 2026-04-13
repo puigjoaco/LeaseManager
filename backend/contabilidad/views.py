@@ -5,7 +5,12 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
-from core.scope_access import ScopedQuerysetMixin, scope_queryset_for_user
+from core.scope_access import (
+    ScopedQuerysetMixin,
+    get_scope_access,
+    scope_queryset_for_access,
+    scope_queryset_for_user,
+)
 
 from .models import (
     AsientoContable,
@@ -93,10 +98,15 @@ class ControlSnapshotView(APIView):
 
     def get(self, request):
         context = {'request': request}
+        access = get_scope_access(request.user)
         mode = request.query_params.get('mode', 'full')
         include_core = mode in {'full', 'core'}
         include_catalogs = mode in {'full', 'catalogs'}
         include_activity = mode in {'full', 'activity'}
+
+        def scoped(queryset, *, company_paths: tuple[str, ...]):
+            return scope_queryset_for_access(queryset, access, company_paths=company_paths)
+
         return Response(
             {
                 'regimenes_tributarios': (
@@ -110,9 +120,8 @@ class ControlSnapshotView(APIView):
                 ),
                 'configuraciones_fiscales': (
                     ConfiguracionFiscalEmpresaSerializer(
-                        scope_queryset_for_user(
+                        scoped(
                             ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario'),
-                            request.user,
                             company_paths=('empresa_id',),
                         ),
                         many=True,
@@ -123,9 +132,8 @@ class ControlSnapshotView(APIView):
                 ),
                 'cuentas_contables': (
                     CuentaContableSerializer(
-                        scope_queryset_for_user(
+                        scoped(
                             CuentaContable.objects.select_related('empresa', 'padre'),
-                            request.user,
                             company_paths=('empresa_id',),
                         ),
                         many=True,
@@ -136,9 +144,8 @@ class ControlSnapshotView(APIView):
                 ),
                 'reglas_contables': (
                     ReglaContableSerializer(
-                        scope_queryset_for_user(
+                        scoped(
                             ReglaContable.objects.select_related('empresa'),
-                            request.user,
                             company_paths=('empresa_id',),
                         ),
                         many=True,
@@ -149,9 +156,8 @@ class ControlSnapshotView(APIView):
                 ),
                 'matrices_reglas': (
                     MatrizReglasContablesSerializer(
-                        scope_queryset_for_user(
+                        scoped(
                             MatrizReglasContables.objects.select_related('regla_contable', 'cuenta_debe', 'cuenta_haber'),
-                            request.user,
                             company_paths=('regla_contable__empresa_id',),
                         ),
                         many=True,
@@ -162,9 +168,8 @@ class ControlSnapshotView(APIView):
                 ),
                 'eventos_contables': (
                     EventoContableSerializer(
-                        scope_queryset_for_user(
+                        scoped(
                             EventoContable.objects.select_related('empresa'),
-                            request.user,
                             company_paths=('empresa_id',),
                         ),
                         many=True,
@@ -175,9 +180,8 @@ class ControlSnapshotView(APIView):
                 ),
                 'asientos_contables': (
                     AsientoContableSerializer(
-                        scope_queryset_for_user(
+                        scoped(
                             AsientoContable.objects.select_related('evento_contable').prefetch_related('movimientos'),
-                            request.user,
                             company_paths=('evento_contable__empresa_id',),
                         ),
                         many=True,
@@ -188,9 +192,8 @@ class ControlSnapshotView(APIView):
                 ),
                 'obligaciones_mensuales': (
                     ObligacionTributariaMensualSerializer(
-                        scope_queryset_for_user(
+                        scoped(
                             ObligacionTributariaMensual.objects.select_related('empresa'),
-                            request.user,
                             company_paths=('empresa_id',),
                         ),
                         many=True,
@@ -201,9 +204,8 @@ class ControlSnapshotView(APIView):
                 ),
                 'cierres_mensuales': (
                     CierreMensualContableSerializer(
-                        scope_queryset_for_user(
+                        scoped(
                             CierreMensualContable.objects.select_related('empresa'),
-                            request.user,
                             company_paths=('empresa_id',),
                         ),
                         many=True,
