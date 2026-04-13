@@ -60,6 +60,11 @@
   - el backoffice ya tiene superficie base para editarlo.
 - el bloque anual ya no esta completamente vacio en remoto:
   - empresa `1` tiene `ProcesoRentaAnual`, `DDJJ` y `F22` en `preparado` para `2027`.
+- `demo-revisor` ya puede ver el showcase de control multicompañía:
+  - `4` configuraciones fiscales;
+  - `4` `F29`;
+  - `4` `DTE`;
+  - y los bloques anuales preparados para las cuatro empresas activas.
 - El entorno remoto ya se enriquecio con datos derivados reales:
   - UF de abril y mayo 2026;
   - pagos de abril y mayo;

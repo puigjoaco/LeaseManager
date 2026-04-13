@@ -79,6 +79,7 @@ Se ejecuto una secuencia verificable adicional:
   - actividad mensual demo de control;
   - flujo tributario mensual demo;
   - flujo tributario anual demo;
+  - ampliacion de access demo para showcase;
   - exportaciones demo de `Compliance`;
   - baseline demo de politicas de retencion de `Compliance`;
   - un orquestador `bootstrap_demo_public_showcase` para encadenar el baseline demo publico;
@@ -114,6 +115,9 @@ Se ejecuto una secuencia verificable adicional:
   - se completo empresa `1` con doce cierres `2026` aprobados;
   - `ddjj_habilitadas` quedo en `['1887']`;
   - `ProcesoRentaAnual`, `DDJJ` y `F22` de `2027` quedaron en `preparado`.
+- se corrigio ademas el cuello de botella del showcase para perfiles read-only:
+  - `demo-revisor` ahora tiene scopes activos sobre las empresas `1`, `2`, `3` y `4`;
+  - eso vuelve visibles por API pública los bloques de control sembrados para varias empresas, sin cambiar el rol ni convertirlo en admin.
 
 ## 3. Estado real del repo, del runtime y del codigo
 

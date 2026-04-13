@@ -68,6 +68,7 @@ Estado real consolidado al cierre de este handoff:
   - `bootstrap_demo_control_activity`
   - `bootstrap_demo_tax_monthly_flow`
   - `bootstrap_demo_tax_annual_flow`
+  - `bootstrap_demo_showcase_access`
   - `bootstrap_demo_compliance_exports`
   - `bootstrap_demo_compliance_policies`
   - `bootstrap_demo_public_showcase`
@@ -93,6 +94,9 @@ Estado real consolidado al cierre de este handoff:
   - `F22` en `preparado`;
   - `ddjj_habilitadas = ['1887']`;
   - doce cierres mensuales aprobados del año comercial `2026`.
+- `demo-revisor` ya no esta limitado solo a company `1` para el showcase:
+  - ahora tiene scopes activos sobre empresas `1`, `2`, `3` y `4`;
+  - puede ver `4` configuraciones fiscales, `4` `F29`, `4` bloques anuales y `4` `DTE` por API pública.
 
 ## Borrador vigente
 

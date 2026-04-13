@@ -89,6 +89,7 @@ Secuencia recomendada para continuar correctamente:
 
 - refresh documental del handoff con estado real actual;
 - usar `bootstrap_demo_public_showcase` cuando convenga reconstruir el demo publico de forma consistente;
+- si se quiere validar el showcase multicompañía desde un perfil read-only, usar `bootstrap_demo_showcase_access` o el propio orquestador público;
 - seguir enriqueciendo la data remota solo a traves de commands versionados o decisiones explicitas.
 
 ### Etapa posterior

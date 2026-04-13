@@ -125,6 +125,14 @@ class Command(BaseCommand):
                 company_id=company_ids[0],
                 socio_id=socio_id,
             )
+            self._run_step(
+                "bootstrap_demo_showcase_access",
+                warnings,
+                strict,
+                username="demo-revisor",
+                role_code="RevisorFiscalExterno",
+                company_ids=company_ids,
+            )
 
         self._run_step(
             "bootstrap_demo_operational_data",
