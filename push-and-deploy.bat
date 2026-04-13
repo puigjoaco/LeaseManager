@@ -78,14 +78,37 @@ if errorlevel 1 (
 
 echo [4/4] Deploying greenfield frontend on Vercel...
 set "FRONTEND_DIR=%~dp0frontend"
-if defined VERCEL_TOKEN (
-    vercel --cwd "%FRONTEND_DIR%" --prod --yes --scope joaquins-projects-72185699 --token %VERCEL_TOKEN%
-) else (
-    vercel --cwd "%FRONTEND_DIR%" --prod --yes --scope joaquins-projects-72185699
+set "VERCEL_SCOPE=joaquins-projects-72185699"
+set "VERCEL_TOKEN_VALUE=%VERCEL_TOKEN%"
+if not defined VERCEL_TOKEN_VALUE (
+    if exist "%~dp0..\deploy.bat" (
+        for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"set VERCEL_TOKEN=" "%~dp0..\deploy.bat"') do (
+            if not defined VERCEL_TOKEN_VALUE set "VERCEL_TOKEN_VALUE=%%B"
+        )
+    )
 )
+if not defined VERCEL_TOKEN_VALUE (
+    echo ERROR: Vercel token not available.
+    echo Define VERCEL_TOKEN or keep a local deploy.bat fallback available.
+    exit /b 1
+)
+
+for /f %%I in ('vercel teams switch %VERCEL_SCOPE% --token %VERCEL_TOKEN_VALUE% 2^>nul') do set "VERCEL_SWITCH_OUTPUT=%%I"
+
+set "LATEST_DEPLOYMENT_URL="
+for /f "delims=" %%D in ('vercel list leasemanager-backoffice --token %VERCEL_TOKEN_VALUE% --scope %VERCEL_SCOPE% 2^>nul ^| findstr /r /c:"https://leasemanager-backoffice-.*vercel.app"') do (
+    if not defined LATEST_DEPLOYMENT_URL set "LATEST_DEPLOYMENT_URL=%%D"
+)
+
+if defined LATEST_DEPLOYMENT_URL (
+    vercel redeploy %LATEST_DEPLOYMENT_URL% --target production --no-wait --scope %VERCEL_SCOPE% --token %VERCEL_TOKEN_VALUE%
+) else (
+    echo WARNING: Could not resolve latest deployment URL. Falling back to direct deploy.
+    vercel --cwd "%FRONTEND_DIR%" --prod --yes --scope %VERCEL_SCOPE% --token %VERCEL_TOKEN_VALUE%
+)
+
 if errorlevel 1 (
     echo ERROR: Vercel deploy failed
-    echo Ensure the Vercel CLI is authenticated or set VERCEL_TOKEN, and keep the frontend project linked.
     exit /b 1
 )
 
