@@ -1180,7 +1180,7 @@ function App() {
         requestIf<Cuenta[]>(bootstrapOperational, '/api/v1/operacion/cuentas-recaudadoras/', []),
         requestIf<Identidad[]>(bootstrapOperational, '/api/v1/operacion/identidades-envio/', []),
         requestIf<Mandato[]>(bootstrapOperational, '/api/v1/operacion/mandatos/', []),
-        requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/', null),
+        requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/?mode=core', null),
         requestIf<CapacidadSii[]>(bootstrapSii, '/api/v1/sii/capacidades/', []),
         requestIf<DteEmitido[]>(bootstrapSii, '/api/v1/sii/dtes/', []),
         requestIf<F29Preparacion[]>(bootstrapSii, '/api/v1/sii/f29/', []),
@@ -1260,6 +1260,7 @@ function App() {
             ingresosPayload,
             auditEventsPayload,
             manualResolutionsPayload,
+            controlActivitySnapshot,
           ] = await Promise.all([
             requestIf<Arrendatario[]>(canReadOperational, '/api/v1/contratos/arrendatarios/', []),
             requestIf<Contrato[]>(canReadOperational, '/api/v1/contratos/contratos/', []),
@@ -1280,6 +1281,7 @@ function App() {
             requestIf<IngresoDesconocido[]>(canReadOperational, '/api/v1/conciliacion/ingresos-desconocidos/', []),
             requestIf<AuditEventItem[]>(canReadAuditEvents, '/api/v1/audit/events/', []),
             requestIf<ManualResolutionItem[]>(canReadManualResolutions, '/api/v1/audit/manual-resolutions/', []),
+            requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/?mode=activity', null),
           ])
 
           setArrendatarios(arrendatariosPayload)
@@ -1301,6 +1303,12 @@ function App() {
           setIngresosDesconocidos(ingresosPayload)
           setAuditEvents(auditEventsPayload)
           setManualResolutions(manualResolutionsPayload)
+          if (controlActivitySnapshot) {
+            setEventosContables(controlActivitySnapshot.eventos_contables)
+            setAsientosContables(controlActivitySnapshot.asientos_contables)
+            setObligacionesMensuales(controlActivitySnapshot.obligaciones_mensuales)
+            setCierresMensuales(controlActivitySnapshot.cierres_mensuales)
+          }
           setLastLoadedAt(new Date().toISOString())
         } catch (error) {
           if (error instanceof ApiError && error.status === 401) {
