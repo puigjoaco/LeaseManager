@@ -1117,7 +1117,6 @@ function App() {
       const canReadCompliance = role === 'AdministradorGlobal'
       const canReadOwnPartnerSummary = role === 'Socio'
       const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
-      const bootstrapOverviewOnly = targetView === 'overview'
       const bootstrapControl = canReadControl && targetView === 'contabilidad'
       const bootstrapSii = canReadControl && targetView === 'sii'
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance'
