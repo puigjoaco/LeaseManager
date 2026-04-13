@@ -63,8 +63,13 @@
 - `demo-revisor` ya puede ver el showcase de control multicompañía:
   - `4` configuraciones fiscales;
   - `4` `F29`;
-  - `4` `DTE`;
+  - `5` `DTE`;
   - y los bloques anuales preparados para las cuatro empresas activas.
+- el showcase mensual `2026-05` ya quedó útil en las cuatro empresas activas:
+  - `1`: `2` DTE / `3` eventos / cobrado `2363011.00`
+  - `2`: `1` DTE / `2` eventos / cobrado `401030.00`
+  - `3`: `1` DTE / `2` eventos / cobrado `722039.00`
+  - `4`: `1` DTE / `2` eventos / cobrado `409013.00`
 - El entorno remoto ya se enriquecio con datos derivados reales:
   - UF de abril y mayo 2026;
   - pagos de abril y mayo;

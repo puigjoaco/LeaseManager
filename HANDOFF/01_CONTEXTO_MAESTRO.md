@@ -118,6 +118,9 @@ Se ejecuto una secuencia verificable adicional:
 - se corrigio ademas el cuello de botella del showcase para perfiles read-only:
   - `demo-revisor` ahora tiene scopes activos sobre las empresas `1`, `2`, `3` y `4`;
   - eso vuelve visibles por API pública los bloques de control sembrados para varias empresas, sin cambiar el rol ni convertirlo en admin.
+- se cerró además el último hueco mensual evidente del showcase multiempresa:
+  - empresa `4` ya tiene pago conciliado exacto y `DTE` borrador visible en `2026-05`;
+  - el reviewer ya ve `DTE` mensual en las cuatro empresas activas.
 
 ## 3. Estado real del repo, del runtime y del codigo
 

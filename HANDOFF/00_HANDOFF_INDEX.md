@@ -96,7 +96,9 @@ Estado real consolidado al cierre de este handoff:
   - doce cierres mensuales aprobados del año comercial `2026`.
 - `demo-revisor` ya no esta limitado solo a company `1` para el showcase:
   - ahora tiene scopes activos sobre empresas `1`, `2`, `3` y `4`;
-  - puede ver `4` configuraciones fiscales, `4` `F29`, `4` bloques anuales y `4` `DTE` por API pública.
+  - puede ver `4` configuraciones fiscales, `4` `F29`, `4` bloques anuales y `5` `DTE` por API pública.
+- el showcase mensual `2026-05` ya no quedo cojo:
+  - las empresas `1`, `2`, `3` y `4` tienen al menos un `DTE` visible para `demo-revisor`.
 
 ## Borrador vigente
 
