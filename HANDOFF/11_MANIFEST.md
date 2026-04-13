@@ -49,6 +49,7 @@ Nota metodologica:
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_control_activity.py` | 6457 | 2026-04-12 19:38:00 aprox. | bootstrap reproducible de actividad mensual demo para Contabilidad/SII | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_tax_monthly_flow.py` | 8541 | 2026-04-12 20:05:00 aprox. | bootstrap reproducible de conciliación + DTE + F29 para un flujo tributario mensual demo | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_tax_annual_flow.py` | 6740 | 2026-04-12 20:22:00 aprox. | bootstrap reproducible de cierres + DDJJ + F22 para un flujo tributario anual demo | leido |
+| `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_public_showcase.py` | 9114 | 2026-04-12 20:54:00 aprox. | orquestador reproducible del showcase demo público | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_compliance_exports.py` | 4077 | 2026-04-12 18:58:53 | bootstrap reproducible de exportaciones demo de Compliance | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_compliance_policies.py` | 2173 | 2026-04-12 19:27:00 aprox. | bootstrap reproducible de políticas demo de retención para Compliance | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\tests_permissions.py` | 5089 | 2026-04-11 23:23:53 | evidencia ejecutable de RBAC | leido |

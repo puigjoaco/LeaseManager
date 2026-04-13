@@ -81,6 +81,7 @@ Se ejecuto una secuencia verificable adicional:
   - flujo tributario anual demo;
   - exportaciones demo de `Compliance`;
   - baseline demo de politicas de retencion de `Compliance`;
+  - un orquestador `bootstrap_demo_public_showcase` para encadenar el baseline demo publico;
 - se enriquecio la base remota con:
   - valores UF de abril y mayo 2026;
   - pagos derivados para abril y mayo;

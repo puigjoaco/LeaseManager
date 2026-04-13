@@ -88,6 +88,7 @@ Secuencia recomendada para continuar correctamente:
 ### Etapa inmediata
 
 - refresh documental del handoff con estado real actual;
+- usar `bootstrap_demo_public_showcase` cuando convenga reconstruir el demo publico de forma consistente;
 - seguir enriqueciendo la data remota solo a traves de commands versionados o decisiones explicitas.
 
 ### Etapa posterior

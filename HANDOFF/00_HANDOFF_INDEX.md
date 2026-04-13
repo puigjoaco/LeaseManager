@@ -70,6 +70,7 @@ Estado real consolidado al cierre de este handoff:
   - `bootstrap_demo_tax_annual_flow`
   - `bootstrap_demo_compliance_exports`
   - `bootstrap_demo_compliance_policies`
+  - `bootstrap_demo_public_showcase`
 - el entorno remoto ya no tiene solo baseline estructural de control:
   - empresa `1`, periodo `2026-05` con `1` evento contable posteado;
   - `1` asiento contable;
