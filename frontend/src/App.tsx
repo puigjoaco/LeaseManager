@@ -1244,29 +1244,7 @@ function App() {
 
       void (async () => {
         try {
-          const [
-            arrendatariosPayload,
-            contratosPayload,
-            expedientesPayload,
-            politicasFirmaPayload,
-            documentosEmitidosPayload,
-            gatesCanalesPayload,
-            mensajesSalientesPayload,
-            avisosPayload,
-            valoresUfPayload,
-            ajustesPayload,
-            pagosPayload,
-            garantiasPayload,
-            historialGarantiasPayload,
-            estadosCuentaPayload,
-            conexionesPayload,
-            movimientosPayload,
-            ingresosPayload,
-            auditEventsPayload,
-            manualResolutionsPayload,
-            controlCatalogSnapshot,
-            controlActivitySnapshot,
-          ] = await Promise.all([
+          const settled = await Promise.allSettled([
             requestIf<Arrendatario[]>(canReadOperational, '/api/v1/contratos/arrendatarios/', []),
             requestIf<Contrato[]>(canReadOperational, '/api/v1/contratos/contratos/', []),
             requestIf<ExpedienteDocumental[]>(canReadOperational, '/api/v1/documentos/expedientes/', []),
@@ -1289,6 +1267,33 @@ function App() {
             requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/?mode=catalogs', null),
             requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/?mode=activity', null),
           ])
+
+          function resolvedValue<T>(index: number, fallback: T): T {
+            const item = settled[index]
+            return item.status === 'fulfilled' ? (item.value as T) : fallback
+          }
+
+          const arrendatariosPayload = resolvedValue<Arrendatario[]>(0, [])
+          const contratosPayload = resolvedValue<Contrato[]>(1, [])
+          const expedientesPayload = resolvedValue<ExpedienteDocumental[]>(2, [])
+          const politicasFirmaPayload = resolvedValue<PoliticaFirma[]>(3, [])
+          const documentosEmitidosPayload = resolvedValue<DocumentoEmitidoItem[]>(4, [])
+          const gatesCanalesPayload = resolvedValue<CanalMensajeriaItem[]>(5, [])
+          const mensajesSalientesPayload = resolvedValue<MensajeSalienteItem[]>(6, [])
+          const avisosPayload = resolvedValue<AvisoTermino[]>(7, [])
+          const valoresUfPayload = resolvedValue<ValorUF[]>(8, [])
+          const ajustesPayload = resolvedValue<AjusteContrato[]>(9, [])
+          const pagosPayload = resolvedValue<PagoMensual[]>(10, [])
+          const garantiasPayload = resolvedValue<Garantia[]>(11, [])
+          const historialGarantiasPayload = resolvedValue<HistorialGarantia[]>(12, [])
+          const estadosCuentaPayload = resolvedValue<EstadoCuenta[]>(13, [])
+          const conexionesPayload = resolvedValue<ConexionBancaria[]>(14, [])
+          const movimientosPayload = resolvedValue<MovimientoBancario[]>(15, [])
+          const ingresosPayload = resolvedValue<IngresoDesconocido[]>(16, [])
+          const auditEventsPayload = resolvedValue<AuditEventItem[]>(17, [])
+          const manualResolutionsPayload = resolvedValue<ManualResolutionItem[]>(18, [])
+          const controlCatalogSnapshot = resolvedValue<ControlSnapshot | null>(19, null)
+          const controlActivitySnapshot = resolvedValue<ControlSnapshot | null>(20, null)
 
           setArrendatarios(arrendatariosPayload)
           setContratos(contratosPayload)
