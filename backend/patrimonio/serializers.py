@@ -129,7 +129,7 @@ class OwnerBaseSerializer(serializers.ModelSerializer):
 
     def get_participaciones_detail(self, obj):
         return ParticipacionPatrimonialReadSerializer(
-            obj.participaciones.select_related('participante_socio', 'participante_empresa').all(),
+            obj.participaciones.all(),
             many=True,
         ).data
 
@@ -304,7 +304,18 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
         read_only_fields = ('id', 'created_at', 'updated_at', 'participaciones_detail')
 
     def get_representacion_vigente(self, obj):
-        representacion = obj.representacion_vigente()
+        cached = getattr(obj, '_prefetched_objects_cache', {})
+        representaciones = cached.get('representaciones')
+        if representaciones is not None:
+            today = timezone.localdate()
+            activas = [
+                item for item in representaciones
+                if item.activo and (item.vigente_hasta is None or item.vigente_hasta >= today)
+            ]
+            activas.sort(key=lambda item: (item.vigente_desde, item.id), reverse=True)
+            representacion = activas[0] if activas else None
+        else:
+            representacion = obj.representacion_vigente()
         if not representacion:
             return None
         return RepresentacionComunidadReadSerializer(representacion).data
