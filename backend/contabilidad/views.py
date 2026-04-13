@@ -88,6 +88,94 @@ class RegimenTributarioEmpresaListCreateView(AuditCreateUpdateMixin, generics.Li
     audit_entity_label = 'regimen tributario'
 
 
+class ControlSnapshotView(APIView):
+    permission_classes = [ControlModulePermission]
+
+    def get(self, request):
+        context = {'request': request}
+        return Response(
+            {
+                'regimenes_tributarios': RegimenTributarioEmpresaSerializer(
+                    RegimenTributarioEmpresa.objects.all(),
+                    many=True,
+                    context=context,
+                ).data,
+                'configuraciones_fiscales': ConfiguracionFiscalEmpresaSerializer(
+                    scope_queryset_for_user(
+                        ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario'),
+                        request.user,
+                        company_paths=('empresa_id',),
+                    ),
+                    many=True,
+                    context=context,
+                ).data,
+                'cuentas_contables': CuentaContableSerializer(
+                    scope_queryset_for_user(
+                        CuentaContable.objects.select_related('empresa', 'padre'),
+                        request.user,
+                        company_paths=('empresa_id',),
+                    ),
+                    many=True,
+                    context=context,
+                ).data,
+                'reglas_contables': ReglaContableSerializer(
+                    scope_queryset_for_user(
+                        ReglaContable.objects.select_related('empresa'),
+                        request.user,
+                        company_paths=('empresa_id',),
+                    ),
+                    many=True,
+                    context=context,
+                ).data,
+                'matrices_reglas': MatrizReglasContablesSerializer(
+                    scope_queryset_for_user(
+                        MatrizReglasContables.objects.select_related('regla_contable', 'cuenta_debe', 'cuenta_haber'),
+                        request.user,
+                        company_paths=('regla_contable__empresa_id',),
+                    ),
+                    many=True,
+                    context=context,
+                ).data,
+                'eventos_contables': EventoContableSerializer(
+                    scope_queryset_for_user(
+                        EventoContable.objects.select_related('empresa'),
+                        request.user,
+                        company_paths=('empresa_id',),
+                    ),
+                    many=True,
+                    context=context,
+                ).data,
+                'asientos_contables': AsientoContableSerializer(
+                    scope_queryset_for_user(
+                        AsientoContable.objects.select_related('evento_contable').prefetch_related('movimientos'),
+                        request.user,
+                        company_paths=('evento_contable__empresa_id',),
+                    ),
+                    many=True,
+                    context=context,
+                ).data,
+                'obligaciones_mensuales': ObligacionTributariaMensualSerializer(
+                    scope_queryset_for_user(
+                        ObligacionTributariaMensual.objects.select_related('empresa'),
+                        request.user,
+                        company_paths=('empresa_id',),
+                    ),
+                    many=True,
+                    context=context,
+                ).data,
+                'cierres_mensuales': CierreMensualContableSerializer(
+                    scope_queryset_for_user(
+                        CierreMensualContable.objects.select_related('empresa'),
+                        request.user,
+                        company_paths=('empresa_id',),
+                    ),
+                    many=True,
+                    context=context,
+                ).data,
+            }
+        )
+
+
 class RegimenTributarioEmpresaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = RegimenTributarioEmpresaSerializer

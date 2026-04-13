@@ -11,6 +11,7 @@ from .views import (
     CierreMensualReopenView,
     ConfiguracionFiscalEmpresaDetailView,
     ConfiguracionFiscalEmpresaListCreateView,
+    ControlSnapshotView,
     CuentaContableDetailView,
     CuentaContableListCreateView,
     EventoContableDetailView,
@@ -30,6 +31,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('snapshot/', ControlSnapshotView.as_view(), name='contabilidad-snapshot'),
     path('regimenes-tributarios/', RegimenTributarioEmpresaListCreateView.as_view(), name='contabilidad-regimen-list'),
     path('regimenes-tributarios/<int:pk>/', RegimenTributarioEmpresaDetailView.as_view(), name='contabilidad-regimen-detail'),
     path('configuraciones-fiscales/', ConfiguracionFiscalEmpresaListCreateView.as_view(), name='contabilidad-config-list'),

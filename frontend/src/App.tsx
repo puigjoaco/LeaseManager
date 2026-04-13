@@ -520,6 +520,18 @@ type ManualResolutionItem = {
   resolved_at: string | null
 }
 
+type ControlSnapshot = {
+  regimenes_tributarios: RegimenTributario[]
+  configuraciones_fiscales: ConfiguracionFiscal[]
+  cuentas_contables: CuentaContable[]
+  reglas_contables: ReglaContable[]
+  matrices_reglas: MatrizRegla[]
+  eventos_contables: EventoContable[]
+  asientos_contables: AsientoContable[]
+  obligaciones_mensuales: ObligacionMensual[]
+  cierres_mensuales: CierreMensual[]
+}
+
 type CapacidadSii = {
   id: number
   empresa: number
@@ -1148,15 +1160,7 @@ function App() {
         cuentasPayload,
         identidadesPayload,
         mandatosPayload,
-        regimenesPayload,
-        configuracionesPayload,
-        cuentasContablesPayload,
-        reglasPayload,
-        matricesPayload,
-        eventosPayload,
-        asientosPayload,
-        obligacionesPayload,
-        cierresPayload,
+        controlSnapshotPayload,
         capacidadesSiiPayload,
         dtesPayload,
         f29Payload,
@@ -1176,15 +1180,7 @@ function App() {
         requestIf<Cuenta[]>(bootstrapOperational, '/api/v1/operacion/cuentas-recaudadoras/', []),
         requestIf<Identidad[]>(bootstrapOperational, '/api/v1/operacion/identidades-envio/', []),
         requestIf<Mandato[]>(bootstrapOperational, '/api/v1/operacion/mandatos/', []),
-        requestIf<RegimenTributario[]>(bootstrapControl, '/api/v1/contabilidad/regimenes-tributarios/', []),
-        requestIf<ConfiguracionFiscal[]>(bootstrapControl, '/api/v1/contabilidad/configuraciones-fiscales/', []),
-        requestIf<CuentaContable[]>(bootstrapControl, '/api/v1/contabilidad/cuentas-contables/', []),
-        requestIf<ReglaContable[]>(bootstrapControl, '/api/v1/contabilidad/reglas-contables/', []),
-        requestIf<MatrizRegla[]>(bootstrapControl, '/api/v1/contabilidad/matriz-reglas/', []),
-        requestIf<EventoContable[]>(bootstrapControl, '/api/v1/contabilidad/eventos-contables/', []),
-        requestIf<AsientoContable[]>(bootstrapControl, '/api/v1/contabilidad/asientos-contables/', []),
-        requestIf<ObligacionMensual[]>(bootstrapControl, '/api/v1/contabilidad/obligaciones-mensuales/', []),
-        requestIf<CierreMensual[]>(bootstrapControl, '/api/v1/contabilidad/cierres-mensuales/', []),
+        requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/', null),
         requestIf<CapacidadSii[]>(bootstrapSii, '/api/v1/sii/capacidades/', []),
         requestIf<DteEmitido[]>(bootstrapSii, '/api/v1/sii/dtes/', []),
         requestIf<F29Preparacion[]>(bootstrapSii, '/api/v1/sii/f29/', []),
@@ -1208,15 +1204,15 @@ function App() {
       setCuentas(cuentasPayload)
       setIdentidades(identidadesPayload)
       setMandatos(mandatosPayload)
-      setRegimenesTributarios(regimenesPayload)
-      setConfiguracionesFiscales(configuracionesPayload)
-      setCuentasContables(cuentasContablesPayload)
-      setReglasContables(reglasPayload)
-      setMatricesReglas(matricesPayload)
-      setEventosContables(eventosPayload)
-      setAsientosContables(asientosPayload)
-      setObligacionesMensuales(obligacionesPayload)
-      setCierresMensuales(cierresPayload)
+      setRegimenesTributarios(controlSnapshotPayload?.regimenes_tributarios || [])
+      setConfiguracionesFiscales(controlSnapshotPayload?.configuraciones_fiscales || [])
+      setCuentasContables(controlSnapshotPayload?.cuentas_contables || [])
+      setReglasContables(controlSnapshotPayload?.reglas_contables || [])
+      setMatricesReglas(controlSnapshotPayload?.matrices_reglas || [])
+      setEventosContables(controlSnapshotPayload?.eventos_contables || [])
+      setAsientosContables(controlSnapshotPayload?.asientos_contables || [])
+      setObligacionesMensuales(controlSnapshotPayload?.obligaciones_mensuales || [])
+      setCierresMensuales(controlSnapshotPayload?.cierres_mensuales || [])
       setCapacidadesSii(capacidadesSiiPayload)
       setDtes(dtesPayload)
       setF29s(f29Payload)

@@ -250,6 +250,50 @@ class ContabilidadAPITests(APITestCase):
         config = ConfiguracionFiscalEmpresa.objects.get(pk=created.data['id'])
         self.assertEqual(str(config.tasa_ppm_vigente), '12.50')
 
+    def test_control_snapshot_returns_initial_control_payload(self):
+        empresa = self._create_active_empresa(nombre='SnapshotCo', rut='73737373-7')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='manual',
+            entidad_origen_id='snapshot-1',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100000.00',
+            payload_resumen={},
+            idempotency_key='snapshot-1',
+            estado_contable='contabilizado',
+        )
+        ObligacionTributariaMensual.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            obligacion_tipo='PPM',
+            base_imponible='100000.00',
+            monto_calculado='10000.00',
+            estado_preparacion='preparado',
+        )
+        CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='preparado',
+        )
+
+        response = self.client.get(reverse('contabilidad-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['regimenes_tributarios']), 1)
+        self.assertEqual(len(response.data['configuraciones_fiscales']), 1)
+        self.assertEqual(len(response.data['cuentas_contables']), 3)
+        self.assertEqual(len(response.data['reglas_contables']), 1)
+        self.assertEqual(len(response.data['matrices_reglas']), 1)
+        self.assertEqual(len(response.data['eventos_contables']), 1)
+        self.assertEqual(len(response.data['obligaciones_mensuales']), 1)
+        self.assertEqual(len(response.data['cierres_mensuales']), 1)
+
     def test_retry_post_after_setup_creates_balanced_asiento(self):
         empresa = self._create_active_empresa(nombre='RetryCo', rut='99999999-9')
         response = self.client.post(
