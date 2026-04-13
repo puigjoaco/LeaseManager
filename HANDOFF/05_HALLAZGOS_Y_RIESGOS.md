@@ -75,6 +75,10 @@
   - el redeploy de `leasemanager-backoffice` ya corre por script con token local.
 - el repo ya no depende exclusivamente del MCP de navegador para verificación visual:
   - `smoke-public-backoffice.mjs` valida `demo-admin` y `demo-revisor` y deja screenshots.
+- los ajustes de carga ya mejoraron el sitio público real:
+  - `demo-admin` ronda `31s` en el smoke actual;
+  - `demo-revisor` ronda `37.5s`;
+  - ambos cargan con datos correctos sin quedar congelados en `Actualizando...`.
 - El entorno remoto ya se enriquecio con datos derivados reales:
   - UF de abril y mayo 2026;
   - pagos de abril y mayo;

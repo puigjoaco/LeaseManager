@@ -105,6 +105,10 @@ Estado real consolidado al cierre de este handoff:
 - el repo activo ya tiene smoke Playwright reproducible fuera del MCP:
   - `scripts/smoke-public-backoffice.mjs`
   - valida `demo-admin` y `demo-revisor` sobre el sitio público y deja screenshots locales.
+- despues de los ajustes de carga y de serialización:
+  - el smoke público actual da aprox. `31s` para `demo-admin`;
+  - y aprox. `37.5s` para `demo-revisor`;
+  - ambos ya cargan el sitio público con datos correctos y sin quedar atrapados en `Actualizando...`.
 
 ## Borrador vigente
 

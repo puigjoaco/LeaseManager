@@ -124,6 +124,10 @@ Se ejecuto una secuencia verificable adicional:
 - se resolvio tambien el tooling de continuidad operativa:
   - el flujo CLI de Vercel del root activo ya funciona otra vez con token local y redeploy correcto;
   - el repo ya tiene un smoke Playwright reproducible por shell (`smoke-public-backoffice.mjs`) para no depender del MCP de navegador cuando falle.
+- se ejecutaron ademas optimizaciones puntuales de carga:
+  - reutilizacion de relaciones prefetched en `pagos`, `contratos` y `comunidades`;
+  - preload inicial reducido segun la vista activa;
+  - resultado visible: el backoffice público ya no queda atrapado indefinidamente en `Actualizando...` para `demo-admin` ni `demo-revisor`.
 
 ## 3. Estado real del repo, del runtime y del codigo
 
