@@ -1260,6 +1260,7 @@ function App() {
             ingresosPayload,
             auditEventsPayload,
             manualResolutionsPayload,
+            controlCatalogSnapshot,
             controlActivitySnapshot,
           ] = await Promise.all([
             requestIf<Arrendatario[]>(canReadOperational, '/api/v1/contratos/arrendatarios/', []),
@@ -1281,6 +1282,7 @@ function App() {
             requestIf<IngresoDesconocido[]>(canReadOperational, '/api/v1/conciliacion/ingresos-desconocidos/', []),
             requestIf<AuditEventItem[]>(canReadAuditEvents, '/api/v1/audit/events/', []),
             requestIf<ManualResolutionItem[]>(canReadManualResolutions, '/api/v1/audit/manual-resolutions/', []),
+            requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/?mode=catalogs', null),
             requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/?mode=activity', null),
           ])
 
@@ -1303,6 +1305,11 @@ function App() {
           setIngresosDesconocidos(ingresosPayload)
           setAuditEvents(auditEventsPayload)
           setManualResolutions(manualResolutionsPayload)
+          if (controlCatalogSnapshot) {
+            setCuentasContables(controlCatalogSnapshot.cuentas_contables)
+            setReglasContables(controlCatalogSnapshot.reglas_contables)
+            setMatricesReglas(controlCatalogSnapshot.matrices_reglas)
+          }
           if (controlActivitySnapshot) {
             setEventosContables(controlActivitySnapshot.eventos_contables)
             setAsientosContables(controlActivitySnapshot.asientos_contables)

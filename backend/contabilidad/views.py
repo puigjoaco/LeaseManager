@@ -95,6 +95,7 @@ class ControlSnapshotView(APIView):
         context = {'request': request}
         mode = request.query_params.get('mode', 'full')
         include_core = mode in {'full', 'core'}
+        include_catalogs = mode in {'full', 'catalogs'}
         include_activity = mode in {'full', 'activity'}
         return Response(
             {
@@ -130,7 +131,7 @@ class ControlSnapshotView(APIView):
                         many=True,
                         context=context,
                     ).data
-                    if include_core
+                    if include_catalogs
                     else []
                 ),
                 'reglas_contables': (
@@ -143,7 +144,7 @@ class ControlSnapshotView(APIView):
                         many=True,
                         context=context,
                     ).data
-                    if include_core
+                    if include_catalogs
                     else []
                 ),
                 'matrices_reglas': (
@@ -156,7 +157,7 @@ class ControlSnapshotView(APIView):
                         many=True,
                         context=context,
                     ).data
-                    if include_core
+                    if include_catalogs
                     else []
                 ),
                 'eventos_contables': (
