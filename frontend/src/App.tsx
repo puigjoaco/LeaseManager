@@ -1109,13 +1109,6 @@ function App() {
     try {
       const me = await apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken })
       const role = canonicalRole(me.default_role_code)
-      const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
-      const bootstrapOverviewOnly = targetView === 'overview'
-      setCurrentUser(me)
-      setActiveView((current) => (
-        allowedViewsForRole(role).includes(current) ? current : defaultViewForRole(role)
-      ))
-
       const canReadOverview = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
       const canReadOperational = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
       const canReadAuditEvents = role === 'AdministradorGlobal' || role === 'RevisorFiscalExterno'
@@ -1123,6 +1116,15 @@ function App() {
       const canReadControl = role === 'AdministradorGlobal' || role === 'RevisorFiscalExterno'
       const canReadCompliance = role === 'AdministradorGlobal'
       const canReadOwnPartnerSummary = role === 'Socio'
+      const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
+      const bootstrapOverviewOnly = targetView === 'overview'
+      const bootstrapControl = canReadControl && targetView === 'contabilidad'
+      const bootstrapSii = canReadControl && targetView === 'sii'
+      const bootstrapCompliance = canReadCompliance && targetView === 'compliance'
+      setCurrentUser(me)
+      setActiveView((current) => (
+        allowedViewsForRole(role).includes(current) ? current : defaultViewForRole(role)
+      ))
 
       async function requestIf<T>(enabled: boolean, path: string, fallback: T): Promise<T> {
         if (!enabled) return fallback
@@ -1167,23 +1169,23 @@ function App() {
         requestIf<Cuenta[]>(canReadOperational, '/api/v1/operacion/cuentas-recaudadoras/', []),
         requestIf<Identidad[]>(canReadOperational, '/api/v1/operacion/identidades-envio/', []),
         requestIf<Mandato[]>(canReadOperational, '/api/v1/operacion/mandatos/', []),
-        requestIf<RegimenTributario[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/regimenes-tributarios/', []),
-        requestIf<ConfiguracionFiscal[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/configuraciones-fiscales/', []),
-        requestIf<CuentaContable[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/cuentas-contables/', []),
-        requestIf<ReglaContable[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/reglas-contables/', []),
-        requestIf<MatrizRegla[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/matriz-reglas/', []),
-        requestIf<EventoContable[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/eventos-contables/', []),
-        requestIf<AsientoContable[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/asientos-contables/', []),
-        requestIf<ObligacionMensual[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/obligaciones-mensuales/', []),
-        requestIf<CierreMensual[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/contabilidad/cierres-mensuales/', []),
-        requestIf<CapacidadSii[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/capacidades/', []),
-        requestIf<DteEmitido[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/dtes/', []),
-        requestIf<F29Preparacion[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/f29/', []),
-        requestIf<ProcesoRentaAnual[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/anual/', []),
-        requestIf<DdjjPreparacion[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/anual/ddjj/', []),
-        requestIf<F22Preparacion[]>(canReadControl && !bootstrapOverviewOnly, '/api/v1/sii/anual/f22/', []),
-        requestIf<PoliticaRetencionDatos[]>(canReadCompliance && !bootstrapOverviewOnly, '/api/v1/compliance/politicas-retencion/', []),
-        requestIf<ExportacionSensible[]>(canReadCompliance && !bootstrapOverviewOnly, '/api/v1/compliance/exportes/', []),
+        requestIf<RegimenTributario[]>(bootstrapControl, '/api/v1/contabilidad/regimenes-tributarios/', []),
+        requestIf<ConfiguracionFiscal[]>(bootstrapControl, '/api/v1/contabilidad/configuraciones-fiscales/', []),
+        requestIf<CuentaContable[]>(bootstrapControl, '/api/v1/contabilidad/cuentas-contables/', []),
+        requestIf<ReglaContable[]>(bootstrapControl, '/api/v1/contabilidad/reglas-contables/', []),
+        requestIf<MatrizRegla[]>(bootstrapControl, '/api/v1/contabilidad/matriz-reglas/', []),
+        requestIf<EventoContable[]>(bootstrapControl, '/api/v1/contabilidad/eventos-contables/', []),
+        requestIf<AsientoContable[]>(bootstrapControl, '/api/v1/contabilidad/asientos-contables/', []),
+        requestIf<ObligacionMensual[]>(bootstrapControl, '/api/v1/contabilidad/obligaciones-mensuales/', []),
+        requestIf<CierreMensual[]>(bootstrapControl, '/api/v1/contabilidad/cierres-mensuales/', []),
+        requestIf<CapacidadSii[]>(bootstrapSii, '/api/v1/sii/capacidades/', []),
+        requestIf<DteEmitido[]>(bootstrapSii, '/api/v1/sii/dtes/', []),
+        requestIf<F29Preparacion[]>(bootstrapSii, '/api/v1/sii/f29/', []),
+        requestIf<ProcesoRentaAnual[]>(bootstrapSii, '/api/v1/sii/anual/', []),
+        requestIf<DdjjPreparacion[]>(bootstrapSii, '/api/v1/sii/anual/ddjj/', []),
+        requestIf<F22Preparacion[]>(bootstrapSii, '/api/v1/sii/anual/f22/', []),
+        requestIf<PoliticaRetencionDatos[]>(bootstrapCompliance, '/api/v1/compliance/politicas-retencion/', []),
+        requestIf<ExportacionSensible[]>(bootstrapCompliance, '/api/v1/compliance/exportes/', []),
         requestIf<ReportingPartnerSummary | null>(
           canReadOwnPartnerSummary && typeof me.metadata?.socio_id === 'number',
           `/api/v1/reporting/socios/${me.metadata.socio_id}/resumen/`,
