@@ -77,6 +77,7 @@ Se ejecuto una secuencia verificable adicional:
   - datos operativos;
   - baseline de control;
   - actividad mensual demo de control;
+  - flujo tributario mensual demo;
   - exportaciones demo de `Compliance`;
   - baseline demo de politicas de retencion de `Compliance`;
 - se enriquecio la base remota con:
@@ -99,6 +100,10 @@ Se ejecuto una secuencia verificable adicional:
   - `1` cierre mensual aprobado;
   - `1` borrador `F29`;
   - snapshots contables no vacios para reporting por periodo.
+- se abrio ademas el primer flujo tributario mensual demo visible:
+  - conciliacion exacta de un pago real facturable de `Inmobiliaria Puig SpA`;
+  - `DTE` borrador generado para ese pago;
+  - reporting financiero mensual de empresa `1` ya con `dtes_emitidos = 1` y `monto_cobrado_total_clp > 0`.
 
 ## 3. Estado real del repo, del runtime y del codigo
 
@@ -282,6 +287,7 @@ Estado actual:
 - la smoke admin-only ya quedo validada en el sitio publico;
 - el baseline demo remoto de `Compliance` ya incluye politicas de retencion y exportaciones sensibles.
 - `Contabilidad` / `SII` / `Reporting` ya no estan solo con baseline estructural: existe una primera actividad mensual demo reproducible visible en remoto.
+- `SII` ya no esta totalmente vacio en publico: existe al menos un `DTE` borrador real sobre el dataset demo remoto.
 
 ### 5.5 Ruido puntual de browser automation
 

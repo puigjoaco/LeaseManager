@@ -50,12 +50,17 @@
   - `1` cierre aprobado;
   - `1` borrador `F29`;
   - snapshots contables por periodo;
+- `SII` ya tiene tambien su primer artefacto transaccional visible en remoto:
+  - `1` pago conciliado exacto;
+  - `1` `DTE` borrador para empresa `1`;
+  - reporting financiero mensual con `dtes_emitidos = 1`.
 - El entorno remoto ya se enriquecio con datos derivados reales:
   - UF de abril y mayo 2026;
   - pagos de abril y mayo;
   - estados de cuenta recalculados;
   - baseline minimo de control para empresa 1;
   - actividad mensual demo de control para empresa 1 en `2026-05`;
+  - primer flujo tributario mensual demo de empresa 1;
   - exportaciones demo de `Compliance`;
   - baseline demo de politicas de retencion de `Compliance`.
 

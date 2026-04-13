@@ -66,6 +66,7 @@ Estado real consolidado al cierre de este handoff:
   - `bootstrap_demo_operational_data`
   - `bootstrap_demo_control_baseline`
   - `bootstrap_demo_control_activity`
+  - `bootstrap_demo_tax_monthly_flow`
   - `bootstrap_demo_compliance_exports`
   - `bootstrap_demo_compliance_policies`
 - el entorno remoto ya no tiene solo baseline estructural de control:
@@ -76,6 +77,10 @@ Estado real consolidado al cierre de este handoff:
   - `1` borrador `F29` en estado `pendiente_datos`;
   - snapshots de `LibroDiario`, `LibroMayor` y `BalanceComprobacion`;
   - capacidades `SII` de la empresa `1` con `certificado_ref` demo no sensible.
+- el entorno remoto ya tiene tambien un primer flujo tributario mensual visible para empresa `1`, periodo `2026-05`:
+  - `1` pago conciliado exacto;
+  - `1` `DTE` en borrador;
+  - reporting financiero mensual con `dtes_emitidos = 1` y `monto_cobrado_total_clp > 0`.
 
 ## Borrador vigente
 

@@ -28,3 +28,4 @@
 | 2026-04-12 | Commit `6877014` | `feat: add demo compliance export bootstrap command` | Se versiona el bootstrap reproducible de exportaciones demo de `Compliance` |
 | 2026-04-12 | Smoke publica dedicada de `Compliance` + baseline demo de politicas | navegador real, API publica, `bootstrap_demo_compliance_policies.py` | `Compliance` queda validado en flujo admin-only y el entorno remoto deja de tener la tabla de politicas vacia |
 | 2026-04-12 | Bootstrap demo de actividad mensual de control | API publica, reporting remoto, `bootstrap_demo_control_activity.py` | `Contabilidad` / `SII` / `Reporting` dejan de verse totalmente vacios para empresa `1` en `2026-05` |
+| 2026-04-12 | Bootstrap demo de flujo tributario mensual | API publica + `bootstrap_demo_tax_monthly_flow.py` | Se concilia un pago facturable de empresa `1`, se genera el primer `DTE` borrador y `SII` deja de verse totalmente vacio en público |
