@@ -70,6 +70,11 @@
   - `2`: `1` DTE / `2` eventos / cobrado `401030.00`
   - `3`: `1` DTE / `2` eventos / cobrado `722039.00`
   - `4`: `1` DTE / `2` eventos / cobrado `409013.00`
+- el deploy CLI de Vercel del root activo volvió a funcionar:
+  - se eliminó el bloqueo práctico de `frontend/frontend`;
+  - el redeploy de `leasemanager-backoffice` ya corre por script con token local.
+- el repo ya no depende exclusivamente del MCP de navegador para verificación visual:
+  - `smoke-public-backoffice.mjs` valida `demo-admin` y `demo-revisor` y deja screenshots.
 - El entorno remoto ya se enriquecio con datos derivados reales:
   - UF de abril y mayo 2026;
   - pagos de abril y mayo;

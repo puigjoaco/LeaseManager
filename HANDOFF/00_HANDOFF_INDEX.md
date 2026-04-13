@@ -24,6 +24,9 @@ Estado real consolidado al cierre de este handoff:
   - proyecto Railway activo: `content-friendship`
   - Redis remoto online dentro del proyecto Railway
 - el proyecto Vercel `leasemanager-backoffice` ya esta conectado al repo Git y su `Root Directory` quedo fijado a `frontend`.
+- el flujo CLI de Vercel del root activo ya no esta roto:
+  - `push-and-deploy.bat` y `connect-frontend-to-backend.ps1` ya resuelven token local y redeploy sin depender de `cwd frontend/frontend`;
+  - el redeploy manual del frontend ya vuelve a funcionar por CLI.
 - el backend publico actual usa como base de datos operativa el Postgres de staging Supabase; eso es estado operativo vigente, no una decision definitiva de largo plazo.
 - el frontend/backoffice local y publico ya cubre:
   - `Patrimonio`
@@ -99,6 +102,9 @@ Estado real consolidado al cierre de este handoff:
   - puede ver `4` configuraciones fiscales, `4` `F29`, `4` bloques anuales y `5` `DTE` por API pública.
 - el showcase mensual `2026-05` ya no quedo cojo:
   - las empresas `1`, `2`, `3` y `4` tienen al menos un `DTE` visible para `demo-revisor`.
+- el repo activo ya tiene smoke Playwright reproducible fuera del MCP:
+  - `scripts/smoke-public-backoffice.mjs`
+  - valida `demo-admin` y `demo-revisor` sobre el sitio público y deja screenshots locales.
 
 ## Borrador vigente
 

@@ -51,6 +51,7 @@ Nota metodologica:
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_tax_annual_flow.py` | 6740 | 2026-04-12 20:22:00 aprox. | bootstrap reproducible de cierres + DDJJ + F22 para un flujo tributario anual demo | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_showcase_access.py` | 4537 | 2026-04-12 20:58:00 aprox. | ampliación reproducible de scope demo para perfiles showcase | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_public_showcase.py` | 9114 | 2026-04-12 20:54:00 aprox. | orquestador reproducible del showcase demo público | leido |
+| `D:\Proyectos\LeaseManager\Produccion 1.0\scripts\smoke-public-backoffice.mjs` | 4788 | 2026-04-12 23:41:00 aprox. | smoke Playwright reproducible del backoffice público | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_compliance_exports.py` | 4077 | 2026-04-12 18:58:53 | bootstrap reproducible de exportaciones demo de Compliance | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\management\commands\bootstrap_demo_compliance_policies.py` | 2173 | 2026-04-12 19:27:00 aprox. | bootstrap reproducible de políticas demo de retención para Compliance | leido |
 | `D:\Proyectos\LeaseManager\Produccion 1.0\backend\core\tests_permissions.py` | 5089 | 2026-04-11 23:23:53 | evidencia ejecutable de RBAC | leido |

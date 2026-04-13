@@ -121,6 +121,9 @@ Se ejecuto una secuencia verificable adicional:
 - se cerró además el último hueco mensual evidente del showcase multiempresa:
   - empresa `4` ya tiene pago conciliado exacto y `DTE` borrador visible en `2026-05`;
   - el reviewer ya ve `DTE` mensual en las cuatro empresas activas.
+- se resolvio tambien el tooling de continuidad operativa:
+  - el flujo CLI de Vercel del root activo ya funciona otra vez con token local y redeploy correcto;
+  - el repo ya tiene un smoke Playwright reproducible por shell (`smoke-public-backoffice.mjs`) para no depender del MCP de navegador cuando falle.
 
 ## 3. Estado real del repo, del runtime y del codigo
 

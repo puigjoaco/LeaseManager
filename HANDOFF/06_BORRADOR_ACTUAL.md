@@ -99,6 +99,7 @@ Motivo:
 [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_tax_annual_flow.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_tax_annual_flow.py)  
 [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_showcase_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_showcase_access.py)  
 [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_public_showcase.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_public_showcase.py)  
+[D:/Proyectos/LeaseManager/Produccion 1.0/scripts/smoke-public-backoffice.mjs](/D:/Proyectos/LeaseManager/Produccion%201.0/scripts/smoke-public-backoffice.mjs)  
 [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_compliance_exports.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_compliance_exports.py)  
 [D:/Proyectos/LeaseManager/Produccion 1.0/backend/core/management/commands/bootstrap_demo_compliance_policies.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_compliance_policies.py)
 
@@ -154,12 +155,13 @@ Usar como base principal, en este orden:
 24. [bootstrap_demo_tax_annual_flow.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_tax_annual_flow.py)
 25. [bootstrap_demo_showcase_access.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_showcase_access.py)
 26. [bootstrap_demo_public_showcase.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_public_showcase.py)
-27. [bootstrap_demo_compliance_exports.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_compliance_exports.py)
-28. [bootstrap_demo_compliance_policies.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_compliance_policies.py)
-29. [01_CONTEXTO_MAESTRO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/01_CONTEXTO_MAESTRO.md)
-30. [04_DECISIONES_VIGENTES.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/04_DECISIONES_VIGENTES.md)
-31. [03_CRONOLOGIA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/03_CRONOLOGIA.md)
+27. [smoke-public-backoffice.mjs](/D:/Proyectos/LeaseManager/Produccion%201.0/scripts/smoke-public-backoffice.mjs)
+28. [bootstrap_demo_compliance_exports.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_compliance_exports.py)
+29. [bootstrap_demo_compliance_policies.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/core/management/commands/bootstrap_demo_compliance_policies.py)
+30. [01_CONTEXTO_MAESTRO.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/01_CONTEXTO_MAESTRO.md)
+31. [04_DECISIONES_VIGENTES.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/04_DECISIONES_VIGENTES.md)
+32. [03_CRONOLOGIA.md](/D:/Proyectos/LeaseManager/Produccion%201.0/HANDOFF/03_CRONOLOGIA.md)
 
 Para cualquier consulta puntual sobre el dominio comunitario ya cerrado, reinyectar ademas:
 
-32. [ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md)
+33. [ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md](/D:/Proyectos/LeaseManager/Produccion%201.0/docs/ESPECIFICACION_TECNICA_FINAL_COMUNIDADES_RECAUDACION_Y_ATRIBUCION.md)

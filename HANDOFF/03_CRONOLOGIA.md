@@ -32,3 +32,4 @@
 | 2026-04-12 | Exposición de `tasa_ppm_vigente` en API/UI y reproceso de mayo | `contabilidad/serializers.py`, `App.tsx`, `ContabilidadWorkspace.tsx`, API publica | `F29` de empresa `1` para `2026-05` pasa a `preparado` sin depender de shell para ajustar PPM |
 | 2026-04-12 | Bootstrap demo de flujo tributario anual | API publica + `bootstrap_demo_tax_annual_flow.py` | Empresa `1` queda con `ProcesoRentaAnual`, `DDJJ` y `F22` en `preparado` para `2027` |
 | 2026-04-12 | Scope demo multicompañía para showcase | `bootstrap_demo_showcase_access.py` + staging remoto | `demo-revisor` pasa a ver `1`, `2`, `3` y `4` sin perder el boundary read-only |
+| 2026-04-12 | Reparación del flujo CLI de Vercel + smoke Playwright shell | `push-and-deploy.bat`, `connect-frontend-to-backend.ps1`, `smoke-public-backoffice.mjs` | El deploy CLI vuelve a funcionar y el repo gana una vía estable de smoke visual aunque el MCP falle |
