@@ -224,7 +224,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         )
 
     def get_contrato_propiedades_detail(self, obj):
-        return ContratoPropiedadReadSerializer(obj.contrato_propiedades.select_related('propiedad').all(), many=True).data
+        return ContratoPropiedadReadSerializer(obj.contrato_propiedades.all(), many=True).data
 
     def get_periodos_contractuales_detail(self, obj):
         return PeriodoContractualReadSerializer(obj.periodos_contractuales.all(), many=True).data
