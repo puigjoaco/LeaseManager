@@ -97,7 +97,6 @@ class ControlSnapshotView(APIView):
     permission_classes = [ControlModulePermission]
 
     def get(self, request):
-        context = {'request': request}
         access = get_scope_access(request.user)
         mode = request.query_params.get('mode', 'full')
         include_core = mode in {'full', 'core'}
@@ -110,107 +109,202 @@ class ControlSnapshotView(APIView):
         return Response(
             {
                 'regimenes_tributarios': (
-                    RegimenTributarioEmpresaSerializer(
-                        RegimenTributarioEmpresa.objects.all(),
-                        many=True,
-                        context=context,
-                    ).data
+                    list(
+                        RegimenTributarioEmpresa.objects.values(
+                            'id',
+                            'codigo_regimen',
+                            'descripcion',
+                            'estado',
+                            'created_at',
+                            'updated_at',
+                        )
+                    )
                     if include_core
                     else []
                 ),
                 'configuraciones_fiscales': (
-                    ConfiguracionFiscalEmpresaSerializer(
+                    list(
                         scoped(
                             ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario'),
                             company_paths=('empresa_id',),
-                        ),
-                        many=True,
-                        context=context,
-                    ).data
+                        ).values(
+                            'id',
+                            'empresa',
+                            'regimen_tributario',
+                            'afecta_iva_arriendo',
+                            'tasa_iva',
+                            'tasa_ppm_vigente',
+                            'aplica_ppm',
+                            'ddjj_habilitadas',
+                            'inicio_ejercicio',
+                            'moneda_funcional',
+                            'estado',
+                            'created_at',
+                            'updated_at',
+                        )
+                    )
                     if include_core
                     else []
                 ),
                 'cuentas_contables': (
-                    CuentaContableSerializer(
+                    list(
                         scoped(
                             CuentaContable.objects.select_related('empresa', 'padre'),
                             company_paths=('empresa_id',),
-                        ),
-                        many=True,
-                        context=context,
-                    ).data
+                        ).values(
+                            'id',
+                            'empresa',
+                            'plan_cuentas_version',
+                            'codigo',
+                            'nombre',
+                            'naturaleza',
+                            'nivel',
+                            'padre',
+                            'estado',
+                            'es_control_obligatoria',
+                            'created_at',
+                            'updated_at',
+                        )
+                    )
                     if include_catalogs
                     else []
                 ),
                 'reglas_contables': (
-                    ReglaContableSerializer(
+                    list(
                         scoped(
                             ReglaContable.objects.select_related('empresa'),
                             company_paths=('empresa_id',),
-                        ),
-                        many=True,
-                        context=context,
-                    ).data
+                        ).values(
+                            'id',
+                            'empresa',
+                            'evento_tipo',
+                            'plan_cuentas_version',
+                            'criterio_cargo',
+                            'criterio_abono',
+                            'vigencia_desde',
+                            'vigencia_hasta',
+                            'estado',
+                            'created_at',
+                            'updated_at',
+                        )
+                    )
                     if include_catalogs
                     else []
                 ),
                 'matrices_reglas': (
-                    MatrizReglasContablesSerializer(
+                    list(
                         scoped(
                             MatrizReglasContables.objects.select_related('regla_contable', 'cuenta_debe', 'cuenta_haber'),
                             company_paths=('regla_contable__empresa_id',),
-                        ),
-                        many=True,
-                        context=context,
-                    ).data
+                        ).values(
+                            'id',
+                            'regla_contable',
+                            'cuenta_debe',
+                            'cuenta_haber',
+                            'condicion_impuesto',
+                            'estado',
+                            'created_at',
+                            'updated_at',
+                        )
+                    )
                     if include_catalogs
                     else []
                 ),
                 'eventos_contables': (
-                    EventoContableSerializer(
+                    list(
                         scoped(
                             EventoContable.objects.select_related('empresa'),
                             company_paths=('empresa_id',),
-                        ),
-                        many=True,
-                        context=context,
-                    ).data
+                        ).values(
+                            'id',
+                            'empresa',
+                            'evento_tipo',
+                            'entidad_origen_tipo',
+                            'entidad_origen_id',
+                            'fecha_operativa',
+                            'moneda',
+                            'monto_base',
+                            'payload_resumen',
+                            'idempotency_key',
+                            'estado_contable',
+                            'created_at',
+                            'updated_at',
+                        )
+                    )
                     if include_activity
                     else []
                 ),
                 'asientos_contables': (
-                    AsientoContableSerializer(
-                        scoped(
+                    [
+                        {
+                            'id': asiento.id,
+                            'evento_contable': asiento.evento_contable_id,
+                            'fecha_contable': asiento.fecha_contable,
+                            'periodo_contable': asiento.periodo_contable,
+                            'estado': asiento.estado,
+                            'debe_total': asiento.debe_total,
+                            'haber_total': asiento.haber_total,
+                            'moneda_funcional': asiento.moneda_funcional,
+                            'hash_integridad': asiento.hash_integridad,
+                            'movimientos': [
+                                {
+                                    'id': movimiento.id,
+                                    'cuenta_contable': movimiento.cuenta_contable_id,
+                                    'tipo_movimiento': movimiento.tipo_movimiento,
+                                    'monto': movimiento.monto,
+                                    'glosa': movimiento.glosa,
+                                }
+                                for movimiento in asiento.movimientos.all()
+                            ],
+                        }
+                        for asiento in scoped(
                             AsientoContable.objects.select_related('evento_contable').prefetch_related('movimientos'),
                             company_paths=('evento_contable__empresa_id',),
-                        ),
-                        many=True,
-                        context=context,
-                    ).data
+                        )
+                    ]
                     if include_activity
                     else []
                 ),
                 'obligaciones_mensuales': (
-                    ObligacionTributariaMensualSerializer(
+                    list(
                         scoped(
                             ObligacionTributariaMensual.objects.select_related('empresa'),
                             company_paths=('empresa_id',),
-                        ),
-                        many=True,
-                        context=context,
-                    ).data
+                        ).values(
+                            'id',
+                            'empresa',
+                            'anio',
+                            'mes',
+                            'obligacion_tipo',
+                            'base_imponible',
+                            'monto_calculado',
+                            'estado_preparacion',
+                            'detalle_calculo',
+                            'created_at',
+                            'updated_at',
+                        )
+                    )
                     if include_activity
                     else []
                 ),
                 'cierres_mensuales': (
-                    CierreMensualContableSerializer(
+                    list(
                         scoped(
                             CierreMensualContable.objects.select_related('empresa'),
                             company_paths=('empresa_id',),
-                        ),
-                        many=True,
-                        context=context,
-                    ).data
+                        ).values(
+                            'id',
+                            'empresa',
+                            'anio',
+                            'mes',
+                            'estado',
+                            'fecha_preparacion',
+                            'fecha_aprobacion',
+                            'resumen_obligaciones',
+                            'created_at',
+                            'updated_at',
+                        )
+                    )
                     if include_activity
                     else []
                 ),
