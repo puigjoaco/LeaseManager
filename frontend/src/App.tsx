@@ -41,7 +41,14 @@ type CurrentUser = {
 type LoginResponse = { token: string; user: CurrentUser }
 
 type Dashboard = {
+  socios_total: number
+  empresas_total: number
+  comunidades_total: number
+  propiedades_total: number
   propiedades_activas: number
+  cuentas_total: number
+  identidades_total: number
+  mandatos_total: number
   contratos_vigentes: number
   contratos_futuros: number
   pagos_pendientes: number
@@ -1117,6 +1124,7 @@ function App() {
       const canReadCompliance = role === 'AdministradorGlobal'
       const canReadOwnPartnerSummary = role === 'Socio'
       const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
+      const bootstrapOperational = canReadOperational && targetView !== 'overview'
       const bootstrapControl = canReadControl && targetView === 'contabilidad'
       const bootstrapSii = canReadControl && targetView === 'sii'
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance'
@@ -1161,13 +1169,13 @@ function App() {
       ] = await Promise.all([
         requestIf<Dashboard | null>(canReadOverview, '/api/v1/reporting/dashboard/operativo/', null),
         requestIf<ManualSummary | null>(canReadOverview, '/api/v1/reporting/migracion/resoluciones-manuales/?status=open', null),
-        requestIf<Socio[]>(canReadOperational, '/api/v1/patrimonio/socios/', []),
-        requestIf<Empresa[]>(canReadOperational, '/api/v1/patrimonio/empresas/', []),
-        requestIf<Comunidad[]>(canReadOperational, '/api/v1/patrimonio/comunidades/', []),
-        requestIf<Propiedad[]>(canReadOperational, '/api/v1/patrimonio/propiedades/', []),
-        requestIf<Cuenta[]>(canReadOperational, '/api/v1/operacion/cuentas-recaudadoras/', []),
-        requestIf<Identidad[]>(canReadOperational, '/api/v1/operacion/identidades-envio/', []),
-        requestIf<Mandato[]>(canReadOperational, '/api/v1/operacion/mandatos/', []),
+        requestIf<Socio[]>(bootstrapOperational, '/api/v1/patrimonio/socios/', []),
+        requestIf<Empresa[]>(bootstrapOperational, '/api/v1/patrimonio/empresas/', []),
+        requestIf<Comunidad[]>(bootstrapOperational, '/api/v1/patrimonio/comunidades/', []),
+        requestIf<Propiedad[]>(bootstrapOperational, '/api/v1/patrimonio/propiedades/', []),
+        requestIf<Cuenta[]>(bootstrapOperational, '/api/v1/operacion/cuentas-recaudadoras/', []),
+        requestIf<Identidad[]>(bootstrapOperational, '/api/v1/operacion/identidades-envio/', []),
+        requestIf<Mandato[]>(bootstrapOperational, '/api/v1/operacion/mandatos/', []),
         requestIf<RegimenTributario[]>(bootstrapControl, '/api/v1/contabilidad/regimenes-tributarios/', []),
         requestIf<ConfiguracionFiscal[]>(bootstrapControl, '/api/v1/contabilidad/configuraciones-fiscales/', []),
         requestIf<CuentaContable[]>(bootstrapControl, '/api/v1/contabilidad/cuentas-contables/', []),

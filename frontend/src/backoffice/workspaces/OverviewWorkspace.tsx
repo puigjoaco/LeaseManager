@@ -1,7 +1,14 @@
 import { Badge, Metric, count } from '../shared'
 
 type DashboardLike = {
+  socios_total?: number
+  empresas_total?: number
+  comunidades_total?: number
+  propiedades_total?: number
   propiedades_activas?: number
+  cuentas_total?: number
+  identidades_total?: number
+  mandatos_total?: number
   contratos_vigentes?: number
   pagos_pendientes?: number
   pagos_atrasados?: number
@@ -57,18 +64,18 @@ export function OverviewWorkspace({
         <section className="panel">
           <div className="section-heading"><div><h2>Patrimonio</h2><p>Owners, comunidades y propiedades activas.</p></div></div>
           <div className="list-stack">
-            <div className="list-row"><span>Socios</span><strong>{count(counts.socios)}</strong></div>
-            <div className="list-row"><span>Empresas</span><strong>{count(counts.empresas)}</strong></div>
-            <div className="list-row"><span>Comunidades</span><strong>{count(counts.comunidades)}</strong></div>
-            <div className="list-row"><span>Propiedades</span><strong>{count(counts.propiedades)}</strong></div>
+            <div className="list-row"><span>Socios</span><strong>{count(dashboard?.socios_total ?? counts.socios)}</strong></div>
+            <div className="list-row"><span>Empresas</span><strong>{count(dashboard?.empresas_total ?? counts.empresas)}</strong></div>
+            <div className="list-row"><span>Comunidades</span><strong>{count(dashboard?.comunidades_total ?? counts.comunidades)}</strong></div>
+            <div className="list-row"><span>Propiedades</span><strong>{count(dashboard?.propiedades_total ?? counts.propiedades)}</strong></div>
           </div>
         </section>
         <section className="panel">
           <div className="section-heading"><div><h2>Operación</h2><p>Cuentas, identidades y mandatos vigentes.</p></div></div>
           <div className="list-stack">
-            <div className="list-row"><span>Cuentas recaudadoras</span><strong>{count(counts.cuentas)}</strong></div>
-            <div className="list-row"><span>Identidades de envío</span><strong>{count(counts.identidades)}</strong></div>
-            <div className="list-row"><span>Mandatos</span><strong>{count(counts.mandatos)}</strong></div>
+            <div className="list-row"><span>Cuentas recaudadoras</span><strong>{count(dashboard?.cuentas_total ?? counts.cuentas)}</strong></div>
+            <div className="list-row"><span>Identidades de envío</span><strong>{count(dashboard?.identidades_total ?? counts.identidades)}</strong></div>
+            <div className="list-row"><span>Mandatos</span><strong>{count(dashboard?.mandatos_total ?? counts.mandatos)}</strong></div>
             <div className="list-row"><span>Mensajes preparados</span><strong>{count(dashboard?.mensajes_preparados)}</strong></div>
           </div>
         </section>

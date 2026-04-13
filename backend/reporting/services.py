@@ -17,13 +17,56 @@ from contabilidad.models import (
     ObligacionTributariaMensual,
 )
 from contratos.models import Contrato
-from patrimonio.models import ParticipacionPatrimonial, Socio, Propiedad
+from operacion.models import CuentaRecaudadora, IdentidadDeEnvio, MandatoOperacion
+from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio
 from sii.models import DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, ProcesoRentaAnual
 
 
 def build_operational_dashboard(access: ScopeAccess | None = None):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    socios = scope_queryset_for_access(
+        Socio.objects.all(),
+        access,
+        property_paths=(
+            'propiedades_directas__id',
+            'representaciones_comunidad__comunidad__propiedades__id',
+            'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
+            'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
+        ),
+    )
+    empresas = scope_queryset_for_access(
+        Empresa.objects.all(),
+        access,
+        company_paths=('id',),
+    )
+    comunidades = scope_queryset_for_access(
+        ComunidadPatrimonial.objects.all(),
+        access,
+        property_paths=('propiedades__id',),
+    )
+    propiedades_totales = scope_queryset_for_access(
+        Propiedad.objects.all(),
+        access,
+        property_paths=('id',),
+    )
     propiedades = scope_queryset_for_access(Propiedad.objects.filter(estado='activa'), access, property_paths=('id',))
+    cuentas = scope_queryset_for_access(
+        CuentaRecaudadora.objects.all(),
+        access,
+        bank_account_paths=('id',),
+    )
+    identidades = scope_queryset_for_access(
+        IdentidadDeEnvio.objects.all(),
+        access,
+        company_paths=('empresa_owner_id',),
+        property_paths=('asignaciones_operacion__mandato_operacion__propiedad_id',),
+    )
+    mandatos = scope_queryset_for_access(
+        MandatoOperacion.objects.all(),
+        access,
+        property_paths=('propiedad_id',),
+        bank_account_paths=('cuenta_recaudadora_id',),
+    )
     contratos_vigentes = scope_queryset_for_access(
         Contrato.objects.filter(estado='vigente'),
         access,
@@ -77,7 +120,14 @@ def build_operational_dashboard(access: ScopeAccess | None = None):
     resoluciones_abiertas = ManualResolution.objects.none() if access.restricted else ManualResolution.objects.filter(status='open')
 
     return {
+        'socios_total': socios.count(),
+        'empresas_total': empresas.count(),
+        'comunidades_total': comunidades.count(),
+        'propiedades_total': propiedades_totales.count(),
         'propiedades_activas': propiedades.count(),
+        'cuentas_total': cuentas.count(),
+        'identidades_total': identidades.count(),
+        'mandatos_total': mandatos.count(),
         'contratos_vigentes': contratos_vigentes.count(),
         'contratos_futuros': contratos_futuros.count(),
         'pagos_pendientes': pagos_pendientes.count(),
