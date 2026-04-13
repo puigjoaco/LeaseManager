@@ -1062,6 +1062,8 @@ function App() {
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
   const [editingManualResolutionId, setEditingManualResolutionId] = useState<string | null>(null)
+  const [isControlCatalogLoading, setIsControlCatalogLoading] = useState(false)
+  const [isControlActivityLoading, setIsControlActivityLoading] = useState(false)
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
     status: 'open',
     rationale: '',
@@ -1140,6 +1142,8 @@ function App() {
       const bootstrapControl = canReadControl && targetView === 'contabilidad'
       const bootstrapSii = canReadControl && targetView === 'sii'
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance'
+      setIsControlCatalogLoading(bootstrapControl)
+      setIsControlActivityLoading(bootstrapControl)
       setCurrentUser(me)
       setActiveView((current) => (
         allowedViewsForRole(role).includes(current) ? current : defaultViewForRole(role)
@@ -1324,6 +1328,9 @@ function App() {
             setCurrentUser(null)
             setWorkspaceError('La sesión expiró. Ingresa nuevamente.')
           }
+        } finally {
+          setIsControlCatalogLoading(false)
+          setIsControlActivityLoading(false)
         }
       })()
     } catch (error) {
@@ -1436,6 +1443,8 @@ function App() {
     setCompliancePolicies([])
     setComplianceExports([])
     setComplianceExportPreview(null)
+    setIsControlCatalogLoading(false)
+    setIsControlActivityLoading(false)
     setEditingManualResolutionId(null)
   }
 
@@ -3582,6 +3591,8 @@ function App() {
             navigateWithContext('reporting', companyName, `Empresa: ${companyName}`)
             setReportingFinancialDraft((current) => ({ ...current, empresa_id: String(companyId) }))
           }}
+          isCatalogLoading={isControlCatalogLoading}
+          isActivityLoading={isControlActivityLoading}
         />
       ) : null}
 

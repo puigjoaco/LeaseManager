@@ -45,12 +45,16 @@ export function TableBlock<T extends { id: number | string }>({
   rows,
   columns,
   empty,
+  isLoading = false,
+  loadingLabel = 'Cargando...',
 }: {
   title: string
   subtitle: string
   rows: T[]
   columns: Column<T>[]
   empty: string
+  isLoading?: boolean
+  loadingLabel?: string
 }) {
   return (
     <section className="data-block">
@@ -59,9 +63,11 @@ export function TableBlock<T extends { id: number | string }>({
           <h3>{title}</h3>
           <p>{subtitle}</p>
         </div>
-        <Badge label={`${count(rows.length)} registros`} />
+        <Badge label={isLoading ? loadingLabel : `${count(rows.length)} registros`} />
       </div>
-      {rows.length === 0 ? (
+      {isLoading ? (
+        <div className="empty-state">{loadingLabel}</div>
+      ) : rows.length === 0 ? (
         <div className="empty-state">{empty}</div>
       ) : (
         <div className="table-scroll">
