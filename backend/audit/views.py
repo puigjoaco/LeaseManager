@@ -15,7 +15,7 @@ from .services import resolve_migration_property_owner_manual_resolution
 class AuditEventListView(generics.ListAPIView):
     permission_classes = [AuditReadPermission]
     serializer_class = AuditEventSerializer
-    queryset = AuditEvent.objects.all()[:100]
+    queryset = AuditEvent.objects.select_related('actor_user').all()[:100]
 
 
 class ManualResolutionListCreateView(generics.ListCreateAPIView):

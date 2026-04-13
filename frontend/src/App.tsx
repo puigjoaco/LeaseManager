@@ -1132,28 +1132,11 @@ function App() {
         manualPayload,
         sociosPayload,
         empresasPayload,
-        arrendatariosPayload,
         comunidadesPayload,
         propiedadesPayload,
         cuentasPayload,
         identidadesPayload,
         mandatosPayload,
-        contratosPayload,
-        expedientesPayload,
-        politicasFirmaPayload,
-        documentosEmitidosPayload,
-        gatesCanalesPayload,
-        mensajesSalientesPayload,
-        avisosPayload,
-        valoresUfPayload,
-        ajustesPayload,
-        pagosPayload,
-        garantiasPayload,
-        historialGarantiasPayload,
-        estadosCuentaPayload,
-        conexionesPayload,
-        movimientosPayload,
-        ingresosPayload,
         regimenesPayload,
         configuracionesPayload,
         cuentasContablesPayload,
@@ -1163,8 +1146,6 @@ function App() {
         asientosPayload,
         obligacionesPayload,
         cierresPayload,
-        auditEventsPayload,
-        manualResolutionsPayload,
         capacidadesSiiPayload,
         dtesPayload,
         f29Payload,
@@ -1179,28 +1160,11 @@ function App() {
         requestIf<ManualSummary | null>(canReadOverview, '/api/v1/reporting/migracion/resoluciones-manuales/?status=open', null),
         requestIf<Socio[]>(canReadOperational, '/api/v1/patrimonio/socios/', []),
         requestIf<Empresa[]>(canReadOperational, '/api/v1/patrimonio/empresas/', []),
-        requestIf<Arrendatario[]>(canReadOperational, '/api/v1/contratos/arrendatarios/', []),
         requestIf<Comunidad[]>(canReadOperational, '/api/v1/patrimonio/comunidades/', []),
         requestIf<Propiedad[]>(canReadOperational, '/api/v1/patrimonio/propiedades/', []),
         requestIf<Cuenta[]>(canReadOperational, '/api/v1/operacion/cuentas-recaudadoras/', []),
         requestIf<Identidad[]>(canReadOperational, '/api/v1/operacion/identidades-envio/', []),
         requestIf<Mandato[]>(canReadOperational, '/api/v1/operacion/mandatos/', []),
-        requestIf<Contrato[]>(canReadOperational, '/api/v1/contratos/contratos/', []),
-        requestIf<ExpedienteDocumental[]>(canReadOperational, '/api/v1/documentos/expedientes/', []),
-        requestIf<PoliticaFirma[]>(canReadOperational, '/api/v1/documentos/politicas-firma/', []),
-        requestIf<DocumentoEmitidoItem[]>(canReadOperational, '/api/v1/documentos/documentos-emitidos/', []),
-        requestIf<CanalMensajeriaItem[]>(canReadOperational, '/api/v1/canales/gates/', []),
-        requestIf<MensajeSalienteItem[]>(canReadOperational, '/api/v1/canales/mensajes/', []),
-        requestIf<AvisoTermino[]>(canReadOperational, '/api/v1/contratos/avisos-termino/', []),
-        requestIf<ValorUF[]>(canReadOperational, '/api/v1/cobranza/valores-uf/', []),
-        requestIf<AjusteContrato[]>(canReadOperational, '/api/v1/cobranza/ajustes-contrato/', []),
-        requestIf<PagoMensual[]>(canReadOperational, '/api/v1/cobranza/pagos-mensuales/', []),
-        requestIf<Garantia[]>(canReadOperational, '/api/v1/cobranza/garantias/', []),
-        requestIf<HistorialGarantia[]>(canReadOperational, '/api/v1/cobranza/historial-garantias/', []),
-        requestIf<EstadoCuenta[]>(canReadOperational, '/api/v1/cobranza/estados-cuenta/', []),
-        requestIf<ConexionBancaria[]>(canReadOperational, '/api/v1/conciliacion/conexiones-bancarias/', []),
-        requestIf<MovimientoBancario[]>(canReadOperational, '/api/v1/conciliacion/movimientos/', []),
-        requestIf<IngresoDesconocido[]>(canReadOperational, '/api/v1/conciliacion/ingresos-desconocidos/', []),
         requestIf<RegimenTributario[]>(canReadControl, '/api/v1/contabilidad/regimenes-tributarios/', []),
         requestIf<ConfiguracionFiscal[]>(canReadControl, '/api/v1/contabilidad/configuraciones-fiscales/', []),
         requestIf<CuentaContable[]>(canReadControl, '/api/v1/contabilidad/cuentas-contables/', []),
@@ -1210,8 +1174,6 @@ function App() {
         requestIf<AsientoContable[]>(canReadControl, '/api/v1/contabilidad/asientos-contables/', []),
         requestIf<ObligacionMensual[]>(canReadControl, '/api/v1/contabilidad/obligaciones-mensuales/', []),
         requestIf<CierreMensual[]>(canReadControl, '/api/v1/contabilidad/cierres-mensuales/', []),
-        requestIf<AuditEventItem[]>(canReadAuditEvents, '/api/v1/audit/events/', []),
-        requestIf<ManualResolutionItem[]>(canReadManualResolutions, '/api/v1/audit/manual-resolutions/', []),
         requestIf<CapacidadSii[]>(canReadControl, '/api/v1/sii/capacidades/', []),
         requestIf<DteEmitido[]>(canReadControl, '/api/v1/sii/dtes/', []),
         requestIf<F29Preparacion[]>(canReadControl, '/api/v1/sii/f29/', []),
@@ -1230,28 +1192,11 @@ function App() {
       setManualSummary(manualPayload)
       setSocios(sociosPayload)
       setEmpresas(empresasPayload)
-      setArrendatarios(arrendatariosPayload)
       setComunidades(comunidadesPayload)
       setPropiedades(propiedadesPayload)
       setCuentas(cuentasPayload)
       setIdentidades(identidadesPayload)
       setMandatos(mandatosPayload)
-      setContratos(contratosPayload)
-      setExpedientes(expedientesPayload)
-      setPoliticasFirma(politicasFirmaPayload)
-      setDocumentosEmitidos(documentosEmitidosPayload)
-      setGatesCanales(gatesCanalesPayload)
-      setMensajesSalientes(mensajesSalientesPayload)
-      setAvisos(avisosPayload)
-      setValoresUf(valoresUfPayload)
-      setAjustes(ajustesPayload)
-      setPagos(pagosPayload)
-      setGarantias(garantiasPayload)
-      setHistorialGarantias(historialGarantiasPayload)
-      setEstadosCuenta(estadosCuentaPayload)
-      setConexionesBancarias(conexionesPayload)
-      setMovimientosBancarios(movimientosPayload)
-      setIngresosDesconocidos(ingresosPayload)
       setRegimenesTributarios(regimenesPayload)
       setConfiguracionesFiscales(configuracionesPayload)
       setCuentasContables(cuentasContablesPayload)
@@ -1261,8 +1206,6 @@ function App() {
       setAsientosContables(asientosPayload)
       setObligacionesMensuales(obligacionesPayload)
       setCierresMensuales(cierresPayload)
-      setAuditEvents(auditEventsPayload)
-      setManualResolutions(manualResolutionsPayload)
       setCapacidadesSii(capacidadesSiiPayload)
       setDtes(dtesPayload)
       setF29s(f29Payload)
@@ -1287,6 +1230,80 @@ function App() {
         ])
       }
       setLastLoadedAt(new Date().toISOString())
+
+      void (async () => {
+        try {
+          const [
+            arrendatariosPayload,
+            contratosPayload,
+            expedientesPayload,
+            politicasFirmaPayload,
+            documentosEmitidosPayload,
+            gatesCanalesPayload,
+            mensajesSalientesPayload,
+            avisosPayload,
+            valoresUfPayload,
+            ajustesPayload,
+            pagosPayload,
+            garantiasPayload,
+            historialGarantiasPayload,
+            estadosCuentaPayload,
+            conexionesPayload,
+            movimientosPayload,
+            ingresosPayload,
+            auditEventsPayload,
+            manualResolutionsPayload,
+          ] = await Promise.all([
+            requestIf<Arrendatario[]>(canReadOperational, '/api/v1/contratos/arrendatarios/', []),
+            requestIf<Contrato[]>(canReadOperational, '/api/v1/contratos/contratos/', []),
+            requestIf<ExpedienteDocumental[]>(canReadOperational, '/api/v1/documentos/expedientes/', []),
+            requestIf<PoliticaFirma[]>(canReadOperational, '/api/v1/documentos/politicas-firma/', []),
+            requestIf<DocumentoEmitidoItem[]>(canReadOperational, '/api/v1/documentos/documentos-emitidos/', []),
+            requestIf<CanalMensajeriaItem[]>(canReadOperational, '/api/v1/canales/gates/', []),
+            requestIf<MensajeSalienteItem[]>(canReadOperational, '/api/v1/canales/mensajes/', []),
+            requestIf<AvisoTermino[]>(canReadOperational, '/api/v1/contratos/avisos-termino/', []),
+            requestIf<ValorUF[]>(canReadOperational, '/api/v1/cobranza/valores-uf/', []),
+            requestIf<AjusteContrato[]>(canReadOperational, '/api/v1/cobranza/ajustes-contrato/', []),
+            requestIf<PagoMensual[]>(canReadOperational, '/api/v1/cobranza/pagos-mensuales/', []),
+            requestIf<Garantia[]>(canReadOperational, '/api/v1/cobranza/garantias/', []),
+            requestIf<HistorialGarantia[]>(canReadOperational, '/api/v1/cobranza/historial-garantias/', []),
+            requestIf<EstadoCuenta[]>(canReadOperational, '/api/v1/cobranza/estados-cuenta/', []),
+            requestIf<ConexionBancaria[]>(canReadOperational, '/api/v1/conciliacion/conexiones-bancarias/', []),
+            requestIf<MovimientoBancario[]>(canReadOperational, '/api/v1/conciliacion/movimientos/', []),
+            requestIf<IngresoDesconocido[]>(canReadOperational, '/api/v1/conciliacion/ingresos-desconocidos/', []),
+            requestIf<AuditEventItem[]>(canReadAuditEvents, '/api/v1/audit/events/', []),
+            requestIf<ManualResolutionItem[]>(canReadManualResolutions, '/api/v1/audit/manual-resolutions/', []),
+          ])
+
+          setArrendatarios(arrendatariosPayload)
+          setContratos(contratosPayload)
+          setExpedientes(expedientesPayload)
+          setPoliticasFirma(politicasFirmaPayload)
+          setDocumentosEmitidos(documentosEmitidosPayload)
+          setGatesCanales(gatesCanalesPayload)
+          setMensajesSalientes(mensajesSalientesPayload)
+          setAvisos(avisosPayload)
+          setValoresUf(valoresUfPayload)
+          setAjustes(ajustesPayload)
+          setPagos(pagosPayload)
+          setGarantias(garantiasPayload)
+          setHistorialGarantias(historialGarantiasPayload)
+          setEstadosCuenta(estadosCuentaPayload)
+          setConexionesBancarias(conexionesPayload)
+          setMovimientosBancarios(movimientosPayload)
+          setIngresosDesconocidos(ingresosPayload)
+          setAuditEvents(auditEventsPayload)
+          setManualResolutions(manualResolutionsPayload)
+          setLastLoadedAt(new Date().toISOString())
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            localStorage.removeItem(TOKEN_STORAGE_KEY)
+            setToken(null)
+            setCurrentUser(null)
+            setWorkspaceError('La sesión expiró. Ingresa nuevamente.')
+          }
+        }
+      })()
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         localStorage.removeItem(TOKEN_STORAGE_KEY)

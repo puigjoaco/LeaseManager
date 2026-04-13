@@ -188,7 +188,7 @@ class PagoMensualSerializer(serializers.ModelSerializer):
 
     def get_distribuciones_detail(self, obj):
         return DistribucionCobroMensualSerializer(
-            obj.distribuciones_cobro.select_related('beneficiario_socio_owner', 'beneficiario_empresa_owner').all(),
+            obj.distribuciones_cobro.all(),
             many=True,
         ).data
 

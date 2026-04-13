@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Prefetch
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -101,14 +102,30 @@ class AjusteContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, gene
 class PagoMensualListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = PagoMensualSerializer
-    queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual').all()
+    queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual').prefetch_related(
+        Prefetch(
+            'distribuciones_cobro',
+            queryset=DistribucionCobroMensual.objects.select_related(
+                'beneficiario_socio_owner',
+                'beneficiario_empresa_owner',
+            ),
+        )
+    ).all()
     property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
 
 
 class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = PagoMensualSerializer
-    queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual').all()
+    queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual').prefetch_related(
+        Prefetch(
+            'distribuciones_cobro',
+            queryset=DistribucionCobroMensual.objects.select_related(
+                'beneficiario_socio_owner',
+                'beneficiario_empresa_owner',
+            ),
+        )
+    ).all()
     property_scope_paths = ('contrato__mandato_operacion__propiedad_id',)
     audit_entity_type = 'pago_mensual'
     audit_entity_label = 'pago mensual'
