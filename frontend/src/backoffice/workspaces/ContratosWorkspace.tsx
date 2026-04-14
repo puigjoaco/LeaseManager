@@ -38,6 +38,7 @@ export function ContratosWorkspace({
   contratoById,
   toneFor,
   isSubmitting,
+  isLoading,
   startEditArrendatario,
   startEditContrato,
   goToArrendatarioContext,
@@ -69,6 +70,7 @@ export function ContratosWorkspace({
   contratoById: ReadonlyMap<number, ContratoItem>
   toneFor: (value: string) => Tone
   isSubmitting: boolean
+  isLoading: boolean
   startEditArrendatario: (row: ArrendatarioItem) => void
   startEditContrato: (row: ContratoItem) => void
   goToArrendatarioContext: (arrendatarioId: number) => void
@@ -142,7 +144,7 @@ export function ContratosWorkspace({
         </section>
       </section>
 
-      <TableBlock title="Arrendatarios" subtitle="Base actual de contraparte contractual." rows={filteredArrendatarios} empty="No hay arrendatarios para este filtro." columns={[
+      <TableBlock title="Arrendatarios" subtitle="Base actual de contraparte contractual." rows={filteredArrendatarios} empty="No hay arrendatarios para este filtro." isLoading={isLoading} loadingLabel="Cargando contratos..." columns={[
         { label: 'Nombre', render: (row) => row.nombre_razon_social },
         { label: 'RUT', render: (row) => row.rut },
         { label: 'Tipo', render: (row) => row.tipo_arrendatario.replaceAll('_', ' ') },
@@ -151,7 +153,7 @@ export function ContratosWorkspace({
         { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditArrendatario(row)}>Editar</button> },
         { label: 'Siguiente paso', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => goToArrendatarioContext(row.id)}>Estado de cuenta</button> },
       ]} />
-      <TableBlock title="Contratos" subtitle="Contratos cargados sobre mandatos ya vigentes." rows={filteredContratos} empty="No hay contratos para este filtro." columns={[
+      <TableBlock title="Contratos" subtitle="Contratos cargados sobre mandatos ya vigentes." rows={filteredContratos} empty="No hay contratos para este filtro." isLoading={isLoading} loadingLabel="Cargando contratos..." columns={[
         { label: 'Código', render: (row) => row.codigo_contrato },
         { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
         { label: 'Mandato', render: (row) => mandatoById.get(row.mandato_operacion)?.propiedad_codigo || row.mandato_operacion },
@@ -161,7 +163,7 @@ export function ContratosWorkspace({
         { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditContrato(row)}>Editar</button> },
         { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => goToContratoContext(row.id)}>Cobranza</button><button type="button" className="button-ghost inline-action" onClick={() => prepareExpedienteForContract(row)}>Documentos</button></div> },
       ]} />
-      <TableBlock title="Avisos de término" subtitle="Base para no renovación y contratos futuros." rows={filteredAvisos} empty="No hay avisos para este filtro." columns={[
+      <TableBlock title="Avisos de término" subtitle="Base para no renovación y contratos futuros." rows={filteredAvisos} empty="No hay avisos para este filtro." isLoading={isLoading} loadingLabel="Cargando contratos..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
         { label: 'Fecha efectiva', render: (row) => row.fecha_efectiva },
         { label: 'Causal', render: (row) => row.causal },

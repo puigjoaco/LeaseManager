@@ -535,6 +535,13 @@ type OperationSnapshot = {
   mandatos: Mandato[]
 }
 
+type ContractsSnapshot = {
+  arrendatarios: Arrendatario[]
+  mandatos: Mandato[]
+  contratos: Contrato[]
+  avisos: AvisoTermino[]
+}
+
 type ControlSnapshot = {
   empresas: Empresa[]
   regimenes_tributarios: RegimenTributario[]
@@ -1079,9 +1086,11 @@ function App() {
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
   const [editingManualResolutionId, setEditingManualResolutionId] = useState<string | null>(null)
   const [isOperationSnapshotLoading, setIsOperationSnapshotLoading] = useState(false)
+  const [isContractsSnapshotLoading, setIsContractsSnapshotLoading] = useState(false)
   const [isControlCatalogLoading, setIsControlCatalogLoading] = useState(false)
   const [isControlActivityLoading, setIsControlActivityLoading] = useState(false)
   const [isOperationSnapshotLoaded, setIsOperationSnapshotLoaded] = useState(false)
+  const [isContractsSnapshotLoaded, setIsContractsSnapshotLoaded] = useState(false)
   const [isControlCoreLoaded, setIsControlCoreLoaded] = useState(false)
   const [isControlCatalogLoaded, setIsControlCatalogLoaded] = useState(false)
   const [isControlActivityLoaded, setIsControlActivityLoaded] = useState(false)
@@ -1171,6 +1180,7 @@ function App() {
       const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
       const loadOverview = canReadOverview && targetView === 'overview'
       const loadOperationSnapshot = canReadOperational && targetView === 'operacion' && (shouldRefreshData || !isOperationSnapshotLoaded)
+      const loadContractsSnapshot = canReadOperational && targetView === 'contratos' && (shouldRefreshData || !isContractsSnapshotLoaded)
       const loadSocios =
         (canReadOperational || canReadCompliance)
         && ['patrimonio', 'compliance'].includes(targetView)
@@ -1187,6 +1197,7 @@ function App() {
       const bootstrapSii = canReadControl && targetView === 'sii' && (shouldRefreshData || !isSiiLoaded)
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance' && (shouldRefreshData || !isComplianceLoaded)
       setIsOperationSnapshotLoading(loadOperationSnapshot)
+      setIsContractsSnapshotLoading(loadContractsSnapshot)
       setIsControlCatalogLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlCatalogLoaded))
       setIsControlActivityLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlActivityLoaded))
       setCurrentUser(me)
@@ -1210,6 +1221,7 @@ function App() {
         identidadesPayload,
         mandatosPayload,
         operationSnapshotPayload,
+        contractsSnapshotPayload,
         controlSnapshotPayload,
         reportingReferencePayload,
         capacidadesSiiPayload,
@@ -1234,6 +1246,11 @@ function App() {
         requestIf<OperationSnapshot | null>(
           loadOperationSnapshot,
           '/api/v1/operacion/snapshot/',
+          null,
+        ),
+        requestIf<ContractsSnapshot | null>(
+          loadContractsSnapshot,
+          '/api/v1/contratos/snapshot/',
           null,
         ),
         requestIf<ControlSnapshot | null>(
@@ -1278,6 +1295,13 @@ function App() {
         setIdentidades(operationSnapshotPayload.identidades)
         setMandatos(operationSnapshotPayload.mandatos)
         setIsOperationSnapshotLoaded(true)
+      }
+      if (contractsSnapshotPayload) {
+        setArrendatarios(contractsSnapshotPayload.arrendatarios)
+        setMandatos(contractsSnapshotPayload.mandatos)
+        setContratos(contractsSnapshotPayload.contratos)
+        setAvisos(contractsSnapshotPayload.avisos)
+        setIsContractsSnapshotLoaded(true)
       }
       if (controlSnapshotPayload?.empresas?.length) {
         setEmpresas(controlSnapshotPayload.empresas)
@@ -1333,8 +1357,8 @@ function App() {
       setLastLoadedAt(new Date().toISOString())
 
       void (async () => {
-        const loadArrendatarios = canReadOperational && ['contratos', 'canales', 'cobranza'].includes(targetView)
-        const loadContratos = canReadOperational && ['contratos', 'canales', 'cobranza', 'sii'].includes(targetView)
+        const loadArrendatarios = canReadOperational && ['canales', 'cobranza'].includes(targetView)
+        const loadContratos = canReadOperational && ['canales', 'cobranza', 'sii'].includes(targetView)
         const loadExpedientes = canReadOperational && targetView === 'documentos'
         const loadPoliticasFirma = canReadOperational && targetView === 'documentos'
         const loadDocumentosEmitidos = canReadOperational && ['documentos', 'canales'].includes(targetView)
@@ -1584,9 +1608,11 @@ function App() {
     setComplianceExports([])
     setComplianceExportPreview(null)
     setIsOperationSnapshotLoading(false)
+    setIsContractsSnapshotLoading(false)
     setIsControlCatalogLoading(false)
     setIsControlActivityLoading(false)
     setIsOperationSnapshotLoaded(false)
+    setIsContractsSnapshotLoaded(false)
     setIsControlCoreLoaded(false)
     setIsControlCatalogLoaded(false)
     setIsControlActivityLoaded(false)
@@ -3534,6 +3560,7 @@ function App() {
           contratoById={contratoById}
           toneFor={toneFor}
           isSubmitting={isSubmitting}
+          isLoading={isContractsSnapshotLoading}
           startEditArrendatario={startEditArrendatario}
           startEditContrato={startEditContrato}
           goToArrendatarioContext={goToArrendatarioContext}

@@ -11,11 +11,13 @@ from .views import (
     ContratoListCreateView,
     ContratoPropiedadDetailView,
     ContratoPropiedadListView,
+    ContractsSnapshotView,
     PeriodoContractualDetailView,
     PeriodoContractualListView,
 )
 
 urlpatterns = [
+    path('snapshot/', ContractsSnapshotView.as_view(), name='contratos-snapshot'),
     path('arrendatarios/', ArrendatarioListCreateView.as_view(), name='contratos-arrendatario-list'),
     path('arrendatarios/<int:pk>/', ArrendatarioDetailView.as_view(), name='contratos-arrendatario-detail'),
     path('contratos/', ContratoListCreateView.as_view(), name='contratos-contrato-list'),
