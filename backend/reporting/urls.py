@@ -5,6 +5,7 @@ from .views import (
     FinancialMonthlySummaryView,
     MigrationManualResolutionSummaryView,
     OperationalDashboardView,
+    OverviewSecondaryCountsView,
     PartnerSummaryView,
     PeriodBooksSummaryView,
     ReportingReferenceOptionsView,
@@ -12,6 +13,7 @@ from .views import (
 
 urlpatterns = [
     path('dashboard/operativo/', OperationalDashboardView.as_view(), name='reporting-dashboard-operativo'),
+    path('dashboard/overview-secondary/', OverviewSecondaryCountsView.as_view(), name='reporting-overview-secondary'),
     path('financiero/mensual/', FinancialMonthlySummaryView.as_view(), name='reporting-financiero-mensual'),
     path('contabilidad/libros-periodo/', PeriodBooksSummaryView.as_view(), name='reporting-libros-periodo'),
     path('migracion/resoluciones-manuales/', MigrationManualResolutionSummaryView.as_view(), name='reporting-migration-manual-resolutions'),

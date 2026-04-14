@@ -54,21 +54,21 @@ const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
 ])
 
 type Dashboard = {
-  socios_total: number
-  empresas_total: number
-  comunidades_total: number
-  propiedades_total: number
-  propiedades_activas: number
-  cuentas_total: number
-  identidades_total: number
-  mandatos_total: number
-  contratos_vigentes: number
-  contratos_futuros: number
-  pagos_pendientes: number
-  pagos_atrasados: number
-  resoluciones_manuales_abiertas: number
-  dtes_borrador: number
-  mensajes_preparados: number
+  socios_total?: number
+  empresas_total?: number
+  comunidades_total?: number
+  propiedades_total?: number
+  propiedades_activas?: number
+  cuentas_total?: number
+  identidades_total?: number
+  mandatos_total?: number
+  contratos_vigentes?: number
+  contratos_futuros?: number
+  pagos_pendientes?: number
+  pagos_atrasados?: number
+  resoluciones_manuales_abiertas?: number
+  dtes_borrador?: number
+  mensajes_preparados?: number
 }
 
 type ManualSummary = {
@@ -1337,7 +1337,7 @@ function App() {
         complianceExportsPayload,
         ownPartnerSummary,
       ] = await Promise.all([
-        requestIf<Dashboard | null>(loadOverview, '/api/v1/reporting/dashboard/operativo/', dashboard),
+        requestIf<Dashboard | null>(loadOverview, '/api/v1/reporting/dashboard/operativo/?mode=summary', dashboard),
         requestIf<ManualSummary | null>(loadOverview, '/api/v1/reporting/migracion/resoluciones-manuales/?status=open', manualSummary),
         requestIf<Socio[]>(loadSocios, '/api/v1/patrimonio/socios/', socios),
         requestIf<Empresa[]>(loadEmpresas, '/api/v1/patrimonio/empresas/', empresas),
@@ -1537,6 +1537,23 @@ function App() {
       setLastLoadedAt(new Date().toISOString())
 
       void (async () => {
+        if (loadOverview) {
+          void (async () => {
+            try {
+              const secondaryCounts = await requestIf<Partial<Dashboard> | null>(
+                true,
+                '/api/v1/reporting/dashboard/overview-secondary/',
+                null,
+              )
+              if (secondaryCounts) {
+                setDashboard((current) => ({ ...(current || {}), ...secondaryCounts }))
+              }
+            } catch {
+              // Keep the lightweight overview instead of surfacing a secondary-count failure.
+            }
+          })()
+        }
+
         const loadArrendatarios = canReadOperational && ['canales'].includes(targetView)
         const loadContratos = canReadOperational && ['canales', 'sii'].includes(targetView)
         const loadExpedientes = canReadOperational && false

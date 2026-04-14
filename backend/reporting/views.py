@@ -8,6 +8,7 @@ from .services import (
     build_financial_monthly_summary,
     build_migration_manual_resolution_summary,
     build_operational_dashboard,
+    build_operational_overview_counts,
     build_partner_summary,
     build_period_books_summary,
     build_reporting_reference_options,
@@ -18,7 +19,16 @@ class OperationalDashboardView(APIView):
     permission_classes = [OperationalOverviewPermission]
 
     def get(self, request):
-        return Response(build_operational_dashboard(access=get_scope_access(request.user)))
+        mode = request.query_params.get('mode', 'full')
+        include_secondary = mode != 'summary'
+        return Response(build_operational_dashboard(access=get_scope_access(request.user), include_secondary=include_secondary))
+
+
+class OverviewSecondaryCountsView(APIView):
+    permission_classes = [OperationalOverviewPermission]
+
+    def get(self, request):
+        return Response(build_operational_overview_counts(access=get_scope_access(request.user)))
 
 
 class FinancialMonthlySummaryView(APIView):
