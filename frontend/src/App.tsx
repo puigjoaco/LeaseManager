@@ -2650,10 +2650,9 @@ function App() {
       isEdit ? 'Expediente actualizado correctamente.' : 'Expediente creado correctamente.',
       'documentos',
     )
-    if (!success || !token) return
+    if (!success) return
     setEditingExpedienteId(null)
     setExpedienteDraft({ entidad_tipo: 'contrato', entidad_id: '', estado: 'abierto', owner_operativo: '' })
-    void loadWorkspace(token)
   }
 
   async function handleCreatePoliticaFirma(event: FormEvent<HTMLFormElement>) {
@@ -2666,8 +2665,7 @@ function App() {
       'Política documental creada correctamente.',
       'documentos',
     )
-    if (!success || !token) return
-    void loadWorkspace(token)
+    if (!success) return
   }
 
   async function handleCreateDocumento(event: FormEvent<HTMLFormElement>) {
@@ -2684,8 +2682,7 @@ function App() {
       'Documento emitido creado correctamente.',
       'documentos',
     )
-    if (!success || !token) return
-    void loadWorkspace(token)
+    if (!success) return
   }
 
   async function handleFormalizeDocumento(event: FormEvent<HTMLFormElement>) {
@@ -2704,8 +2701,7 @@ function App() {
       'Documento formalizado correctamente.',
       'documentos',
     )
-    if (!success || !token) return
-    void loadWorkspace(token)
+    if (!success) return
   }
 
   async function handleCreateGateCanal(event: FormEvent<HTMLFormElement>) {
@@ -2718,8 +2714,7 @@ function App() {
       'Gate de canal creado correctamente.',
       'canales',
     )
-    if (!success || !token) return
-    void loadWorkspace(token)
+    if (!success) return
   }
 
   async function handlePrepareMensaje(event: FormEvent<HTMLFormElement>) {
@@ -2741,8 +2736,7 @@ function App() {
       'Mensaje preparado correctamente.',
       'canales',
     )
-    if (!success || !token) return
-    void loadWorkspace(token)
+    if (!success) return
   }
 
   async function handleRegistrarEnvioMensaje(event: FormEvent<HTMLFormElement>) {
@@ -2755,8 +2749,7 @@ function App() {
       'Envío manual registrado correctamente.',
       'canales',
     )
-    if (!success || !token) return
-    void loadWorkspace(token)
+    if (!success) return
   }
 
   async function handleUpdateManualResolution(event: FormEvent<HTMLFormElement>) {
@@ -2769,10 +2762,9 @@ function App() {
       'Resolución manual actualizada correctamente.',
       'audit',
     )
-    if (!success || !token) return
+    if (!success) return
     setEditingManualResolutionId(null)
     setManualResolutionDraft({ status: 'open', rationale: '' })
-    void loadWorkspace(token)
   }
 
   function navigateWithContext(view: ViewKey, search = '', label = '') {
