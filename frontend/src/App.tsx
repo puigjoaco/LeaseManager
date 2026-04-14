@@ -1384,7 +1384,7 @@ function App() {
       return
     }
     void loadWorkspace(token)
-  }, [token])
+  }, [token, activeView])
 
   useEffect(() => {
     if (!canAccessView(activeView)) {
