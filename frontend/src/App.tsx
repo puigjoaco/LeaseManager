@@ -525,6 +525,13 @@ type ReportingReferenceOptions = {
   socios: Socio[]
 }
 
+type PatrimonioSnapshot = {
+  socios: Socio[]
+  empresas: Empresa[]
+  comunidades: Comunidad[]
+  propiedades: Propiedad[]
+}
+
 type OperationSnapshot = {
   socios: Socio[]
   empresas: Empresa[]
@@ -1118,6 +1125,7 @@ function App() {
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
   const [editingManualResolutionId, setEditingManualResolutionId] = useState<string | null>(null)
+  const [isPatrimonioSnapshotLoading, setIsPatrimonioSnapshotLoading] = useState(false)
   const [isOperationSnapshotLoading, setIsOperationSnapshotLoading] = useState(false)
   const [isContractsSnapshotLoading, setIsContractsSnapshotLoading] = useState(false)
   const [isDocumentsSnapshotLoading, setIsDocumentsSnapshotLoading] = useState(false)
@@ -1138,6 +1146,7 @@ function App() {
   const [isReportingReferencesLoaded, setIsReportingReferencesLoaded] = useState(false)
   const [isSiiLoaded, setIsSiiLoaded] = useState(false)
   const [isComplianceLoaded, setIsComplianceLoaded] = useState(false)
+  const [isPatrimonioSnapshotLoaded, setIsPatrimonioSnapshotLoaded] = useState(false)
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
     status: 'open',
     rationale: '',
@@ -1220,6 +1229,7 @@ function App() {
       const shouldRefreshData = Boolean(options.forceDataRefresh)
       const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
       const loadOverview = canReadOverview && targetView === 'overview'
+      const loadPatrimonioSnapshot = canReadOperational && targetView === 'patrimonio' && (shouldRefreshData || !isPatrimonioSnapshotLoaded)
       const loadOperationSnapshot = canReadOperational && targetView === 'operacion' && (shouldRefreshData || !isOperationSnapshotLoaded)
       const loadContractsSnapshot = canReadOperational && targetView === 'contratos' && (shouldRefreshData || !isContractsSnapshotLoaded)
       const loadDocumentsSnapshot = canReadOperational && targetView === 'documentos' && (shouldRefreshData || !isDocumentsSnapshotLoaded)
@@ -1241,6 +1251,7 @@ function App() {
       const bootstrapControl = canReadControl && targetView === 'contabilidad' && (shouldRefreshData || !isControlCoreLoaded)
       const bootstrapSii = canReadControl && targetView === 'sii' && (shouldRefreshData || !isSiiLoaded)
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance' && (shouldRefreshData || !isComplianceLoaded)
+      setIsPatrimonioSnapshotLoading(loadPatrimonioSnapshot)
       setIsOperationSnapshotLoading(loadOperationSnapshot)
       setIsContractsSnapshotLoading(loadContractsSnapshot)
       setIsDocumentsSnapshotLoading(loadDocumentsSnapshot)
@@ -1266,6 +1277,7 @@ function App() {
         empresasPayload,
         comunidadesPayload,
         propiedadesPayload,
+        patrimonioSnapshotPayload,
         cuentasPayload,
         identidadesPayload,
         mandatosPayload,
@@ -1293,6 +1305,11 @@ function App() {
         requestIf<Empresa[]>(loadEmpresas, '/api/v1/patrimonio/empresas/', empresas),
         requestIf<Comunidad[]>(loadComunidades, '/api/v1/patrimonio/comunidades/', comunidades),
         requestIf<Propiedad[]>(loadPropiedades, '/api/v1/patrimonio/propiedades/', propiedades),
+        requestIf<PatrimonioSnapshot | null>(
+          loadPatrimonioSnapshot,
+          '/api/v1/patrimonio/snapshot/',
+          null,
+        ),
         requestIf<Cuenta[]>(loadCuentas, '/api/v1/operacion/cuentas-recaudadoras/', cuentas),
         requestIf<Identidad[]>(loadIdentidades, '/api/v1/operacion/identidades-envio/', identidades),
         requestIf<Mandato[]>(loadMandatos, '/api/v1/operacion/mandatos/', mandatos),
@@ -1356,6 +1373,13 @@ function App() {
       setEmpresas(empresasPayload)
       setComunidades(comunidadesPayload)
       setPropiedades(propiedadesPayload)
+      if (patrimonioSnapshotPayload) {
+        setSocios(patrimonioSnapshotPayload.socios)
+        setEmpresas(patrimonioSnapshotPayload.empresas)
+        setComunidades(patrimonioSnapshotPayload.comunidades)
+        setPropiedades(patrimonioSnapshotPayload.propiedades)
+        setIsPatrimonioSnapshotLoaded(true)
+      }
       setCuentas(cuentasPayload)
       setIdentidades(identidadesPayload)
       setMandatos(mandatosPayload)
@@ -1713,6 +1737,7 @@ function App() {
     setCompliancePolicies([])
     setComplianceExports([])
     setComplianceExportPreview(null)
+    setIsPatrimonioSnapshotLoading(false)
     setIsOperationSnapshotLoading(false)
     setIsContractsSnapshotLoading(false)
     setIsDocumentsSnapshotLoading(false)
@@ -1733,6 +1758,7 @@ function App() {
     setIsReportingReferencesLoaded(false)
     setIsSiiLoaded(false)
     setIsComplianceLoaded(false)
+    setIsPatrimonioSnapshotLoaded(false)
     setEditingManualResolutionId(null)
   }
 
@@ -3598,6 +3624,7 @@ function App() {
           filteredPropiedades={filteredPropiedades}
           toneFor={toneFor}
           isSubmitting={isSubmitting}
+          isLoading={isPatrimonioSnapshotLoading}
           startEditSocio={startEditSocio}
           startEditPropiedad={startEditPropiedad}
           goToEmpresaContext={goToEmpresaContext}

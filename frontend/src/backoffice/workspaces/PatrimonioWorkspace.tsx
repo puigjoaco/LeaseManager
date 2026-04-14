@@ -5,8 +5,8 @@ import { Badge, TableBlock } from '../shared'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type OwnerOption = { tipo: string; id: number; label: string }
 type SocioItem = { id: number; nombre: string; rut: string; email: string; telefono: string; domicilio: string; activo: boolean }
-type EmpresaItem = { id: number; razon_social: string; rut: string; estado: string; participaciones_detail: unknown[] }
-type ComunidadItem = { id: number; nombre: string; estado: string; participaciones_detail: unknown[]; representacion_vigente: { modo_representacion: string; socio_representante_nombre: string } | null }
+type EmpresaItem = { id: number; razon_social: string; rut: string; estado: string; participaciones_detail?: unknown[]; participaciones_count?: number }
+type ComunidadItem = { id: number; nombre: string; estado: string; participaciones_detail?: unknown[]; participaciones_count?: number; representacion_vigente: { modo_representacion: string; socio_representante_nombre: string } | null }
 type PropiedadItem = { id: number; codigo_propiedad: string; direccion: string; comuna: string; region: string; rol_avaluo: string; tipo_inmueble: string; owner_tipo: string; owner_id: number; owner_display: string; estado: string }
 type SocioDraft = { nombre: string; rut: string; email: string; telefono: string; domicilio: string; activo: boolean }
 type PropiedadDraft = { codigo_propiedad: string; direccion: string; comuna: string; region: string; rol_avaluo: string; tipo_inmueble: string; estado: string; owner_tipo: string; owner_id: string }
@@ -30,6 +30,7 @@ export function PatrimonioWorkspace({
   filteredPropiedades,
   toneFor,
   isSubmitting,
+  isLoading,
   startEditSocio,
   startEditPropiedad,
   goToEmpresaContext,
@@ -56,6 +57,7 @@ export function PatrimonioWorkspace({
   filteredPropiedades: PropiedadItem[]
   toneFor: (value: string) => Tone
   isSubmitting: boolean
+  isLoading: boolean
   startEditSocio: (row: SocioItem) => void
   startEditPropiedad: (row: PropiedadItem) => void
   goToEmpresaContext: (empresaId: number) => void
@@ -110,27 +112,27 @@ export function PatrimonioWorkspace({
         </section>
       </section>
 
-      <TableBlock title="Socios" subtitle="Participantes y representantes activos." rows={filteredSocios} empty="No hay socios para este filtro." columns={[
+      <TableBlock title="Socios" subtitle="Participantes y representantes activos." rows={filteredSocios} empty="No hay socios para este filtro." isLoading={isLoading} loadingLabel="Cargando patrimonio..." columns={[
         { label: 'Nombre', render: (row) => row.nombre },
         { label: 'RUT', render: (row) => row.rut },
         { label: 'Contacto', render: (row) => row.email || row.telefono || 'Sin dato' },
         { label: 'Estado', render: (row) => <Badge label={row.activo ? 'activo' : 'inactivo'} tone={row.activo ? 'positive' : 'danger'} /> },
         { label: 'Acción', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditSocio(row)}>Editar</button> },
       ]} />
-      <TableBlock title="Empresas" subtitle="Owners empresariales y participaciones vigentes." rows={filteredEmpresas} empty="No hay empresas para este filtro." columns={[
+      <TableBlock title="Empresas" subtitle="Owners empresariales y participaciones vigentes." rows={filteredEmpresas} empty="No hay empresas para este filtro." isLoading={isLoading} loadingLabel="Cargando patrimonio..." columns={[
         { label: 'Razón social', render: (row) => row.razon_social },
         { label: 'RUT', render: (row) => row.rut },
-        { label: 'Participaciones', render: (row) => String(row.participaciones_detail.length) },
+        { label: 'Participaciones', render: (row) => String(row.participaciones_count ?? row.participaciones_detail?.length ?? 0) },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
         { label: 'Siguiente paso', render: (row) => <div className="inline-actions">{canOpenContabilidad ? <button type="button" className="button-ghost inline-action" onClick={() => goToEmpresaContext(row.id)}>Contabilidad</button> : null}{canOpenSii ? <button type="button" className="button-ghost inline-action" onClick={() => goToEmpresaSiiContext(row.id, row.razon_social)}>SII</button> : null}{!canOpenContabilidad && !canOpenSii ? 'Sin acceso adicional' : null}</div> },
       ]} />
-      <TableBlock title="Comunidades" subtitle="Representación vigente y composición comunitaria." rows={filteredComunidades} empty="No hay comunidades para este filtro." columns={[
+      <TableBlock title="Comunidades" subtitle="Representación vigente y composición comunitaria." rows={filteredComunidades} empty="No hay comunidades para este filtro." isLoading={isLoading} loadingLabel="Cargando patrimonio..." columns={[
         { label: 'Nombre', render: (row) => row.nombre },
         { label: 'Representación', render: (row) => row.representacion_vigente ? `${row.representacion_vigente.socio_representante_nombre} · ${row.representacion_vigente.modo_representacion.replaceAll('_', ' ')}` : 'Sin representación' },
-        { label: 'Participaciones', render: (row) => String(row.participaciones_detail.length) },
+        { label: 'Participaciones', render: (row) => String(row.participaciones_count ?? row.participaciones_detail?.length ?? 0) },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
-      <TableBlock title="Propiedades" subtitle="Inventario elegible dentro del greenfield." rows={filteredPropiedades} empty="No hay propiedades para este filtro." columns={[
+      <TableBlock title="Propiedades" subtitle="Inventario elegible dentro del greenfield." rows={filteredPropiedades} empty="No hay propiedades para este filtro." isLoading={isLoading} loadingLabel="Cargando patrimonio..." columns={[
         { label: 'Código', render: (row) => row.codigo_propiedad },
         { label: 'Dirección', render: (row) => row.direccion },
         { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo.replaceAll('_', ' ')}` },

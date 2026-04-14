@@ -5,6 +5,7 @@ from .views import (
     ComunidadListCreateView,
     EmpresaDetailView,
     EmpresaListCreateView,
+    PatrimonioSnapshotView,
     ParticipacionDetailView,
     ParticipacionListView,
     PropiedadDetailView,
@@ -14,6 +15,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('snapshot/', PatrimonioSnapshotView.as_view(), name='patrimonio-snapshot'),
     path('socios/', SocioListCreateView.as_view(), name='patrimonio-socio-list'),
     path('socios/<int:pk>/', SocioDetailView.as_view(), name='patrimonio-socio-detail'),
     path('empresas/', EmpresaListCreateView.as_view(), name='patrimonio-empresa-list'),
