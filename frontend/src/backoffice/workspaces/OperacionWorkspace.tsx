@@ -57,6 +57,7 @@ export function OperacionWorkspace({
   filteredMandatos,
   toneFor,
   isSubmitting,
+  isLoading,
   startEditCuenta,
   startEditMandato,
   goToCuentaConciliacion,
@@ -82,6 +83,7 @@ export function OperacionWorkspace({
   filteredMandatos: MandatoItem[]
   toneFor: (value: string) => Tone
   isSubmitting: boolean
+  isLoading: boolean
   startEditCuenta: (row: CuentaItem) => void
   startEditMandato: (row: MandatoItem) => void
   goToCuentaConciliacion: (cuentaId: number, numeroCuenta: string) => void
@@ -153,7 +155,7 @@ export function OperacionWorkspace({
         </section>
       </section>
 
-      <TableBlock title="Cuentas recaudadoras" subtitle="Ownership bancario operativo." rows={filteredCuentas} empty="No hay cuentas para este filtro." columns={[
+      <TableBlock title="Cuentas recaudadoras" subtitle="Ownership bancario operativo." rows={filteredCuentas} empty="No hay cuentas para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[
         { label: 'Cuenta', render: (row) => `${row.institucion} · ${row.numero_cuenta}` },
         { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo}` },
         { label: 'Moneda', render: (row) => row.moneda_operativa },
@@ -161,14 +163,14 @@ export function OperacionWorkspace({
         { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditCuenta(row)}>Editar</button> },
         { label: 'Siguiente paso', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => goToCuentaConciliacion(row.id, row.numero_cuenta)}>Conectar banco</button> },
       ]} />
-      <TableBlock title="Identidades de envío" subtitle="Canales autorizados para salida." rows={filteredIdentidades} empty="No hay identidades para este filtro." columns={[
+      <TableBlock title="Identidades de envío" subtitle="Canales autorizados para salida." rows={filteredIdentidades} empty="No hay identidades para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[
         { label: 'Remitente', render: (row) => row.remitente_visible },
         { label: 'Canal', render: (row) => row.canal.replaceAll('_', ' ') },
         { label: 'Destino', render: (row) => row.direccion_o_numero },
         { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo}` },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
-      <TableBlock title="Mandatos operativos" subtitle="Separación entre propietario, administrador, recaudador y facturadora." rows={filteredMandatos} empty="No hay mandatos para este filtro." columns={[
+      <TableBlock title="Mandatos operativos" subtitle="Separación entre propietario, administrador, recaudador y facturadora." rows={filteredMandatos} empty="No hay mandatos para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[
         { label: 'Propiedad', render: (row) => row.propiedad_codigo },
         { label: 'Propietario', render: (row) => row.propietario_display },
         { label: 'Administrador', render: (row) => row.administrador_operativo_display },

@@ -1078,6 +1078,7 @@ function App() {
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
   const [editingManualResolutionId, setEditingManualResolutionId] = useState<string | null>(null)
+  const [isOperationSnapshotLoading, setIsOperationSnapshotLoading] = useState(false)
   const [isControlCatalogLoading, setIsControlCatalogLoading] = useState(false)
   const [isControlActivityLoading, setIsControlActivityLoading] = useState(false)
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
@@ -1177,6 +1178,7 @@ function App() {
       const bootstrapControl = canReadControl && targetView === 'contabilidad'
       const bootstrapSii = canReadControl && targetView === 'sii'
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance'
+      setIsOperationSnapshotLoading(loadOperationSnapshot)
       setIsControlCatalogLoading(bootstrapControl)
       setIsControlActivityLoading(bootstrapControl)
       setCurrentUser(me)
@@ -1304,6 +1306,7 @@ function App() {
       setF22s(f22sPayload)
       setCompliancePolicies(compliancePoliciesPayload)
       setComplianceExports(complianceExportsPayload)
+      setIsOperationSnapshotLoading(false)
       if (ownPartnerSummary) {
         setReportingPartnerSummary(ownPartnerSummary)
         setReportingPartnerDraft({ socio_id: String(ownPartnerSummary.socio.id) })
@@ -1469,6 +1472,7 @@ function App() {
       }
       setWorkspaceError(error instanceof Error ? error.message : 'No se pudo cargar el workspace.')
     } finally {
+      setIsOperationSnapshotLoading(false)
       setIsRefreshing(false)
     }
   }
@@ -1569,6 +1573,7 @@ function App() {
     setCompliancePolicies([])
     setComplianceExports([])
     setComplianceExportPreview(null)
+    setIsOperationSnapshotLoading(false)
     setIsControlCatalogLoading(false)
     setIsControlActivityLoading(false)
     setEditingManualResolutionId(null)
@@ -3474,6 +3479,7 @@ function App() {
           filteredMandatos={filteredMandatos}
           toneFor={toneFor}
           isSubmitting={isSubmitting}
+          isLoading={isOperationSnapshotLoading}
           startEditCuenta={startEditCuenta}
           startEditMandato={startEditMandato}
           goToCuentaConciliacion={(cuentaId, numeroCuenta) => {
