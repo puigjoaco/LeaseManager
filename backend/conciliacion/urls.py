@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    ConciliacionSnapshotView,
     ConexionBancariaDetailView,
     ConexionBancariaListCreateView,
     IngresoDesconocidoDetailView,
@@ -11,6 +12,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('snapshot/', ConciliacionSnapshotView.as_view(), name='conciliacion-snapshot'),
     path('conexiones-bancarias/', ConexionBancariaListCreateView.as_view(), name='conciliacion-conexion-list'),
     path('conexiones-bancarias/<int:pk>/', ConexionBancariaDetailView.as_view(), name='conciliacion-conexion-detail'),
     path('movimientos/', MovimientoBancarioListCreateView.as_view(), name='conciliacion-movimiento-list'),

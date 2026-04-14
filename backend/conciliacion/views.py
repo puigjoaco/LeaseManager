@@ -5,7 +5,13 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
-from core.scope_access import ScopedQuerysetMixin, scope_queryset_for_user
+from core.scope_access import (
+    ScopedQuerysetMixin,
+    get_scope_access,
+    scope_queryset_for_access,
+    scope_queryset_for_user,
+)
+from operacion.models import CuentaRecaudadora
 
 from .models import ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
 from .serializers import ConexionBancariaSerializer, IngresoDesconocidoSerializer, MovimientoBancarioImportadoSerializer
@@ -51,6 +57,85 @@ class AuditCreateUpdateMixin:
             summary=summary or f'{self.audit_entity_label} {action}',
             actor_user=self.request.user,
             ip_address=self.request.META.get('REMOTE_ADDR'),
+        )
+
+
+class ConciliacionSnapshotView(APIView):
+    permission_classes = [OperationalModulePermission]
+
+    def get(self, request):
+        access = get_scope_access(request.user)
+        cuentas = scope_queryset_for_access(
+            CuentaRecaudadora.objects.select_related('empresa_owner', 'socio_owner').order_by('numero_cuenta', 'id'),
+            access,
+            bank_account_paths=('id',),
+        )
+        conexiones = scope_queryset_for_access(
+            ConexionBancaria.objects.select_related('cuenta_recaudadora').order_by('-id'),
+            access,
+            bank_account_paths=('cuenta_recaudadora_id',),
+        )
+        movimientos = scope_queryset_for_access(
+            MovimientoBancarioImportado.objects.select_related(
+                'conexion_bancaria',
+                'pago_mensual',
+                'codigo_cobro_residual',
+            ).order_by('-fecha_movimiento', '-id'),
+            access,
+            bank_account_paths=('conexion_bancaria__cuenta_recaudadora_id',),
+        )
+        ingresos = scope_queryset_for_access(
+            IngresoDesconocido.objects.select_related('movimiento_bancario', 'cuenta_recaudadora').order_by('-fecha_movimiento', '-id'),
+            access,
+            bank_account_paths=('cuenta_recaudadora_id',),
+        )
+
+        return Response(
+            {
+                'cuentas': [
+                    {
+                        'id': item.id,
+                        'numero_cuenta': item.numero_cuenta,
+                        'owner_display': item.owner_display,
+                    }
+                    for item in cuentas
+                ],
+                'conexiones': [
+                    {
+                        'id': item.id,
+                        'cuenta_recaudadora': item.cuenta_recaudadora_id,
+                        'provider_key': item.provider_key,
+                        'credencial_ref': item.credencial_ref,
+                        'scope': item.scope,
+                        'estado_conexion': item.estado_conexion,
+                    }
+                    for item in conexiones
+                ],
+                'movimientos': [
+                    {
+                        'id': item.id,
+                        'fecha_movimiento': item.fecha_movimiento,
+                        'tipo_movimiento': item.tipo_movimiento,
+                        'monto': item.monto,
+                        'descripcion_origen': item.descripcion_origen,
+                        'referencia': item.referencia,
+                        'estado_conciliacion': item.estado_conciliacion,
+                    }
+                    for item in movimientos
+                ],
+                'ingresos_desconocidos': [
+                    {
+                        'id': item.id,
+                        'cuenta_recaudadora': item.cuenta_recaudadora_id,
+                        'fecha_movimiento': item.fecha_movimiento,
+                        'monto': item.monto,
+                        'descripcion_origen': item.descripcion_origen,
+                        'estado': item.estado,
+                        'sugerencia_asistida': item.sugerencia_asistida,
+                    }
+                    for item in ingresos
+                ],
+            }
         )
 
 

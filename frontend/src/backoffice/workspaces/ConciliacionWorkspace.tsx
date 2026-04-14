@@ -50,6 +50,7 @@ export function ConciliacionWorkspace({
   cuentaById,
   toneFor,
   isSubmitting,
+  isLoading,
   handleRetryMatch,
 }: {
   canEditConciliacion: boolean
@@ -67,6 +68,7 @@ export function ConciliacionWorkspace({
   cuentaById: ReadonlyMap<number, CuentaItem>
   toneFor: (value: string) => Tone
   isSubmitting: boolean
+  isLoading: boolean
   handleRetryMatch: (movimientoId: number) => Promise<void>
 }) {
   return (
@@ -121,14 +123,14 @@ export function ConciliacionWorkspace({
         </section>
       </section>
 
-      <TableBlock title="Conexiones bancarias" subtitle="Providers activos por cuenta recaudadora." rows={filteredConexiones} empty="No hay conexiones bancarias para este filtro." columns={[
+      <TableBlock title="Conexiones bancarias" subtitle="Providers activos por cuenta recaudadora." rows={filteredConexiones} empty="No hay conexiones bancarias para este filtro." isLoading={isLoading} loadingLabel="Cargando conciliación..." columns={[
         { label: 'Cuenta', render: (row) => cuentaById.get(row.cuenta_recaudadora)?.numero_cuenta || row.cuenta_recaudadora },
         { label: 'Provider', render: (row) => row.provider_key },
         { label: 'Credencial', render: (row) => row.credencial_ref },
         { label: 'Scope', render: (row) => row.scope || 'Sin scope' },
         { label: 'Estado', render: (row) => <Badge label={row.estado_conexion} tone={toneFor(row.estado_conexion)} /> },
       ]} />
-      <TableBlock title="Movimientos bancarios" subtitle="Entrada importada y resultado de conciliación." rows={filteredMovimientos} empty="No hay movimientos para este filtro." columns={[
+      <TableBlock title="Movimientos bancarios" subtitle="Entrada importada y resultado de conciliación." rows={filteredMovimientos} empty="No hay movimientos para este filtro." isLoading={isLoading} loadingLabel="Cargando conciliación..." columns={[
         { label: 'Fecha', render: (row) => row.fecha_movimiento },
         { label: 'Tipo', render: (row) => row.tipo_movimiento },
         { label: 'Monto', render: (row) => row.monto },
@@ -137,7 +139,7 @@ export function ConciliacionWorkspace({
         { label: 'Estado', render: (row) => <Badge label={row.estado_conciliacion} tone={toneFor(row.estado_conciliacion)} /> },
         { label: 'Acción', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => void handleRetryMatch(row.id)} disabled={isSubmitting || !canEditConciliacion}>Reintentar match</button> },
       ]} />
-      <TableBlock title="Ingresos desconocidos" subtitle="Abonos sin match exacto que requieren revisión." rows={filteredIngresos} empty="No hay ingresos desconocidos para este filtro." columns={[
+      <TableBlock title="Ingresos desconocidos" subtitle="Abonos sin match exacto que requieren revisión." rows={filteredIngresos} empty="No hay ingresos desconocidos para este filtro." isLoading={isLoading} loadingLabel="Cargando conciliación..." columns={[
         { label: 'Fecha', render: (row) => row.fecha_movimiento },
         { label: 'Monto', render: (row) => row.monto },
         { label: 'Cuenta', render: (row) => cuentaById.get(row.cuenta_recaudadora)?.numero_cuenta || row.cuenta_recaudadora },

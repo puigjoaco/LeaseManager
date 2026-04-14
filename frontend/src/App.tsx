@@ -568,6 +568,13 @@ type CobranzaSnapshot = {
   estados_cuenta: EstadoCuenta[]
 }
 
+type ConciliacionSnapshot = {
+  cuentas: { id: number; numero_cuenta: string; owner_display: string }[]
+  conexiones: ConexionBancaria[]
+  movimientos: MovimientoBancario[]
+  ingresos_desconocidos: IngresoDesconocido[]
+}
+
 type ControlSnapshot = {
   empresas: Empresa[]
   regimenes_tributarios: RegimenTributario[]
@@ -1116,6 +1123,7 @@ function App() {
   const [isDocumentsSnapshotLoading, setIsDocumentsSnapshotLoading] = useState(false)
   const [isChannelsSnapshotLoading, setIsChannelsSnapshotLoading] = useState(false)
   const [isCobranzaSnapshotLoading, setIsCobranzaSnapshotLoading] = useState(false)
+  const [isConciliacionSnapshotLoading, setIsConciliacionSnapshotLoading] = useState(false)
   const [isControlCatalogLoading, setIsControlCatalogLoading] = useState(false)
   const [isControlActivityLoading, setIsControlActivityLoading] = useState(false)
   const [isOperationSnapshotLoaded, setIsOperationSnapshotLoaded] = useState(false)
@@ -1123,6 +1131,7 @@ function App() {
   const [isDocumentsSnapshotLoaded, setIsDocumentsSnapshotLoaded] = useState(false)
   const [isChannelsSnapshotLoaded, setIsChannelsSnapshotLoaded] = useState(false)
   const [isCobranzaSnapshotLoaded, setIsCobranzaSnapshotLoaded] = useState(false)
+  const [isConciliacionSnapshotLoaded, setIsConciliacionSnapshotLoaded] = useState(false)
   const [isControlCoreLoaded, setIsControlCoreLoaded] = useState(false)
   const [isControlCatalogLoaded, setIsControlCatalogLoaded] = useState(false)
   const [isControlActivityLoaded, setIsControlActivityLoaded] = useState(false)
@@ -1216,6 +1225,7 @@ function App() {
       const loadDocumentsSnapshot = canReadOperational && targetView === 'documentos' && (shouldRefreshData || !isDocumentsSnapshotLoaded)
       const loadChannelsSnapshot = canReadOperational && targetView === 'canales' && (shouldRefreshData || !isChannelsSnapshotLoaded)
       const loadCobranzaSnapshot = canReadOperational && targetView === 'cobranza' && (shouldRefreshData || !isCobranzaSnapshotLoaded)
+      const loadConciliacionSnapshot = canReadOperational && targetView === 'conciliacion' && (shouldRefreshData || !isConciliacionSnapshotLoaded)
       const loadSocios =
         (canReadOperational || canReadCompliance)
         && ['patrimonio', 'compliance'].includes(targetView)
@@ -1236,6 +1246,7 @@ function App() {
       setIsDocumentsSnapshotLoading(loadDocumentsSnapshot)
       setIsChannelsSnapshotLoading(loadChannelsSnapshot)
       setIsCobranzaSnapshotLoading(loadCobranzaSnapshot)
+      setIsConciliacionSnapshotLoading(loadConciliacionSnapshot)
       setIsControlCatalogLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlCatalogLoaded))
       setIsControlActivityLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlActivityLoaded))
       setCurrentUser(me)
@@ -1263,6 +1274,7 @@ function App() {
         documentsSnapshotPayload,
         channelsSnapshotPayload,
         cobranzaSnapshotPayload,
+        conciliacionSnapshotPayload,
         controlSnapshotPayload,
         reportingReferencePayload,
         capacidadesSiiPayload,
@@ -1307,6 +1319,11 @@ function App() {
         requestIf<CobranzaSnapshot | null>(
           loadCobranzaSnapshot,
           '/api/v1/cobranza/snapshot/',
+          null,
+        ),
+        requestIf<ConciliacionSnapshot | null>(
+          loadConciliacionSnapshot,
+          '/api/v1/conciliacion/snapshot/',
           null,
         ),
         requestIf<ControlSnapshot | null>(
@@ -1385,6 +1402,13 @@ function App() {
         setEstadosCuenta(cobranzaSnapshotPayload.estados_cuenta)
         setIsCobranzaSnapshotLoaded(true)
       }
+      if (conciliacionSnapshotPayload) {
+        setCuentas(conciliacionSnapshotPayload.cuentas as Cuenta[])
+        setConexionesBancarias(conciliacionSnapshotPayload.conexiones)
+        setMovimientosBancarios(conciliacionSnapshotPayload.movimientos)
+        setIngresosDesconocidos(conciliacionSnapshotPayload.ingresos_desconocidos)
+        setIsConciliacionSnapshotLoaded(true)
+      }
       if (controlSnapshotPayload?.empresas?.length) {
         setEmpresas(controlSnapshotPayload.empresas)
       } else if (reportingReferencePayload?.empresas?.length) {
@@ -1453,9 +1477,9 @@ function App() {
         const loadGarantias = canReadOperational && false
         const loadHistorialGarantias = canReadOperational && false
         const loadEstadosCuenta = canReadOperational && false
-        const loadConexiones = canReadOperational && targetView === 'conciliacion'
-        const loadMovimientos = canReadOperational && targetView === 'conciliacion'
-        const loadIngresos = canReadOperational && targetView === 'conciliacion'
+        const loadConexiones = false
+        const loadMovimientos = false
+        const loadIngresos = false
         const loadAuditEvents = canReadAuditEvents && targetView === 'audit'
         const loadManualResolutions = canReadManualResolutions && targetView === 'audit'
 
@@ -1694,6 +1718,7 @@ function App() {
     setIsDocumentsSnapshotLoading(false)
     setIsChannelsSnapshotLoading(false)
     setIsCobranzaSnapshotLoading(false)
+    setIsConciliacionSnapshotLoading(false)
     setIsControlCatalogLoading(false)
     setIsControlActivityLoading(false)
     setIsOperationSnapshotLoaded(false)
@@ -1701,6 +1726,7 @@ function App() {
     setIsDocumentsSnapshotLoaded(false)
     setIsChannelsSnapshotLoaded(false)
     setIsCobranzaSnapshotLoaded(false)
+    setIsConciliacionSnapshotLoaded(false)
     setIsControlCoreLoaded(false)
     setIsControlCatalogLoaded(false)
     setIsControlActivityLoaded(false)
@@ -3779,6 +3805,7 @@ function App() {
           cuentaById={cuentaById}
           toneFor={toneFor}
           isSubmitting={isSubmitting}
+          isLoading={isConciliacionSnapshotLoading}
           handleRetryMatch={handleRetryMatch}
         />
       ) : null}
