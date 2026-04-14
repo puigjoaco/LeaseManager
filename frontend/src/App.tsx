@@ -1192,7 +1192,7 @@ function App() {
       const loadPropiedades = canReadOperational && ['patrimonio'].includes(targetView)
       const loadCuentas = canReadOperational && ['conciliacion'].includes(targetView)
       const loadIdentidades = canReadOperational && ['canales'].includes(targetView)
-      const loadMandatos = canReadOperational && ['contratos'].includes(targetView)
+      const loadMandatos = false
       const bootstrapControl = canReadControl && targetView === 'contabilidad' && (shouldRefreshData || !isControlCoreLoaded)
       const bootstrapSii = canReadControl && targetView === 'sii' && (shouldRefreshData || !isSiiLoaded)
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance' && (shouldRefreshData || !isComplianceLoaded)
@@ -1364,7 +1364,7 @@ function App() {
         const loadDocumentosEmitidos = canReadOperational && ['documentos', 'canales'].includes(targetView)
         const loadGatesCanales = canReadOperational && targetView === 'canales'
         const loadMensajesSalientes = canReadOperational && targetView === 'canales'
-        const loadAvisos = canReadOperational && targetView === 'contratos'
+        const loadAvisos = false
         const loadValoresUf = canReadOperational && targetView === 'cobranza'
         const loadAjustes = canReadOperational && targetView === 'cobranza'
         const loadPagos = canReadOperational && ['cobranza', 'sii'].includes(targetView)
