@@ -1243,6 +1243,46 @@ function App() {
       setLastLoadedAt(new Date().toISOString())
 
       void (async () => {
+        if (bootstrapControl) {
+          void (async () => {
+            try {
+              const controlCatalogSnapshot = await requestIf<ControlSnapshot | null>(
+                true,
+                '/api/v1/contabilidad/snapshot/?mode=catalogs',
+                null,
+              )
+              if (controlCatalogSnapshot) {
+                setCuentasContables(controlCatalogSnapshot.cuentas_contables)
+                setReglasContables(controlCatalogSnapshot.reglas_contables)
+                setMatricesReglas(controlCatalogSnapshot.matrices_reglas)
+              }
+            } finally {
+              setIsControlCatalogLoading(false)
+            }
+          })()
+
+          void (async () => {
+            try {
+              const controlActivitySnapshot = await requestIf<ControlSnapshot | null>(
+                true,
+                '/api/v1/contabilidad/snapshot/?mode=activity',
+                null,
+              )
+              if (controlActivitySnapshot) {
+                setEventosContables(controlActivitySnapshot.eventos_contables)
+                setAsientosContables(controlActivitySnapshot.asientos_contables)
+                setObligacionesMensuales(controlActivitySnapshot.obligaciones_mensuales)
+                setCierresMensuales(controlActivitySnapshot.cierres_mensuales)
+              }
+            } finally {
+              setIsControlActivityLoading(false)
+            }
+          })()
+        } else {
+          setIsControlCatalogLoading(false)
+          setIsControlActivityLoading(false)
+        }
+
         try {
           const settled = await Promise.allSettled([
             requestIf<Arrendatario[]>(canReadOperational, '/api/v1/contratos/arrendatarios/', []),
@@ -1264,8 +1304,6 @@ function App() {
             requestIf<IngresoDesconocido[]>(canReadOperational, '/api/v1/conciliacion/ingresos-desconocidos/', []),
             requestIf<AuditEventItem[]>(canReadAuditEvents, '/api/v1/audit/events/', []),
             requestIf<ManualResolutionItem[]>(canReadManualResolutions, '/api/v1/audit/manual-resolutions/', []),
-            requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/?mode=catalogs', null),
-            requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/?mode=activity', null),
           ])
 
           function resolvedValue<T>(index: number, fallback: T): T {
@@ -1292,8 +1330,6 @@ function App() {
           const ingresosPayload = resolvedValue<IngresoDesconocido[]>(16, [])
           const auditEventsPayload = resolvedValue<AuditEventItem[]>(17, [])
           const manualResolutionsPayload = resolvedValue<ManualResolutionItem[]>(18, [])
-          const controlCatalogSnapshot = resolvedValue<ControlSnapshot | null>(19, null)
-          const controlActivitySnapshot = resolvedValue<ControlSnapshot | null>(20, null)
 
           setArrendatarios(arrendatariosPayload)
           setContratos(contratosPayload)
@@ -1314,17 +1350,6 @@ function App() {
           setIngresosDesconocidos(ingresosPayload)
           setAuditEvents(auditEventsPayload)
           setManualResolutions(manualResolutionsPayload)
-          if (controlCatalogSnapshot) {
-            setCuentasContables(controlCatalogSnapshot.cuentas_contables)
-            setReglasContables(controlCatalogSnapshot.reglas_contables)
-            setMatricesReglas(controlCatalogSnapshot.matrices_reglas)
-          }
-          if (controlActivitySnapshot) {
-            setEventosContables(controlActivitySnapshot.eventos_contables)
-            setAsientosContables(controlActivitySnapshot.asientos_contables)
-            setObligacionesMensuales(controlActivitySnapshot.obligaciones_mensuales)
-            setCierresMensuales(controlActivitySnapshot.cierres_mensuales)
-          }
           setLastLoadedAt(new Date().toISOString())
         } catch (error) {
           if (error instanceof ApiError && error.status === 401) {
@@ -1333,9 +1358,6 @@ function App() {
             setCurrentUser(null)
             setWorkspaceError('La sesión expiró. Ingresa nuevamente.')
           }
-        } finally {
-          setIsControlCatalogLoading(false)
-          setIsControlActivityLoading(false)
         }
       })()
     } catch (error) {
