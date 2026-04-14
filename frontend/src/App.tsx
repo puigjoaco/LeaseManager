@@ -40,6 +40,17 @@ type CurrentUser = {
 
 type LoginResponse = { token: string; user: CurrentUser }
 
+const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
+  'patrimonio',
+  'operacion',
+  'contratos',
+  'documentos',
+  'canales',
+  'cobranza',
+  'conciliacion',
+  'contabilidad',
+])
+
 type Dashboard = {
   socios_total: number
   empresas_total: number
@@ -1208,7 +1219,15 @@ function App() {
   }
 
   async function loadWorkspace(activeToken: string, options: { forceUserRefresh?: boolean; forceDataRefresh?: boolean } = {}) {
-    setIsRefreshing(true)
+    const shouldShowGlobalRefresh = Boolean(
+      options.forceUserRefresh
+      || options.forceDataRefresh
+      || !currentUser
+      || !SILENT_REFRESH_VIEWS.has(activeView),
+    )
+    if (shouldShowGlobalRefresh) {
+      setIsRefreshing(true)
+    }
     setWorkspaceError(null)
     try {
       const shouldRefreshUser = options.forceUserRefresh || !currentUser
@@ -1636,8 +1655,16 @@ function App() {
       }
       setWorkspaceError(error instanceof Error ? error.message : 'No se pudo cargar el workspace.')
     } finally {
+      setIsPatrimonioSnapshotLoading(false)
       setIsOperationSnapshotLoading(false)
-      setIsRefreshing(false)
+      setIsContractsSnapshotLoading(false)
+      setIsDocumentsSnapshotLoading(false)
+      setIsChannelsSnapshotLoading(false)
+      setIsCobranzaSnapshotLoading(false)
+      setIsConciliacionSnapshotLoading(false)
+      if (shouldShowGlobalRefresh) {
+        setIsRefreshing(false)
+      }
     }
   }
 
