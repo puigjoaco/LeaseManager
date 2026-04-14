@@ -1138,7 +1138,19 @@ function App() {
       const canReadCompliance = role === 'AdministradorGlobal'
       const canReadOwnPartnerSummary = role === 'Socio'
       const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
-      const bootstrapOperational = canReadOperational && targetView !== 'overview'
+      const loadOverview = canReadOverview && targetView === 'overview'
+      const loadSocios =
+        (canReadOperational || canReadCompliance || (canReadControl && targetView === 'reporting'))
+        && ['patrimonio', 'operacion', 'reporting', 'compliance'].includes(targetView)
+      const loadEmpresas =
+        ((canReadOperational && ['patrimonio', 'operacion'].includes(targetView))
+          || (canReadControl && ['contabilidad', 'sii', 'reporting'].includes(targetView))
+          || (canReadCompliance && targetView === 'compliance'))
+      const loadComunidades = canReadOperational && ['patrimonio', 'operacion'].includes(targetView)
+      const loadPropiedades = canReadOperational && ['patrimonio', 'operacion'].includes(targetView)
+      const loadCuentas = canReadOperational && ['operacion', 'conciliacion'].includes(targetView)
+      const loadIdentidades = canReadOperational && ['operacion', 'canales'].includes(targetView)
+      const loadMandatos = canReadOperational && ['operacion', 'contratos'].includes(targetView)
       const bootstrapControl = canReadControl && targetView === 'contabilidad'
       const bootstrapSii = canReadControl && targetView === 'sii'
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance'
@@ -1175,28 +1187,42 @@ function App() {
         complianceExportsPayload,
         ownPartnerSummary,
       ] = await Promise.all([
-        requestIf<Dashboard | null>(canReadOverview, '/api/v1/reporting/dashboard/operativo/', null),
-        requestIf<ManualSummary | null>(canReadOverview, '/api/v1/reporting/migracion/resoluciones-manuales/?status=open', null),
-        requestIf<Socio[]>(bootstrapOperational, '/api/v1/patrimonio/socios/', []),
-        requestIf<Empresa[]>(bootstrapOperational, '/api/v1/patrimonio/empresas/', []),
-        requestIf<Comunidad[]>(bootstrapOperational, '/api/v1/patrimonio/comunidades/', []),
-        requestIf<Propiedad[]>(bootstrapOperational, '/api/v1/patrimonio/propiedades/', []),
-        requestIf<Cuenta[]>(bootstrapOperational, '/api/v1/operacion/cuentas-recaudadoras/', []),
-        requestIf<Identidad[]>(bootstrapOperational, '/api/v1/operacion/identidades-envio/', []),
-        requestIf<Mandato[]>(bootstrapOperational, '/api/v1/operacion/mandatos/', []),
-        requestIf<ControlSnapshot | null>(bootstrapControl, '/api/v1/contabilidad/snapshot/?mode=core', null),
-        requestIf<CapacidadSii[]>(bootstrapSii, '/api/v1/sii/capacidades/', []),
-        requestIf<DteEmitido[]>(bootstrapSii, '/api/v1/sii/dtes/', []),
-        requestIf<F29Preparacion[]>(bootstrapSii, '/api/v1/sii/f29/', []),
-        requestIf<ProcesoRentaAnual[]>(bootstrapSii, '/api/v1/sii/anual/', []),
-        requestIf<DdjjPreparacion[]>(bootstrapSii, '/api/v1/sii/anual/ddjj/', []),
-        requestIf<F22Preparacion[]>(bootstrapSii, '/api/v1/sii/anual/f22/', []),
-        requestIf<PoliticaRetencionDatos[]>(bootstrapCompliance, '/api/v1/compliance/politicas-retencion/', []),
-        requestIf<ExportacionSensible[]>(bootstrapCompliance, '/api/v1/compliance/exportes/', []),
+        requestIf<Dashboard | null>(loadOverview, '/api/v1/reporting/dashboard/operativo/', dashboard),
+        requestIf<ManualSummary | null>(loadOverview, '/api/v1/reporting/migracion/resoluciones-manuales/?status=open', manualSummary),
+        requestIf<Socio[]>(loadSocios, '/api/v1/patrimonio/socios/', socios),
+        requestIf<Empresa[]>(loadEmpresas, '/api/v1/patrimonio/empresas/', empresas),
+        requestIf<Comunidad[]>(loadComunidades, '/api/v1/patrimonio/comunidades/', comunidades),
+        requestIf<Propiedad[]>(loadPropiedades, '/api/v1/patrimonio/propiedades/', propiedades),
+        requestIf<Cuenta[]>(loadCuentas, '/api/v1/operacion/cuentas-recaudadoras/', cuentas),
+        requestIf<Identidad[]>(loadIdentidades, '/api/v1/operacion/identidades-envio/', identidades),
+        requestIf<Mandato[]>(loadMandatos, '/api/v1/operacion/mandatos/', mandatos),
+        requestIf<ControlSnapshot | null>(
+          bootstrapControl,
+          '/api/v1/contabilidad/snapshot/?mode=core',
+          {
+            regimenes_tributarios: regimenesTributarios,
+            configuraciones_fiscales: configuracionesFiscales,
+            cuentas_contables: cuentasContables,
+            reglas_contables: reglasContables,
+            matrices_reglas: matricesReglas,
+            eventos_contables: eventosContables,
+            asientos_contables: asientosContables,
+            obligaciones_mensuales: obligacionesMensuales,
+            cierres_mensuales: cierresMensuales,
+          },
+        ),
+        requestIf<CapacidadSii[]>(bootstrapSii, '/api/v1/sii/capacidades/', capacidadesSii),
+        requestIf<DteEmitido[]>(bootstrapSii, '/api/v1/sii/dtes/', dtes),
+        requestIf<F29Preparacion[]>(bootstrapSii, '/api/v1/sii/f29/', f29s),
+        requestIf<ProcesoRentaAnual[]>(bootstrapSii, '/api/v1/sii/anual/', procesosAnuales),
+        requestIf<DdjjPreparacion[]>(bootstrapSii, '/api/v1/sii/anual/ddjj/', ddjjs),
+        requestIf<F22Preparacion[]>(bootstrapSii, '/api/v1/sii/anual/f22/', f22s),
+        requestIf<PoliticaRetencionDatos[]>(bootstrapCompliance, '/api/v1/compliance/politicas-retencion/', compliancePolicies),
+        requestIf<ExportacionSensible[]>(bootstrapCompliance, '/api/v1/compliance/exportes/', complianceExports),
         requestIf<ReportingPartnerSummary | null>(
           canReadOwnPartnerSummary && typeof me.metadata?.socio_id === 'number',
           `/api/v1/reporting/socios/${me.metadata.socio_id}/resumen/`,
-          null,
+          reportingPartnerSummary,
         ),
       ])
       setDashboard(dashboardPayload)
@@ -1243,6 +1269,26 @@ function App() {
       setLastLoadedAt(new Date().toISOString())
 
       void (async () => {
+        const loadArrendatarios = canReadOperational && ['contratos', 'canales', 'cobranza'].includes(targetView)
+        const loadContratos = canReadOperational && ['contratos', 'canales', 'cobranza', 'sii'].includes(targetView)
+        const loadExpedientes = canReadOperational && targetView === 'documentos'
+        const loadPoliticasFirma = canReadOperational && targetView === 'documentos'
+        const loadDocumentosEmitidos = canReadOperational && ['documentos', 'canales'].includes(targetView)
+        const loadGatesCanales = canReadOperational && targetView === 'canales'
+        const loadMensajesSalientes = canReadOperational && targetView === 'canales'
+        const loadAvisos = canReadOperational && targetView === 'contratos'
+        const loadValoresUf = canReadOperational && targetView === 'cobranza'
+        const loadAjustes = canReadOperational && targetView === 'cobranza'
+        const loadPagos = canReadOperational && ['cobranza', 'sii'].includes(targetView)
+        const loadGarantias = canReadOperational && targetView === 'cobranza'
+        const loadHistorialGarantias = canReadOperational && targetView === 'cobranza'
+        const loadEstadosCuenta = canReadOperational && targetView === 'cobranza'
+        const loadConexiones = canReadOperational && targetView === 'conciliacion'
+        const loadMovimientos = canReadOperational && targetView === 'conciliacion'
+        const loadIngresos = canReadOperational && targetView === 'conciliacion'
+        const loadAuditEvents = canReadAuditEvents && targetView === 'audit'
+        const loadManualResolutions = canReadManualResolutions && targetView === 'audit'
+
         if (bootstrapControl) {
           void (async () => {
             try {
@@ -1285,25 +1331,25 @@ function App() {
 
         try {
           const settled = await Promise.allSettled([
-            requestIf<Arrendatario[]>(canReadOperational, '/api/v1/contratos/arrendatarios/', []),
-            requestIf<Contrato[]>(canReadOperational, '/api/v1/contratos/contratos/', []),
-            requestIf<ExpedienteDocumental[]>(canReadOperational, '/api/v1/documentos/expedientes/', []),
-            requestIf<PoliticaFirma[]>(canReadOperational, '/api/v1/documentos/politicas-firma/', []),
-            requestIf<DocumentoEmitidoItem[]>(canReadOperational, '/api/v1/documentos/documentos-emitidos/', []),
-            requestIf<CanalMensajeriaItem[]>(canReadOperational, '/api/v1/canales/gates/', []),
-            requestIf<MensajeSalienteItem[]>(canReadOperational, '/api/v1/canales/mensajes/', []),
-            requestIf<AvisoTermino[]>(canReadOperational, '/api/v1/contratos/avisos-termino/', []),
-            requestIf<ValorUF[]>(canReadOperational, '/api/v1/cobranza/valores-uf/', []),
-            requestIf<AjusteContrato[]>(canReadOperational, '/api/v1/cobranza/ajustes-contrato/', []),
-            requestIf<PagoMensual[]>(canReadOperational, '/api/v1/cobranza/pagos-mensuales/', []),
-            requestIf<Garantia[]>(canReadOperational, '/api/v1/cobranza/garantias/', []),
-            requestIf<HistorialGarantia[]>(canReadOperational, '/api/v1/cobranza/historial-garantias/', []),
-            requestIf<EstadoCuenta[]>(canReadOperational, '/api/v1/cobranza/estados-cuenta/', []),
-            requestIf<ConexionBancaria[]>(canReadOperational, '/api/v1/conciliacion/conexiones-bancarias/', []),
-            requestIf<MovimientoBancario[]>(canReadOperational, '/api/v1/conciliacion/movimientos/', []),
-            requestIf<IngresoDesconocido[]>(canReadOperational, '/api/v1/conciliacion/ingresos-desconocidos/', []),
-            requestIf<AuditEventItem[]>(canReadAuditEvents, '/api/v1/audit/events/', []),
-            requestIf<ManualResolutionItem[]>(canReadManualResolutions, '/api/v1/audit/manual-resolutions/', []),
+            requestIf<Arrendatario[]>(loadArrendatarios, '/api/v1/contratos/arrendatarios/', arrendatarios),
+            requestIf<Contrato[]>(loadContratos, '/api/v1/contratos/contratos/', contratos),
+            requestIf<ExpedienteDocumental[]>(loadExpedientes, '/api/v1/documentos/expedientes/', expedientes),
+            requestIf<PoliticaFirma[]>(loadPoliticasFirma, '/api/v1/documentos/politicas-firma/', politicasFirma),
+            requestIf<DocumentoEmitidoItem[]>(loadDocumentosEmitidos, '/api/v1/documentos/documentos-emitidos/', documentosEmitidos),
+            requestIf<CanalMensajeriaItem[]>(loadGatesCanales, '/api/v1/canales/gates/', gatesCanales),
+            requestIf<MensajeSalienteItem[]>(loadMensajesSalientes, '/api/v1/canales/mensajes/', mensajesSalientes),
+            requestIf<AvisoTermino[]>(loadAvisos, '/api/v1/contratos/avisos-termino/', avisos),
+            requestIf<ValorUF[]>(loadValoresUf, '/api/v1/cobranza/valores-uf/', valoresUf),
+            requestIf<AjusteContrato[]>(loadAjustes, '/api/v1/cobranza/ajustes-contrato/', ajustes),
+            requestIf<PagoMensual[]>(loadPagos, '/api/v1/cobranza/pagos-mensuales/', pagos),
+            requestIf<Garantia[]>(loadGarantias, '/api/v1/cobranza/garantias/', garantias),
+            requestIf<HistorialGarantia[]>(loadHistorialGarantias, '/api/v1/cobranza/historial-garantias/', historialGarantias),
+            requestIf<EstadoCuenta[]>(loadEstadosCuenta, '/api/v1/cobranza/estados-cuenta/', estadosCuenta),
+            requestIf<ConexionBancaria[]>(loadConexiones, '/api/v1/conciliacion/conexiones-bancarias/', conexionesBancarias),
+            requestIf<MovimientoBancario[]>(loadMovimientos, '/api/v1/conciliacion/movimientos/', movimientosBancarios),
+            requestIf<IngresoDesconocido[]>(loadIngresos, '/api/v1/conciliacion/ingresos-desconocidos/', ingresosDesconocidos),
+            requestIf<AuditEventItem[]>(loadAuditEvents, '/api/v1/audit/events/', auditEvents),
+            requestIf<ManualResolutionItem[]>(loadManualResolutions, '/api/v1/audit/manual-resolutions/', manualResolutions),
           ])
 
           function resolvedValue<T>(index: number, fallback: T): T {
@@ -1311,25 +1357,25 @@ function App() {
             return item.status === 'fulfilled' ? (item.value as T) : fallback
           }
 
-          const arrendatariosPayload = resolvedValue<Arrendatario[]>(0, [])
-          const contratosPayload = resolvedValue<Contrato[]>(1, [])
-          const expedientesPayload = resolvedValue<ExpedienteDocumental[]>(2, [])
-          const politicasFirmaPayload = resolvedValue<PoliticaFirma[]>(3, [])
-          const documentosEmitidosPayload = resolvedValue<DocumentoEmitidoItem[]>(4, [])
-          const gatesCanalesPayload = resolvedValue<CanalMensajeriaItem[]>(5, [])
-          const mensajesSalientesPayload = resolvedValue<MensajeSalienteItem[]>(6, [])
-          const avisosPayload = resolvedValue<AvisoTermino[]>(7, [])
-          const valoresUfPayload = resolvedValue<ValorUF[]>(8, [])
-          const ajustesPayload = resolvedValue<AjusteContrato[]>(9, [])
-          const pagosPayload = resolvedValue<PagoMensual[]>(10, [])
-          const garantiasPayload = resolvedValue<Garantia[]>(11, [])
-          const historialGarantiasPayload = resolvedValue<HistorialGarantia[]>(12, [])
-          const estadosCuentaPayload = resolvedValue<EstadoCuenta[]>(13, [])
-          const conexionesPayload = resolvedValue<ConexionBancaria[]>(14, [])
-          const movimientosPayload = resolvedValue<MovimientoBancario[]>(15, [])
-          const ingresosPayload = resolvedValue<IngresoDesconocido[]>(16, [])
-          const auditEventsPayload = resolvedValue<AuditEventItem[]>(17, [])
-          const manualResolutionsPayload = resolvedValue<ManualResolutionItem[]>(18, [])
+          const arrendatariosPayload = resolvedValue<Arrendatario[]>(0, arrendatarios)
+          const contratosPayload = resolvedValue<Contrato[]>(1, contratos)
+          const expedientesPayload = resolvedValue<ExpedienteDocumental[]>(2, expedientes)
+          const politicasFirmaPayload = resolvedValue<PoliticaFirma[]>(3, politicasFirma)
+          const documentosEmitidosPayload = resolvedValue<DocumentoEmitidoItem[]>(4, documentosEmitidos)
+          const gatesCanalesPayload = resolvedValue<CanalMensajeriaItem[]>(5, gatesCanales)
+          const mensajesSalientesPayload = resolvedValue<MensajeSalienteItem[]>(6, mensajesSalientes)
+          const avisosPayload = resolvedValue<AvisoTermino[]>(7, avisos)
+          const valoresUfPayload = resolvedValue<ValorUF[]>(8, valoresUf)
+          const ajustesPayload = resolvedValue<AjusteContrato[]>(9, ajustes)
+          const pagosPayload = resolvedValue<PagoMensual[]>(10, pagos)
+          const garantiasPayload = resolvedValue<Garantia[]>(11, garantias)
+          const historialGarantiasPayload = resolvedValue<HistorialGarantia[]>(12, historialGarantias)
+          const estadosCuentaPayload = resolvedValue<EstadoCuenta[]>(13, estadosCuenta)
+          const conexionesPayload = resolvedValue<ConexionBancaria[]>(14, conexionesBancarias)
+          const movimientosPayload = resolvedValue<MovimientoBancario[]>(15, movimientosBancarios)
+          const ingresosPayload = resolvedValue<IngresoDesconocido[]>(16, ingresosDesconocidos)
+          const auditEventsPayload = resolvedValue<AuditEventItem[]>(17, auditEvents)
+          const manualResolutionsPayload = resolvedValue<ManualResolutionItem[]>(18, manualResolutions)
 
           setArrendatarios(arrendatariosPayload)
           setContratos(contratosPayload)
