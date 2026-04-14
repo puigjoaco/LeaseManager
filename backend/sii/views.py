@@ -4,7 +4,9 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
-from core.scope_access import ScopedQuerysetMixin, scope_queryset_for_user
+from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_queryset_for_access, scope_queryset_for_user
+from cobranza.models import PagoMensual
+from patrimonio.models import Empresa
 
 from .models import CapacidadTributariaSII, DTEEmitido, F29PreparacionMensual
 from .serializers import (
@@ -66,6 +68,145 @@ class AuditCreateUpdateMixin:
             summary=summary or f'{self.audit_entity_label} {action}',
             actor_user=self.request.user,
             ip_address=self.request.META.get('REMOTE_ADDR'),
+        )
+
+
+class SiiSnapshotView(APIView):
+    permission_classes = [ControlModulePermission]
+
+    def get(self, request):
+        access = get_scope_access(request.user)
+        empresas = scope_queryset_for_access(
+            Empresa.objects.order_by('razon_social', 'id'),
+            access,
+            company_paths=('id',),
+        )
+        pagos = scope_queryset_for_access(
+            PagoMensual.objects.select_related('contrato').order_by('-anio', '-mes', '-id'),
+            access,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+        )
+        capacidades = scope_queryset_for_access(
+            CapacidadTributariaSII.objects.select_related('empresa').order_by('empresa_id', 'capacidad_key', 'id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        dtes = scope_queryset_for_access(
+            DTEEmitido.objects.select_related(
+                'empresa',
+                'capacidad_tributaria',
+                'contrato',
+                'pago_mensual',
+                'distribucion_cobro_mensual',
+                'arrendatario',
+            ).order_by('-fecha_emision', '-id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        f29s = scope_queryset_for_access(
+            F29PreparacionMensual.objects.select_related('empresa', 'capacidad_tributaria', 'cierre_mensual').order_by('-anio', '-mes', '-id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        procesos = scope_queryset_for_access(
+            ProcesoRentaAnual.objects.select_related('empresa').order_by('-anio_tributario', '-id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        ddjjs = scope_queryset_for_access(
+            DDJJPreparacionAnual.objects.select_related('empresa', 'capacidad_tributaria', 'proceso_renta_anual').order_by('-anio_tributario', '-id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        f22s = scope_queryset_for_access(
+            F22PreparacionAnual.objects.select_related('empresa', 'capacidad_tributaria', 'proceso_renta_anual').order_by('-anio_tributario', '-id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+
+        return Response(
+            {
+                'empresas': [
+                    {
+                        'id': item.id,
+                        'razon_social': item.razon_social,
+                    }
+                    for item in empresas
+                ],
+                'pagos': [
+                    {
+                        'id': item.id,
+                        'contrato': item.contrato_id,
+                        'mes': item.mes,
+                        'anio': item.anio,
+                    }
+                    for item in pagos
+                ],
+                'capacidades': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'capacidad_key': item.capacidad_key,
+                        'ambiente': item.ambiente,
+                        'estado_gate': item.estado_gate,
+                    }
+                    for item in capacidades
+                ],
+                'dtes': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'contrato': item.contrato_id,
+                        'pago_mensual': item.pago_mensual_id,
+                        'monto_neto_clp': item.monto_neto_clp,
+                        'estado_dte': item.estado_dte,
+                        'sii_track_id': item.sii_track_id,
+                    }
+                    for item in dtes
+                ],
+                'f29s': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'capacidad_tributaria': item.capacidad_tributaria_id,
+                        'anio': item.anio,
+                        'mes': item.mes,
+                        'estado_preparacion': item.estado_preparacion,
+                        'borrador_ref': item.borrador_ref,
+                    }
+                    for item in f29s
+                ],
+                'procesos_anuales': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'anio_tributario': item.anio_tributario,
+                        'estado': item.estado,
+                        'fecha_preparacion': item.fecha_preparacion,
+                    }
+                    for item in procesos
+                ],
+                'ddjjs': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'anio_tributario': item.anio_tributario,
+                        'estado_preparacion': item.estado_preparacion,
+                        'paquete_ref': item.paquete_ref,
+                    }
+                    for item in ddjjs
+                ],
+                'f22s': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'anio_tributario': item.anio_tributario,
+                        'estado_preparacion': item.estado_preparacion,
+                        'borrador_ref': item.borrador_ref,
+                    }
+                    for item in f22s
+                ],
+            }
         )
 
 

@@ -593,6 +593,17 @@ type ConciliacionSnapshot = {
   ingresos_desconocidos: IngresoDesconocido[]
 }
 
+type SiiSnapshot = {
+  empresas: { id: number; razon_social: string }[]
+  pagos: { id: number; contrato: number; mes: number; anio: number }[]
+  capacidades: CapacidadSii[]
+  dtes: DteEmitido[]
+  f29s: F29Preparacion[]
+  procesos_anuales: ProcesoRentaAnual[]
+  ddjjs: DdjjPreparacion[]
+  f22s: F22Preparacion[]
+}
+
 type ControlSnapshot = {
   empresas: Empresa[]
   regimenes_tributarios: RegimenTributario[]
@@ -1143,6 +1154,7 @@ function App() {
   const [isChannelsSnapshotLoading, setIsChannelsSnapshotLoading] = useState(false)
   const [isCobranzaSnapshotLoading, setIsCobranzaSnapshotLoading] = useState(false)
   const [isConciliacionSnapshotLoading, setIsConciliacionSnapshotLoading] = useState(false)
+  const [isSiiSnapshotLoading, setIsSiiSnapshotLoading] = useState(false)
   const [isControlCatalogLoading, setIsControlCatalogLoading] = useState(false)
   const [isControlActivityLoading, setIsControlActivityLoading] = useState(false)
   const [isOperationSnapshotLoaded, setIsOperationSnapshotLoaded] = useState(false)
@@ -1151,11 +1163,11 @@ function App() {
   const [isChannelsSnapshotLoaded, setIsChannelsSnapshotLoaded] = useState(false)
   const [isCobranzaSnapshotLoaded, setIsCobranzaSnapshotLoaded] = useState(false)
   const [isConciliacionSnapshotLoaded, setIsConciliacionSnapshotLoaded] = useState(false)
+  const [isSiiSnapshotLoaded, setIsSiiSnapshotLoaded] = useState(false)
   const [isControlCoreLoaded, setIsControlCoreLoaded] = useState(false)
   const [isControlCatalogLoaded, setIsControlCatalogLoaded] = useState(false)
   const [isControlActivityLoaded, setIsControlActivityLoaded] = useState(false)
   const [isReportingReferencesLoaded, setIsReportingReferencesLoaded] = useState(false)
-  const [isSiiLoaded, setIsSiiLoaded] = useState(false)
   const [isComplianceLoaded, setIsComplianceLoaded] = useState(false)
   const [isPatrimonioSnapshotLoaded, setIsPatrimonioSnapshotLoaded] = useState(false)
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
@@ -1255,6 +1267,7 @@ function App() {
       const loadChannelsSnapshot = canReadOperational && targetView === 'canales' && (shouldRefreshData || !isChannelsSnapshotLoaded)
       const loadCobranzaSnapshot = canReadOperational && targetView === 'cobranza' && (shouldRefreshData || !isCobranzaSnapshotLoaded)
       const loadConciliacionSnapshot = canReadOperational && targetView === 'conciliacion' && (shouldRefreshData || !isConciliacionSnapshotLoaded)
+      const loadSiiSnapshot = canReadControl && targetView === 'sii' && (shouldRefreshData || !isSiiSnapshotLoaded)
       const loadSocios =
         (canReadOperational || canReadCompliance)
         && ['compliance'].includes(targetView)
@@ -1267,7 +1280,6 @@ function App() {
       const loadIdentidades = canReadOperational && ['canales'].includes(targetView)
       const loadMandatos = false
       const bootstrapControl = canReadControl && targetView === 'contabilidad' && (shouldRefreshData || !isControlCoreLoaded)
-      const bootstrapSii = canReadControl && targetView === 'sii' && (shouldRefreshData || !isSiiLoaded)
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance' && (shouldRefreshData || !isComplianceLoaded)
       setIsPatrimonioSnapshotLoading(loadPatrimonioSnapshot)
       setIsOperationSnapshotLoading(loadOperationSnapshot)
@@ -1276,6 +1288,7 @@ function App() {
       setIsChannelsSnapshotLoading(loadChannelsSnapshot)
       setIsCobranzaSnapshotLoading(loadCobranzaSnapshot)
       setIsConciliacionSnapshotLoading(loadConciliacionSnapshot)
+      setIsSiiSnapshotLoading(loadSiiSnapshot)
       setIsControlCatalogLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlCatalogLoaded))
       setIsControlActivityLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlActivityLoaded))
       setCurrentUser(me)
@@ -1305,14 +1318,9 @@ function App() {
         channelsSnapshotPayload,
         cobranzaSnapshotPayload,
         conciliacionSnapshotPayload,
+        siiSnapshotPayload,
         controlSnapshotPayload,
         reportingReferencePayload,
-        capacidadesSiiPayload,
-        dtesPayload,
-        f29Payload,
-        procesosAnualesPayload,
-        ddjjsPayload,
-        f22sPayload,
         compliancePoliciesPayload,
         complianceExportsPayload,
         ownPartnerSummary,
@@ -1361,6 +1369,11 @@ function App() {
           '/api/v1/conciliacion/snapshot/',
           null,
         ),
+        requestIf<SiiSnapshot | null>(
+          loadSiiSnapshot,
+          '/api/v1/sii/snapshot/',
+          null,
+        ),
         requestIf<ControlSnapshot | null>(
           bootstrapControl,
           '/api/v1/contabilidad/snapshot/?mode=core',
@@ -1371,12 +1384,6 @@ function App() {
           '/api/v1/reporting/references/',
           null,
         ),
-        requestIf<CapacidadSii[]>(bootstrapSii, '/api/v1/sii/capacidades/', capacidadesSii),
-        requestIf<DteEmitido[]>(bootstrapSii, '/api/v1/sii/dtes/', dtes),
-        requestIf<F29Preparacion[]>(bootstrapSii, '/api/v1/sii/f29/', f29s),
-        requestIf<ProcesoRentaAnual[]>(bootstrapSii, '/api/v1/sii/anual/', procesosAnuales),
-        requestIf<DdjjPreparacion[]>(bootstrapSii, '/api/v1/sii/anual/ddjj/', ddjjs),
-        requestIf<F22Preparacion[]>(bootstrapSii, '/api/v1/sii/anual/f22/', f22s),
         requestIf<PoliticaRetencionDatos[]>(bootstrapCompliance, '/api/v1/compliance/politicas-retencion/', compliancePolicies),
         requestIf<ExportacionSensible[]>(bootstrapCompliance, '/api/v1/compliance/exportes/', complianceExports),
         requestIf<ReportingPartnerSummary | null>(
@@ -1451,6 +1458,17 @@ function App() {
         setIngresosDesconocidos(conciliacionSnapshotPayload.ingresos_desconocidos)
         setIsConciliacionSnapshotLoaded(true)
       }
+      if (siiSnapshotPayload) {
+        setEmpresas(siiSnapshotPayload.empresas as Empresa[])
+        setPagos(siiSnapshotPayload.pagos as PagoMensual[])
+        setCapacidadesSii(siiSnapshotPayload.capacidades)
+        setDtes(siiSnapshotPayload.dtes)
+        setF29s(siiSnapshotPayload.f29s)
+        setProcesosAnuales(siiSnapshotPayload.procesos_anuales)
+        setDdjjs(siiSnapshotPayload.ddjjs)
+        setF22s(siiSnapshotPayload.f22s)
+        setIsSiiSnapshotLoaded(true)
+      }
       if (controlSnapshotPayload?.empresas?.length) {
         setEmpresas(controlSnapshotPayload.empresas)
       } else if (reportingReferencePayload?.empresas?.length) {
@@ -1470,21 +1488,12 @@ function App() {
         setObligacionesMensuales(controlSnapshotPayload.obligaciones_mensuales)
         setCierresMensuales(controlSnapshotPayload.cierres_mensuales)
       }
-      if (bootstrapSii) {
-        setCapacidadesSii(capacidadesSiiPayload)
-        setDtes(dtesPayload)
-        setF29s(f29Payload)
-        setProcesosAnuales(procesosAnualesPayload)
-        setDdjjs(ddjjsPayload)
-        setF22s(f22sPayload)
-      }
       if (bootstrapCompliance) {
         setCompliancePolicies(compliancePoliciesPayload)
         setComplianceExports(complianceExportsPayload)
       }
       if (controlSnapshotPayload) setIsControlCoreLoaded(true)
       if (reportingReferencePayload) setIsReportingReferencesLoaded(true)
-      if (bootstrapSii) setIsSiiLoaded(true)
       if (bootstrapCompliance) setIsComplianceLoaded(true)
       setIsPatrimonioSnapshotLoading(false)
       setIsOperationSnapshotLoading(false)
@@ -1516,7 +1525,7 @@ function App() {
         const loadAvisos = false
         const loadValoresUf = canReadOperational && false
         const loadAjustes = canReadOperational && false
-        const loadPagos = canReadOperational && ['sii'].includes(targetView)
+        const loadPagos = false
         const loadGarantias = canReadOperational && false
         const loadHistorialGarantias = canReadOperational && false
         const loadEstadosCuenta = canReadOperational && false
@@ -1771,6 +1780,7 @@ function App() {
     setIsChannelsSnapshotLoading(false)
     setIsCobranzaSnapshotLoading(false)
     setIsConciliacionSnapshotLoading(false)
+    setIsSiiSnapshotLoading(false)
     setIsControlCatalogLoading(false)
     setIsControlActivityLoading(false)
     setIsOperationSnapshotLoaded(false)
@@ -1779,11 +1789,11 @@ function App() {
     setIsChannelsSnapshotLoaded(false)
     setIsCobranzaSnapshotLoaded(false)
     setIsConciliacionSnapshotLoaded(false)
+    setIsSiiSnapshotLoaded(false)
     setIsControlCoreLoaded(false)
     setIsControlCatalogLoaded(false)
     setIsControlActivityLoaded(false)
     setIsReportingReferencesLoaded(false)
-    setIsSiiLoaded(false)
     setIsComplianceLoaded(false)
     setIsPatrimonioSnapshotLoaded(false)
     setEditingManualResolutionId(null)
@@ -3964,6 +3974,7 @@ function App() {
           capacidadSiiById={capacidadSiiById}
           toneFor={toneFor}
           isSubmitting={isSubmitting}
+          isLoading={isSiiSnapshotLoading}
           handleSiiStatusUpdate={handleSiiStatusUpdate}
           onViewReporting={(companyId) => {
             const companyName = empresaById.get(companyId)?.razon_social || String(companyId)

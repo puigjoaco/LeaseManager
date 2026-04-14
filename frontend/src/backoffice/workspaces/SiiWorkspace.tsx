@@ -65,6 +65,7 @@ export function SiiWorkspace({
   capacidadSiiById,
   toneFor,
   isSubmitting,
+  isLoading,
   handleSiiStatusUpdate,
   onViewReporting,
 }: {
@@ -94,6 +95,7 @@ export function SiiWorkspace({
   capacidadSiiById: ReadonlyMap<number, CapacidadSiiItem>
   toneFor: (value: string) => Tone
   isSubmitting: boolean
+  isLoading: boolean
   handleSiiStatusUpdate: (path: string, body: Record<string, unknown>, successMessage: string) => Promise<void>
   onViewReporting: (companyId: number) => void
 }) {
@@ -174,13 +176,13 @@ export function SiiWorkspace({
         </section>
       </section> : null}
 
-      <TableBlock title="Capacidades SII" subtitle="Gate y ambiente por empresa/capacidad." rows={filteredCapacidadesSii} empty="No hay capacidades SII para este filtro." columns={[
+      <TableBlock title="Capacidades SII" subtitle="Gate y ambiente por empresa/capacidad." rows={filteredCapacidadesSii} empty="No hay capacidades SII para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Capacidad', render: (row) => row.capacidad_key },
         { label: 'Ambiente', render: (row) => row.ambiente },
         { label: 'Estado', render: (row) => <Badge label={row.estado_gate} tone={toneFor(row.estado_gate)} /> },
       ]} />
-      <TableBlock title="DTE emitidos" subtitle="Borradores y estados manuales de DTE." rows={filteredDtes} empty="No hay DTE para este filtro." columns={[
+      <TableBlock title="DTE emitidos" subtitle="Borradores y estados manuales de DTE." rows={filteredDtes} empty="No hay DTE para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
         { label: 'Pago', render: (row) => row.pago_mensual },
@@ -188,27 +190,27 @@ export function SiiWorkspace({
         { label: 'Estado', render: (row) => <Badge label={row.estado_dte} tone={toneFor(row.estado_dte)} /> },
         { label: 'Acción', render: (row) => !canEditSii ? 'Solo lectura' : <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/dtes/${row.id}/estado/`, { estado_dte: 'aceptado', sii_track_id: row.sii_track_id || 'TRACK-LOCAL', ultimo_estado_sii: 'ACEPTADO' }, 'Estado DTE actualizado correctamente.')} disabled={isSubmitting}>Marcar aceptado</button><button type="button" className="button-ghost inline-action" onClick={() => onViewReporting(row.empresa)}>Reporting</button></div> },
       ]} />
-      <TableBlock title="F29 mensuales" subtitle="Preparación mensual desde cierres aprobados." rows={filteredF29s} empty="No hay F29 para este filtro." columns={[
+      <TableBlock title="F29 mensuales" subtitle="Preparación mensual desde cierres aprobados." rows={filteredF29s} empty="No hay F29 para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
         { label: 'Capacidad', render: (row) => capacidadSiiById.get(row.capacidad_tributaria)?.capacidad_key || row.capacidad_tributaria },
         { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
         { label: 'Acción', render: (row) => !canEditSii ? 'Solo lectura' : <button type="button" className="button-ghost inline-action" onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/f29/${row.id}/estado/`, { estado_preparacion: 'preparado', borrador_ref: row.borrador_ref || 'F29-LOCAL' }, 'Estado F29 actualizado correctamente.')} disabled={isSubmitting}>Actualizar estado</button> },
       ]} />
-      <TableBlock title="Proceso renta anual" subtitle="Proceso consolidado por empresa y año tributario." rows={filteredProcesosAnuales} empty="No hay procesos anuales para este filtro." columns={[
+      <TableBlock title="Proceso renta anual" subtitle="Proceso consolidado por empresa y año tributario." rows={filteredProcesosAnuales} empty="No hay procesos anuales para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Año tributario', render: (row) => row.anio_tributario },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
         { label: 'Preparación', render: (row) => row.fecha_preparacion || 'Sin fecha' },
       ]} />
-      <TableBlock title="DDJJ preparadas" subtitle="Paquetes anuales listos o en preparación." rows={filteredDdjjs} empty="No hay DDJJ para este filtro." columns={[
+      <TableBlock title="DDJJ preparadas" subtitle="Paquetes anuales listos o en preparación." rows={filteredDdjjs} empty="No hay DDJJ para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Año tributario', render: (row) => row.anio_tributario },
         { label: 'Paquete', render: (row) => row.paquete_ref || 'Sin ref' },
         { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
         { label: 'Acción', render: (row) => !canEditSii ? 'Solo lectura' : <button type="button" className="button-ghost inline-action" onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/anual/ddjj/${row.id}/estado/`, { estado_preparacion: 'preparado', ref_value: row.paquete_ref || 'DDJJ-LOCAL' }, 'Estado DDJJ actualizado correctamente.')} disabled={isSubmitting}>Actualizar estado</button> },
       ]} />
-      <TableBlock title="F22 preparados" subtitle="Borradores anuales por empresa." rows={filteredF22s} empty="No hay F22 para este filtro." columns={[
+      <TableBlock title="F22 preparados" subtitle="Borradores anuales por empresa." rows={filteredF22s} empty="No hay F22 para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Año tributario', render: (row) => row.anio_tributario },
         { label: 'Borrador', render: (row) => row.borrador_ref || 'Sin ref' },

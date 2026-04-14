@@ -17,9 +17,11 @@ from .views import (
     F29PreparacionListView,
     F29StatusUpdateView,
     ProcesoRentaAnualListView,
+    SiiSnapshotView,
 )
 
 urlpatterns = [
+    path('snapshot/', SiiSnapshotView.as_view(), name='sii-snapshot'),
     path('capacidades/', CapacidadTributariaSIIListCreateView.as_view(), name='sii-capacidad-list'),
     path('capacidades/<int:pk>/', CapacidadTributariaSIIDetailView.as_view(), name='sii-capacidad-detail'),
     path('dtes/', DTEEmitidoListView.as_view(), name='sii-dte-list'),
