@@ -1081,6 +1081,13 @@ function App() {
   const [isOperationSnapshotLoading, setIsOperationSnapshotLoading] = useState(false)
   const [isControlCatalogLoading, setIsControlCatalogLoading] = useState(false)
   const [isControlActivityLoading, setIsControlActivityLoading] = useState(false)
+  const [isOperationSnapshotLoaded, setIsOperationSnapshotLoaded] = useState(false)
+  const [isControlCoreLoaded, setIsControlCoreLoaded] = useState(false)
+  const [isControlCatalogLoaded, setIsControlCatalogLoaded] = useState(false)
+  const [isControlActivityLoaded, setIsControlActivityLoaded] = useState(false)
+  const [isReportingReferencesLoaded, setIsReportingReferencesLoaded] = useState(false)
+  const [isSiiLoaded, setIsSiiLoaded] = useState(false)
+  const [isComplianceLoaded, setIsComplianceLoaded] = useState(false)
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
     status: 'open',
     rationale: '',
@@ -1141,7 +1148,7 @@ function App() {
     }
   }
 
-  async function loadWorkspace(activeToken: string, options: { forceUserRefresh?: boolean } = {}) {
+  async function loadWorkspace(activeToken: string, options: { forceUserRefresh?: boolean; forceDataRefresh?: boolean } = {}) {
     setIsRefreshing(true)
     setWorkspaceError(null)
     try {
@@ -1160,27 +1167,28 @@ function App() {
       const canReadControl = role === 'AdministradorGlobal' || role === 'RevisorFiscalExterno'
       const canReadCompliance = role === 'AdministradorGlobal'
       const canReadOwnPartnerSummary = role === 'Socio'
+      const shouldRefreshData = Boolean(options.forceDataRefresh)
       const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
       const loadOverview = canReadOverview && targetView === 'overview'
-      const loadOperationSnapshot = canReadOperational && targetView === 'operacion'
+      const loadOperationSnapshot = canReadOperational && targetView === 'operacion' && (shouldRefreshData || !isOperationSnapshotLoaded)
       const loadSocios =
         (canReadOperational || canReadCompliance)
         && ['patrimonio', 'compliance'].includes(targetView)
       const loadEmpresas =
         ((canReadOperational && ['patrimonio'].includes(targetView))
           || (canReadCompliance && targetView === 'compliance'))
-      const loadReportingReferences = canReadControl && targetView === 'reporting'
+      const loadReportingReferences = canReadControl && targetView === 'reporting' && (shouldRefreshData || !isReportingReferencesLoaded)
       const loadComunidades = canReadOperational && ['patrimonio'].includes(targetView)
       const loadPropiedades = canReadOperational && ['patrimonio'].includes(targetView)
       const loadCuentas = canReadOperational && ['conciliacion'].includes(targetView)
       const loadIdentidades = canReadOperational && ['canales'].includes(targetView)
       const loadMandatos = canReadOperational && ['contratos'].includes(targetView)
-      const bootstrapControl = canReadControl && targetView === 'contabilidad'
-      const bootstrapSii = canReadControl && targetView === 'sii'
-      const bootstrapCompliance = canReadCompliance && targetView === 'compliance'
+      const bootstrapControl = canReadControl && targetView === 'contabilidad' && (shouldRefreshData || !isControlCoreLoaded)
+      const bootstrapSii = canReadControl && targetView === 'sii' && (shouldRefreshData || !isSiiLoaded)
+      const bootstrapCompliance = canReadCompliance && targetView === 'compliance' && (shouldRefreshData || !isComplianceLoaded)
       setIsOperationSnapshotLoading(loadOperationSnapshot)
-      setIsControlCatalogLoading(bootstrapControl)
-      setIsControlActivityLoading(bootstrapControl)
+      setIsControlCatalogLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlCatalogLoaded))
+      setIsControlActivityLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlActivityLoaded))
       setCurrentUser(me)
       setActiveView((current) => (
         allowedViewsForRole(role).includes(current) ? current : defaultViewForRole(role)
@@ -1280,6 +1288,7 @@ function App() {
         setCuentas(operationSnapshotPayload.cuentas)
         setIdentidades(operationSnapshotPayload.identidades)
         setMandatos(operationSnapshotPayload.mandatos)
+        setIsOperationSnapshotLoaded(true)
       }
       if (controlSnapshotPayload?.empresas?.length) {
         setEmpresas(controlSnapshotPayload.empresas)
@@ -1306,6 +1315,10 @@ function App() {
       setF22s(f22sPayload)
       setCompliancePolicies(compliancePoliciesPayload)
       setComplianceExports(complianceExportsPayload)
+      if (controlSnapshotPayload) setIsControlCoreLoaded(true)
+      if (reportingReferencePayload) setIsReportingReferencesLoaded(true)
+      if (bootstrapSii) setIsSiiLoaded(true)
+      if (bootstrapCompliance) setIsComplianceLoaded(true)
       setIsOperationSnapshotLoading(false)
       if (ownPartnerSummary) {
         setReportingPartnerSummary(ownPartnerSummary)
@@ -1357,6 +1370,7 @@ function App() {
                 setCuentasContables(controlCatalogSnapshot.cuentas_contables)
                 setReglasContables(controlCatalogSnapshot.reglas_contables)
                 setMatricesReglas(controlCatalogSnapshot.matrices_reglas)
+                setIsControlCatalogLoaded(true)
               }
             } finally {
               setIsControlCatalogLoading(false)
@@ -1375,6 +1389,7 @@ function App() {
                 setAsientosContables(controlActivitySnapshot.asientos_contables)
                 setObligacionesMensuales(controlActivitySnapshot.obligaciones_mensuales)
                 setCierresMensuales(controlActivitySnapshot.cierres_mensuales)
+                setIsControlActivityLoaded(true)
               }
             } finally {
               setIsControlActivityLoading(false)
@@ -1576,6 +1591,13 @@ function App() {
     setIsOperationSnapshotLoading(false)
     setIsControlCatalogLoading(false)
     setIsControlActivityLoading(false)
+    setIsOperationSnapshotLoaded(false)
+    setIsControlCoreLoaded(false)
+    setIsControlCatalogLoaded(false)
+    setIsControlActivityLoaded(false)
+    setIsReportingReferencesLoaded(false)
+    setIsSiiLoaded(false)
+    setIsComplianceLoaded(false)
     setEditingManualResolutionId(null)
   }
 
@@ -1596,7 +1618,7 @@ function App() {
     setFormError(null)
     try {
       await apiRequest(path, { method, token, body })
-      await loadWorkspace(token)
+      await loadWorkspace(token, { forceDataRefresh: true })
       setFormMessage(successMessage)
       return true
     } catch (error) {
@@ -2234,7 +2256,7 @@ function App() {
         token,
         body: {},
       })
-      await loadWorkspace(token)
+      await loadWorkspace(token, { forceDataRefresh: true })
       setFormMessage('Reintento de match ejecutado correctamente.')
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'No se pudo reintentar el match.')
@@ -2420,7 +2442,7 @@ function App() {
     setFormError(null)
     try {
       await apiRequest(path, { method: 'POST', token, body: {} })
-      await loadWorkspace(token)
+      await loadWorkspace(token, { forceDataRefresh: true })
       setFormMessage(successMessage)
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'No se pudo ejecutar la acción contable.')
@@ -2496,7 +2518,7 @@ function App() {
     setFormError(null)
     try {
       await apiRequest(path, { method: 'POST', token, body })
-      await loadWorkspace(token)
+      await loadWorkspace(token, { forceDataRefresh: true })
       setFormMessage(successMessage)
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'No se pudo actualizar el estado SII.')
@@ -3381,7 +3403,7 @@ function App() {
         assignments={activeAssignments}
         lastLoadedAt={lastLoadedAt}
         isRefreshing={isRefreshing}
-        onRefresh={() => { if (token) void loadWorkspace(token, { forceUserRefresh: true }) }}
+        onRefresh={() => { if (token) void loadWorkspace(token, { forceUserRefresh: true, forceDataRefresh: true }) }}
         onLogout={() => void handleLogout()}
       />
 
