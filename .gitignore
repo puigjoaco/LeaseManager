@@ -14,3 +14,4 @@ frontend/.vite/
 frontend/dist/
 frontend/.env
 migration/bundles/github-*.png
+screenshots/
