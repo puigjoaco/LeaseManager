@@ -1238,13 +1238,12 @@ function App() {
       const loadConciliacionSnapshot = canReadOperational && targetView === 'conciliacion' && (shouldRefreshData || !isConciliacionSnapshotLoaded)
       const loadSocios =
         (canReadOperational || canReadCompliance)
-        && ['patrimonio', 'compliance'].includes(targetView)
+        && ['compliance'].includes(targetView)
       const loadEmpresas =
-        ((canReadOperational && ['patrimonio'].includes(targetView))
-          || (canReadCompliance && targetView === 'compliance'))
+        (canReadCompliance && targetView === 'compliance')
       const loadReportingReferences = canReadControl && targetView === 'reporting' && (shouldRefreshData || !isReportingReferencesLoaded)
-      const loadComunidades = canReadOperational && ['patrimonio'].includes(targetView)
-      const loadPropiedades = canReadOperational && ['patrimonio'].includes(targetView)
+      const loadComunidades = false
+      const loadPropiedades = false
       const loadCuentas = canReadOperational && ['conciliacion'].includes(targetView)
       const loadIdentidades = canReadOperational && ['canales'].includes(targetView)
       const loadMandatos = false
@@ -1468,6 +1467,7 @@ function App() {
       if (reportingReferencePayload) setIsReportingReferencesLoaded(true)
       if (bootstrapSii) setIsSiiLoaded(true)
       if (bootstrapCompliance) setIsComplianceLoaded(true)
+      setIsPatrimonioSnapshotLoading(false)
       setIsOperationSnapshotLoading(false)
       if (ownPartnerSummary) {
         setReportingPartnerSummary(ownPartnerSummary)
