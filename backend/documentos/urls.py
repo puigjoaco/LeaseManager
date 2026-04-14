@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    DocumentsSnapshotView,
     DocumentoEmitidoDetailView,
     DocumentoEmitidoListCreateView,
     DocumentoFormalizarView,
@@ -11,6 +12,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('snapshot/', DocumentsSnapshotView.as_view(), name='documentos-snapshot'),
     path('expedientes/', ExpedienteDocumentalListCreateView.as_view(), name='documentos-expediente-list'),
     path('expedientes/<int:pk>/', ExpedienteDocumentalDetailView.as_view(), name='documentos-expediente-detail'),
     path('politicas-firma/', PoliticaFirmaYNotariaListCreateView.as_view(), name='documentos-politica-list'),

@@ -61,6 +61,58 @@ class AuditCreateUpdateMixin:
         )
 
 
+class DocumentsSnapshotView(APIView):
+    permission_classes = [OperationalModulePermission]
+
+    def get(self, request):
+        expedientes = scope_expediente_queryset(ExpedienteDocumental.objects.all().order_by('id'), request.user)
+        politicas = PoliticaFirmaYNotaria.objects.all().order_by('tipo_documental', 'id')
+        documentos = scope_documento_queryset(
+            DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial').all().order_by('id'),
+            request.user,
+        )
+
+        return Response(
+            {
+                'expedientes': [
+                    {
+                        'id': item.id,
+                        'entidad_tipo': item.entidad_tipo,
+                        'entidad_id': item.entidad_id,
+                        'estado': item.estado,
+                        'owner_operativo': item.owner_operativo,
+                    }
+                    for item in expedientes
+                ],
+                'politicas_firma': [
+                    {
+                        'id': item.id,
+                        'tipo_documental': item.tipo_documental,
+                        'requiere_firma_arrendador': item.requiere_firma_arrendador,
+                        'requiere_firma_arrendatario': item.requiere_firma_arrendatario,
+                        'requiere_codeudor': item.requiere_codeudor,
+                        'requiere_notaria': item.requiere_notaria,
+                        'modo_firma_permitido': item.modo_firma_permitido,
+                        'estado': item.estado,
+                    }
+                    for item in politicas
+                ],
+                'documentos_emitidos': [
+                    {
+                        'id': item.id,
+                        'expediente': item.expediente_id,
+                        'tipo_documental': item.tipo_documental,
+                        'version_plantilla': item.version_plantilla,
+                        'origen': item.origen,
+                        'estado': item.estado,
+                        'storage_ref': item.storage_ref,
+                    }
+                    for item in documentos
+                ],
+            }
+        )
+
+
 class ExpedienteDocumentalListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ExpedienteDocumentalSerializer

@@ -95,6 +95,7 @@ export function DocumentosWorkspace({
   filteredPoliticasFirma,
   filteredDocumentosEmitidos,
   isSubmitting,
+  isLoading,
   startEditExpediente,
   goToDocumentoContext,
 }: {
@@ -119,6 +120,7 @@ export function DocumentosWorkspace({
   filteredPoliticasFirma: PoliticaFirma[]
   filteredDocumentosEmitidos: DocumentoEmitidoItem[]
   isSubmitting: boolean
+  isLoading: boolean
   startEditExpediente: (row: ExpedienteDocumental) => void
   goToDocumentoContext: (documentoId: number) => void
 }) {
@@ -242,14 +244,14 @@ export function DocumentosWorkspace({
         </section>
       ) : null}
 
-      <TableBlock title="Expedientes" subtitle="Agrupación documental por entidad operativa." rows={filteredExpedientes} empty="No hay expedientes para este filtro." columns={[
+      <TableBlock title="Expedientes" subtitle="Agrupación documental por entidad operativa." rows={filteredExpedientes} empty="No hay expedientes para este filtro." isLoading={isLoading} loadingLabel="Cargando documentos..." columns={[
         { label: 'Entidad', render: (row) => `${row.entidad_tipo} · ${row.entidad_id}` },
         { label: 'Owner operativo', render: (row) => row.owner_operativo },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
         { label: 'Acción', render: (row) => canEditDocumentos ? <button type="button" className="button-ghost inline-action" onClick={() => startEditExpediente(row)}>Editar</button> : 'Solo lectura' },
       ]} />
 
-      <TableBlock title="Políticas de firma" subtitle="Reglas activas por tipo documental." rows={filteredPoliticasFirma} empty="No hay políticas para este filtro." columns={[
+      <TableBlock title="Políticas de firma" subtitle="Reglas activas por tipo documental." rows={filteredPoliticasFirma} empty="No hay políticas para este filtro." isLoading={isLoading} loadingLabel="Cargando documentos..." columns={[
         { label: 'Tipo documental', render: (row) => row.tipo_documental },
         { label: 'Modo firma', render: (row) => row.modo_firma_permitido },
         { label: 'Arrendador', render: (row) => row.requiere_firma_arrendador ? 'Sí' : 'No' },
@@ -258,7 +260,7 @@ export function DocumentosWorkspace({
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
 
-      <TableBlock title="Documentos emitidos" subtitle="Estado documental y storage asociado." rows={filteredDocumentosEmitidos} empty="No hay documentos emitidos para este filtro." columns={[
+      <TableBlock title="Documentos emitidos" subtitle="Estado documental y storage asociado." rows={filteredDocumentosEmitidos} empty="No hay documentos emitidos para este filtro." isLoading={isLoading} loadingLabel="Cargando documentos..." columns={[
         { label: 'Expediente', render: (row) => `${expedienteById.get(row.expediente)?.entidad_tipo || 'expediente'} · ${expedienteById.get(row.expediente)?.entidad_id || row.expediente}` },
         { label: 'Tipo', render: (row) => row.tipo_documental },
         { label: 'Origen', render: (row) => row.origen },
