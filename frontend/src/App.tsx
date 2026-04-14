@@ -48,7 +48,9 @@ const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
   'canales',
   'cobranza',
   'conciliacion',
+  'audit',
   'contabilidad',
+  'sii',
 ])
 
 type Dashboard = {
@@ -529,6 +531,11 @@ type ManualResolutionItem = {
   metadata: Record<string, unknown>
   created_at: string
   resolved_at: string | null
+}
+
+type AuditSnapshot = {
+  events: AuditEventItem[]
+  manual_resolutions: ManualResolutionItem[]
 }
 
 type ReportingReferenceOptions = {
@@ -1155,6 +1162,7 @@ function App() {
   const [isCobranzaSnapshotLoading, setIsCobranzaSnapshotLoading] = useState(false)
   const [isConciliacionSnapshotLoading, setIsConciliacionSnapshotLoading] = useState(false)
   const [isSiiSnapshotLoading, setIsSiiSnapshotLoading] = useState(false)
+  const [isAuditSnapshotLoading, setIsAuditSnapshotLoading] = useState(false)
   const [isControlCatalogLoading, setIsControlCatalogLoading] = useState(false)
   const [isControlActivityLoading, setIsControlActivityLoading] = useState(false)
   const [isOperationSnapshotLoaded, setIsOperationSnapshotLoaded] = useState(false)
@@ -1164,6 +1172,7 @@ function App() {
   const [isCobranzaSnapshotLoaded, setIsCobranzaSnapshotLoaded] = useState(false)
   const [isConciliacionSnapshotLoaded, setIsConciliacionSnapshotLoaded] = useState(false)
   const [isSiiSnapshotLoaded, setIsSiiSnapshotLoaded] = useState(false)
+  const [isAuditSnapshotLoaded, setIsAuditSnapshotLoaded] = useState(false)
   const [isControlCoreLoaded, setIsControlCoreLoaded] = useState(false)
   const [isControlCatalogLoaded, setIsControlCatalogLoaded] = useState(false)
   const [isControlActivityLoaded, setIsControlActivityLoaded] = useState(false)
@@ -1268,6 +1277,7 @@ function App() {
       const loadCobranzaSnapshot = canReadOperational && targetView === 'cobranza' && (shouldRefreshData || !isCobranzaSnapshotLoaded)
       const loadConciliacionSnapshot = canReadOperational && targetView === 'conciliacion' && (shouldRefreshData || !isConciliacionSnapshotLoaded)
       const loadSiiSnapshot = canReadControl && targetView === 'sii' && (shouldRefreshData || !isSiiSnapshotLoaded)
+      const loadAuditSnapshot = (canReadAuditEvents || canReadManualResolutions) && targetView === 'audit' && (shouldRefreshData || !isAuditSnapshotLoaded)
       const loadSocios =
         (canReadOperational || canReadCompliance)
         && ['compliance'].includes(targetView)
@@ -1289,6 +1299,7 @@ function App() {
       setIsCobranzaSnapshotLoading(loadCobranzaSnapshot)
       setIsConciliacionSnapshotLoading(loadConciliacionSnapshot)
       setIsSiiSnapshotLoading(loadSiiSnapshot)
+      setIsAuditSnapshotLoading(loadAuditSnapshot)
       setIsControlCatalogLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlCatalogLoaded))
       setIsControlActivityLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlActivityLoaded))
       setCurrentUser(me)
@@ -1319,6 +1330,7 @@ function App() {
         cobranzaSnapshotPayload,
         conciliacionSnapshotPayload,
         siiSnapshotPayload,
+        auditSnapshotPayload,
         controlSnapshotPayload,
         reportingReferencePayload,
         compliancePoliciesPayload,
@@ -1372,6 +1384,11 @@ function App() {
         requestIf<SiiSnapshot | null>(
           loadSiiSnapshot,
           '/api/v1/sii/snapshot/',
+          null,
+        ),
+        requestIf<AuditSnapshot | null>(
+          loadAuditSnapshot,
+          '/api/v1/audit/snapshot/',
           null,
         ),
         requestIf<ControlSnapshot | null>(
@@ -1469,6 +1486,11 @@ function App() {
         setF22s(siiSnapshotPayload.f22s)
         setIsSiiSnapshotLoaded(true)
       }
+      if (auditSnapshotPayload) {
+        setAuditEvents(auditSnapshotPayload.events)
+        setManualResolutions(auditSnapshotPayload.manual_resolutions)
+        setIsAuditSnapshotLoaded(true)
+      }
       if (controlSnapshotPayload?.empresas?.length) {
         setEmpresas(controlSnapshotPayload.empresas)
       } else if (reportingReferencePayload?.empresas?.length) {
@@ -1532,8 +1554,8 @@ function App() {
         const loadConexiones = false
         const loadMovimientos = false
         const loadIngresos = false
-        const loadAuditEvents = canReadAuditEvents && targetView === 'audit'
-        const loadManualResolutions = canReadManualResolutions && targetView === 'audit'
+        const loadAuditEvents = false
+        const loadManualResolutions = false
 
         if (bootstrapControl) {
           void (async () => {
@@ -1781,6 +1803,7 @@ function App() {
     setIsCobranzaSnapshotLoading(false)
     setIsConciliacionSnapshotLoading(false)
     setIsSiiSnapshotLoading(false)
+    setIsAuditSnapshotLoading(false)
     setIsControlCatalogLoading(false)
     setIsControlActivityLoading(false)
     setIsOperationSnapshotLoaded(false)
@@ -1790,6 +1813,7 @@ function App() {
     setIsCobranzaSnapshotLoaded(false)
     setIsConciliacionSnapshotLoaded(false)
     setIsSiiSnapshotLoaded(false)
+    setIsAuditSnapshotLoaded(false)
     setIsControlCoreLoaded(false)
     setIsControlCatalogLoaded(false)
     setIsControlActivityLoaded(false)
@@ -3889,6 +3913,7 @@ function App() {
           filteredManualResolutions={filteredManualResolutions}
           startEditManualResolution={startEditManualResolution}
           isSubmitting={isSubmitting}
+          isLoading={isAuditSnapshotLoading}
         />
       ) : null}
 

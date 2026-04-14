@@ -70,6 +70,11 @@ class AuditResolutionPermission(RolePermission):
     write_roles = {ROLE_ADMIN, ROLE_OPERATOR}
 
 
+class AuditSnapshotPermission(RolePermission):
+    read_roles = {ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER}
+    write_roles = set()
+
+
 class ControlModulePermission(RolePermission):
     read_roles = {ROLE_ADMIN, ROLE_REVIEWER}
     write_roles = {ROLE_ADMIN}

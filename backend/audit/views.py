@@ -2,7 +2,15 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import AuditReadPermission, AuditResolutionPermission
+from core.permissions import (
+    AuditReadPermission,
+    AuditResolutionPermission,
+    AuditSnapshotPermission,
+    ROLE_ADMIN,
+    ROLE_OPERATOR,
+    ROLE_REVIEWER,
+    get_effective_role_codes,
+)
 from .models import AuditEvent, ManualResolution
 from .serializers import (
     AuditEventSerializer,
@@ -16,6 +24,52 @@ class AuditEventListView(generics.ListAPIView):
     permission_classes = [AuditReadPermission]
     serializer_class = AuditEventSerializer
     queryset = AuditEvent.objects.select_related('actor_user').all()[:100]
+
+
+class AuditSnapshotView(APIView):
+    permission_classes = [AuditSnapshotPermission]
+
+    def get(self, request):
+        roles = get_effective_role_codes(request.user)
+        can_read_events = bool(roles & {ROLE_ADMIN, ROLE_REVIEWER})
+        can_read_resolutions = bool(roles & {ROLE_ADMIN, ROLE_OPERATOR})
+
+        return Response(
+            {
+                'events': [
+                    {
+                        'id': item.id,
+                        'actor_user_display': item.actor_user.display_name or item.actor_user.username if item.actor_user_id else (item.actor_identifier or 'Sistema'),
+                        'event_type': item.event_type,
+                        'severity': item.severity,
+                        'entity_type': item.entity_type,
+                        'entity_id': item.entity_id,
+                        'summary': item.summary,
+                        'created_at': item.created_at,
+                    }
+                    for item in (AuditEvent.objects.select_related('actor_user').order_by('-created_at')[:100] if can_read_events else [])
+                ],
+                'manual_resolutions': [
+                    {
+                        'id': str(item.id),
+                        'category': item.category,
+                        'status': item.status,
+                        'scope_type': item.scope_type,
+                        'scope_reference': item.scope_reference,
+                        'summary': item.summary,
+                        'rationale': item.rationale,
+                        'requested_by': item.requested_by_id,
+                        'requested_by_display': item.requested_by.display_name or item.requested_by.username if item.requested_by_id else '',
+                        'resolved_by': item.resolved_by_id,
+                        'resolved_by_display': item.resolved_by.display_name or item.resolved_by.username if item.resolved_by_id else '',
+                        'metadata': item.metadata,
+                        'created_at': item.created_at,
+                        'resolved_at': item.resolved_at,
+                    }
+                    for item in (ManualResolution.objects.order_by('-created_at') if can_read_resolutions else [])
+                ],
+            }
+        )
 
 
 class ManualResolutionListCreateView(generics.ListCreateAPIView):

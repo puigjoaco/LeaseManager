@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    AuditSnapshotView,
     AuditEventListView,
     ManualResolutionDetailView,
     ManualResolutionListCreateView,
@@ -8,6 +9,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('snapshot/', AuditSnapshotView.as_view(), name='audit-snapshot'),
     path('events/', AuditEventListView.as_view(), name='audit-events'),
     path('manual-resolutions/', ManualResolutionListCreateView.as_view(), name='manual-resolution-list'),
     path(

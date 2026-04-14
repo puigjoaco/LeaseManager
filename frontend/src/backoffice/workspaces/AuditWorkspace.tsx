@@ -49,6 +49,7 @@ export function AuditWorkspace({
   filteredManualResolutions,
   startEditManualResolution,
   isSubmitting,
+  isLoading,
 }: {
   effectiveRole: string
   canEditAudit: boolean
@@ -63,6 +64,7 @@ export function AuditWorkspace({
   filteredManualResolutions: ManualResolutionItem[]
   startEditManualResolution: (row: ManualResolutionItem) => void
   isSubmitting: boolean
+  isLoading: boolean
 }) {
   return (
     <>
@@ -105,7 +107,7 @@ export function AuditWorkspace({
       ) : null}
 
       {effectiveRole !== 'OperadorDeCartera' ? (
-        <TableBlock title="Eventos auditables" subtitle="Trazabilidad reciente del sistema." rows={filteredAuditEvents} empty="No hay eventos auditables para este filtro." columns={[
+        <TableBlock title="Eventos auditables" subtitle="Trazabilidad reciente del sistema." rows={filteredAuditEvents} empty="No hay eventos auditables para este filtro." isLoading={isLoading} loadingLabel="Cargando audit..." columns={[
           { label: 'Fecha', render: (row) => stamp(row.created_at) },
           { label: 'Severidad', render: (row) => <Badge label={row.severity} tone={toneFor(row.severity)} /> },
           { label: 'Evento', render: (row) => row.event_type },
@@ -116,7 +118,7 @@ export function AuditWorkspace({
       ) : null}
 
       {effectiveRole !== 'RevisorFiscalExterno' ? (
-        <TableBlock title="Resoluciones manuales" subtitle="Backlog manual y estado de cierre." rows={filteredManualResolutions} empty="No hay resoluciones manuales para este filtro." columns={[
+        <TableBlock title="Resoluciones manuales" subtitle="Backlog manual y estado de cierre." rows={filteredManualResolutions} empty="No hay resoluciones manuales para este filtro." isLoading={isLoading} loadingLabel="Cargando audit..." columns={[
           { label: 'Estado', render: (row) => <Badge label={row.status} tone={toneFor(row.status)} /> },
           { label: 'Categoría', render: (row) => row.category },
           { label: 'Scope', render: (row) => `${row.scope_type} · ${row.scope_reference}` },
