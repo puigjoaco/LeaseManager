@@ -1234,28 +1234,17 @@ function App() {
         requestIf<OperationSnapshot | null>(
           loadOperationSnapshot,
           '/api/v1/operacion/snapshot/',
-          { socios, empresas, comunidades, propiedades, cuentas, identidades, mandatos },
+          null,
         ),
         requestIf<ControlSnapshot | null>(
           bootstrapControl,
           '/api/v1/contabilidad/snapshot/?mode=core',
-          {
-            empresas,
-            regimenes_tributarios: regimenesTributarios,
-            configuraciones_fiscales: configuracionesFiscales,
-            cuentas_contables: cuentasContables,
-            reglas_contables: reglasContables,
-            matrices_reglas: matricesReglas,
-            eventos_contables: eventosContables,
-            asientos_contables: asientosContables,
-            obligaciones_mensuales: obligacionesMensuales,
-            cierres_mensuales: cierresMensuales,
-          },
+          null,
         ),
         requestIf<ReportingReferenceOptions | null>(
           loadReportingReferences,
           '/api/v1/reporting/references/',
-          { empresas, socios },
+          null,
         ),
         requestIf<CapacidadSii[]>(bootstrapSii, '/api/v1/sii/capacidades/', capacidadesSii),
         requestIf<DteEmitido[]>(bootstrapSii, '/api/v1/sii/dtes/', dtes),
@@ -1298,23 +1287,29 @@ function App() {
       if (reportingReferencePayload?.socios?.length) {
         setSocios(reportingReferencePayload.socios)
       }
-      setRegimenesTributarios(controlSnapshotPayload?.regimenes_tributarios || [])
-      setConfiguracionesFiscales(controlSnapshotPayload?.configuraciones_fiscales || [])
-      setCuentasContables(controlSnapshotPayload?.cuentas_contables || [])
-      setReglasContables(controlSnapshotPayload?.reglas_contables || [])
-      setMatricesReglas(controlSnapshotPayload?.matrices_reglas || [])
-      setEventosContables(controlSnapshotPayload?.eventos_contables || [])
-      setAsientosContables(controlSnapshotPayload?.asientos_contables || [])
-      setObligacionesMensuales(controlSnapshotPayload?.obligaciones_mensuales || [])
-      setCierresMensuales(controlSnapshotPayload?.cierres_mensuales || [])
-      setCapacidadesSii(capacidadesSiiPayload)
-      setDtes(dtesPayload)
-      setF29s(f29Payload)
-      setProcesosAnuales(procesosAnualesPayload)
-      setDdjjs(ddjjsPayload)
-      setF22s(f22sPayload)
-      setCompliancePolicies(compliancePoliciesPayload)
-      setComplianceExports(complianceExportsPayload)
+      if (controlSnapshotPayload) {
+        setRegimenesTributarios(controlSnapshotPayload.regimenes_tributarios)
+        setConfiguracionesFiscales(controlSnapshotPayload.configuraciones_fiscales)
+        setCuentasContables(controlSnapshotPayload.cuentas_contables)
+        setReglasContables(controlSnapshotPayload.reglas_contables)
+        setMatricesReglas(controlSnapshotPayload.matrices_reglas)
+        setEventosContables(controlSnapshotPayload.eventos_contables)
+        setAsientosContables(controlSnapshotPayload.asientos_contables)
+        setObligacionesMensuales(controlSnapshotPayload.obligaciones_mensuales)
+        setCierresMensuales(controlSnapshotPayload.cierres_mensuales)
+      }
+      if (bootstrapSii) {
+        setCapacidadesSii(capacidadesSiiPayload)
+        setDtes(dtesPayload)
+        setF29s(f29Payload)
+        setProcesosAnuales(procesosAnualesPayload)
+        setDdjjs(ddjjsPayload)
+        setF22s(f22sPayload)
+      }
+      if (bootstrapCompliance) {
+        setCompliancePolicies(compliancePoliciesPayload)
+        setComplianceExports(complianceExportsPayload)
+      }
       if (controlSnapshotPayload) setIsControlCoreLoaded(true)
       if (reportingReferencePayload) setIsReportingReferencesLoaded(true)
       if (bootstrapSii) setIsSiiLoaded(true)
