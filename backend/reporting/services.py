@@ -312,6 +312,51 @@ def build_partner_summary(socio_id, access: ScopeAccess | None = None):
     }
 
 
+def build_reporting_reference_options(access: ScopeAccess | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+
+    empresas = scope_queryset_for_access(
+        Empresa.objects.all().order_by('razon_social', 'id'),
+        access,
+        company_paths=('id',),
+    )
+    socios = scope_queryset_for_access(
+        Socio.objects.all().order_by('nombre', 'id'),
+        access,
+        property_paths=(
+            'propiedades_directas__id',
+            'representaciones_comunidad__comunidad__propiedades__id',
+            'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
+            'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
+        ),
+    )
+
+    return {
+        'empresas': [
+            {
+                'id': empresa.id,
+                'razon_social': empresa.razon_social,
+                'rut': empresa.rut,
+                'estado': empresa.estado,
+                'participaciones_detail': [],
+            }
+            for empresa in empresas
+        ],
+        'socios': [
+            {
+                'id': socio.id,
+                'nombre': socio.nombre,
+                'rut': socio.rut,
+                'email': socio.email or '',
+                'telefono': socio.telefono or '',
+                'domicilio': socio.domicilio or '',
+                'activo': socio.activo,
+            }
+            for socio in socios
+        ],
+    }
+
+
 def build_period_books_summary(empresa_id, periodo, access: ScopeAccess | None = None):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
     libro_diario = scope_queryset_for_access(

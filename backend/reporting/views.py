@@ -10,6 +10,7 @@ from .services import (
     build_operational_dashboard,
     build_partner_summary,
     build_period_books_summary,
+    build_reporting_reference_options,
 )
 
 
@@ -42,6 +43,13 @@ class PartnerSummaryView(APIView):
 
     def get(self, request, pk):
         return Response(build_partner_summary(pk, access=get_scope_access(request.user)))
+
+
+class ReportingReferenceOptionsView(APIView):
+    permission_classes = [ReportingPermission]
+
+    def get(self, request):
+        return Response(build_reporting_reference_options(access=get_scope_access(request.user)))
 
 
 class PeriodBooksSummaryView(APIView):

@@ -520,7 +520,13 @@ type ManualResolutionItem = {
   resolved_at: string | null
 }
 
+type ReportingReferenceOptions = {
+  empresas: Empresa[]
+  socios: Socio[]
+}
+
 type ControlSnapshot = {
+  empresas: Empresa[]
   regimenes_tributarios: RegimenTributario[]
   configuraciones_fiscales: ConfiguracionFiscal[]
   cuentas_contables: CuentaContable[]
@@ -1140,12 +1146,12 @@ function App() {
       const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
       const loadOverview = canReadOverview && targetView === 'overview'
       const loadSocios =
-        (canReadOperational || canReadCompliance || (canReadControl && targetView === 'reporting'))
-        && ['patrimonio', 'operacion', 'reporting', 'compliance'].includes(targetView)
+        (canReadOperational || canReadCompliance)
+        && ['patrimonio', 'operacion', 'compliance'].includes(targetView)
       const loadEmpresas =
         ((canReadOperational && ['patrimonio', 'operacion'].includes(targetView))
-          || (canReadControl && ['contabilidad', 'sii', 'reporting'].includes(targetView))
           || (canReadCompliance && targetView === 'compliance'))
+      const loadReportingReferences = canReadControl && targetView === 'reporting'
       const loadComunidades = canReadOperational && ['patrimonio', 'operacion'].includes(targetView)
       const loadPropiedades = canReadOperational && ['patrimonio', 'operacion'].includes(targetView)
       const loadCuentas = canReadOperational && ['operacion', 'conciliacion'].includes(targetView)
@@ -1177,6 +1183,7 @@ function App() {
         identidadesPayload,
         mandatosPayload,
         controlSnapshotPayload,
+        reportingReferencePayload,
         capacidadesSiiPayload,
         dtesPayload,
         f29Payload,
@@ -1200,6 +1207,7 @@ function App() {
           bootstrapControl,
           '/api/v1/contabilidad/snapshot/?mode=core',
           {
+            empresas,
             regimenes_tributarios: regimenesTributarios,
             configuraciones_fiscales: configuracionesFiscales,
             cuentas_contables: cuentasContables,
@@ -1210,6 +1218,11 @@ function App() {
             obligaciones_mensuales: obligacionesMensuales,
             cierres_mensuales: cierresMensuales,
           },
+        ),
+        requestIf<ReportingReferenceOptions | null>(
+          loadReportingReferences,
+          '/api/v1/reporting/references/',
+          { empresas, socios },
         ),
         requestIf<CapacidadSii[]>(bootstrapSii, '/api/v1/sii/capacidades/', capacidadesSii),
         requestIf<DteEmitido[]>(bootstrapSii, '/api/v1/sii/dtes/', dtes),
@@ -1234,6 +1247,14 @@ function App() {
       setCuentas(cuentasPayload)
       setIdentidades(identidadesPayload)
       setMandatos(mandatosPayload)
+      if (controlSnapshotPayload?.empresas?.length) {
+        setEmpresas(controlSnapshotPayload.empresas)
+      } else if (reportingReferencePayload?.empresas?.length) {
+        setEmpresas(reportingReferencePayload.empresas)
+      }
+      if (reportingReferencePayload?.socios?.length) {
+        setSocios(reportingReferencePayload.socios)
+      }
       setRegimenesTributarios(controlSnapshotPayload?.regimenes_tributarios || [])
       setConfiguracionesFiscales(controlSnapshotPayload?.configuraciones_fiscales || [])
       setCuentasContables(controlSnapshotPayload?.cuentas_contables || [])

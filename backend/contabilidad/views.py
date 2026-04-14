@@ -11,6 +11,7 @@ from core.scope_access import (
     scope_queryset_for_access,
     scope_queryset_for_user,
 )
+from patrimonio.models import Empresa
 
 from .models import (
     AsientoContable,
@@ -119,6 +120,23 @@ class ControlSnapshotView(APIView):
                             'updated_at',
                         )
                     )
+                    if include_core
+                    else []
+                ),
+                'empresas': (
+                    [
+                        {
+                            'id': empresa.id,
+                            'razon_social': empresa.razon_social,
+                            'rut': empresa.rut,
+                            'estado': empresa.estado,
+                            'participaciones_detail': [],
+                        }
+                        for empresa in scoped(
+                            Empresa.objects.order_by('razon_social', 'id'),
+                            company_paths=('id',),
+                        )
+                    ]
                     if include_core
                     else []
                 ),
