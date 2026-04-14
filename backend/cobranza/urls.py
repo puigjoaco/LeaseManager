@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     AjusteContratoDetailView,
     AjusteContratoListCreateView,
+    CobranzaSnapshotView,
     CodigoCobroResidualDetailView,
     CodigoCobroResidualListCreateView,
     DistribucionCobroMensualDetailView,
@@ -25,6 +26,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('snapshot/', CobranzaSnapshotView.as_view(), name='cobranza-snapshot'),
     path('valores-uf/', ValorUFDiarioListCreateView.as_view(), name='cobranza-valor-uf-list'),
     path('valores-uf/<int:pk>/', ValorUFDiarioDetailView.as_view(), name='cobranza-valor-uf-detail'),
     path('ajustes-contrato/', AjusteContratoListCreateView.as_view(), name='cobranza-ajuste-list'),

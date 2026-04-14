@@ -6,7 +6,14 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
-from core.scope_access import ScopedQuerysetMixin, ensure_queryset_scope, scope_queryset_for_user
+from core.scope_access import (
+    ScopedQuerysetMixin,
+    ensure_queryset_scope,
+    get_scope_access,
+    scope_queryset_for_access,
+    scope_queryset_for_user,
+)
+from contratos.models import Arrendatario, Contrato
 
 from .models import AjusteContrato, DistribucionCobroMensual, GarantiaContractual, HistorialGarantia, PagoMensual, ValorUFDiario
 from .serializers import (
@@ -62,6 +69,135 @@ class AuditCreateUpdateMixin:
             summary=summary or f'{self.audit_entity_label} {action}',
             actor_user=self.request.user,
             ip_address=self.request.META.get('REMOTE_ADDR'),
+        )
+
+
+class CobranzaSnapshotView(APIView):
+    permission_classes = [OperationalModulePermission]
+
+    def get(self, request):
+        access = get_scope_access(request.user)
+
+        contratos = scope_queryset_for_access(
+            Contrato.objects.only('id', 'codigo_contrato').order_by('codigo_contrato', 'id'),
+            access,
+            property_paths=('mandato_operacion__propiedad_id',),
+        )
+        arrendatarios = scope_queryset_for_access(
+            Arrendatario.objects.only('id', 'nombre_razon_social').order_by('nombre_razon_social', 'id'),
+            access,
+            property_paths=('contratos__mandato_operacion__propiedad_id',),
+        )
+        valores_uf = ValorUFDiario.objects.order_by('-fecha', '-id')
+        ajustes = scope_queryset_for_access(
+            AjusteContrato.objects.select_related('contrato').order_by('-mes_inicio', '-id'),
+            access,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+        )
+        pagos = scope_queryset_for_access(
+            PagoMensual.objects.select_related('contrato').order_by('-anio', '-mes', '-id'),
+            access,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+        )
+        garantias = scope_queryset_for_access(
+            GarantiaContractual.objects.select_related('contrato').order_by('-id'),
+            access,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+        )
+        historial = scope_queryset_for_access(
+            HistorialGarantia.objects.select_related('garantia_contractual__contrato').order_by('-fecha', '-id'),
+            access,
+            property_paths=('garantia_contractual__contrato__mandato_operacion__propiedad_id',),
+        )
+        estados_cuenta = scope_queryset_for_access(
+            EstadoCuentaArrendatario.objects.select_related('arrendatario').order_by('id'),
+            access,
+            property_paths=('arrendatario__contratos__mandato_operacion__propiedad_id',),
+        )
+
+        return Response(
+            {
+                'contratos': [
+                    {
+                        'id': item.id,
+                        'codigo_contrato': item.codigo_contrato,
+                    }
+                    for item in contratos
+                ],
+                'arrendatarios': [
+                    {
+                        'id': item.id,
+                        'nombre_razon_social': item.nombre_razon_social,
+                    }
+                    for item in arrendatarios
+                ],
+                'valores_uf': [
+                    {
+                        'id': item.id,
+                        'fecha': item.fecha,
+                        'valor': item.valor,
+                        'source_key': item.source_key,
+                    }
+                    for item in valores_uf
+                ],
+                'ajustes': [
+                    {
+                        'id': item.id,
+                        'contrato': item.contrato_id,
+                        'tipo_ajuste': item.tipo_ajuste,
+                        'monto': item.monto,
+                        'moneda': item.moneda,
+                        'mes_inicio': item.mes_inicio,
+                        'mes_fin': item.mes_fin,
+                        'activo': item.activo,
+                    }
+                    for item in ajustes
+                ],
+                'pagos': [
+                    {
+                        'id': item.id,
+                        'contrato': item.contrato_id,
+                        'mes': item.mes,
+                        'anio': item.anio,
+                        'monto_facturable_clp': item.monto_facturable_clp,
+                        'monto_calculado_clp': item.monto_calculado_clp,
+                        'monto_pagado_clp': item.monto_pagado_clp,
+                        'estado_pago': item.estado_pago,
+                    }
+                    for item in pagos
+                ],
+                'garantias': [
+                    {
+                        'id': item.id,
+                        'contrato': item.contrato_id,
+                        'monto_pactado': item.monto_pactado,
+                        'monto_recibido': item.monto_recibido,
+                        'saldo_vigente': item.saldo_vigente,
+                        'estado_garantia': item.estado_garantia,
+                    }
+                    for item in garantias
+                ],
+                'historial_garantias': [
+                    {
+                        'id': item.id,
+                        'contrato_id': item.garantia_contractual.contrato_id,
+                        'tipo_movimiento': item.tipo_movimiento,
+                        'monto_clp': item.monto_clp,
+                        'fecha': item.fecha,
+                        'justificacion': item.justificacion,
+                    }
+                    for item in historial
+                ],
+                'estados_cuenta': [
+                    {
+                        'id': item.id,
+                        'arrendatario': item.arrendatario_id,
+                        'score_pago': item.score_pago,
+                        'resumen_operativo': item.resumen_operativo,
+                    }
+                    for item in estados_cuenta
+                ],
+            }
         )
 
 

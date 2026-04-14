@@ -53,6 +53,7 @@ export function CobranzaWorkspace({
   arrendatarioById,
   toneFor,
   isSubmitting,
+  isLoading,
   navigateToConciliacion,
   goToPagoContext,
   canOpenSii,
@@ -89,6 +90,7 @@ export function CobranzaWorkspace({
   arrendatarioById: ReadonlyMap<number, ArrendatarioItem>
   toneFor: (value: string) => Tone
   isSubmitting: boolean
+  isLoading: boolean
   navigateToConciliacion: (row: PagoMensualItem) => void
   goToPagoContext: (pagoId: number) => void
   canOpenSii: boolean
@@ -182,19 +184,19 @@ export function CobranzaWorkspace({
         </section>
       </section>
 
-      <TableBlock title="Valores UF" subtitle="Fuente de conversión mensual para contratos en UF." rows={filteredValoresUf} empty="No hay valores UF para este filtro." columns={[
+      <TableBlock title="Valores UF" subtitle="Fuente de conversión mensual para contratos en UF." rows={filteredValoresUf} empty="No hay valores UF para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
         { label: 'Fecha', render: (row) => row.fecha },
         { label: 'Valor', render: (row) => row.valor },
         { label: 'Source', render: (row) => row.source_key },
       ]} />
-      <TableBlock title="Ajustes de contrato" subtitle="Ajustes activos y programados por contrato." rows={filteredAjustes} empty="No hay ajustes para este filtro." columns={[
+      <TableBlock title="Ajustes de contrato" subtitle="Ajustes activos y programados por contrato." rows={filteredAjustes} empty="No hay ajustes para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
         { label: 'Tipo', render: (row) => row.tipo_ajuste },
         { label: 'Monto', render: (row) => `${row.monto} ${row.moneda}` },
         { label: 'Rango', render: (row) => `${row.mes_inicio} → ${row.mes_fin}` },
         { label: 'Activo', render: (row) => <Badge label={row.activo ? 'activo' : 'inactivo'} tone={row.activo ? 'positive' : 'danger'} /> },
       ]} />
-      <TableBlock title="Pagos mensuales" subtitle="Cobro calculado, estado y distribución económica." rows={filteredPagos} empty="No hay pagos para este filtro." columns={[
+      <TableBlock title="Pagos mensuales" subtitle="Cobro calculado, estado y distribución económica." rows={filteredPagos} empty="No hay pagos para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
         { label: 'Periodo', render: (row) => `${row.mes}/${row.anio}` },
         { label: 'Facturable', render: (row) => row.monto_facturable_clp },
@@ -203,21 +205,21 @@ export function CobranzaWorkspace({
         { label: 'Estado', render: (row) => <Badge label={row.estado_pago} tone={toneFor(row.estado_pago)} /> },
         { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => navigateToConciliacion(row)}>Conciliar</button>{canOpenSii ? <button type="button" className="button-ghost inline-action" onClick={() => goToPagoContext(row.id)}>DTE</button> : null}</div> },
       ]} />
-      <TableBlock title="Garantías" subtitle="Saldos y estado actual de cada contrato." rows={filteredGarantias} empty="No hay garantías para este filtro." columns={[
+      <TableBlock title="Garantías" subtitle="Saldos y estado actual de cada contrato." rows={filteredGarantias} empty="No hay garantías para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
         { label: 'Pactado', render: (row) => row.monto_pactado },
         { label: 'Recibido', render: (row) => row.monto_recibido },
         { label: 'Saldo', render: (row) => row.saldo_vigente },
         { label: 'Estado', render: (row) => <Badge label={row.estado_garantia} tone={toneFor(row.estado_garantia)} /> },
       ]} />
-      <TableBlock title="Historial de garantías" subtitle="Movimientos auditables sobre depósitos, devoluciones y retenciones." rows={filteredHistorialGarantias} empty="No hay movimientos de garantía para este filtro." columns={[
+      <TableBlock title="Historial de garantías" subtitle="Movimientos auditables sobre depósitos, devoluciones y retenciones." rows={filteredHistorialGarantias} empty="No hay movimientos de garantía para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato_id)?.codigo_contrato || row.contrato_id },
         { label: 'Tipo', render: (row) => row.tipo_movimiento },
         { label: 'Monto', render: (row) => row.monto_clp },
         { label: 'Fecha', render: (row) => row.fecha },
         { label: 'Justificación', render: (row) => row.justificacion || 'Sin nota' },
       ]} />
-      <TableBlock title="Estado de cuenta" subtitle="Resumen operativo consolidado por arrendatario." rows={filteredEstadosCuenta} empty="No hay estados de cuenta para este filtro." columns={[
+      <TableBlock title="Estado de cuenta" subtitle="Resumen operativo consolidado por arrendatario." rows={filteredEstadosCuenta} empty="No hay estados de cuenta para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
         { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
         { label: 'Pagos abiertos', render: (row) => count(row.resumen_operativo.pagos_abiertos) },
         { label: 'Pagos atrasados', render: (row) => count(row.resumen_operativo.pagos_atrasados) },

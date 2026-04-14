@@ -548,6 +548,17 @@ type DocumentsSnapshot = {
   documentos_emitidos: DocumentoEmitidoItem[]
 }
 
+type CobranzaSnapshot = {
+  contratos: Contrato[]
+  arrendatarios: Arrendatario[]
+  valores_uf: ValorUF[]
+  ajustes: AjusteContrato[]
+  pagos: PagoMensual[]
+  garantias: Garantia[]
+  historial_garantias: HistorialGarantia[]
+  estados_cuenta: EstadoCuenta[]
+}
+
 type ControlSnapshot = {
   empresas: Empresa[]
   regimenes_tributarios: RegimenTributario[]
@@ -1094,11 +1105,13 @@ function App() {
   const [isOperationSnapshotLoading, setIsOperationSnapshotLoading] = useState(false)
   const [isContractsSnapshotLoading, setIsContractsSnapshotLoading] = useState(false)
   const [isDocumentsSnapshotLoading, setIsDocumentsSnapshotLoading] = useState(false)
+  const [isCobranzaSnapshotLoading, setIsCobranzaSnapshotLoading] = useState(false)
   const [isControlCatalogLoading, setIsControlCatalogLoading] = useState(false)
   const [isControlActivityLoading, setIsControlActivityLoading] = useState(false)
   const [isOperationSnapshotLoaded, setIsOperationSnapshotLoaded] = useState(false)
   const [isContractsSnapshotLoaded, setIsContractsSnapshotLoaded] = useState(false)
   const [isDocumentsSnapshotLoaded, setIsDocumentsSnapshotLoaded] = useState(false)
+  const [isCobranzaSnapshotLoaded, setIsCobranzaSnapshotLoaded] = useState(false)
   const [isControlCoreLoaded, setIsControlCoreLoaded] = useState(false)
   const [isControlCatalogLoaded, setIsControlCatalogLoaded] = useState(false)
   const [isControlActivityLoaded, setIsControlActivityLoaded] = useState(false)
@@ -1190,6 +1203,7 @@ function App() {
       const loadOperationSnapshot = canReadOperational && targetView === 'operacion' && (shouldRefreshData || !isOperationSnapshotLoaded)
       const loadContractsSnapshot = canReadOperational && targetView === 'contratos' && (shouldRefreshData || !isContractsSnapshotLoaded)
       const loadDocumentsSnapshot = canReadOperational && targetView === 'documentos' && (shouldRefreshData || !isDocumentsSnapshotLoaded)
+      const loadCobranzaSnapshot = canReadOperational && targetView === 'cobranza' && (shouldRefreshData || !isCobranzaSnapshotLoaded)
       const loadSocios =
         (canReadOperational || canReadCompliance)
         && ['patrimonio', 'compliance'].includes(targetView)
@@ -1208,6 +1222,7 @@ function App() {
       setIsOperationSnapshotLoading(loadOperationSnapshot)
       setIsContractsSnapshotLoading(loadContractsSnapshot)
       setIsDocumentsSnapshotLoading(loadDocumentsSnapshot)
+      setIsCobranzaSnapshotLoading(loadCobranzaSnapshot)
       setIsControlCatalogLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlCatalogLoaded))
       setIsControlActivityLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlActivityLoaded))
       setCurrentUser(me)
@@ -1233,6 +1248,7 @@ function App() {
         operationSnapshotPayload,
         contractsSnapshotPayload,
         documentsSnapshotPayload,
+        cobranzaSnapshotPayload,
         controlSnapshotPayload,
         reportingReferencePayload,
         capacidadesSiiPayload,
@@ -1267,6 +1283,11 @@ function App() {
         requestIf<DocumentsSnapshot | null>(
           loadDocumentsSnapshot,
           '/api/v1/documentos/snapshot/',
+          null,
+        ),
+        requestIf<CobranzaSnapshot | null>(
+          loadCobranzaSnapshot,
+          '/api/v1/cobranza/snapshot/',
           null,
         ),
         requestIf<ControlSnapshot | null>(
@@ -1325,6 +1346,17 @@ function App() {
         setDocumentosEmitidos(documentsSnapshotPayload.documentos_emitidos)
         setIsDocumentsSnapshotLoaded(true)
       }
+      if (cobranzaSnapshotPayload) {
+        setContratos(cobranzaSnapshotPayload.contratos)
+        setArrendatarios(cobranzaSnapshotPayload.arrendatarios)
+        setValoresUf(cobranzaSnapshotPayload.valores_uf)
+        setAjustes(cobranzaSnapshotPayload.ajustes)
+        setPagos(cobranzaSnapshotPayload.pagos)
+        setGarantias(cobranzaSnapshotPayload.garantias)
+        setHistorialGarantias(cobranzaSnapshotPayload.historial_garantias)
+        setEstadosCuenta(cobranzaSnapshotPayload.estados_cuenta)
+        setIsCobranzaSnapshotLoaded(true)
+      }
       if (controlSnapshotPayload?.empresas?.length) {
         setEmpresas(controlSnapshotPayload.empresas)
       } else if (reportingReferencePayload?.empresas?.length) {
@@ -1379,20 +1411,20 @@ function App() {
       setLastLoadedAt(new Date().toISOString())
 
       void (async () => {
-        const loadArrendatarios = canReadOperational && ['canales', 'cobranza'].includes(targetView)
-        const loadContratos = canReadOperational && ['canales', 'cobranza', 'sii'].includes(targetView)
+        const loadArrendatarios = canReadOperational && ['canales'].includes(targetView)
+        const loadContratos = canReadOperational && ['canales', 'sii'].includes(targetView)
         const loadExpedientes = canReadOperational && false
         const loadPoliticasFirma = canReadOperational && false
         const loadDocumentosEmitidos = canReadOperational && ['canales'].includes(targetView)
         const loadGatesCanales = canReadOperational && targetView === 'canales'
         const loadMensajesSalientes = canReadOperational && targetView === 'canales'
         const loadAvisos = false
-        const loadValoresUf = canReadOperational && targetView === 'cobranza'
-        const loadAjustes = canReadOperational && targetView === 'cobranza'
-        const loadPagos = canReadOperational && ['cobranza', 'sii'].includes(targetView)
-        const loadGarantias = canReadOperational && targetView === 'cobranza'
-        const loadHistorialGarantias = canReadOperational && targetView === 'cobranza'
-        const loadEstadosCuenta = canReadOperational && targetView === 'cobranza'
+        const loadValoresUf = canReadOperational && false
+        const loadAjustes = canReadOperational && false
+        const loadPagos = canReadOperational && ['sii'].includes(targetView)
+        const loadGarantias = canReadOperational && false
+        const loadHistorialGarantias = canReadOperational && false
+        const loadEstadosCuenta = canReadOperational && false
         const loadConexiones = canReadOperational && targetView === 'conciliacion'
         const loadMovimientos = canReadOperational && targetView === 'conciliacion'
         const loadIngresos = canReadOperational && targetView === 'conciliacion'
@@ -1632,11 +1664,13 @@ function App() {
     setIsOperationSnapshotLoading(false)
     setIsContractsSnapshotLoading(false)
     setIsDocumentsSnapshotLoading(false)
+    setIsCobranzaSnapshotLoading(false)
     setIsControlCatalogLoading(false)
     setIsControlActivityLoading(false)
     setIsOperationSnapshotLoaded(false)
     setIsContractsSnapshotLoaded(false)
     setIsDocumentsSnapshotLoaded(false)
+    setIsCobranzaSnapshotLoaded(false)
     setIsControlCoreLoaded(false)
     setIsControlCatalogLoaded(false)
     setIsControlActivityLoaded(false)
@@ -3690,6 +3724,7 @@ function App() {
           arrendatarioById={arrendatarioById}
           toneFor={toneFor}
           isSubmitting={isSubmitting}
+          isLoading={isCobranzaSnapshotLoading}
           navigateToConciliacion={(row) => { navigateWithContext('conciliacion', `${row.mes}/${row.anio}`) }}
           goToPagoContext={goToPagoContext}
           canOpenSii={canAccessView('sii')}
