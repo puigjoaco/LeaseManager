@@ -9,9 +9,11 @@ from .views import (
     IdentidadDeEnvioListCreateView,
     MandatoOperacionDetailView,
     MandatoOperacionListCreateView,
+    OperationSnapshotView,
 )
 
 urlpatterns = [
+    path('snapshot/', OperationSnapshotView.as_view(), name='operacion-snapshot'),
     path('cuentas-recaudadoras/', CuentaRecaudadoraListCreateView.as_view(), name='operacion-cuenta-list'),
     path('cuentas-recaudadoras/<int:pk>/', CuentaRecaudadoraDetailView.as_view(), name='operacion-cuenta-detail'),
     path('identidades-envio/', IdentidadDeEnvioListCreateView.as_view(), name='operacion-identidad-list'),

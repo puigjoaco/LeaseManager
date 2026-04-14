@@ -525,6 +525,16 @@ type ReportingReferenceOptions = {
   socios: Socio[]
 }
 
+type OperationSnapshot = {
+  socios: Socio[]
+  empresas: Empresa[]
+  comunidades: Comunidad[]
+  propiedades: Propiedad[]
+  cuentas: Cuenta[]
+  identidades: Identidad[]
+  mandatos: Mandato[]
+}
+
 type ControlSnapshot = {
   empresas: Empresa[]
   regimenes_tributarios: RegimenTributario[]
@@ -1151,18 +1161,19 @@ function App() {
       const canReadOwnPartnerSummary = role === 'Socio'
       const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
       const loadOverview = canReadOverview && targetView === 'overview'
+      const loadOperationSnapshot = canReadOperational && targetView === 'operacion'
       const loadSocios =
         (canReadOperational || canReadCompliance)
-        && ['patrimonio', 'operacion', 'compliance'].includes(targetView)
+        && ['patrimonio', 'compliance'].includes(targetView)
       const loadEmpresas =
-        ((canReadOperational && ['patrimonio', 'operacion'].includes(targetView))
+        ((canReadOperational && ['patrimonio'].includes(targetView))
           || (canReadCompliance && targetView === 'compliance'))
       const loadReportingReferences = canReadControl && targetView === 'reporting'
-      const loadComunidades = canReadOperational && ['patrimonio', 'operacion'].includes(targetView)
-      const loadPropiedades = canReadOperational && ['patrimonio', 'operacion'].includes(targetView)
-      const loadCuentas = canReadOperational && ['operacion', 'conciliacion'].includes(targetView)
-      const loadIdentidades = canReadOperational && ['operacion', 'canales'].includes(targetView)
-      const loadMandatos = canReadOperational && ['operacion', 'contratos'].includes(targetView)
+      const loadComunidades = canReadOperational && ['patrimonio'].includes(targetView)
+      const loadPropiedades = canReadOperational && ['patrimonio'].includes(targetView)
+      const loadCuentas = canReadOperational && ['conciliacion'].includes(targetView)
+      const loadIdentidades = canReadOperational && ['canales'].includes(targetView)
+      const loadMandatos = canReadOperational && ['contratos'].includes(targetView)
       const bootstrapControl = canReadControl && targetView === 'contabilidad'
       const bootstrapSii = canReadControl && targetView === 'sii'
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance'
@@ -1188,6 +1199,7 @@ function App() {
         cuentasPayload,
         identidadesPayload,
         mandatosPayload,
+        operationSnapshotPayload,
         controlSnapshotPayload,
         reportingReferencePayload,
         capacidadesSiiPayload,
@@ -1209,6 +1221,11 @@ function App() {
         requestIf<Cuenta[]>(loadCuentas, '/api/v1/operacion/cuentas-recaudadoras/', cuentas),
         requestIf<Identidad[]>(loadIdentidades, '/api/v1/operacion/identidades-envio/', identidades),
         requestIf<Mandato[]>(loadMandatos, '/api/v1/operacion/mandatos/', mandatos),
+        requestIf<OperationSnapshot | null>(
+          loadOperationSnapshot,
+          '/api/v1/operacion/snapshot/',
+          { socios, empresas, comunidades, propiedades, cuentas, identidades, mandatos },
+        ),
         requestIf<ControlSnapshot | null>(
           bootstrapControl,
           '/api/v1/contabilidad/snapshot/?mode=core',
@@ -1253,6 +1270,15 @@ function App() {
       setCuentas(cuentasPayload)
       setIdentidades(identidadesPayload)
       setMandatos(mandatosPayload)
+      if (operationSnapshotPayload) {
+        setSocios(operationSnapshotPayload.socios)
+        setEmpresas(operationSnapshotPayload.empresas)
+        setComunidades(operationSnapshotPayload.comunidades)
+        setPropiedades(operationSnapshotPayload.propiedades)
+        setCuentas(operationSnapshotPayload.cuentas)
+        setIdentidades(operationSnapshotPayload.identidades)
+        setMandatos(operationSnapshotPayload.mandatos)
+      }
       if (controlSnapshotPayload?.empresas?.length) {
         setEmpresas(controlSnapshotPayload.empresas)
       } else if (reportingReferencePayload?.empresas?.length) {
