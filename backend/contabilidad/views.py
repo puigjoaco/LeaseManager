@@ -116,8 +116,6 @@ class ControlSnapshotView(APIView):
                             'codigo_regimen',
                             'descripcion',
                             'estado',
-                            'created_at',
-                            'updated_at',
                         )
                     )
                     if include_core
@@ -157,8 +155,6 @@ class ControlSnapshotView(APIView):
                             'inicio_ejercicio',
                             'moneda_funcional',
                             'estado',
-                            'created_at',
-                            'updated_at',
                         )
                     )
                     if include_core
@@ -176,12 +172,8 @@ class ControlSnapshotView(APIView):
                             'codigo',
                             'nombre',
                             'naturaleza',
-                            'nivel',
                             'padre',
                             'estado',
-                            'es_control_obligatoria',
-                            'created_at',
-                            'updated_at',
                         )
                     )
                     if include_catalogs
@@ -199,11 +191,7 @@ class ControlSnapshotView(APIView):
                             'plan_cuentas_version',
                             'criterio_cargo',
                             'criterio_abono',
-                            'vigencia_desde',
-                            'vigencia_hasta',
                             'estado',
-                            'created_at',
-                            'updated_at',
                         )
                     )
                     if include_catalogs
@@ -221,8 +209,6 @@ class ControlSnapshotView(APIView):
                             'cuenta_haber',
                             'condicion_impuesto',
                             'estado',
-                            'created_at',
-                            'updated_at',
                         )
                     )
                     if include_catalogs
@@ -239,14 +225,8 @@ class ControlSnapshotView(APIView):
                             'evento_tipo',
                             'entidad_origen_tipo',
                             'entidad_origen_id',
-                            'fecha_operativa',
-                            'moneda',
                             'monto_base',
-                            'payload_resumen',
-                            'idempotency_key',
                             'estado_contable',
-                            'created_at',
-                            'updated_at',
                         )
                     )
                     if include_activity
@@ -257,23 +237,11 @@ class ControlSnapshotView(APIView):
                         {
                             'id': asiento.id,
                             'evento_contable': asiento.evento_contable_id,
-                            'fecha_contable': asiento.fecha_contable,
                             'periodo_contable': asiento.periodo_contable,
                             'estado': asiento.estado,
                             'debe_total': asiento.debe_total,
                             'haber_total': asiento.haber_total,
-                            'moneda_funcional': asiento.moneda_funcional,
-                            'hash_integridad': asiento.hash_integridad,
-                            'movimientos': [
-                                {
-                                    'id': movimiento.id,
-                                    'cuenta_contable': movimiento.cuenta_contable_id,
-                                    'tipo_movimiento': movimiento.tipo_movimiento,
-                                    'monto': movimiento.monto,
-                                    'glosa': movimiento.glosa,
-                                }
-                                for movimiento in asiento.movimientos.all()
-                            ],
+                            'movimientos': [],
                         }
                         for asiento in scoped(
                             AsientoContable.objects.select_related('evento_contable').prefetch_related('movimientos'),
@@ -294,12 +262,8 @@ class ControlSnapshotView(APIView):
                             'anio',
                             'mes',
                             'obligacion_tipo',
-                            'base_imponible',
                             'monto_calculado',
                             'estado_preparacion',
-                            'detalle_calculo',
-                            'created_at',
-                            'updated_at',
                         )
                     )
                     if include_activity
@@ -316,11 +280,6 @@ class ControlSnapshotView(APIView):
                             'anio',
                             'mes',
                             'estado',
-                            'fecha_preparacion',
-                            'fecha_aprobacion',
-                            'resumen_obligaciones',
-                            'created_at',
-                            'updated_at',
                         )
                     )
                     if include_activity
