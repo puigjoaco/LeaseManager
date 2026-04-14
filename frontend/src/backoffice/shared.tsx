@@ -63,7 +63,7 @@ export function TableBlock<T extends { id: number | string }>({
           <h3>{title}</h3>
           <p>{subtitle}</p>
         </div>
-        <Badge label={isLoading ? loadingLabel : `${count(rows.length)} registros`} />
+        {!isLoading ? <Badge label={`${count(rows.length)} registros`} /> : null}
       </div>
       {isLoading ? (
         <div className="empty-state">{loadingLabel}</div>
