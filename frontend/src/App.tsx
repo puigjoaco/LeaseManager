@@ -1130,11 +1130,17 @@ function App() {
     }
   }
 
-  async function loadWorkspace(activeToken: string) {
+  async function loadWorkspace(activeToken: string, options: { forceUserRefresh?: boolean } = {}) {
     setIsRefreshing(true)
     setWorkspaceError(null)
     try {
-      const me = await apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken })
+      const shouldRefreshUser = options.forceUserRefresh || !currentUser
+      const me = shouldRefreshUser
+        ? await apiRequest<CurrentUser>('/api/v1/auth/me/', { token: activeToken })
+        : currentUser
+      if (!me) {
+        throw new Error('No se pudo resolver la sesión actual.')
+      }
       const role = canonicalRole(me.default_role_code)
       const canReadOverview = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
       const canReadOperational = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
@@ -3352,7 +3358,7 @@ function App() {
         assignments={activeAssignments}
         lastLoadedAt={lastLoadedAt}
         isRefreshing={isRefreshing}
-        onRefresh={() => { if (token) void loadWorkspace(token) }}
+        onRefresh={() => { if (token) void loadWorkspace(token, { forceUserRefresh: true }) }}
         onLogout={() => void handleLogout()}
       />
 
