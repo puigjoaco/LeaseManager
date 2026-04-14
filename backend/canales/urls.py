@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     CanalMensajeriaDetailView,
     CanalMensajeriaListCreateView,
+    ChannelsSnapshotView,
     MensajePrepararView,
     MensajeRegistrarEnvioView,
     MensajeSalienteDetailView,
@@ -10,6 +11,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('snapshot/', ChannelsSnapshotView.as_view(), name='canales-snapshot'),
     path('gates/', CanalMensajeriaListCreateView.as_view(), name='canales-gate-list'),
     path('gates/<int:pk>/', CanalMensajeriaDetailView.as_view(), name='canales-gate-detail'),
     path('mensajes/', MensajeSalienteListView.as_view(), name='canales-mensaje-list'),

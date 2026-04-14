@@ -91,6 +91,7 @@ export function CanalesWorkspace({
   filteredGatesCanales,
   filteredMensajesSalientes,
   isSubmitting,
+  isLoading,
   contratoById,
   toneFor,
 }: {
@@ -113,6 +114,7 @@ export function CanalesWorkspace({
   filteredGatesCanales: CanalMensajeriaItem[]
   filteredMensajesSalientes: MensajeSalienteItem[]
   isSubmitting: boolean
+  isLoading: boolean
   contratoById: ReadonlyMap<number, ContratoItem>
   toneFor: (value: string) => Tone
 }) {
@@ -201,14 +203,14 @@ export function CanalesWorkspace({
         </section>
       ) : null}
 
-      <TableBlock title="Gates de canal" subtitle="Estado operativo por canal." rows={filteredGatesCanales} empty="No hay gates de canal para este filtro." columns={[
+      <TableBlock title="Gates de canal" subtitle="Estado operativo por canal." rows={filteredGatesCanales} empty="No hay gates de canal para este filtro." isLoading={isLoading} loadingLabel="Cargando canales..." columns={[
         { label: 'Canal', render: (row) => row.canal },
         { label: 'Provider', render: (row) => row.provider_key },
         { label: 'Estado', render: (row) => <Badge label={row.estado_gate} tone={toneFor(row.estado_gate)} /> },
         { label: 'Evidencia', render: (row) => row.evidencia_ref || 'Sin evidencia' },
       ]} />
 
-      <TableBlock title="Mensajes salientes" subtitle="Preparados, bloqueados o enviados manualmente." rows={filteredMensajesSalientes} empty="No hay mensajes salientes para este filtro." columns={[
+      <TableBlock title="Mensajes salientes" subtitle="Preparados, bloqueados o enviados manualmente." rows={filteredMensajesSalientes} empty="No hay mensajes salientes para este filtro." isLoading={isLoading} loadingLabel="Cargando canales..." columns={[
         { label: 'Canal', render: (row) => row.canal },
         { label: 'Destinatario', render: (row) => row.destinatario || 'Sin destinatario' },
         { label: 'Contrato', render: (row) => row.contrato ? (contratoById.get(row.contrato)?.codigo_contrato || row.contrato) : 'Sin contrato' },

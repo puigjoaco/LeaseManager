@@ -4,6 +4,11 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
+from core.scope_access import scope_queryset_for_user
+from contratos.models import Arrendatario, Contrato
+from documentos.scope import scope_documento_queryset
+from documentos.models import DocumentoEmitido
+from operacion.models import IdentidadDeEnvio
 
 from .models import CanalMensajeria, MensajeSaliente
 from .scope import scope_mensaje_queryset
@@ -50,6 +55,90 @@ class AuditCreateUpdateMixin:
             summary=summary or f'{self.audit_entity_label} {action}',
             actor_user=self.request.user,
             ip_address=self.request.META.get('REMOTE_ADDR'),
+        )
+
+
+class ChannelsSnapshotView(APIView):
+    permission_classes = [OperationalModulePermission]
+
+    def get(self, request):
+        identidades = scope_queryset_for_user(
+            IdentidadDeEnvio.objects.all().order_by('remitente_visible', 'id'),
+            request.user,
+            company_paths=('empresa_owner_id',),
+            property_paths=('asignaciones_operacion__mandato_operacion__propiedad_id',),
+        )
+        contratos = scope_queryset_for_user(
+            Contrato.objects.only('id', 'codigo_contrato').order_by('codigo_contrato', 'id'),
+            request.user,
+            property_paths=('mandato_operacion__propiedad_id',),
+            bank_account_paths=('mandato_operacion__cuenta_recaudadora_id',),
+        )
+        arrendatarios = scope_queryset_for_user(
+            Arrendatario.objects.only('id', 'nombre_razon_social').order_by('nombre_razon_social', 'id'),
+            request.user,
+            property_paths=('contratos__mandato_operacion__propiedad_id',),
+            bank_account_paths=('contratos__mandato_operacion__cuenta_recaudadora_id',),
+        )
+        documentos = scope_documento_queryset(DocumentoEmitido.objects.all().order_by('id'), request.user)
+
+        return Response(
+            {
+                'gates': list(
+                    CanalMensajeria.objects.order_by('canal', 'provider_key', 'id').values(
+                        'id',
+                        'canal',
+                        'provider_key',
+                        'estado_gate',
+                        'evidencia_ref',
+                    )
+                ),
+                'mensajes': list(
+                    scope_mensaje_queryset(MensajeSaliente.objects.all().order_by('-id'), request.user).values(
+                        'id',
+                        'canal',
+                        'contrato',
+                        'documento_emitido',
+                        'destinatario',
+                        'asunto',
+                        'cuerpo',
+                        'estado',
+                        'motivo_bloqueo',
+                        'external_ref',
+                    )
+                ),
+                'identidades': [
+                    {
+                        'id': item.id,
+                        'canal': item.canal,
+                        'remitente_visible': item.remitente_visible,
+                        'direccion_o_numero': item.direccion_o_numero,
+                    }
+                    for item in identidades
+                ],
+                'contratos': [
+                    {
+                        'id': item.id,
+                        'codigo_contrato': item.codigo_contrato,
+                    }
+                    for item in contratos
+                ],
+                'arrendatarios': [
+                    {
+                        'id': item.id,
+                        'nombre_razon_social': item.nombre_razon_social,
+                    }
+                    for item in arrendatarios
+                ],
+                'documentos_emitidos': [
+                    {
+                        'id': item.id,
+                        'tipo_documental': item.tipo_documental,
+                        'storage_ref': item.storage_ref,
+                    }
+                    for item in documentos
+                ],
+            }
         )
 
 

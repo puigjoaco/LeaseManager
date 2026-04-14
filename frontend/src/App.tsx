@@ -548,6 +548,15 @@ type DocumentsSnapshot = {
   documentos_emitidos: DocumentoEmitidoItem[]
 }
 
+type ChannelsSnapshot = {
+  gates: CanalMensajeriaItem[]
+  mensajes: MensajeSalienteItem[]
+  identidades: { id: number; canal: string; remitente_visible: string; direccion_o_numero: string }[]
+  contratos: { id: number; codigo_contrato: string }[]
+  arrendatarios: { id: number; nombre_razon_social: string }[]
+  documentos_emitidos: { id: number; tipo_documental: string; storage_ref: string }[]
+}
+
 type CobranzaSnapshot = {
   contratos: Contrato[]
   arrendatarios: Arrendatario[]
@@ -1105,12 +1114,14 @@ function App() {
   const [isOperationSnapshotLoading, setIsOperationSnapshotLoading] = useState(false)
   const [isContractsSnapshotLoading, setIsContractsSnapshotLoading] = useState(false)
   const [isDocumentsSnapshotLoading, setIsDocumentsSnapshotLoading] = useState(false)
+  const [isChannelsSnapshotLoading, setIsChannelsSnapshotLoading] = useState(false)
   const [isCobranzaSnapshotLoading, setIsCobranzaSnapshotLoading] = useState(false)
   const [isControlCatalogLoading, setIsControlCatalogLoading] = useState(false)
   const [isControlActivityLoading, setIsControlActivityLoading] = useState(false)
   const [isOperationSnapshotLoaded, setIsOperationSnapshotLoaded] = useState(false)
   const [isContractsSnapshotLoaded, setIsContractsSnapshotLoaded] = useState(false)
   const [isDocumentsSnapshotLoaded, setIsDocumentsSnapshotLoaded] = useState(false)
+  const [isChannelsSnapshotLoaded, setIsChannelsSnapshotLoaded] = useState(false)
   const [isCobranzaSnapshotLoaded, setIsCobranzaSnapshotLoaded] = useState(false)
   const [isControlCoreLoaded, setIsControlCoreLoaded] = useState(false)
   const [isControlCatalogLoaded, setIsControlCatalogLoaded] = useState(false)
@@ -1203,6 +1214,7 @@ function App() {
       const loadOperationSnapshot = canReadOperational && targetView === 'operacion' && (shouldRefreshData || !isOperationSnapshotLoaded)
       const loadContractsSnapshot = canReadOperational && targetView === 'contratos' && (shouldRefreshData || !isContractsSnapshotLoaded)
       const loadDocumentsSnapshot = canReadOperational && targetView === 'documentos' && (shouldRefreshData || !isDocumentsSnapshotLoaded)
+      const loadChannelsSnapshot = canReadOperational && targetView === 'canales' && (shouldRefreshData || !isChannelsSnapshotLoaded)
       const loadCobranzaSnapshot = canReadOperational && targetView === 'cobranza' && (shouldRefreshData || !isCobranzaSnapshotLoaded)
       const loadSocios =
         (canReadOperational || canReadCompliance)
@@ -1222,6 +1234,7 @@ function App() {
       setIsOperationSnapshotLoading(loadOperationSnapshot)
       setIsContractsSnapshotLoading(loadContractsSnapshot)
       setIsDocumentsSnapshotLoading(loadDocumentsSnapshot)
+      setIsChannelsSnapshotLoading(loadChannelsSnapshot)
       setIsCobranzaSnapshotLoading(loadCobranzaSnapshot)
       setIsControlCatalogLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlCatalogLoaded))
       setIsControlActivityLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlActivityLoaded))
@@ -1248,6 +1261,7 @@ function App() {
         operationSnapshotPayload,
         contractsSnapshotPayload,
         documentsSnapshotPayload,
+        channelsSnapshotPayload,
         cobranzaSnapshotPayload,
         controlSnapshotPayload,
         reportingReferencePayload,
@@ -1283,6 +1297,11 @@ function App() {
         requestIf<DocumentsSnapshot | null>(
           loadDocumentsSnapshot,
           '/api/v1/documentos/snapshot/',
+          null,
+        ),
+        requestIf<ChannelsSnapshot | null>(
+          loadChannelsSnapshot,
+          '/api/v1/canales/snapshot/',
           null,
         ),
         requestIf<CobranzaSnapshot | null>(
@@ -1345,6 +1364,15 @@ function App() {
         setPoliticasFirma(documentsSnapshotPayload.politicas_firma)
         setDocumentosEmitidos(documentsSnapshotPayload.documentos_emitidos)
         setIsDocumentsSnapshotLoaded(true)
+      }
+      if (channelsSnapshotPayload) {
+        setGatesCanales(channelsSnapshotPayload.gates)
+        setMensajesSalientes(channelsSnapshotPayload.mensajes)
+        setIdentidades(channelsSnapshotPayload.identidades as Identidad[])
+        setContratos(channelsSnapshotPayload.contratos as Contrato[])
+        setArrendatarios(channelsSnapshotPayload.arrendatarios as Arrendatario[])
+        setDocumentosEmitidos(channelsSnapshotPayload.documentos_emitidos as DocumentoEmitidoItem[])
+        setIsChannelsSnapshotLoaded(true)
       }
       if (cobranzaSnapshotPayload) {
         setContratos(cobranzaSnapshotPayload.contratos)
@@ -1415,9 +1443,9 @@ function App() {
         const loadContratos = canReadOperational && ['canales', 'sii'].includes(targetView)
         const loadExpedientes = canReadOperational && false
         const loadPoliticasFirma = canReadOperational && false
-        const loadDocumentosEmitidos = canReadOperational && ['canales'].includes(targetView)
-        const loadGatesCanales = canReadOperational && targetView === 'canales'
-        const loadMensajesSalientes = canReadOperational && targetView === 'canales'
+        const loadDocumentosEmitidos = false
+        const loadGatesCanales = false
+        const loadMensajesSalientes = false
         const loadAvisos = false
         const loadValoresUf = canReadOperational && false
         const loadAjustes = canReadOperational && false
@@ -1664,12 +1692,14 @@ function App() {
     setIsOperationSnapshotLoading(false)
     setIsContractsSnapshotLoading(false)
     setIsDocumentsSnapshotLoading(false)
+    setIsChannelsSnapshotLoading(false)
     setIsCobranzaSnapshotLoading(false)
     setIsControlCatalogLoading(false)
     setIsControlActivityLoading(false)
     setIsOperationSnapshotLoaded(false)
     setIsContractsSnapshotLoaded(false)
     setIsDocumentsSnapshotLoaded(false)
+    setIsChannelsSnapshotLoaded(false)
     setIsCobranzaSnapshotLoaded(false)
     setIsControlCoreLoaded(false)
     setIsControlCatalogLoaded(false)
@@ -3685,6 +3715,7 @@ function App() {
           filteredGatesCanales={filteredGatesCanales}
           filteredMensajesSalientes={filteredMensajesSalientes}
           isSubmitting={isSubmitting}
+          isLoading={isChannelsSnapshotLoading}
           contratoById={contratoById}
           toneFor={toneFor}
         />
