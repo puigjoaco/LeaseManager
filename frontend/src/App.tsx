@@ -1558,13 +1558,15 @@ function App() {
         const loadManualResolutions = false
 
         if (bootstrapControl) {
+          const controlCatalogPromise = requestIf<ControlSnapshot | null>(
+            true,
+            '/api/v1/contabilidad/snapshot/?mode=catalogs',
+            null,
+          )
+
           void (async () => {
             try {
-              const controlCatalogSnapshot = await requestIf<ControlSnapshot | null>(
-                true,
-                '/api/v1/contabilidad/snapshot/?mode=catalogs',
-                null,
-              )
+              const controlCatalogSnapshot = await controlCatalogPromise
               if (controlCatalogSnapshot) {
                 setCuentasContables(controlCatalogSnapshot.cuentas_contables)
                 setReglasContables(controlCatalogSnapshot.reglas_contables)
@@ -1578,6 +1580,7 @@ function App() {
 
           void (async () => {
             try {
+              await controlCatalogPromise
               const controlActivitySnapshot = await requestIf<ControlSnapshot | null>(
                 true,
                 '/api/v1/contabilidad/snapshot/?mode=activity',
