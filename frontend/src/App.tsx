@@ -1400,7 +1400,7 @@ function App() {
         ownPartnerSummary,
       ] = await Promise.all([
         requestIf<Dashboard | null>(loadOverview, '/api/v1/reporting/dashboard/operativo/?mode=summary', dashboard),
-        requestIf<ManualSummary | null>(loadOverview, '/api/v1/reporting/migracion/resoluciones-manuales/?status=open', manualSummary),
+        manualSummary,
         requestIf<Socio[]>(loadSocios, '/api/v1/patrimonio/socios/', socios),
         requestIf<Empresa[]>(loadEmpresas, '/api/v1/patrimonio/empresas/', empresas),
         requestIf<Comunidad[]>(loadComunidades, '/api/v1/patrimonio/comunidades/', comunidades),
@@ -1612,6 +1612,21 @@ function App() {
               }
             } catch {
               // Keep the lightweight overview instead of surfacing a secondary-count failure.
+            }
+          })()
+
+          void (async () => {
+            try {
+              const manualSummaryPayload = await requestIf<ManualSummary | null>(
+                true,
+                '/api/v1/reporting/migracion/resoluciones-manuales/?status=open',
+                null,
+              )
+              if (manualSummaryPayload) {
+                setManualSummary(manualSummaryPayload)
+              }
+            } catch {
+              // Keep the summary-first overview even if manual resolution details arrive late.
             }
           })()
         }
