@@ -40,6 +40,7 @@ type CurrentUser = {
 
 type LoginResponse = { token: string; user: CurrentUser }
 const USER_STORAGE_KEY = 'leasemanager.auth.user'
+const OVERVIEW_STORAGE_KEY_PREFIX = 'leasemanager.overview'
 
 const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
   'patrimonio',
@@ -90,6 +91,77 @@ function clearStoredSession() {
   if (typeof window === 'undefined') return
   localStorage.removeItem(TOKEN_STORAGE_KEY)
   localStorage.removeItem(USER_STORAGE_KEY)
+}
+
+function overviewStorageKey(user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null) {
+  if (!user) return null
+  return `${OVERVIEW_STORAGE_KEY_PREFIX}:${user.id}:${user.username}:${user.default_role_code}`
+}
+
+function readStoredOverviewSnapshot() {
+  if (typeof window === 'undefined') {
+    return {
+      dashboard: null as Dashboard | null,
+      manualSummary: null as ManualSummary | null,
+      lastLoadedAt: null as string | null,
+    }
+  }
+
+  const key = overviewStorageKey(readStoredCurrentUser())
+  if (!key) {
+    return {
+      dashboard: null as Dashboard | null,
+      manualSummary: null as ManualSummary | null,
+      lastLoadedAt: null as string | null,
+    }
+  }
+
+  const rawSnapshot = localStorage.getItem(key)
+  if (!rawSnapshot) {
+    return {
+      dashboard: null as Dashboard | null,
+      manualSummary: null as ManualSummary | null,
+      lastLoadedAt: null as string | null,
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(rawSnapshot) as {
+      dashboard?: Dashboard | null
+      manualSummary?: ManualSummary | null
+      lastLoadedAt?: string | null
+    }
+    return {
+      dashboard: parsed.dashboard ?? null,
+      manualSummary: parsed.manualSummary ?? null,
+      lastLoadedAt: parsed.lastLoadedAt ?? null,
+    }
+  } catch {
+    localStorage.removeItem(key)
+    return {
+      dashboard: null as Dashboard | null,
+      manualSummary: null as ManualSummary | null,
+      lastLoadedAt: null as string | null,
+    }
+  }
+}
+
+function storeOverviewSnapshot(
+  user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null,
+  snapshot: {
+    dashboard: Dashboard | null
+    manualSummary: ManualSummary | null
+    lastLoadedAt: string | null
+  },
+) {
+  if (typeof window === 'undefined') return
+  const key = overviewStorageKey(user)
+  if (!key) return
+  if (!snapshot.dashboard && !snapshot.manualSummary && !snapshot.lastLoadedAt) {
+    localStorage.removeItem(key)
+    return
+  }
+  localStorage.setItem(key, JSON.stringify(snapshot))
 }
 
 function readStoredInitialView(): ViewKey {
@@ -830,11 +902,12 @@ type ReportingMigrationSummary = {
 }
 
 function App() {
+  const initialOverviewSnapshot = readStoredOverviewSnapshot()
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY))
   const [health, setHealth] = useState<HealthPayload>(fallbackHealth)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => readStoredCurrentUser())
-  const [dashboard, setDashboard] = useState<Dashboard | null>(null)
-  const [manualSummary, setManualSummary] = useState<ManualSummary | null>(null)
+  const [dashboard, setDashboard] = useState<Dashboard | null>(initialOverviewSnapshot.dashboard)
+  const [manualSummary, setManualSummary] = useState<ManualSummary | null>(initialOverviewSnapshot.manualSummary)
   const [socios, setSocios] = useState<Socio[]>([])
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [arrendatarios, setArrendatarios] = useState<Arrendatario[]>([])
@@ -885,7 +958,7 @@ function App() {
   const [workspaceError, setWorkspaceError] = useState<string | null>(null)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null)
+  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(initialOverviewSnapshot.lastLoadedAt)
   const [activeView, setActiveView] = useState<ViewKey>(() => readStoredInitialView())
   const [activeContextLabel, setActiveContextLabel] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
@@ -1805,6 +1878,10 @@ function App() {
     }
     void loadWorkspace(token)
   }, [token, activeView])
+
+  useEffect(() => {
+    storeOverviewSnapshot(currentUser, { dashboard, manualSummary, lastLoadedAt })
+  }, [currentUser, dashboard, manualSummary, lastLoadedAt])
 
   useEffect(() => {
     if (!canAccessView(activeView)) {
