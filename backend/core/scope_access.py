@@ -127,15 +127,15 @@ def scope_queryset_for_access(
         return queryset
 
     scope_filter = Q()
-    if access.company_ids:
+    if company_paths and access.company_ids:
         for path in company_paths:
             scope_filter |= Q(**{f'{path}__in': access.company_ids})
 
-    if access.visible_property_ids:
+    if property_paths and access.visible_property_ids:
         for path in property_paths:
             scope_filter |= Q(**{f'{path}__in': access.visible_property_ids})
 
-    if access.visible_bank_account_ids:
+    if bank_account_paths and access.visible_bank_account_ids:
         for path in bank_account_paths:
             scope_filter |= Q(**{f'{path}__in': access.visible_bank_account_ids})
 

@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -11,6 +13,7 @@ from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoM
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
 from .models import Role, Scope, UserScopeAssignment
+from .scope_access import ScopeAccess, scope_queryset_for_access
 
 
 class ScopeFilteringAPITests(APITestCase):
@@ -230,6 +233,25 @@ class ScopeFilteringAPITests(APITestCase):
         self.assertEqual(financial.data['pagos_generados'], 1)
         self.assertEqual(financial.data['monto_facturable_total_clp'], '100000.00')
         self.assertEqual(dashboard.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_company_only_scope_filter_skips_property_and_bank_visibility_expansion(self):
+        access = ScopeAccess(
+            restricted=True,
+            company_ids={self.company_a.id},
+            property_ids=set(),
+            bank_account_ids=set(),
+        )
+
+        with patch.object(Propiedad.objects, 'filter', side_effect=AssertionError('property expansion should not run')):
+            with patch.object(CuentaRecaudadora.objects, 'filter', side_effect=AssertionError('bank expansion should not run')):
+                queryset = scope_queryset_for_access(
+                    ConfiguracionFiscalEmpresa.objects.all(),
+                    access,
+                    company_paths=('empresa_id',),
+                )
+
+        self.assertEqual(queryset.count(), 1)
+        self.assertEqual(queryset.first().empresa_id, self.company_a.id)
 
     def test_operator_cannot_generate_payment_for_contract_outside_scope(self):
         user = self.user_model.objects.create_user(
