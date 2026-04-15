@@ -92,6 +92,11 @@ function clearStoredSession() {
   localStorage.removeItem(USER_STORAGE_KEY)
 }
 
+function readStoredInitialView(): ViewKey {
+  const storedUser = readStoredCurrentUser()
+  return storedUser ? defaultViewForRole(canonicalRole(storedUser.default_role_code)) : 'overview'
+}
+
 type Dashboard = {
   socios_total?: number
   empresas_total?: number
@@ -881,7 +886,7 @@ function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null)
-  const [activeView, setActiveView] = useState<ViewKey>('overview')
+  const [activeView, setActiveView] = useState<ViewKey>(() => readStoredInitialView())
   const [activeContextLabel, setActiveContextLabel] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
   const [formMessage, setFormMessage] = useState<string | null>(null)
