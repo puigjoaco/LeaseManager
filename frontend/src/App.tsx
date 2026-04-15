@@ -1524,11 +1524,12 @@ function App() {
   }
 
   async function loadWorkspace(activeToken: string, options: { forceUserRefresh?: boolean; forceDataRefresh?: boolean } = {}) {
+    const hasImmediateOverviewData = activeView === 'overview' && Boolean(dashboard || manualSummary)
     const shouldShowGlobalRefresh = Boolean(
       options.forceUserRefresh
       || options.forceDataRefresh
       || !currentUser
-      || !SILENT_REFRESH_VIEWS.has(activeView),
+      || (!SILENT_REFRESH_VIEWS.has(activeView) && !hasImmediateOverviewData),
     )
     if (shouldShowGlobalRefresh) {
       setIsRefreshing(true)
