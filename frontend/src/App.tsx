@@ -1289,7 +1289,9 @@ function App() {
       const loadCuentas = canReadOperational && ['conciliacion'].includes(targetView)
       const loadIdentidades = canReadOperational && ['canales'].includes(targetView)
       const loadMandatos = false
-      const bootstrapControl = canReadControl && targetView === 'contabilidad' && (shouldRefreshData || !isControlCoreLoaded)
+      const loadControlCore = canReadControl && targetView === 'contabilidad' && (shouldRefreshData || !isControlCoreLoaded)
+      const loadControlCatalog = canReadControl && targetView === 'contabilidad' && (shouldRefreshData || !isControlCatalogLoaded)
+      const loadControlActivity = canReadControl && targetView === 'contabilidad' && (shouldRefreshData || !isControlActivityLoaded)
       const bootstrapCompliance = canReadCompliance && targetView === 'compliance' && (shouldRefreshData || !isComplianceLoaded)
       setIsPatrimonioSnapshotLoading(loadPatrimonioSnapshot)
       setIsOperationSnapshotLoading(loadOperationSnapshot)
@@ -1300,8 +1302,8 @@ function App() {
       setIsConciliacionSnapshotLoading(loadConciliacionSnapshot)
       setIsSiiSnapshotLoading(loadSiiSnapshot)
       setIsAuditSnapshotLoading(loadAuditSnapshot)
-      setIsControlCatalogLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlCatalogLoaded))
-      setIsControlActivityLoading((canReadControl && targetView === 'contabilidad') && (shouldRefreshData || !isControlActivityLoaded))
+      setIsControlCatalogLoading(loadControlCatalog)
+      setIsControlActivityLoading(loadControlActivity)
       setCurrentUser(me)
       setActiveView((current) => (
         allowedViewsForRole(role).includes(current) ? current : defaultViewForRole(role)
@@ -1311,6 +1313,21 @@ function App() {
         if (!enabled) return fallback
         return apiRequest<T>(path, { token: activeToken })
       }
+
+      const controlCatalogRequest = loadControlCatalog
+        ? requestIf<ControlSnapshot | null>(
+          true,
+          '/api/v1/contabilidad/snapshot/?mode=catalogs',
+          null,
+        ).catch(() => null)
+        : Promise.resolve<ControlSnapshot | null>(null)
+      const controlActivityRequest = loadControlActivity
+        ? requestIf<ControlSnapshot | null>(
+          true,
+          '/api/v1/contabilidad/snapshot/?mode=activity',
+          null,
+        ).catch(() => null)
+        : Promise.resolve<ControlSnapshot | null>(null)
 
       const [
         dashboardPayload,
@@ -1392,7 +1409,7 @@ function App() {
           null,
         ),
         requestIf<ControlSnapshot | null>(
-          bootstrapControl,
+          loadControlCore,
           '/api/v1/contabilidad/snapshot/?mode=core',
           null,
         ),
@@ -1574,14 +1591,10 @@ function App() {
         const loadAuditEvents = false
         const loadManualResolutions = false
 
-        if (bootstrapControl) {
+        if (loadControlCatalog) {
           void (async () => {
             try {
-              const controlCatalogSnapshot = await requestIf<ControlSnapshot | null>(
-                true,
-                '/api/v1/contabilidad/snapshot/?mode=catalogs',
-                null,
-              )
+              const controlCatalogSnapshot = await controlCatalogRequest
               if (controlCatalogSnapshot) {
                 setCuentasContables(controlCatalogSnapshot.cuentas_contables)
                 setReglasContables(controlCatalogSnapshot.reglas_contables)
@@ -1592,14 +1605,14 @@ function App() {
               setIsControlCatalogLoading(false)
             }
           })()
+        } else {
+          setIsControlCatalogLoading(false)
+        }
 
+        if (loadControlActivity) {
           void (async () => {
             try {
-              const controlActivitySnapshot = await requestIf<ControlSnapshot | null>(
-                true,
-                '/api/v1/contabilidad/snapshot/?mode=activity',
-                null,
-              )
+              const controlActivitySnapshot = await controlActivityRequest
               if (controlActivitySnapshot) {
                 setEventosContables(controlActivitySnapshot.eventos_contables)
                 setAsientosContables(controlActivitySnapshot.asientos_contables)
@@ -1612,7 +1625,6 @@ function App() {
             }
           })()
         } else {
-          setIsControlCatalogLoading(false)
           setIsControlActivityLoading(false)
         }
 

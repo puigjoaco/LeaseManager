@@ -141,7 +141,7 @@ class ControlSnapshotView(APIView):
                 'configuraciones_fiscales': (
                     list(
                         scoped(
-                            ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario'),
+                            ConfiguracionFiscalEmpresa.objects.all(),
                             company_paths=('empresa_id',),
                         ).values(
                             'id',
@@ -163,7 +163,7 @@ class ControlSnapshotView(APIView):
                 'cuentas_contables': (
                     list(
                         scoped(
-                            CuentaContable.objects.select_related('empresa', 'padre'),
+                            CuentaContable.objects.all(),
                             company_paths=('empresa_id',),
                         ).values(
                             'id',
@@ -182,7 +182,7 @@ class ControlSnapshotView(APIView):
                 'reglas_contables': (
                     list(
                         scoped(
-                            ReglaContable.objects.select_related('empresa'),
+                            ReglaContable.objects.all(),
                             company_paths=('empresa_id',),
                         ).values(
                             'id',
@@ -200,7 +200,7 @@ class ControlSnapshotView(APIView):
                 'matrices_reglas': (
                     list(
                         scoped(
-                            MatrizReglasContables.objects.select_related('regla_contable', 'cuenta_debe', 'cuenta_haber'),
+                            MatrizReglasContables.objects.all(),
                             company_paths=('regla_contable__empresa_id',),
                         ).values(
                             'id',
@@ -217,7 +217,7 @@ class ControlSnapshotView(APIView):
                 'eventos_contables': (
                     list(
                         scoped(
-                            EventoContable.objects.select_related('empresa'),
+                            EventoContable.objects.all(),
                             company_paths=('empresa_id',),
                         ).values(
                             'id',
@@ -244,7 +244,7 @@ class ControlSnapshotView(APIView):
                             'movimientos': [],
                         }
                         for asiento in scoped(
-                            AsientoContable.objects.select_related('evento_contable').prefetch_related('movimientos'),
+                            AsientoContable.objects.all(),
                             company_paths=('evento_contable__empresa_id',),
                         )
                     ]
@@ -254,7 +254,7 @@ class ControlSnapshotView(APIView):
                 'obligaciones_mensuales': (
                     list(
                         scoped(
-                            ObligacionTributariaMensual.objects.select_related('empresa'),
+                            ObligacionTributariaMensual.objects.all(),
                             company_paths=('empresa_id',),
                         ).values(
                             'id',
@@ -272,7 +272,7 @@ class ControlSnapshotView(APIView):
                 'cierres_mensuales': (
                     list(
                         scoped(
-                            CierreMensualContable.objects.select_related('empresa'),
+                            CierreMensualContable.objects.all(),
                             company_paths=('empresa_id',),
                         ).values(
                             'id',
