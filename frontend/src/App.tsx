@@ -42,6 +42,7 @@ type LoginBootstrap = {
   overview?: {
     dashboard: Dashboard | null
     manual_summary: ManualSummary | null
+    health?: HealthPayload | null
   } | null
   control?: ControlSnapshot | null
 }
@@ -50,6 +51,7 @@ type LoginResponse = { token: string; user: CurrentUser; bootstrap?: LoginBootst
 const USER_STORAGE_KEY = 'leasemanager.auth.user'
 const OVERVIEW_STORAGE_KEY_PREFIX = 'leasemanager.overview'
 const CONTROL_STORAGE_KEY_PREFIX = 'leasemanager.control'
+const HEALTH_STORAGE_KEY = 'leasemanager.health'
 
 const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
   'patrimonio',
@@ -100,6 +102,27 @@ function clearStoredSession() {
   if (typeof window === 'undefined') return
   localStorage.removeItem(TOKEN_STORAGE_KEY)
   localStorage.removeItem(USER_STORAGE_KEY)
+}
+
+function readStoredHealth(): HealthPayload | null {
+  if (typeof window === 'undefined') return null
+  const rawHealth = localStorage.getItem(HEALTH_STORAGE_KEY)
+  if (!rawHealth) return null
+  try {
+    return JSON.parse(rawHealth) as HealthPayload
+  } catch {
+    localStorage.removeItem(HEALTH_STORAGE_KEY)
+    return null
+  }
+}
+
+function storeHealthSnapshot(health: HealthPayload | null) {
+  if (typeof window === 'undefined') return
+  if (!health) {
+    localStorage.removeItem(HEALTH_STORAGE_KEY)
+    return
+  }
+  localStorage.setItem(HEALTH_STORAGE_KEY, JSON.stringify(health))
 }
 
 function overviewStorageKey(user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null) {
@@ -249,10 +272,11 @@ function storeControlSnapshot(
 
 function applyOverviewBootstrapSnapshot(
   user: CurrentUser,
-  bootstrap: { dashboard: Dashboard | null; manual_summary: ManualSummary | null } | null | undefined,
+  bootstrap: { dashboard: Dashboard | null; manual_summary: ManualSummary | null; health?: HealthPayload | null } | null | undefined,
   setters: {
     setDashboard: (value: Dashboard | null) => void
     setManualSummary: (value: ManualSummary | null) => void
+    setHealth: (value: HealthPayload) => void
     setLastLoadedAt: (value: string | null) => void
   },
 ) {
@@ -260,6 +284,10 @@ function applyOverviewBootstrapSnapshot(
   const loadedAt = new Date().toISOString()
   setters.setDashboard(bootstrap.dashboard ?? null)
   setters.setManualSummary(bootstrap.manual_summary ?? null)
+  if (bootstrap.health) {
+    setters.setHealth(bootstrap.health)
+    storeHealthSnapshot(bootstrap.health)
+  }
   setters.setLastLoadedAt(loadedAt)
   storeOverviewSnapshot(user, {
     dashboard: bootstrap.dashboard ?? null,
@@ -1070,7 +1098,7 @@ function App() {
   const initialOverviewSnapshot = readStoredOverviewSnapshot()
   const initialControlSnapshot = initialView === 'contabilidad' ? readStoredControlSnapshot() : null
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY))
-  const [health, setHealth] = useState<HealthPayload>(fallbackHealth)
+  const [health, setHealth] = useState<HealthPayload>(() => readStoredHealth() || fallbackHealth)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => readStoredCurrentUser())
   const [dashboard, setDashboard] = useState<Dashboard | null>(initialOverviewSnapshot.dashboard)
   const [manualSummary, setManualSummary] = useState<ManualSummary | null>(initialOverviewSnapshot.manualSummary)
@@ -1517,9 +1545,11 @@ function App() {
 
   async function loadHealth() {
     try {
-      setHealth(await apiRequest<HealthPayload>('/api/v1/health/'))
+      const nextHealth = await apiRequest<HealthPayload>('/api/v1/health/')
+      setHealth(nextHealth)
+      storeHealthSnapshot(nextHealth)
     } catch {
-      setHealth(fallbackHealth)
+      setHealth((current) => current || fallbackHealth)
     }
   }
 
@@ -2124,6 +2154,7 @@ function App() {
       applyOverviewBootstrapSnapshot(response.user, response.bootstrap?.overview, {
         setDashboard,
         setManualSummary,
+        setHealth,
         setLastLoadedAt,
       })
       applyControlBootstrapSnapshot(response.user, response.bootstrap?.control, {

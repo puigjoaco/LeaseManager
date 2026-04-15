@@ -46,6 +46,8 @@ class UserAuthAPITests(APITestCase):
         self.assertIn('overview', response.data['bootstrap'])
         self.assertIn('dashboard', response.data['bootstrap']['overview'])
         self.assertIn('manual_summary', response.data['bootstrap']['overview'])
+        self.assertIn('health', response.data['bootstrap']['overview'])
+        self.assertEqual(response.data['bootstrap']['overview']['health']['service'], 'leasemanager-api')
 
     def test_login_returns_control_bootstrap_for_reviewer(self):
         user = get_user_model().objects.create_user(

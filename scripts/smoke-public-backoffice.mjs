@@ -90,6 +90,9 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
             lastLoadedAt: loadedAt,
           }),
         );
+        if (bootstrap.overview.health) {
+          localStorage.setItem('leasemanager.health', JSON.stringify(bootstrap.overview.health));
+        }
       }
       if (bootstrap?.control) {
         localStorage.setItem(

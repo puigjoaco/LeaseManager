@@ -5,10 +5,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from django.conf import settings
+
 from audit.services import create_audit_event
 from contabilidad.views import build_control_snapshot_payload
 from core.permissions import ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER, normalize_role_code
 from core.scope_access import get_scope_access
+from health.views import get_services_status
 from reporting.services import build_migration_manual_resolution_summary, build_operational_dashboard
 
 from .serializers import CurrentUserSerializer, LoginSerializer
@@ -23,6 +26,12 @@ def build_login_bootstrap(user):
             'overview': {
                 'dashboard': build_operational_dashboard(access=access, include_secondary=False, use_cache=True),
                 'manual_summary': build_migration_manual_resolution_summary(status='open', access=access, use_cache=True),
+                'health': {
+                    'service': 'leasemanager-api',
+                    'status': 'ok',
+                    'environment': 'development' if settings.DEBUG else 'production',
+                    'services': get_services_status(),
+                },
             }
         }
 
