@@ -310,28 +310,28 @@ export function ContabilidadWorkspace({
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
         { label: 'Acción', render: (row) => !canEditContabilidad ? 'Solo lectura' : <button type="button" className="button-ghost inline-action" onClick={() => startEditConfigFiscal(row)}>Editar</button> },
       ]} />
-      <TableBlock title="Cuentas contables" subtitle="Plan contable disponible por empresa." rows={filteredCuentasContables} empty="No hay cuentas contables para este filtro." isLoading={isCatalogLoading} loadingLabel="Cargando catálogo contable..." columns={[
+      <TableBlock title="Cuentas contables" subtitle="Plan contable disponible por empresa." rows={filteredCuentasContables} empty="No hay cuentas contables para este filtro." isLoading={isCatalogLoading} loadingLabel="Cargando catálogo contable..." preserveRowsDuringLoading columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Código', render: (row) => row.codigo },
         { label: 'Nombre', render: (row) => row.nombre },
         { label: 'Naturaleza', render: (row) => row.naturaleza },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
-      <TableBlock title="Reglas y matrices" subtitle="Mapeo entre eventos y cuentas debe/haber." rows={filteredReglasContables} empty="No hay reglas contables para este filtro." isLoading={isCatalogLoading} loadingLabel="Cargando reglas contables..." columns={[
+      <TableBlock title="Reglas y matrices" subtitle="Mapeo entre eventos y cuentas debe/haber." rows={filteredReglasContables} empty="No hay reglas contables para este filtro." isLoading={isCatalogLoading} loadingLabel="Cargando reglas contables..." preserveRowsDuringLoading columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Evento', render: (row) => row.evento_tipo },
         { label: 'Versión', render: (row) => row.plan_cuentas_version },
         { label: 'Cargo', render: (row) => row.criterio_cargo || 'Sin criterio' },
         { label: 'Abono', render: (row) => row.criterio_abono || 'Sin criterio' },
       ]} />
-      <TableBlock title="Matrices de reglas" subtitle="Detalle de cuentas usadas por regla activa." rows={filteredMatrices} empty="No hay matrices para este filtro." isLoading={isCatalogLoading} loadingLabel="Cargando matrices contables..." columns={[
+      <TableBlock title="Matrices de reglas" subtitle="Detalle de cuentas usadas por regla activa." rows={filteredMatrices} empty="No hay matrices para este filtro." isLoading={isCatalogLoading} loadingLabel="Cargando matrices contables..." preserveRowsDuringLoading columns={[
         { label: 'Regla', render: (row) => reglaById.get(row.regla_contable)?.evento_tipo || row.regla_contable },
         { label: 'Debe', render: (row) => cuentaContableById.get(row.cuenta_debe)?.codigo || row.cuenta_debe },
         { label: 'Haber', render: (row) => cuentaContableById.get(row.cuenta_haber)?.codigo || row.cuenta_haber },
         { label: 'Condición', render: (row) => row.condicion_impuesto || 'Sin condición' },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
-      <TableBlock title="Eventos contables" subtitle="Hechos económicos pendientes, en revisión o contabilizados." rows={filteredEventosContables} empty="No hay eventos contables para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando actividad contable..." columns={[
+      <TableBlock title="Eventos contables" subtitle="Hechos económicos pendientes, en revisión o contabilizados." rows={filteredEventosContables} empty="No hay eventos contables para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando actividad contable..." preserveRowsDuringLoading columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa || 0)?.razon_social || row.empresa || 'Sin empresa' },
         { label: 'Evento', render: (row) => row.evento_tipo },
         { label: 'Origen', render: (row) => `${row.entidad_origen_tipo}:${row.entidad_origen_id}` },
@@ -350,21 +350,21 @@ export function ContabilidadWorkspace({
           },
         },
       ]} />
-      <TableBlock title="Asientos contables" subtitle="Asientos balanceados generados desde eventos." rows={filteredAsientosContables} empty="No hay asientos para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando asientos..." columns={[
+      <TableBlock title="Asientos contables" subtitle="Asientos balanceados generados desde eventos." rows={filteredAsientosContables} empty="No hay asientos para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando asientos..." preserveRowsDuringLoading columns={[
         { label: 'Evento', render: (row) => row.evento_contable },
         { label: 'Período', render: (row) => row.periodo_contable },
         { label: 'Debe', render: (row) => row.debe_total },
         { label: 'Haber', render: (row) => row.haber_total },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
-      <TableBlock title="Obligaciones mensuales" subtitle="PPM e impuestos preparados desde los cierres." rows={filteredObligaciones} empty="No hay obligaciones mensuales para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando obligaciones..." columns={[
+      <TableBlock title="Obligaciones mensuales" subtitle="PPM e impuestos preparados desde los cierres." rows={filteredObligaciones} empty="No hay obligaciones mensuales para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando obligaciones..." preserveRowsDuringLoading columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
         { label: 'Tipo', render: (row) => row.obligacion_tipo },
         { label: 'Monto', render: (row) => row.monto_calculado },
         { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
       ]} />
-      <TableBlock title="Cierres mensuales" subtitle="Preparación, aprobación y reapertura del período." rows={filteredCierres} empty="No hay cierres mensuales para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando cierres mensuales..." columns={[
+      <TableBlock title="Cierres mensuales" subtitle="Preparación, aprobación y reapertura del período." rows={filteredCierres} empty="No hay cierres mensuales para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando cierres mensuales..." preserveRowsDuringLoading columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },

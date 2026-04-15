@@ -47,6 +47,7 @@ export function TableBlock<T extends { id: number | string }>({
   empty,
   isLoading = false,
   loadingLabel = 'Cargando...',
+  preserveRowsDuringLoading = false,
 }: {
   title: string
   subtitle: string
@@ -55,7 +56,9 @@ export function TableBlock<T extends { id: number | string }>({
   empty: string
   isLoading?: boolean
   loadingLabel?: string
+  preserveRowsDuringLoading?: boolean
 }) {
+  const showRowsWhileLoading = preserveRowsDuringLoading && isLoading && rows.length > 0
   return (
     <section className="data-block">
       <div className="section-heading">
@@ -63,29 +66,32 @@ export function TableBlock<T extends { id: number | string }>({
           <h3>{title}</h3>
           <p>{subtitle}</p>
         </div>
-        {!isLoading ? <Badge label={`${count(rows.length)} registros`} /> : null}
+        {(!isLoading || showRowsWhileLoading) ? <Badge label={`${count(rows.length)} registros`} /> : null}
       </div>
-      {isLoading ? (
+      {isLoading && !showRowsWhileLoading ? (
         <div className="empty-state">{loadingLabel}</div>
       ) : rows.length === 0 ? (
         <div className="empty-state">{empty}</div>
       ) : (
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>{columns.map((column) => <th key={column.label}>{column.label}</th>)}</tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  {columns.map((column) => (
-                    <td key={column.label}>{column.render(row)}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {showRowsWhileLoading ? <div className="empty-state compact">{loadingLabel}</div> : null}
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>{columns.map((column) => <th key={column.label}>{column.label}</th>)}</tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id}>
+                    {columns.map((column) => (
+                      <td key={column.label}>{column.render(row)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </section>
   )

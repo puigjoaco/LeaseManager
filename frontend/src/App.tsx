@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import heroImage from './assets/hero.png'
 import { ApiError, apiRequest, API_BASE_URL, fallbackHealth, TOKEN_STORAGE_KEY } from './backoffice/api'
@@ -41,6 +41,7 @@ type CurrentUser = {
 type LoginResponse = { token: string; user: CurrentUser }
 const USER_STORAGE_KEY = 'leasemanager.auth.user'
 const OVERVIEW_STORAGE_KEY_PREFIX = 'leasemanager.overview'
+const CONTROL_STORAGE_KEY_PREFIX = 'leasemanager.control'
 
 const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
   'patrimonio',
@@ -158,6 +159,80 @@ function storeOverviewSnapshot(
   const key = overviewStorageKey(user)
   if (!key) return
   if (!snapshot.dashboard && !snapshot.manualSummary && !snapshot.lastLoadedAt) {
+    localStorage.removeItem(key)
+    return
+  }
+  localStorage.setItem(key, JSON.stringify(snapshot))
+}
+
+function controlStorageKey(user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null) {
+  if (!user) return null
+  return `${CONTROL_STORAGE_KEY_PREFIX}:${user.id}:${user.username}:${user.default_role_code}`
+}
+
+function readStoredControlSnapshot() {
+  if (typeof window === 'undefined') {
+    return null as null | {
+      empresas: Empresa[]
+      regimenesTributarios: RegimenTributario[]
+      configuracionesFiscales: ConfiguracionFiscal[]
+      cuentasContables: CuentaContable[]
+      reglasContables: ReglaContable[]
+      matricesReglas: MatrizRegla[]
+      eventosContables: EventoContable[]
+      asientosContables: AsientoContable[]
+      obligacionesMensuales: ObligacionMensual[]
+      cierresMensuales: CierreMensual[]
+      lastLoadedAt: string | null
+    }
+  }
+
+  const key = controlStorageKey(readStoredCurrentUser())
+  if (!key) return null
+
+  const rawSnapshot = localStorage.getItem(key)
+  if (!rawSnapshot) return null
+
+  try {
+    return JSON.parse(rawSnapshot) as {
+      empresas: Empresa[]
+      regimenesTributarios: RegimenTributario[]
+      configuracionesFiscales: ConfiguracionFiscal[]
+      cuentasContables: CuentaContable[]
+      reglasContables: ReglaContable[]
+      matricesReglas: MatrizRegla[]
+      eventosContables: EventoContable[]
+      asientosContables: AsientoContable[]
+      obligacionesMensuales: ObligacionMensual[]
+      cierresMensuales: CierreMensual[]
+      lastLoadedAt: string | null
+    }
+  } catch {
+    localStorage.removeItem(key)
+    return null
+  }
+}
+
+function storeControlSnapshot(
+  user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null,
+  snapshot: {
+    empresas: Empresa[]
+    regimenesTributarios: RegimenTributario[]
+    configuracionesFiscales: ConfiguracionFiscal[]
+    cuentasContables: CuentaContable[]
+    reglasContables: ReglaContable[]
+    matricesReglas: MatrizRegla[]
+    eventosContables: EventoContable[]
+    asientosContables: AsientoContable[]
+    obligacionesMensuales: ObligacionMensual[]
+    cierresMensuales: CierreMensual[]
+    lastLoadedAt: string | null
+  } | null,
+) {
+  if (typeof window === 'undefined') return
+  const key = controlStorageKey(user)
+  if (!key) return
+  if (!snapshot) {
     localStorage.removeItem(key)
     return
   }
@@ -902,14 +977,16 @@ type ReportingMigrationSummary = {
 }
 
 function App() {
+  const initialView = readStoredInitialView()
   const initialOverviewSnapshot = readStoredOverviewSnapshot()
+  const initialControlSnapshot = initialView === 'contabilidad' ? readStoredControlSnapshot() : null
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY))
   const [health, setHealth] = useState<HealthPayload>(fallbackHealth)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => readStoredCurrentUser())
   const [dashboard, setDashboard] = useState<Dashboard | null>(initialOverviewSnapshot.dashboard)
   const [manualSummary, setManualSummary] = useState<ManualSummary | null>(initialOverviewSnapshot.manualSummary)
   const [socios, setSocios] = useState<Socio[]>([])
-  const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [empresas, setEmpresas] = useState<Empresa[]>(initialControlSnapshot?.empresas || [])
   const [arrendatarios, setArrendatarios] = useState<Arrendatario[]>([])
   const [comunidades, setComunidades] = useState<Comunidad[]>([])
   const [propiedades, setPropiedades] = useState<Propiedad[]>([])
@@ -932,15 +1009,15 @@ function App() {
   const [conexionesBancarias, setConexionesBancarias] = useState<ConexionBancaria[]>([])
   const [movimientosBancarios, setMovimientosBancarios] = useState<MovimientoBancario[]>([])
   const [ingresosDesconocidos, setIngresosDesconocidos] = useState<IngresoDesconocido[]>([])
-  const [regimenesTributarios, setRegimenesTributarios] = useState<RegimenTributario[]>([])
-  const [configuracionesFiscales, setConfiguracionesFiscales] = useState<ConfiguracionFiscal[]>([])
-  const [cuentasContables, setCuentasContables] = useState<CuentaContable[]>([])
-  const [reglasContables, setReglasContables] = useState<ReglaContable[]>([])
-  const [matricesReglas, setMatricesReglas] = useState<MatrizRegla[]>([])
-  const [eventosContables, setEventosContables] = useState<EventoContable[]>([])
-  const [asientosContables, setAsientosContables] = useState<AsientoContable[]>([])
-  const [obligacionesMensuales, setObligacionesMensuales] = useState<ObligacionMensual[]>([])
-  const [cierresMensuales, setCierresMensuales] = useState<CierreMensual[]>([])
+  const [regimenesTributarios, setRegimenesTributarios] = useState<RegimenTributario[]>(initialControlSnapshot?.regimenesTributarios || [])
+  const [configuracionesFiscales, setConfiguracionesFiscales] = useState<ConfiguracionFiscal[]>(initialControlSnapshot?.configuracionesFiscales || [])
+  const [cuentasContables, setCuentasContables] = useState<CuentaContable[]>(initialControlSnapshot?.cuentasContables || [])
+  const [reglasContables, setReglasContables] = useState<ReglaContable[]>(initialControlSnapshot?.reglasContables || [])
+  const [matricesReglas, setMatricesReglas] = useState<MatrizRegla[]>(initialControlSnapshot?.matricesReglas || [])
+  const [eventosContables, setEventosContables] = useState<EventoContable[]>(initialControlSnapshot?.eventosContables || [])
+  const [asientosContables, setAsientosContables] = useState<AsientoContable[]>(initialControlSnapshot?.asientosContables || [])
+  const [obligacionesMensuales, setObligacionesMensuales] = useState<ObligacionMensual[]>(initialControlSnapshot?.obligacionesMensuales || [])
+  const [cierresMensuales, setCierresMensuales] = useState<CierreMensual[]>(initialControlSnapshot?.cierresMensuales || [])
   const [auditEvents, setAuditEvents] = useState<AuditEventItem[]>([])
   const [manualResolutions, setManualResolutions] = useState<ManualResolutionItem[]>([])
   const [capacidadesSii, setCapacidadesSii] = useState<CapacidadSii[]>([])
@@ -958,8 +1035,8 @@ function App() {
   const [workspaceError, setWorkspaceError] = useState<string | null>(null)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(initialOverviewSnapshot.lastLoadedAt)
-  const [activeView, setActiveView] = useState<ViewKey>(() => readStoredInitialView())
+  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(initialOverviewSnapshot.lastLoadedAt ?? initialControlSnapshot?.lastLoadedAt ?? null)
+  const [activeView, setActiveView] = useState<ViewKey>(initialView)
   const [activeContextLabel, setActiveContextLabel] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
   const [formMessage, setFormMessage] = useState<string | null>(null)
@@ -1290,12 +1367,13 @@ function App() {
   const [isConciliacionSnapshotLoaded, setIsConciliacionSnapshotLoaded] = useState(false)
   const [isSiiSnapshotLoaded, setIsSiiSnapshotLoaded] = useState(false)
   const [isAuditSnapshotLoaded, setIsAuditSnapshotLoaded] = useState(false)
-  const [isControlCoreLoaded, setIsControlCoreLoaded] = useState(false)
-  const [isControlCatalogLoaded, setIsControlCatalogLoaded] = useState(false)
-  const [isControlActivityLoaded, setIsControlActivityLoaded] = useState(false)
+  const [isControlCoreLoaded, setIsControlCoreLoaded] = useState(Boolean(initialControlSnapshot))
+  const [isControlCatalogLoaded, setIsControlCatalogLoaded] = useState(Boolean(initialControlSnapshot?.cuentasContables.length || initialControlSnapshot?.reglasContables.length || initialControlSnapshot?.matricesReglas.length))
+  const [isControlActivityLoaded, setIsControlActivityLoaded] = useState(Boolean(initialControlSnapshot?.eventosContables.length || initialControlSnapshot?.asientosContables.length || initialControlSnapshot?.obligacionesMensuales.length || initialControlSnapshot?.cierresMensuales.length))
   const [isReportingReferencesLoaded, setIsReportingReferencesLoaded] = useState(false)
   const [isComplianceLoaded, setIsComplianceLoaded] = useState(false)
   const [isPatrimonioSnapshotLoaded, setIsPatrimonioSnapshotLoaded] = useState(false)
+  const seededControlRefreshPendingRef = useRef(Boolean(initialControlSnapshot))
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
     status: 'open',
     rationale: '',
@@ -1876,12 +1954,62 @@ function App() {
       storeCurrentUser(null)
       return
     }
-    void loadWorkspace(token)
+    const forceSeededControlRefresh = activeView === 'contabilidad' && seededControlRefreshPendingRef.current
+    if (forceSeededControlRefresh) {
+      seededControlRefreshPendingRef.current = false
+    }
+    void loadWorkspace(token, forceSeededControlRefresh ? { forceDataRefresh: true } : undefined)
   }, [token, activeView])
 
   useEffect(() => {
     storeOverviewSnapshot(currentUser, { dashboard, manualSummary, lastLoadedAt })
   }, [currentUser, dashboard, manualSummary, lastLoadedAt])
+
+  useEffect(() => {
+    const hasControlPayload =
+      empresas.length > 0
+      || regimenesTributarios.length > 0
+      || configuracionesFiscales.length > 0
+      || cuentasContables.length > 0
+      || reglasContables.length > 0
+      || matricesReglas.length > 0
+      || eventosContables.length > 0
+      || asientosContables.length > 0
+      || obligacionesMensuales.length > 0
+      || cierresMensuales.length > 0
+
+    storeControlSnapshot(
+      currentUser,
+      hasControlPayload
+        ? {
+          empresas,
+          regimenesTributarios,
+          configuracionesFiscales,
+          cuentasContables,
+          reglasContables,
+          matricesReglas,
+          eventosContables,
+          asientosContables,
+          obligacionesMensuales,
+          cierresMensuales,
+          lastLoadedAt,
+        }
+        : null,
+    )
+  }, [
+    currentUser,
+    empresas,
+    regimenesTributarios,
+    configuracionesFiscales,
+    cuentasContables,
+    reglasContables,
+    matricesReglas,
+    eventosContables,
+    asientosContables,
+    obligacionesMensuales,
+    cierresMensuales,
+    lastLoadedAt,
+  ])
 
   useEffect(() => {
     if (!canAccessView(activeView)) {
