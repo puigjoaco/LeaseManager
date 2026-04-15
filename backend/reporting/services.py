@@ -24,12 +24,34 @@ from sii.models import DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, Pr
 
 def build_operational_dashboard(access: ScopeAccess | None = None, *, include_secondary: bool = True):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    if not access.restricted:
+        payload = {
+            'propiedades_activas': Propiedad.objects.filter(estado='activa').count(),
+            'contratos_vigentes': Contrato.objects.filter(estado='vigente').count(),
+            'pagos_pendientes': PagoMensual.objects.filter(estado_pago='pendiente').count(),
+            'pagos_atrasados': PagoMensual.objects.filter(estado_pago='atrasado').count(),
+            'resoluciones_manuales_abiertas': ManualResolution.objects.filter(status='open').count(),
+            'dtes_borrador': DTEEmitido.objects.filter(estado_dte='borrador').count(),
+        }
+        if include_secondary:
+            payload.update(
+                {
+                    'contratos_futuros': Contrato.objects.filter(estado='futuro').count(),
+                    'mensajes_preparados': MensajeSaliente.objects.filter(estado='preparado').count(),
+                }
+            )
+            payload.update(build_operational_overview_counts(access=access))
+            payload.update(
+                {
+                    'ingresos_desconocidos_abiertos': IngresoDesconocido.objects.filter(estado='pendiente_revision').count(),
+                    'cierres_preparados': CierreMensualContable.objects.filter(estado='preparado').count(),
+                    'cierres_aprobados': CierreMensualContable.objects.filter(estado='aprobado').count(),
+                    'mensajes_bloqueados': MensajeSaliente.objects.filter(estado='bloqueado').count(),
+                }
+            )
+        return payload
+
     propiedades = scope_queryset_for_access(Propiedad.objects.all(), access, property_paths=('id',))
-    cuentas = scope_queryset_for_access(
-        CuentaRecaudadora.objects.all(),
-        access,
-        bank_account_paths=('id',),
-    )
     contratos = scope_queryset_for_access(
         Contrato.objects.all(),
         access,
@@ -69,14 +91,18 @@ def build_operational_dashboard(access: ScopeAccess | None = None, *, include_se
     payload = {
         'propiedades_activas': propiedades_counts['activas'],
         'contratos_vigentes': contratos_counts['vigentes'],
-        'contratos_futuros': contratos_counts['futuros'],
         'pagos_pendientes': pagos_counts['pendientes'],
         'pagos_atrasados': pagos_counts['atrasados'],
         'resoluciones_manuales_abiertas': resoluciones_abiertas.count(),
         'dtes_borrador': dtes_borrador.count(),
-        'mensajes_preparados': mensajes_counts['preparados'],
     }
     if include_secondary:
+        payload.update(
+            {
+                'contratos_futuros': contratos_counts['futuros'],
+                'mensajes_preparados': mensajes_counts['preparados'],
+            }
+        )
         payload.update(build_operational_overview_counts(access=access))
         ingresos_desconocidos = scope_queryset_for_access(
             IngresoDesconocido.objects.filter(estado='pendiente_revision'),
@@ -110,6 +136,17 @@ def build_operational_dashboard(access: ScopeAccess | None = None, *, include_se
 
 def build_operational_overview_counts(access: ScopeAccess | None = None):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    if not access.restricted:
+        return {
+            'socios_total': Socio.objects.count(),
+            'empresas_total': Empresa.objects.count(),
+            'comunidades_total': ComunidadPatrimonial.objects.count(),
+            'propiedades_total': Propiedad.objects.count(),
+            'cuentas_total': CuentaRecaudadora.objects.count(),
+            'identidades_total': IdentidadDeEnvio.objects.count(),
+            'mandatos_total': MandatoOperacion.objects.count(),
+        }
+
     socios = scope_queryset_for_access(
         Socio.objects.all(),
         access,
