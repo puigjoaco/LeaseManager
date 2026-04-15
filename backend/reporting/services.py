@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.db.models import Count, Q, Sum
 
 from audit.models import ManualResolution
@@ -21,9 +22,22 @@ from operacion.models import CuentaRecaudadora, IdentidadDeEnvio, MandatoOperaci
 from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio
 from sii.models import DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, ProcesoRentaAnual
 
+REPORTING_CACHE_TTL_SECONDS = 15
+
+
+def _cache_key(prefix: str) -> str:
+    return f'reporting:{prefix}'
+
 
 def build_operational_dashboard(access: ScopeAccess | None = None, *, include_secondary: bool = True):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    if not access.restricted:
+        cache_key = _cache_key(f'operational-dashboard:{"full" if include_secondary else "summary"}')
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return cached_payload
+
+    payload = None
     if not access.restricted:
         payload = {
             'propiedades_activas': Propiedad.objects.filter(estado='activa').count(),
@@ -49,87 +63,93 @@ def build_operational_dashboard(access: ScopeAccess | None = None, *, include_se
                     'mensajes_bloqueados': MensajeSaliente.objects.filter(estado='bloqueado').count(),
                 }
             )
-        return payload
-
-    propiedades = scope_queryset_for_access(Propiedad.objects.all(), access, property_paths=('id',))
-    contratos = scope_queryset_for_access(
-        Contrato.objects.all(),
-        access,
-        property_paths=('mandato_operacion__propiedad_id',),
-    )
-    pagos = scope_queryset_for_access(
-        PagoMensual.objects.all(),
-        access,
-        property_paths=('contrato__mandato_operacion__propiedad_id',),
-    )
-    dtes_borrador = scope_queryset_for_access(
-        DTEEmitido.objects.filter(estado_dte='borrador'),
-        access,
-        company_paths=('empresa_id',),
-    )
-    mensajes = scope_queryset_for_access(
-        MensajeSaliente.objects.all(),
-        access,
-        property_paths=('contrato__mandato_operacion__propiedad_id', 'arrendatario__contratos__mandato_operacion__propiedad_id'),
-    )
-    resoluciones_abiertas = ManualResolution.objects.none() if access.restricted else ManualResolution.objects.filter(status='open')
-
-    propiedades_counts = propiedades.aggregate(
-        activas=Count('id', filter=Q(estado='activa'), distinct=True),
-    )
-    contratos_counts = contratos.aggregate(
-        vigentes=Count('id', filter=Q(estado='vigente'), distinct=True),
-        futuros=Count('id', filter=Q(estado='futuro'), distinct=True),
-    )
-    pagos_counts = pagos.aggregate(
-        pendientes=Count('id', filter=Q(estado_pago='pendiente'), distinct=True),
-        atrasados=Count('id', filter=Q(estado_pago='atrasado'), distinct=True),
-    )
-    mensajes_counts = mensajes.aggregate(
-        preparados=Count('id', filter=Q(estado='preparado'), distinct=True),
-    )
-    payload = {
-        'propiedades_activas': propiedades_counts['activas'],
-        'contratos_vigentes': contratos_counts['vigentes'],
-        'pagos_pendientes': pagos_counts['pendientes'],
-        'pagos_atrasados': pagos_counts['atrasados'],
-        'resoluciones_manuales_abiertas': resoluciones_abiertas.count(),
-        'dtes_borrador': dtes_borrador.count(),
-    }
-    if include_secondary:
-        payload.update(
-            {
-                'contratos_futuros': contratos_counts['futuros'],
-                'mensajes_preparados': mensajes_counts['preparados'],
-            }
-        )
-        payload.update(build_operational_overview_counts(access=access))
-        ingresos_desconocidos = scope_queryset_for_access(
-            IngresoDesconocido.objects.filter(estado='pendiente_revision'),
+    else:
+        propiedades = scope_queryset_for_access(Propiedad.objects.all(), access, property_paths=('id',))
+        contratos = scope_queryset_for_access(
+            Contrato.objects.all(),
             access,
-            bank_account_paths=('cuenta_recaudadora_id',),
+            property_paths=('mandato_operacion__propiedad_id',),
         )
-        cierres = scope_queryset_for_access(
-            CierreMensualContable.objects.all(),
+        pagos = scope_queryset_for_access(
+            PagoMensual.objects.all(),
+            access,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+        )
+        dtes_borrador = scope_queryset_for_access(
+            DTEEmitido.objects.filter(estado_dte='borrador'),
             access,
             company_paths=('empresa_id',),
         )
-        cierres_counts = cierres.aggregate(
-            preparados=Count('id', filter=Q(estado='preparado'), distinct=True),
-            aprobados=Count('id', filter=Q(estado='aprobado'), distinct=True),
-        )
-        mensajes_bloqueados = scope_queryset_for_access(
-            MensajeSaliente.objects.filter(estado='bloqueado'),
+        mensajes = scope_queryset_for_access(
+            MensajeSaliente.objects.all(),
             access,
             property_paths=('contrato__mandato_operacion__propiedad_id', 'arrendatario__contratos__mandato_operacion__propiedad_id'),
         )
-        payload.update(
-            {
-                'ingresos_desconocidos_abiertos': ingresos_desconocidos.count(),
-                'cierres_preparados': cierres_counts['preparados'],
-                'cierres_aprobados': cierres_counts['aprobados'],
-                'mensajes_bloqueados': mensajes_bloqueados.count(),
-            }
+        resoluciones_abiertas = ManualResolution.objects.none()
+
+        propiedades_counts = propiedades.aggregate(
+            activas=Count('id', filter=Q(estado='activa'), distinct=True),
+        )
+        contratos_counts = contratos.aggregate(
+            vigentes=Count('id', filter=Q(estado='vigente'), distinct=True),
+            futuros=Count('id', filter=Q(estado='futuro'), distinct=True),
+        )
+        pagos_counts = pagos.aggregate(
+            pendientes=Count('id', filter=Q(estado_pago='pendiente'), distinct=True),
+            atrasados=Count('id', filter=Q(estado_pago='atrasado'), distinct=True),
+        )
+        mensajes_counts = mensajes.aggregate(
+            preparados=Count('id', filter=Q(estado='preparado'), distinct=True),
+        )
+        payload = {
+            'propiedades_activas': propiedades_counts['activas'],
+            'contratos_vigentes': contratos_counts['vigentes'],
+            'pagos_pendientes': pagos_counts['pendientes'],
+            'pagos_atrasados': pagos_counts['atrasados'],
+            'resoluciones_manuales_abiertas': resoluciones_abiertas.count(),
+            'dtes_borrador': dtes_borrador.count(),
+        }
+        if include_secondary:
+            payload.update(
+                {
+                    'contratos_futuros': contratos_counts['futuros'],
+                    'mensajes_preparados': mensajes_counts['preparados'],
+                }
+            )
+            payload.update(build_operational_overview_counts(access=access))
+            ingresos_desconocidos = scope_queryset_for_access(
+                IngresoDesconocido.objects.filter(estado='pendiente_revision'),
+                access,
+                bank_account_paths=('cuenta_recaudadora_id',),
+            )
+            cierres = scope_queryset_for_access(
+                CierreMensualContable.objects.all(),
+                access,
+                company_paths=('empresa_id',),
+            )
+            cierres_counts = cierres.aggregate(
+                preparados=Count('id', filter=Q(estado='preparado'), distinct=True),
+                aprobados=Count('id', filter=Q(estado='aprobado'), distinct=True),
+            )
+            mensajes_bloqueados = scope_queryset_for_access(
+                MensajeSaliente.objects.filter(estado='bloqueado'),
+                access,
+                property_paths=('contrato__mandato_operacion__propiedad_id', 'arrendatario__contratos__mandato_operacion__propiedad_id'),
+            )
+            payload.update(
+                {
+                    'ingresos_desconocidos_abiertos': ingresos_desconocidos.count(),
+                    'cierres_preparados': cierres_counts['preparados'],
+                    'cierres_aprobados': cierres_counts['aprobados'],
+                    'mensajes_bloqueados': mensajes_bloqueados.count(),
+                }
+            )
+
+    if not access.restricted:
+        cache.set(
+            _cache_key(f'operational-dashboard:{"full" if include_secondary else "summary"}'),
+            payload,
+            REPORTING_CACHE_TTL_SECONDS,
         )
     return payload
 
@@ -137,7 +157,12 @@ def build_operational_dashboard(access: ScopeAccess | None = None, *, include_se
 def build_operational_overview_counts(access: ScopeAccess | None = None):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
     if not access.restricted:
-        return {
+        cache_key = _cache_key('operational-overview-counts')
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return cached_payload
+
+        payload = {
             'socios_total': Socio.objects.count(),
             'empresas_total': Empresa.objects.count(),
             'comunidades_total': ComunidadPatrimonial.objects.count(),
@@ -146,6 +171,8 @@ def build_operational_overview_counts(access: ScopeAccess | None = None):
             'identidades_total': IdentidadDeEnvio.objects.count(),
             'mandatos_total': MandatoOperacion.objects.count(),
         }
+        cache.set(cache_key, payload, REPORTING_CACHE_TTL_SECONDS)
+        return payload
 
     socios = scope_queryset_for_access(
         Socio.objects.all(),
@@ -522,6 +549,11 @@ def build_migration_manual_resolution_summary(status='open', access: ScopeAccess
             'scope_types': [],
             'propiedades_owner_manual_required': [],
         }
+    cache_key = _cache_key(f'migration-manual-resolution-summary:{status}')
+    cached_payload = cache.get(cache_key)
+    if cached_payload is not None:
+        return cached_payload
+
     resolutions = ManualResolution.objects.filter(category__startswith='migration.')
     if status:
         resolutions = resolutions.filter(status=status)
@@ -531,7 +563,7 @@ def build_migration_manual_resolution_summary(status='open', access: ScopeAccess
 
     owner_manual_required = resolutions.filter(category='migration.propiedad.owner_manual_required').order_by('created_at')
 
-    return {
+    payload = {
         'status': status,
         'total': resolutions.count(),
         'categorias': [
@@ -558,3 +590,5 @@ def build_migration_manual_resolution_summary(status='open', access: ScopeAccess
             for item in owner_manual_required
         ],
     }
+    cache.set(cache_key, payload, REPORTING_CACHE_TTL_SECONDS)
+    return payload
