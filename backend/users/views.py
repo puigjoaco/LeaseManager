@@ -6,8 +6,32 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
+from contabilidad.views import build_control_snapshot_payload
+from core.permissions import ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER, normalize_role_code
+from core.scope_access import get_scope_access
+from reporting.services import build_migration_manual_resolution_summary, build_operational_dashboard
 
 from .serializers import CurrentUserSerializer, LoginSerializer
+
+
+def build_login_bootstrap(user):
+    role = normalize_role_code(getattr(user, 'default_role_code', ''))
+    access = get_scope_access(user)
+
+    if role in {ROLE_ADMIN, ROLE_OPERATOR}:
+        return {
+            'overview': {
+                'dashboard': build_operational_dashboard(access=access, include_secondary=False, use_cache=True),
+                'manual_summary': build_migration_manual_resolution_summary(status='open', access=access, use_cache=True),
+            }
+        }
+
+    if role == ROLE_REVIEWER:
+        return {
+            'control': build_control_snapshot_payload(access, mode='full', use_cache=True),
+        }
+
+    return {}
 
 
 class LoginView(APIView):
@@ -43,7 +67,8 @@ class LoginView(APIView):
             actor_user=user,
             ip_address=request.META.get('REMOTE_ADDR'),
         )
-        return Response({'token': token.key, 'user': CurrentUserSerializer(user).data})
+        user_payload = CurrentUserSerializer(user).data
+        return Response({'token': token.key, 'user': user_payload, 'bootstrap': build_login_bootstrap(user)})
 
 
 class LogoutView(APIView):

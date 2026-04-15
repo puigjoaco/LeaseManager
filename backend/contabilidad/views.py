@@ -50,6 +50,211 @@ from .services import approve_monthly_close, post_accounting_event, prepare_mont
 CONTROL_SNAPSHOT_CACHE_TTL_SECONDS = 15
 
 
+def build_control_snapshot_payload(access, *, mode='full', use_cache=True):
+    include_core = mode in {'full', 'core'}
+    include_catalogs = mode in {'full', 'catalogs'}
+    include_activity = mode in {'full', 'activity'}
+
+    cache_key = None
+    if use_cache:
+        cache_key = (
+            'contabilidad:snapshot:'
+            f'{mode}:restricted={int(access.restricted)}:'
+            f'companies={",".join(map(str, sorted(access.company_ids)))}:'
+            f'properties={",".join(map(str, sorted(access.property_ids)))}:'
+            f'bank_accounts={",".join(map(str, sorted(access.bank_account_ids)))}'
+        )
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return cached_payload
+
+    def scoped(queryset, *, company_paths: tuple[str, ...]):
+        return scope_queryset_for_access(queryset, access, company_paths=company_paths)
+
+    payload = {
+        'regimenes_tributarios': (
+            list(
+                RegimenTributarioEmpresa.objects.values(
+                    'id',
+                    'codigo_regimen',
+                    'descripcion',
+                    'estado',
+                )
+            )
+            if include_core
+            else []
+        ),
+        'empresas': (
+            [
+                {
+                    'id': empresa.id,
+                    'razon_social': empresa.razon_social,
+                    'rut': empresa.rut,
+                    'estado': empresa.estado,
+                    'participaciones_detail': [],
+                }
+                for empresa in scoped(
+                    Empresa.objects.order_by('razon_social', 'id'),
+                    company_paths=('id',),
+                )
+            ]
+            if include_core
+            else []
+        ),
+        'configuraciones_fiscales': (
+            list(
+                scoped(
+                    ConfiguracionFiscalEmpresa.objects.all(),
+                    company_paths=('empresa_id',),
+                ).values(
+                    'id',
+                    'empresa',
+                    'regimen_tributario',
+                    'afecta_iva_arriendo',
+                    'tasa_iva',
+                    'tasa_ppm_vigente',
+                    'aplica_ppm',
+                    'ddjj_habilitadas',
+                    'inicio_ejercicio',
+                    'moneda_funcional',
+                    'estado',
+                )
+            )
+            if include_core
+            else []
+        ),
+        'cuentas_contables': (
+            list(
+                scoped(
+                    CuentaContable.objects.all(),
+                    company_paths=('empresa_id',),
+                ).values(
+                    'id',
+                    'empresa',
+                    'plan_cuentas_version',
+                    'codigo',
+                    'nombre',
+                    'naturaleza',
+                    'padre',
+                    'estado',
+                )
+            )
+            if include_catalogs
+            else []
+        ),
+        'reglas_contables': (
+            list(
+                scoped(
+                    ReglaContable.objects.all(),
+                    company_paths=('empresa_id',),
+                ).values(
+                    'id',
+                    'empresa',
+                    'evento_tipo',
+                    'plan_cuentas_version',
+                    'criterio_cargo',
+                    'criterio_abono',
+                    'estado',
+                )
+            )
+            if include_catalogs
+            else []
+        ),
+        'matrices_reglas': (
+            list(
+                scoped(
+                    MatrizReglasContables.objects.all(),
+                    company_paths=('regla_contable__empresa_id',),
+                ).values(
+                    'id',
+                    'regla_contable',
+                    'cuenta_debe',
+                    'cuenta_haber',
+                    'condicion_impuesto',
+                    'estado',
+                )
+            )
+            if include_catalogs
+            else []
+        ),
+        'eventos_contables': (
+            list(
+                scoped(
+                    EventoContable.objects.all(),
+                    company_paths=('empresa_id',),
+                ).values(
+                    'id',
+                    'empresa',
+                    'evento_tipo',
+                    'entidad_origen_tipo',
+                    'entidad_origen_id',
+                    'monto_base',
+                    'estado_contable',
+                )
+            )
+            if include_activity
+            else []
+        ),
+        'asientos_contables': (
+            [
+                {
+                    'id': asiento.id,
+                    'evento_contable': asiento.evento_contable_id,
+                    'periodo_contable': asiento.periodo_contable,
+                    'estado': asiento.estado,
+                    'debe_total': asiento.debe_total,
+                    'haber_total': asiento.haber_total,
+                    'movimientos': [],
+                }
+                for asiento in scoped(
+                    AsientoContable.objects.all(),
+                    company_paths=('evento_contable__empresa_id',),
+                )
+            ]
+            if include_activity
+            else []
+        ),
+        'obligaciones_mensuales': (
+            list(
+                scoped(
+                    ObligacionTributariaMensual.objects.all(),
+                    company_paths=('empresa_id',),
+                ).values(
+                    'id',
+                    'empresa',
+                    'anio',
+                    'mes',
+                    'obligacion_tipo',
+                    'monto_calculado',
+                    'estado_preparacion',
+                )
+            )
+            if include_activity
+            else []
+        ),
+        'cierres_mensuales': (
+            list(
+                scoped(
+                    CierreMensualContable.objects.all(),
+                    company_paths=('empresa_id',),
+                ).values(
+                    'id',
+                    'empresa',
+                    'anio',
+                    'mes',
+                    'estado',
+                )
+            )
+            if include_activity
+            else []
+        ),
+    }
+
+    if use_cache and cache_key:
+        cache.set(cache_key, payload, CONTROL_SNAPSHOT_CACHE_TTL_SECONDS)
+    return payload
+
+
 class AuditCreateUpdateMixin:
     audit_entity_type = ''
     audit_entity_label = ''
@@ -104,207 +309,7 @@ class ControlSnapshotView(APIView):
         access = get_scope_access(request.user)
         mode = request.query_params.get('mode', 'full')
         use_cache = request.query_params.get('refresh') != '1'
-        include_core = mode in {'full', 'core'}
-        include_catalogs = mode in {'full', 'catalogs'}
-        include_activity = mode in {'full', 'activity'}
-
-        if use_cache:
-            cache_key = (
-                'contabilidad:snapshot:'
-                f'{mode}:restricted={int(access.restricted)}:'
-                f'companies={",".join(map(str, sorted(access.company_ids)))}:'
-                f'properties={",".join(map(str, sorted(access.property_ids)))}:'
-                f'bank_accounts={",".join(map(str, sorted(access.bank_account_ids)))}'
-            )
-            cached_payload = cache.get(cache_key)
-            if cached_payload is not None:
-                return Response(cached_payload)
-
-        def scoped(queryset, *, company_paths: tuple[str, ...]):
-            return scope_queryset_for_access(queryset, access, company_paths=company_paths)
-
-        payload = {
-            'regimenes_tributarios': (
-                list(
-                    RegimenTributarioEmpresa.objects.values(
-                        'id',
-                        'codigo_regimen',
-                        'descripcion',
-                        'estado',
-                    )
-                )
-                if include_core
-                else []
-            ),
-            'empresas': (
-                [
-                    {
-                        'id': empresa.id,
-                        'razon_social': empresa.razon_social,
-                        'rut': empresa.rut,
-                        'estado': empresa.estado,
-                        'participaciones_detail': [],
-                    }
-                    for empresa in scoped(
-                        Empresa.objects.order_by('razon_social', 'id'),
-                        company_paths=('id',),
-                    )
-                ]
-                if include_core
-                else []
-            ),
-            'configuraciones_fiscales': (
-                list(
-                    scoped(
-                        ConfiguracionFiscalEmpresa.objects.all(),
-                        company_paths=('empresa_id',),
-                    ).values(
-                        'id',
-                        'empresa',
-                        'regimen_tributario',
-                        'afecta_iva_arriendo',
-                        'tasa_iva',
-                        'tasa_ppm_vigente',
-                        'aplica_ppm',
-                        'ddjj_habilitadas',
-                        'inicio_ejercicio',
-                        'moneda_funcional',
-                        'estado',
-                    )
-                )
-                if include_core
-                else []
-            ),
-            'cuentas_contables': (
-                list(
-                    scoped(
-                        CuentaContable.objects.all(),
-                        company_paths=('empresa_id',),
-                    ).values(
-                        'id',
-                        'empresa',
-                        'plan_cuentas_version',
-                        'codigo',
-                        'nombre',
-                        'naturaleza',
-                        'padre',
-                        'estado',
-                    )
-                )
-                if include_catalogs
-                else []
-            ),
-            'reglas_contables': (
-                list(
-                    scoped(
-                        ReglaContable.objects.all(),
-                        company_paths=('empresa_id',),
-                    ).values(
-                        'id',
-                        'empresa',
-                        'evento_tipo',
-                        'plan_cuentas_version',
-                        'criterio_cargo',
-                        'criterio_abono',
-                        'estado',
-                    )
-                )
-                if include_catalogs
-                else []
-            ),
-            'matrices_reglas': (
-                list(
-                    scoped(
-                        MatrizReglasContables.objects.all(),
-                        company_paths=('regla_contable__empresa_id',),
-                    ).values(
-                        'id',
-                        'regla_contable',
-                        'cuenta_debe',
-                        'cuenta_haber',
-                        'condicion_impuesto',
-                        'estado',
-                    )
-                )
-                if include_catalogs
-                else []
-            ),
-            'eventos_contables': (
-                list(
-                    scoped(
-                        EventoContable.objects.all(),
-                        company_paths=('empresa_id',),
-                    ).values(
-                        'id',
-                        'empresa',
-                        'evento_tipo',
-                        'entidad_origen_tipo',
-                        'entidad_origen_id',
-                        'monto_base',
-                        'estado_contable',
-                    )
-                )
-                if include_activity
-                else []
-            ),
-            'asientos_contables': (
-                [
-                    {
-                        'id': asiento.id,
-                        'evento_contable': asiento.evento_contable_id,
-                        'periodo_contable': asiento.periodo_contable,
-                        'estado': asiento.estado,
-                        'debe_total': asiento.debe_total,
-                        'haber_total': asiento.haber_total,
-                        'movimientos': [],
-                    }
-                    for asiento in scoped(
-                        AsientoContable.objects.all(),
-                        company_paths=('evento_contable__empresa_id',),
-                    )
-                ]
-                if include_activity
-                else []
-            ),
-            'obligaciones_mensuales': (
-                list(
-                    scoped(
-                        ObligacionTributariaMensual.objects.all(),
-                        company_paths=('empresa_id',),
-                    ).values(
-                        'id',
-                        'empresa',
-                        'anio',
-                        'mes',
-                        'obligacion_tipo',
-                        'monto_calculado',
-                        'estado_preparacion',
-                    )
-                )
-                if include_activity
-                else []
-            ),
-            'cierres_mensuales': (
-                list(
-                    scoped(
-                        CierreMensualContable.objects.all(),
-                        company_paths=('empresa_id',),
-                    ).values(
-                        'id',
-                        'empresa',
-                        'anio',
-                        'mes',
-                        'estado',
-                    )
-                )
-                if include_activity
-                else []
-            ),
-        }
-
-        if use_cache:
-            cache.set(cache_key, payload, CONTROL_SNAPSHOT_CACHE_TTL_SECONDS)
-        return Response(payload)
+        return Response(build_control_snapshot_payload(access, mode=mode, use_cache=use_cache))
 
 
 class RegimenTributarioEmpresaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):

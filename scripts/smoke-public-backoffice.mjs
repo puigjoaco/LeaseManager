@@ -77,10 +77,39 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
   try {
     const start = Date.now();
     await page.goto(frontendUrl, { waitUntil: 'domcontentloaded' });
-    await page.evaluate(({ storedToken, storedUser }) => {
+    await page.evaluate(({ storedToken, storedUser, bootstrap }) => {
       localStorage.setItem('leasemanager.auth.token', storedToken);
       localStorage.setItem('leasemanager.auth.user', JSON.stringify(storedUser));
-    }, { storedToken: session.token, storedUser: session.user });
+      const loadedAt = new Date().toISOString();
+      if (bootstrap?.overview) {
+        localStorage.setItem(
+          `leasemanager.overview:${storedUser.id}:${storedUser.username}:${storedUser.default_role_code}`,
+          JSON.stringify({
+            dashboard: bootstrap.overview.dashboard ?? null,
+            manualSummary: bootstrap.overview.manual_summary ?? null,
+            lastLoadedAt: loadedAt,
+          }),
+        );
+      }
+      if (bootstrap?.control) {
+        localStorage.setItem(
+          `leasemanager.control:${storedUser.id}:${storedUser.username}:${storedUser.default_role_code}`,
+          JSON.stringify({
+            empresas: bootstrap.control.empresas,
+            regimenesTributarios: bootstrap.control.regimenes_tributarios,
+            configuracionesFiscales: bootstrap.control.configuraciones_fiscales,
+            cuentasContables: bootstrap.control.cuentas_contables,
+            reglasContables: bootstrap.control.reglas_contables,
+            matricesReglas: bootstrap.control.matrices_reglas,
+            eventosContables: bootstrap.control.eventos_contables,
+            asientosContables: bootstrap.control.asientos_contables,
+            obligacionesMensuales: bootstrap.control.obligaciones_mensuales,
+            cierresMensuales: bootstrap.control.cierres_mensuales,
+            lastLoadedAt: loadedAt,
+          }),
+        );
+      }
+    }, { storedToken: session.token, storedUser: session.user, bootstrap: session.bootstrap || null });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForFunction((displayName) => document.body.innerText.includes(displayName), account.displayName);
 

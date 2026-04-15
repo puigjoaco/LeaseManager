@@ -38,7 +38,15 @@ type CurrentUser = {
   assignments: Array<{ role: string; scope: string | null; is_primary: boolean }>
 }
 
-type LoginResponse = { token: string; user: CurrentUser }
+type LoginBootstrap = {
+  overview?: {
+    dashboard: Dashboard | null
+    manual_summary: ManualSummary | null
+  } | null
+  control?: ControlSnapshot | null
+}
+
+type LoginResponse = { token: string; user: CurrentUser; bootstrap?: LoginBootstrap | null }
 const USER_STORAGE_KEY = 'leasemanager.auth.user'
 const OVERVIEW_STORAGE_KEY_PREFIX = 'leasemanager.overview'
 const CONTROL_STORAGE_KEY_PREFIX = 'leasemanager.control'
@@ -237,6 +245,87 @@ function storeControlSnapshot(
     return
   }
   localStorage.setItem(key, JSON.stringify(snapshot))
+}
+
+function applyOverviewBootstrapSnapshot(
+  user: CurrentUser,
+  bootstrap: { dashboard: Dashboard | null; manual_summary: ManualSummary | null } | null | undefined,
+  setters: {
+    setDashboard: (value: Dashboard | null) => void
+    setManualSummary: (value: ManualSummary | null) => void
+    setLastLoadedAt: (value: string | null) => void
+  },
+) {
+  if (!bootstrap) return
+  const loadedAt = new Date().toISOString()
+  setters.setDashboard(bootstrap.dashboard ?? null)
+  setters.setManualSummary(bootstrap.manual_summary ?? null)
+  setters.setLastLoadedAt(loadedAt)
+  storeOverviewSnapshot(user, {
+    dashboard: bootstrap.dashboard ?? null,
+    manualSummary: bootstrap.manual_summary ?? null,
+    lastLoadedAt: loadedAt,
+  })
+}
+
+function applyControlBootstrapSnapshot(
+  user: CurrentUser,
+  bootstrap: ControlSnapshot | null | undefined,
+  setters: {
+    setEmpresas: (value: Empresa[]) => void
+    setRegimenesTributarios: (value: RegimenTributario[]) => void
+    setConfiguracionesFiscales: (value: ConfiguracionFiscal[]) => void
+    setCuentasContables: (value: CuentaContable[]) => void
+    setReglasContables: (value: ReglaContable[]) => void
+    setMatricesReglas: (value: MatrizRegla[]) => void
+    setEventosContables: (value: EventoContable[]) => void
+    setAsientosContables: (value: AsientoContable[]) => void
+    setObligacionesMensuales: (value: ObligacionMensual[]) => void
+    setCierresMensuales: (value: CierreMensual[]) => void
+    setIsControlCoreLoaded: (value: boolean) => void
+    setIsControlCatalogLoaded: (value: boolean) => void
+    setIsControlActivityLoaded: (value: boolean) => void
+    setLastLoadedAt: (value: string | null) => void
+  },
+) {
+  if (!bootstrap) return
+  const loadedAt = new Date().toISOString()
+  setters.setEmpresas(bootstrap.empresas)
+  setters.setRegimenesTributarios(bootstrap.regimenes_tributarios)
+  setters.setConfiguracionesFiscales(bootstrap.configuraciones_fiscales)
+  setters.setCuentasContables(bootstrap.cuentas_contables)
+  setters.setReglasContables(bootstrap.reglas_contables)
+  setters.setMatricesReglas(bootstrap.matrices_reglas)
+  setters.setEventosContables(bootstrap.eventos_contables)
+  setters.setAsientosContables(bootstrap.asientos_contables)
+  setters.setObligacionesMensuales(bootstrap.obligaciones_mensuales)
+  setters.setCierresMensuales(bootstrap.cierres_mensuales)
+  setters.setIsControlCoreLoaded(true)
+  setters.setIsControlCatalogLoaded(
+    bootstrap.cuentas_contables.length > 0
+    || bootstrap.reglas_contables.length > 0
+    || bootstrap.matrices_reglas.length > 0,
+  )
+  setters.setIsControlActivityLoaded(
+    bootstrap.eventos_contables.length > 0
+    || bootstrap.asientos_contables.length > 0
+    || bootstrap.obligaciones_mensuales.length > 0
+    || bootstrap.cierres_mensuales.length > 0,
+  )
+  setters.setLastLoadedAt(loadedAt)
+  storeControlSnapshot(user, {
+    empresas: bootstrap.empresas,
+    regimenesTributarios: bootstrap.regimenes_tributarios,
+    configuracionesFiscales: bootstrap.configuraciones_fiscales,
+    cuentasContables: bootstrap.cuentas_contables,
+    reglasContables: bootstrap.reglas_contables,
+    matricesReglas: bootstrap.matrices_reglas,
+    eventosContables: bootstrap.eventos_contables,
+    asientosContables: bootstrap.asientos_contables,
+    obligacionesMensuales: bootstrap.obligaciones_mensuales,
+    cierresMensuales: bootstrap.cierres_mensuales,
+    lastLoadedAt: loadedAt,
+  })
 }
 
 function readStoredInitialView(): ViewKey {
@@ -2031,6 +2120,27 @@ function App() {
       storeCurrentUser(response.user)
       setToken(response.token)
       setCurrentUser(response.user)
+      applyOverviewBootstrapSnapshot(response.user, response.bootstrap?.overview, {
+        setDashboard,
+        setManualSummary,
+        setLastLoadedAt,
+      })
+      applyControlBootstrapSnapshot(response.user, response.bootstrap?.control, {
+        setEmpresas,
+        setRegimenesTributarios,
+        setConfiguracionesFiscales,
+        setCuentasContables,
+        setReglasContables,
+        setMatricesReglas,
+        setEventosContables,
+        setAsientosContables,
+        setObligacionesMensuales,
+        setCierresMensuales,
+        setIsControlCoreLoaded,
+        setIsControlCatalogLoaded,
+        setIsControlActivityLoaded,
+        setLastLoadedAt,
+      })
       setPassword('')
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : 'No se pudo autenticar.')
