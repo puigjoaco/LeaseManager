@@ -39,6 +39,7 @@ type CurrentUser = {
 }
 
 type LoginResponse = { token: string; user: CurrentUser }
+const USER_STORAGE_KEY = 'leasemanager.auth.user'
 
 const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
   'patrimonio',
@@ -52,6 +53,44 @@ const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
   'contabilidad',
   'sii',
 ])
+
+function readStoredCurrentUser(): CurrentUser | null {
+  if (typeof window === 'undefined') return null
+  const rawUser = localStorage.getItem(USER_STORAGE_KEY)
+  if (!rawUser) return null
+
+  try {
+    const parsed = JSON.parse(rawUser) as Partial<CurrentUser>
+    if (
+      typeof parsed?.id === 'number'
+      && typeof parsed?.username === 'string'
+      && typeof parsed?.default_role_code === 'string'
+      && Array.isArray(parsed?.assignments)
+    ) {
+      return parsed as CurrentUser
+    }
+  } catch {
+    // Drop invalid cached payloads and continue with a hard refresh.
+  }
+
+  localStorage.removeItem(USER_STORAGE_KEY)
+  return null
+}
+
+function storeCurrentUser(user: CurrentUser | null) {
+  if (typeof window === 'undefined') return
+  if (!user) {
+    localStorage.removeItem(USER_STORAGE_KEY)
+    return
+  }
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user))
+}
+
+function clearStoredSession() {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(TOKEN_STORAGE_KEY)
+  localStorage.removeItem(USER_STORAGE_KEY)
+}
 
 type Dashboard = {
   socios_total?: number
@@ -788,7 +827,7 @@ type ReportingMigrationSummary = {
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY))
   const [health, setHealth] = useState<HealthPayload>(fallbackHealth)
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => readStoredCurrentUser())
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [manualSummary, setManualSummary] = useState<ManualSummary | null>(null)
   const [socios, setSocios] = useState<Socio[]>([])
@@ -1305,6 +1344,7 @@ function App() {
       setIsControlCatalogLoading(loadControlCatalog)
       setIsControlActivityLoading(loadControlActivity)
       setCurrentUser(me)
+      storeCurrentUser(me)
       setActiveView((current) => (
         allowedViewsForRole(role).includes(current) ? current : defaultViewForRole(role)
       ))
@@ -1698,7 +1738,7 @@ function App() {
           setLastLoadedAt(new Date().toISOString())
         } catch (error) {
           if (error instanceof ApiError && error.status === 401) {
-            localStorage.removeItem(TOKEN_STORAGE_KEY)
+            clearStoredSession()
             setToken(null)
             setCurrentUser(null)
             setWorkspaceError('La sesión expiró. Ingresa nuevamente.')
@@ -1707,7 +1747,7 @@ function App() {
       })()
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
-        localStorage.removeItem(TOKEN_STORAGE_KEY)
+        clearStoredSession()
         setToken(null)
         setCurrentUser(null)
         setWorkspaceError('La sesión expiró. Ingresa nuevamente.')
@@ -1735,6 +1775,7 @@ function App() {
   useEffect(() => {
     if (!token) {
       setCurrentUser(null)
+      storeCurrentUser(null)
       return
     }
     void loadWorkspace(token)
@@ -1757,6 +1798,7 @@ function App() {
         body: { username, password },
       })
       localStorage.setItem(TOKEN_STORAGE_KEY, response.token)
+      storeCurrentUser(response.user)
       setToken(response.token)
       setCurrentUser(response.user)
       setPassword('')
@@ -1775,7 +1817,7 @@ function App() {
         // Ignore logout errors and clear local state anyway.
       }
     }
-    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    clearStoredSession()
     setToken(null)
     setCurrentUser(null)
     setDashboard(null)

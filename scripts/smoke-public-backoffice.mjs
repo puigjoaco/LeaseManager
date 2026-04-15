@@ -65,11 +65,11 @@ async function fetchToken(apiBaseUrl, username, password) {
     throw new Error(`Login failed for ${username}: HTTP ${response.status}`);
   }
   const payload = await response.json();
-  return payload.token;
+  return payload;
 }
 
 async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
-  const token = await fetchToken(apiBaseUrl, account.username, account.password);
+  const session = await fetchToken(apiBaseUrl, account.username, account.password);
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
   page.setDefaultTimeout(180_000);
@@ -77,9 +77,10 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
   try {
     const start = Date.now();
     await page.goto(frontendUrl, { waitUntil: 'domcontentloaded' });
-    await page.evaluate((storedToken) => {
+    await page.evaluate(({ storedToken, storedUser }) => {
       localStorage.setItem('leasemanager.auth.token', storedToken);
-    }, token);
+      localStorage.setItem('leasemanager.auth.user', JSON.stringify(storedUser));
+    }, { storedToken: session.token, storedUser: session.user });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       (username) => document.body.innerText.includes(username),
