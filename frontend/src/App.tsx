@@ -1367,14 +1367,14 @@ function App() {
       const controlCatalogRequest = loadControlCatalog
         ? requestIf<ControlSnapshot | null>(
           true,
-          '/api/v1/contabilidad/snapshot/?mode=catalogs',
+          withRefreshParam('/api/v1/contabilidad/snapshot/?mode=catalogs'),
           null,
         ).catch(() => null)
         : Promise.resolve<ControlSnapshot | null>(null)
       const controlActivityRequest = loadControlActivity
         ? requestIf<ControlSnapshot | null>(
           true,
-          '/api/v1/contabilidad/snapshot/?mode=activity',
+          withRefreshParam('/api/v1/contabilidad/snapshot/?mode=activity'),
           null,
         ).catch(() => null)
         : Promise.resolve<ControlSnapshot | null>(null)
@@ -1460,7 +1460,7 @@ function App() {
         ),
         requestIf<ControlSnapshot | null>(
           loadControlCore,
-          '/api/v1/contabilidad/snapshot/?mode=core',
+          withRefreshParam('/api/v1/contabilidad/snapshot/?mode=core'),
           null,
         ),
         requestIf<ReportingReferenceOptions | null>(

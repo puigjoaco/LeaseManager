@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -15,6 +16,7 @@ from .services import DEFAULT_REGIME_CODE, ensure_default_regime
 
 class ContabilidadAPITests(APITestCase):
     def setUp(self):
+        cache.clear()
         user_model = get_user_model()
         self.user = user_model.objects.create_user(
             username='ledger',
@@ -27,8 +29,10 @@ class ContabilidadAPITests(APITestCase):
         return Socio.objects.create(nombre=nombre, rut=rut, activo=activo)
 
     def _create_active_empresa(self, nombre='LedgerCo', rut='88888888-8'):
-        socio_1 = self._create_socio(f'{nombre} Socio 1', '11111111-1')
-        socio_2 = self._create_socio(f'{nombre} Socio 2', '22222222-2')
+        rut_seed = ''.join(char for char in rut if char.isdigit())
+        socio_seed = rut_seed[-7:]
+        socio_1 = self._create_socio(f'{nombre} Socio 1', f'{socio_seed}1-1')
+        socio_2 = self._create_socio(f'{nombre} Socio 2', f'{socio_seed}2-2')
         empresa = Empresa.objects.create(razon_social=nombre, rut=rut, estado='activa')
         ParticipacionPatrimonial.objects.create(
             participante_socio=socio_1,
@@ -293,6 +297,34 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(len(response.data['eventos_contables']), 1)
         self.assertEqual(len(response.data['obligaciones_mensuales']), 1)
         self.assertEqual(len(response.data['cierres_mensuales']), 1)
+
+    def test_control_snapshot_refresh_bypasses_cached_mode_payload(self):
+        empresa = self._create_active_empresa(nombre='SnapshotRefreshCo', rut='73737374-7')
+        self._setup_contabilidad(empresa)
+
+        initial = self.client.get(f"{reverse('contabilidad-snapshot')}?mode=core")
+        self.assertEqual(initial.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(initial.data['configuraciones_fiscales']), 1)
+
+        ConfiguracionFiscalEmpresa.objects.create(
+            empresa=self._create_active_empresa(nombre='SnapshotRefreshCo2', rut='73737375-7'),
+            regimen_tributario=ensure_default_regime(),
+            afecta_iva_arriendo=False,
+            tasa_iva='0.00',
+            aplica_ppm=True,
+            ddjj_habilitadas=[],
+            inicio_ejercicio='2026-01-01',
+            moneda_funcional='CLP',
+            estado='activa',
+        )
+
+        cached = self.client.get(f"{reverse('contabilidad-snapshot')}?mode=core")
+        self.assertEqual(cached.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(cached.data['configuraciones_fiscales']), 1)
+
+        refreshed = self.client.get(f"{reverse('contabilidad-snapshot')}?mode=core&refresh=1")
+        self.assertEqual(refreshed.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(refreshed.data['configuraciones_fiscales']), 2)
 
     def test_retry_post_after_setup_creates_balanced_asiento(self):
         empresa = self._create_active_empresa(nombre='RetryCo', rut='99999999-9')
