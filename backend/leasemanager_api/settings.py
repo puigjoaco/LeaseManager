@@ -22,6 +22,7 @@ env = environ.Env(
     DATABASE_URL=(str, 'postgresql://leasemanager:leasemanager@localhost:5433/leasemanager'),
     REDIS_URL=(str, 'redis://localhost:6379/0'),
     CELERY_RESULT_BACKEND=(str, 'redis://localhost:6379/1'),
+    DJANGO_CACHE_URL=(str, ''),
     LEGACY_ROOT_PATH=(str, str(LEGACY_ROOT)),
     FRONTEND_URL=(str, 'http://localhost:5173'),
     DATA_EXPORT_ENCRYPTION_KEY=(str, ''),
@@ -154,6 +155,40 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+
+def _resolve_cache_location() -> str:
+    configured_cache_url = env('DJANGO_CACHE_URL').strip()
+    if configured_cache_url:
+        return configured_cache_url
+
+    redis_url = env('REDIS_URL').strip()
+    if not DEBUG and redis_url:
+        return redis_url
+
+    return ''
+
+
+_cache_location = _resolve_cache_location()
+
+CACHES = (
+    {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': _cache_location,
+            'KEY_PREFIX': 'leasemanager',
+            'TIMEOUT': 300,
+        }
+    }
+    if _cache_location
+    else {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'leasemanager-local-cache',
+            'TIMEOUT': 300,
+        }
+    }
+)
 
 LEGACY_ROOT_PATH = env('LEGACY_ROOT_PATH')
 
