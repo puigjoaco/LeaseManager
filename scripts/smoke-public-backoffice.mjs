@@ -7,8 +7,8 @@ import { chromium } from 'playwright';
 const DEFAULT_FRONTEND_URL = 'https://leasemanager-backoffice.vercel.app/';
 const DEFAULT_API_BASE_URL = 'https://surprising-balance-production.up.railway.app';
 const DEFAULT_ACCOUNTS = [
-  { label: 'admin', username: 'demo-admin', password: 'demo12345' },
-  { label: 'reviewer', username: 'demo-revisor', password: 'demo12345' },
+  { label: 'admin', username: 'demo-admin', password: 'demo12345', displayName: 'Demo Administrador Global', waitFor: 'overview' },
+  { label: 'reviewer', username: 'demo-revisor', password: 'demo12345', displayName: 'Demo Revisor Fiscal Externo', waitFor: 'contabilidad' },
 ];
 
 function parseArgs(argv) {
@@ -82,14 +82,22 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
       localStorage.setItem('leasemanager.auth.user', JSON.stringify(storedUser));
     }, { storedToken: session.token, storedUser: session.user });
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(
-      (username) => document.body.innerText.includes(username),
-      account.username === 'demo-admin' ? 'Demo Administrador Global' : 'Demo Revisor Fiscal Externo',
-    );
-    await page.waitForFunction(
-      () => !document.body.innerText.includes('Actualizando...') && document.body.innerText.includes('Actualizar'),
-    );
-    await page.waitForTimeout(2_000);
+    await page.waitForFunction((displayName) => document.body.innerText.includes(displayName), account.displayName);
+
+    if (account.waitFor === 'contabilidad') {
+      await page.waitForFunction(() => document.body.innerText.includes('Regímenes tributarios'));
+      await page.waitForFunction(
+        () =>
+          !document.body.innerText.includes('Cargando catálogo contable...')
+          && !document.body.innerText.includes('Cargando actividad contable...')
+          && document.body.innerText.includes('Cierres mensuales'),
+      );
+    } else {
+      await page.waitForFunction(
+        () => !document.body.innerText.includes('Actualizando...') && document.body.innerText.includes('Actualizar'),
+      );
+      await page.waitForTimeout(2_000);
+    }
 
     const body = await page.locator('body').innerText();
     const tabs = await page
