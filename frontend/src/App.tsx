@@ -361,6 +361,13 @@ function readStoredInitialView(): ViewKey {
   return storedUser ? defaultViewForRole(canonicalRole(storedUser.default_role_code)) : 'overview'
 }
 
+function isRecentSnapshot(value: string | null, maxAgeMs = 30_000) {
+  if (!value) return false
+  const timestamp = Date.parse(value)
+  if (Number.isNaN(timestamp)) return false
+  return Date.now() - timestamp <= maxAgeMs
+}
+
 type Dashboard = {
   socios_total?: number
   empresas_total?: number
@@ -1490,7 +1497,7 @@ function App() {
   const [isReportingReferencesLoaded, setIsReportingReferencesLoaded] = useState(false)
   const [isComplianceLoaded, setIsComplianceLoaded] = useState(false)
   const [isPatrimonioSnapshotLoaded, setIsPatrimonioSnapshotLoaded] = useState(false)
-  const seededControlRefreshPendingRef = useRef(Boolean(initialControlSnapshot))
+  const seededControlRefreshPendingRef = useRef(Boolean(initialControlSnapshot && !isRecentSnapshot(initialControlSnapshot.lastLoadedAt)))
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
     status: 'open',
     rationale: '',
