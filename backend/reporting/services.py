@@ -29,9 +29,14 @@ def _cache_key(prefix: str) -> str:
     return f'reporting:{prefix}'
 
 
-def build_operational_dashboard(access: ScopeAccess | None = None, *, include_secondary: bool = True):
+def build_operational_dashboard(
+    access: ScopeAccess | None = None,
+    *,
+    include_secondary: bool = True,
+    use_cache: bool = True,
+):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
-    if not access.restricted:
+    if use_cache and not access.restricted:
         cache_key = _cache_key(f'operational-dashboard:{"full" if include_secondary else "summary"}')
         cached_payload = cache.get(cache_key)
         if cached_payload is not None:
@@ -145,7 +150,7 @@ def build_operational_dashboard(access: ScopeAccess | None = None, *, include_se
                 }
             )
 
-    if not access.restricted:
+    if use_cache and not access.restricted:
         cache.set(
             _cache_key(f'operational-dashboard:{"full" if include_secondary else "summary"}'),
             payload,
@@ -154,14 +159,15 @@ def build_operational_dashboard(access: ScopeAccess | None = None, *, include_se
     return payload
 
 
-def build_operational_overview_counts(access: ScopeAccess | None = None):
+def build_operational_overview_counts(access: ScopeAccess | None = None, *, use_cache: bool = True):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
-    if not access.restricted:
+    if not access.restricted and use_cache:
         cache_key = _cache_key('operational-overview-counts')
         cached_payload = cache.get(cache_key)
         if cached_payload is not None:
             return cached_payload
 
+    if not access.restricted:
         payload = {
             'socios_total': Socio.objects.count(),
             'empresas_total': Empresa.objects.count(),
@@ -171,7 +177,8 @@ def build_operational_overview_counts(access: ScopeAccess | None = None):
             'identidades_total': IdentidadDeEnvio.objects.count(),
             'mandatos_total': MandatoOperacion.objects.count(),
         }
-        cache.set(cache_key, payload, REPORTING_CACHE_TTL_SECONDS)
+        if use_cache:
+            cache.set(_cache_key('operational-overview-counts'), payload, REPORTING_CACHE_TTL_SECONDS)
         return payload
 
     socios = scope_queryset_for_access(
@@ -539,7 +546,12 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
     }
 
 
-def build_migration_manual_resolution_summary(status='open', access: ScopeAccess | None = None):
+def build_migration_manual_resolution_summary(
+    status='open',
+    access: ScopeAccess | None = None,
+    *,
+    use_cache: bool = True,
+):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
     if access.restricted:
         return {
@@ -550,9 +562,10 @@ def build_migration_manual_resolution_summary(status='open', access: ScopeAccess
             'propiedades_owner_manual_required': [],
         }
     cache_key = _cache_key(f'migration-manual-resolution-summary:{status}')
-    cached_payload = cache.get(cache_key)
-    if cached_payload is not None:
-        return cached_payload
+    if use_cache:
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return cached_payload
 
     resolutions = ManualResolution.objects.filter(category__startswith='migration.')
     if status:
@@ -590,5 +603,6 @@ def build_migration_manual_resolution_summary(status='open', access: ScopeAccess
             for item in owner_manual_required
         ],
     }
-    cache.set(cache_key, payload, REPORTING_CACHE_TTL_SECONDS)
+    if use_cache:
+        cache.set(cache_key, payload, REPORTING_CACHE_TTL_SECONDS)
     return payload

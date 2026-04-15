@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -17,6 +18,7 @@ from sii.models import CapacidadTributariaSII, DDJJPreparacionAnual, DTEEmitido,
 
 class ReportingAPITests(APITestCase):
     def setUp(self):
+        cache.clear()
         user_model = get_user_model()
         self.user = user_model.objects.create_user(
             username='reporting',
@@ -26,8 +28,13 @@ class ReportingAPITests(APITestCase):
         self.client.force_authenticate(self.user)
 
     def _create_context(self, codigo='RPT', owner_kind='socio', with_facturadora=False):
-        socio = Socio.objects.create(nombre=f'Socio {codigo}', rut='11111111-1', email='socio@example.com')
-        empresa = Empresa.objects.create(razon_social=f'Empresa {codigo}', rut='22222222-2', estado='activa')
+        codigo_num = sum(ord(char) for char in codigo)
+        socio = Socio.objects.create(
+            nombre=f'Socio {codigo}',
+            rut=f'{11000000 + codigo_num}-1',
+            email=f'socio-{codigo.lower()}@example.com',
+        )
+        empresa = Empresa.objects.create(razon_social=f'Empresa {codigo}', rut=f'{22000000 + codigo_num}-2', estado='activa')
         ParticipacionPatrimonial.objects.create(
             participante_socio=socio,
             empresa_owner=empresa,
@@ -73,8 +80,8 @@ class ReportingAPITests(APITestCase):
         arrendatario = Arrendatario.objects.create(
             tipo_arrendatario='persona_natural',
             nombre_razon_social=f'Arrendatario {codigo}',
-            rut='33333333-3',
-            email='tenant@example.com',
+            rut=f'{33000000 + codigo_num}-3',
+            email=f'tenant-{codigo.lower()}@example.com',
             telefono='+56912345678',
             domicilio_notificaciones='Dir',
             estado_contacto='activo',
@@ -184,6 +191,23 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['pagos_pendientes'], 1)
         self.assertEqual(response.data['ingresos_desconocidos_abiertos'], 1)
         self.assertEqual(response.data['mensajes_bloqueados'], 1)
+
+    def test_operational_dashboard_refresh_bypasses_cached_summary(self):
+        self._create_context('CACHE1')
+
+        initial = self.client.get(f"{reverse('reporting-dashboard-operativo')}?mode=summary")
+        self.assertEqual(initial.status_code, status.HTTP_200_OK)
+        self.assertEqual(initial.data['propiedades_activas'], 1)
+
+        self._create_context('CACHE2')
+
+        cached = self.client.get(f"{reverse('reporting-dashboard-operativo')}?mode=summary")
+        self.assertEqual(cached.status_code, status.HTTP_200_OK)
+        self.assertEqual(cached.data['propiedades_activas'], 1)
+
+        refreshed = self.client.get(f"{reverse('reporting-dashboard-operativo')}?mode=summary&refresh=1")
+        self.assertEqual(refreshed.status_code, status.HTTP_200_OK)
+        self.assertEqual(refreshed.data['propiedades_activas'], 2)
 
     def test_financial_monthly_summary_aggregates_payments_events_and_obligations(self):
         _, empresa, _, _, contrato, periodo = self._create_context('FIN', owner_kind='empresa', with_facturadora=True)

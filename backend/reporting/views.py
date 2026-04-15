@@ -15,20 +15,30 @@ from .services import (
 )
 
 
+def _use_cache(request) -> bool:
+    return request.query_params.get('refresh') != '1'
+
+
 class OperationalDashboardView(APIView):
     permission_classes = [OperationalOverviewPermission]
 
     def get(self, request):
         mode = request.query_params.get('mode', 'full')
         include_secondary = mode != 'summary'
-        return Response(build_operational_dashboard(access=get_scope_access(request.user), include_secondary=include_secondary))
+        return Response(
+            build_operational_dashboard(
+                access=get_scope_access(request.user),
+                include_secondary=include_secondary,
+                use_cache=_use_cache(request),
+            )
+        )
 
 
 class OverviewSecondaryCountsView(APIView):
     permission_classes = [OperationalOverviewPermission]
 
     def get(self, request):
-        return Response(build_operational_overview_counts(access=get_scope_access(request.user)))
+        return Response(build_operational_overview_counts(access=get_scope_access(request.user), use_cache=_use_cache(request)))
 
 
 class FinancialMonthlySummaryView(APIView):
@@ -91,4 +101,10 @@ class MigrationManualResolutionSummaryView(APIView):
 
     def get(self, request):
         status = request.query_params.get('status', 'open')
-        return Response(build_migration_manual_resolution_summary(status=status, access=get_scope_access(request.user)))
+        return Response(
+            build_migration_manual_resolution_summary(
+                status=status,
+                access=get_scope_access(request.user),
+                use_cache=_use_cache(request),
+            )
+        )

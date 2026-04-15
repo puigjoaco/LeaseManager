@@ -1359,6 +1359,11 @@ function App() {
         return apiRequest<T>(path, { token: activeToken })
       }
 
+      function withRefreshParam(path: string) {
+        if (!shouldRefreshData) return path
+        return `${path}${path.includes('?') ? '&' : '?'}refresh=1`
+      }
+
       const controlCatalogRequest = loadControlCatalog
         ? requestIf<ControlSnapshot | null>(
           true,
@@ -1399,7 +1404,7 @@ function App() {
         complianceExportsPayload,
         ownPartnerSummary,
       ] = await Promise.all([
-        requestIf<Dashboard | null>(loadOverview, '/api/v1/reporting/dashboard/operativo/?mode=summary', dashboard),
+        requestIf<Dashboard | null>(loadOverview, withRefreshParam('/api/v1/reporting/dashboard/operativo/?mode=summary'), dashboard),
         manualSummary,
         requestIf<Socio[]>(loadSocios, '/api/v1/patrimonio/socios/', socios),
         requestIf<Empresa[]>(loadEmpresas, '/api/v1/patrimonio/empresas/', empresas),
@@ -1604,7 +1609,7 @@ function App() {
             try {
               const secondaryCounts = await requestIf<Partial<Dashboard> | null>(
                 true,
-                '/api/v1/reporting/dashboard/overview-secondary/',
+                withRefreshParam('/api/v1/reporting/dashboard/overview-secondary/'),
                 null,
               )
               if (secondaryCounts) {
@@ -1619,7 +1624,7 @@ function App() {
             try {
               const manualSummaryPayload = await requestIf<ManualSummary | null>(
                 true,
-                '/api/v1/reporting/migracion/resoluciones-manuales/?status=open',
+                withRefreshParam('/api/v1/reporting/migracion/resoluciones-manuales/?status=open'),
                 null,
               )
               if (manualSummaryPayload) {
@@ -2907,7 +2912,7 @@ function App() {
 
   async function handleFetchMigrationSummary(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const query = new URLSearchParams({ status: reportingMigrationDraft.status })
+    const query = new URLSearchParams({ status: reportingMigrationDraft.status, refresh: '1' })
     await fetchReportingData<ReportingMigrationSummary>(
       `/api/v1/reporting/migracion/resoluciones-manuales/?${query.toString()}`,
       setReportingMigrationSummary,
