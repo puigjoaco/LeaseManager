@@ -6,15 +6,18 @@ import { Metric, count, toneFor } from './backoffice/shared'
 import { ContextBanner, SectionToolbar, WorkspaceHeader, WorkspaceTabs } from './backoffice/shell'
 import { effectiveCodeFromPropertyCode, matches, todayIso } from './backoffice/utils'
 import { allowedViewsForRole, auditHeadingForRole, canMutateSection, defaultViewForRole, reportingHeadingForRole, sectionTitleForView, searchPlaceholderForView, type SectionKey, type ViewKey, VIEW_LABELS, canonicalRole } from './backoffice/view-config'
-import { OverviewWorkspace } from './backoffice/workspaces/OverviewWorkspace'
 import './App.css'
 
+const loadOverviewWorkspace = () => import('./backoffice/workspaces/OverviewWorkspace')
+const loadContabilidadWorkspace = () => import('./backoffice/workspaces/ContabilidadWorkspace')
+
+const OverviewWorkspace = lazy(() => loadOverviewWorkspace().then((module) => ({ default: module.OverviewWorkspace })))
 const AuditWorkspace = lazy(() => import('./backoffice/workspaces/AuditWorkspace').then((module) => ({ default: module.AuditWorkspace })))
 const CanalesWorkspace = lazy(() => import('./backoffice/workspaces/CanalesWorkspace').then((module) => ({ default: module.CanalesWorkspace })))
 const ComplianceWorkspace = lazy(() => import('./backoffice/workspaces/ComplianceWorkspace').then((module) => ({ default: module.ComplianceWorkspace })))
 const CobranzaWorkspace = lazy(() => import('./backoffice/workspaces/CobranzaWorkspace').then((module) => ({ default: module.CobranzaWorkspace })))
 const ConciliacionWorkspace = lazy(() => import('./backoffice/workspaces/ConciliacionWorkspace').then((module) => ({ default: module.ConciliacionWorkspace })))
-const ContabilidadWorkspace = lazy(() => import('./backoffice/workspaces/ContabilidadWorkspace').then((module) => ({ default: module.ContabilidadWorkspace })))
+const ContabilidadWorkspace = lazy(() => loadContabilidadWorkspace().then((module) => ({ default: module.ContabilidadWorkspace })))
 const ContratosWorkspace = lazy(() => import('./backoffice/workspaces/ContratosWorkspace').then((module) => ({ default: module.ContratosWorkspace })))
 const DocumentosWorkspace = lazy(() => import('./backoffice/workspaces/DocumentosWorkspace').then((module) => ({ default: module.DocumentosWorkspace })))
 const OperacionWorkspace = lazy(() => import('./backoffice/workspaces/OperacionWorkspace').then((module) => ({ default: module.OperacionWorkspace })))
@@ -2197,6 +2200,8 @@ function App() {
       window.clearTimeout(healthLoadTimeoutRef.current)
       healthLoadTimeoutRef.current = null
     }
+    void loadOverviewWorkspace()
+    void loadContabilidadWorkspace()
     setIsLoggingIn(true)
     setLoginError(null)
     try {
@@ -4151,23 +4156,25 @@ function App() {
       {workspaceError ? <div className="banner-error">{workspaceError}</div> : null}
       {activeView !== 'overview' && activeContextLabel ? <ContextBanner label={activeContextLabel} onClear={() => setActiveContextLabel(null)} /> : null}
 
-      {activeView === 'overview' ? (
-        <OverviewWorkspace
-          dashboard={dashboard}
-          manualSummary={manualSummary}
-          health={health}
-          counts={{
-            socios: socios.length,
-            empresas: empresas.length,
-            comunidades: comunidades.length,
-            propiedades: propiedades.length,
-            cuentas: cuentas.length,
-            identidades: identidades.length,
-            mandatos: mandatos.length,
-          }}
-          toneFor={toneFor}
-        />
-      ) : null}
+      <Suspense fallback={<div className="empty-state">Cargando módulo...</div>}>
+        {activeView === 'overview' ? (
+          <OverviewWorkspace
+            dashboard={dashboard}
+            manualSummary={manualSummary}
+            health={health}
+            counts={{
+              socios: socios.length,
+              empresas: empresas.length,
+              comunidades: comunidades.length,
+              propiedades: propiedades.length,
+              cuentas: cuentas.length,
+              identidades: identidades.length,
+              mandatos: mandatos.length,
+            }}
+            toneFor={toneFor}
+          />
+        ) : null}
+      </Suspense>
 
       {activeView !== 'overview' ? <SectionToolbar tag={currentSectionTag} title={currentSectionTitle} placeholder={currentSearchPlaceholder} searchText={searchText} onSearchChange={setSearchText} /> : null}
 
