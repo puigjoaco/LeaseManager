@@ -2080,8 +2080,17 @@ function App() {
   }
 
   useEffect(() => {
-    void loadHealth()
-  }, [])
+    if (token) {
+      void loadHealth()
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void loadHealth()
+    }, 1500)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [token])
 
   useEffect(() => {
     if (!token) {
