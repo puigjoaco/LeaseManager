@@ -371,7 +371,6 @@ function isRecentSnapshot(value: string | null, maxAgeMs = 30_000) {
 function loginBootstrapView(user: CurrentUser, bootstrap: LoginBootstrap | null | undefined): ViewKey | null {
   const defaultView = defaultViewForRole(user.default_role_code)
   if (defaultView === 'overview' && bootstrap?.overview) return 'overview'
-  if (defaultView === 'contabilidad' && bootstrap?.control) return 'contabilidad'
   return null
 }
 

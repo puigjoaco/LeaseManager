@@ -27,7 +27,7 @@ def build_login_bootstrap(user):
 
     if role == ROLE_REVIEWER:
         return {
-            'control': build_control_snapshot_payload(access, mode='full', use_cache=True),
+            'control': build_control_snapshot_payload(access, mode='bootstrap', use_cache=True),
         }
 
     return {}

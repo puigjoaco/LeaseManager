@@ -80,3 +80,4 @@ class UserAuthAPITests(APITestCase):
         self.assertIn('bootstrap', response.data)
         self.assertIn('control', response.data['bootstrap'])
         self.assertEqual(len(response.data['bootstrap']['control']['configuraciones_fiscales']), 1)
+        self.assertEqual(response.data['bootstrap']['control']['eventos_contables'], [])

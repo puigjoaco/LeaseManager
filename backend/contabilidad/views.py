@@ -51,8 +51,8 @@ CONTROL_SNAPSHOT_CACHE_TTL_SECONDS = 15
 
 
 def build_control_snapshot_payload(access, *, mode='full', use_cache=True):
-    include_core = mode in {'full', 'core'}
-    include_catalogs = mode in {'full', 'catalogs'}
+    include_core = mode in {'full', 'core', 'bootstrap'}
+    include_catalogs = mode in {'full', 'catalogs', 'bootstrap'}
     include_activity = mode in {'full', 'activity'}
 
     cache_key = None
