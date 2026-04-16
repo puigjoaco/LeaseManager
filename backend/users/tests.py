@@ -45,7 +45,7 @@ class UserAuthAPITests(APITestCase):
         self.assertIn('bootstrap', response.data)
         self.assertIn('overview', response.data['bootstrap'])
         self.assertIn('dashboard', response.data['bootstrap']['overview'])
-        self.assertIn('manual_summary', response.data['bootstrap']['overview'])
+        self.assertNotIn('manual_summary', response.data['bootstrap']['overview'])
 
     def test_login_returns_control_bootstrap_for_reviewer(self):
         user = get_user_model().objects.create_user(

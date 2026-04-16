@@ -9,7 +9,7 @@ from audit.services import create_audit_event
 from contabilidad.views import build_control_snapshot_payload
 from core.permissions import ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER, normalize_role_code
 from core.scope_access import get_scope_access
-from reporting.services import build_migration_manual_resolution_summary, build_operational_dashboard
+from reporting.services import build_operational_dashboard
 
 from .serializers import CurrentUserSerializer, LoginSerializer
 
@@ -22,7 +22,6 @@ def build_login_bootstrap(user):
         return {
             'overview': {
                 'dashboard': build_operational_dashboard(access=access, include_secondary=False, use_cache=True),
-                'manual_summary': build_migration_manual_resolution_summary(status='open', access=access, use_cache=True),
             }
         }
 
