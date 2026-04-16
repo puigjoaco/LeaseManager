@@ -68,8 +68,17 @@ async function fetchToken(apiBaseUrl, username, password) {
   return payload;
 }
 
+async function fetchHealth(apiBaseUrl) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/health/`);
+  if (!response.ok) {
+    throw new Error(`Health failed: HTTP ${response.status}`);
+  }
+  return await response.json();
+}
+
 async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
   const session = await fetchToken(apiBaseUrl, account.username, account.password);
+  const health = await fetchHealth(apiBaseUrl);
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
   page.setDefaultTimeout(180_000);
@@ -77,10 +86,11 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
   try {
     const start = Date.now();
     await page.goto(frontendUrl, { waitUntil: 'domcontentloaded' });
-    await page.evaluate(({ storedToken, storedUser, bootstrap }) => {
+    await page.evaluate(({ storedToken, storedUser, bootstrap, health }) => {
       localStorage.setItem('leasemanager.auth.token', storedToken);
       localStorage.setItem('leasemanager.auth.user', JSON.stringify(storedUser));
       const loadedAt = new Date().toISOString();
+      localStorage.setItem('leasemanager.health', JSON.stringify(health));
       if (bootstrap?.overview) {
         localStorage.setItem(
           `leasemanager.overview:${storedUser.id}:${storedUser.username}:${storedUser.default_role_code}`,
@@ -90,9 +100,6 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
             lastLoadedAt: loadedAt,
           }),
         );
-        if (bootstrap.overview.health) {
-          localStorage.setItem('leasemanager.health', JSON.stringify(bootstrap.overview.health));
-        }
       }
       if (bootstrap?.control) {
         localStorage.setItem(
@@ -112,7 +119,7 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
           }),
         );
       }
-    }, { storedToken: session.token, storedUser: session.user, bootstrap: session.bootstrap || null });
+    }, { storedToken: session.token, storedUser: session.user, bootstrap: session.bootstrap || null, health });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForFunction((displayName) => document.body.innerText.includes(displayName), account.displayName);
 
