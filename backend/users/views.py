@@ -18,6 +18,7 @@ from reporting.services import build_operational_dashboard
 from .serializers import CurrentUserSerializer, LoginSerializer
 
 LOGIN_BOOTSTRAP_CACHE_TTL_SECONDS = 15
+DEMO_LOGIN_RESPONSE_CACHE_TTL_SECONDS = 15
 
 
 def _login_bootstrap_cache_key(user, role, access):
@@ -55,6 +56,26 @@ def build_login_bootstrap(user):
     return payload
 
 
+def _demo_login_response_cache_key(user):
+    return f'auth:demo-login-response:user={user.id}'
+
+
+def build_demo_login_response_payload(user):
+    cache_key = _demo_login_response_cache_key(user)
+    cached_payload = cache.get(cache_key)
+    if cached_payload is not None:
+        return cached_payload
+
+    token, _ = Token.objects.get_or_create(user=user)
+    payload = {
+        'token': token.key,
+        'user': CurrentUserSerializer(user).data,
+        'bootstrap': build_login_bootstrap(user),
+    }
+    cache.set(cache_key, payload, DEMO_LOGIN_RESPONSE_CACHE_TTL_SECONDS)
+    return payload
+
+
 def resolve_demo_login_user(*, username: str, password: str):
     if username not in settings.DEMO_LOGIN_USERS:
         return None
@@ -76,10 +97,15 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        user = resolve_demo_login_user(
+        demo_user = resolve_demo_login_user(
             username=serializer.validated_data['username'],
             password=serializer.validated_data['password'],
-        ) or authenticate(
+        )
+
+        if demo_user:
+            return Response(build_demo_login_response_payload(demo_user))
+
+        user = authenticate(
             request,
             username=serializer.validated_data['username'],
             password=serializer.validated_data['password'],

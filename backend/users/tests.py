@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import override_settings
 from django.urls import reverse
+from rest_framework.authtoken.models import Token
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -129,3 +130,31 @@ class UserAuthAPITests(APITestCase):
         self.assertEqual(response_one.status_code, status.HTTP_200_OK)
         self.assertEqual(response_two.status_code, status.HTTP_200_OK)
         self.assertEqual(mocked_dashboard.call_count, 1)
+
+    @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
+    def test_demo_login_response_cache_skips_repeated_token_and_audit_work(self):
+        user = get_user_model().objects.create_user(
+            username='demo-admin',
+            password='another-secret',
+            default_role_code='AdministradorGlobal',
+        )
+
+        with patch.object(Token.objects, 'get_or_create', wraps=Token.objects.get_or_create) as mocked_get_or_create:
+            with patch('users.views.create_audit_event') as mocked_audit:
+                response_one = self.client.post(
+                    reverse('login'),
+                    {'username': 'demo-admin', 'password': 'demo12345'},
+                    format='json',
+                )
+                response_two = self.client.post(
+                    reverse('login'),
+                    {'username': 'demo-admin', 'password': 'demo12345'},
+                    format='json',
+                )
+
+        self.assertEqual(response_one.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_two.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_one.data['user']['username'], user.username)
+        self.assertEqual(response_two.data['user']['username'], user.username)
+        self.assertEqual(mocked_get_or_create.call_count, 1)
+        self.assertEqual(mocked_audit.call_count, 0)
