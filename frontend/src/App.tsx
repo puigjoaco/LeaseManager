@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import heroImage from './assets/hero.png'
 import { ApiError, apiRequest, API_BASE_URL, fallbackHealth, TOKEN_STORAGE_KEY } from './backoffice/api'
@@ -6,20 +6,21 @@ import { Metric, count, toneFor } from './backoffice/shared'
 import { ContextBanner, SectionToolbar, WorkspaceHeader, WorkspaceTabs } from './backoffice/shell'
 import { effectiveCodeFromPropertyCode, matches, todayIso } from './backoffice/utils'
 import { allowedViewsForRole, auditHeadingForRole, canMutateSection, defaultViewForRole, reportingHeadingForRole, sectionTitleForView, searchPlaceholderForView, type SectionKey, type ViewKey, VIEW_LABELS, canonicalRole } from './backoffice/view-config'
-import { AuditWorkspace } from './backoffice/workspaces/AuditWorkspace'
-import { CanalesWorkspace } from './backoffice/workspaces/CanalesWorkspace'
-import { ComplianceWorkspace } from './backoffice/workspaces/ComplianceWorkspace'
-import { CobranzaWorkspace } from './backoffice/workspaces/CobranzaWorkspace'
-import { ConciliacionWorkspace } from './backoffice/workspaces/ConciliacionWorkspace'
-import { ContabilidadWorkspace } from './backoffice/workspaces/ContabilidadWorkspace'
-import { DocumentosWorkspace } from './backoffice/workspaces/DocumentosWorkspace'
-import { ContratosWorkspace } from './backoffice/workspaces/ContratosWorkspace'
-import { OperacionWorkspace } from './backoffice/workspaces/OperacionWorkspace'
 import { OverviewWorkspace } from './backoffice/workspaces/OverviewWorkspace'
-import { PatrimonioWorkspace } from './backoffice/workspaces/PatrimonioWorkspace'
-import { ReportingWorkspace } from './backoffice/workspaces/ReportingWorkspace'
-import { SiiWorkspace } from './backoffice/workspaces/SiiWorkspace'
 import './App.css'
+
+const AuditWorkspace = lazy(() => import('./backoffice/workspaces/AuditWorkspace').then((module) => ({ default: module.AuditWorkspace })))
+const CanalesWorkspace = lazy(() => import('./backoffice/workspaces/CanalesWorkspace').then((module) => ({ default: module.CanalesWorkspace })))
+const ComplianceWorkspace = lazy(() => import('./backoffice/workspaces/ComplianceWorkspace').then((module) => ({ default: module.ComplianceWorkspace })))
+const CobranzaWorkspace = lazy(() => import('./backoffice/workspaces/CobranzaWorkspace').then((module) => ({ default: module.CobranzaWorkspace })))
+const ConciliacionWorkspace = lazy(() => import('./backoffice/workspaces/ConciliacionWorkspace').then((module) => ({ default: module.ConciliacionWorkspace })))
+const ContabilidadWorkspace = lazy(() => import('./backoffice/workspaces/ContabilidadWorkspace').then((module) => ({ default: module.ContabilidadWorkspace })))
+const ContratosWorkspace = lazy(() => import('./backoffice/workspaces/ContratosWorkspace').then((module) => ({ default: module.ContratosWorkspace })))
+const DocumentosWorkspace = lazy(() => import('./backoffice/workspaces/DocumentosWorkspace').then((module) => ({ default: module.DocumentosWorkspace })))
+const OperacionWorkspace = lazy(() => import('./backoffice/workspaces/OperacionWorkspace').then((module) => ({ default: module.OperacionWorkspace })))
+const PatrimonioWorkspace = lazy(() => import('./backoffice/workspaces/PatrimonioWorkspace').then((module) => ({ default: module.PatrimonioWorkspace })))
+const ReportingWorkspace = lazy(() => import('./backoffice/workspaces/ReportingWorkspace').then((module) => ({ default: module.ReportingWorkspace })))
+const SiiWorkspace = lazy(() => import('./backoffice/workspaces/SiiWorkspace').then((module) => ({ default: module.SiiWorkspace })))
 
 type HealthPayload = {
   service: string
@@ -4173,6 +4174,7 @@ function App() {
       {activeView !== 'overview' && formMessage ? <div className="banner-success">{formMessage}</div> : null}
       {activeView !== 'overview' && formError ? <div className="banner-error">{formError}</div> : null}
 
+      <Suspense fallback={<div className="empty-state">Cargando módulo...</div>}>
       {activeView === 'patrimonio' ? (
         <PatrimonioWorkspace
           canEditPatrimonio={canEditPatrimonio}
@@ -4569,6 +4571,7 @@ function App() {
           count={count}
         />
       ) : null}
+      </Suspense>
     </main>
   )
 }
