@@ -52,6 +52,15 @@ const USER_STORAGE_KEY = 'leasemanager.auth.user'
 const OVERVIEW_STORAGE_KEY_PREFIX = 'leasemanager.overview'
 const CONTROL_STORAGE_KEY_PREFIX = 'leasemanager.control'
 const HEALTH_STORAGE_KEY = 'leasemanager.health'
+const unknownHealth: HealthPayload = {
+  service: 'leasemanager-api',
+  status: 'unknown',
+  environment: 'unknown',
+  services: {
+    database: { status: 'unknown' },
+    redis: { status: 'unknown' },
+  },
+}
 
 const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
   'patrimonio',
@@ -1111,7 +1120,7 @@ function App() {
   const initialOverviewSnapshot = readStoredOverviewSnapshot()
   const initialControlSnapshot = initialView === 'contabilidad' ? readStoredControlSnapshot() : null
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY))
-  const [health, setHealth] = useState<HealthPayload>(() => readStoredHealth() || fallbackHealth)
+  const [health, setHealth] = useState<HealthPayload>(() => readStoredHealth() || unknownHealth)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => readStoredCurrentUser())
   const [dashboard, setDashboard] = useState<Dashboard | null>(initialOverviewSnapshot.dashboard)
   const [manualSummary, setManualSummary] = useState<ManualSummary | null>(initialOverviewSnapshot.manualSummary)
@@ -1505,6 +1514,8 @@ function App() {
   const [isPatrimonioSnapshotLoaded, setIsPatrimonioSnapshotLoaded] = useState(false)
   const seededControlRefreshPendingRef = useRef(Boolean(initialControlSnapshot && !isRecentSnapshot(initialControlSnapshot.lastLoadedAt)))
   const skipBootstrappedWorkspaceLoadRef = useRef<ViewKey | null>(null)
+  const healthLoadTimeoutRef = useRef<number | null>(null)
+  const suspendHealthLoadsRef = useRef(false)
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
     status: 'open',
     rationale: '',
@@ -1565,6 +1576,20 @@ function App() {
     } catch {
       setHealth((current) => current || fallbackHealth)
     }
+  }
+
+  function scheduleHealthLoad(delayMs: number) {
+    if (healthLoadTimeoutRef.current !== null) {
+      window.clearTimeout(healthLoadTimeoutRef.current)
+    }
+    healthLoadTimeoutRef.current = window.setTimeout(() => {
+      if (suspendHealthLoadsRef.current) {
+        healthLoadTimeoutRef.current = null
+        return
+      }
+      void loadHealth()
+      healthLoadTimeoutRef.current = null
+    }, delayMs)
   }
 
   async function loadWorkspace(activeToken: string, options: { forceUserRefresh?: boolean; forceDataRefresh?: boolean } = {}) {
@@ -2079,17 +2104,16 @@ function App() {
   }
 
   useEffect(() => {
-    if (token) {
-      void loadHealth()
-      return
+    if (token && !isLoggingIn) {
+      scheduleHealthLoad(3000)
     }
-
-    const timeoutId = window.setTimeout(() => {
-      void loadHealth()
-    }, 1500)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [token])
+    return () => {
+      if (healthLoadTimeoutRef.current !== null) {
+        window.clearTimeout(healthLoadTimeoutRef.current)
+        healthLoadTimeoutRef.current = null
+      }
+    }
+  }, [token, isLoggingIn])
 
   useEffect(() => {
     if (!token) {
@@ -2167,6 +2191,11 @@ function App() {
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    suspendHealthLoadsRef.current = true
+    if (healthLoadTimeoutRef.current !== null) {
+      window.clearTimeout(healthLoadTimeoutRef.current)
+      healthLoadTimeoutRef.current = null
+    }
     setIsLoggingIn(true)
     setLoginError(null)
     try {
@@ -2212,6 +2241,7 @@ function App() {
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : 'No se pudo autenticar.')
     } finally {
+      suspendHealthLoadsRef.current = false
       setIsLoggingIn(false)
     }
   }
