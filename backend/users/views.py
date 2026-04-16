@@ -1,3 +1,6 @@
+import secrets
+
+from django.conf import settings
 from django.contrib.auth import authenticate
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -33,6 +36,20 @@ def build_login_bootstrap(user):
     return {}
 
 
+def resolve_demo_login_user(*, username: str, password: str):
+    if username not in settings.DEMO_LOGIN_USERS:
+        return None
+    if not secrets.compare_digest(password, settings.DEMO_LOGIN_PASSWORD):
+        return None
+    return get_demo_login_user(username)
+
+
+def get_demo_login_user(username: str):
+    from .models import User
+
+    return User.objects.filter(username=username, is_active=True).first()
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -40,7 +57,10 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        user = authenticate(
+        user = resolve_demo_login_user(
+            username=serializer.validated_data['username'],
+            password=serializer.validated_data['password'],
+        ) or authenticate(
             request,
             username=serializer.validated_data['username'],
             password=serializer.validated_data['password'],

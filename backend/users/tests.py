@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -81,3 +82,20 @@ class UserAuthAPITests(APITestCase):
         self.assertIn('control', response.data['bootstrap'])
         self.assertEqual(len(response.data['bootstrap']['control']['configuraciones_fiscales']), 1)
         self.assertEqual(response.data['bootstrap']['control']['eventos_contables'], [])
+
+    @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
+    def test_demo_login_short_circuit_works_for_configured_demo_user(self):
+        user = get_user_model().objects.create_user(
+            username='demo-admin',
+            password='another-secret',
+            default_role_code='AdministradorGlobal',
+        )
+
+        response = self.client.post(
+            reverse('login'),
+            {'username': 'demo-admin', 'password': 'demo12345'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['username'], user.username)

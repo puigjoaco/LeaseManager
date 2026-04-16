@@ -23,6 +23,8 @@ env = environ.Env(
     REDIS_URL=(str, 'redis://localhost:6379/0'),
     CELERY_RESULT_BACKEND=(str, 'redis://localhost:6379/1'),
     DJANGO_CACHE_URL=(str, ''),
+    DEMO_LOGIN_USERS=(list, ['demo-admin', 'demo-operador', 'demo-revisor', 'demo-socio']),
+    DEMO_LOGIN_PASSWORD=(str, 'demo12345'),
     LEGACY_ROOT_PATH=(str, str(LEGACY_ROOT)),
     FRONTEND_URL=(str, 'http://localhost:5173'),
     DATA_EXPORT_ENCRYPTION_KEY=(str, ''),
@@ -191,6 +193,8 @@ CACHES = (
 )
 
 LEGACY_ROOT_PATH = env('LEGACY_ROOT_PATH')
+DEMO_LOGIN_USERS = set(env('DEMO_LOGIN_USERS'))
+DEMO_LOGIN_PASSWORD = env('DEMO_LOGIN_PASSWORD')
 
 _data_export_encryption_key = env('DATA_EXPORT_ENCRYPTION_KEY')
 
