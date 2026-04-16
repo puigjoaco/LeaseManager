@@ -1,4 +1,7 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
@@ -9,6 +12,9 @@ from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 
 
 class UserAuthAPITests(APITestCase):
+    def setUp(self):
+        cache.clear()
+
     def _create_active_company(self, *, nombre='AuthCo', rut='76000111-1'):
         socio_1 = Socio.objects.create(nombre=f'{nombre} Socio 1', rut=f'{rut[:-2]}1-1', activo=True)
         socio_2 = Socio.objects.create(nombre=f'{nombre} Socio 2', rut=f'{rut[:-2]}2-2', activo=True)
@@ -99,3 +105,27 @@ class UserAuthAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['user']['username'], user.username)
+
+    @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
+    def test_login_bootstrap_uses_short_cache(self):
+        get_user_model().objects.create_user(
+            username='demo-admin',
+            password='another-secret',
+            default_role_code='AdministradorGlobal',
+        )
+
+        with patch('users.views.build_operational_dashboard', wraps=lambda **kwargs: {'propiedades_activas': 0}) as mocked_dashboard:
+            response_one = self.client.post(
+                reverse('login'),
+                {'username': 'demo-admin', 'password': 'demo12345'},
+                format='json',
+            )
+            response_two = self.client.post(
+                reverse('login'),
+                {'username': 'demo-admin', 'password': 'demo12345'},
+                format='json',
+            )
+
+        self.assertEqual(response_one.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_two.status_code, status.HTTP_200_OK)
+        self.assertEqual(mocked_dashboard.call_count, 1)

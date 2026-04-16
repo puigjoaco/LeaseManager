@@ -2,6 +2,7 @@ import secrets
 
 from django.conf import settings
 from django.contrib.auth import authenticate
+from django.core.cache import cache
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -16,24 +17,42 @@ from reporting.services import build_operational_dashboard
 
 from .serializers import CurrentUserSerializer, LoginSerializer
 
+LOGIN_BOOTSTRAP_CACHE_TTL_SECONDS = 15
+
+
+def _login_bootstrap_cache_key(user, role, access):
+    return (
+        'auth:login-bootstrap:'
+        f'user={user.id}:role={role}:'
+        f'restricted={int(access.restricted)}:'
+        f'companies={",".join(map(str, sorted(access.company_ids)))}:'
+        f'properties={",".join(map(str, sorted(access.property_ids)))}:'
+        f'bank_accounts={",".join(map(str, sorted(access.bank_account_ids)))}'
+    )
+
 
 def build_login_bootstrap(user):
     role = normalize_role_code(getattr(user, 'default_role_code', ''))
     access = get_scope_access(user)
+    cache_key = _login_bootstrap_cache_key(user, role, access)
+    cached_payload = cache.get(cache_key)
+    if cached_payload is not None:
+        return cached_payload
 
+    payload = {}
     if role in {ROLE_ADMIN, ROLE_OPERATOR}:
-        return {
+        payload = {
             'overview': {
                 'dashboard': build_operational_dashboard(access=access, include_secondary=False, use_cache=True),
             }
         }
-
-    if role == ROLE_REVIEWER:
-        return {
+    elif role == ROLE_REVIEWER:
+        payload = {
             'control': build_control_snapshot_payload(access, mode='core', use_cache=True),
         }
 
-    return {}
+    cache.set(cache_key, payload, LOGIN_BOOTSTRAP_CACHE_TTL_SECONDS)
+    return payload
 
 
 def resolve_demo_login_user(*, username: str, password: str):
