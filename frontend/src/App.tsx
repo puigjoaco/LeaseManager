@@ -368,6 +368,13 @@ function isRecentSnapshot(value: string | null, maxAgeMs = 30_000) {
   return Date.now() - timestamp <= maxAgeMs
 }
 
+function loginBootstrapView(user: CurrentUser, bootstrap: LoginBootstrap | null | undefined): ViewKey | null {
+  const defaultView = defaultViewForRole(user.default_role_code)
+  if (defaultView === 'overview' && bootstrap?.overview) return 'overview'
+  if (defaultView === 'contabilidad' && bootstrap?.control) return 'contabilidad'
+  return null
+}
+
 type Dashboard = {
   socios_total?: number
   empresas_total?: number
@@ -1498,6 +1505,7 @@ function App() {
   const [isComplianceLoaded, setIsComplianceLoaded] = useState(false)
   const [isPatrimonioSnapshotLoaded, setIsPatrimonioSnapshotLoaded] = useState(false)
   const seededControlRefreshPendingRef = useRef(Boolean(initialControlSnapshot && !isRecentSnapshot(initialControlSnapshot.lastLoadedAt)))
+  const skipBootstrappedWorkspaceLoadRef = useRef<ViewKey | null>(null)
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
     status: 'open',
     rationale: '',
@@ -2081,6 +2089,10 @@ function App() {
       storeCurrentUser(null)
       return
     }
+    if (skipBootstrappedWorkspaceLoadRef.current === activeView) {
+      skipBootstrappedWorkspaceLoadRef.current = null
+      return
+    }
     const forceSeededControlRefresh = activeView === 'contabilidad' && seededControlRefreshPendingRef.current
     if (forceSeededControlRefresh) {
       seededControlRefreshPendingRef.current = false
@@ -2154,8 +2166,13 @@ function App() {
         method: 'POST',
         body: { username, password },
       })
+      const bootstrapView = loginBootstrapView(response.user, response.bootstrap)
       localStorage.setItem(TOKEN_STORAGE_KEY, response.token)
       storeCurrentUser(response.user)
+      setActiveView(defaultViewForRole(response.user.default_role_code))
+      if (bootstrapView) {
+        skipBootstrappedWorkspaceLoadRef.current = bootstrapView
+      }
       setToken(response.token)
       setCurrentUser(response.user)
       applyOverviewBootstrapSnapshot(response.user, response.bootstrap?.overview, {
@@ -2180,6 +2197,9 @@ function App() {
         setIsControlActivityLoaded,
         setLastLoadedAt,
       })
+      if (bootstrapView === 'contabilidad') {
+        seededControlRefreshPendingRef.current = false
+      }
       setPassword('')
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : 'No se pudo autenticar.')
