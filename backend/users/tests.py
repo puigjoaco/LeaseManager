@@ -201,6 +201,32 @@ class UserAuthAPITests(APITestCase):
         self.assertEqual(response.data['user']['username'], user.username)
 
     @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
+    def test_demo_admin_login_builds_manual_summary_without_prior_cache(self):
+        get_user_model().objects.create_user(
+            username='demo-admin',
+            password='another-secret',
+            default_role_code='AdministradorGlobal',
+        )
+        ManualResolution.objects.create(
+            category='ops.retry_needed',
+            scope_type='demo',
+            scope_reference='demo-1',
+            summary='Retry manual necesario',
+        )
+
+        response = self.client.post(
+            reverse('login'),
+            {'username': 'demo-admin', 'password': 'demo12345'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('bootstrap', response.data)
+        self.assertIn('overview', response.data['bootstrap'])
+        self.assertIn('manual_summary', response.data['bootstrap']['overview'])
+        self.assertEqual(response.data['bootstrap']['overview']['manual_summary']['total'], 1)
+
+    @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
     def test_login_bootstrap_uses_short_cache(self):
         get_user_model().objects.create_user(
             username='demo-admin',

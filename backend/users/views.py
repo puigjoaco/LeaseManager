@@ -47,10 +47,15 @@ def build_login_bootstrap(user, *, profile='default'):
     payload = {}
     if role in {ROLE_ADMIN, ROLE_OPERATOR}:
         cached_manual_summary = get_cached_manual_resolution_summary(status='open')
+        manual_summary = (
+            build_manual_resolution_summary(status='open', use_cache=True)
+            if profile == 'demo' and cached_manual_summary is None
+            else cached_manual_summary
+        )
         payload = {
             'overview': {
                 'dashboard': build_operational_dashboard(access=access, include_secondary=False, use_cache=True),
-                **({'manual_summary': cached_manual_summary} if cached_manual_summary is not None else {}),
+                **({'manual_summary': manual_summary} if manual_summary is not None else {}),
             }
         }
     elif role == ROLE_REVIEWER:
