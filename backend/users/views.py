@@ -106,6 +106,17 @@ def get_cached_demo_login_response_payload(*, username: str, password: str):
     return cache.get(_demo_login_response_cache_key_for_username(username))
 
 
+def warm_demo_login_response_payloads():
+    warmed = 0
+    for username in settings.DEMO_LOGIN_USERS:
+        user = get_demo_login_user(username)
+        if not user:
+            continue
+        build_demo_login_response_payload(user)
+        warmed += 1
+    return warmed
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -157,6 +168,14 @@ class LoginView(APIView):
         )
         user_payload = CurrentUserSerializer(user).data
         return Response({'token': token.key, 'user': user_payload, 'bootstrap': build_login_bootstrap(user)})
+
+
+class DemoWarmupView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        warm_demo_login_response_payloads()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class LogoutView(APIView):

@@ -230,3 +230,22 @@ class UserAuthAPITests(APITestCase):
         self.assertEqual(second_login.status_code, status.HTTP_200_OK)
         self.assertEqual(second_login.data['user']['username'], user.username)
         self.assertNotEqual(second_login.data['token'], first_token)
+
+    @override_settings(DEMO_LOGIN_USERS={'demo-admin', 'demo-revisor'}, DEMO_LOGIN_PASSWORD='demo12345')
+    def test_demo_warmup_builds_cached_demo_login_payloads(self):
+        get_user_model().objects.create_user(
+            username='demo-admin',
+            password='another-secret',
+            default_role_code='AdministradorGlobal',
+        )
+        get_user_model().objects.create_user(
+            username='demo-revisor',
+            password='another-secret',
+            default_role_code='RevisorFiscalExterno',
+        )
+
+        response = self.client.post(reverse('demo-warmup'))
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNotNone(cache.get('auth:demo-login-response:username=demo-admin'))
+        self.assertIsNotNone(cache.get('auth:demo-login-response:username=demo-revisor'))

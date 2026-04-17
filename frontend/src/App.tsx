@@ -163,6 +163,7 @@ export default function App() {
   const [health, setHealth] = useState<HealthPayload>(() => readStoredHealth() || unknownHealth)
   const healthLoadTimeoutRef = useRef<number | null>(null)
   const loginChunkPrefetchRef = useRef(false)
+  const demoWarmupRequestedRef = useRef(false)
 
   useEffect(() => {
     if (!API_BASE_URL || typeof window === 'undefined') {
@@ -228,6 +229,21 @@ export default function App() {
         window.clearTimeout(timeoutId)
       }
     }
+  }, [token, isLoggingIn])
+
+  useEffect(() => {
+    if (!API_BASE_URL || token || isLoggingIn || demoWarmupRequestedRef.current) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      demoWarmupRequestedRef.current = true
+      void apiRequest<void>('/api/v1/auth/demo-warmup/', { method: 'POST' }).catch(() => {
+        demoWarmupRequestedRef.current = false
+      })
+    }, 250)
+
+    return () => window.clearTimeout(timeoutId)
   }, [token, isLoggingIn])
 
   useEffect(() => {
