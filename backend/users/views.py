@@ -13,7 +13,7 @@ from audit.services import create_audit_event
 from contabilidad.views import build_control_snapshot_payload
 from core.permissions import ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER, normalize_role_code
 from core.scope_access import get_scope_access
-from reporting.services import build_operational_dashboard
+from reporting.services import build_operational_dashboard, get_cached_migration_manual_resolution_summary
 
 from .serializers import CurrentUserSerializer, LoginSerializer
 
@@ -42,9 +42,11 @@ def build_login_bootstrap(user):
 
     payload = {}
     if role in {ROLE_ADMIN, ROLE_OPERATOR}:
+        cached_manual_summary = get_cached_migration_manual_resolution_summary(status='open')
         payload = {
             'overview': {
                 'dashboard': build_operational_dashboard(access=access, include_secondary=False, use_cache=True),
+                **({'manual_summary': cached_manual_summary} if cached_manual_summary is not None else {}),
             }
         }
     elif role == ROLE_REVIEWER:

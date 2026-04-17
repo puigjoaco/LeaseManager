@@ -606,3 +606,7 @@ def build_migration_manual_resolution_summary(
     if use_cache:
         cache.set(cache_key, payload, REPORTING_CACHE_TTL_SECONDS)
     return payload
+
+
+def get_cached_migration_manual_resolution_summary(status='open'):
+    return cache.get(_cache_key(f'migration-manual-resolution-summary:{status}'))

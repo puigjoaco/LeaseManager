@@ -10,6 +10,7 @@ from rest_framework.test import APITestCase
 
 from contabilidad.models import ConfiguracionFiscalEmpresa, RegimenTributarioEmpresa
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
+from reporting.services import build_migration_manual_resolution_summary
 
 
 class UserAuthAPITests(APITestCase):
@@ -54,6 +55,23 @@ class UserAuthAPITests(APITestCase):
         self.assertIn('overview', response.data['bootstrap'])
         self.assertIn('dashboard', response.data['bootstrap']['overview'])
         self.assertNotIn('manual_summary', response.data['bootstrap']['overview'])
+
+    def test_login_includes_cached_manual_summary_when_available(self):
+        user = get_user_model().objects.create_user(
+            username='admin-bootstrap-cached',
+            password='secret123',
+            default_role_code='AdministradorGlobal',
+        )
+        build_migration_manual_resolution_summary(status='open', use_cache=True)
+
+        response = self.client.post(
+            reverse('login'),
+            {'username': user.username, 'password': 'secret123'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('manual_summary', response.data['bootstrap']['overview'])
 
     def test_login_returns_control_bootstrap_for_reviewer(self):
         user = get_user_model().objects.create_user(

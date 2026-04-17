@@ -97,6 +97,22 @@ function overviewStorageKey(user: Pick<CurrentUser, 'id' | 'username' | 'default
   return `${OVERVIEW_STORAGE_KEY_PREFIX}:${user.id}:${user.username}:${user.default_role_code}`
 }
 
+function readStoredOverviewSnapshot(
+  user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null,
+): { dashboard: unknown; manualSummary: unknown; lastLoadedAt: string } | null {
+  if (typeof window === 'undefined') return null
+  const key = overviewStorageKey(user)
+  if (!key) return null
+  const rawSnapshot = localStorage.getItem(key)
+  if (!rawSnapshot) return null
+  try {
+    return JSON.parse(rawSnapshot) as { dashboard: unknown; manualSummary: unknown; lastLoadedAt: string }
+  } catch {
+    localStorage.removeItem(key)
+    return null
+  }
+}
+
 function storeOverviewSnapshot(
   user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null,
   snapshot: { dashboard: unknown; manualSummary: unknown; lastLoadedAt: string },
@@ -261,9 +277,10 @@ export default function App() {
       storeCurrentUser(response.user)
 
       if (response.bootstrap?.overview) {
+        const storedOverviewSnapshot = readStoredOverviewSnapshot(response.user)
         storeOverviewSnapshot(response.user, {
           dashboard: response.bootstrap.overview.dashboard ?? null,
-          manualSummary: response.bootstrap.overview.manual_summary ?? null,
+          manualSummary: response.bootstrap.overview.manual_summary ?? storedOverviewSnapshot?.manualSummary ?? null,
           lastLoadedAt: loadedAt,
         })
       }
