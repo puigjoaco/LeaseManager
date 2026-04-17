@@ -50,6 +50,8 @@ export function OverviewWorkspace({
   }
   toneFor: (value: string) => Tone
 }) {
+  const manualResolutionCount = dashboard?.resoluciones_manuales_abiertas ?? manualSummary?.total ?? 0
+
   return (
     <>
       <section className="metric-grid">
@@ -59,8 +61,8 @@ export function OverviewWorkspace({
         <Metric label="Pagos atrasados" value={count(dashboard?.pagos_atrasados)} tone="danger" />
         <Metric
           label="Resoluciones abiertas"
-          value={count(dashboard?.resoluciones_manuales_abiertas ?? manualSummary?.total)}
-          tone={(dashboard?.resoluciones_manuales_abiertas ?? manualSummary?.total) ? 'warning' : 'positive'}
+          value={count(manualResolutionCount)}
+          tone={manualResolutionCount ? 'warning' : 'positive'}
         />
         <Metric label="DTE borrador" value={count(dashboard?.dtes_borrador)} tone="neutral" />
       </section>
@@ -95,7 +97,11 @@ export function OverviewWorkspace({
         <section className="panel">
           <div className="section-heading"><div><h2>Cola manual</h2><p>Resumen rápido del backlog asistido.</p></div></div>
           <div className="list-stack">
-            {manualSummary === null ? <div className="empty-state compact">Cargando cola manual...</div> : null}
+            {manualSummary === null ? (
+              manualResolutionCount > 0
+                ? <div className="empty-state compact">Actualizando detalle de {count(manualResolutionCount)} resoluciones...</div>
+                : <div className="empty-state compact">No hay categorías abiertas.</div>
+            ) : null}
             {manualSummary?.categorias.slice(0, 4).map((item) => (
               <div className="list-row" key={item.category}><span>{item.category.replaceAll('_', ' ')}</span><strong>{count(item.total)}</strong></div>
             ))}
