@@ -25,10 +25,10 @@ LOGIN_BOOTSTRAP_CACHE_TTL_SECONDS = 15
 DEMO_LOGIN_RESPONSE_CACHE_TTL_SECONDS = 15
 
 
-def _login_bootstrap_cache_key(user, role, access):
+def _login_bootstrap_cache_key(user, role, access, *, profile='default'):
     return (
         'auth:login-bootstrap:'
-        f'user={user.id}:role={role}:'
+        f'user={user.id}:role={role}:profile={profile}:'
         f'restricted={int(access.restricted)}:'
         f'companies={",".join(map(str, sorted(access.company_ids)))}:'
         f'properties={",".join(map(str, sorted(access.property_ids)))}:'
@@ -36,10 +36,10 @@ def _login_bootstrap_cache_key(user, role, access):
     )
 
 
-def build_login_bootstrap(user):
+def build_login_bootstrap(user, *, profile='default'):
     role = normalize_role_code(getattr(user, 'default_role_code', ''))
     access = get_scope_access(user)
-    cache_key = _login_bootstrap_cache_key(user, role, access)
+    cache_key = _login_bootstrap_cache_key(user, role, access, profile=profile)
     cached_payload = cache.get(cache_key)
     if cached_payload is not None:
         return cached_payload
@@ -54,8 +54,9 @@ def build_login_bootstrap(user):
             }
         }
     elif role == ROLE_REVIEWER:
+        control_mode = 'full' if profile == 'demo' else 'bootstrap'
         payload = {
-            'control': build_control_snapshot_payload(access, mode='core', use_cache=True),
+            'control': build_control_snapshot_payload(access, mode=control_mode, use_cache=True),
         }
 
     cache.set(cache_key, payload, LOGIN_BOOTSTRAP_CACHE_TTL_SECONDS)
@@ -82,7 +83,7 @@ def build_demo_login_response_payload(user):
     payload = {
         'token': token.key,
         'user': CurrentUserSerializer(user).data,
-        'bootstrap': build_login_bootstrap(user),
+        'bootstrap': build_login_bootstrap(user, profile='demo'),
     }
     cache.set(cache_key, payload, DEMO_LOGIN_RESPONSE_CACHE_TTL_SECONDS)
     return payload

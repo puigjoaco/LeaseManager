@@ -1,3 +1,4 @@
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -8,7 +9,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from contabilidad.models import ConfiguracionFiscalEmpresa, RegimenTributarioEmpresa
+from contabilidad.models import ConfiguracionFiscalEmpresa, CuentaContable, EventoContable, RegimenTributarioEmpresa
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from audit.models import ManualResolution
 from reporting.services import build_manual_resolution_summary
@@ -37,6 +38,31 @@ class UserAuthAPITests(APITestCase):
             activo=True,
         )
         return empresa
+
+    def _create_cuenta_contable(self, empresa, *, codigo='1101', nombre='Bancos'):
+        return CuentaContable.objects.create(
+            empresa=empresa,
+            plan_cuentas_version='v1-default',
+            codigo=codigo,
+            nombre=nombre,
+            naturaleza='deudora',
+            nivel=1,
+            estado='activa',
+        )
+
+    def _create_evento_contable(self, empresa, *, idempotency_key='auth-event-1'):
+        return EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='pago_mensual',
+            entidad_origen_id='1',
+            fecha_operativa='2026-01-15',
+            moneda='CLP',
+            monto_base=Decimal('100000.00'),
+            payload_resumen={},
+            idempotency_key=idempotency_key,
+            estado_contable='pendiente_contabilizacion',
+        )
 
     def test_login_returns_overview_bootstrap_for_admin(self):
         user = get_user_model().objects.create_user(
@@ -103,6 +129,8 @@ class UserAuthAPITests(APITestCase):
             moneda_funcional='CLP',
             estado='activa',
         )
+        self._create_cuenta_contable(empresa)
+        self._create_evento_contable(empresa)
 
         response = self.client.post(
             reverse('login'),
@@ -114,7 +142,46 @@ class UserAuthAPITests(APITestCase):
         self.assertIn('bootstrap', response.data)
         self.assertIn('control', response.data['bootstrap'])
         self.assertEqual(len(response.data['bootstrap']['control']['configuraciones_fiscales']), 1)
+        self.assertEqual(len(response.data['bootstrap']['control']['cuentas_contables']), 1)
         self.assertEqual(response.data['bootstrap']['control']['eventos_contables'], [])
+
+    @override_settings(DEMO_LOGIN_USERS={'demo-revisor'}, DEMO_LOGIN_PASSWORD='demo12345')
+    def test_demo_reviewer_login_returns_full_control_bootstrap(self):
+        user = get_user_model().objects.create_user(
+            username='demo-revisor',
+            password='another-secret',
+            default_role_code='RevisorFiscalExterno',
+        )
+        empresa = self._create_active_company(nombre='DemoReviewerAuthCo', rut='76000113-3')
+        regimen, _ = RegimenTributarioEmpresa.objects.get_or_create(
+            codigo_regimen='EmpresaContabilidadCompletaV1',
+            defaults={'descripcion': 'Regimen canonico', 'estado': 'activa'},
+        )
+        ConfiguracionFiscalEmpresa.objects.create(
+            empresa=empresa,
+            regimen_tributario=regimen,
+            afecta_iva_arriendo=False,
+            tasa_iva='0.00',
+            aplica_ppm=True,
+            ddjj_habilitadas=[],
+            inicio_ejercicio='2026-01-01',
+            moneda_funcional='CLP',
+            estado='activa',
+        )
+        self._create_cuenta_contable(empresa)
+        self._create_evento_contable(empresa, idempotency_key='demo-reviewer-event-1')
+
+        response = self.client.post(
+            reverse('login'),
+            {'username': user.username, 'password': 'demo12345'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('bootstrap', response.data)
+        self.assertIn('control', response.data['bootstrap'])
+        self.assertEqual(len(response.data['bootstrap']['control']['cuentas_contables']), 1)
+        self.assertEqual(len(response.data['bootstrap']['control']['eventos_contables']), 1)
 
     @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
     def test_demo_login_short_circuit_works_for_configured_demo_user(self):
