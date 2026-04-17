@@ -188,14 +188,30 @@ export default function App() {
       return
     }
 
-    const timeoutId = window.setTimeout(() => {
+    const runPrefetch = () => {
       loginChunkPrefetchRef.current = true
       void import('./backoffice/workspaces/OverviewWorkspace')
       void import('./backoffice/workspaces/ContabilidadWorkspace')
       void import('./AuthenticatedApp')
-    }, 500)
+    }
 
-    return () => window.clearTimeout(timeoutId)
+    const idleCallbackId =
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback(() => runPrefetch())
+        : null
+    const timeoutId =
+      idleCallbackId === null
+        ? window.setTimeout(() => runPrefetch(), 0)
+        : null
+
+    return () => {
+      if (idleCallbackId !== null && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleCallbackId)
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+    }
   }, [token, isLoggingIn])
 
   useEffect(() => {
