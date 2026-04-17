@@ -2121,6 +2121,41 @@ function App() {
   }, [token, isLoggingIn])
 
   useEffect(() => {
+    if (!API_BASE_URL || typeof window === 'undefined') {
+      return
+    }
+
+    let apiOrigin = ''
+    try {
+      apiOrigin = new URL(API_BASE_URL, window.location.origin).origin
+    } catch {
+      return
+    }
+
+    if (!apiOrigin || apiOrigin === window.location.origin) {
+      return
+    }
+
+    const head = document.head
+    const preconnect = document.createElement('link')
+    preconnect.rel = 'preconnect'
+    preconnect.href = apiOrigin
+    preconnect.crossOrigin = 'anonymous'
+
+    const dnsPrefetch = document.createElement('link')
+    dnsPrefetch.rel = 'dns-prefetch'
+    dnsPrefetch.href = apiOrigin
+
+    head.appendChild(preconnect)
+    head.appendChild(dnsPrefetch)
+
+    return () => {
+      preconnect.remove()
+      dnsPrefetch.remove()
+    }
+  }, [])
+
+  useEffect(() => {
     if (token || isLoggingIn || loginChunkPrefetchRef.current) {
       return
     }
@@ -4103,7 +4138,14 @@ function App() {
     return (
       <main className="login-page">
         <section className="login-visual">
-          <img src={heroImage} alt="Universo LeaseManager" className="login-image" />
+          <img
+            src={heroImage}
+            alt="Universo LeaseManager"
+            className="login-image"
+            loading="eager"
+            decoding="async"
+            fetchPriority="low"
+          />
           <div className="login-copy">
             <p className="section-tag">LeaseManager</p>
             <h1>Patrimonio y operación sobre la base viva del greenfield.</h1>
