@@ -56,16 +56,16 @@ def build_login_bootstrap(user):
     return payload
 
 
-def _demo_login_response_cache_key(user):
-    return f'auth:demo-login-response:user={user.id}'
+def _demo_login_response_cache_key_for_username(username: str):
+    return f'auth:demo-login-response:username={username}'
 
 
 def clear_demo_login_response_cache(user):
-    cache.delete(_demo_login_response_cache_key(user))
+    cache.delete(_demo_login_response_cache_key_for_username(user.username))
 
 
 def build_demo_login_response_payload(user):
-    cache_key = _demo_login_response_cache_key(user)
+    cache_key = _demo_login_response_cache_key_for_username(user.username)
     cached_payload = cache.get(cache_key)
     if cached_payload is not None:
         if Token.objects.filter(user=user, key=cached_payload.get('token')).exists():
@@ -96,12 +96,28 @@ def get_demo_login_user(username: str):
     return User.objects.filter(username=username, is_active=True).first()
 
 
+def get_cached_demo_login_response_payload(*, username: str, password: str):
+    if username not in settings.DEMO_LOGIN_USERS:
+        return None
+    if not secrets.compare_digest(password, settings.DEMO_LOGIN_PASSWORD):
+        return None
+    return cache.get(_demo_login_response_cache_key_for_username(username))
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        cached_demo_payload = get_cached_demo_login_response_payload(
+            username=serializer.validated_data['username'],
+            password=serializer.validated_data['password'],
+        )
+
+        if cached_demo_payload is not None:
+            return Response(cached_demo_payload)
 
         demo_user = resolve_demo_login_user(
             username=serializer.validated_data['username'],

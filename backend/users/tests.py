@@ -160,6 +160,30 @@ class UserAuthAPITests(APITestCase):
         self.assertEqual(mocked_audit.call_count, 0)
 
     @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
+    def test_demo_login_response_cache_skips_repeated_user_lookup(self):
+        get_user_model().objects.create_user(
+            username='demo-admin',
+            password='another-secret',
+            default_role_code='AdministradorGlobal',
+        )
+
+        response_one = self.client.post(
+            reverse('login'),
+            {'username': 'demo-admin', 'password': 'demo12345'},
+            format='json',
+        )
+
+        with patch('users.views.get_demo_login_user', side_effect=AssertionError('cached demo login should not hit user lookup')):
+            response_two = self.client.post(
+                reverse('login'),
+                {'username': 'demo-admin', 'password': 'demo12345'},
+                format='json',
+            )
+
+        self.assertEqual(response_one.status_code, status.HTTP_200_OK)
+        self.assertEqual(response_two.status_code, status.HTTP_200_OK)
+
+    @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
     def test_demo_login_cache_is_invalidated_by_logout(self):
         user = get_user_model().objects.create_user(
             username='demo-admin',
