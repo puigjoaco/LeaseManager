@@ -13,7 +13,11 @@ from audit.services import create_audit_event
 from contabilidad.views import build_control_snapshot_payload
 from core.permissions import ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER, normalize_role_code
 from core.scope_access import get_scope_access
-from reporting.services import build_operational_dashboard, get_cached_manual_resolution_summary
+from reporting.services import (
+    build_manual_resolution_summary,
+    build_operational_dashboard,
+    get_cached_manual_resolution_summary,
+)
 
 from .serializers import CurrentUserSerializer, LoginSerializer
 
@@ -107,6 +111,7 @@ def get_cached_demo_login_response_payload(*, username: str, password: str):
 
 
 def warm_demo_login_response_payloads():
+    build_manual_resolution_summary(status='open', use_cache=True)
     warmed = 0
     for username in settings.DEMO_LOGIN_USERS:
         user = get_demo_login_user(username)

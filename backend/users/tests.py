@@ -257,3 +257,24 @@ class UserAuthAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertIsNotNone(cache.get('auth:demo-login-response:username=demo-admin'))
         self.assertIsNotNone(cache.get('auth:demo-login-response:username=demo-revisor'))
+
+    @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
+    def test_demo_warmup_primes_admin_manual_summary_when_backlog_exists(self):
+        get_user_model().objects.create_user(
+            username='demo-admin',
+            password='another-secret',
+            default_role_code='AdministradorGlobal',
+        )
+        ManualResolution.objects.create(
+            category='ops.retry_needed',
+            scope_type='demo',
+            scope_reference='demo-1',
+            summary='Retry manual necesario',
+        )
+
+        response = self.client.post(reverse('demo-warmup'))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        payload = cache.get('auth:demo-login-response:username=demo-admin')
+        self.assertIsNotNone(payload)
+        self.assertEqual(payload['bootstrap']['overview']['manual_summary']['total'], 1)
