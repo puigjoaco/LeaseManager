@@ -1939,7 +1939,7 @@ function App() {
             try {
               const manualSummaryPayload = await requestIf<ManualSummary | null>(
                 true,
-                withRefreshParam('/api/v1/reporting/migracion/resoluciones-manuales/?status=open'),
+                withRefreshParam('/api/v1/reporting/manual-resolutions/summary/?status=open'),
                 null,
               )
               if (manualSummaryPayload) {
