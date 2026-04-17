@@ -60,11 +60,17 @@ def _demo_login_response_cache_key(user):
     return f'auth:demo-login-response:user={user.id}'
 
 
+def clear_demo_login_response_cache(user):
+    cache.delete(_demo_login_response_cache_key(user))
+
+
 def build_demo_login_response_payload(user):
     cache_key = _demo_login_response_cache_key(user)
     cached_payload = cache.get(cache_key)
     if cached_payload is not None:
-        return cached_payload
+        if Token.objects.filter(user=user, key=cached_payload.get('token')).exists():
+            return cached_payload
+        cache.delete(cache_key)
 
     token, _ = Token.objects.get_or_create(user=user)
     payload = {
@@ -139,6 +145,7 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        clear_demo_login_response_cache(request.user)
         Token.objects.filter(user=request.user).delete()
         create_audit_event(
             event_type='auth.logout',

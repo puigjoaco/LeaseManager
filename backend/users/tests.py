@@ -158,3 +158,33 @@ class UserAuthAPITests(APITestCase):
         self.assertEqual(response_two.data['user']['username'], user.username)
         self.assertEqual(mocked_get_or_create.call_count, 1)
         self.assertEqual(mocked_audit.call_count, 0)
+
+    @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
+    def test_demo_login_cache_is_invalidated_by_logout(self):
+        user = get_user_model().objects.create_user(
+            username='demo-admin',
+            password='another-secret',
+            default_role_code='AdministradorGlobal',
+        )
+
+        first_login = self.client.post(
+            reverse('login'),
+            {'username': 'demo-admin', 'password': 'demo12345'},
+            format='json',
+        )
+        self.assertEqual(first_login.status_code, status.HTTP_200_OK)
+        first_token = first_login.data['token']
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {first_token}')
+        logout = self.client.post(reverse('logout'))
+        self.assertEqual(logout.status_code, status.HTTP_204_NO_CONTENT)
+        self.client.credentials()
+
+        second_login = self.client.post(
+            reverse('login'),
+            {'username': 'demo-admin', 'password': 'demo12345'},
+            format='json',
+        )
+        self.assertEqual(second_login.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_login.data['user']['username'], user.username)
+        self.assertNotEqual(second_login.data['token'], first_token)
