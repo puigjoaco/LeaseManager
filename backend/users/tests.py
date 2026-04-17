@@ -10,7 +10,8 @@ from rest_framework.test import APITestCase
 
 from contabilidad.models import ConfiguracionFiscalEmpresa, RegimenTributarioEmpresa
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
-from reporting.services import build_migration_manual_resolution_summary
+from audit.models import ManualResolution
+from reporting.services import build_manual_resolution_summary
 
 
 class UserAuthAPITests(APITestCase):
@@ -62,7 +63,13 @@ class UserAuthAPITests(APITestCase):
             password='secret123',
             default_role_code='AdministradorGlobal',
         )
-        build_migration_manual_resolution_summary(status='open', use_cache=True)
+        ManualResolution.objects.create(
+            category='ops.retry_needed',
+            scope_type='demo',
+            scope_reference='demo-1',
+            summary='Retry manual necesario',
+        )
+        build_manual_resolution_summary(status='open', use_cache=True)
 
         response = self.client.post(
             reverse('login'),
@@ -72,6 +79,7 @@ class UserAuthAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('manual_summary', response.data['bootstrap']['overview'])
+        self.assertEqual(response.data['bootstrap']['overview']['manual_summary']['total'], 1)
 
     def test_login_returns_control_bootstrap_for_reviewer(self):
         user = get_user_model().objects.create_user(

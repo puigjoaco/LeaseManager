@@ -378,3 +378,23 @@ class ReportingAPITests(APITestCase):
             response.data['propiedades_owner_manual_required'][0]['candidate_owner_model'],
             'comunidad',
         )
+
+    def test_manual_resolution_summary_returns_all_open_categories(self):
+        ManualResolution.objects.create(
+            category='ops.retry_needed',
+            scope_type='operacion',
+            scope_reference='op-1',
+            summary='Requiere reintento manual',
+        )
+        ManualResolution.objects.create(
+            category='cobranza.assignment_required',
+            scope_type='pago',
+            scope_reference='pay-1',
+            summary='Requiere asignación manual',
+        )
+
+        response = self.client.get(reverse('reporting-manual-resolutions-summary'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total'], 2)
+        self.assertEqual(len(response.data['categorias']), 2)

@@ -608,5 +608,48 @@ def build_migration_manual_resolution_summary(
     return payload
 
 
+def build_manual_resolution_summary(
+    status='open',
+    access: ScopeAccess | None = None,
+    *,
+    use_cache: bool = True,
+):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    if access.restricted:
+        return {
+            'status': status,
+            'total': 0,
+            'categorias': [],
+        }
+
+    cache_key = _cache_key(f'manual-resolution-summary:{status}')
+    if use_cache:
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return cached_payload
+
+    resolutions = ManualResolution.objects.all()
+    if status:
+        resolutions = resolutions.filter(status=status)
+
+    by_category = resolutions.values('category').annotate(total=Count('id')).order_by('category')
+    payload = {
+        'status': status,
+        'total': resolutions.count(),
+        'categorias': [
+            {'category': item['category'], 'total': item['total']}
+            for item in by_category
+        ],
+    }
+
+    if use_cache:
+        cache.set(cache_key, payload, REPORTING_CACHE_TTL_SECONDS)
+    return payload
+
+
 def get_cached_migration_manual_resolution_summary(status='open'):
     return cache.get(_cache_key(f'migration-manual-resolution-summary:{status}'))
+
+
+def get_cached_manual_resolution_summary(status='open'):
+    return cache.get(_cache_key(f'manual-resolution-summary:{status}'))

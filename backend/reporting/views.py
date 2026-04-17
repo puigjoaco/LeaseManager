@@ -6,6 +6,7 @@ from core.scope_access import get_scope_access
 from .services import (
     build_annual_tax_summary,
     build_financial_monthly_summary,
+    build_manual_resolution_summary,
     build_migration_manual_resolution_summary,
     build_operational_dashboard,
     build_operational_overview_counts,
@@ -103,6 +104,20 @@ class MigrationManualResolutionSummaryView(APIView):
         status = request.query_params.get('status', 'open')
         return Response(
             build_migration_manual_resolution_summary(
+                status=status,
+                access=get_scope_access(request.user),
+                use_cache=_use_cache(request),
+            )
+        )
+
+
+class ManualResolutionSummaryView(APIView):
+    permission_classes = [OperationalOverviewPermission]
+
+    def get(self, request):
+        status = request.query_params.get('status', 'open')
+        return Response(
+            build_manual_resolution_summary(
                 status=status,
                 access=get_scope_access(request.user),
                 use_cache=_use_cache(request),
