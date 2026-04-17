@@ -1520,6 +1520,7 @@ function App() {
   const skipBootstrappedWorkspaceLoadRef = useRef<ViewKey | null>(null)
   const healthLoadTimeoutRef = useRef<number | null>(null)
   const suspendHealthLoadsRef = useRef(false)
+  const loginChunkPrefetchRef = useRef(false)
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
     status: 'open',
     rationale: '',
@@ -2120,6 +2121,20 @@ function App() {
   }, [token, isLoggingIn])
 
   useEffect(() => {
+    if (token || isLoggingIn || loginChunkPrefetchRef.current) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      loginChunkPrefetchRef.current = true
+      void loadOverviewWorkspace()
+      void loadContabilidadWorkspace()
+    }, 500)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [token, isLoggingIn])
+
+  useEffect(() => {
     if (!token) {
       setCurrentUser(null)
       storeCurrentUser(null)
@@ -2200,6 +2215,7 @@ function App() {
       window.clearTimeout(healthLoadTimeoutRef.current)
       healthLoadTimeoutRef.current = null
     }
+    loginChunkPrefetchRef.current = true
     void loadOverviewWorkspace()
     void loadContabilidadWorkspace()
     setIsLoggingIn(true)
