@@ -54,10 +54,16 @@ def build_login_bootstrap(user, *, profile='default'):
         )
         payload = {
             'overview': {
-                'dashboard': build_operational_dashboard(access=access, include_secondary=False, use_cache=True),
+                'dashboard': build_operational_dashboard(
+                    access=access,
+                    include_secondary=profile == 'demo',
+                    use_cache=True,
+                ),
                 **({'manual_summary': manual_summary} if manual_summary is not None else {}),
             }
         }
+        if role == ROLE_ADMIN and profile == 'demo':
+            payload['control'] = build_control_snapshot_payload(access, mode='full', use_cache=True)
     elif role == ROLE_REVIEWER:
         control_mode = 'full' if profile == 'demo' else 'bootstrap'
         payload = {
@@ -117,7 +123,6 @@ def get_cached_demo_login_response_payload(*, username: str, password: str):
 
 
 def warm_demo_login_response_payloads():
-    build_manual_resolution_summary(status='open', use_cache=True)
     warmed = 0
     for username in settings.DEMO_LOGIN_USERS:
         user = get_demo_login_user(username)

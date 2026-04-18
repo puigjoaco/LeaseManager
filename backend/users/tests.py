@@ -82,6 +82,8 @@ class UserAuthAPITests(APITestCase):
         self.assertIn('overview', response.data['bootstrap'])
         self.assertIn('dashboard', response.data['bootstrap']['overview'])
         self.assertNotIn('manual_summary', response.data['bootstrap']['overview'])
+        self.assertNotIn('socios_total', response.data['bootstrap']['overview']['dashboard'])
+        self.assertNotIn('control', response.data['bootstrap'])
 
     def test_login_includes_cached_manual_summary_when_available(self):
         user = get_user_model().objects.create_user(
@@ -207,6 +209,24 @@ class UserAuthAPITests(APITestCase):
             password='another-secret',
             default_role_code='AdministradorGlobal',
         )
+        empresa = self._create_active_company(nombre='DemoAdminAuthCo', rut='76000114-4')
+        regimen, _ = RegimenTributarioEmpresa.objects.get_or_create(
+            codigo_regimen='EmpresaContabilidadCompletaV1',
+            defaults={'descripcion': 'Regimen canonico', 'estado': 'activa'},
+        )
+        ConfiguracionFiscalEmpresa.objects.create(
+            empresa=empresa,
+            regimen_tributario=regimen,
+            afecta_iva_arriendo=False,
+            tasa_iva='0.00',
+            aplica_ppm=True,
+            ddjj_habilitadas=[],
+            inicio_ejercicio='2026-01-01',
+            moneda_funcional='CLP',
+            estado='activa',
+        )
+        self._create_cuenta_contable(empresa)
+        self._create_evento_contable(empresa, idempotency_key='demo-admin-event-1')
         ManualResolution.objects.create(
             category='ops.retry_needed',
             scope_type='demo',
@@ -225,6 +245,11 @@ class UserAuthAPITests(APITestCase):
         self.assertIn('overview', response.data['bootstrap'])
         self.assertIn('manual_summary', response.data['bootstrap']['overview'])
         self.assertEqual(response.data['bootstrap']['overview']['manual_summary']['total'], 1)
+        self.assertEqual(response.data['bootstrap']['overview']['dashboard']['socios_total'], 2)
+        self.assertEqual(response.data['bootstrap']['overview']['dashboard']['empresas_total'], 1)
+        self.assertIn('control', response.data['bootstrap'])
+        self.assertEqual(len(response.data['bootstrap']['control']['cuentas_contables']), 1)
+        self.assertEqual(len(response.data['bootstrap']['control']['eventos_contables']), 1)
 
     @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
     def test_login_bootstrap_uses_short_cache(self):

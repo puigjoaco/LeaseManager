@@ -410,6 +410,22 @@ type ManualSummary = {
   categorias: Array<{ category: string; total: number }>
 }
 
+function hasOverviewSecondaryCounts(dashboard: Dashboard | null) {
+  return (
+    typeof dashboard?.socios_total === 'number'
+    && typeof dashboard?.empresas_total === 'number'
+    && typeof dashboard?.comunidades_total === 'number'
+    && typeof dashboard?.propiedades_total === 'number'
+    && typeof dashboard?.cuentas_total === 'number'
+    && typeof dashboard?.identidades_total === 'number'
+    && typeof dashboard?.mandatos_total === 'number'
+  )
+}
+
+function hasFreshOverviewSummarySnapshot(dashboard: Dashboard | null, lastLoadedAt: string | null) {
+  return Boolean(dashboard) && isRecentSnapshot(lastLoadedAt)
+}
+
 type Socio = {
   id: number
   nombre: string
@@ -1122,7 +1138,7 @@ type ReportingMigrationSummary = {
 function App() {
   const initialView = readStoredInitialView()
   const initialOverviewSnapshot = readStoredOverviewSnapshot()
-  const initialControlSnapshot = initialView === 'contabilidad' ? readStoredControlSnapshot() : null
+  const initialControlSnapshot = readStoredControlSnapshot()
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY))
   const [health, setHealth] = useState<HealthPayload>(() => readStoredHealth() || unknownHealth)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => readStoredCurrentUser())
@@ -1628,6 +1644,18 @@ function App() {
       const shouldRefreshData = Boolean(options.forceDataRefresh)
       const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
       const loadOverview = canReadOverview && targetView === 'overview'
+      const hasFreshOverviewSummary = loadOverview && hasFreshOverviewSummarySnapshot(dashboard, lastLoadedAt)
+      const shouldLoadOverviewSummary = loadOverview && (shouldRefreshData || !hasFreshOverviewSummary)
+      const shouldLoadOverviewSecondary = loadOverview && (
+        shouldRefreshData
+        || !hasFreshOverviewSummary
+        || !hasOverviewSecondaryCounts(dashboard)
+      )
+      const shouldLoadOverviewManualSummary = loadOverview && (
+        shouldRefreshData
+        || !hasFreshOverviewSummary
+        || manualSummary === null
+      )
       const loadPatrimonioSnapshot = canReadOperational && targetView === 'patrimonio' && (shouldRefreshData || !isPatrimonioSnapshotLoaded)
       const loadOperationSnapshot = canReadOperational && targetView === 'operacion' && (shouldRefreshData || !isOperationSnapshotLoaded)
       const loadContractsSnapshot = canReadOperational && targetView === 'contratos' && (shouldRefreshData || !isContractsSnapshotLoaded)
@@ -1719,7 +1747,11 @@ function App() {
         complianceExportsPayload,
         ownPartnerSummary,
       ] = await Promise.all([
-        requestIf<Dashboard | null>(loadOverview, withRefreshParam('/api/v1/reporting/dashboard/operativo/?mode=summary'), dashboard),
+        requestIf<Dashboard | null>(
+          shouldLoadOverviewSummary,
+          withRefreshParam('/api/v1/reporting/dashboard/operativo/?mode=summary'),
+          dashboard,
+        ),
         manualSummary,
         requestIf<Socio[]>(loadSocios, '/api/v1/patrimonio/socios/', socios),
         requestIf<Empresa[]>(loadEmpresas, '/api/v1/patrimonio/empresas/', empresas),
@@ -1919,7 +1951,7 @@ function App() {
       setLastLoadedAt(new Date().toISOString())
 
       void (async () => {
-        if (loadOverview) {
+        if (shouldLoadOverviewSecondary) {
           void (async () => {
             try {
               const secondaryCounts = await requestIf<Partial<Dashboard> | null>(
@@ -1934,7 +1966,9 @@ function App() {
               // Keep the lightweight overview instead of surfacing a secondary-count failure.
             }
           })()
+        }
 
+        if (shouldLoadOverviewManualSummary) {
           void (async () => {
             try {
               const manualSummaryPayload = await requestIf<ManualSummary | null>(
