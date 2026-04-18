@@ -35,10 +35,12 @@ if (-not $BackendTestDb) {
 
 $testTargets = @(
     'users.tests.UserAuthAPITests',
+    'contratos.tests.ContratosAPITests',
     'cobranza.tests.CobranzaAPITests',
     'audit.tests.AuditAPITests',
     'conciliacion.tests.ConciliacionAPITests',
-    'contabilidad.tests.ContabilidadAPITests'
+    'contabilidad.tests.ContabilidadAPITests',
+    'sii.tests.SiiAPITests'
 )
 
 Step "Backend acceptance suite"

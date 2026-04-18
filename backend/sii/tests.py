@@ -420,6 +420,66 @@ class SiiAPITests(APITestCase):
         self.assertEqual(update.status_code, status.HTTP_200_OK)
         self.assertEqual(update.data['estado_preparacion'], 'aprobado_para_presentacion')
 
+    def test_monthly_sii_workflow_from_paid_payment_to_dte_and_f29(self):
+        empresa, pago = self._setup_paid_payment(monto_facturable='100000.00', monto_cobrado='100111.00')
+        self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa)
+
+        dte = self.client.post(
+            reverse('sii-dte-generate'),
+            {'pago_mensual_id': pago.id},
+            format='json',
+        )
+        self.assertEqual(dte.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(dte.data['monto_neto_clp'], '100000.00')
+        self.assertEqual(dte.data['estado_dte'], 'borrador')
+
+        dte_status = self.client.post(
+            reverse('sii-dte-status', args=[dte.data['id']]),
+            {
+                'estado_dte': 'enviado_manual_controlado',
+                'sii_track_id': '0245399452',
+                'ultimo_estado_sii': 'Recibido',
+            },
+            format='json',
+        )
+        self.assertEqual(dte_status.status_code, status.HTTP_200_OK)
+        self.assertEqual(dte_status.data['estado_dte'], 'enviado_manual_controlado')
+
+        self.client.post(
+            reverse('sii-capacidad-list'),
+            {
+                'empresa': empresa.id,
+                'capacidad_key': 'F29Preparacion',
+                'certificado_ref': 'certificado-f29-ref',
+                'ambiente': 'certificacion',
+                'estado_gate': 'condicionado',
+                'ultimo_resultado': {},
+            },
+            format='json',
+        )
+        self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+
+        f29 = self.client.post(
+            reverse('sii-f29-generate'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(f29.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(f29.data['estado_preparacion'], 'preparado')
+        self.assertEqual(len(f29.data['resumen_formulario']['obligaciones']), 1)
+
+        f29_status = self.client.post(
+            reverse('sii-f29-status', args=[f29.data['id']]),
+            {
+                'estado_preparacion': 'aprobado_para_presentacion',
+                'borrador_ref': 'f29-2026-01',
+            },
+            format='json',
+        )
+        self.assertEqual(f29_status.status_code, status.HTTP_200_OK)
+        self.assertEqual(f29_status.data['estado_preparacion'], 'aprobado_para_presentacion')
+
     def test_generate_annual_preparation_requires_twelve_approved_closes(self):
         empresa, _ = self._setup_paid_payment()
         self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
