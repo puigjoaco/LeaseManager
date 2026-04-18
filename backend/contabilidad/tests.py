@@ -4,13 +4,23 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from cobranza.models import GarantiaContractual
-from conciliacion.models import ConexionBancaria
+from cobranza.models import EstadoPago, GarantiaContractual, PagoMensual
+from conciliacion.models import ConexionBancaria, MovimientoBancarioImportado
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .models import AsientoContable, CierreMensualContable, ConfiguracionFiscalEmpresa, CuentaContable, EventoContable, ObligacionTributariaMensual
+from .models import (
+    AsientoContable,
+    BalanceComprobacion,
+    CierreMensualContable,
+    ConfiguracionFiscalEmpresa,
+    CuentaContable,
+    EventoContable,
+    LibroDiario,
+    LibroMayor,
+    ObligacionTributariaMensual,
+)
 from .services import DEFAULT_REGIME_CODE, ensure_default_regime
 
 
@@ -491,6 +501,103 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(str(obligation.base_imponible), '100111.00')
         self.assertEqual(str(obligation.monto_calculado), '10011.10')
         self.assertEqual(obligation.estado_preparacion, 'preparado')
+
+    def test_end_to_end_payment_reconciliation_close_lifecycle(self):
+        empresa = self._create_active_empresa(nombre='WorkflowCo', rut='43434343-4')
+        accounts = self._setup_contabilidad(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        config.tasa_ppm_vigente = '10.00'
+        config.save(update_fields=['tasa_ppm_vigente'])
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+
+        contrato, cuenta = self._create_contract_with_company_admin(empresa, codigo='LED-WORKFLOW')
+        generate = self.client.post(
+            reverse('cobranza-pago-generate'),
+            {'contrato_id': contrato.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(generate.status_code, status.HTTP_201_CREATED)
+
+        pago = PagoMensual.objects.get(pk=generate.data['id'])
+        self.assertEqual(pago.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(pago.distribuciones_cobro.count(), 1)
+
+        conexion = ConexionBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            provider_key='banco_de_chile',
+            credencial_ref='cred-workflow',
+            estado_conexion='activa',
+            primaria_movimientos=True,
+        )
+        movimiento_response = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-08',
+                'tipo_movimiento': 'abono',
+                'monto': '100111.00',
+                'descripcion_origen': 'Pago exacto workflow',
+            },
+            format='json',
+        )
+        self.assertEqual(movimiento_response.status_code, status.HTTP_201_CREATED)
+
+        pago.refresh_from_db()
+        movimiento = MovimientoBancarioImportado.objects.get(pk=movimiento_response.data['id'])
+        distribucion_empresa = pago.distribuciones_cobro.get(beneficiario_empresa_owner=empresa)
+        event = EventoContable.objects.get(evento_tipo='PagoConciliadoArriendo', empresa=empresa)
+        asiento = AsientoContable.objects.get(evento_contable=event)
+
+        self.assertEqual(pago.estado_pago, EstadoPago.PAID)
+        self.assertEqual(str(pago.monto_pagado_clp), '100111.00')
+        self.assertEqual(movimiento.estado_conciliacion, 'conciliado_exacto')
+        self.assertEqual(movimiento.pago_mensual_id, pago.id)
+        self.assertEqual(str(distribucion_empresa.monto_conciliado_clp), '100111.00')
+        self.assertEqual(event.estado_contable, 'contabilizado')
+        self.assertEqual(str(asiento.debe_total), '100111.00')
+        self.assertEqual(str(asiento.haber_total), '100111.00')
+        self.assertEqual(asiento.movimientos.count(), 2)
+
+        prepare = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+
+        close = CierreMensualContable.objects.get(empresa=empresa, anio=2026, mes=1)
+        obligation = ObligacionTributariaMensual.objects.get(empresa=empresa, anio=2026, mes=1, obligacion_tipo='PPM')
+        libro_diario = LibroDiario.objects.get(empresa=empresa, periodo='2026-01')
+        libro_mayor = LibroMayor.objects.get(empresa=empresa, periodo='2026-01')
+        balance = BalanceComprobacion.objects.get(empresa=empresa, periodo='2026-01')
+
+        self.assertEqual(close.estado, 'preparado')
+        self.assertEqual(close.resumen_obligaciones['snapshots']['libro_diario'], '2026-01')
+        self.assertEqual(close.resumen_obligaciones['snapshots']['libro_mayor'], '2026-01')
+        self.assertEqual(close.resumen_obligaciones['snapshots']['balance_comprobacion'], '2026-01')
+        self.assertEqual(str(obligation.base_imponible), '100111.00')
+        self.assertEqual(str(obligation.monto_calculado), '10011.10')
+        self.assertEqual(obligation.estado_preparacion, 'preparado')
+        self.assertEqual(len(libro_diario.resumen['asientos']), 1)
+        self.assertEqual(len(libro_mayor.resumen['cuentas']), 2)
+        self.assertTrue(balance.resumen['cuadrado'])
+
+        approve = self.client.post(
+            reverse('contabilidad-cierre-approve', args=[close.id]),
+            format='json',
+        )
+        self.assertEqual(approve.status_code, status.HTTP_200_OK)
+        close.refresh_from_db()
+        self.assertEqual(close.estado, 'aprobado')
+        self.assertIsNotNone(close.fecha_aprobacion)
+
+        reopen = self.client.post(
+            reverse('contabilidad-cierre-reopen', args=[close.id]),
+            format='json',
+        )
+        self.assertEqual(reopen.status_code, status.HTTP_200_OK)
+        close.refresh_from_db()
+        self.assertEqual(close.estado, 'reabierto')
 
     def test_prepare_and_approve_and_reopen_monthly_close(self):
         empresa = self._create_active_empresa(nombre='ApproveCo', rut='56565656-5')
