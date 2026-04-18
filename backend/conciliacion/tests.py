@@ -290,3 +290,50 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
         self.assertEqual(pago.estado_pago, EstadoPago.PAID)
         self.assertEqual(ingreso.estado, 'resuelto')
+
+    def test_manual_resolution_can_regularize_unknown_income_to_selected_payment(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-08',
+                'tipo_movimiento': 'abono',
+                'monto': '777777.00',
+                'descripcion_origen': 'Abono requiere regularizacion manual',
+            },
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
+            {
+                'pago_mensual_id': pago.pk,
+                'rationale': 'Regularizado manualmente contra el pago correcto.',
+            },
+            format='json',
+        )
+        self.assertEqual(resolve.status_code, status.HTTP_200_OK)
+
+        movimiento.refresh_from_db()
+        pago.refresh_from_db()
+        resolution.refresh_from_db()
+        ingreso = IngresoDesconocido.objects.get(movimiento_bancario=movimiento)
+
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
+        self.assertEqual(movimiento.pago_mensual_id, pago.pk)
+        self.assertEqual(pago.estado_pago, EstadoPago.PAID)
+        self.assertEqual(str(pago.monto_pagado_clp), '777777.00')
+        self.assertEqual(ingreso.estado, 'resuelto')
+        self.assertEqual(resolution.status, 'resolved')
+        self.assertEqual(resolution.rationale, 'Regularizado manualmente contra el pago correcto.')
+        self.assertEqual(resolution.metadata['resolved_payment_id'], pago.pk)

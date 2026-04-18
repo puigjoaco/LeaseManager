@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from cobranza.models import PagoMensual
 from patrimonio.models import Empresa, ModoRepresentacionComunidad, Socio
 from patrimonio.validators import validate_rut
 
@@ -37,6 +38,19 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
         if obj.resolved_by_id:
             return obj.resolved_by.display_name or obj.resolved_by.username
         return ''
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if (
+            self.instance
+            and self.instance.category == 'conciliacion.ingreso_desconocido'
+            and attrs.get('status') == ManualResolution.Status.RESOLVED
+            and self.instance.status != ManualResolution.Status.RESOLVED
+        ):
+            raise serializers.ValidationError(
+                {'status': 'Use la resolución especializada de ingreso desconocido para cerrar este caso.'}
+            )
+        return attrs
 
 
 class ResolveMigrationPropertyOwnerParticipationSerializer(serializers.Serializer):
@@ -85,3 +99,16 @@ class ResolveMigrationPropertyOwnerSerializer(serializers.Serializer):
     )
     region = serializers.CharField(max_length=100, required=False)
     participaciones = ResolveMigrationPropertyOwnerParticipationSerializer(many=True, required=False)
+
+
+class ResolveUnknownIncomeSerializer(serializers.Serializer):
+    pago_mensual_id = serializers.IntegerField()
+    rationale = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_pago_mensual_id(self, value):
+        try:
+            payment = PagoMensual.objects.select_related('contrato__mandato_operacion').get(pk=value)
+        except PagoMensual.DoesNotExist as error:
+            raise serializers.ValidationError('El pago mensual indicado no existe.') from error
+        self.context['pago_mensual'] = payment
+        return value

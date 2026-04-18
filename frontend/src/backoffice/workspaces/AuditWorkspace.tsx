@@ -33,6 +33,7 @@ type ManualResolutionItem = {
 type ManualResolutionDraft = {
   status: string
   rationale: string
+  pago_mensual_id: string
 }
 
 export function AuditWorkspace({
@@ -66,6 +67,11 @@ export function AuditWorkspace({
   isSubmitting: boolean
   isLoading: boolean
 }) {
+  const isUnknownIncomeResolution = activeManualResolution?.category === 'conciliacion.ingreso_desconocido'
+  const candidatePaymentIds = Array.isArray(activeManualResolution?.metadata?.payment_candidate_ids)
+    ? activeManualResolution.metadata.payment_candidate_ids.join(', ')
+    : ''
+
   return (
     <>
       {!canEditAudit ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Audit.</div> : null}
@@ -89,6 +95,16 @@ export function AuditWorkspace({
                 <option value="resolved">Resolved</option>
               </select>
               <input placeholder="Rationale" value={manualResolutionDraft.rationale} onChange={(event) => setManualResolutionDraft((current) => ({ ...current, rationale: event.target.value }))} />
+              {isUnknownIncomeResolution ? (
+                <>
+                  <input
+                    placeholder="Pago mensual ID"
+                    value={manualResolutionDraft.pago_mensual_id}
+                    onChange={(event) => setManualResolutionDraft((current) => ({ ...current, pago_mensual_id: event.target.value }))}
+                  />
+                  {candidatePaymentIds ? <div className="empty-state compact">Candidatos sugeridos: {candidatePaymentIds}</div> : null}
+                </>
+              ) : null}
               <div className="inline-actions">
                 <button type="submit" className="button-primary" disabled={isSubmitting || !editingManualResolutionId}>Guardar resolución</button>
                 {editingManualResolutionId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditManualResolution}>Cancelar</button> : null}

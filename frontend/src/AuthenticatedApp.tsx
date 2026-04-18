@@ -1540,6 +1540,7 @@ function App() {
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
     status: 'open',
     rationale: '',
+    pago_mensual_id: '',
   })
   const [politicaRetencionDraft, setPoliticaRetencionDraft] = useState({
     categoria_dato: 'financiero',
@@ -3629,16 +3630,36 @@ function App() {
   async function handleUpdateManualResolution(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditAudit || !editingManualResolutionId) return
+    const isUnknownIncomeResolution = activeManualResolution?.category === 'conciliacion.ingreso_desconocido'
+    if (isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved') {
+      if (!manualResolutionDraft.pago_mensual_id.trim()) {
+        setFormError('Debes indicar el pago mensual que regulariza este ingreso desconocido.')
+        return
+      }
+    }
+
     const success = await submitMutation(
-      `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/`,
-      'PATCH',
-      manualResolutionDraft,
-      'Resolución manual actualizada correctamente.',
+      isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved'
+        ? `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/resolve-unknown-income/`
+        : `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/`,
+      isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved' ? 'POST' : 'PATCH',
+      isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved'
+        ? {
+          pago_mensual_id: Number(manualResolutionDraft.pago_mensual_id),
+          rationale: manualResolutionDraft.rationale,
+        }
+        : {
+          status: manualResolutionDraft.status,
+          rationale: manualResolutionDraft.rationale,
+        },
+      isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved'
+        ? 'Ingreso desconocido regularizado correctamente.'
+        : 'Resolución manual actualizada correctamente.',
       'audit',
     )
     if (!success) return
     setEditingManualResolutionId(null)
-    setManualResolutionDraft({ status: 'open', rationale: '' })
+    setManualResolutionDraft({ status: 'open', rationale: '', pago_mensual_id: '' })
   }
 
   function navigateWithContext(view: ViewKey, search = '', label = '') {
@@ -3714,16 +3735,21 @@ function App() {
   }
 
   function startEditManualResolution(row: ManualResolutionItem) {
+    const resolvedPaymentId =
+      typeof row.metadata?.resolved_payment_id === 'number'
+        ? String(row.metadata.resolved_payment_id)
+        : ''
     setEditingManualResolutionId(row.id)
     setManualResolutionDraft({
       status: row.status,
       rationale: row.rationale || '',
+      pago_mensual_id: resolvedPaymentId,
     })
   }
 
   function cancelEditManualResolution() {
     setEditingManualResolutionId(null)
-    setManualResolutionDraft({ status: 'open', rationale: '' })
+    setManualResolutionDraft({ status: 'open', rationale: '', pago_mensual_id: '' })
   }
 
   function startEditExpediente(row: ExpedienteDocumental) {

@@ -43,6 +43,23 @@ class AuditAPITests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['scope_reference'], 'prop-1')
 
+    def test_unknown_income_resolution_cannot_be_marked_resolved_via_generic_patch(self):
+        resolution = ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            scope_type='movimiento_bancario',
+            scope_reference='123',
+            summary='Ingreso desconocido',
+            status='open',
+        )
+
+        response = self.client.patch(
+            reverse('manual-resolution-detail', args=[resolution.pk]),
+            {'status': 'resolved', 'rationale': 'Cerrar directo'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_resolve_property_owner_manual_resolution_creates_comunidad_and_propiedad(self):
         socio_1 = Socio.objects.create(nombre='Socio Uno', rut='11111111-1', activo=True)
         socio_2 = Socio.objects.create(nombre='Socio Dos', rut='22222222-2', activo=True)

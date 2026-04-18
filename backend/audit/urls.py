@@ -6,6 +6,7 @@ from .views import (
     ManualResolutionDetailView,
     ManualResolutionListCreateView,
     ResolveMigrationPropertyOwnerView,
+    ResolveUnknownIncomeView,
 )
 
 urlpatterns = [
@@ -16,6 +17,11 @@ urlpatterns = [
         'manual-resolutions/<uuid:pk>/resolve-property-owner/',
         ResolveMigrationPropertyOwnerView.as_view(),
         name='manual-resolution-resolve-property-owner',
+    ),
+    path(
+        'manual-resolutions/<uuid:pk>/resolve-unknown-income/',
+        ResolveUnknownIncomeView.as_view(),
+        name='manual-resolution-resolve-unknown-income',
     ),
     path(
         'manual-resolutions/<uuid:pk>/',

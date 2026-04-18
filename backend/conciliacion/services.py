@@ -3,7 +3,7 @@ from django.utils import timezone
 
 from audit.models import ManualResolution
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
-from cobranza.services import sync_payment_state
+from cobranza.services import sync_payment_distribution, sync_payment_state
 
 from .models import (
     EstadoConciliacionMovimiento,
@@ -70,11 +70,17 @@ def handle_unknown_income(movimiento, suggestion=None):
     movimiento.pago_mensual = None
     movimiento.codigo_cobro_residual = None
     movimiento.save(update_fields=['estado_conciliacion', 'pago_mensual', 'codigo_cobro_residual', 'updated_at'])
-    ensure_manual_resolution_for_movement(
+    resolution = ensure_manual_resolution_for_movement(
         movimiento,
         'conciliacion.ingreso_desconocido',
         'Ingreso sin match exacto requiere clasificacion manual.',
     )
+    resolution.metadata = {
+        **(resolution.metadata or {}),
+        'unknown_income_id': unknown.pk,
+        'payment_candidate_ids': (suggestion or {}).get('payment_candidate_ids', []),
+    }
+    resolution.save(update_fields=['metadata'])
     return unknown
 
 
@@ -156,3 +162,87 @@ def reconcile_exact_movement(movimiento):
     suggestion = {'payment_candidate_ids': [payment.pk for payment in payment_matches]}
     unknown = handle_unknown_income(movimiento, suggestion=suggestion)
     return {'status': 'unknown_income', 'ingreso_desconocido_id': unknown.pk}
+
+
+@transaction.atomic
+def resolve_unknown_income_manual_resolution(*, resolution, payment, rationale='', actor_user=None, ip_address=None):
+    if resolution.category != 'conciliacion.ingreso_desconocido':
+        raise ValueError('La resolucion indicada no corresponde a ingreso desconocido de conciliacion.')
+    if resolution.status == ManualResolution.Status.RESOLVED:
+        raise ValueError('La resolucion ya fue marcada como resuelta.')
+
+    movimiento = MovimientoBancarioImportado.objects.select_related('conexion_bancaria').get(pk=resolution.scope_reference)
+    if movimiento.tipo_movimiento != TipoMovimientoBancario.CREDIT:
+        raise ValueError('Solo se puede regularizar manualmente un abono bancario.')
+    if movimiento.estado_conciliacion != EstadoConciliacionMovimiento.UNKNOWN_INCOME:
+        raise ValueError('El movimiento ya no se encuentra en estado de ingreso desconocido.')
+
+    if payment.contrato.mandato_operacion.cuenta_recaudadora_id != movimiento.conexion_bancaria.cuenta_recaudadora_id:
+        raise ValueError('El pago seleccionado no pertenece a la misma cuenta recaudadora del movimiento.')
+    if payment.estado_pago not in {EstadoPago.PENDING, EstadoPago.OVERDUE}:
+        raise ValueError('Solo se puede regularizar manualmente un pago pendiente o atrasado.')
+
+    payment.monto_pagado_clp = movimiento.monto
+    payment.fecha_deposito_banco = movimiento.fecha_movimiento
+    payment.fecha_deteccion_sistema = timezone.localdate()
+    payment.estado_pago = EstadoPago.PAID
+    sync_payment_state(payment)
+    payment.save(
+        update_fields=[
+            'monto_pagado_clp',
+            'fecha_deposito_banco',
+            'fecha_deteccion_sistema',
+            'estado_pago',
+            'dias_mora',
+            'updated_at',
+        ]
+    )
+    sync_payment_distribution(payment)
+
+    movimiento.pago_mensual = payment
+    movimiento.codigo_cobro_residual = None
+    movimiento.estado_conciliacion = EstadoConciliacionMovimiento.EXACT_MATCH
+    movimiento.save(update_fields=['pago_mensual', 'codigo_cobro_residual', 'estado_conciliacion', 'updated_at'])
+
+    resolve_unknown_income_if_present(movimiento)
+    from contabilidad.services import create_payment_reconciled_event
+
+    create_payment_reconciled_event(payment, movimiento)
+
+    resolved_at = timezone.now()
+    ManualResolution.objects.filter(
+        scope_type='movimiento_bancario',
+        scope_reference=str(movimiento.pk),
+        status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
+    ).exclude(pk=resolution.pk).update(status=ManualResolution.Status.RESOLVED, resolved_at=resolved_at)
+
+    resolution.status = ManualResolution.Status.RESOLVED
+    resolution.resolved_at = resolved_at
+    resolution.resolved_by = actor_user
+    resolution.rationale = rationale
+    resolution.metadata = {
+        **(resolution.metadata or {}),
+        'resolved_payment_id': payment.pk,
+        'resolved_contract_id': payment.contrato_id,
+        'resolved_with': 'payment_manual_assignment',
+    }
+    resolution.save(update_fields=['status', 'resolved_at', 'resolved_by', 'rationale', 'metadata'])
+
+    from audit.services import create_audit_event
+
+    create_audit_event(
+        event_type='audit.manual_resolution.resolved',
+        entity_type='manual_resolution',
+        entity_id=str(resolution.pk),
+        summary='Se regularizo manualmente un ingreso desconocido de conciliacion.',
+        actor_user=actor_user,
+        ip_address=ip_address,
+        metadata={
+            'resolution_category': resolution.category,
+            'movimiento_bancario_id': movimiento.pk,
+            'pago_mensual_id': payment.pk,
+            'contrato_id': payment.contrato_id,
+        },
+    )
+
+    return {'resolution': resolution, 'movimiento': movimiento, 'payment': payment}
