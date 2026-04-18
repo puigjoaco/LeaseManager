@@ -8,6 +8,7 @@ const DEFAULT_FRONTEND_URL = 'https://leasemanager-backoffice.vercel.app/';
 const DEFAULT_API_BASE_URL = 'https://surprising-balance-production.up.railway.app';
 const DEFAULT_ACCOUNTS = [
   { label: 'admin', username: 'demo-admin', password: 'demo12345', displayName: 'Demo Administrador Global', waitFor: 'overview' },
+  { label: 'operator', username: 'demo-operador', password: 'demo12345', displayName: 'Demo Operador de Cartera', waitFor: 'overview' },
   { label: 'reviewer', username: 'demo-revisor', password: 'demo12345', displayName: 'Demo Revisor Fiscal Externo', waitFor: 'contabilidad' },
   { label: 'partner', username: 'demo-socio', password: 'demo12345', displayName: 'Demo Socio', waitFor: 'reporting' },
 ];

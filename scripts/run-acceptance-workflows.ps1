@@ -35,14 +35,21 @@ if (-not $BackendTestDb) {
 
 $testTargets = @(
     'users.tests.UserAuthAPITests',
+    'core.tests_permissions.RolePermissionTests',
+    'core.tests_scope_access.ScopeFilteringAPITests',
+    'patrimonio.tests.PatrimonioAPITests',
+    'operacion.tests.OperacionAPITests',
     'contratos.tests.ContratosAPITests',
     'documentos.tests.DocumentosAPITests',
+    'documentos.tests.DocumentosScopeAPITests',
     'canales.tests.CanalesAPITests',
+    'canales.tests.CanalesScopeAPITests',
     'cobranza.tests.CobranzaAPITests',
     'audit.tests.AuditAPITests',
     'conciliacion.tests.ConciliacionAPITests',
     'contabilidad.tests.ContabilidadAPITests',
     'reporting.tests.ReportingAPITests',
+    'compliance.tests.ComplianceAPITests',
     'sii.tests.SiiAPITests'
 )
 
@@ -78,18 +85,24 @@ if (-not $SkipSmoke) {
 
     $smokeResults = $smokeOutput | ConvertFrom-Json
     $adminResult = $smokeResults | Where-Object { $_.label -eq 'admin' } | Select-Object -First 1
+    $operatorResult = $smokeResults | Where-Object { $_.label -eq 'operator' } | Select-Object -First 1
     $reviewerResult = $smokeResults | Where-Object { $_.label -eq 'reviewer' } | Select-Object -First 1
     $partnerResult = $smokeResults | Where-Object { $_.label -eq 'partner' } | Select-Object -First 1
 
     Assert-Condition ($null -ne $adminResult) 'La smoke no devolvio resultado admin.'
+    Assert-Condition ($null -ne $operatorResult) 'La smoke no devolvio resultado operator.'
     Assert-Condition ($null -ne $reviewerResult) 'La smoke no devolvio resultado reviewer.'
     Assert-Condition ($null -ne $partnerResult) 'La smoke no devolvio resultado partner.'
     Assert-Condition ($adminResult.ok -eq $true) 'La smoke admin no quedo OK.'
+    Assert-Condition ($operatorResult.ok -eq $true) 'La smoke operator no quedo OK.'
     Assert-Condition ($reviewerResult.ok -eq $true) 'La smoke reviewer no quedo OK.'
     Assert-Condition ($partnerResult.ok -eq $true) 'La smoke partner no quedo OK.'
 
     Assert-Condition ($adminResult.excerpt -match 'conciliacion\.ingreso desconocido') 'El overview admin no mostro la categoria real del backlog manual.'
     Assert-Condition ($adminResult.excerpt -notmatch 'Actualizando detalle de') 'El overview admin volvio a mostrar placeholder de backlog.'
+    Assert-Condition ($operatorResult.excerpt -match 'Demo Operador de Cartera') 'La smoke operator no aterrizo en el perfil correcto.'
+    Assert-Condition ($operatorResult.excerpt -match 'Resoluciones abiertas') 'La smoke operator no mostro el resumen operativo.'
+    Assert-Condition ($operatorResult.excerpt -notmatch 'Contabilidad') 'La smoke operator expuso tabs de control no permitidas.'
     Assert-Condition ($reviewerResult.excerpt -match 'Configuración fiscal, eventos, asientos y cierres') 'Reviewer no aterrizo en Contabilidad.'
     Assert-Condition ($reviewerResult.excerpt -notmatch 'Cargando catálogo contable') 'Reviewer mostro carga residual de catalogo contable.'
     Assert-Condition ($reviewerResult.excerpt -notmatch 'Cargando actividad contable') 'Reviewer mostro carga residual de actividad contable.'

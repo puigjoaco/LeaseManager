@@ -29,6 +29,10 @@ def _cache_key(prefix: str) -> str:
     return f'reporting:{prefix}'
 
 
+def _decimal_str(value: Decimal) -> str:
+    return str(Decimal(value).quantize(Decimal('0.01')))
+
+
 def build_operational_dashboard(
     access: ScopeAccess | None = None,
     *,
@@ -295,16 +299,16 @@ def build_financial_monthly_summary(anio, mes, empresa_id=None, access: ScopeAcc
         'mes': mes,
         'empresa_id': empresa_id,
         'pagos_generados': pagos_generados,
-        'monto_facturable_total_clp': str(facturable_total),
-        'monto_cobrado_total_clp': str(cobrado_total),
+        'monto_facturable_total_clp': _decimal_str(facturable_total),
+        'monto_cobrado_total_clp': _decimal_str(cobrado_total),
         'eventos_contables_posteados': events.count(),
-        'monto_eventos_total_clp': str(event_total),
+        'monto_eventos_total_clp': _decimal_str(event_total),
         'asientos_contables': AsientoContable.objects.filter(evento_contable__in=events).count(),
         'dtes_emitidos': dtes.count(),
         'obligaciones': [
             {
                 'tipo': obligation.obligacion_tipo,
-                'monto_calculado': str(obligation.monto_calculado),
+                'monto_calculado': _decimal_str(obligation.monto_calculado),
                 'estado_preparacion': obligation.estado_preparacion,
             }
             for obligation in obligations.order_by('obligacion_tipo')
