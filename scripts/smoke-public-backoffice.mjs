@@ -9,6 +9,7 @@ const DEFAULT_API_BASE_URL = 'https://surprising-balance-production.up.railway.a
 const DEFAULT_ACCOUNTS = [
   { label: 'admin', username: 'demo-admin', password: 'demo12345', displayName: 'Demo Administrador Global', waitFor: 'overview' },
   { label: 'reviewer', username: 'demo-revisor', password: 'demo12345', displayName: 'Demo Revisor Fiscal Externo', waitFor: 'contabilidad' },
+  { label: 'partner', username: 'demo-socio', password: 'demo12345', displayName: 'Demo Socio', waitFor: 'reporting' },
 ];
 
 function parseArgs(argv) {
@@ -131,6 +132,15 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
           && !document.body.innerText.includes('Cargando actividad contable...')
           && document.body.innerText.includes('Cierres mensuales'),
       );
+    } else if (account.waitFor === 'reporting') {
+      await page.waitForFunction(
+        () =>
+          document.body.innerText.includes('Resumen propio')
+          && document.body.innerText.includes('Socio vinculado')
+          && !document.body.innerText.includes('Sin resumen cargado')
+          && !document.body.innerText.includes('RUT\nSin dato'),
+      );
+      await page.waitForTimeout(1_000);
     } else {
       await page.waitForFunction(
         () => !document.body.innerText.includes('Actualizando...') && document.body.innerText.includes('Actualizar'),

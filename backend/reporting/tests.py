@@ -286,6 +286,29 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(len(response.data['propiedades_directas']), 1)
         self.assertEqual(response.data['estados_cuenta_relacionados'], 1)
 
+    def test_partner_role_can_only_access_own_summary(self):
+        socio_1, _, _, _, contrato_1, _ = self._create_context('PARTNEROWN1')
+        socio_2, _, _, _, contrato_2, _ = self._create_context('PARTNEROWN2')
+        EstadoCuentaArrendatario.objects.create(arrendatario=contrato_1.arrendatario, resumen_operativo={})
+        EstadoCuentaArrendatario.objects.create(arrendatario=contrato_2.arrendatario, resumen_operativo={})
+
+        user_model = get_user_model()
+        partner_user = user_model.objects.create_user(
+            username='reporting-partner',
+            password='secret123',
+            default_role_code='Socio',
+            metadata={'socio_id': socio_1.id},
+        )
+        partner_client = self.client_class()
+        partner_client.force_authenticate(partner_user)
+
+        own_response = partner_client.get(reverse('reporting-socio-resumen', args=[socio_1.id]))
+        other_response = partner_client.get(reverse('reporting-socio-resumen', args=[socio_2.id]))
+
+        self.assertEqual(own_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(own_response.data['socio']['id'], socio_1.id)
+        self.assertEqual(other_response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_period_books_summary_returns_snapshot_payloads(self):
         _, empresa, _, _, _, _ = self._create_context('BOOKS')
         LibroDiario.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='preparado', resumen={'asientos': []})
