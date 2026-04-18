@@ -14,12 +14,13 @@ from core.permissions import (
 from .models import AuditEvent, ManualResolution
 from .serializers import (
     AuditEventSerializer,
+    ResolveChargeMovementSerializer,
     ManualResolutionSerializer,
     ResolveMigrationPropertyOwnerSerializer,
     ResolveUnknownIncomeSerializer,
 )
 from .services import resolve_migration_property_owner_manual_resolution
-from conciliacion.services import resolve_unknown_income_manual_resolution
+from conciliacion.services import resolve_charge_movement_manual_resolution, resolve_unknown_income_manual_resolution
 
 
 class AuditEventListView(generics.ListAPIView):
@@ -160,6 +161,35 @@ class ResolveUnknownIncomeView(APIView):
                 'movimiento_bancario_id': result['movimiento'].pk,
                 'pago_mensual_id': result['payment'].pk,
                 'contrato_id': result['payment'].contrato_id,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ResolveChargeMovementView(APIView):
+    permission_classes = [AuditResolutionPermission]
+
+    def post(self, request, pk):
+        resolution = generics.get_object_or_404(ManualResolution, pk=pk)
+        serializer = ResolveChargeMovementSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            result = resolve_charge_movement_manual_resolution(
+                resolution=resolution,
+                rationale=serializer.validated_data.get('rationale', ''),
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                'resolution_id': str(result['resolution'].pk),
+                'movimiento_bancario_id': result['movimiento'].pk,
+                'evento_contable_id': result['event'].pk,
+                'empresa_id': result['empresa'].pk,
             },
             status=status.HTTP_200_OK,
         )

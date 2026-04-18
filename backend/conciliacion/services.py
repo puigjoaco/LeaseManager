@@ -94,6 +94,14 @@ def reconcile_exact_movement(movimiento):
             'conciliacion.movimiento_cargo',
             'Movimiento de cargo requiere clasificacion manual.',
         )
+        resolution.metadata = {
+            **(resolution.metadata or {}),
+            'cuenta_recaudadora_id': movimiento.conexion_bancaria.cuenta_recaudadora_id,
+            'cuenta_owner_tipo': movimiento.conexion_bancaria.cuenta_recaudadora.owner_tipo,
+            'cuenta_owner_display': movimiento.conexion_bancaria.cuenta_recaudadora.owner_display,
+            'empresa_owner_id': movimiento.conexion_bancaria.cuenta_recaudadora.empresa_owner_id,
+        }
+        resolution.save(update_fields=['metadata'])
         return {'status': 'manual_required', 'resolution_id': str(resolution.pk)}
 
     if movimiento.referencia:
@@ -246,3 +254,83 @@ def resolve_unknown_income_manual_resolution(*, resolution, payment, rationale='
     )
 
     return {'resolution': resolution, 'movimiento': movimiento, 'payment': payment}
+
+
+@transaction.atomic
+def resolve_charge_movement_manual_resolution(*, resolution, rationale='', actor_user=None, ip_address=None):
+    if resolution.category != 'conciliacion.movimiento_cargo':
+        raise ValueError('La resolucion indicada no corresponde a movimiento cargo de conciliacion.')
+    if resolution.status == ManualResolution.Status.RESOLVED:
+        raise ValueError('La resolucion ya fue marcada como resuelta.')
+
+    movimiento = MovimientoBancarioImportado.objects.select_related(
+        'conexion_bancaria__cuenta_recaudadora__empresa_owner',
+        'conexion_bancaria__cuenta_recaudadora__socio_owner',
+    ).get(pk=resolution.scope_reference)
+    if movimiento.tipo_movimiento != TipoMovimientoBancario.DEBIT:
+        raise ValueError('Solo se puede clasificar manualmente un cargo bancario.')
+    if movimiento.estado_conciliacion != EstadoConciliacionMovimiento.MANUAL_REQUIRED:
+        raise ValueError('El movimiento ya no se encuentra pendiente de clasificacion manual.')
+
+    empresa = movimiento.conexion_bancaria.cuenta_recaudadora.empresa_owner
+    if empresa is None:
+        raise ValueError('La cuenta recaudadora del cargo no pertenece a una empresa contable.')
+
+    from contabilidad.services import create_accounting_event
+
+    event, _ = create_accounting_event(
+        empresa=empresa,
+        evento_tipo='ComisionBancaria',
+        entidad_origen_tipo='movimiento_bancario',
+        entidad_origen_id=movimiento.pk,
+        fecha_operativa=movimiento.fecha_movimiento,
+        moneda='CLP',
+        monto_base=movimiento.monto,
+        payload_resumen={
+            'movimiento_bancario_id': movimiento.pk,
+            'cuenta_recaudadora_id': movimiento.conexion_bancaria.cuenta_recaudadora_id,
+            'descripcion_origen': movimiento.descripcion_origen,
+        },
+        idempotency_key=f'ComisionBancaria:{movimiento.pk}',
+    )
+
+    movimiento.notas_admin = rationale
+    movimiento.save(update_fields=['notas_admin', 'updated_at'])
+
+    resolved_at = timezone.now()
+    ManualResolution.objects.filter(
+        scope_type='movimiento_bancario',
+        scope_reference=str(movimiento.pk),
+        status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
+    ).exclude(pk=resolution.pk).update(status=ManualResolution.Status.RESOLVED, resolved_at=resolved_at)
+
+    resolution.status = ManualResolution.Status.RESOLVED
+    resolution.resolved_at = resolved_at
+    resolution.resolved_by = actor_user
+    resolution.rationale = rationale
+    resolution.metadata = {
+        **(resolution.metadata or {}),
+        'resolved_event_id': event.pk,
+        'resolved_empresa_id': empresa.pk,
+        'resolved_with': 'charge_manual_classification',
+    }
+    resolution.save(update_fields=['status', 'resolved_at', 'resolved_by', 'rationale', 'metadata'])
+
+    from audit.services import create_audit_event
+
+    create_audit_event(
+        event_type='audit.manual_resolution.resolved',
+        entity_type='manual_resolution',
+        entity_id=str(resolution.pk),
+        summary='Se clasifico manualmente un cargo bancario en conciliacion.',
+        actor_user=actor_user,
+        ip_address=ip_address,
+        metadata={
+            'resolution_category': resolution.category,
+            'movimiento_bancario_id': movimiento.pk,
+            'evento_contable_id': event.pk,
+            'empresa_id': empresa.pk,
+        },
+    )
+
+    return {'resolution': resolution, 'movimiento': movimiento, 'event': event, 'empresa': empresa}

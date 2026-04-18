@@ -68,9 +68,14 @@ export function AuditWorkspace({
   isLoading: boolean
 }) {
   const isUnknownIncomeResolution = activeManualResolution?.category === 'conciliacion.ingreso_desconocido'
+  const isChargeResolution = activeManualResolution?.category === 'conciliacion.movimiento_cargo'
   const candidatePaymentIds = Array.isArray(activeManualResolution?.metadata?.payment_candidate_ids)
     ? activeManualResolution.metadata.payment_candidate_ids.join(', ')
     : ''
+  const chargeOwnerDisplay =
+    typeof activeManualResolution?.metadata?.cuenta_owner_display === 'string'
+      ? activeManualResolution.metadata.cuenta_owner_display
+      : ''
 
   return (
     <>
@@ -104,6 +109,9 @@ export function AuditWorkspace({
                   />
                   {candidatePaymentIds ? <div className="empty-state compact">Candidatos sugeridos: {candidatePaymentIds}</div> : null}
                 </>
+              ) : null}
+              {isChargeResolution && chargeOwnerDisplay ? (
+                <div className="empty-state compact">Cuenta/owner sugerido: {chargeOwnerDisplay}</div>
               ) : null}
               <div className="inline-actions">
                 <button type="submit" className="button-primary" disabled={isSubmitting || !editingManualResolutionId}>Guardar resolución</button>

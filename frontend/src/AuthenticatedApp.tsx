@@ -3631,6 +3631,7 @@ function App() {
     event.preventDefault()
     if (!canEditAudit || !editingManualResolutionId) return
     const isUnknownIncomeResolution = activeManualResolution?.category === 'conciliacion.ingreso_desconocido'
+    const isChargeResolution = activeManualResolution?.category === 'conciliacion.movimiento_cargo'
     if (isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved') {
       if (!manualResolutionDraft.pago_mensual_id.trim()) {
         setFormError('Debes indicar el pago mensual que regulariza este ingreso desconocido.')
@@ -3641,19 +3642,27 @@ function App() {
     const success = await submitMutation(
       isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved'
         ? `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/resolve-unknown-income/`
+        : isChargeResolution && manualResolutionDraft.status === 'resolved'
+          ? `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/resolve-charge-movement/`
         : `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/`,
-      isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved' ? 'POST' : 'PATCH',
+      (isUnknownIncomeResolution || isChargeResolution) && manualResolutionDraft.status === 'resolved' ? 'POST' : 'PATCH',
       isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved'
         ? {
           pago_mensual_id: Number(manualResolutionDraft.pago_mensual_id),
           rationale: manualResolutionDraft.rationale,
         }
+        : isChargeResolution && manualResolutionDraft.status === 'resolved'
+          ? {
+            rationale: manualResolutionDraft.rationale,
+          }
         : {
           status: manualResolutionDraft.status,
           rationale: manualResolutionDraft.rationale,
         },
       isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved'
         ? 'Ingreso desconocido regularizado correctamente.'
+        : isChargeResolution && manualResolutionDraft.status === 'resolved'
+          ? 'Cargo bancario clasificado correctamente.'
         : 'Resolución manual actualizada correctamente.',
       'audit',
     )

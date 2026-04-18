@@ -5,6 +5,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import ManualResolution
+from contabilidad.models import AsientoContable, ConfiguracionFiscalEmpresa, CuentaContable, EventoContable, MatrizReglasContables, ReglaContable
+from contabilidad.services import ensure_default_regime
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
@@ -135,6 +137,54 @@ class ConciliacionAPITests(APITestCase):
             primaria_movimientos=True,
         )
 
+    def _setup_contabilidad_for_company(self, empresa):
+        ConfiguracionFiscalEmpresa.objects.create(
+            empresa=empresa,
+            regimen_tributario=ensure_default_regime(),
+            afecta_iva_arriendo=False,
+            tasa_iva='0.00',
+            aplica_ppm=True,
+            ddjj_habilitadas=[],
+            inicio_ejercicio='2026-01-01',
+            moneda_funcional='CLP',
+            estado='activa',
+        )
+        bancos = CuentaContable.objects.create(
+            empresa=empresa,
+            plan_cuentas_version='v1',
+            codigo='1101',
+            nombre='Bancos',
+            naturaleza='deudora',
+            nivel=1,
+            estado='activa',
+            es_control_obligatoria=True,
+        )
+        gasto = CuentaContable.objects.create(
+            empresa=empresa,
+            plan_cuentas_version='v1',
+            codigo='5101',
+            nombre='ComisionesBancarias',
+            naturaleza='deudora',
+            nivel=1,
+            estado='activa',
+            es_control_obligatoria=True,
+        )
+        regla = ReglaContable.objects.create(
+            empresa=empresa,
+            evento_tipo='ComisionBancaria',
+            plan_cuentas_version='v1',
+            criterio_cargo='default:5101',
+            criterio_abono='default:1101',
+            vigencia_desde='2026-01-01',
+            estado='activa',
+        )
+        MatrizReglasContables.objects.create(
+            regla_contable=regla,
+            cuenta_debe=gasto,
+            cuenta_haber=bancos,
+            estado='activa',
+        )
+
     def test_auth_is_required_for_conciliacion_endpoints(self):
         client = self.client_class()
         urls = [
@@ -253,6 +303,52 @@ class ConciliacionAPITests(APITestCase):
                 scope_reference=str(movimiento.pk),
             ).exists()
         )
+
+    def test_manual_resolution_can_classify_charge_and_generate_accounting_event(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CARGO-RES')
+        conexion = self._create_connection(cuenta)
+        self._setup_contabilidad_for_company(cuenta.empresa_owner)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-09',
+                'tipo_movimiento': 'cargo',
+                'monto': '50000.00',
+                'descripcion_origen': 'Cargo bancario clasificado manualmente',
+            },
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.movimiento_cargo',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-charge-movement', args=[resolution.pk]),
+            {'rationale': 'Comisión bancaria del período.'},
+            format='json',
+        )
+        self.assertEqual(resolve.status_code, status.HTTP_200_OK)
+
+        movimiento.refresh_from_db()
+        resolution.refresh_from_db()
+        event = EventoContable.objects.get(pk=resolve.data['evento_contable_id'])
+        asiento = AsientoContable.objects.get(evento_contable=event)
+
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
+        self.assertEqual(movimiento.notas_admin, 'Comisión bancaria del período.')
+        self.assertEqual(event.evento_tipo, 'ComisionBancaria')
+        self.assertEqual(event.estado_contable, 'contabilizado')
+        self.assertEqual(str(asiento.debe_total), '50000.00')
+        self.assertEqual(str(asiento.haber_total), '50000.00')
+        self.assertEqual(asiento.movimientos.count(), 2)
+        self.assertEqual(resolution.status, 'resolved')
+        self.assertEqual(resolution.metadata['resolved_event_id'], event.pk)
 
     def test_retry_match_resolves_unknown_income_when_payment_appears(self):
         cuenta, _, contrato = self._create_contract_and_payment(codigo='REC-RETRY', amount='100111.00')

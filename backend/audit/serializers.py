@@ -43,12 +43,12 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         if (
             self.instance
-            and self.instance.category == 'conciliacion.ingreso_desconocido'
+            and self.instance.category in {'conciliacion.ingreso_desconocido', 'conciliacion.movimiento_cargo'}
             and attrs.get('status') == ManualResolution.Status.RESOLVED
             and self.instance.status != ManualResolution.Status.RESOLVED
         ):
             raise serializers.ValidationError(
-                {'status': 'Use la resolución especializada de ingreso desconocido para cerrar este caso.'}
+                {'status': 'Use la resolución especializada de conciliación para cerrar este caso.'}
             )
         return attrs
 
@@ -112,3 +112,7 @@ class ResolveUnknownIncomeSerializer(serializers.Serializer):
             raise serializers.ValidationError('El pago mensual indicado no existe.') from error
         self.context['pago_mensual'] = payment
         return value
+
+
+class ResolveChargeMovementSerializer(serializers.Serializer):
+    rationale = serializers.CharField(required=False, allow_blank=True)
