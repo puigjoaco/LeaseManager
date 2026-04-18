@@ -10,7 +10,7 @@ from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoM
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 
-from .models import DTEEmitido, EstadoGateSII
+from .models import DDJJPreparacionAnual, DTEEmitido, EstadoGateSII, F22PreparacionAnual, ProcesoRentaAnual
 
 
 class SiiAPITests(APITestCase):
@@ -507,6 +507,57 @@ class SiiAPITests(APITestCase):
         self.assertEqual(response.data['proceso_renta_anual']['estado'], 'preparado')
         self.assertEqual(response.data['ddjj_preparacion']['estado_preparacion'], 'preparado')
         self.assertEqual(response.data['f22_preparacion']['estado_preparacion'], 'preparado')
+
+    def test_annual_sii_workflow_prepares_and_updates_ddjj_and_f22(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(generated.data['proceso_renta_anual']['estado'], 'preparado')
+        self.assertEqual(generated.data['ddjj_preparacion']['estado_preparacion'], 'preparado')
+        self.assertEqual(generated.data['f22_preparacion']['estado_preparacion'], 'preparado')
+
+        ddjj_status = self.client.post(
+            reverse('sii-ddjj-status', args=[generated.data['ddjj_preparacion']['id']]),
+            {
+                'estado_preparacion': 'aprobado_para_presentacion',
+                'ref_value': 'ddjj-2027',
+                'observaciones': 'Paquete DDJJ listo.',
+            },
+            format='json',
+        )
+        self.assertEqual(ddjj_status.status_code, status.HTTP_200_OK)
+        self.assertEqual(ddjj_status.data['estado_preparacion'], 'aprobado_para_presentacion')
+        self.assertEqual(ddjj_status.data['paquete_ref'], 'ddjj-2027')
+
+        f22_status = self.client.post(
+            reverse('sii-f22-status', args=[generated.data['f22_preparacion']['id']]),
+            {
+                'estado_preparacion': 'aprobado_para_presentacion',
+                'ref_value': 'f22-2027',
+                'observaciones': 'Borrador F22 listo.',
+            },
+            format='json',
+        )
+        self.assertEqual(f22_status.status_code, status.HTTP_200_OK)
+        self.assertEqual(f22_status.data['estado_preparacion'], 'aprobado_para_presentacion')
+        self.assertEqual(f22_status.data['borrador_ref'], 'f22-2027')
+
+        process = ProcesoRentaAnual.objects.get(pk=generated.data['proceso_renta_anual']['id'])
+        ddjj = DDJJPreparacionAnual.objects.get(pk=generated.data['ddjj_preparacion']['id'])
+        f22 = F22PreparacionAnual.objects.get(pk=generated.data['f22_preparacion']['id'])
+
+        self.assertEqual(process.paquete_ddjj_ref, 'ddjj-2027')
+        self.assertEqual(process.borrador_f22_ref, 'f22-2027')
+        self.assertEqual(ddjj.estado_preparacion, 'aprobado_para_presentacion')
+        self.assertEqual(f22.estado_preparacion, 'aprobado_para_presentacion')
 
     def test_generate_annual_preparation_leaves_ddjj_pending_when_no_ddjj_enabled(self):
         empresa, _ = self._setup_paid_payment()

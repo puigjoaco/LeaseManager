@@ -282,4 +282,12 @@ def register_annual_status(document, *, estado_preparacion, ref_value='', observ
     if hasattr(document, 'observaciones'):
         fields.append('observaciones')
     document.save(update_fields=fields)
+
+    process = getattr(document, 'proceso_renta_anual', None)
+    if process and ref_value:
+        if hasattr(document, 'paquete_ref'):
+            process.paquete_ddjj_ref = ref_value
+        if hasattr(document, 'borrador_ref'):
+            process.borrador_f22_ref = ref_value
+        process.save(update_fields=['paquete_ddjj_ref', 'borrador_f22_ref', 'updated_at'])
     return document
