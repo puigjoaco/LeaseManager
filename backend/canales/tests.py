@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase
 from audit.models import ManualResolution
 from core.models import Role, Scope, UserScopeAssignment
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
-from documentos.models import DocumentoEmitido, ExpedienteDocumental
+from documentos.models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental
 from operacion.models import (
     AsignacionCanalOperacion,
     CuentaRecaudadora,
@@ -151,6 +151,21 @@ class CanalesAPITests(APITestCase):
             credencial_ref=f'cred-{canal}',
             estado=EstadoIdentidadEnvio.ACTIVE,
         )
+
+    def _create_policy(self, **overrides):
+        payload = {
+            'tipo_documental': 'contrato_principal',
+            'requiere_firma_arrendador': True,
+            'requiere_firma_arrendatario': True,
+            'requiere_codeudor': False,
+            'requiere_notaria': False,
+            'modo_firma_permitido': 'firma_simple',
+            'estado': 'activa',
+        }
+        payload.update(overrides)
+        response = self.client.post(reverse('documentos-politica-list'), payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        return response.data
 
     def test_auth_is_required_for_channel_endpoints(self):
         client = self.client_class()
@@ -323,6 +338,86 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(sent.status_code, status.HTTP_200_OK)
         self.assertEqual(sent.data['estado'], EstadoMensajeSaliente.SENT)
         self.assertEqual(sent.data['external_ref'], 'manual-123')
+
+    def test_formalized_document_can_be_prepared_and_sent_via_channel_workflow(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-DOCSEND')
+        gate = self._create_gate(canal='email')
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        self._create_policy()
+
+        expediente = self.client.post(
+            reverse('documentos-expediente-list'),
+            {
+                'entidad_tipo': 'contrato',
+                'entidad_id': str(contrato.id),
+                'estado': 'abierto',
+                'owner_operativo': f'mandato:{contrato.mandato_operacion.id}',
+            },
+            format='json',
+        )
+        self.assertEqual(expediente.status_code, status.HTTP_201_CREATED)
+
+        documento = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente.data['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v1',
+                'checksum': 'doc-send-1',
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'emitido',
+                'storage_ref': 'storage/docs/contract-send.pdf',
+                'firma_arrendador_registrada': True,
+                'firma_arrendatario_registrada': True,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+            },
+            format='json',
+        )
+        self.assertEqual(documento.status_code, status.HTTP_201_CREATED)
+
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento.data['id']]),
+            {},
+            format='json',
+        )
+        self.assertEqual(formalize.status_code, status.HTTP_200_OK)
+        self.assertEqual(formalize.data['estado'], EstadoDocumento.FORMALIZED)
+
+        prepared = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'documento_emitido': documento.data['id'],
+                'asunto': 'Contrato formalizado',
+                'cuerpo': 'Documento listo para revisión.',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(prepared.data['estado'], EstadoMensajeSaliente.PREPARED)
+        self.assertEqual(prepared.data['documento_emitido'], documento.data['id'])
+        self.assertEqual(prepared.data['destinatario'], contrato.arrendatario.email)
+
+        sent = self.client.post(
+            reverse('canales-mensaje-enviar', args=[prepared.data['id']]),
+            {'external_ref': 'doc-send-123'},
+            format='json',
+        )
+        self.assertEqual(sent.status_code, status.HTTP_200_OK)
+        self.assertEqual(sent.data['estado'], EstadoMensajeSaliente.SENT)
+        self.assertEqual(sent.data['external_ref'], 'doc-send-123')
 
     def test_register_manual_send_rejects_blocked_message(self):
         empresa, contrato = self._create_contract_context(codigo='CH-BLOCKSEND')

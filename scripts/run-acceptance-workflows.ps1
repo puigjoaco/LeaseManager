@@ -36,6 +36,8 @@ if (-not $BackendTestDb) {
 $testTargets = @(
     'users.tests.UserAuthAPITests',
     'contratos.tests.ContratosAPITests',
+    'documentos.tests.DocumentosAPITests',
+    'canales.tests.CanalesAPITests',
     'cobranza.tests.CobranzaAPITests',
     'audit.tests.AuditAPITests',
     'conciliacion.tests.ConciliacionAPITests',
