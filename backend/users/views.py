@@ -1,3 +1,4 @@
+import json
 import secrets
 
 from django.conf import settings
@@ -11,7 +12,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from contabilidad.views import build_control_snapshot_payload
-from core.permissions import ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER, normalize_role_code
+from core.permissions import ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER, get_effective_role_codes, normalize_role_code
 from core.scope_access import get_scope_access
 from reporting.services import (
     build_manual_resolution_summary,
@@ -25,10 +26,41 @@ LOGIN_BOOTSTRAP_CACHE_TTL_SECONDS = 15
 DEMO_LOGIN_RESPONSE_CACHE_TTL_SECONDS = 15
 
 
-def _login_bootstrap_cache_key(user, role, access, *, profile='default'):
+def _effective_bootstrap_roles(user):
+    effective_roles = get_effective_role_codes(user)
+    prioritized_roles = [role_code for role_code in (ROLE_ADMIN, ROLE_OPERATOR, ROLE_REVIEWER) if role_code in effective_roles]
+    extra_roles = sorted(role_code for role_code in effective_roles if role_code not in set(prioritized_roles))
+    if prioritized_roles or extra_roles:
+        return prioritized_roles + extra_roles
+
+    default_role = normalize_role_code(getattr(user, 'default_role_code', ''))
+    return [default_role] if default_role else []
+
+
+def _user_bootstrap_signature(user):
+    assignments = [
+        {
+            'role': normalize_role_code(getattr(assignment.role, 'code', '')),
+            'scope_id': assignment.scope_id,
+            'scope_code': assignment.scope.code if assignment.scope_id else None,
+            'is_primary': assignment.is_primary,
+        }
+        for assignment in user.scope_assignments.filter(effective_to__isnull=True).select_related('role', 'scope')
+    ]
+    assignments.sort(key=lambda item: (item['role'] or '', item['scope_code'] or '', item['scope_id'] or 0))
+    payload = {
+        'default_role_code': normalize_role_code(getattr(user, 'default_role_code', '')),
+        'metadata': getattr(user, 'metadata', {}) or {},
+        'assignments': assignments,
+    }
+    return json.dumps(payload, sort_keys=True, ensure_ascii=True)
+
+
+def _login_bootstrap_cache_key(user, roles, access, *, profile='default'):
+    role_key = ','.join(roles)
     return (
         'auth:login-bootstrap:'
-        f'user={user.id}:role={role}:profile={profile}:'
+        f'user={user.id}:roles={role_key}:profile={profile}:'
         f'restricted={int(access.restricted)}:'
         f'companies={",".join(map(str, sorted(access.company_ids)))}:'
         f'properties={",".join(map(str, sorted(access.property_ids)))}:'
@@ -37,19 +69,19 @@ def _login_bootstrap_cache_key(user, role, access, *, profile='default'):
 
 
 def build_login_bootstrap(user, *, profile='default'):
-    role = normalize_role_code(getattr(user, 'default_role_code', ''))
+    roles = _effective_bootstrap_roles(user)
     access = get_scope_access(user)
-    cache_key = _login_bootstrap_cache_key(user, role, access, profile=profile)
+    cache_key = _login_bootstrap_cache_key(user, roles, access, profile=profile)
     cached_payload = cache.get(cache_key)
     if cached_payload is not None:
         return cached_payload
 
     payload = {}
-    if role in {ROLE_ADMIN, ROLE_OPERATOR}:
-        cached_manual_summary = get_cached_manual_resolution_summary(status='open')
+    if ROLE_ADMIN in roles or ROLE_OPERATOR in roles:
+        cached_manual_summary = None if access.restricted else get_cached_manual_resolution_summary(status='open')
         manual_summary = (
-            build_manual_resolution_summary(status='open', use_cache=True)
-            if profile == 'demo' and cached_manual_summary is None
+            build_manual_resolution_summary(status='open', access=access, use_cache=True)
+            if access.restricted or (profile == 'demo' and cached_manual_summary is None)
             else cached_manual_summary
         )
         payload = {
@@ -62,13 +94,9 @@ def build_login_bootstrap(user, *, profile='default'):
                 **({'manual_summary': manual_summary} if manual_summary is not None else {}),
             }
         }
-        if role == ROLE_ADMIN and profile == 'demo':
-            payload['control'] = build_control_snapshot_payload(access, mode='full', use_cache=True)
-    elif role == ROLE_REVIEWER:
+    if ROLE_REVIEWER in roles or (ROLE_ADMIN in roles and profile == 'demo'):
         control_mode = 'full' if profile == 'demo' else 'bootstrap'
-        payload = {
-            'control': build_control_snapshot_payload(access, mode=control_mode, use_cache=True),
-        }
+        payload['control'] = build_control_snapshot_payload(access, mode=control_mode, use_cache=True)
 
     cache.set(cache_key, payload, LOGIN_BOOTSTRAP_CACHE_TTL_SECONDS)
     return payload
@@ -86,7 +114,10 @@ def build_demo_login_response_payload(user):
     cache_key = _demo_login_response_cache_key_for_username(user.username)
     cached_payload = cache.get(cache_key)
     if cached_payload is not None:
-        if Token.objects.filter(user=user, key=cached_payload.get('token')).exists():
+        if (
+            cached_payload.get('signature') == _user_bootstrap_signature(user)
+            and Token.objects.filter(user=user, key=cached_payload.get('token')).exists()
+        ):
             return cached_payload
         cache.delete(cache_key)
 
@@ -95,6 +126,7 @@ def build_demo_login_response_payload(user):
         'token': token.key,
         'user': CurrentUserSerializer(user).data,
         'bootstrap': build_login_bootstrap(user, profile='demo'),
+        'signature': _user_bootstrap_signature(user),
     }
     cache.set(cache_key, payload, DEMO_LOGIN_RESPONSE_CACHE_TTL_SECONDS)
     return payload
@@ -119,7 +151,19 @@ def get_cached_demo_login_response_payload(*, username: str, password: str):
         return None
     if not secrets.compare_digest(password, settings.DEMO_LOGIN_PASSWORD):
         return None
-    return cache.get(_demo_login_response_cache_key_for_username(username))
+    user = get_demo_login_user(username)
+    if not user:
+        return None
+    cached_payload = cache.get(_demo_login_response_cache_key_for_username(username))
+    if cached_payload is None:
+        return None
+    if cached_payload.get('signature') != _user_bootstrap_signature(user):
+        cache.delete(_demo_login_response_cache_key_for_username(username))
+        return None
+    if not Token.objects.filter(user=user, key=cached_payload.get('token')).exists():
+        cache.delete(_demo_login_response_cache_key_for_username(username))
+        return None
+    return cached_payload
 
 
 def warm_demo_login_response_payloads():

@@ -13,7 +13,7 @@ from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoM
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
 from .models import Role, Scope, UserScopeAssignment
-from .scope_access import ScopeAccess, scope_queryset_for_access
+from .scope_access import ScopeAccess, _coerce_scope_identifier, get_scope_access, scope_queryset_for_access
 
 
 class ScopeFilteringAPITests(APITestCase):
@@ -234,6 +234,125 @@ class ScopeFilteringAPITests(APITestCase):
         self.assertEqual(financial.data['monto_facturable_total_clp'], '100000.00')
         self.assertEqual(dashboard.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_company_scope_includes_operational_mandate_roles_without_ownership(self):
+        admin_company = self._create_active_company(
+            nombre='Administradora Operativa',
+            rut='76.500.000-1',
+            socio_ruts=('77.111.111-1', '77.222.222-2'),
+        )
+        owner_company = self._create_active_company(
+            nombre='Propietaria Operativa',
+            rut='76.500.000-2',
+            socio_ruts=('88.111.111-1', '88.222.222-2'),
+        )
+        propiedad = Propiedad.objects.create(
+            direccion='Av. Operativa 100',
+            comuna='Temuco',
+            region='La Araucania',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='OPS-001',
+            estado='activa',
+            empresa_owner=owner_company,
+        )
+        cuenta = CuentaRecaudadora.objects.create(
+            empresa_owner=admin_company,
+            institucion='Banco Uno',
+            numero_cuenta='ACC-OPS-001',
+            tipo_cuenta='corriente',
+            titular_nombre=admin_company.razon_social,
+            titular_rut=admin_company.rut,
+            moneda_operativa='CLP',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+        mandato = MandatoOperacion.objects.create(
+            propiedad=propiedad,
+            propietario_empresa_owner=owner_company,
+            administrador_empresa_owner=admin_company,
+            recaudador_empresa_owner=admin_company,
+            entidad_facturadora=owner_company,
+            cuenta_recaudadora=cuenta,
+            tipo_relacion_operativa='mandato_externo',
+            autoriza_recaudacion=True,
+            autoriza_facturacion=True,
+            autoriza_comunicacion=True,
+            estado=EstadoMandatoOperacion.ACTIVE,
+            vigencia_desde='2026-01-01',
+        )
+        arrendatario = Arrendatario.objects.create(
+            tipo_arrendatario='persona_natural',
+            nombre_razon_social='Arrendatario Operativo',
+            rut='99.111.111-1',
+            email='operativo@example.com',
+            telefono='999',
+            domicilio_notificaciones='Direccion Operativa',
+            estado_contacto='activo',
+        )
+        contrato = Contrato.objects.create(
+            codigo_contrato='CTR-OPS-001',
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio='2026-01-01',
+            fecha_fin_vigente='2026-12-31',
+            fecha_entrega='2026-01-01',
+            dia_pago_mensual=5,
+            plazo_notificacion_termino_dias=60,
+            dias_prealerta_admin=90,
+            estado='vigente',
+        )
+        periodo = PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=1,
+            fecha_inicio='2026-01-01',
+            fecha_fin='2026-12-31',
+            monto_base='100000.00',
+            moneda_base='CLP',
+            tipo_periodo='inicial',
+            origen_periodo='manual',
+        )
+        ContratoPropiedad.objects.create(
+            contrato=contrato,
+            propiedad=propiedad,
+            rol_en_contrato='principal',
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='111',
+        )
+        payment = PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp='100000.00',
+            monto_calculado_clp='100111.00',
+            fecha_vencimiento='2026-01-05',
+            estado_pago='pendiente',
+            codigo_conciliacion_efectivo='111',
+        )
+        sync_payment_distribution(payment)
+
+        user = self.user_model.objects.create_user(
+            username='operator-operational-scope',
+            password='secret123',
+            default_role_code='OperadorDeCartera',
+        )
+        self._assign_company_scope(user, self.operator_role, admin_company)
+        self.client.force_authenticate(user)
+
+        cuentas = self.client.get(reverse('operacion-cuenta-list'))
+        mandatos = self.client.get(reverse('operacion-mandato-list'))
+        contratos = self.client.get(reverse('contratos-contrato-list'))
+        dashboard = self.client.get(reverse('reporting-dashboard-operativo'))
+
+        self.assertEqual(cuentas.status_code, status.HTTP_200_OK)
+        self.assertEqual(mandatos.status_code, status.HTTP_200_OK)
+        self.assertEqual(contratos.status_code, status.HTTP_200_OK)
+        self.assertEqual(dashboard.status_code, status.HTTP_200_OK)
+        self.assertEqual([item['id'] for item in cuentas.data], [cuenta.id])
+        self.assertEqual([item['id'] for item in mandatos.data], [mandato.id])
+        self.assertEqual([item['id'] for item in contratos.data], [contrato.id])
+        self.assertEqual(dashboard.data['propiedades_activas'], 1)
+        self.assertEqual(dashboard.data['contratos_vigentes'], 1)
+        self.assertEqual(dashboard.data['pagos_pendientes'], 1)
+
     def test_company_only_scope_filter_skips_property_and_bank_visibility_expansion(self):
         access = ScopeAccess(
             restricted=True,
@@ -252,6 +371,39 @@ class ScopeFilteringAPITests(APITestCase):
 
         self.assertEqual(queryset.count(), 1)
         self.assertEqual(queryset.first().empresa_id, self.company_a.id)
+
+    def test_global_scope_assignment_remains_unrestricted(self):
+        user = self.user_model.objects.create_user(
+            username='global-operator',
+            password='secret123',
+            default_role_code='OperadorDeCartera',
+        )
+        global_scope = Scope.objects.create(
+            code='global-backoffice',
+            name='Backoffice completo',
+            scope_type=Scope.ScopeType.GLOBAL,
+            external_reference='backoffice',
+            is_active=True,
+        )
+        UserScopeAssignment.objects.create(user=user, role=self.operator_role, scope=global_scope, is_primary=True)
+
+        access = get_scope_access(user)
+
+        self.assertFalse(access.restricted)
+        self.assertEqual(access.company_ids, set())
+        self.assertEqual(access.property_ids, set())
+        self.assertEqual(access.bank_account_ids, set())
+
+    def test_scope_identifier_does_not_guess_from_malformed_code(self):
+        scope = Scope(
+            code='company-backup-2026-q1',
+            name='Scope con codigo ambiguo',
+            scope_type=Scope.ScopeType.COMPANY,
+            external_reference='',
+            metadata={},
+        )
+
+        self.assertIsNone(_coerce_scope_identifier(scope))
 
     def test_operator_cannot_generate_payment_for_contract_outside_scope(self):
         user = self.user_model.objects.create_user(

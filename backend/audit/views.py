@@ -2,6 +2,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.scope_access import get_scope_access
 from core.permissions import (
     AuditReadPermission,
     AuditResolutionPermission,
@@ -12,6 +13,7 @@ from core.permissions import (
     get_effective_role_codes,
 )
 from .models import AuditEvent, ManualResolution
+from .scope_filters import scope_manual_resolution_queryset
 from .serializers import (
     AuditEventSerializer,
     ResolveChargeMovementSerializer,
@@ -21,6 +23,14 @@ from .serializers import (
 )
 from .services import resolve_migration_property_owner_manual_resolution
 from conciliacion.services import resolve_charge_movement_manual_resolution, resolve_unknown_income_manual_resolution
+
+
+def _scoped_manual_resolution_queryset(queryset, user):
+    return scope_manual_resolution_queryset(queryset, get_scope_access(user))
+
+
+def _manual_resolution_queryset_for_user(user):
+    return _scoped_manual_resolution_queryset(ManualResolution.objects.all(), user)
 
 
 class AuditEventListView(generics.ListAPIView):
@@ -36,6 +46,7 @@ class AuditSnapshotView(APIView):
         roles = get_effective_role_codes(request.user)
         can_read_events = bool(roles & {ROLE_ADMIN, ROLE_REVIEWER})
         can_read_resolutions = bool(roles & {ROLE_ADMIN, ROLE_OPERATOR})
+        manual_resolutions = _manual_resolution_queryset_for_user(request.user).order_by('-created_at') if can_read_resolutions else []
 
         return Response(
             {
@@ -69,7 +80,7 @@ class AuditSnapshotView(APIView):
                         'created_at': item.created_at,
                         'resolved_at': item.resolved_at,
                     }
-                    for item in (ManualResolution.objects.order_by('-created_at') if can_read_resolutions else [])
+                    for item in manual_resolutions
                 ],
             }
         )
@@ -81,7 +92,7 @@ class ManualResolutionListCreateView(generics.ListCreateAPIView):
     queryset = ManualResolution.objects.all()
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = _manual_resolution_queryset_for_user(self.request.user)
         status_value = self.request.query_params.get('status')
         category = self.request.query_params.get('category')
         scope_type = self.request.query_params.get('scope_type')
@@ -103,12 +114,15 @@ class ManualResolutionDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = ManualResolutionSerializer
     queryset = ManualResolution.objects.all()
 
+    def get_queryset(self):
+        return _manual_resolution_queryset_for_user(self.request.user)
+
 
 class ResolveMigrationPropertyOwnerView(APIView):
     permission_classes = [AuditResolutionPermission]
 
     def post(self, request, pk):
-        resolution = generics.get_object_or_404(ManualResolution, pk=pk)
+        resolution = generics.get_object_or_404(_manual_resolution_queryset_for_user(request.user), pk=pk)
         serializer = ResolveMigrationPropertyOwnerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -140,8 +154,8 @@ class ResolveUnknownIncomeView(APIView):
     permission_classes = [AuditResolutionPermission]
 
     def post(self, request, pk):
-        resolution = generics.get_object_or_404(ManualResolution, pk=pk)
-        serializer = ResolveUnknownIncomeSerializer(data=request.data, context={'request': request})
+        resolution = generics.get_object_or_404(_manual_resolution_queryset_for_user(request.user), pk=pk)
+        serializer = ResolveUnknownIncomeSerializer(data=request.data, context={'request': request, 'resolution': resolution})
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -170,7 +184,7 @@ class ResolveChargeMovementView(APIView):
     permission_classes = [AuditResolutionPermission]
 
     def post(self, request, pk):
-        resolution = generics.get_object_or_404(ManualResolution, pk=pk)
+        resolution = generics.get_object_or_404(_manual_resolution_queryset_for_user(request.user), pk=pk)
         serializer = ResolveChargeMovementSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
 

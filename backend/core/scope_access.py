@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from functools import cached_property
 
@@ -11,6 +12,13 @@ from patrimonio.models import Propiedad
 
 from .models import Scope
 from .permissions import ROLE_ADMIN, get_effective_role_codes
+
+
+SCOPE_CODE_PATTERNS = {
+    Scope.ScopeType.COMPANY: re.compile(r'^company-(?P<object_id>\d+)$'),
+    Scope.ScopeType.PROPERTY: re.compile(r'^property-(?P<object_id>\d+)$'),
+    Scope.ScopeType.BANK_ACCOUNT: re.compile(r'^bank-account-(?P<object_id>\d+)$'),
+}
 
 
 def _coerce_scope_identifier(scope: Scope) -> int | None:
@@ -27,12 +35,13 @@ def _coerce_scope_identifier(scope: Scope) -> int | None:
         except (TypeError, ValueError):
             continue
 
-    for token in reversed(scope.code.split('-')):
-        try:
-            return int(token)
-        except ValueError:
-            continue
-    return None
+    pattern = SCOPE_CODE_PATTERNS.get(scope.scope_type)
+    if pattern is None:
+        return None
+    match = pattern.fullmatch(scope.code or '')
+    if match is None:
+        return None
+    return int(match.group('object_id'))
 
 
 @dataclass
@@ -50,7 +59,16 @@ class ScopeAccess:
                 Propiedad.objects.filter(
                     Q(empresa_owner_id__in=self.company_ids)
                     | Q(comunidad_owner__participaciones__participante_empresa_id__in=self.company_ids)
+                    | Q(mandatos_operacion__administrador_empresa_owner_id__in=self.company_ids)
+                    | Q(mandatos_operacion__recaudador_empresa_owner_id__in=self.company_ids)
+                    | Q(mandatos_operacion__entidad_facturadora_id__in=self.company_ids)
                 )
+                .distinct()
+                .values_list('id', flat=True)
+            )
+        if self.bank_account_ids:
+            visible_ids.update(
+                Propiedad.objects.filter(mandatos_operacion__cuenta_recaudadora_id__in=self.bank_account_ids)
                 .distinct()
                 .values_list('id', flat=True)
             )
@@ -89,6 +107,9 @@ def get_scope_access(user) -> ScopeAccess:
         return ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
 
     if any(assignment.scope_id is None for assignment in assignments):
+        return ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+
+    if any(assignment.scope.scope_type == Scope.ScopeType.GLOBAL for assignment in scoped_assignments):
         return ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
 
     company_ids: set[int] = set()

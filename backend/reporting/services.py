@@ -4,6 +4,7 @@ from django.core.cache import cache
 from django.db.models import Count, Q, Sum
 
 from audit.models import ManualResolution
+from audit.scope_filters import scope_manual_resolution_queryset
 from canales.models import MensajeSaliente
 from cobranza.models import DistribucionCobroMensual, EstadoCuentaArrendatario, PagoMensual
 from conciliacion.models import IngresoDesconocido
@@ -23,6 +24,12 @@ from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrim
 from sii.models import DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, ProcesoRentaAnual
 
 REPORTING_CACHE_TTL_SECONDS = 15
+SOCIO_SCOPE_PATHS = (
+    'propiedades_directas__id',
+    'representaciones_comunidad__comunidad__propiedades__id',
+    'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
+    'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
+)
 
 
 def _cache_key(prefix: str) -> str:
@@ -31,6 +38,14 @@ def _cache_key(prefix: str) -> str:
 
 def _decimal_str(value: Decimal) -> str:
     return str(Decimal(value).quantize(Decimal('0.01')))
+
+
+def _scoped_socios_queryset(access: ScopeAccess):
+    return scope_queryset_for_access(
+        Socio.objects.all(),
+        access,
+        property_paths=SOCIO_SCOPE_PATHS,
+    )
 
 
 def build_operational_dashboard(
@@ -94,7 +109,10 @@ def build_operational_dashboard(
             access,
             property_paths=('contrato__mandato_operacion__propiedad_id', 'arrendatario__contratos__mandato_operacion__propiedad_id'),
         )
-        resoluciones_abiertas = ManualResolution.objects.none()
+        resoluciones_abiertas = scope_manual_resolution_queryset(
+            ManualResolution.objects.filter(status='open'),
+            access,
+        )
 
         propiedades_counts = propiedades.aggregate(
             activas=Count('id', filter=Q(estado='activa'), distinct=True),
@@ -185,16 +203,7 @@ def build_operational_overview_counts(access: ScopeAccess | None = None, *, use_
             cache.set(_cache_key('operational-overview-counts'), payload, REPORTING_CACHE_TTL_SECONDS)
         return payload
 
-    socios = scope_queryset_for_access(
-        Socio.objects.all(),
-        access,
-        property_paths=(
-            'propiedades_directas__id',
-            'representaciones_comunidad__comunidad__propiedades__id',
-            'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
-            'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
-        ),
-    )
+    socios = _scoped_socios_queryset(access)
     empresas = scope_queryset_for_access(
         Empresa.objects.all(),
         access,
@@ -327,7 +336,16 @@ def build_financial_monthly_summary(anio, mes, empresa_id=None, access: ScopeAcc
 
 def build_partner_summary(socio_id, access: ScopeAccess | None = None):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
-    socio = Socio.objects.get(pk=socio_id)
+    socio = scope_queryset_for_access(
+        Socio.objects.filter(pk=socio_id),
+        access,
+        property_paths=(
+            'propiedades_directas__id',
+            'representaciones_comunidad__comunidad__propiedades__id',
+            'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
+            'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
+        ),
+    ).get()
     participaciones = ParticipacionPatrimonial.objects.filter(participante_socio=socio, activo=True).select_related(
         'participante_socio',
         'participante_empresa',
@@ -412,16 +430,8 @@ def build_reporting_reference_options(access: ScopeAccess | None = None):
         access,
         company_paths=('id',),
     )
-    socios = scope_queryset_for_access(
-        Socio.objects.all().order_by('nombre', 'id'),
-        access,
-        property_paths=(
-            'propiedades_directas__id',
-            'representaciones_comunidad__comunidad__propiedades__id',
-            'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
-            'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
-        ),
-    )
+    socios = _scoped_socios_queryset(access).order_by('nombre', 'id')
+    expose_socio_contact_fields = not access.restricted
 
     return {
         'empresas': [
@@ -438,10 +448,10 @@ def build_reporting_reference_options(access: ScopeAccess | None = None):
             {
                 'id': socio.id,
                 'nombre': socio.nombre,
-                'rut': socio.rut,
-                'email': socio.email or '',
-                'telefono': socio.telefono or '',
-                'domicilio': socio.domicilio or '',
+                'rut': socio.rut if expose_socio_contact_fields else '',
+                'email': (socio.email or '') if expose_socio_contact_fields else '',
+                'telefono': (socio.telefono or '') if expose_socio_contact_fields else '',
+                'domicilio': (socio.domicilio or '') if expose_socio_contact_fields else '',
                 'activo': socio.activo,
             }
             for socio in socios
@@ -619,20 +629,13 @@ def build_manual_resolution_summary(
     use_cache: bool = True,
 ):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
-    if access.restricted:
-        return {
-            'status': status,
-            'total': 0,
-            'categorias': [],
-        }
-
-    cache_key = _cache_key(f'manual-resolution-summary:{status}')
-    if use_cache:
+    if not access.restricted and use_cache:
+        cache_key = _cache_key(f'manual-resolution-summary:{status}')
         cached_payload = cache.get(cache_key)
         if cached_payload is not None:
             return cached_payload
 
-    resolutions = ManualResolution.objects.all()
+    resolutions = scope_manual_resolution_queryset(ManualResolution.objects.all(), access)
     if status:
         resolutions = resolutions.filter(status=status)
 
@@ -646,7 +649,7 @@ def build_manual_resolution_summary(
         ],
     }
 
-    if use_cache:
+    if not access.restricted and use_cache:
         cache.set(cache_key, payload, REPORTING_CACHE_TTL_SECONDS)
     return payload
 
