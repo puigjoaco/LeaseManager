@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
-from core.permissions import OperationalModulePermission
+from core.permissions import AdminOnlyPermission, OperationalModulePermission
 
 from .scope import scope_documento_queryset, scope_expediente_queryset
 from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria
@@ -136,7 +136,7 @@ class ExpedienteDocumentalDetailView(AuditCreateUpdateMixin, generics.RetrieveUp
 
 
 class PoliticaFirmaYNotariaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [OperationalModulePermission]
+    permission_classes = [AdminOnlyPermission]
     serializer_class = PoliticaFirmaYNotariaSerializer
     queryset = PoliticaFirmaYNotaria.objects.all()
     audit_entity_type = 'politica_firma'
@@ -144,7 +144,7 @@ class PoliticaFirmaYNotariaListCreateView(AuditCreateUpdateMixin, generics.ListC
 
 
 class PoliticaFirmaYNotariaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [OperationalModulePermission]
+    permission_classes = [AdminOnlyPermission]
     serializer_class = PoliticaFirmaYNotariaSerializer
     queryset = PoliticaFirmaYNotaria.objects.all()
     audit_entity_type = 'politica_firma'

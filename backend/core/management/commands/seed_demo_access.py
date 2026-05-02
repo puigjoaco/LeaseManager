@@ -183,7 +183,7 @@ class Command(BaseCommand):
         for user, scope in created_or_updated_users:
             role_label = user.default_role_code
             self.stdout.write(
-                f'- {user.username} | rol={role_label} | scope={scope.code} | password={password}'
+                f'- {user.username} | rol={role_label} | scope={scope.code} | password=<no impreso>'
             )
         if selected_socio is not None:
             self.stdout.write(

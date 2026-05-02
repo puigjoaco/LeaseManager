@@ -24,15 +24,19 @@ from .models import CanalMensajeria, EstadoMensajeSaliente, MensajeSaliente
 class CanalesAPITests(APITestCase):
     def setUp(self):
         user_model = get_user_model()
-        self.user = user_model.objects.create_user(username='channels', password='secret123')
+        self.user = user_model.objects.create_user(
+            username='channels',
+            password='secret123',
+            default_role_code='AdministradorGlobal',
+        )
         self.client.force_authenticate(self.user)
 
     def _create_socio(self, nombre, rut, activo=True):
         return Socio.objects.create(nombre=nombre, rut=rut, activo=activo)
 
-    def _create_active_empresa(self, nombre='ChannelCo', rut='88888888-8'):
-        socio_1 = self._create_socio(f'{nombre} Socio 1', '11111111-1')
-        socio_2 = self._create_socio(f'{nombre} Socio 2', '22222222-2')
+    def _create_active_empresa(self, nombre='ChannelCo', rut='88888888-8', socio_ruts=('11111111-1', '22222222-2')):
+        socio_1 = self._create_socio(f'{nombre} Socio 1', socio_ruts[0])
+        socio_2 = self._create_socio(f'{nombre} Socio 2', socio_ruts[1])
         empresa = Empresa.objects.create(razon_social=nombre, rut=rut, estado='activa')
         ParticipacionPatrimonial.objects.create(
             participante_socio=socio_1,
@@ -50,9 +54,18 @@ class CanalesAPITests(APITestCase):
         )
         return empresa
 
-    def _create_contract_context(self, codigo='CH-001', whatsapp_blocked=False):
-        empresa = self._create_active_empresa(nombre=f'Empresa {codigo}', rut='88888888-8')
-        propietario = self._create_socio(f'Prop {codigo}', '33333333-3')
+    def _create_contract_context(
+        self,
+        codigo='CH-001',
+        whatsapp_blocked=False,
+        *,
+        empresa_rut='88888888-8',
+        propietario_rut='33333333-3',
+        arrendatario_rut='44444444-4',
+        socio_ruts=('11111111-1', '22222222-2'),
+    ):
+        empresa = self._create_active_empresa(nombre=f'Empresa {codigo}', rut=empresa_rut, socio_ruts=socio_ruts)
+        propietario = self._create_socio(f'Prop {codigo}', propietario_rut)
         propiedad = Propiedad.objects.create(
             direccion=f'Av {codigo}',
             comuna='Santiago',
@@ -87,7 +100,7 @@ class CanalesAPITests(APITestCase):
         arrendatario = Arrendatario.objects.create(
             tipo_arrendatario='persona_natural',
             nombre_razon_social=f'Arrendatario {codigo}',
-            rut='44444444-4',
+            rut=arrendatario_rut,
             email='tenant@example.com',
             telefono='+56912345678',
             domicilio_notificaciones='Dir 123',
@@ -125,7 +138,7 @@ class CanalesAPITests(APITestCase):
         )
         return empresa, contrato
 
-    def _create_gate(self, canal='email', estado_gate='condicionado'):
+    def _create_gate(self, canal='email', estado_gate='abierto'):
         response = self.client.post(
             reverse('canales-gate-list'),
             {
@@ -236,6 +249,33 @@ class CanalesAPITests(APITestCase):
                 scope_reference=str(response.data['id']),
             ).exists()
         )
+
+    def test_prepare_message_blocks_when_gate_is_only_conditioned(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-COND')
+        gate = self._create_gate(canal='email', estado_gate='condicionado')
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        response = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'asunto': 'Gate condicionado',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoMensajeSaliente.BLOCKED)
+        self.assertIn('no permite envio automatico', response.data['motivo_bloqueo'].lower())
 
     def test_prepare_message_blocks_when_no_identity_is_available(self):
         _, contrato = self._create_contract_context(codigo='CH-NOIDENT')
@@ -419,6 +459,79 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(sent.data['estado'], EstadoMensajeSaliente.SENT)
         self.assertEqual(sent.data['external_ref'], 'doc-send-123')
 
+    def test_prepare_message_rejects_document_from_another_contract(self):
+        empresa_a, contrato_a = self._create_contract_context(
+            codigo='CH-DOC-A',
+            empresa_rut='88888888-8',
+            propietario_rut='55555555-5',
+            arrendatario_rut='77777777-7',
+            socio_ruts=('11111111-1', '22222222-2'),
+        )
+        empresa_b, contrato_b = self._create_contract_context(
+            codigo='CH-DOC-B',
+            empresa_rut='99999999-9',
+            propietario_rut='66666666-6',
+            arrendatario_rut='88888888-8',
+            socio_ruts=('33333333-3', '44444444-4'),
+        )
+        gate = self._create_gate(canal='email')
+        identidad = self._create_identity(empresa_b, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato_b.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        self._create_policy()
+
+        expediente = self.client.post(
+            reverse('documentos-expediente-list'),
+            {
+                'entidad_tipo': 'contrato',
+                'entidad_id': str(contrato_a.id),
+                'estado': 'abierto',
+                'owner_operativo': f'mandato:{contrato_a.mandato_operacion.id}',
+            },
+            format='json',
+        )
+        self.assertEqual(expediente.status_code, status.HTTP_201_CREATED)
+
+        documento = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente.data['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v1',
+                'checksum': 'doc-mismatch',
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'emitido',
+                'storage_ref': 'storage/docs/doc-mismatch.pdf',
+                'firma_arrendador_registrada': True,
+                'firma_arrendatario_registrada': True,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+            },
+            format='json',
+        )
+        self.assertEqual(documento.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato_b.id,
+                'documento_emitido': documento.data['id'],
+                'asunto': 'Contrato equivocado',
+                'cuerpo': 'No deberia mezclarse.',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_register_manual_send_rejects_blocked_message(self):
         empresa, contrato = self._create_contract_context(codigo='CH-BLOCKSEND')
         gate = self._create_gate(canal='email', estado_gate='cerrado')
@@ -456,7 +569,7 @@ class CanalesScopeAPITests(APITestCase):
         )
         self.client.force_authenticate(self.user)
 
-        self.gate = CanalMensajeria.objects.create(canal='email', provider_key='gmail_api', estado_gate='condicionado')
+        self.gate = CanalMensajeria.objects.create(canal='email', provider_key='gmail_api', estado_gate='abierto')
         self.company_a, self.contract_a = self._create_contract_context(codigo='CH-SCOPE-A')
         self.company_b, self.contract_b = self._create_contract_context(codigo='CH-SCOPE-B')
         self.identity_a = self._create_identity(self.company_a, canal='email', direccion='scope-a@example.com')
@@ -665,3 +778,24 @@ class CanalesScopeAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_operator_cannot_create_or_update_global_gate_configuration(self):
+        create_response = self.client.post(
+            reverse('canales-gate-list'),
+            {
+                'canal': 'whatsapp',
+                'provider_key': 'twilio_whatsapp',
+                'estado_gate': 'abierto',
+                'restricciones_operativas': {},
+                'evidencia_ref': 'scope-gate',
+            },
+            format='json',
+        )
+        update_response = self.client.patch(
+            reverse('canales-gate-detail', args=[self.gate.id]),
+            {'estado_gate': 'cerrado'},
+            format='json',
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(update_response.status_code, status.HTTP_403_FORBIDDEN)

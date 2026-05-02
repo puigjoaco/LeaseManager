@@ -115,6 +115,19 @@ class MovimientoBancarioImportadoSerializer(serializers.ModelSerializer):
         candidate = build_validation_candidate(self.instance, MovimientoBancarioImportado)
         for field, value in attrs.items():
             setattr(candidate, field, value)
+        transaction_id_banco = attrs.get('transaction_id_banco') or getattr(self.instance, 'transaction_id_banco', '')
+        conexion_bancaria = attrs.get('conexion_bancaria') or getattr(self.instance, 'conexion_bancaria', None)
+        if transaction_id_banco and conexion_bancaria is not None:
+            queryset = MovimientoBancarioImportado.objects.filter(
+                conexion_bancaria=conexion_bancaria,
+                transaction_id_banco=transaction_id_banco,
+            )
+            if self.instance:
+                queryset = queryset.exclude(pk=self.instance.pk)
+            if queryset.exists():
+                raise serializers.ValidationError(
+                    {'transaction_id_banco': 'Ya existe un movimiento bancario importado con ese transaction_id_banco para la misma conexión.'}
+                )
         try:
             candidate.full_clean()
         except DjangoValidationError as error:

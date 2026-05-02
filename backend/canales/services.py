@@ -26,14 +26,24 @@ def ensure_manual_resolution(category, message, payload=None):
     )
 
 
+def resolve_document_contract(documento_emitido=None):
+    if not documento_emitido or documento_emitido.expediente.entidad_tipo != 'contrato':
+        return None
+    try:
+        contract_id = int(documento_emitido.expediente.entidad_id)
+    except (TypeError, ValueError):
+        return None
+    return Contrato.objects.select_related('arrendatario').filter(pk=contract_id).first()
+
+
 def resolve_arrendatario(contrato=None, arrendatario=None, documento_emitido=None):
     if arrendatario:
         return arrendatario
     if contrato:
         return contrato.arrendatario
-    if documento_emitido and documento_emitido.expediente.entidad_tipo == 'contrato':
-        contract = Contrato.objects.filter(pk=documento_emitido.expediente.entidad_id).first()
-        return contract.arrendatario if contract else None
+    contract = resolve_document_contract(documento_emitido)
+    if contract:
+        return contract.arrendatario
     return None
 
 
@@ -86,7 +96,7 @@ def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None
     )
 
     blocking_reason = ''
-    if canal_mensajeria.estado_gate in {EstadoGateCanal.CLOSED, EstadoGateCanal.SUSPENDED}:
+    if canal_mensajeria.estado_gate != EstadoGateCanal.OPEN:
         blocking_reason = f'El gate del canal {canal} no permite envio automatico.'
     elif not identidad or identidad.estado != EstadoIdentidadEnvio.ACTIVE:
         blocking_reason = f'No existe una identidad activa valida para el canal {canal}.'
@@ -120,4 +130,3 @@ def mark_message_as_sent(message, external_ref=''):
     message.enviado_at = timezone.now()
     message.save(update_fields=['estado', 'external_ref', 'enviado_at', 'updated_at'])
     return message
-

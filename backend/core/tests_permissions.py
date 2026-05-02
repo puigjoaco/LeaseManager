@@ -4,7 +4,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from core.models import Role, UserScopeAssignment
+from core.models import Role, Scope, UserScopeAssignment
 from patrimonio.models import Socio
 
 
@@ -22,7 +22,7 @@ class RolePermissionTests(APITestCase):
         self.client.force_authenticate(user)
         return user
 
-    def test_operador_can_create_operational_record(self):
+    def test_operador_no_scoped_can_still_create_master_data(self):
         self._force_user(username='operator-role', role_code='operator')
 
         response = self.client.post(
@@ -39,6 +39,38 @@ class RolePermissionTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_operador_scoped_cannot_create_global_patrimonio_master_data(self):
+        user = self.user_model.objects.create_user(
+            username='operator-scoped-masterdata',
+            password='secret123',
+            default_role_code='OperadorDeCartera',
+        )
+        operator_role = Role.objects.create(code='OperadorDeCartera', name='Operador de cartera')
+        scope = Scope.objects.create(
+            code='company-999',
+            name='Empresa Scope',
+            scope_type=Scope.ScopeType.COMPANY,
+            external_reference='999',
+            is_active=True,
+        )
+        UserScopeAssignment.objects.create(user=user, role=operator_role, scope=scope, is_primary=True)
+        self.client.force_authenticate(user)
+
+        response = self.client.post(
+            reverse('patrimonio-socio-list'),
+            {
+                'nombre': 'Socio Scoped',
+                'rut': '12.222.333-8',
+                'email': 'scoped@example.com',
+                'telefono': '123',
+                'domicilio': 'Temuco',
+                'activo': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_operador_cannot_write_control_modules(self):
         self._force_user(username='operator-control', role_code='operator')

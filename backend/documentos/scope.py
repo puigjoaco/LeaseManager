@@ -46,12 +46,18 @@ def scope_expediente_queryset(queryset: QuerySet[ExpedienteDocumental], user):
 
     contrato_ids = _visible_contrato_ids(user)
     mandato_ids = _visible_mandato_ids(user)
+    mandato_tokens = [f'mandato:{item}' for item in mandato_ids]
 
     scope_filter = Q()
     if contrato_ids:
-        scope_filter |= Q(entidad_tipo='contrato', entidad_id__in=[str(item) for item in contrato_ids])
-    if mandato_ids:
-        scope_filter |= Q(owner_operativo__in=[f'mandato:{item}' for item in mandato_ids])
+        contract_filter = Q(entidad_tipo='contrato', entidad_id__in=[str(item) for item in contrato_ids])
+        if mandato_tokens:
+            contract_filter &= Q(owner_operativo__in=mandato_tokens) | ~Q(owner_operativo__startswith='mandato:')
+        else:
+            contract_filter &= ~Q(owner_operativo__startswith='mandato:')
+        scope_filter |= contract_filter
+    if mandato_tokens:
+        scope_filter |= ~Q(entidad_tipo='contrato') & Q(owner_operativo__in=mandato_tokens)
 
     if not scope_filter:
         return queryset.none()

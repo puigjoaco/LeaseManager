@@ -436,15 +436,35 @@ class ContratoSerializer(serializers.ModelSerializer):
             for item in contrato_propiedades
             if item['rol_en_contrato'] == RolContratoPropiedad.PRIMARY
         )
-        aviso_exists = AvisoTermino.objects.filter(
-            estado=EstadoAvisoTermino.REGISTERED,
-            fecha_efectiva__lte=fecha_inicio,
-            contrato__contrato_propiedades__propiedad_id=principal_property_id,
-            contrato__contrato_propiedades__rol_en_contrato=RolContratoPropiedad.PRIMARY,
-        ).exists()
-        if not aviso_exists:
+        current_contract_qs = Contrato.objects.filter(
+            estado=EstadoContrato.ACTIVE,
+            contrato_propiedades__propiedad_id=principal_property_id,
+            contrato_propiedades__rol_en_contrato=RolContratoPropiedad.PRIMARY,
+        ).distinct()
+        if self.instance:
+            current_contract_qs = current_contract_qs.exclude(pk=self.instance.pk)
+        current_contract = current_contract_qs.order_by('-fecha_inicio', '-id').first()
+        if current_contract is not None:
+            aviso_exists = AvisoTermino.objects.filter(
+                estado=EstadoAvisoTermino.REGISTERED,
+                fecha_efectiva__lte=fecha_inicio,
+                contrato=current_contract,
+            ).exists()
+            if not aviso_exists:
+                raise serializers.ValidationError(
+                    {'estado': 'Un contrato futuro requiere un AvisoTermino registrado para la propiedad principal.'}
+                )
+            return
+
+        early_terminated_exists = Contrato.objects.filter(
+            estado=EstadoContrato.EARLY_TERMINATED,
+            fecha_fin_vigente__lte=fecha_inicio,
+            contrato_propiedades__propiedad_id=principal_property_id,
+            contrato_propiedades__rol_en_contrato=RolContratoPropiedad.PRIMARY,
+        ).exclude(pk=self.instance.pk if self.instance else None).exists()
+        if not early_terminated_exists:
             raise serializers.ValidationError(
-                {'estado': 'Un contrato futuro requiere un AvisoTermino registrado para la propiedad principal.'}
+                {'estado': 'Un contrato futuro requiere un AvisoTermino registrado o una terminación anticipada ejecutada sobre la propiedad principal.'}
             )
 
     def create(self, validated_data):
