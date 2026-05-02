@@ -1,7 +1,9 @@
+from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from contratos.models import Contrato
 from core.scope_access import get_scope_access
 from core.permissions import (
     AuditReadPermission,
@@ -12,6 +14,7 @@ from core.permissions import (
     ROLE_REVIEWER,
     get_effective_role_codes,
 )
+from patrimonio.models import Propiedad
 from .models import AuditEvent, ManualResolution
 from .scope_filters import scope_manual_resolution_queryset
 from .serializers import (
@@ -29,6 +32,48 @@ def _scoped_manual_resolution_queryset(queryset, user):
     return scope_manual_resolution_queryset(queryset, get_scope_access(user))
 
 
+def _scoped_audit_event_queryset(user):
+    access = get_scope_access(user)
+    queryset = AuditEvent.objects.select_related('actor_user')
+    if not access.restricted:
+        return queryset
+
+    visible_contract_ids = set()
+    visible_community_ids = set()
+    if access.visible_property_ids:
+        visible_contract_ids = set(
+            Contrato.objects.filter(mandato_operacion__propiedad_id__in=access.visible_property_ids)
+            .values_list('id', flat=True)
+        )
+        visible_community_ids = {
+            comunidad_id
+            for comunidad_id in Propiedad.objects.filter(pk__in=access.visible_property_ids)
+            .exclude(comunidad_owner_id__isnull=True)
+            .values_list('comunidad_owner_id', flat=True)
+        }
+
+    scoped_filter = Q(pk__in=[])
+    for company_id in access.company_ids:
+        scoped_filter |= Q(entity_type='empresa', entity_id=str(company_id))
+        scoped_filter |= Q(metadata__empresa_id=company_id)
+        scoped_filter |= Q(metadata__resolved_empresa_id=company_id)
+    for property_id in access.visible_property_ids:
+        scoped_filter |= Q(entity_type='propiedad', entity_id=str(property_id))
+        scoped_filter |= Q(metadata__canonical_property_id=property_id)
+    for community_id in visible_community_ids:
+        scoped_filter |= Q(entity_type='comunidad', entity_id=str(community_id))
+        scoped_filter |= Q(metadata__canonical_comunidad_id=community_id)
+    for contract_id in visible_contract_ids:
+        scoped_filter |= Q(entity_type='contrato', entity_id=str(contract_id))
+        scoped_filter |= Q(metadata__contrato_id=contract_id)
+        scoped_filter |= Q(metadata__resolved_contract_id=contract_id)
+    for bank_id in access.visible_bank_account_ids:
+        scoped_filter |= Q(entity_type='cuenta_recaudadora', entity_id=str(bank_id))
+        scoped_filter |= Q(metadata__cuenta_recaudadora_id=bank_id)
+
+    return queryset.filter(scoped_filter).distinct()
+
+
 def _manual_resolution_queryset_for_user(user):
     return _scoped_manual_resolution_queryset(ManualResolution.objects.all(), user)
 
@@ -37,6 +82,9 @@ class AuditEventListView(generics.ListAPIView):
     permission_classes = [AuditReadPermission]
     serializer_class = AuditEventSerializer
     queryset = AuditEvent.objects.select_related('actor_user').all()[:100]
+
+    def get_queryset(self):
+        return _scoped_audit_event_queryset(self.request.user).order_by('-created_at')[:100]
 
 
 class AuditSnapshotView(APIView):
@@ -61,7 +109,7 @@ class AuditSnapshotView(APIView):
                         'summary': item.summary,
                         'created_at': item.created_at,
                     }
-                    for item in (AuditEvent.objects.select_related('actor_user').order_by('-created_at')[:100] if can_read_events else [])
+                    for item in (_scoped_audit_event_queryset(request.user).order_by('-created_at')[:100] if can_read_events else [])
                 ],
                 'manual_resolutions': [
                     {
@@ -130,7 +178,7 @@ class ResolveMigrationPropertyOwnerView(APIView):
             result = resolve_migration_property_owner_manual_resolution(
                 resolution=resolution,
                 nombre_comunidad=serializer.validated_data['nombre_comunidad'],
-                representante_socio_id=serializer.validated_data['representante_socio_id'],
+                representante_socio_id=serializer.validated_data.get('representante_socio_id'),
                 representante_modo=serializer.validated_data.get('representante_modo'),
                 participaciones=serializer.validated_data.get('participaciones'),
                 region=serializer.validated_data.get('region', ''),

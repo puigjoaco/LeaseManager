@@ -12,6 +12,7 @@ from .models import (
     F22PreparacionAnual,
     F29PreparacionMensual,
     ProcesoRentaAnual,
+    TipoDTE,
 )
 
 
@@ -33,7 +34,7 @@ def get_active_dte_capability(empresa):
     capability = empresa.capacidades_sii.filter(capacidad_key=CapacidadSII.DTE_EMISION).first()
     if not capability:
         raise ValueError('La empresa no tiene configurada la capacidad DTEEmision.')
-    if capability.estado_gate in {EstadoGateSII.CLOSED, EstadoGateSII.SUSPENDED, EstadoGateSII.PRUNED}:
+    if capability.estado_gate != EstadoGateSII.OPEN:
         raise ValueError('La capacidad DTEEmision no esta habilitada por gate para esta empresa.')
     if not capability.certificado_ref:
         raise ValueError('La capacidad DTEEmision requiere certificado_ref configurado.')
@@ -50,6 +51,8 @@ def validate_company_fiscal_readiness(empresa):
 
 
 def generate_dte_draft(payment, tipo_dte='34'):
+    if tipo_dte != TipoDTE.FACTURA_EXENTA:
+        raise ValueError('La emision desde pago mensual solo soporta DTE tipo 34 (Factura Exenta).')
     if payment.estado_pago not in {'pagado', 'pagado_via_repactacion', 'pagado_por_acuerdo_termino'}:
         raise ValueError('Solo se puede generar DTE desde pagos efectivamente cobrados.')
 
@@ -101,7 +104,7 @@ def get_active_f29_capability(empresa):
     capability = empresa.capacidades_sii.filter(capacidad_key=CapacidadSII.F29_PREPARACION).first()
     if not capability:
         raise ValueError('La empresa no tiene configurada la capacidad F29Preparacion.')
-    if capability.estado_gate in {EstadoGateSII.CLOSED, EstadoGateSII.SUSPENDED, EstadoGateSII.PRUNED}:
+    if capability.estado_gate != EstadoGateSII.OPEN:
         raise ValueError('La capacidad F29Preparacion no esta habilitada por gate para esta empresa.')
     if not capability.certificado_ref:
         raise ValueError('La capacidad F29Preparacion requiere certificado_ref configurado.')
@@ -173,7 +176,7 @@ def get_active_annual_capability(empresa, capability_key):
     capability = empresa.capacidades_sii.filter(capacidad_key=capability_key).first()
     if not capability:
         raise ValueError(f'La empresa no tiene configurada la capacidad {capability_key}.')
-    if capability.estado_gate in {EstadoGateSII.CLOSED, EstadoGateSII.SUSPENDED, EstadoGateSII.PRUNED}:
+    if capability.estado_gate != EstadoGateSII.OPEN:
         raise ValueError(f'La capacidad {capability_key} no esta habilitada por gate para esta empresa.')
     if not capability.certificado_ref:
         raise ValueError(f'La capacidad {capability_key} requiere certificado_ref configurado.')

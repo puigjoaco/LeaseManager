@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from .models import ExportacionSensible, PoliticaRetencionDatos
+from .models import EstadoRegistro, ExportacionSensible, PoliticaRetencionDatos
 
 
 def raise_drf_validation_error(error):
@@ -85,6 +85,14 @@ class ExportacionPrepareSerializer(serializers.Serializer):
     socio_id = serializers.IntegerField(required=False)
     periodo = serializers.CharField(required=False)
 
+    EXPORT_KIND_CATEGORY_MAP = {
+        'dashboard_operativo': 'operativo',
+        'financiero_mensual': 'financiero',
+        'tributario_anual': 'tributario',
+        'socio_resumen': 'documental_sensible',
+        'libros_periodo': 'financiero',
+    }
+
     def validate(self, attrs):
         export_kind = attrs['export_kind']
         if export_kind == 'financiero_mensual' and not all(key in attrs for key in ('anio', 'mes')):
@@ -95,5 +103,16 @@ class ExportacionPrepareSerializer(serializers.Serializer):
             raise serializers.ValidationError('socio_resumen requiere socio_id.')
         if export_kind == 'libros_periodo' and not all(key in attrs for key in ('empresa_id', 'periodo')):
             raise serializers.ValidationError('libros_periodo requiere empresa_id y periodo.')
+        expected_category = self.EXPORT_KIND_CATEGORY_MAP[export_kind]
+        if attrs['categoria_dato'] != expected_category:
+            raise serializers.ValidationError(
+                {'categoria_dato': f'La categoria_dato debe ser {expected_category} para export_kind={export_kind}.'}
+            )
+        if not PoliticaRetencionDatos.objects.filter(
+            categoria_dato=attrs['categoria_dato'],
+            estado=EstadoRegistro.ACTIVE,
+        ).exists():
+            raise serializers.ValidationError(
+                {'categoria_dato': 'No existe una politica de retencion activa para la categoria indicada.'}
+            )
         return attrs
-

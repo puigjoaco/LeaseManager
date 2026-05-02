@@ -144,6 +144,10 @@ class DocumentoEmitido(TimestampedModel):
         super().clean()
         if self.comprobante_notarial_id and self.comprobante_notarial.tipo_documental != TipoDocumental.NOTARY_RECEIPT:
             raise ValidationError({'comprobante_notarial': 'El comprobante vinculado debe ser un comprobante notarial.'})
+        if self.comprobante_notarial_id and self.comprobante_notarial.expediente_id != self.expediente_id:
+            raise ValidationError(
+                {'comprobante_notarial': 'El comprobante notarial debe pertenecer al mismo expediente documental.'}
+            )
 
         if self.estado == EstadoDocumento.FORMALIZED:
             self.validate_formalization()
@@ -164,4 +168,3 @@ class DocumentoEmitido(TimestampedModel):
                 raise ValidationError({'estado': 'Falta registrar la recepcion notarial.'})
             if not self.comprobante_notarial_id:
                 raise ValidationError({'estado': 'Falta archivar el comprobante notarial exigido por la politica.'})
-

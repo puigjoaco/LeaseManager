@@ -1,0 +1,68 @@
+name: Release Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  acceptance:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            scripts/package-lock.json
+
+      - name: Build backend virtualenv
+        working-directory: backend
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        shell: pwsh
+        run: npm ci
+
+      - name: Install smoke dependencies
+        working-directory: scripts
+        shell: pwsh
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: scripts
+        shell: pwsh
+        run: npx playwright install chromium
+
+      - name: Run release gate without public smoke
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: .\scripts\run-acceptance-workflows.ps1 -SkipSmoke
+
+      - name: Run release gate with public smoke
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: .\scripts\run-acceptance-workflows.ps1

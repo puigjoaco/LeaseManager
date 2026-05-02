@@ -35,9 +35,13 @@ if (-not $BackendTestDb) {
 
 $testTargets = @(
     'users.tests.UserAuthAPITests',
+    'core.tests.PlatformBootstrapAPITests',
+    'core.tests.EffectiveRoleUtilityTests',
     'core.tests_permissions.RolePermissionTests',
     'core.tests_scope_access.ScopeFilteringAPITests',
+    'health.tests.HealthEndpointTests',
     'patrimonio.tests.PatrimonioAPITests',
+    'patrimonio.tests.PatrimonioMigrationSafetyTests',
     'operacion.tests.OperacionAPITests',
     'contratos.tests.ContratosAPITests',
     'documentos.tests.DocumentosAPITests',
@@ -45,16 +49,23 @@ $testTargets = @(
     'canales.tests.CanalesAPITests',
     'canales.tests.CanalesScopeAPITests',
     'cobranza.tests.CobranzaAPITests',
+    'cobranza.tests.DistribucionCobroConstraintTests',
+    'cobranza.tests.CobranzaMigrationSafetyTests',
+    'cobranza.tests.CobranzaRepairMigrationSafetyTests',
     'audit.tests.AuditAPITests',
     'conciliacion.tests.ConciliacionAPITests',
     'contabilidad.tests.ContabilidadAPITests',
     'reporting.tests.ReportingAPITests',
     'compliance.tests.ComplianceAPITests',
-    'sii.tests.SiiAPITests'
+    'sii.tests.SiiAPITests',
+    'sii.tests.SiiMigrationSafetyTests'
 )
 
 Step "Backend acceptance suite"
 $env:DATABASE_URL = $BackendTestDb
+$env:REDIS_URL = ''
+$env:CELERY_RESULT_BACKEND = ''
+$env:DJANGO_CACHE_URL = 'locmem://leasemanager-acceptance-cache'
 Push-Location $backendDir
 try {
     & $pythonExe manage.py test @testTargets --keepdb
@@ -79,7 +90,7 @@ finally {
 }
 
 if (-not $SkipSmoke) {
-    Step "Public smoke"
+    Step "Public smoke via UI login"
     $smokeOutput = & node $smokeScript --frontend-url $FrontendUrl --api-base-url $ApiBaseUrl | Out-String
     Assert-Condition ($LASTEXITCODE -eq 0) 'La smoke publica fallo.'
 
@@ -97,6 +108,10 @@ if (-not $SkipSmoke) {
     Assert-Condition ($operatorResult.ok -eq $true) 'La smoke operator no quedo OK.'
     Assert-Condition ($reviewerResult.ok -eq $true) 'La smoke reviewer no quedo OK.'
     Assert-Condition ($partnerResult.ok -eq $true) 'La smoke partner no quedo OK.'
+    Assert-Condition ($adminResult.authFlow -eq 'ui-login') 'La smoke admin no paso por el login real del frontend.'
+    Assert-Condition ($operatorResult.authFlow -eq 'ui-login') 'La smoke operator no paso por el login real del frontend.'
+    Assert-Condition ($reviewerResult.authFlow -eq 'ui-login') 'La smoke reviewer no paso por el login real del frontend.'
+    Assert-Condition ($partnerResult.authFlow -eq 'ui-login') 'La smoke partner no paso por el login real del frontend.'
 
     Assert-Condition ($adminResult.excerpt -match 'conciliacion\.ingreso desconocido') 'El overview admin no mostro la categoria real del backlog manual.'
     Assert-Condition ($adminResult.excerpt -notmatch 'Actualizando detalle de') 'El overview admin volvio a mostrar placeholder de backlog.'

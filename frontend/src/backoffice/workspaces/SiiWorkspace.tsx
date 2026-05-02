@@ -5,7 +5,7 @@ import { Badge, TableBlock } from '../shared'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
 type EmpresaItem = { id: number; razon_social: string }
-type PagoItem = { id: number; contrato: number; mes: number; anio: number }
+type PagoItem = { id: number; contrato: number; mes: number; anio: number; estado_pago?: string; tiene_distribucion_facturable?: boolean; distribuciones_detail?: Array<{ requiere_dte: boolean }> }
 type ContratoItem = { id: number; codigo_contrato: string }
 type CapacidadSiiItem = { id: number; empresa: number; capacidad_key: string; ambiente: string; estado_gate: string }
 type DteEmitidoItem = { id: number; empresa: number; contrato: number; pago_mensual: number; monto_neto_clp: string; estado_dte: string; sii_track_id: string }
@@ -99,6 +99,12 @@ export function SiiWorkspace({
   handleSiiStatusUpdate: (path: string, body: Record<string, unknown>, successMessage: string) => Promise<void>
   onViewReporting: (companyId: number) => void
 }) {
+  const pagosElegiblesDte = pagos.filter((item) => {
+    const tieneDistribucionFacturable = item.tiene_distribucion_facturable ?? Boolean(item.distribuciones_detail?.some((detail) => detail.requiere_dte))
+    const estadoPago = item.estado_pago ?? ''
+    return tieneDistribucionFacturable && ['pagado', 'pagado_via_repactacion', 'pagado_por_acuerdo_termino'].includes(estadoPago)
+  })
+
   return (
     <>
       {!canEditSii ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en SII.</div> : null}
@@ -139,12 +145,10 @@ export function SiiWorkspace({
           <form className="entity-form" onSubmit={handleGenerateDte}>
             <select value={dteDraft.pago_mensual_id} onChange={(event) => setDteDraft((current) => ({ ...current, pago_mensual_id: event.target.value }))}>
               <option value="">Selecciona pago</option>
-              {pagos.map((item) => <option key={item.id} value={item.id}>{contratoById.get(item.contrato)?.codigo_contrato || item.contrato} · {item.mes}/{item.anio}</option>)}
+              {pagosElegiblesDte.map((item) => <option key={item.id} value={item.id}>{contratoById.get(item.contrato)?.codigo_contrato || item.contrato} · {item.mes}/{item.anio}</option>)}
             </select>
             <select value={dteDraft.tipo_dte} onChange={(event) => setDteDraft((current) => ({ ...current, tipo_dte: event.target.value }))}>
               <option value="34">34 · Factura Exenta</option>
-              <option value="56">56 · Nota Débito</option>
-              <option value="61">61 · Nota Crédito</option>
             </select>
             <button type="submit" className="button-primary" disabled={isSubmitting || !dteDraft.pago_mensual_id}>Generar DTE</button>
           </form>

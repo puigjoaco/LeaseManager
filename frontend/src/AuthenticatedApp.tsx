@@ -2,10 +2,11 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import heroImage from './assets/hero.png'
 import { ApiError, apiRequest, API_BASE_URL, fallbackHealth, TOKEN_STORAGE_KEY } from './backoffice/api'
-import { Metric, count, toneFor } from './backoffice/shared'
+import { Metric } from './backoffice/shared'
+import { count, toneFor } from './backoffice/shared-utils'
 import { ContextBanner, SectionToolbar, WorkspaceHeader, WorkspaceTabs } from './backoffice/shell'
 import { effectiveCodeFromPropertyCode, matches, todayIso } from './backoffice/utils'
-import { allowedViewsForRole, auditHeadingForRole, canMutateSection, defaultViewForRole, reportingHeadingForRole, sectionTitleForView, searchPlaceholderForView, type SectionKey, type ViewKey, VIEW_LABELS, canonicalRole } from './backoffice/view-config'
+import { allowedViewsForRole, auditHeadingForRole, canMutateSection, defaultViewForRole, reportingHeadingForRole, sectionTitleForView, searchPlaceholderForView, type RoleAssignment, type SectionKey, type ViewKey, VIEW_LABELS, canonicalRole, effectiveRoles as resolveEffectiveRoles, primaryRole } from './backoffice/view-config'
 import './App.css'
 
 const loadOverviewWorkspace = () => import('./backoffice/workspaces/OverviewWorkspace')
@@ -39,7 +40,7 @@ type CurrentUser = {
   display_name: string
   default_role_code: string
   metadata: { socio_id?: number }
-  assignments: Array<{ role: string; scope: string | null; is_primary: boolean }>
+  assignments: RoleAssignment[]
 }
 
 type LoginBootstrap = {
@@ -52,6 +53,8 @@ type LoginBootstrap = {
 }
 
 type LoginResponse = { token: string; user: CurrentUser; bootstrap?: LoginBootstrap | null }
+type WorkspaceLoadOptions = { forceUserRefresh?: boolean; forceDataRefresh?: boolean }
+type WorkspaceLoadFn = (activeToken: string, options?: WorkspaceLoadOptions) => Promise<void>
 const USER_STORAGE_KEY = 'leasemanager.auth.user'
 const OVERVIEW_STORAGE_KEY_PREFIX = 'leasemanager.overview'
 const CONTROL_STORAGE_KEY_PREFIX = 'leasemanager.control'
@@ -78,6 +81,48 @@ const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
   'contabilidad',
   'sii',
 ])
+
+const REPORTING_REQUEST_KEYS = ['financial', 'partner', 'books', 'annual', 'migration'] as const
+type ReportingRequestKey = (typeof REPORTING_REQUEST_KEYS)[number]
+const INITIAL_REPORTING_QUERY_KEYS: Record<ReportingRequestKey, string | null> = {
+  financial: null,
+  partner: null,
+  books: null,
+  annual: null,
+  migration: null,
+}
+
+function assignmentStorageSignature(assignments: RoleAssignment[]) {
+  return assignments
+    .map((assignment) => `${assignment.is_primary ? '1' : '0'}:${canonicalRole(assignment.role)}:${assignment.scope || 'global'}`)
+    .sort()
+    .join('|')
+}
+
+function userStorageSignature(user: Pick<CurrentUser, 'default_role_code' | 'assignments'> | null) {
+  if (!user) return 'anon'
+  return `${canonicalRole(user.default_role_code)}:${assignmentStorageSignature(user.assignments)}`
+}
+
+function buildFinancialSummaryQueryKey(draft: { anio: string; mes: string; empresa_id: string }) {
+  return `anio=${draft.anio.trim()}|mes=${draft.mes.trim()}|empresa=${draft.empresa_id || '*'}`
+}
+
+function buildPartnerSummaryQueryKey(socioId: string) {
+  return `socio=${String(socioId || '').trim()}`
+}
+
+function buildBooksSummaryQueryKey(draft: { empresa_id: string; periodo: string }) {
+  return `empresa=${draft.empresa_id || '*'}|periodo=${draft.periodo.trim()}`
+}
+
+function buildAnnualSummaryQueryKey(draft: { anio_tributario: string; empresa_id: string }) {
+  return `anio_tributario=${draft.anio_tributario.trim()}|empresa=${draft.empresa_id || '*'}`
+}
+
+function buildMigrationSummaryQueryKey(status: string) {
+  return `status=${status.trim() || 'open'}`
+}
 
 function readStoredCurrentUser(): CurrentUser | null {
   if (typeof window === 'undefined') return null
@@ -138,9 +183,9 @@ function storeHealthSnapshot(health: HealthPayload | null) {
   localStorage.setItem(HEALTH_STORAGE_KEY, JSON.stringify(health))
 }
 
-function overviewStorageKey(user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null) {
+function overviewStorageKey(user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code' | 'assignments'> | null) {
   if (!user) return null
-  return `${OVERVIEW_STORAGE_KEY_PREFIX}:${user.id}:${user.username}:${user.default_role_code}`
+  return `${OVERVIEW_STORAGE_KEY_PREFIX}:${user.id}:${user.username}:${userStorageSignature(user)}`
 }
 
 function readStoredOverviewSnapshot() {
@@ -192,7 +237,7 @@ function readStoredOverviewSnapshot() {
 }
 
 function storeOverviewSnapshot(
-  user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null,
+  user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code' | 'assignments'> | null,
   snapshot: {
     dashboard: Dashboard | null
     manualSummary: ManualSummary | null
@@ -209,9 +254,9 @@ function storeOverviewSnapshot(
   localStorage.setItem(key, JSON.stringify(snapshot))
 }
 
-function controlStorageKey(user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null) {
+function controlStorageKey(user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code' | 'assignments'> | null) {
   if (!user) return null
-  return `${CONTROL_STORAGE_KEY_PREFIX}:${user.id}:${user.username}:${user.default_role_code}`
+  return `${CONTROL_STORAGE_KEY_PREFIX}:${user.id}:${user.username}:${userStorageSignature(user)}`
 }
 
 function readStoredControlSnapshot() {
@@ -258,7 +303,7 @@ function readStoredControlSnapshot() {
 }
 
 function storeControlSnapshot(
-  user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code'> | null,
+  user: Pick<CurrentUser, 'id' | 'username' | 'default_role_code' | 'assignments'> | null,
   snapshot: {
     empresas: Empresa[]
     regimenesTributarios: RegimenTributario[]
@@ -371,7 +416,7 @@ function applyControlBootstrapSnapshot(
 
 function readStoredInitialView(): ViewKey {
   const storedUser = readStoredCurrentUser()
-  return storedUser ? defaultViewForRole(canonicalRole(storedUser.default_role_code)) : 'overview'
+  return storedUser ? defaultViewForRole(storedUser.default_role_code, storedUser.assignments) : 'overview'
 }
 
 function isRecentSnapshot(value: string | null, maxAgeMs = 30_000) {
@@ -381,9 +426,27 @@ function isRecentSnapshot(value: string | null, maxAgeMs = 30_000) {
   return Date.now() - timestamp <= maxAgeMs
 }
 
+function mostRecentSnapshotTimestamp(...values: Array<string | null | undefined>) {
+  let latestValue: string | null = null
+  let latestTimestamp = -Infinity
+
+  for (const value of values) {
+    if (!value) continue
+    const timestamp = Date.parse(value)
+    if (Number.isNaN(timestamp)) continue
+    if (timestamp > latestTimestamp) {
+      latestTimestamp = timestamp
+      latestValue = value
+    }
+  }
+
+  return latestValue
+}
+
 function loginBootstrapView(user: CurrentUser, bootstrap: LoginBootstrap | null | undefined): ViewKey | null {
-  const defaultView = defaultViewForRole(user.default_role_code)
+  const defaultView = defaultViewForRole(user.default_role_code, user.assignments)
   if (defaultView === 'overview' && bootstrap?.overview) return 'overview'
+  if (defaultView === 'contabilidad' && bootstrap?.control) return 'contabilidad'
   return null
 }
 
@@ -424,6 +487,15 @@ function hasOverviewSecondaryCounts(dashboard: Dashboard | null) {
 
 function hasFreshOverviewSummarySnapshot(dashboard: Dashboard | null, lastLoadedAt: string | null) {
   return Boolean(dashboard) && isRecentSnapshot(lastLoadedAt)
+}
+
+function isSimpleInlineEditableContract(contract: Contrato) {
+  return (
+    contract.contrato_propiedades_detail.length === 1
+    && contract.contrato_propiedades_detail[0]?.rol_en_contrato === 'principal'
+    && contract.periodos_contractuales_detail.length === 1
+    && contract.codeudores_solidarios_detail.length === 0
+  )
 }
 
 type Socio = {
@@ -543,6 +615,12 @@ type Contrato = {
     moneda_base: string
     tipo_periodo: string
     origen_periodo: string
+  }>
+  codeudores_solidarios_detail: Array<{
+    id: number
+    snapshot_identidad: { nombre?: string; rut?: string }
+    fecha_inclusion: string
+    estado: string
   }>
 }
 
@@ -1194,7 +1272,11 @@ function App() {
   const [workspaceError, setWorkspaceError] = useState<string | null>(null)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(initialOverviewSnapshot.lastLoadedAt ?? initialControlSnapshot?.lastLoadedAt ?? null)
+  const [overviewLastLoadedAt, setOverviewLastLoadedAt] = useState<string | null>(initialOverviewSnapshot.lastLoadedAt ?? null)
+  const [controlLastLoadedAt, setControlLastLoadedAt] = useState<string | null>(initialControlSnapshot?.lastLoadedAt ?? null)
+  const [workspaceLastLoadedAt, setWorkspaceLastLoadedAt] = useState<string | null>(
+    mostRecentSnapshotTimestamp(initialOverviewSnapshot.lastLoadedAt, initialControlSnapshot?.lastLoadedAt),
+  )
   const [activeView, setActiveView] = useState<ViewKey>(initialView)
   const [activeContextLabel, setActiveContextLabel] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
@@ -1506,6 +1588,7 @@ function App() {
   const [reportingBooksSummary, setReportingBooksSummary] = useState<ReportingBooksSummary | null>(null)
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
+  const [reportingLoadedQueryKeys, setReportingLoadedQueryKeys] = useState<Record<ReportingRequestKey, string | null>>(INITIAL_REPORTING_QUERY_KEYS)
   const [editingManualResolutionId, setEditingManualResolutionId] = useState<string | null>(null)
   const [isPatrimonioSnapshotLoading, setIsPatrimonioSnapshotLoading] = useState(false)
   const [isOperationSnapshotLoading, setIsOperationSnapshotLoading] = useState(false)
@@ -1535,8 +1618,17 @@ function App() {
   const seededControlRefreshPendingRef = useRef(Boolean(initialControlSnapshot && !isRecentSnapshot(initialControlSnapshot.lastLoadedAt)))
   const skipBootstrappedWorkspaceLoadRef = useRef<ViewKey | null>(null)
   const healthLoadTimeoutRef = useRef<number | null>(null)
+  const loadWorkspaceRef = useRef<WorkspaceLoadFn | null>(null)
   const suspendHealthLoadsRef = useRef(false)
   const loginChunkPrefetchRef = useRef(false)
+  const workspaceLoadRequestRef = useRef(0)
+  const reportingRequestRef = useRef<Record<ReportingRequestKey, number>>({
+    financial: 0,
+    partner: 0,
+    books: 0,
+    annual: 0,
+    migration: 0,
+  })
   const [manualResolutionDraft, setManualResolutionDraft] = useState({
     status: 'open',
     rationale: '',
@@ -1564,57 +1656,535 @@ function App() {
     periodo: '2026-05',
   })
 
-  const effectiveRole = canonicalRole(currentUser?.default_role_code)
-  const activeAssignments = currentUser?.assignments || []
-  const reportingHeading = reportingHeadingForRole(effectiveRole)
-  const auditHeading = auditHeadingForRole(effectiveRole)
+  const roleAccess = useMemo(() => {
+    const assignments = currentUser?.assignments || []
+    return {
+      effectiveRole: primaryRole(currentUser?.default_role_code, assignments),
+      effectiveRoles: resolveEffectiveRoles(currentUser?.default_role_code, assignments),
+      assignments,
+    }
+  }, [currentUser])
+  const effectiveRole = roleAccess.effectiveRole
+  const activeAssignments = roleAccess.assignments
+  const effectiveRoleCodes = roleAccess.effectiveRoles
+  const reportingHeading = reportingHeadingForRole(currentUser?.default_role_code, activeAssignments)
+  const auditHeading = auditHeadingForRole(currentUser?.default_role_code, activeAssignments)
   const apiConfigError = !API_BASE_URL ? 'Falta conectar el backend canónico para este entorno. Configura VITE_API_BASE_URL para habilitar el acceso.' : null
-  const visibleTabs = allowedViewsForRole(effectiveRole).map((view) => ({ key: view, label: VIEW_LABELS[view] }))
+  const visibleTabs = allowedViewsForRole(currentUser?.default_role_code, activeAssignments).map((view) => ({ key: view, label: VIEW_LABELS[view] }))
   const currentSectionTag = VIEW_LABELS[activeView]
   const currentSectionTitle = sectionTitleForView(activeView, auditHeading.title, reportingHeading.title)
   const currentSearchPlaceholder = searchPlaceholderForView(activeView, reportingHeading.placeholder)
+  const reportingFinancialQueryKey = useMemo(() => buildFinancialSummaryQueryKey(reportingFinancialDraft), [reportingFinancialDraft])
+  const reportingPartnerQueryKey = useMemo(() => buildPartnerSummaryQueryKey(reportingPartnerDraft.socio_id), [reportingPartnerDraft.socio_id])
+  const reportingBooksQueryKey = useMemo(() => buildBooksSummaryQueryKey(reportingBooksDraft), [reportingBooksDraft])
+  const reportingAnnualQueryKey = useMemo(() => buildAnnualSummaryQueryKey(reportingAnnualDraft), [reportingAnnualDraft])
+  const reportingMigrationQueryKey = useMemo(() => buildMigrationSummaryQueryKey(reportingMigrationDraft.status), [reportingMigrationDraft.status])
+  const visibleReportingFinancialSummary =
+    reportingLoadedQueryKeys.financial === reportingFinancialQueryKey
+      ? reportingFinancialSummary
+      : null
+  const visibleReportingPartnerSummary =
+    reportingLoadedQueryKeys.partner === reportingPartnerQueryKey
+      ? reportingPartnerSummary
+      : null
+  const visibleReportingBooksSummary =
+    reportingLoadedQueryKeys.books === reportingBooksQueryKey
+      ? reportingBooksSummary
+      : null
+  const visibleReportingAnnualSummary =
+    reportingLoadedQueryKeys.annual === reportingAnnualQueryKey
+      ? reportingAnnualSummary
+      : null
+  const visibleReportingMigrationSummary =
+    reportingLoadedQueryKeys.migration === reportingMigrationQueryKey
+      ? reportingMigrationSummary
+      : null
+  const visibleLastLoadedAt =
+    activeView === 'overview'
+      ? overviewLastLoadedAt
+      : activeView === 'contabilidad'
+        ? controlLastLoadedAt
+        : workspaceLastLoadedAt
+
+  function markOverviewLoadedAt(value: string | null) {
+    setOverviewLastLoadedAt(value)
+    setWorkspaceLastLoadedAt(value)
+  }
+
+  function markControlLoadedAt(value: string | null) {
+    setControlLastLoadedAt(value)
+    setWorkspaceLastLoadedAt(value)
+  }
+
+  function clearContextNavigation() {
+    setActiveContextLabel(null)
+    setSearchText('')
+  }
 
   function canAccessView(view: ViewKey) {
-    return allowedViewsForRole(effectiveRole).includes(view)
+    return allowedViewsForRole(currentUser?.default_role_code, activeAssignments).includes(view)
   }
 
-  const canEditPatrimonio = canMutateSection(effectiveRole, 'patrimonio')
-  const canEditOperacion = canMutateSection(effectiveRole, 'operacion')
-  const canEditContratos = canMutateSection(effectiveRole, 'contratos')
-  const canEditDocumentos = canMutateSection(effectiveRole, 'documentos')
-  const canEditCanales = canMutateSection(effectiveRole, 'canales')
-  const canEditCobranza = canMutateSection(effectiveRole, 'cobranza')
-  const canEditConciliacion = canMutateSection(effectiveRole, 'conciliacion')
-  const canEditAudit = canMutateSection(effectiveRole, 'audit')
-  const canEditContabilidad = canMutateSection(effectiveRole, 'contabilidad')
-  const canEditSii = canMutateSection(effectiveRole, 'sii')
-  const canEditCompliance = canMutateSection(effectiveRole, 'compliance')
+  const canEditPatrimonio = canMutateSection(currentUser?.default_role_code, 'patrimonio', activeAssignments)
+  const canEditOperacion = canMutateSection(currentUser?.default_role_code, 'operacion', activeAssignments)
+  const canEditContratos = canMutateSection(currentUser?.default_role_code, 'contratos', activeAssignments)
+  const canEditDocumentos = canMutateSection(currentUser?.default_role_code, 'documentos', activeAssignments)
+  const canEditCanales = canMutateSection(currentUser?.default_role_code, 'canales', activeAssignments)
+  const canEditCobranza = canMutateSection(currentUser?.default_role_code, 'cobranza', activeAssignments)
+  const canEditConciliacion = canMutateSection(currentUser?.default_role_code, 'conciliacion', activeAssignments)
+  const canEditAudit = canMutateSection(currentUser?.default_role_code, 'audit', activeAssignments)
+  const canEditContabilidad = canMutateSection(currentUser?.default_role_code, 'contabilidad', activeAssignments)
+  const canEditSii = canMutateSection(currentUser?.default_role_code, 'sii', activeAssignments)
+  const canEditCompliance = canMutateSection(currentUser?.default_role_code, 'compliance', activeAssignments)
 
-  async function loadHealth() {
-    try {
-      const nextHealth = await apiRequest<HealthPayload>('/api/v1/health/')
-      setHealth(nextHealth)
-      storeHealthSnapshot(nextHealth)
-    } catch {
-      setHealth((current) => current || fallbackHealth)
+  function invalidateWorkspaceLoads() {
+    workspaceLoadRequestRef.current += 1
+  }
+
+  function invalidateReportingRequests() {
+    const nextRequestState = { ...reportingRequestRef.current }
+    for (const key of REPORTING_REQUEST_KEYS) {
+      nextRequestState[key] += 1
     }
+    reportingRequestRef.current = nextRequestState
   }
 
-  function scheduleHealthLoad(delayMs: number) {
+  function nextReportingRequestId(key: ReportingRequestKey) {
+    const nextId = reportingRequestRef.current[key] + 1
+    reportingRequestRef.current = { ...reportingRequestRef.current, [key]: nextId }
+    return nextId
+  }
+
+  function isReportingRequestCurrent(key: ReportingRequestKey, requestId: number) {
+    return reportingRequestRef.current[key] === requestId
+  }
+
+  function resetWorkspaceState() {
+    invalidateWorkspaceLoads()
+    invalidateReportingRequests()
     if (healthLoadTimeoutRef.current !== null) {
       window.clearTimeout(healthLoadTimeoutRef.current)
-    }
-    healthLoadTimeoutRef.current = window.setTimeout(() => {
-      if (suspendHealthLoadsRef.current) {
-        healthLoadTimeoutRef.current = null
-        return
-      }
-      void loadHealth()
       healthLoadTimeoutRef.current = null
-    }, delayMs)
+    }
+    suspendHealthLoadsRef.current = false
+    skipBootstrappedWorkspaceLoadRef.current = null
+    seededControlRefreshPendingRef.current = false
+    clearStoredSession()
+    setToken(null)
+    setCurrentUser(null)
+    setDashboard(null)
+    setManualSummary(null)
+    setSocios([])
+    setEmpresas([])
+    setArrendatarios([])
+    setComunidades([])
+    setPropiedades([])
+    setCuentas([])
+    setIdentidades([])
+    setMandatos([])
+    setContratos([])
+    setExpedientes([])
+    setPoliticasFirma([])
+    setDocumentosEmitidos([])
+    setGatesCanales([])
+    setMensajesSalientes([])
+    setAvisos([])
+    setValoresUf([])
+    setAjustes([])
+    setPagos([])
+    setGarantias([])
+    setHistorialGarantias([])
+    setEstadosCuenta([])
+    setConexionesBancarias([])
+    setMovimientosBancarios([])
+    setIngresosDesconocidos([])
+    setRegimenesTributarios([])
+    setConfiguracionesFiscales([])
+    setCuentasContables([])
+    setReglasContables([])
+    setMatricesReglas([])
+    setEventosContables([])
+    setAsientosContables([])
+    setObligacionesMensuales([])
+    setCierresMensuales([])
+    setAuditEvents([])
+    setManualResolutions([])
+    setCapacidadesSii([])
+    setDtes([])
+    setF29s([])
+    setProcesosAnuales([])
+    setDdjjs([])
+    setF22s([])
+    setCompliancePolicies([])
+    setComplianceExports([])
+    setComplianceExportPreview(null)
+    setOverviewLastLoadedAt(null)
+    setControlLastLoadedAt(null)
+    setWorkspaceLastLoadedAt(null)
+    setActiveView('overview')
+    setActiveContextLabel(null)
+    setSearchText('')
+    setFormMessage(null)
+    setFormError(null)
+    setIsSubmitting(false)
+    setIsRefreshing(false)
+    setEditingSocioId(null)
+    setEditingPropiedadId(null)
+    setEditingCuentaId(null)
+    setEditingMandatoId(null)
+    setEditingConfigFiscalId(null)
+    setEditingArrendatarioId(null)
+    setEditingContratoId(null)
+    setEditingExpedienteId(null)
+    setEditingManualResolutionId(null)
+    setSocioDraft({ nombre: '', rut: '', email: '', telefono: '', domicilio: '', activo: true })
+    setPropiedadDraft({
+      codigo_propiedad: '',
+      direccion: '',
+      comuna: 'Temuco',
+      region: 'La Araucania',
+      rol_avaluo: '',
+      tipo_inmueble: 'otro',
+      estado: 'borrador',
+      owner_tipo: 'empresa',
+      owner_id: '',
+    })
+    setCuentaDraft({
+      institucion: 'Banco de Chile',
+      numero_cuenta: '',
+      tipo_cuenta: 'corriente',
+      titular_nombre: '',
+      titular_rut: '',
+      moneda_operativa: 'CLP',
+      estado_operativo: 'activa',
+      owner_tipo: 'empresa',
+      owner_id: '',
+    })
+    setMandatoDraft({
+      propiedad_id: '',
+      propietario_tipo: 'empresa',
+      propietario_id: '',
+      administrador_operativo_tipo: 'empresa',
+      administrador_operativo_id: '',
+      recaudador_tipo: 'empresa',
+      recaudador_id: '',
+      entidad_facturadora_id: '',
+      cuenta_recaudadora_id: '',
+      tipo_relacion_operativa: 'operacion_directa',
+      autoriza_recaudacion: true,
+      autoriza_facturacion: true,
+      autoriza_comunicacion: true,
+      vigencia_desde: todayIso(),
+      vigencia_hasta: '',
+      estado: 'activa',
+    })
+    setArrendatarioDraft({
+      tipo_arrendatario: 'persona_natural',
+      nombre_razon_social: '',
+      rut: '',
+      email: '',
+      telefono: '',
+      domicilio_notificaciones: '',
+      estado_contacto: 'activo',
+      whatsapp_bloqueado: false,
+    })
+    setContratoDraft({
+      codigo_contrato: '',
+      mandato_operacion: '',
+      arrendatario: '',
+      fecha_inicio: todayIso(),
+      fecha_fin_vigente: todayIso(),
+      fecha_entrega: todayIso(),
+      dia_pago_mensual: '5',
+      plazo_notificacion_termino_dias: '60',
+      dias_prealerta_admin: '90',
+      estado: 'vigente',
+      tiene_tramos: false,
+      tiene_gastos_comunes: false,
+      monto_base: '',
+      moneda_base: 'CLP',
+      tipo_periodo: 'base',
+      origen_periodo: 'backoffice',
+    })
+    setExpedienteDraft({
+      entidad_tipo: 'contrato',
+      entidad_id: '',
+      estado: 'abierto',
+      owner_operativo: '',
+    })
+    setPoliticaFirmaDraft({
+      tipo_documental: 'contrato_principal',
+      requiere_firma_arrendador: true,
+      requiere_firma_arrendatario: true,
+      requiere_codeudor: false,
+      requiere_notaria: false,
+      modo_firma_permitido: 'firma_simple',
+      estado: 'activa',
+    })
+    setDocumentoDraft({
+      expediente: '',
+      tipo_documental: 'contrato_principal',
+      version_plantilla: 'v1',
+      checksum: '',
+      fecha_carga: `${todayIso()}T12:00`,
+      origen: 'generado_sistema',
+      estado: 'emitido',
+      storage_ref: '',
+      firma_arrendador_registrada: false,
+      firma_arrendatario_registrada: false,
+      firma_codeudor_registrada: false,
+      recepcion_notarial_registrada: false,
+      comprobante_notarial: '',
+    })
+    setDocumentoFormalizarDraft({
+      documentoId: '',
+      firma_arrendador_registrada: true,
+      firma_arrendatario_registrada: true,
+      firma_codeudor_registrada: false,
+      recepcion_notarial_registrada: false,
+      comprobante_notarial: '',
+    })
+    setGateCanalDraft({
+      canal: 'email',
+      provider_key: 'gmail_api',
+      estado_gate: 'condicionado',
+      evidencia_ref: '',
+    })
+    setMensajeDraft({
+      canal: 'email',
+      canal_mensajeria: '',
+      identidad_envio: '',
+      contrato: '',
+      arrendatario: '',
+      documento_emitido: '',
+      asunto: '',
+      cuerpo: '',
+    })
+    setMensajeEnvioDraft({
+      mensajeId: '',
+      external_ref: '',
+    })
+    setAvisoDraft({
+      contrato: '',
+      fecha_efectiva: todayIso(),
+      causal: '',
+      estado: 'registrado',
+    })
+    setUfDraft({
+      fecha: todayIso(),
+      valor: '',
+      source_key: 'manual',
+    })
+    setAjusteDraft({
+      contrato: '',
+      tipo_ajuste: 'cargo_extra',
+      monto: '',
+      moneda: 'CLP',
+      mes_inicio: todayIso(),
+      mes_fin: todayIso(),
+      justificacion: '',
+      activo: true,
+    })
+    setPagoDraft({
+      contrato_id: '',
+      anio: '2026',
+      mes: '4',
+    })
+    setGarantiaDraft({
+      contrato: '',
+      monto_pactado: '',
+    })
+    setGarantiaMovimientoDraft({
+      garantiaId: '',
+      tipo_movimiento: 'deposito',
+      monto_clp: '',
+      fecha: todayIso(),
+      justificacion: '',
+    })
+    setEstadoCuentaDraft({
+      arrendatario_id: '',
+    })
+    setConexionDraft({
+      cuenta_recaudadora: '',
+      provider_key: 'banco_de_chile',
+      credencial_ref: 'local-test',
+      scope: 'movimientos',
+      expira_en: '',
+      estado_conexion: 'activa',
+      primaria_movimientos: true,
+      primaria_saldos: false,
+      primaria_conectividad: false,
+    })
+    setMovimientoDraft({
+      conexion_bancaria: '',
+      fecha_movimiento: todayIso(),
+      tipo_movimiento: 'abono',
+      monto: '',
+      descripcion_origen: '',
+      numero_documento: '',
+      saldo_reportado: '',
+      referencia: '',
+      transaction_id_banco: '',
+      notas_admin: '',
+    })
+    setConfigFiscalDraft({
+      empresa: '',
+      regimen_tributario: '',
+      afecta_iva_arriendo: false,
+      tasa_iva: '0.00',
+      tasa_ppm_vigente: '',
+      ddjj_habilitadas_text: '',
+      aplica_ppm: true,
+      inicio_ejercicio: '2026-01-01',
+      moneda_funcional: 'CLP',
+      estado: 'activa',
+    })
+    setCuentaContableDraft({
+      empresa: '',
+      plan_cuentas_version: 'v1',
+      codigo: '',
+      nombre: '',
+      naturaleza: 'deudora',
+      nivel: '1',
+      padre: '',
+      estado: 'activa',
+      es_control_obligatoria: false,
+    })
+    setReglaContableDraft({
+      empresa: '',
+      evento_tipo: 'PagoConciliadoArriendo',
+      plan_cuentas_version: 'v1',
+      criterio_cargo: '',
+      criterio_abono: '',
+      vigencia_desde: todayIso(),
+      vigencia_hasta: '',
+      estado: 'activa',
+    })
+    setMatrizDraft({
+      regla_contable: '',
+      cuenta_debe: '',
+      cuenta_haber: '',
+      condicion_impuesto: '',
+      estado: 'activa',
+    })
+    setEventoContableDraft({
+      empresa: '',
+      evento_tipo: 'PagoConciliadoArriendo',
+      entidad_origen_tipo: 'manual',
+      entidad_origen_id: '',
+      fecha_operativa: todayIso(),
+      moneda: 'CLP',
+      monto_base: '',
+      payload_resumen: '{}',
+      idempotency_key: '',
+    })
+    setCierreDraft({
+      empresa_id: '',
+      anio: '2026',
+      mes: '5',
+    })
+    setCapacidadSiiDraft({
+      empresa: '',
+      capacidad_key: 'DTEEmision',
+      certificado_ref: 'cert-local',
+      ambiente: 'certificacion',
+      estado_gate: 'abierto',
+    })
+    setDteDraft({
+      pago_mensual_id: '',
+      tipo_dte: '34',
+    })
+    setF29Draft({
+      empresa_id: '',
+      anio: '2026',
+      mes: '5',
+    })
+    setAnnualDraft({
+      empresa_id: '',
+      anio_tributario: '2027',
+    })
+    setReportingFinancialDraft({
+      anio: '2026',
+      mes: '5',
+      empresa_id: '',
+    })
+    setReportingPartnerDraft({
+      socio_id: '',
+    })
+    setReportingBooksDraft({
+      empresa_id: '',
+      periodo: '2026-05',
+    })
+    setReportingAnnualDraft({
+      anio_tributario: '2027',
+      empresa_id: '',
+    })
+    setReportingMigrationDraft({
+      status: 'open',
+    })
+    setReportingFinancialSummary(null)
+    setReportingPartnerSummary(null)
+    setReportingBooksSummary(null)
+    setReportingAnnualSummary(null)
+    setReportingMigrationSummary(null)
+    setReportingLoadedQueryKeys(INITIAL_REPORTING_QUERY_KEYS)
+    setIsPatrimonioSnapshotLoading(false)
+    setIsOperationSnapshotLoading(false)
+    setIsContractsSnapshotLoading(false)
+    setIsDocumentsSnapshotLoading(false)
+    setIsChannelsSnapshotLoading(false)
+    setIsCobranzaSnapshotLoading(false)
+    setIsConciliacionSnapshotLoading(false)
+    setIsSiiSnapshotLoading(false)
+    setIsAuditSnapshotLoading(false)
+    setIsControlCatalogLoading(false)
+    setIsControlActivityLoading(false)
+    setIsOperationSnapshotLoaded(false)
+    setIsContractsSnapshotLoaded(false)
+    setIsDocumentsSnapshotLoaded(false)
+    setIsChannelsSnapshotLoaded(false)
+    setIsCobranzaSnapshotLoaded(false)
+    setIsConciliacionSnapshotLoaded(false)
+    setIsSiiSnapshotLoaded(false)
+    setIsAuditSnapshotLoaded(false)
+    setIsControlCoreLoaded(false)
+    setIsControlCatalogLoaded(false)
+    setIsControlActivityLoaded(false)
+    setIsReportingReferencesLoaded(false)
+    setIsComplianceLoaded(false)
+    setIsPatrimonioSnapshotLoaded(false)
+    setManualResolutionDraft({
+      status: 'open',
+      rationale: '',
+      pago_mensual_id: '',
+    })
+    setPoliticaRetencionDraft({
+      categoria_dato: 'financiero',
+      evento_inicio: 'ultimo_evento_relevante',
+      plazo_minimo_anos: '6',
+      permite_borrado_logico: true,
+      permite_purga_fisica: false,
+      requiere_hold: false,
+      estado: 'activa',
+    })
+    setExportacionPrepareDraft({
+      categoria_dato: 'financiero',
+      export_kind: 'financiero_mensual',
+      motivo: '',
+      hold_activo: false,
+      anio: '2026',
+      mes: '5',
+      anio_tributario: '2027',
+      empresa_id: '',
+      socio_id: '',
+      periodo: '2026-05',
+    })
   }
 
-  async function loadWorkspace(activeToken: string, options: { forceUserRefresh?: boolean; forceDataRefresh?: boolean } = {}) {
+  async function loadWorkspace(activeToken: string, options: WorkspaceLoadOptions = {}) {
+    const requestId = ++workspaceLoadRequestRef.current
+    const isCurrentLoad = () => workspaceLoadRequestRef.current === requestId
+    let deferredControlLoadsStarted = false
     const hasImmediateOverviewData = activeView === 'overview' && Boolean(dashboard || manualSummary)
     const shouldShowGlobalRefresh = Boolean(
       options.forceUserRefresh
@@ -1634,18 +2204,21 @@ function App() {
       if (!me) {
         throw new Error('No se pudo resolver la sesión actual.')
       }
-      const role = canonicalRole(me.default_role_code)
-      const canReadOverview = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
-      const canReadOperational = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
-      const canReadAuditEvents = role === 'AdministradorGlobal' || role === 'RevisorFiscalExterno'
-      const canReadManualResolutions = role === 'AdministradorGlobal' || role === 'OperadorDeCartera'
-      const canReadControl = role === 'AdministradorGlobal' || role === 'RevisorFiscalExterno'
-      const canReadCompliance = role === 'AdministradorGlobal'
+      const role = primaryRole(me.default_role_code, me.assignments)
+      const roleCodes = resolveEffectiveRoles(me.default_role_code, me.assignments)
+      const canReadOverview = roleCodes.includes('AdministradorGlobal') || roleCodes.includes('OperadorDeCartera')
+      const canReadOperational = roleCodes.includes('AdministradorGlobal') || roleCodes.includes('OperadorDeCartera')
+      const canReadAuditEvents = roleCodes.includes('AdministradorGlobal') || roleCodes.includes('RevisorFiscalExterno')
+      const canReadManualResolutions = roleCodes.includes('AdministradorGlobal') || roleCodes.includes('OperadorDeCartera')
+      const canReadControl = roleCodes.includes('AdministradorGlobal') || roleCodes.includes('RevisorFiscalExterno')
+      const canReadCompliance = roleCodes.includes('AdministradorGlobal')
       const canReadOwnPartnerSummary = role === 'Socio'
       const shouldRefreshData = Boolean(options.forceDataRefresh)
-      const targetView = allowedViewsForRole(role).includes(activeView) ? activeView : defaultViewForRole(role)
+      const targetView = allowedViewsForRole(me.default_role_code, me.assignments).includes(activeView)
+        ? activeView
+        : defaultViewForRole(me.default_role_code, me.assignments)
       const loadOverview = canReadOverview && targetView === 'overview'
-      const hasFreshOverviewSummary = loadOverview && hasFreshOverviewSummarySnapshot(dashboard, lastLoadedAt)
+      const hasFreshOverviewSummary = loadOverview && hasFreshOverviewSummarySnapshot(dashboard, overviewLastLoadedAt)
       const shouldLoadOverviewSummary = loadOverview && (shouldRefreshData || !hasFreshOverviewSummary)
       const shouldLoadOverviewSecondary = loadOverview && (
         shouldRefreshData
@@ -1692,10 +2265,13 @@ function App() {
       setIsAuditSnapshotLoading(loadAuditSnapshot)
       setIsControlCatalogLoading(loadControlCatalog)
       setIsControlActivityLoading(loadControlActivity)
+      if (!isCurrentLoad()) return
       setCurrentUser(me)
       storeCurrentUser(me)
       setActiveView((current) => (
-        allowedViewsForRole(role).includes(current) ? current : defaultViewForRole(role)
+        allowedViewsForRole(me.default_role_code, me.assignments).includes(current)
+          ? current
+          : defaultViewForRole(me.default_role_code, me.assignments)
       ))
 
       async function requestIf<T>(enabled: boolean, path: string, fallback: T): Promise<T> {
@@ -1824,6 +2400,7 @@ function App() {
           reportingPartnerSummary,
         ),
       ])
+      if (!isCurrentLoad()) return
       setDashboard(dashboardPayload)
       setManualSummary(manualPayload)
       setSocios(sociosPayload)
@@ -1937,6 +2514,10 @@ function App() {
       if (ownPartnerSummary) {
         setReportingPartnerSummary(ownPartnerSummary)
         setReportingPartnerDraft({ socio_id: String(ownPartnerSummary.socio.id) })
+        setReportingLoadedQueryKeys((current) => ({
+          ...current,
+          partner: buildPartnerSummaryQueryKey(String(ownPartnerSummary.socio.id)),
+        }))
         setSocios([
           {
             id: ownPartnerSummary.socio.id,
@@ -1949,8 +2530,16 @@ function App() {
           },
         ])
       }
-      setLastLoadedAt(new Date().toISOString())
+      const primaryLoadTimestamp = new Date().toISOString()
+      if (shouldLoadOverviewSummary) {
+        markOverviewLoadedAt(primaryLoadTimestamp)
+      } else if (controlSnapshotPayload) {
+        markControlLoadedAt(primaryLoadTimestamp)
+      } else {
+        setWorkspaceLastLoadedAt(primaryLoadTimestamp)
+      }
 
+      deferredControlLoadsStarted = true
       void (async () => {
         if (shouldLoadOverviewSecondary) {
           void (async () => {
@@ -1960,7 +2549,7 @@ function App() {
                 withRefreshParam('/api/v1/reporting/dashboard/overview-secondary/'),
                 null,
               )
-              if (secondaryCounts) {
+              if (secondaryCounts && isCurrentLoad()) {
                 setDashboard((current) => ({ ...(current || {}), ...secondaryCounts }))
               }
             } catch {
@@ -1977,7 +2566,7 @@ function App() {
                 withRefreshParam('/api/v1/reporting/manual-resolutions/summary/?status=open'),
                 null,
               )
-              if (manualSummaryPayload) {
+              if (manualSummaryPayload && isCurrentLoad()) {
                 setManualSummary(manualSummaryPayload)
               }
             } catch {
@@ -2010,37 +2599,47 @@ function App() {
           void (async () => {
             try {
               const controlCatalogSnapshot = await controlCatalogRequest
-              if (controlCatalogSnapshot) {
+              if (controlCatalogSnapshot && isCurrentLoad()) {
                 setCuentasContables(controlCatalogSnapshot.cuentas_contables)
                 setReglasContables(controlCatalogSnapshot.reglas_contables)
                 setMatricesReglas(controlCatalogSnapshot.matrices_reglas)
                 setIsControlCatalogLoaded(true)
+                markControlLoadedAt(new Date().toISOString())
               }
             } finally {
-              setIsControlCatalogLoading(false)
+              if (isCurrentLoad()) {
+                setIsControlCatalogLoading(false)
+              }
             }
           })()
         } else {
-          setIsControlCatalogLoading(false)
+          if (isCurrentLoad()) {
+            setIsControlCatalogLoading(false)
+          }
         }
 
         if (loadControlActivity) {
           void (async () => {
             try {
               const controlActivitySnapshot = await controlActivityRequest
-              if (controlActivitySnapshot) {
+              if (controlActivitySnapshot && isCurrentLoad()) {
                 setEventosContables(controlActivitySnapshot.eventos_contables)
                 setAsientosContables(controlActivitySnapshot.asientos_contables)
                 setObligacionesMensuales(controlActivitySnapshot.obligaciones_mensuales)
                 setCierresMensuales(controlActivitySnapshot.cierres_mensuales)
                 setIsControlActivityLoaded(true)
+                markControlLoadedAt(new Date().toISOString())
               }
             } finally {
-              setIsControlActivityLoading(false)
+              if (isCurrentLoad()) {
+                setIsControlActivityLoading(false)
+              }
             }
           })()
         } else {
-          setIsControlActivityLoading(false)
+          if (isCurrentLoad()) {
+            setIsControlActivityLoading(false)
+          }
         }
 
         try {
@@ -2065,6 +2664,7 @@ function App() {
             requestIf<AuditEventItem[]>(loadAuditEvents, '/api/v1/audit/events/', auditEvents),
             requestIf<ManualResolutionItem[]>(loadManualResolutions, '/api/v1/audit/manual-resolutions/', manualResolutions),
           ])
+          if (!isCurrentLoad()) return
 
           function resolvedValue<T>(index: number, fallback: T): T {
             const item = settled[index]
@@ -2110,42 +2710,70 @@ function App() {
           setIngresosDesconocidos(ingresosPayload)
           setAuditEvents(auditEventsPayload)
           setManualResolutions(manualResolutionsPayload)
-          setLastLoadedAt(new Date().toISOString())
+          setWorkspaceLastLoadedAt(new Date().toISOString())
         } catch (error) {
-          if (error instanceof ApiError && error.status === 401) {
-            clearStoredSession()
-            setToken(null)
-            setCurrentUser(null)
+          if (error instanceof ApiError && error.status === 401 && isCurrentLoad()) {
+            resetWorkspaceState()
+            setLoginError('La sesión expiró. Ingresa nuevamente.')
             setWorkspaceError('La sesión expiró. Ingresa nuevamente.')
           }
         }
       })()
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        clearStoredSession()
-        setToken(null)
-        setCurrentUser(null)
+      if (error instanceof ApiError && error.status === 401 && isCurrentLoad()) {
+        resetWorkspaceState()
+        setLoginError('La sesión expiró. Ingresa nuevamente.')
         setWorkspaceError('La sesión expiró. Ingresa nuevamente.')
         return
       }
-      setWorkspaceError(error instanceof Error ? error.message : 'No se pudo cargar el workspace.')
+      if (isCurrentLoad()) {
+        setWorkspaceError(error instanceof Error ? error.message : 'No se pudo cargar el workspace.')
+      }
     } finally {
-      setIsPatrimonioSnapshotLoading(false)
-      setIsOperationSnapshotLoading(false)
-      setIsContractsSnapshotLoading(false)
-      setIsDocumentsSnapshotLoading(false)
-      setIsChannelsSnapshotLoading(false)
-      setIsCobranzaSnapshotLoading(false)
-      setIsConciliacionSnapshotLoading(false)
-      if (shouldShowGlobalRefresh) {
-        setIsRefreshing(false)
+      if (isCurrentLoad()) {
+        setIsPatrimonioSnapshotLoading(false)
+        setIsOperationSnapshotLoading(false)
+        setIsContractsSnapshotLoading(false)
+        setIsDocumentsSnapshotLoading(false)
+        setIsChannelsSnapshotLoading(false)
+        setIsCobranzaSnapshotLoading(false)
+        setIsConciliacionSnapshotLoading(false)
+        setIsSiiSnapshotLoading(false)
+        setIsAuditSnapshotLoading(false)
+        if (!deferredControlLoadsStarted) {
+          setIsControlCatalogLoading(false)
+          setIsControlActivityLoading(false)
+        }
+        if (shouldShowGlobalRefresh) {
+          setIsRefreshing(false)
+        }
       }
     }
   }
+  loadWorkspaceRef.current = loadWorkspace
 
   useEffect(() => {
     if (token && !isLoggingIn) {
-      scheduleHealthLoad(3000)
+      if (healthLoadTimeoutRef.current !== null) {
+        window.clearTimeout(healthLoadTimeoutRef.current)
+      }
+      healthLoadTimeoutRef.current = window.setTimeout(() => {
+        if (suspendHealthLoadsRef.current) {
+          healthLoadTimeoutRef.current = null
+          return
+        }
+        void (async () => {
+          try {
+            const nextHealth = await apiRequest<HealthPayload>('/api/v1/health/')
+            setHealth(nextHealth)
+            storeHealthSnapshot(nextHealth)
+          } catch {
+            setHealth((current) => current || fallbackHealth)
+          } finally {
+            healthLoadTimeoutRef.current = null
+          }
+        })()
+      }, 3000)
     }
     return () => {
       if (healthLoadTimeoutRef.current !== null) {
@@ -2218,12 +2846,12 @@ function App() {
     if (forceSeededControlRefresh) {
       seededControlRefreshPendingRef.current = false
     }
-    void loadWorkspace(token, forceSeededControlRefresh ? { forceDataRefresh: true } : undefined)
+    void loadWorkspaceRef.current?.(token, forceSeededControlRefresh ? { forceDataRefresh: true } : undefined)
   }, [token, activeView])
 
   useEffect(() => {
-    storeOverviewSnapshot(currentUser, { dashboard, manualSummary, lastLoadedAt })
-  }, [currentUser, dashboard, manualSummary, lastLoadedAt])
+    storeOverviewSnapshot(currentUser, { dashboard, manualSummary, lastLoadedAt: overviewLastLoadedAt })
+  }, [currentUser, dashboard, manualSummary, overviewLastLoadedAt])
 
   useEffect(() => {
     const hasControlPayload =
@@ -2252,7 +2880,7 @@ function App() {
           asientosContables,
           obligacionesMensuales,
           cierresMensuales,
-          lastLoadedAt,
+          lastLoadedAt: controlLastLoadedAt,
         }
         : null,
     )
@@ -2268,18 +2896,20 @@ function App() {
     asientosContables,
     obligacionesMensuales,
     cierresMensuales,
-    lastLoadedAt,
+    controlLastLoadedAt,
   ])
 
   useEffect(() => {
-    if (!canAccessView(activeView)) {
-      setActiveView(defaultViewForRole(effectiveRole))
-      setActiveContextLabel(null)
+    if (!allowedViewsForRole(currentUser?.default_role_code, activeAssignments).includes(activeView)) {
+      setActiveView(defaultViewForRole(currentUser?.default_role_code, activeAssignments))
+      clearContextNavigation()
     }
-  }, [activeView, effectiveRole])
+  }, [activeView, currentUser, activeAssignments])
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    invalidateWorkspaceLoads()
+    invalidateReportingRequests()
     suspendHealthLoadsRef.current = true
     if (healthLoadTimeoutRef.current !== null) {
       window.clearTimeout(healthLoadTimeoutRef.current)
@@ -2290,15 +2920,19 @@ function App() {
     void loadContabilidadWorkspace()
     setIsLoggingIn(true)
     setLoginError(null)
+    setWorkspaceError(null)
+    setFormMessage(null)
+    setFormError(null)
     try {
       const response = await apiRequest<LoginResponse>('/api/v1/auth/login/', {
         method: 'POST',
         body: { username, password },
       })
       const bootstrapView = loginBootstrapView(response.user, response.bootstrap)
+      resetWorkspaceState()
       localStorage.setItem(TOKEN_STORAGE_KEY, response.token)
       storeCurrentUser(response.user)
-      setActiveView(defaultViewForRole(response.user.default_role_code))
+      setActiveView(defaultViewForRole(response.user.default_role_code, response.user.assignments))
       if (bootstrapView) {
         skipBootstrappedWorkspaceLoadRef.current = bootstrapView
       }
@@ -2308,7 +2942,7 @@ function App() {
         setDashboard,
         setManualSummary,
         setHealth,
-        setLastLoadedAt,
+        setLastLoadedAt: markOverviewLoadedAt,
       })
       applyControlBootstrapSnapshot(response.user, response.bootstrap?.control, {
         setEmpresas,
@@ -2324,7 +2958,7 @@ function App() {
         setIsControlCoreLoaded,
         setIsControlCatalogLoaded,
         setIsControlActivityLoaded,
-        setLastLoadedAt,
+        setLastLoadedAt: markControlLoadedAt,
       })
       if (bootstrapView === 'contabilidad') {
         seededControlRefreshPendingRef.current = false
@@ -2346,81 +2980,10 @@ function App() {
         // Ignore logout errors and clear local state anyway.
       }
     }
-    clearStoredSession()
-    setToken(null)
-    setCurrentUser(null)
-    setDashboard(null)
-    setManualSummary(null)
-    setSocios([])
-    setEmpresas([])
-    setArrendatarios([])
-    setComunidades([])
-    setPropiedades([])
-    setCuentas([])
-    setIdentidades([])
-    setMandatos([])
-    setContratos([])
-    setExpedientes([])
-    setPoliticasFirma([])
-    setDocumentosEmitidos([])
-    setGatesCanales([])
-    setMensajesSalientes([])
-    setAvisos([])
-    setValoresUf([])
-    setAjustes([])
-    setPagos([])
-    setGarantias([])
-    setHistorialGarantias([])
-    setEstadosCuenta([])
-    setConexionesBancarias([])
-    setMovimientosBancarios([])
-    setIngresosDesconocidos([])
-    setRegimenesTributarios([])
-    setConfiguracionesFiscales([])
-    setCuentasContables([])
-    setReglasContables([])
-    setMatricesReglas([])
-    setEventosContables([])
-    setAsientosContables([])
-    setObligacionesMensuales([])
-    setCierresMensuales([])
-    setAuditEvents([])
-    setManualResolutions([])
-    setCapacidadesSii([])
-    setDtes([])
-    setF29s([])
-    setProcesosAnuales([])
-    setDdjjs([])
-    setF22s([])
-    setCompliancePolicies([])
-    setComplianceExports([])
-    setComplianceExportPreview(null)
-    setIsPatrimonioSnapshotLoading(false)
-    setIsOperationSnapshotLoading(false)
-    setIsContractsSnapshotLoading(false)
-    setIsDocumentsSnapshotLoading(false)
-    setIsChannelsSnapshotLoading(false)
-    setIsCobranzaSnapshotLoading(false)
-    setIsConciliacionSnapshotLoading(false)
-    setIsSiiSnapshotLoading(false)
-    setIsAuditSnapshotLoading(false)
-    setIsControlCatalogLoading(false)
-    setIsControlActivityLoading(false)
-    setIsOperationSnapshotLoaded(false)
-    setIsContractsSnapshotLoaded(false)
-    setIsDocumentsSnapshotLoaded(false)
-    setIsChannelsSnapshotLoaded(false)
-    setIsCobranzaSnapshotLoaded(false)
-    setIsConciliacionSnapshotLoaded(false)
-    setIsSiiSnapshotLoaded(false)
-    setIsAuditSnapshotLoaded(false)
-    setIsControlCoreLoaded(false)
-    setIsControlCatalogLoaded(false)
-    setIsControlActivityLoaded(false)
-    setIsReportingReferencesLoaded(false)
-    setIsComplianceLoaded(false)
-    setIsPatrimonioSnapshotLoaded(false)
-    setEditingManualResolutionId(null)
+    resetWorkspaceState()
+    setLoginError(null)
+    setWorkspaceError(null)
+    setPassword('')
   }
 
   async function submitMutation(
@@ -2430,7 +2993,7 @@ function App() {
     successMessage: string,
     section?: SectionKey,
   ) {
-    if (section && !canMutateSection(effectiveRole, section)) {
+    if (section && !canMutateSection(currentUser?.default_role_code, section, activeAssignments)) {
       setFormError('Tu rol actual no tiene permisos para modificar esta sección.')
       return false
     }
@@ -2687,7 +3250,7 @@ function App() {
   function cancelEditSocio() {
     setEditingSocioId(null)
     setSocioDraft({ nombre: '', rut: '', email: '', telefono: '', domicilio: '', activo: true })
-    setActiveContextLabel(null)
+    clearContextNavigation()
   }
 
   function startEditPropiedad(row: Propiedad) {
@@ -2719,7 +3282,7 @@ function App() {
       owner_tipo: 'empresa',
       owner_id: '',
     })
-    setActiveContextLabel(null)
+    clearContextNavigation()
   }
 
   function startEditConfigFiscal(row: ConfiguracionFiscal) {
@@ -2753,7 +3316,7 @@ function App() {
       moneda_funcional: 'CLP',
       estado: 'activa',
     })
-    setActiveContextLabel(null)
+    clearContextNavigation()
   }
 
   function startEditCuenta(row: Cuenta) {
@@ -2785,7 +3348,7 @@ function App() {
       owner_tipo: 'empresa',
       owner_id: '',
     })
-    setActiveContextLabel(null)
+    clearContextNavigation()
   }
 
   function startEditMandato(row: Mandato) {
@@ -2831,7 +3394,7 @@ function App() {
       vigencia_hasta: '',
       estado: 'activa',
     })
-    setActiveContextLabel(null)
+    clearContextNavigation()
   }
 
   function startEditArrendatario(row: Arrendatario) {
@@ -2861,10 +3424,14 @@ function App() {
       estado_contacto: 'activo',
       whatsapp_bloqueado: false,
     })
-    setActiveContextLabel(null)
+    clearContextNavigation()
   }
 
   function startEditContrato(row: Contrato) {
+    if (!isSimpleInlineEditableContract(row)) {
+      setFormError('Este contrato requiere un editor completo porque tiene propiedades vinculadas, múltiples períodos o codeudores.')
+      return
+    }
     setEditingContratoId(row.id)
     setContratoDraft({
       codigo_contrato: row.codigo_contrato,
@@ -2907,7 +3474,7 @@ function App() {
       tipo_periodo: 'base',
       origen_periodo: 'backoffice',
     })
-    setActiveContextLabel(null)
+    clearContextNavigation()
   }
 
   async function handleCreateAviso(event: FormEvent<HTMLFormElement>) {
@@ -3349,19 +3916,36 @@ function App() {
     }
   }
 
-  async function fetchReportingData<T>(path: string, onSuccess: (payload: T) => void, successMessage: string) {
+  async function fetchReportingData<T>(
+    key: ReportingRequestKey,
+    queryKey: string,
+    path: string,
+    onSuccess: (payload: T) => void,
+    onReset: () => void,
+    successMessage: string,
+  ) {
     if (!token) return
+    const requestId = nextReportingRequestId(key)
     setIsSubmitting(true)
     setFormMessage(null)
     setFormError(null)
+    onReset()
+    setReportingLoadedQueryKeys((current) => ({ ...current, [key]: null }))
     try {
       const payload = await apiRequest<T>(path, { token })
+      if (!isReportingRequestCurrent(key, requestId)) return
       onSuccess(payload)
+      setReportingLoadedQueryKeys((current) => ({ ...current, [key]: queryKey }))
       setFormMessage(successMessage)
     } catch (error) {
+      if (!isReportingRequestCurrent(key, requestId)) return
+      onReset()
+      setReportingLoadedQueryKeys((current) => ({ ...current, [key]: null }))
       setFormError(error instanceof Error ? error.message : 'No se pudo cargar el reporte.')
     } finally {
-      setIsSubmitting(false)
+      if (isReportingRequestCurrent(key, requestId)) {
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -3373,8 +3957,11 @@ function App() {
     })
     if (reportingFinancialDraft.empresa_id) query.set('empresa_id', reportingFinancialDraft.empresa_id)
     await fetchReportingData<ReportingFinancialSummary>(
+      'financial',
+      reportingFinancialQueryKey,
       `/api/v1/reporting/financiero/mensual/?${query.toString()}`,
       setReportingFinancialSummary,
+      () => setReportingFinancialSummary(null),
       'Resumen financiero cargado correctamente.',
     )
   }
@@ -3382,8 +3969,11 @@ function App() {
   async function handleFetchPartnerSummary(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     await fetchReportingData<ReportingPartnerSummary>(
+      'partner',
+      reportingPartnerQueryKey,
       `/api/v1/reporting/socios/${Number(reportingPartnerDraft.socio_id)}/resumen/`,
       setReportingPartnerSummary,
+      () => setReportingPartnerSummary(null),
       'Resumen de socio cargado correctamente.',
     )
   }
@@ -3395,8 +3985,11 @@ function App() {
       periodo: reportingBooksDraft.periodo,
     })
     await fetchReportingData<ReportingBooksSummary>(
+      'books',
+      reportingBooksQueryKey,
       `/api/v1/reporting/contabilidad/libros-periodo/?${query.toString()}`,
       setReportingBooksSummary,
+      () => setReportingBooksSummary(null),
       'Resumen de libros cargado correctamente.',
     )
   }
@@ -3408,8 +4001,11 @@ function App() {
     })
     if (reportingAnnualDraft.empresa_id) query.set('empresa_id', reportingAnnualDraft.empresa_id)
     await fetchReportingData<ReportingAnnualSummary>(
+      'annual',
+      reportingAnnualQueryKey,
       `/api/v1/reporting/tributario/anual/?${query.toString()}`,
       setReportingAnnualSummary,
+      () => setReportingAnnualSummary(null),
       'Resumen anual cargado correctamente.',
     )
   }
@@ -3418,8 +4014,11 @@ function App() {
     event.preventDefault()
     const query = new URLSearchParams({ status: reportingMigrationDraft.status, refresh: '1' })
     await fetchReportingData<ReportingMigrationSummary>(
+      'migration',
+      reportingMigrationQueryKey,
       `/api/v1/reporting/migracion/resoluciones-manuales/?${query.toString()}`,
       setReportingMigrationSummary,
+      () => setReportingMigrationSummary(null),
       'Resumen de resoluciones manuales cargado correctamente.',
     )
   }
@@ -3632,11 +4231,19 @@ function App() {
     if (!canEditAudit || !editingManualResolutionId) return
     const isUnknownIncomeResolution = activeManualResolution?.category === 'conciliacion.ingreso_desconocido'
     const isChargeResolution = activeManualResolution?.category === 'conciliacion.movimiento_cargo'
+    const requiresSpecializedResolver = [
+      'migration.propiedad.owner_manual_required',
+      'migration.cobranza.distribucion_facturable_conflict',
+    ].includes(activeManualResolution?.category || '')
     if (isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved') {
       if (!manualResolutionDraft.pago_mensual_id.trim()) {
         setFormError('Debes indicar el pago mensual que regulariza este ingreso desconocido.')
         return
       }
+    }
+    if (requiresSpecializedResolver && manualResolutionDraft.status === 'resolved') {
+      setFormError('Esta resolución requiere un flujo especializado y no puede cerrarse desde la edición genérica.')
+      return
     }
 
     const success = await submitMutation(
@@ -4261,10 +4868,10 @@ function App() {
   return (
     <main className="workspace-shell">
       <WorkspaceHeader
-        userLabel={currentUser ? `${currentUser.display_name || currentUser.username} · ${currentUser.default_role_code}` : 'Cargando sesión...'}
+        userLabel={currentUser ? `${currentUser.display_name || currentUser.username} · ${effectiveRole}` : 'Cargando sesión...'}
         effectiveRole={effectiveRole}
         assignments={activeAssignments}
-        lastLoadedAt={lastLoadedAt}
+        lastLoadedAt={visibleLastLoadedAt}
         isRefreshing={isRefreshing}
         onRefresh={() => { if (token) void loadWorkspace(token, { forceUserRefresh: true, forceDataRefresh: true }) }}
         onLogout={() => void handleLogout()}
@@ -4275,13 +4882,13 @@ function App() {
         activeView={activeView}
         onSelect={(view) => {
           setActiveView(view as ViewKey)
-          setActiveContextLabel(null)
+          clearContextNavigation()
         }}
       />
 
       {apiConfigError ? <div className="banner-error">{apiConfigError}</div> : null}
       {workspaceError ? <div className="banner-error">{workspaceError}</div> : null}
-      {activeView !== 'overview' && activeContextLabel ? <ContextBanner label={activeContextLabel} onClear={() => setActiveContextLabel(null)} /> : null}
+      {activeView !== 'overview' && activeContextLabel ? <ContextBanner label={activeContextLabel} onClear={clearContextNavigation} /> : null}
 
       <Suspense fallback={<div className="empty-state">Cargando módulo...</div>}>
         {activeView === 'overview' ? (
@@ -4676,6 +5283,7 @@ function App() {
       {activeView === 'reporting' ? (
         <ReportingWorkspace
           effectiveRole={effectiveRole}
+          effectiveRoles={effectiveRoleCodes}
           currentUser={currentUser}
           reportingFinancialDraft={reportingFinancialDraft}
           setReportingFinancialDraft={setReportingFinancialDraft}
@@ -4692,11 +5300,11 @@ function App() {
           reportingMigrationDraft={reportingMigrationDraft}
           setReportingMigrationDraft={setReportingMigrationDraft}
           handleFetchMigrationSummary={handleFetchMigrationSummary}
-          reportingFinancialSummary={reportingFinancialSummary}
-          reportingPartnerSummary={reportingPartnerSummary}
-          reportingBooksSummary={reportingBooksSummary}
-          reportingAnnualSummary={reportingAnnualSummary}
-          reportingMigrationSummary={reportingMigrationSummary}
+          reportingFinancialSummary={visibleReportingFinancialSummary}
+          reportingPartnerSummary={visibleReportingPartnerSummary}
+          reportingBooksSummary={visibleReportingBooksSummary}
+          reportingAnnualSummary={visibleReportingAnnualSummary}
+          reportingMigrationSummary={visibleReportingMigrationSummary}
           empresas={empresas}
           socios={socios}
           empresaById={empresaById}

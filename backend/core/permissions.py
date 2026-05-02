@@ -60,6 +60,11 @@ class OperationalModulePermission(RolePermission):
     write_roles = {ROLE_ADMIN, ROLE_OPERATOR}
 
 
+class OperationalReadAdminWritePermission(RolePermission):
+    read_roles = {ROLE_ADMIN, ROLE_OPERATOR}
+    write_roles = {ROLE_ADMIN}
+
+
 class AuditReadPermission(RolePermission):
     read_roles = {ROLE_ADMIN, ROLE_REVIEWER}
     write_roles = set()

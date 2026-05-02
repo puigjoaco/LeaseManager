@@ -1,5 +1,4 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -28,6 +27,31 @@ def _request_user(serializer):
     return getattr(request, 'user', None)
 
 
+def _parse_contract_id(entidad_id):
+    try:
+        return int(str(entidad_id))
+    except (TypeError, ValueError) as error:
+        raise serializers.ValidationError(
+            {'entidad_id': 'El expediente contractual requiere un ID numérico de contrato.'}
+        ) from error
+
+
+def _parse_mandato_id(owner_operativo, *, required=False):
+    if not str(owner_operativo).startswith('mandato:'):
+        if required:
+            raise serializers.ValidationError(
+                {'owner_operativo': 'El expediente contractual requiere owner_operativo con formato mandato:<id>.'}
+            )
+        return None
+    mandato_value = str(owner_operativo).split(':', 1)[1]
+    try:
+        return int(mandato_value)
+    except (TypeError, ValueError) as error:
+        raise serializers.ValidationError(
+            {'owner_operativo': 'El owner_operativo debe usar el formato mandato:<id>.'}
+        ) from error
+
+
 class ExpedienteDocumentalSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExpedienteDocumental
@@ -39,16 +63,19 @@ class ExpedienteDocumentalSerializer(serializers.ModelSerializer):
         entidad_tipo = attrs.get('entidad_tipo', getattr(self.instance, 'entidad_tipo', ''))
         entidad_id = attrs.get('entidad_id', getattr(self.instance, 'entidad_id', ''))
         owner_operativo = attrs.get('owner_operativo', getattr(self.instance, 'owner_operativo', ''))
+        contract = None
+        contract_id = None
+        mandato_id = None
+
+        if entidad_tipo == 'contrato':
+            contract_id = _parse_contract_id(entidad_id)
+            contract = Contrato.objects.select_related('mandato_operacion').filter(pk=contract_id).first()
+            if not contract:
+                raise serializers.ValidationError({'entidad_id': 'El contrato indicado no existe.'})
+            mandato_id = _parse_mandato_id(owner_operativo, required=True)
 
         if user and getattr(user, 'is_authenticated', False):
-            if entidad_tipo == 'contrato':
-                try:
-                    contract_id = int(str(entidad_id))
-                except ValueError as error:
-                    raise serializers.ValidationError({'entidad_id': 'El expediente contractual requiere un ID numérico de contrato.'}) from error
-                if not Contrato.objects.filter(pk=contract_id).exists():
-                    raise serializers.ValidationError({'entidad_id': 'El contrato indicado no existe.'})
-
+            if contract_id is not None:
                 scoped_contracts = scope_queryset_for_user(
                     Contrato.objects.filter(pk=contract_id),
                     user,
@@ -57,13 +84,8 @@ class ExpedienteDocumentalSerializer(serializers.ModelSerializer):
                 if not scoped_contracts.exists():
                     raise serializers.ValidationError({'entidad_id': 'El contrato indicado queda fuera del scope asignado.'})
 
-            if owner_operativo.startswith('mandato:'):
-                mandato_value = owner_operativo.split(':', 1)[1]
-                try:
-                    mandato_id = int(mandato_value)
-                except ValueError as error:
-                    raise serializers.ValidationError({'owner_operativo': 'El owner_operativo debe usar el formato mandato:<id>.'}) from error
-
+            if str(owner_operativo).startswith('mandato:'):
+                mandato_id = _parse_mandato_id(owner_operativo)
                 scoped_mandato = scope_queryset_for_user(
                     MandatoOperacion.objects.filter(pk=mandato_id),
                     user,
@@ -72,6 +94,11 @@ class ExpedienteDocumentalSerializer(serializers.ModelSerializer):
                 )
                 if not scoped_mandato.exists():
                     raise serializers.ValidationError({'owner_operativo': 'El mandato indicado queda fuera del scope asignado.'})
+
+        if contract is not None and mandato_id != contract.mandato_operacion_id:
+            raise serializers.ValidationError(
+                {'owner_operativo': 'El owner_operativo debe corresponder al mandato del contrato indicado.'}
+            )
 
         candidate = build_validation_candidate(self.instance, ExpedienteDocumental)
         for field, value in attrs.items():

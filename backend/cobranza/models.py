@@ -182,6 +182,42 @@ class DistribucionCobroMensual(TimestampedModel):
                 ),
                 name='distribucion_cobro_exactly_one_beneficiary',
             ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(monto_devengado_clp__gte=Decimal('0.00'))
+                    & models.Q(monto_conciliado_clp__gte=Decimal('0.00'))
+                    & models.Q(monto_facturable_clp__gte=Decimal('0.00'))
+                ),
+                name='distribucion_cobro_non_negative_amounts',
+            ),
+            models.CheckConstraint(
+                check=models.Q(monto_facturable_clp__lte=models.F('monto_devengado_clp')),
+                name='distribucion_cobro_facturable_lte_devengado',
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(requiere_dte=False, monto_facturable_clp=Decimal('0.00'))
+                    | models.Q(requiere_dte=True, monto_facturable_clp__gt=Decimal('0.00'))
+                ),
+                name='distribucion_cobro_facturable_matches_dte_flag',
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(requiere_dte=False)
+                    | models.Q(beneficiario_empresa_owner__isnull=False, beneficiario_socio_owner__isnull=True)
+                ),
+                name='distribucion_cobro_dte_requires_company_beneficiary',
+            ),
+            models.UniqueConstraint(
+                fields=['pago_mensual', 'beneficiario_empresa_owner'],
+                condition=models.Q(beneficiario_empresa_owner__isnull=False),
+                name='uniq_distribucion_pago_empresa_beneficiaria',
+            ),
+            models.UniqueConstraint(
+                fields=['pago_mensual', 'beneficiario_socio_owner'],
+                condition=models.Q(beneficiario_socio_owner__isnull=False),
+                name='uniq_distribucion_pago_socio_beneficiario',
+            ),
         ]
 
     def __str__(self):
@@ -216,7 +252,8 @@ class DistribucionCobroMensual(TimestampedModel):
             raise ValidationError('Los montos de distribucion no pueden ser negativos.')
         if self.monto_facturable_clp > self.monto_devengado_clp:
             raise ValidationError({'monto_facturable_clp': 'El monto facturable no puede exceder el monto devengado.'})
-        if self.monto_conciliado_clp > self.pago_mensual.monto_pagado_clp:
+        pago_conciliado = Decimal(str(self.pago_mensual.monto_pagado_clp))
+        if self.monto_conciliado_clp > pago_conciliado:
             raise ValidationError({'monto_conciliado_clp': 'El monto conciliado no puede exceder el pago conciliado.'})
         if self.requiere_dte and not self.beneficiario_empresa_owner_id:
             raise ValidationError({'requiere_dte': 'Solo un beneficiario empresa puede requerir DTE.'})

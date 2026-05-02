@@ -1,6 +1,7 @@
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 
-import { Badge, TableBlock, toneFor } from '../shared'
+import { Badge, TableBlock } from '../shared'
+import { toneFor } from '../shared-utils'
 
 type ExpedienteDocumental = {
   id: number

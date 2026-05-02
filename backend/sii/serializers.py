@@ -12,6 +12,7 @@ from .models import (
     F22PreparacionAnual,
     F29PreparacionMensual,
     ProcesoRentaAnual,
+    TipoDTE,
 )
 
 
@@ -77,7 +78,11 @@ class DTEEmitidoSerializer(serializers.ModelSerializer):
 
 class DTEGenerateSerializer(serializers.Serializer):
     pago_mensual_id = serializers.PrimaryKeyRelatedField(source='pago_mensual', queryset=PagoMensual.objects.all())
-    tipo_dte = serializers.ChoiceField(choices=DTEEmitido._meta.get_field('tipo_dte').choices, required=False, default='34')
+    tipo_dte = serializers.ChoiceField(
+        choices=((TipoDTE.FACTURA_EXENTA, TipoDTE(TipoDTE.FACTURA_EXENTA).label),),
+        required=False,
+        default=TipoDTE.FACTURA_EXENTA,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

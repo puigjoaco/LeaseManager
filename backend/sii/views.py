@@ -82,7 +82,7 @@ class SiiSnapshotView(APIView):
             company_paths=('id',),
         )
         pagos = scope_queryset_for_access(
-            PagoMensual.objects.select_related('contrato').order_by('-anio', '-mes', '-id'),
+            PagoMensual.objects.select_related('contrato').prefetch_related('distribuciones_cobro').order_by('-anio', '-mes', '-id'),
             access,
             property_paths=('contrato__mandato_operacion__propiedad_id',),
         )
@@ -139,6 +139,8 @@ class SiiSnapshotView(APIView):
                         'contrato': item.contrato_id,
                         'mes': item.mes,
                         'anio': item.anio,
+                        'estado_pago': item.estado_pago,
+                        'tiene_distribucion_facturable': any(distribution.requiere_dte for distribution in item.distribuciones_cobro.all()),
                     }
                     for item in pagos
                 ],

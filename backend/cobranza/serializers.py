@@ -22,6 +22,7 @@ from .models import (
 from .services import (
     PAYMENT_STATE_TRANSITIONS,
     apply_guarantee_movement,
+    build_account_state_summary,
     generate_residual_reference,
     calculate_monthly_amount,
     sync_payment_state,
@@ -312,8 +313,26 @@ class GarantiaMovimientoSerializer(serializers.Serializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         user = _request_user(self)
+        garantia = self.context.get('garantia')
+        queryset = self.fields['movimiento_origen'].queryset
         if user and getattr(user, 'is_authenticated', False):
-            self.fields['movimiento_origen'].queryset = _scoped_historial_queryset(user)
+            queryset = _scoped_historial_queryset(user)
+        if garantia is not None:
+            queryset = queryset.filter(garantia_contractual=garantia)
+        self.fields['movimiento_origen'].queryset = queryset
+
+    def validate(self, attrs):
+        movimiento_origen = attrs.get('movimiento_origen')
+        garantia = self.context['garantia']
+        if movimiento_origen and movimiento_origen.garantia_contractual_id != garantia.id:
+            raise serializers.ValidationError(
+                {
+                    'movimiento_origen': (
+                        'El movimiento origen debe pertenecer a la misma garantia contractual.'
+                    )
+                }
+            )
+        return attrs
 
     def create(self, validated_data):
         garantia = self.context['garantia']
@@ -396,6 +415,8 @@ class CodigoCobroResidualSerializer(serializers.ModelSerializer):
 
 
 class EstadoCuentaArrendatarioSerializer(serializers.ModelSerializer):
+    resumen_operativo = serializers.SerializerMethodField()
+
     class Meta:
         model = EstadoCuentaArrendatario
         fields = (
@@ -407,7 +428,18 @@ class EstadoCuentaArrendatarioSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('id', 'arrendatario', 'resumen_operativo', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'arrendatario', 'created_at', 'updated_at')
+
+    def get_resumen_operativo(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False):
+            from core.scope_access import get_scope_access
+
+            access = get_scope_access(user)
+            if access.restricted:
+                return build_account_state_summary(obj.arrendatario, access)
+        return obj.resumen_operativo
 
 
 class EstadoCuentaRecalculoSerializer(serializers.Serializer):

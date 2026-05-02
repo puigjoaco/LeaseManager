@@ -4,6 +4,8 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from core.scope_access import scope_queryset_for_user
+
 from .models import (
     ComunidadPatrimonial,
     Empresa,
@@ -18,6 +20,17 @@ from .validators import validate_rut
 
 
 ACTIVE_TOTAL = Decimal('100.00')
+SOCIO_SCOPE_PATHS = (
+    'propiedades_directas__id',
+    'representaciones_comunidad__comunidad__propiedades__id',
+    'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
+    'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
+)
+
+
+def _request_user(serializer):
+    request = serializer.context.get('request')
+    return getattr(request, 'user', None)
 
 
 class SocioSerializer(serializers.ModelSerializer):
@@ -453,16 +466,20 @@ class PropiedadSerializer(serializers.ModelSerializer):
         return obj.socio_owner.nombre
 
     def validate(self, attrs):
+        user = _request_user(self)
         owner_tipo = attrs.pop('owner_tipo', None)
         owner_id = attrs.pop('owner_id', None)
 
         if self.instance and owner_tipo is None and owner_id is None:
             owner_tipo = self.instance.owner_tipo
             owner_id = self.instance.owner_id
+            owner = self._current_owner()
+        elif self.instance and owner_tipo == self.instance.owner_tipo and owner_id == self.instance.owner_id:
+            owner = self._current_owner()
         elif owner_tipo is None or owner_id is None:
             raise serializers.ValidationError('Debe enviar owner_tipo y owner_id.')
-
-        owner = self._resolve_owner(owner_tipo, owner_id)
+        else:
+            owner = self._resolve_owner(owner_tipo, owner_id, user=user)
         attrs['empresa_owner'] = owner if owner_tipo == 'empresa' else None
         attrs['comunidad_owner'] = owner if owner_tipo == 'comunidad' else None
         attrs['socio_owner'] = owner if owner_tipo == 'socio' else None
@@ -475,17 +492,30 @@ class PropiedadSerializer(serializers.ModelSerializer):
         self._validate_codigo_unique(owner_tipo, owner.id, codigo_propiedad)
         return attrs
 
-    def _resolve_owner(self, owner_tipo, owner_id):
-        model_map = {
-            'empresa': Empresa,
-            'comunidad': ComunidadPatrimonial,
-            'socio': Socio,
+    def _current_owner(self):
+        if self.instance.empresa_owner_id:
+            return self.instance.empresa_owner
+        if self.instance.comunidad_owner_id:
+            return self.instance.comunidad_owner
+        return self.instance.socio_owner
+
+    def _resolve_owner(self, owner_tipo, owner_id, *, user=None):
+        queryset_map = {
+            'empresa': scope_queryset_for_user(Empresa.objects.all(), user, company_paths=('id',)) if user else Empresa.objects.all(),
+            'comunidad': scope_queryset_for_user(
+                ComunidadPatrimonial.objects.all(),
+                user,
+                property_paths=('propiedades__id',),
+            ) if user else ComunidadPatrimonial.objects.all(),
+            'socio': scope_queryset_for_user(Socio.objects.all(), user, property_paths=SOCIO_SCOPE_PATHS) if user else Socio.objects.all(),
         }
-        model = model_map[owner_tipo]
+        queryset = queryset_map[owner_tipo]
         try:
-            return model.objects.get(pk=owner_id)
-        except model.DoesNotExist as error:
-            raise serializers.ValidationError({'owner_id': 'El owner indicado no existe.'}) from error
+            return queryset.get(pk=owner_id)
+        except queryset.model.DoesNotExist as error:
+            raise serializers.ValidationError(
+                {'owner_id': 'El owner indicado no existe o queda fuera del scope asignado.'}
+            ) from error
 
     def _validate_active_owner(self, owner_tipo, owner):
         if owner_tipo == 'empresa':

@@ -147,3 +147,46 @@ class ComplianceAPITests(APITestCase):
 
         allowed = self.client.get(reverse('compliance-export-content', args=[export.id]))
         self.assertEqual(allowed.status_code, status.HTTP_200_OK)
+
+    def test_prepare_export_requires_matching_categoria_for_export_kind(self):
+        self._create_context('CMP-CAT')
+        self._create_policy('operativo')
+
+        response = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'operativo',
+                'export_kind': 'financiero_mensual',
+                'motivo': 'Categoria incorrecta',
+                'anio': 2026,
+                'mes': 1,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data['categoria_dato'][0],
+            'La categoria_dato debe ser financiero para export_kind=financiero_mensual.',
+        )
+
+    def test_prepare_export_requires_active_policy_for_category(self):
+        self._create_context('CMP-POL')
+
+        response = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'financiero',
+                'export_kind': 'financiero_mensual',
+                'motivo': 'Sin politica activa',
+                'anio': 2026,
+                'mes': 1,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data['categoria_dato'][0],
+            'No existe una politica de retencion activa para la categoria indicada.',
+        )

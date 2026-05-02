@@ -99,6 +99,7 @@ function sumPercentages(values: Array<{ porcentaje: string }>) {
 
 export function ReportingWorkspace({
   effectiveRole,
+  effectiveRoles,
   currentUser,
   reportingFinancialDraft,
   setReportingFinancialDraft,
@@ -128,6 +129,7 @@ export function ReportingWorkspace({
   count,
 }: {
   effectiveRole: string
+  effectiveRoles: string[]
   currentUser: CurrentUserLike
   reportingFinancialDraft: ReportingFinancialDraft
   setReportingFinancialDraft: Dispatch<SetStateAction<ReportingFinancialDraft>>
@@ -156,8 +158,10 @@ export function ReportingWorkspace({
   toneFor: (value: string) => Tone
   count: (value: number | undefined) => string
 }) {
-  const canReadMigrationBacklog = effectiveRole === 'AdministradorGlobal'
-  const isReadOnlyReporting = effectiveRole === 'RevisorFiscalExterno' || effectiveRole === 'Socio'
+  const canReadMigrationBacklog = effectiveRoles.includes('AdministradorGlobal')
+  const isReadOnlyReporting =
+    !canReadMigrationBacklog
+    && (effectiveRoles.includes('RevisorFiscalExterno') || effectiveRoles.includes('Socio'))
 
   return (
     <>
@@ -355,8 +359,18 @@ export function ReportingWorkspace({
             { label: 'Total', render: (row) => count(row.total) },
           ]} />
           <TableBlock title="Propiedades owner manual required" subtitle="Detalle del backlog manual de migración." rows={reportingMigrationSummary.propiedades_owner_manual_required.map((item, index) => {
-            const { id: _ignoredId, ...rest } = item
-            return { id: index + 1, ...rest }
+            return {
+              id: index + 1,
+              scope_reference: item.scope_reference,
+              summary: item.summary,
+              codigo: item.codigo,
+              direccion: item.direccion,
+              candidate_owner_model: item.candidate_owner_model,
+              participaciones_count: item.participaciones_count,
+              total_pct: item.total_pct,
+              blocked_contract_legacy_ids: item.blocked_contract_legacy_ids,
+              socios: item.socios,
+            }
           })} empty="No hay propiedades manuales en este estado." columns={[
             { label: 'Código', render: (row) => row.codigo },
             { label: 'Dirección', render: (row) => row.direccion },

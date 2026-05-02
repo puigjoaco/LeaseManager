@@ -1,4 +1,5 @@
-import { Badge, Metric, count } from '../shared'
+import { Badge, Metric } from '../shared'
+import { count } from '../shared-utils'
 
 type DashboardLike = {
   socios_total?: number

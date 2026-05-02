@@ -1,6 +1,7 @@
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 
-import { Badge, TableBlock, toneFor, stamp } from '../shared'
+import { Badge, TableBlock } from '../shared'
+import { stamp, toneFor } from '../shared-utils'
 
 type AuditEventItem = {
   id: number

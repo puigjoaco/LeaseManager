@@ -276,6 +276,65 @@ class ContratosAPITests(APITestCase):
         future_response = self.client.post(reverse('contratos-contrato-list'), future_payload, format='json')
         self.assertEqual(future_response.status_code, status.HTTP_201_CREATED)
 
+    def test_future_contract_succeeds_after_executed_early_termination(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-ET', owner_rut='14141414-9')
+        arrendatario = self._create_arrendatario(rut='15151515-6')
+
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-ET-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        current_contract = Contrato.objects.get(pk=current_response.data['id'])
+        current_contract.estado = EstadoContrato.EARLY_TERMINATED
+        current_contract.fecha_fin_vigente = '2026-12-31'
+        current_contract.save(update_fields=['estado', 'fecha_fin_vigente', 'updated_at'])
+
+        future_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-ET-F')
+        future_payload['estado'] = EstadoContrato.FUTURE
+        future_payload['fecha_inicio'] = '2027-01-01'
+        future_payload['fecha_fin_vigente'] = '2027-12-31'
+        future_payload['fecha_entrega'] = '2027-01-01'
+        future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
+        future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
+
+        future_response = self.client.post(reverse('contratos-contrato-list'), future_payload, format='json')
+        self.assertEqual(future_response.status_code, status.HTTP_201_CREATED)
+
+    def test_future_contract_rejects_notice_from_non_current_contract(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-X', owner_rut='14141414-8')
+        arrendatario = self._create_arrendatario(rut='15151515-5')
+
+        old_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-OLD')
+        old_response = self.client.post(reverse('contratos-contrato-list'), old_payload, format='json')
+        self.assertEqual(old_response.status_code, status.HTTP_201_CREATED)
+
+        old_contract = Contrato.objects.get(pk=old_response.data['id'])
+        old_contract.estado = EstadoContrato.FINISHED
+        old_contract.save(update_fields=['estado', 'updated_at'])
+
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-CURRENT')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        AvisoTermino.objects.create(
+            contrato=old_contract,
+            fecha_efectiva='2026-12-31',
+            causal='No renovacion antigua',
+            estado=EstadoAvisoTermino.REGISTERED,
+            registrado_por=self.user,
+        )
+
+        future_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-FUTURE-FAIL')
+        future_payload['estado'] = EstadoContrato.FUTURE
+        future_payload['fecha_inicio'] = '2027-01-01'
+        future_payload['fecha_fin_vigente'] = '2027-12-31'
+        future_payload['fecha_entrega'] = '2027-01-01'
+        future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
+        future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
+
+        future_response = self.client.post(reverse('contratos-contrato-list'), future_payload, format='json')
+        self.assertEqual(future_response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_registered_notice_cannot_be_canceled_when_future_contract_exists(self):
         mandato = self._create_active_mandato(codigo='MAND-107', owner_rut='16161616-1')
         arrendatario = self._create_arrendatario(rut='17171717-9')

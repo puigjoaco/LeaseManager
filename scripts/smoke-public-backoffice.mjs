@@ -57,72 +57,25 @@ function parseArgs(argv) {
   return options;
 }
 
-async function fetchToken(apiBaseUrl, username, password) {
-  const response = await fetch(`${apiBaseUrl}/api/v1/auth/login/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
-  if (!response.ok) {
-    throw new Error(`Login failed for ${username}: HTTP ${response.status}`);
-  }
-  const payload = await response.json();
-  return payload;
-}
-
-async function fetchHealth(apiBaseUrl) {
-  const response = await fetch(`${apiBaseUrl}/api/v1/health/`);
-  if (!response.ok) {
-    throw new Error(`Health failed: HTTP ${response.status}`);
-  }
-  return await response.json();
-}
-
 async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
-  const session = await fetchToken(apiBaseUrl, account.username, account.password);
-  const health = await fetchHealth(apiBaseUrl);
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1200 } });
+  const page = await context.newPage();
   page.setDefaultTimeout(180_000);
+  const normalizedApiBaseUrl = apiBaseUrl.replace(/\/+$/, '');
 
   try {
     const start = Date.now();
     await page.goto(frontendUrl, { waitUntil: 'domcontentloaded' });
-    await page.evaluate(({ storedToken, storedUser, bootstrap, health }) => {
-      localStorage.setItem('leasemanager.auth.token', storedToken);
-      localStorage.setItem('leasemanager.auth.user', JSON.stringify(storedUser));
-      const loadedAt = new Date().toISOString();
-      localStorage.setItem('leasemanager.health', JSON.stringify(health));
-      if (bootstrap?.overview) {
-        localStorage.setItem(
-          `leasemanager.overview:${storedUser.id}:${storedUser.username}:${storedUser.default_role_code}`,
-          JSON.stringify({
-            dashboard: bootstrap.overview.dashboard ?? null,
-            manualSummary: bootstrap.overview.manual_summary ?? null,
-            lastLoadedAt: loadedAt,
-          }),
-        );
-      }
-      if (bootstrap?.control) {
-        localStorage.setItem(
-          `leasemanager.control:${storedUser.id}:${storedUser.username}:${storedUser.default_role_code}`,
-          JSON.stringify({
-            empresas: bootstrap.control.empresas,
-            regimenesTributarios: bootstrap.control.regimenes_tributarios,
-            configuracionesFiscales: bootstrap.control.configuraciones_fiscales,
-            cuentasContables: bootstrap.control.cuentas_contables,
-            reglasContables: bootstrap.control.reglas_contables,
-            matricesReglas: bootstrap.control.matrices_reglas,
-            eventosContables: bootstrap.control.eventos_contables,
-            asientosContables: bootstrap.control.asientos_contables,
-            obligacionesMensuales: bootstrap.control.obligaciones_mensuales,
-            cierresMensuales: bootstrap.control.cierres_mensuales,
-            lastLoadedAt: loadedAt,
-          }),
-        );
-      }
-    }, { storedToken: session.token, storedUser: session.user, bootstrap: session.bootstrap || null, health });
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.body.innerText.includes('Continuar sesión'));
+    await page.getByLabel('Usuario').fill(account.username);
+    await page.getByLabel('Contraseña').fill(account.password);
+    const loginRequest = page.waitForRequest((request) =>
+      request.method() === 'POST'
+      && request.url() === `${normalizedApiBaseUrl}/api/v1/auth/login/`
+    );
+    await page.getByRole('button', { name: 'Ingresar' }).click();
+    await loginRequest;
     await page.waitForFunction((displayName) => document.body.innerText.includes(displayName), account.displayName);
 
     if (account.waitFor === 'contabilidad') {
@@ -162,6 +115,7 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
       ok: true,
       label: account.label,
       username: account.username,
+      authFlow: 'ui-login',
       seconds: Number(((Date.now() - start) / 1000).toFixed(1)),
       tabs,
       dashboard: {
@@ -179,9 +133,11 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
       ok: false,
       label: account.label,
       username: account.username,
+      authFlow: 'ui-login',
       error: String(error),
     };
   } finally {
+    await context.close();
     await browser.close();
   }
 }

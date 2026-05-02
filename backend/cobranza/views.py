@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.db.models import Prefetch
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -30,8 +31,8 @@ from .serializers import (
     RepactacionDeudaSerializer,
     ValorUFDiarioSerializer,
 )
-from .services import calculate_monthly_amount, rebuild_account_state, sync_payment_distribution, sync_payment_state
-from .models import CodigoCobroResidual, EstadoCuentaArrendatario, RepactacionDeuda
+from .services import build_account_state_summary, calculate_monthly_amount, rebuild_account_state, sync_payment_distribution, sync_payment_state
+from .models import CodigoCobroResidual, EstadoCuentaArrendatario, EstadoPago, RepactacionDeuda
 
 
 class AuditCreateUpdateMixin:
@@ -193,7 +194,7 @@ class CobranzaSnapshotView(APIView):
                         'id': item.id,
                         'arrendatario': item.arrendatario_id,
                         'score_pago': item.score_pago,
-                        'resumen_operativo': item.resumen_operativo,
+                        'resumen_operativo': build_account_state_summary(item.arrendatario, access),
                     }
                     for item in estados_cuenta
                 ],
@@ -267,6 +268,21 @@ class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
     audit_entity_label = 'pago mensual'
 
     def perform_update(self, serializer):
+        next_state = serializer.validated_data.get('estado_pago', serializer.instance.estado_pago)
+        if next_state in {
+            EstadoPago.PAID,
+            EstadoPago.PAID_VIA_REPAYMENT,
+            EstadoPago.PAID_BY_TERMINATION,
+        }:
+            raise ValidationError(
+                {
+                    'estado_pago': (
+                        'Los pagos cerrados solo se registran desde conciliacion bancaria '
+                        'o desde el flujo especifico con artefacto de cierre.'
+                    )
+                }
+            )
+
         previous_state = self._extract_state(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
@@ -520,7 +536,7 @@ class EstadoCuentaArrendatarioRebuildView(APIView):
             request.user,
             property_paths=('contratos__mandato_operacion__propiedad_id',),
         )
-        estado = rebuild_account_state(arrendatario)
+        estado = rebuild_account_state(arrendatario, access=get_scope_access(request.user))
         create_audit_event(
             event_type='cobranza.estado_cuenta_arrendatario.rebuilt',
             entity_type='estado_cuenta_arrendatario',
@@ -530,4 +546,4 @@ class EstadoCuentaArrendatarioRebuildView(APIView):
             ip_address=request.META.get('REMOTE_ADDR'),
             metadata={'arrendatario_id': arrendatario.pk},
         )
-        return Response(EstadoCuentaArrendatarioSerializer(estado).data, status=status.HTTP_200_OK)
+        return Response(EstadoCuentaArrendatarioSerializer(estado, context={'request': request}).data, status=status.HTTP_200_OK)

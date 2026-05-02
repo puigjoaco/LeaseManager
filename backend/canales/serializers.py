@@ -8,6 +8,7 @@ from documentos.models import DocumentoEmitido
 from operacion.models import IdentidadDeEnvio
 
 from .models import CanalMensajeria, MensajeSaliente
+from .services import resolve_document_contract
 
 
 def raise_drf_validation_error(error):
@@ -129,6 +130,24 @@ class MensajePrepararSerializer(serializers.Serializer):
             candidate.full_clean(exclude=['destinatario', 'estado', 'motivo_bloqueo', 'external_ref', 'usuario', 'provider_payload', 'enviado_at'])
         except DjangoValidationError as error:
             raise_drf_validation_error(error)
+
+        document_contract = resolve_document_contract(candidate.documento_emitido)
+        if candidate.documento_emitido and candidate.documento_emitido.expediente.entidad_tipo == 'contrato' and document_contract is None:
+            raise serializers.ValidationError(
+                {'documento_emitido': 'El documento emitido no referencia un contrato valido.'}
+            )
+        if document_contract and candidate.contrato and document_contract.pk != candidate.contrato.pk:
+            raise serializers.ValidationError(
+                {'documento_emitido': 'El documento emitido debe pertenecer al mismo contrato informado.'}
+            )
+        if document_contract and candidate.arrendatario and document_contract.arrendatario_id != candidate.arrendatario.id:
+            raise serializers.ValidationError(
+                {'arrendatario': 'El arrendatario debe coincidir con el contrato del documento emitido.'}
+            )
+        if candidate.contrato and candidate.arrendatario and candidate.contrato.arrendatario_id != candidate.arrendatario.id:
+            raise serializers.ValidationError(
+                {'arrendatario': 'El arrendatario debe coincidir con el contrato informado.'}
+            )
         return attrs
 
 

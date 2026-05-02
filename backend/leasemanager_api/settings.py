@@ -173,8 +173,16 @@ def _resolve_cache_location() -> str:
 
 _cache_location = _resolve_cache_location()
 
-CACHES = (
-    {
+if _cache_location.lower().startswith('locmem://'):
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': _cache_location.removeprefix('locmem://') or 'leasemanager-local-cache',
+            'TIMEOUT': 300,
+        }
+    }
+elif _cache_location:
+    CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
             'LOCATION': _cache_location,
@@ -182,15 +190,14 @@ CACHES = (
             'TIMEOUT': 300,
         }
     }
-    if _cache_location
-    else {
+else:
+    CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
             'LOCATION': 'leasemanager-local-cache',
             'TIMEOUT': 300,
         }
     }
-)
 
 LEGACY_ROOT_PATH = env('LEGACY_ROOT_PATH')
 DEMO_LOGIN_USERS = set(env('DEMO_LOGIN_USERS'))

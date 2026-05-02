@@ -5,6 +5,7 @@ from django.db.models import Q, QuerySet
 from canales.models import MensajeSaliente
 from conciliacion.models import MovimientoBancarioImportado
 from core.scope_access import ScopeAccess, scope_queryset_for_access
+from cobranza.models import PagoMensual
 from patrimonio.models import Propiedad
 
 
@@ -12,6 +13,7 @@ CONCILIACION_MANUAL_RESOLUTION_CATEGORIES = (
     'conciliacion.ingreso_desconocido',
     'conciliacion.movimiento_cargo',
 )
+DISTRIBUTION_CONFLICT_CATEGORY = 'migration.cobranza.distribucion_facturable_conflict'
 
 
 def scope_manual_resolution_queryset(queryset: QuerySet, access: ScopeAccess) -> QuerySet:
@@ -34,6 +36,19 @@ def scope_manual_resolution_queryset(queryset: QuerySet, access: ScopeAccess) ->
             category__in=CONCILIACION_MANUAL_RESOLUTION_CATEGORIES,
             scope_type='movimiento_bancario',
             scope_reference__in=visible_movement_refs,
+        )
+
+    visible_payment_ids = scope_queryset_for_access(
+        PagoMensual.objects.all(),
+        access,
+        property_paths=('contrato__mandato_operacion__propiedad_id',),
+    ).values_list('pk', flat=True)
+    visible_payment_refs = [str(item) for item in visible_payment_ids]
+    if visible_payment_refs:
+        scoped_filter |= Q(
+            category=DISTRIBUTION_CONFLICT_CATEGORY,
+            scope_type='pago_mensual',
+            scope_reference__in=visible_payment_refs,
         )
 
     visible_message_ids = scope_queryset_for_access(

@@ -4,16 +4,35 @@ from django.db import migrations, models
 import django.utils.timezone
 
 
+def _legacy_representation_mode(ParticipacionPatrimonial, comunidad_id, socio_id, effective_date):
+    is_participant = ParticipacionPatrimonial.objects.filter(
+        comunidad_owner_id=comunidad_id,
+        participante_socio_id=socio_id,
+        activo=True,
+        vigente_desde__lte=effective_date,
+    ).filter(
+        models.Q(vigente_hasta__isnull=True) | models.Q(vigente_hasta__gte=effective_date)
+    ).exists()
+    return 'participante_patrimonial' if is_participant else 'designado'
+
+
 def migrate_existing_representaciones(apps, schema_editor):
     ComunidadPatrimonial = apps.get_model('patrimonio', 'ComunidadPatrimonial')
+    ParticipacionPatrimonial = apps.get_model('patrimonio', 'ParticipacionPatrimonial')
     RepresentacionComunidad = apps.get_model('patrimonio', 'RepresentacionComunidad')
 
     for comunidad in ComunidadPatrimonial.objects.exclude(representante_socio__isnull=True):
+        effective_date = comunidad.created_at.date() if comunidad.created_at else date.today()
         RepresentacionComunidad.objects.create(
             comunidad_id=comunidad.id,
-            modo_representacion='participante_patrimonial',
+            modo_representacion=_legacy_representation_mode(
+                ParticipacionPatrimonial,
+                comunidad.id,
+                comunidad.representante_socio_id,
+                effective_date,
+            ),
             socio_representante_id=comunidad.representante_socio_id,
-            vigente_desde=comunidad.created_at.date() if comunidad.created_at else date.today(),
+            vigente_desde=effective_date,
             activo=True,
             observaciones='Migrado desde representante_socio legacy.',
         )

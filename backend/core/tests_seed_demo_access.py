@@ -73,6 +73,8 @@ class SeedDemoAccessCommandTests(TestCase):
 
         self.assertIn('demo-admin', output.getvalue())
         self.assertIn('demo-socio', output.getvalue())
+        self.assertIn('password=<no impreso>', output.getvalue())
+        self.assertNotIn('demo12345', output.getvalue())
 
     def test_command_is_idempotent_for_demo_users(self):
         call_command('seed_demo_access')

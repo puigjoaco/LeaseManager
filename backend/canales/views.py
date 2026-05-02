@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
-from core.permissions import OperationalModulePermission
+from core.permissions import AdminOnlyPermission, OperationalModulePermission
 from core.scope_access import scope_queryset_for_user
 from contratos.models import Arrendatario, Contrato
 from documentos.scope import scope_documento_queryset
@@ -143,7 +143,7 @@ class ChannelsSnapshotView(APIView):
 
 
 class CanalMensajeriaListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [OperationalModulePermission]
+    permission_classes = [AdminOnlyPermission]
     serializer_class = CanalMensajeriaSerializer
     queryset = CanalMensajeria.objects.all()
     audit_entity_type = 'canal_mensajeria'
@@ -151,7 +151,7 @@ class CanalMensajeriaListCreateView(AuditCreateUpdateMixin, generics.ListCreateA
 
 
 class CanalMensajeriaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [OperationalModulePermission]
+    permission_classes = [AdminOnlyPermission]
     serializer_class = CanalMensajeriaSerializer
     queryset = CanalMensajeria.objects.all()
     audit_entity_type = 'canal_mensajeria'

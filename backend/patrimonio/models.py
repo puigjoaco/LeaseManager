@@ -72,10 +72,14 @@ class Empresa(TimestampedModel):
 
     def participaciones_activas(self):
         today = timezone.localdate()
+        return self.participaciones_vigentes_en(today)
+
+    def participaciones_vigentes_en(self, effective_date):
         return self.participaciones.filter(
             activo=True,
+            vigente_desde__lte=effective_date,
         ).filter(
-            Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=today),
+            Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=effective_date),
         )
 
     def total_participaciones_activas(self):
@@ -106,10 +110,14 @@ class ComunidadPatrimonial(TimestampedModel):
 
     def participaciones_activas(self):
         today = timezone.localdate()
+        return self.participaciones_vigentes_en(today)
+
+    def participaciones_vigentes_en(self, effective_date):
         return self.participaciones.filter(
             activo=True,
+            vigente_desde__lte=effective_date,
         ).filter(
-            Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=today),
+            Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=effective_date),
         )
 
     def total_participaciones_activas(self):

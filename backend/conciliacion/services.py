@@ -14,6 +14,12 @@ from .models import (
 )
 
 
+RETRIABLE_EXACT_MATCH_STATES = {
+    EstadoConciliacionMovimiento.PENDING,
+    EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+}
+
+
 def get_open_manual_resolution(movimiento, category):
     return ManualResolution.objects.filter(
         category=category,
@@ -53,6 +59,17 @@ def resolve_unknown_income_if_present(movimiento):
         movimiento.ingreso_desconocido.save(update_fields=['estado', 'updated_at'])
 
 
+def ensure_movement_can_attempt_exact_match(movimiento):
+    if movimiento.estado_conciliacion in RETRIABLE_EXACT_MATCH_STATES:
+        if movimiento.pago_mensual_id or movimiento.codigo_cobro_residual_id:
+            raise ValueError('El movimiento ya mantiene una referencia de conciliacion y no admite reintento.')
+        return
+
+    if movimiento.estado_conciliacion == EstadoConciliacionMovimiento.MANUAL_REQUIRED:
+        raise ValueError('El movimiento requiere clasificacion manual y no admite reintento automatico.')
+    raise ValueError('El movimiento ya fue conciliado y no admite reintento.')
+
+
 @transaction.atomic
 def handle_unknown_income(movimiento, suggestion=None):
     unknown, _ = IngresoDesconocido.objects.update_or_create(
@@ -86,6 +103,8 @@ def handle_unknown_income(movimiento, suggestion=None):
 
 @transaction.atomic
 def reconcile_exact_movement(movimiento):
+    ensure_movement_can_attempt_exact_match(movimiento)
+
     if movimiento.tipo_movimiento == TipoMovimientoBancario.DEBIT:
         movimiento.estado_conciliacion = EstadoConciliacionMovimiento.MANUAL_REQUIRED
         movimiento.save(update_fields=['estado_conciliacion', 'updated_at'])
@@ -151,8 +170,6 @@ def reconcile_exact_movement(movimiento):
                 'updated_at',
             ]
         )
-        from cobranza.services import sync_payment_distribution
-
         sync_payment_distribution(payment)
         movimiento.pago_mensual = payment
         movimiento.codigo_cobro_residual = None
@@ -189,8 +206,15 @@ def resolve_unknown_income_manual_resolution(*, resolution, payment, rationale='
         raise ValueError('El pago seleccionado no pertenece a la misma cuenta recaudadora del movimiento.')
     if payment.estado_pago not in {EstadoPago.PENDING, EstadoPago.OVERDUE}:
         raise ValueError('Solo se puede regularizar manualmente un pago pendiente o atrasado.')
+    pending_amount = payment.monto_calculado_clp - payment.monto_pagado_clp
+    if pending_amount <= 0:
+        raise ValueError('El pago seleccionado ya no tiene saldo pendiente por regularizar.')
+    if movimiento.monto != pending_amount:
+        raise ValueError(
+            'El monto del movimiento debe coincidir exactamente con el saldo pendiente del pago seleccionado.'
+        )
 
-    payment.monto_pagado_clp = movimiento.monto
+    payment.monto_pagado_clp = payment.monto_pagado_clp + movimiento.monto
     payment.fecha_deposito_banco = movimiento.fecha_movimiento
     payment.fecha_deteccion_sistema = timezone.localdate()
     payment.estado_pago = EstadoPago.PAID
@@ -295,7 +319,8 @@ def resolve_charge_movement_manual_resolution(*, resolution, rationale='', actor
     )
 
     movimiento.notas_admin = rationale
-    movimiento.save(update_fields=['notas_admin', 'updated_at'])
+    movimiento.estado_conciliacion = EstadoConciliacionMovimiento.EXACT_MATCH
+    movimiento.save(update_fields=['notas_admin', 'estado_conciliacion', 'updated_at'])
 
     resolved_at = timezone.now()
     ManualResolution.objects.filter(

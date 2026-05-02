@@ -3,7 +3,8 @@ import type { FormEvent } from 'react'
 
 import heroImage from './assets/hero.png'
 import { apiRequest, API_BASE_URL, fallbackHealth, TOKEN_STORAGE_KEY } from './backoffice/api'
-import { Metric, toneFor } from './backoffice/shared'
+import { Metric } from './backoffice/shared'
+import { toneFor } from './backoffice/shared-utils'
 import './App.css'
 
 const AuthenticatedApp = lazy(() => import('./AuthenticatedApp'))

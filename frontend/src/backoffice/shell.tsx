@@ -1,4 +1,5 @@
-import { Badge, stamp } from './shared'
+import { Badge } from './shared'
+import { stamp } from './shared-utils'
 
 type AssignmentItem = {
   role: string
