@@ -63,6 +63,9 @@ $testTargets = @(
 
 Step "Backend acceptance suite"
 $env:DATABASE_URL = $BackendTestDb
+$env:REDIS_URL = ''
+$env:CELERY_RESULT_BACKEND = ''
+$env:DJANGO_CACHE_URL = ''
 Push-Location $backendDir
 try {
     & $pythonExe manage.py test @testTargets --keepdb
