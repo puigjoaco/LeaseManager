@@ -1,6 +1,7 @@
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 
-import { Badge, TableBlock, count } from '../shared'
+import { Badge, TableBlock } from '../shared'
+import { count } from '../shared-utils'
 
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 

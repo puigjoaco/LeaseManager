@@ -1,6 +1,7 @@
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 
-import { Badge, TableBlock, stamp, toneFor } from '../shared'
+import { Badge, TableBlock } from '../shared'
+import { stamp, toneFor } from '../shared-utils'
 
 type EmpresaItem = { id: number; razon_social: string }
 type SocioItem = { id: number; nombre: string }

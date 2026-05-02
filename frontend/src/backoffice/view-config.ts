@@ -27,6 +27,19 @@ export type SectionKey =
   | 'compliance'
   | 'reporting'
 
+export type RoleAssignment = {
+  role: string
+  scope: string | null
+  is_primary: boolean
+}
+
+const ROLE_PRIORITY = [
+  'AdministradorGlobal',
+  'OperadorDeCartera',
+  'RevisorFiscalExterno',
+  'Socio',
+] as const
+
 export function canonicalRole(roleCode: string | null | undefined) {
   const normalized = String(roleCode || '').trim().toLowerCase()
   if (normalized === 'administradorglobal') return 'AdministradorGlobal'
@@ -36,15 +49,12 @@ export function canonicalRole(roleCode: string | null | undefined) {
   return roleCode || 'SinRol'
 }
 
-export function defaultViewForRole(roleCode: string | null | undefined): ViewKey {
+function normalizedKnownRole(roleCode: string | null | undefined) {
   const role = canonicalRole(roleCode)
-  if (role === 'RevisorFiscalExterno') return 'contabilidad'
-  if (role === 'Socio') return 'reporting'
-  return 'overview'
+  return role === 'SinRol' ? null : role
 }
 
-export function allowedViewsForRole(roleCode: string | null | undefined): ViewKey[] {
-  const role = canonicalRole(roleCode)
+function viewAccessForCanonicalRole(role: string): ViewKey[] {
   if (role === 'AdministradorGlobal') {
     return ['overview', 'patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit', 'contabilidad', 'sii', 'compliance', 'reporting']
   }
@@ -58,6 +68,48 @@ export function allowedViewsForRole(roleCode: string | null | undefined): ViewKe
     return ['reporting']
   }
   return ['overview']
+}
+
+function orderedRoleEntries(roleCode: string | null | undefined, assignments: RoleAssignment[] = []) {
+  const byCode = new Map<string, string>()
+  const defaultRole = normalizedKnownRole(roleCode)
+  if (defaultRole) {
+    byCode.set(defaultRole, defaultRole)
+  }
+  for (const assignment of assignments) {
+    const normalizedRole = normalizedKnownRole(assignment.role)
+    if (normalizedRole) {
+      byCode.set(normalizedRole, normalizedRole)
+    }
+  }
+
+  const knownRoles = ROLE_PRIORITY.filter((role) => byCode.has(role))
+  const customRoles = Array.from(byCode.values()).filter((role) => !ROLE_PRIORITY.includes(role as (typeof ROLE_PRIORITY)[number]))
+  return [...knownRoles, ...customRoles]
+}
+
+export function primaryRole(roleCode: string | null | undefined, assignments: RoleAssignment[] = []) {
+  const primaryAssignment = assignments.find((assignment) => assignment.is_primary && normalizedKnownRole(assignment.role))
+  if (primaryAssignment) {
+    return normalizedKnownRole(primaryAssignment.role) || 'SinRol'
+  }
+  return normalizedKnownRole(roleCode) || orderedRoleEntries(roleCode, assignments)[0] || 'SinRol'
+}
+
+export function effectiveRoles(roleCode: string | null | undefined, assignments: RoleAssignment[] = []) {
+  return orderedRoleEntries(roleCode, assignments)
+}
+
+export function defaultViewForRole(roleCode: string | null | undefined, assignments: RoleAssignment[] = []): ViewKey {
+  const role = primaryRole(roleCode, assignments)
+  if (role === 'RevisorFiscalExterno') return 'contabilidad'
+  if (role === 'Socio') return 'reporting'
+  return 'overview'
+}
+
+export function allowedViewsForRole(roleCode: string | null | undefined, assignments: RoleAssignment[] = []): ViewKey[] {
+  const allowedViews = effectiveRoles(roleCode, assignments).flatMap((role) => viewAccessForCanonicalRole(role))
+  return allowedViews.length ? Array.from(new Set(allowedViews)) : ['overview']
 }
 
 export const VIEW_LABELS: Record<ViewKey, string> = {
@@ -106,8 +158,8 @@ export function searchPlaceholderForView(view: ViewKey, reportingPlaceholder: st
   return reportingPlaceholder
 }
 
-export function reportingHeadingForRole(roleCode: string | null | undefined) {
-  const role = canonicalRole(roleCode)
+export function reportingHeadingForRole(roleCode: string | null | undefined, assignments: RoleAssignment[] = []) {
+  const role = primaryRole(roleCode, assignments)
   if (role === 'Socio') {
     return { title: 'Mi posición patrimonial', placeholder: 'Comunidad, porcentaje o propiedad' }
   }
@@ -117,8 +169,8 @@ export function reportingHeadingForRole(roleCode: string | null | undefined) {
   return { title: 'Dashboard, socios, libros y resumen anual', placeholder: 'Empresa, socio, libro o resolución' }
 }
 
-export function auditHeadingForRole(roleCode: string | null | undefined) {
-  const role = canonicalRole(roleCode)
+export function auditHeadingForRole(roleCode: string | null | undefined, assignments: RoleAssignment[] = []) {
+  const role = primaryRole(roleCode, assignments)
   if (role === 'RevisorFiscalExterno') {
     return { title: 'Eventos auditables', subtitle: 'Trazabilidad reciente en solo lectura.' }
   }
@@ -128,11 +180,12 @@ export function auditHeadingForRole(roleCode: string | null | undefined) {
   return { title: 'Eventos y resoluciones', subtitle: 'Trazabilidad transversal del sistema.' }
 }
 
-export function canMutateSection(roleCode: string | null | undefined, section: SectionKey) {
-  const role = canonicalRole(roleCode)
-  if (role === 'AdministradorGlobal') return true
-  if (role === 'OperadorDeCartera') {
-    return ['patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit'].includes(section)
-  }
-  return false
+export function canMutateSection(roleCode: string | null | undefined, section: SectionKey, assignments: RoleAssignment[] = []) {
+  return effectiveRoles(roleCode, assignments).some((role) => {
+    if (role === 'AdministradorGlobal') return true
+    if (role === 'OperadorDeCartera') {
+      return ['patrimonio', 'operacion', 'contratos', 'documentos', 'canales', 'cobranza', 'conciliacion', 'audit'].includes(section)
+    }
+    return false
+  })
 }
