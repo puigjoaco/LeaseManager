@@ -5,6 +5,7 @@ backend/.env.*
 backend/__pycache__/
 backend/*/__pycache__/
 **/__pycache__/
+*.pyc
 backend/*.sqlite3
 backend/db.sqlite3
 backend/media/
@@ -13,5 +14,8 @@ frontend/node_modules/
 frontend/.vite/
 frontend/dist/
 frontend/.env
+scripts/node_modules/
+# Material manual / evidencia externa no producto
+Joaquin Ingreso Manual/
 migration/bundles/github-*.png
 screenshots/
