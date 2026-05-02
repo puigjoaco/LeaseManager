@@ -1,10 +1,19 @@
 from rest_framework import serializers
 
 from cobranza.models import PagoMensual
+from core.scope_access import scope_queryset_for_user
 from patrimonio.models import Empresa, ModoRepresentacionComunidad, Socio
 from patrimonio.validators import validate_rut
 
 from .models import AuditEvent, ManualResolution
+
+
+SPECIALIZED_MANUAL_RESOLUTION_CATEGORIES = {
+    'conciliacion.ingreso_desconocido',
+    'conciliacion.movimiento_cargo',
+    'migration.propiedad.owner_manual_required',
+    'migration.cobranza.distribucion_facturable_conflict',
+}
 
 
 class AuditEventSerializer(serializers.ModelSerializer):
@@ -43,12 +52,12 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         if (
             self.instance
-            and self.instance.category in {'conciliacion.ingreso_desconocido', 'conciliacion.movimiento_cargo'}
+            and self.instance.category in SPECIALIZED_MANUAL_RESOLUTION_CATEGORIES
             and attrs.get('status') == ManualResolution.Status.RESOLVED
             and self.instance.status != ManualResolution.Status.RESOLVED
         ):
             raise serializers.ValidationError(
-                {'status': 'Use la resolución especializada de conciliación para cerrar este caso.'}
+                {'status': 'Use la resolución especializada correspondiente para cerrar este caso.'}
             )
         return attrs
 
@@ -106,10 +115,19 @@ class ResolveUnknownIncomeSerializer(serializers.Serializer):
     rationale = serializers.CharField(required=False, allow_blank=True)
 
     def validate_pago_mensual_id(self, value):
+        user = self.context['request'].user
         try:
             payment = PagoMensual.objects.select_related('contrato__mandato_operacion').get(pk=value)
         except PagoMensual.DoesNotExist as error:
             raise serializers.ValidationError('El pago mensual indicado no existe.') from error
+
+        if not scope_queryset_for_user(
+            PagoMensual.objects.filter(pk=value),
+            user,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+        ).exists():
+            raise serializers.ValidationError('El pago mensual indicado queda fuera del scope asignado.')
+
         self.context['pago_mensual'] = payment
         return value
 

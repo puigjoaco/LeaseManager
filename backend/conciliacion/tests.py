@@ -278,6 +278,39 @@ class ConciliacionAPITests(APITestCase):
             ).exists()
         )
 
+    def test_rejects_duplicate_transaction_id_banco_per_connection(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-DUP-TX')
+        conexion = self._create_connection(cuenta)
+
+        first = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-08',
+                'tipo_movimiento': 'abono',
+                'monto': '100111.00',
+                'descripcion_origen': 'Pago duplicado 1',
+                'transaction_id_banco': 'tx-dup-001',
+            },
+            format='json',
+        )
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+
+        second = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-09',
+                'tipo_movimiento': 'abono',
+                'monto': '100111.00',
+                'descripcion_origen': 'Pago duplicado 2',
+                'transaction_id_banco': 'tx-dup-001',
+            },
+            format='json',
+        )
+        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('transaction_id_banco', second.data)
+
     def test_debit_movement_requires_manual_resolution(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CARGO')
         conexion = self._create_connection(cuenta)
@@ -340,7 +373,7 @@ class ConciliacionAPITests(APITestCase):
         event = EventoContable.objects.get(pk=resolve.data['evento_contable_id'])
         asiento = AsientoContable.objects.get(evento_contable=event)
 
-        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
         self.assertEqual(movimiento.notas_admin, 'Comisión bancaria del período.')
         self.assertEqual(event.evento_tipo, 'ComisionBancaria')
         self.assertEqual(event.estado_contable, 'contabilizado')
@@ -349,6 +382,39 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(asiento.movimientos.count(), 2)
         self.assertEqual(resolution.status, 'resolved')
         self.assertEqual(resolution.metadata['resolved_event_id'], event.pk)
+
+    def test_retry_match_rejects_already_reconciled_movement(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-LOCKED', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-08',
+                'tipo_movimiento': 'abono',
+                'monto': '100111.00',
+                'descripcion_origen': 'Pago ya conciliado',
+            },
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
+
+        retry = self.client.post(
+            reverse('conciliacion-movimiento-match', args=[movimiento.id]),
+            format='json',
+        )
+        self.assertEqual(retry.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(retry.data['detail'], 'El movimiento ya fue conciliado y no admite reintento.')
+
+        movimiento.refresh_from_db()
+        pago.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
+        self.assertEqual(movimiento.pago_mensual_id, pago.pk)
+        self.assertFalse(IngresoDesconocido.objects.filter(movimiento_bancario=movimiento).exists())
 
     def test_retry_match_resolves_unknown_income_when_payment_appears(self):
         cuenta, _, contrato = self._create_contract_and_payment(codigo='REC-RETRY', amount='100111.00')
@@ -405,6 +471,8 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
 
         movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        pago.monto_calculado_clp = '777777.00'
+        pago.save(update_fields=['monto_calculado_clp'])
         resolution = ManualResolution.objects.get(
             category='conciliacion.ingreso_desconocido',
             scope_reference=str(movimiento.pk),
@@ -433,3 +501,97 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(resolution.status, 'resolved')
         self.assertEqual(resolution.rationale, 'Regularizado manualmente contra el pago correcto.')
         self.assertEqual(resolution.metadata['resolved_payment_id'], pago.pk)
+
+    def test_manual_resolution_adds_unknown_income_to_existing_partial_payment(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-PARTIAL', amount='777777.00')
+        conexion = self._create_connection(cuenta)
+        pago.monto_pagado_clp = '100000.00'
+        pago.save(update_fields=['monto_pagado_clp'])
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-08',
+                'tipo_movimiento': 'abono',
+                'monto': '677777.00',
+                'descripcion_origen': 'Abono complementario requiere regularizacion manual',
+            },
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
+            {
+                'pago_mensual_id': pago.pk,
+                'rationale': 'Regularizado contra saldo pendiente parcial.',
+            },
+            format='json',
+        )
+        self.assertEqual(resolve.status_code, status.HTTP_200_OK)
+
+        movimiento.refresh_from_db()
+        pago.refresh_from_db()
+        resolution.refresh_from_db()
+
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
+        self.assertEqual(movimiento.pago_mensual_id, pago.pk)
+        self.assertEqual(pago.estado_pago, EstadoPago.PAID)
+        self.assertEqual(str(pago.monto_pagado_clp), '777777.00')
+        self.assertEqual(resolution.status, 'resolved')
+
+    def test_manual_resolution_rejects_unknown_income_when_amount_exceeds_pending_payment(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-FAIL', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-08',
+                'tipo_movimiento': 'abono',
+                'monto': '777777.00',
+                'descripcion_origen': 'Abono sobredimensionado',
+            },
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
+            {
+                'pago_mensual_id': pago.pk,
+                'rationale': 'Intento invalido por diferencia de monto.',
+            },
+            format='json',
+        )
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            resolve.data['detail'],
+            'El monto del movimiento debe coincidir exactamente con el saldo pendiente del pago seleccionado.',
+        )
+
+        movimiento.refresh_from_db()
+        pago.refresh_from_db()
+        resolution.refresh_from_db()
+        ingreso = IngresoDesconocido.objects.get(movimiento_bancario=movimiento)
+
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        self.assertIsNone(movimiento.pago_mensual_id)
+        self.assertEqual(pago.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(str(pago.monto_pagado_clp), '0.00')
+        self.assertEqual(ingreso.estado, 'pendiente_revision')
+        self.assertEqual(resolution.status, 'open')
