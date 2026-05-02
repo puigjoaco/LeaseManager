@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from cobranza.models import HistorialGarantia, TipoMovimientoGarantia
@@ -32,6 +33,19 @@ from .models import (
 DEFAULT_REGIME_CODE = 'EmpresaContabilidadCompletaV1'
 
 
+def _effective_company_allocations_for_community(comunidad, amount, effective_date):
+    all_participaciones = list(comunidad.participaciones_vigentes_en(effective_date).order_by('id'))
+    allocated_amounts = _split_amount_by_percentages(
+        Decimal(amount),
+        [participacion.porcentaje for participacion in all_participaciones],
+    )
+    allocations = []
+    for participacion, allocated in zip(all_participaciones, allocated_amounts, strict=False):
+        if participacion.participante_empresa_id:
+            allocations.append((participacion.participante_empresa, allocated))
+    return allocations
+
+
 def _split_amount_by_percentages(total_amount, percentages):
     if not percentages:
         return []
@@ -55,29 +69,28 @@ def resolve_company_distributions_for_payment(payment):
     )
 
 
-def resolve_company_allocations_for_contract(contrato, amount):
+def resolve_company_allocations_for_contract(contrato, amount, *, effective_date=None):
     mandato = contrato.mandato_operacion
+    effective_date = effective_date or timezone.localdate()
     if mandato.propietario_empresa_owner_id:
         return [(mandato.propietario_empresa_owner, Decimal(amount))]
     if mandato.propietario_socio_owner_id:
         return []
+    return _effective_company_allocations_for_community(
+        mandato.propietario_comunidad_owner,
+        amount,
+        effective_date,
+    )
 
-    participaciones = list(
-        mandato.propietario_comunidad_owner.participaciones_activas()
-        .filter(participante_empresa__isnull=False)
-        .select_related('participante_empresa')
-        .order_by('id')
-    )
-    all_active_participaciones = list(mandato.propietario_comunidad_owner.participaciones_activas().order_by('id'))
-    allocated_amounts = _split_amount_by_percentages(
-        Decimal(amount),
-        [participacion.porcentaje for participacion in all_active_participaciones],
-    )
-    allocations = []
-    for participacion, allocated in zip(all_active_participaciones, allocated_amounts, strict=False):
-        if participacion.participante_empresa_id:
-            allocations.append((participacion.participante_empresa, allocated))
-    return allocations
+
+def _get_monthly_close_for_date(empresa, fecha_operativa):
+    if empresa is None or fecha_operativa is None:
+        return None
+    return CierreMensualContable.objects.filter(
+        empresa=empresa,
+        anio=fecha_operativa.year,
+        mes=fecha_operativa.month,
+    ).first()
 
 
 def ensure_default_regime():
@@ -92,6 +105,8 @@ def ensure_default_regime():
 
 @transaction.atomic
 def create_accounting_event(*, empresa, evento_tipo, entidad_origen_tipo, entidad_origen_id, fecha_operativa, moneda, monto_base, payload_resumen, idempotency_key):
+    if Decimal(monto_base) <= Decimal('0.00'):
+        raise ValueError('El monto_base del evento contable debe ser mayor que cero.')
     event, created = EventoContable.objects.get_or_create(
         idempotency_key=idempotency_key,
         defaults={
@@ -128,7 +143,9 @@ def get_active_rule(event):
             evento_tipo=event.evento_tipo,
             estado='activa',
         )
-        .order_by('-vigencia_desde')
+        .filter(vigencia_desde__lte=event.fecha_operativa)
+        .filter(Q(vigencia_hasta__isnull=True) | Q(vigencia_hasta__gte=event.fecha_operativa))
+        .order_by('-vigencia_desde', '-id')
         .first()
     )
 
@@ -137,6 +154,16 @@ def get_active_rule(event):
 def post_accounting_event(event):
     if event.estado_contable == EstadoEventoContable.POSTED:
         return event.asiento_contable
+    if event.monto_base <= Decimal('0.00'):
+        event.estado_contable = EstadoEventoContable.REVIEW
+        event.save(update_fields=['estado_contable', 'updated_at'])
+        return None
+
+    close = _get_monthly_close_for_date(event.empresa, event.fecha_operativa)
+    if close and close.estado == EstadoCierreMensual.APPROVED:
+        event.estado_contable = EstadoEventoContable.REVIEW
+        event.save(update_fields=['estado_contable', 'updated_at'])
+        return None
 
     config = get_active_fiscal_config(event.empresa)
     if not config or config.regimen_tributario.codigo_regimen != DEFAULT_REGIME_CODE:
@@ -241,6 +268,7 @@ def create_guarantee_event(historial):
     for empresa, allocated_amount in resolve_company_allocations_for_contract(
         historial.garantia_contractual.contrato,
         historial.monto_clp,
+        effective_date=historial.fecha,
     ):
         if allocated_amount <= 0:
             continue
@@ -418,6 +446,10 @@ def build_monthly_tax_obligations(empresa, anio, mes):
 
 @transaction.atomic
 def prepare_monthly_close(empresa, anio, mes):
+    existing_close = CierreMensualContable.objects.filter(empresa=empresa, anio=anio, mes=mes).first()
+    if existing_close and existing_close.estado == EstadoCierreMensual.APPROVED:
+        raise ValueError('El periodo ya fue aprobado; debe reabrirse antes de volver a preparar el cierre.')
+
     pending_events = get_company_period_events(empresa, anio, mes).exclude(estado_contable=EstadoEventoContable.POSTED)
     if pending_events.exists():
         raise ValueError('Existen eventos contables pendientes o en revision para el periodo.')

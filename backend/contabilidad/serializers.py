@@ -240,6 +240,18 @@ class EventoContableSerializer(serializers.ModelSerializer):
         if user and getattr(user, 'is_authenticated', False):
             self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
 
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, EventoContable)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        if candidate.monto_base <= 0:
+            raise serializers.ValidationError({'monto_base': 'El monto_base debe ser mayor que cero.'})
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
 
 class MovimientoAsientoSerializer(serializers.ModelSerializer):
     class Meta:

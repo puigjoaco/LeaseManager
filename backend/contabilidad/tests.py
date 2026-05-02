@@ -6,6 +6,7 @@ from rest_framework.test import APITestCase
 
 from cobranza.models import EstadoPago, GarantiaContractual, PagoMensual
 from conciliacion.models import ConexionBancaria, MovimientoBancarioImportado
+from core.models import Role, Scope, UserScopeAssignment
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
@@ -60,6 +61,17 @@ class ContabilidadAPITests(APITestCase):
         )
         return empresa
 
+    def _assign_company_scope_reviewer(self, user, empresa):
+        reviewer_role = Role.objects.create(code='RevisorFiscalExterno', name='Revisor fiscal externo')
+        scope = Scope.objects.create(
+            code=f'company-{empresa.id}',
+            name=f'Empresa {empresa.razon_social}',
+            scope_type=Scope.ScopeType.COMPANY,
+            external_reference=str(empresa.id),
+            is_active=True,
+        )
+        UserScopeAssignment.objects.create(user=user, role=reviewer_role, scope=scope, is_primary=True)
+
     def _setup_contabilidad(self, empresa):
         regime = ensure_default_regime()
         ConfiguracionFiscalEmpresa.objects.create(
@@ -105,18 +117,30 @@ class ContabilidadAPITests(APITestCase):
         )
         return {'bancos': bancos, 'cxc': cxc, 'garantias': garantias}
 
-    def _create_rule_matrix(self, empresa, event_type, debit_account, credit_account):
+    def _create_rule_matrix(
+        self,
+        empresa,
+        event_type,
+        debit_account,
+        credit_account,
+        *,
+        vigencia_desde='2026-01-01',
+        vigencia_hasta=None,
+    ):
+        payload = {
+            'empresa': empresa.id,
+            'evento_tipo': event_type,
+            'plan_cuentas_version': 'v1',
+            'criterio_cargo': debit_account.codigo,
+            'criterio_abono': credit_account.codigo,
+            'vigencia_desde': vigencia_desde,
+            'estado': 'activa',
+        }
+        if vigencia_hasta is not None:
+            payload['vigencia_hasta'] = vigencia_hasta
         regla = self.client.post(
             reverse('contabilidad-regla-list'),
-            {
-                'empresa': empresa.id,
-                'evento_tipo': event_type,
-                'plan_cuentas_version': 'v1',
-                'criterio_cargo': debit_account.codigo,
-                'criterio_abono': credit_account.codigo,
-                'vigencia_desde': '2026-01-01',
-                'estado': 'activa',
-            },
+            payload,
             format='json',
         )
         self.assertEqual(regla.status_code, status.HTTP_201_CREATED)
@@ -229,6 +253,27 @@ class ContabilidadAPITests(APITestCase):
         event = EventoContable.objects.get(pk=response.data['id'])
         self.assertEqual(event.estado_contable, 'pendiente_revision_contable')
         self.assertFalse(AsientoContable.objects.filter(evento_contable=event).exists())
+
+    def test_manual_event_rejects_non_positive_monto_base(self):
+        empresa = self._create_active_empresa()
+
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'invalid-zero',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '0.00',
+                'payload_resumen': {},
+                'idempotency_key': 'invalid-zero',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_create_and_patch_configuracion_fiscal_with_tasa_ppm_vigente(self):
         empresa = self._create_active_empresa(nombre='FiscalCo', rut='78787878-7')
@@ -367,6 +412,102 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(event.estado_contable, 'contabilizado')
         self.assertEqual(asiento.debe_total, asiento.haber_total)
         self.assertEqual(asiento.movimientos.count(), 2)
+
+    def test_historical_event_stays_in_review_when_only_future_rule_exists(self):
+        empresa = self._create_active_empresa(nombre='FutureRuleCo', rut='97979797-9')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(
+            empresa,
+            'PagoConciliadoArriendo',
+            accounts['bancos'],
+            accounts['cxc'],
+            vigencia_desde='2026-02-01',
+        )
+
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'historical-before-rule',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'historical-before-rule',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        event = EventoContable.objects.get(pk=response.data['id'])
+        self.assertEqual(event.estado_contable, 'pendiente_revision_contable')
+        self.assertFalse(AsientoContable.objects.filter(evento_contable=event).exists())
+
+    def test_historical_event_uses_rule_effective_on_operational_date(self):
+        empresa = self._create_active_empresa(nombre='HistoricalRuleCo', rut='96969696-9')
+        accounts = self._setup_contabilidad(empresa)
+        caja_transitoria = CuentaContable.objects.create(
+            empresa=empresa,
+            plan_cuentas_version='v1',
+            codigo='1102',
+            nombre='Caja Transitoria',
+            naturaleza='deudora',
+            nivel=1,
+            estado='activa',
+            es_control_obligatoria=True,
+        )
+        pasivo_diferido = CuentaContable.objects.create(
+            empresa=empresa,
+            plan_cuentas_version='v1',
+            codigo='2102',
+            nombre='Pasivo Diferido',
+            naturaleza='acreedora',
+            nivel=1,
+            estado='activa',
+            es_control_obligatoria=True,
+        )
+
+        self._create_rule_matrix(
+            empresa,
+            'PagoConciliadoArriendo',
+            accounts['bancos'],
+            accounts['cxc'],
+            vigencia_desde='2026-01-01',
+            vigencia_hasta='2026-01-31',
+        )
+        self._create_rule_matrix(
+            empresa,
+            'PagoConciliadoArriendo',
+            caja_transitoria,
+            pasivo_diferido,
+            vigencia_desde='2026-02-01',
+        )
+
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'historical-correct-rule',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'historical-correct-rule',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        event = EventoContable.objects.get(pk=response.data['id'])
+        asiento = AsientoContable.objects.get(evento_contable=event)
+        account_codes = sorted(asiento.movimientos.values_list('cuenta_contable__codigo', flat=True))
+
+        self.assertEqual(event.estado_contable, 'contabilizado')
+        self.assertEqual(account_codes, ['1101', '1201'])
 
     def test_payment_reconciliation_auto_generates_posted_event(self):
         empresa = self._create_active_empresa(nombre='PayCo', rut='77777777-7')
@@ -644,3 +785,171 @@ class ContabilidadAPITests(APITestCase):
         )
         self.assertEqual(reopen.status_code, status.HTTP_200_OK)
         self.assertEqual(reopen.data['estado'], 'reabierto')
+
+    def test_prepare_monthly_close_rejects_already_approved_period(self):
+        empresa = self._create_active_empresa(nombre='ApproveLockedCo', rut='57575757-5')
+        accounts = self._setup_contabilidad(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        config.tasa_ppm_vigente = '10.00'
+        config.save(update_fields=['tasa_ppm_vigente'])
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+
+        event_response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'lock-close-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'lock-close-1',
+            },
+            format='json',
+        )
+        self.assertEqual(event_response.status_code, status.HTTP_201_CREATED)
+
+        prepare = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        approve = self.client.post(
+            reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
+            format='json',
+        )
+        self.assertEqual(approve.status_code, status.HTTP_200_OK)
+
+        second_prepare = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(second_prepare.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_event_created_after_approved_close_stays_in_review_without_asiento(self):
+        empresa = self._create_active_empresa(nombre='ApprovedPeriodCo', rut='58585858-5')
+        accounts = self._setup_contabilidad(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        config.tasa_ppm_vigente = '10.00'
+        config.save(update_fields=['tasa_ppm_vigente'])
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+
+        seed_event = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'approved-period-seed',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'approved-period-seed',
+            },
+            format='json',
+        )
+        self.assertEqual(seed_event.status_code, status.HTTP_201_CREATED)
+
+        prepare = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        approve = self.client.post(
+            reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
+            format='json',
+        )
+        self.assertEqual(approve.status_code, status.HTTP_200_OK)
+
+        late_event = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'approved-period-late',
+                'fecha_operativa': '2026-01-20',
+                'moneda': 'CLP',
+                'monto_base': '50000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'approved-period-late',
+            },
+            format='json',
+        )
+        self.assertEqual(late_event.status_code, status.HTTP_201_CREATED)
+        event = EventoContable.objects.get(pk=late_event.data['id'])
+        self.assertEqual(event.estado_contable, 'pendiente_revision_contable')
+        self.assertFalse(AsientoContable.objects.filter(evento_contable=event).exists())
+
+    def test_scoped_reviewer_lists_only_obligaciones_for_assigned_company(self):
+        empresa_a = self._create_active_empresa(nombre='Scope Ledger A', rut='61111111-1')
+        empresa_b = self._create_active_empresa(nombre='Scope Ledger B', rut='62222222-2')
+        ObligacionTributariaMensual.objects.create(
+            empresa=empresa_a,
+            anio=2026,
+            mes=1,
+            obligacion_tipo='PPM',
+            base_imponible='100000.00',
+            monto_calculado='10000.00',
+            estado_preparacion='preparado',
+        )
+        ObligacionTributariaMensual.objects.create(
+            empresa=empresa_b,
+            anio=2026,
+            mes=1,
+            obligacion_tipo='PPM',
+            base_imponible='200000.00',
+            monto_calculado='20000.00',
+            estado_preparacion='preparado',
+        )
+
+        user_model = get_user_model()
+        reviewer = user_model.objects.create_user(
+            username='ledger-reviewer',
+            password='secret123',
+            default_role_code='RevisorFiscalExterno',
+        )
+        self._assign_company_scope_reviewer(reviewer, empresa_a)
+        self.client.force_authenticate(reviewer)
+
+        response = self.client.get(reverse('contabilidad-obligacion-list'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['empresa'], empresa_a.id)
+
+    def test_scoped_reviewer_lists_books_only_for_assigned_company(self):
+        empresa_a = self._create_active_empresa(nombre='Scope Books A', rut='63333333-3')
+        empresa_b = self._create_active_empresa(nombre='Scope Books B', rut='64444444-4')
+        LibroDiario.objects.create(empresa=empresa_a, periodo='2026-01', estado_snapshot='preparado', resumen={'empresa': 'A'})
+        LibroDiario.objects.create(empresa=empresa_b, periodo='2026-01', estado_snapshot='preparado', resumen={'empresa': 'B'})
+        LibroMayor.objects.create(empresa=empresa_a, periodo='2026-01', estado_snapshot='preparado', resumen={'empresa': 'A'})
+        LibroMayor.objects.create(empresa=empresa_b, periodo='2026-01', estado_snapshot='preparado', resumen={'empresa': 'B'})
+        BalanceComprobacion.objects.create(empresa=empresa_a, periodo='2026-01', estado_snapshot='preparado', resumen={'empresa': 'A'})
+        BalanceComprobacion.objects.create(empresa=empresa_b, periodo='2026-01', estado_snapshot='preparado', resumen={'empresa': 'B'})
+
+        user_model = get_user_model()
+        reviewer = user_model.objects.create_user(
+            username='books-reviewer',
+            password='secret123',
+            default_role_code='RevisorFiscalExterno',
+        )
+        self._assign_company_scope_reviewer(reviewer, empresa_a)
+        self.client.force_authenticate(reviewer)
+
+        libro_diario = self.client.get(reverse('contabilidad-libro-diario-list'))
+        libro_mayor = self.client.get(reverse('contabilidad-libro-mayor-list'))
+        balance = self.client.get(reverse('contabilidad-balance-list'))
+
+        self.assertEqual(libro_diario.status_code, status.HTTP_200_OK)
+        self.assertEqual(libro_mayor.status_code, status.HTTP_200_OK)
+        self.assertEqual(balance.status_code, status.HTTP_200_OK)
+        self.assertEqual([item['empresa'] for item in libro_diario.data], [empresa_a.id])
+        self.assertEqual([item['empresa'] for item in libro_mayor.data], [empresa_a.id])
+        self.assertEqual([item['empresa'] for item in balance.data], [empresa_a.id])
