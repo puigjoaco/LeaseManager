@@ -2,6 +2,7 @@ from django.db import migrations, models
 import django.db.models.deletion
 from decimal import Decimal, ROUND_DOWN
 import django.core.validators
+from datetime import date
 
 
 def _split_amount_by_percentages(total_amount, percentages):
@@ -17,6 +18,17 @@ def _split_amount_by_percentages(total_amount, percentages):
             running_total += amount
         allocated.append(amount)
     return allocated
+
+
+def _operational_month_start(payment):
+    return date(int(payment.anio), int(payment.mes), 1)
+
+
+def _resolved_facturable_amount(payment):
+    stored_amount = Decimal(payment.monto_facturable_clp or Decimal('0.00'))
+    if stored_amount > Decimal('0.00'):
+        return stored_amount
+    return Decimal(payment.monto_calculado_clp)
 
 
 def backfill_distributions_for_existing_payments(apps, schema_editor):
@@ -52,12 +64,14 @@ def backfill_distributions_for_existing_payments(apps, schema_editor):
                 }
             )
         elif mandate.propietario_comunidad_owner_id:
+            effective_date = _operational_month_start(payment)
             participaciones = list(
                 ParticipacionPatrimonial.objects.filter(
                     comunidad_owner_id=mandate.propietario_comunidad_owner_id,
                     activo=True,
+                    vigente_desde__lte=effective_date,
                 ).filter(
-                    models.Q(vigente_hasta__isnull=True) | models.Q(vigente_hasta__gte=payment.created_at.date())
+                    models.Q(vigente_hasta__isnull=True) | models.Q(vigente_hasta__gte=effective_date)
                 ).order_by('id')
             )
             for participacion in participaciones:
@@ -69,7 +83,8 @@ def backfill_distributions_for_existing_payments(apps, schema_editor):
                     }
                 )
 
-        devengados = _split_amount_by_percentages(Decimal(payment.monto_facturable_clp), [row['porcentaje_snapshot'] for row in distribution_rows])
+        facturable_amount = _resolved_facturable_amount(payment)
+        devengados = _split_amount_by_percentages(facturable_amount, [row['porcentaje_snapshot'] for row in distribution_rows])
         conciliados = _split_amount_by_percentages(Decimal(payment.monto_pagado_clp), [row['porcentaje_snapshot'] for row in distribution_rows])
 
         for index, row in enumerate(distribution_rows):

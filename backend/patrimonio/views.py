@@ -1,9 +1,12 @@
 from audit.services import create_audit_event
-from core.permissions import OperationalModulePermission
+from core.permissions import OperationalModulePermission, ROLE_ADMIN, get_effective_role_codes
+from core.scope_access import get_scope_access
+from rest_framework.permissions import SAFE_METHODS
 from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_queryset_for_access
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.utils import timezone
 
 from .models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio
 from .serializers import (
@@ -50,6 +53,18 @@ class AuditCreateUpdateMixin:
             actor_user=self.request.user,
             ip_address=self.request.META.get('REMOTE_ADDR'),
         )
+
+
+class OperationalMasterDataPermission(OperationalModulePermission):
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        if request.method in SAFE_METHODS:
+            return True
+        roles = get_effective_role_codes(request.user)
+        if getattr(request.user, 'is_superuser', False) or ROLE_ADMIN in roles:
+            return True
+        return not get_scope_access(request.user).restricted
 
 
 class PatrimonioSnapshotView(APIView):
@@ -162,7 +177,7 @@ class PatrimonioSnapshotView(APIView):
 
 
 class SocioListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [OperationalModulePermission]
+    permission_classes = [OperationalMasterDataPermission]
     serializer_class = SocioSerializer
     queryset = Socio.objects.all()
     property_scope_paths = (
@@ -176,7 +191,7 @@ class SocioListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.
 
 
 class SocioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [OperationalModulePermission]
+    permission_classes = [OperationalMasterDataPermission]
     serializer_class = SocioSerializer
     queryset = Socio.objects.all()
     property_scope_paths = (
@@ -190,7 +205,7 @@ class SocioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.Retr
 
 
 class EmpresaListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [OperationalModulePermission]
+    permission_classes = [OperationalMasterDataPermission]
     serializer_class = EmpresaSerializer
     queryset = Empresa.objects.prefetch_related('participaciones__participante_socio').all()
     company_scope_paths = ('id',)
@@ -199,7 +214,7 @@ class EmpresaListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
 
 
 class EmpresaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [OperationalModulePermission]
+    permission_classes = [OperationalMasterDataPermission]
     serializer_class = EmpresaSerializer
     queryset = Empresa.objects.prefetch_related('participaciones__participante_socio').all()
     company_scope_paths = ('id',)
@@ -208,7 +223,7 @@ class EmpresaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.Re
 
 
 class ComunidadListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
-    permission_classes = [OperationalModulePermission]
+    permission_classes = [OperationalMasterDataPermission]
     serializer_class = ComunidadPatrimonialSerializer
     queryset = ComunidadPatrimonial.objects.prefetch_related(
         'representaciones__socio_representante',
@@ -221,7 +236,7 @@ class ComunidadListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, gener
 
 
 class ComunidadDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
-    permission_classes = [OperationalModulePermission]
+    permission_classes = [OperationalMasterDataPermission]
     serializer_class = ComunidadPatrimonialSerializer
     queryset = ComunidadPatrimonial.objects.prefetch_related(
         'representaciones__socio_representante',

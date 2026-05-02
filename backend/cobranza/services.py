@@ -4,6 +4,7 @@ from decimal import Decimal, ROUND_DOWN
 
 from django.db import transaction
 from django.utils import timezone
+from core.scope_access import ScopeAccess, scope_queryset_for_access
 
 from .models import (
     AjusteContrato,
@@ -121,6 +122,7 @@ def build_payment_distribution_snapshot(payment):
     mandato = payment.contrato.mandato_operacion
     owner_type = mandato.propietario_tipo
     payment.distribuciones_cobro.all().delete()
+    effective_date = get_operational_month_start(payment.anio, payment.mes)
 
     distribution_rows = []
     if owner_type == 'empresa':
@@ -141,7 +143,7 @@ def build_payment_distribution_snapshot(payment):
         )
     else:
         participaciones = list(
-            mandato.propietario_comunidad_owner.participaciones_activas()
+            mandato.propietario_comunidad_owner.participaciones_vigentes_en(effective_date)
             .select_related('participante_socio', 'participante_empresa')
             .order_by('id')
         )
@@ -184,6 +186,8 @@ def build_payment_distribution_snapshot(payment):
                 origen_atribucion='snapshot_pago',
             )
         )
+    for item in distribution_items:
+        item.full_clean()
     DistribucionCobroMensual.objects.bulk_create(distribution_items)
     return payment.distribuciones_cobro.order_by('id')
 
@@ -304,15 +308,28 @@ def generate_residual_reference():
             return reference
 
 
-def rebuild_account_state(arrendatario):
+def build_account_state_summary(arrendatario, access: ScopeAccess | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
     open_payment_states = {
         EstadoPago.PENDING,
         EstadoPago.OVERDUE,
         EstadoPago.IN_REPAYMENT,
     }
-    payments = PagoMensual.objects.filter(contrato__arrendatario=arrendatario)
-    repactaciones = RepactacionDeuda.objects.filter(arrendatario=arrendatario)
-    residuals = CodigoCobroResidual.objects.filter(arrendatario=arrendatario)
+    payments = scope_queryset_for_access(
+        PagoMensual.objects.filter(contrato__arrendatario=arrendatario),
+        access,
+        property_paths=('contrato__mandato_operacion__propiedad_id',),
+    )
+    repactaciones = scope_queryset_for_access(
+        RepactacionDeuda.objects.filter(arrendatario=arrendatario),
+        access,
+        property_paths=('contrato_origen__mandato_operacion__propiedad_id',),
+    )
+    residuals = scope_queryset_for_access(
+        CodigoCobroResidual.objects.filter(arrendatario=arrendatario),
+        access,
+        property_paths=('contrato_origen__mandato_operacion__propiedad_id',),
+    )
 
     pending_payments = payments.filter(estado_pago__in=open_payment_states)
     overdue_payments = payments.filter(estado_pago=EstadoPago.OVERDUE)
@@ -326,7 +343,7 @@ def rebuild_account_state(arrendatario):
     total_repayment_balance = sum(repactacion.saldo_pendiente for repactacion in active_repayments)
     total_residual_balance = sum(code.saldo_actual for code in active_residuals)
 
-    summary = {
+    return {
         'pagos_abiertos': pending_payments.count(),
         'pagos_atrasados': overdue_payments.count(),
         'repactaciones_activas': active_repayments.count(),
@@ -337,7 +354,15 @@ def rebuild_account_state(arrendatario):
         'saldo_total_clp': str(total_payment_balance + total_repayment_balance + total_residual_balance),
     }
 
+
+def rebuild_account_state(arrendatario, *, access: ScopeAccess | None = None, persist: bool | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    if persist is None:
+        persist = not access.restricted
+
+    summary = build_account_state_summary(arrendatario, access)
     state, _ = EstadoCuentaArrendatario.objects.get_or_create(arrendatario=arrendatario)
     state.resumen_operativo = summary
-    state.save(update_fields=['resumen_operativo', 'updated_at'])
+    if persist:
+        state.save(update_fields=['resumen_operativo', 'updated_at'])
     return state

@@ -1,11 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
+from core.models import Role, Scope, UserScopeAssignment
 
 from .models import (
     ComunidadPatrimonial,
@@ -113,6 +116,15 @@ class PatrimonioAPITests(APITestCase):
         for url in urls:
             response = client.get(url)
             self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_snapshot_endpoint_returns_payload(self):
+        response = self.client.get(reverse('patrimonio-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('socios', response.data)
+        self.assertIn('empresas', response.data)
+        self.assertIn('comunidades', response.data)
+        self.assertIn('propiedades', response.data)
 
     def test_create_socio_normalizes_rut_and_rejects_duplicate(self):
         payload = {
@@ -483,3 +495,145 @@ class PatrimonioAPITests(APITestCase):
 
         self.assertEqual(comunidad.representante_socio_id, socio_designado.id)
         self.assertFalse(comunidad.representante_es_participante_activo())
+
+
+class PatrimonioScopeAPITests(APITestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.operator_role = Role.objects.create(code='OperadorDeCartera', name='Operador de cartera')
+        self.user = user_model.objects.create_user(
+            username='patrimonio-scope',
+            password='secret123',
+            default_role_code='OperadorDeCartera',
+        )
+        self.company_a = self._create_active_company('Scope A', '88888888-8', ('11111111-1', '22222222-2'))
+        self.company_b = self._create_active_company('Scope B', '99999999-9', ('33333333-3', '44444444-4'))
+        self.propiedad_a = Propiedad.objects.create(
+            rol_avaluo='ROL-SCOPE-A',
+            direccion='Av Scope A 100',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='SCOPE-A',
+            estado=EstadoPatrimonial.ACTIVE,
+            empresa_owner=self.company_a,
+        )
+        scope = Scope.objects.create(
+            code=f'company-{self.company_a.id}',
+            name=f'Empresa {self.company_a.razon_social}',
+            scope_type=Scope.ScopeType.COMPANY,
+            external_reference=str(self.company_a.id),
+            is_active=True,
+        )
+        UserScopeAssignment.objects.create(user=self.user, role=self.operator_role, scope=scope, is_primary=True)
+        self.client.force_authenticate(self.user)
+
+    def _create_socio(self, nombre, rut):
+        return Socio.objects.create(nombre=nombre, rut=rut, activo=True)
+
+    def _create_active_company(self, nombre, rut, socio_ruts):
+        socio_1 = self._create_socio(f'{nombre} Socio 1', socio_ruts[0])
+        socio_2 = self._create_socio(f'{nombre} Socio 2', socio_ruts[1])
+        empresa = Empresa.objects.create(razon_social=nombre, rut=rut, estado=EstadoPatrimonial.ACTIVE)
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_1,
+            empresa_owner=empresa,
+            porcentaje='60.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_2,
+            empresa_owner=empresa,
+            porcentaje='40.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        return empresa
+
+    def test_operator_cannot_create_property_for_company_outside_scope(self):
+        response = self.client.post(
+            reverse('patrimonio-propiedad-list'),
+            {
+                'rol_avaluo': 'ROL-SCOPE-B',
+                'direccion': 'Av Scope B 200',
+                'comuna': 'Santiago',
+                'region': 'RM',
+                'tipo_inmueble': TipoInmueble.LOCAL,
+                'codigo_propiedad': 'SCOPE-B',
+                'estado': EstadoPatrimonial.ACTIVE,
+                'owner_tipo': 'empresa',
+                'owner_id': self.company_b.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_operator_cannot_reassign_property_to_company_outside_scope(self):
+        response = self.client.patch(
+            reverse('patrimonio-propiedad-detail', args=[self.propiedad_a.id]),
+            {
+                'owner_tipo': 'empresa',
+                'owner_id': self.company_b.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class PatrimonioMigrationSafetyTests(TransactionTestCase):
+    reset_sequences = True
+
+    migrate_from = [
+        ('patrimonio', '0001_initial'),
+    ]
+    migrate_to = [
+        ('patrimonio', '0003_repair_legacy_representacion_modes'),
+    ]
+
+    def setUp(self):
+        super().setUp()
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate(self.migrate_from)
+        self.old_apps = self.executor.loader.project_state(self.migrate_from).apps
+
+    def migrate(self):
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate(self.migrate_to)
+        self.apps = self.executor.loader.project_state(self.migrate_to).apps
+
+    def test_legacy_representative_outside_participaciones_migrates_as_designated(self):
+        Socio = self.old_apps.get_model('patrimonio', 'Socio')
+        ComunidadPatrimonial = self.old_apps.get_model('patrimonio', 'ComunidadPatrimonial')
+        ParticipacionPatrimonial = self.old_apps.get_model('patrimonio', 'ParticipacionPatrimonial')
+
+        socio_1 = Socio.objects.create(nombre='Socio Uno', rut='11111111-1', activo=True)
+        socio_2 = Socio.objects.create(nombre='Socio Dos', rut='22222222-2', activo=True)
+        socio_designado = Socio.objects.create(nombre='Joaquin Designado', rut='33333333-3', activo=True)
+        comunidad = ComunidadPatrimonial.objects.create(
+            nombre='Comunidad Legacy',
+            estado='activa',
+            representante_socio_id=socio_designado.id,
+        )
+        ParticipacionPatrimonial.objects.create(
+            socio_id=socio_1.id,
+            comunidad_owner_id=comunidad.id,
+            porcentaje='50.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        ParticipacionPatrimonial.objects.create(
+            socio_id=socio_2.id,
+            comunidad_owner_id=comunidad.id,
+            porcentaje='50.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+
+        self.migrate()
+
+        RepresentacionComunidadNew = self.apps.get_model('patrimonio', 'RepresentacionComunidad')
+        representacion = RepresentacionComunidadNew.objects.get(comunidad__nombre='Comunidad Legacy')
+        self.assertEqual(representacion.modo_representacion, ModoRepresentacionComunidad.DESIGNATED)

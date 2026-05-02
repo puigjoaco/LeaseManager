@@ -1,4 +1,7 @@
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TransactionTestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -136,7 +139,7 @@ class SiiAPITests(APITestCase):
         sync_payment_distribution(pago)
         return empresa, pago
 
-    def _activate_capability(self, empresa, estado_gate='condicionado'):
+    def _activate_capability(self, empresa, estado_gate='abierto'):
         return self.client.post(
             reverse('sii-capacidad-list'),
             {
@@ -212,7 +215,7 @@ class SiiAPITests(APITestCase):
                     'capacidad_key': capability_key,
                     'certificado_ref': f'cert-{capability_key}',
                     'ambiente': 'certificacion',
-                    'estado_gate': 'condicionado',
+                    'estado_gate': 'abierto',
                     'ultimo_resultado': {},
                 },
                 format='json',
@@ -245,6 +248,19 @@ class SiiAPITests(APITestCase):
             {'pago_mensual_id': pago.id},
             format='json',
         )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_generate_dte_draft_rejects_conditioned_gate(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_capability(empresa, estado_gate='condicionado')
+        self._activate_fiscal_config(empresa)
+
+        response = self.client.post(
+            reverse('sii-dte-generate'),
+            {'pago_mensual_id': pago.id},
+            format='json',
+        )
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_generate_dte_draft_uses_facturable_amount_not_coded_amount(self):
@@ -286,9 +302,24 @@ class SiiAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_generate_dte_draft_only_allows_factura_exenta_from_paid_payment_path(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_capability(empresa)
+        self._activate_fiscal_config(empresa)
+
+        for tipo_dte in ('56', '61'):
+            response = self.client.post(
+                reverse('sii-dte-generate'),
+                {'pago_mensual_id': pago.id, 'tipo_dte': tipo_dte},
+                format='json',
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.assertEqual(DTEEmitido.objects.filter(pago_mensual=pago).count(), 0)
+
     def test_update_dte_status_manually(self):
         empresa, pago = self._setup_paid_payment()
-        self._activate_capability(empresa, estado_gate=EstadoGateSII.CONDITIONED)
+        self._activate_capability(empresa, estado_gate='abierto')
         self._activate_fiscal_config(empresa)
         generated = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
         self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
@@ -316,6 +347,9 @@ class SiiAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_generate_f29_rejects_conditioned_gate(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
         self.client.post(
             reverse('sii-capacidad-list'),
             {
@@ -324,6 +358,28 @@ class SiiAPITests(APITestCase):
                 'certificado_ref': 'certificado-f29-ref',
                 'ambiente': 'certificacion',
                 'estado_gate': 'condicionado',
+                'ultimo_resultado': {},
+            },
+            format='json',
+        )
+        self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+
+        response = self.client.post(
+            reverse('sii-f29-generate'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.post(
+            reverse('sii-capacidad-list'),
+            {
+                'empresa': empresa.id,
+                'capacidad_key': 'F29Preparacion',
+                'certificado_ref': 'certificado-f29-ref',
+                'ambiente': 'certificacion',
+                'estado_gate': 'abierto',
                 'ultimo_resultado': {},
             },
             format='json',
@@ -345,7 +401,7 @@ class SiiAPITests(APITestCase):
                 'capacidad_key': 'F29Preparacion',
                 'certificado_ref': 'certificado-f29-ref',
                 'ambiente': 'certificacion',
-                'estado_gate': 'condicionado',
+                'estado_gate': 'abierto',
                 'ultimo_resultado': {},
             },
             format='json',
@@ -371,7 +427,7 @@ class SiiAPITests(APITestCase):
                 'capacidad_key': 'F29Preparacion',
                 'certificado_ref': 'certificado-f29-ref',
                 'ambiente': 'certificacion',
-                'estado_gate': 'condicionado',
+                'estado_gate': 'abierto',
                 'ultimo_resultado': {},
             },
             format='json',
@@ -396,7 +452,7 @@ class SiiAPITests(APITestCase):
                 'capacidad_key': 'F29Preparacion',
                 'certificado_ref': 'certificado-f29-ref',
                 'ambiente': 'certificacion',
-                'estado_gate': 'condicionado',
+                'estado_gate': 'abierto',
                 'ultimo_resultado': {},
             },
             format='json',
@@ -453,7 +509,7 @@ class SiiAPITests(APITestCase):
                 'capacidad_key': 'F29Preparacion',
                 'certificado_ref': 'certificado-f29-ref',
                 'ambiente': 'certificacion',
-                'estado_gate': 'condicionado',
+                'estado_gate': 'abierto',
                 'ultimo_resultado': {},
             },
             format='json',
@@ -490,6 +546,33 @@ class SiiAPITests(APITestCase):
             {'empresa_id': empresa.id, 'anio_tributario': 2027},
             format='json',
         )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_generate_annual_preparation_rejects_conditioned_gates(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
+        for capability_key in ('DDJJPreparacion', 'F22Preparacion'):
+            response = self.client.post(
+                reverse('sii-capacidad-list'),
+                {
+                    'empresa': empresa.id,
+                    'capacidad_key': capability_key,
+                    'certificado_ref': f'cert-{capability_key}',
+                    'ambiente': 'certificacion',
+                    'estado_gate': 'condicionado',
+                    'ultimo_resultado': {},
+                },
+                format='json',
+            )
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+
+        response = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_generate_annual_preparation_builds_ddjj_and_f22(self):
@@ -573,3 +656,171 @@ class SiiAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['ddjj_preparacion']['estado_preparacion'], 'pendiente_datos')
         self.assertEqual(response.data['f22_preparacion']['estado_preparacion'], 'preparado')
+
+
+class SiiMigrationSafetyTests(TransactionTestCase):
+    reset_sequences = True
+
+    migrate_from = [
+        ('patrimonio', '0002_participaciones_mixtas_y_representacion_comunidad'),
+        ('operacion', '0001_initial'),
+        ('contratos', '0001_initial'),
+        ('cobranza', '0003_pagomensual_monto_facturable_clp'),
+        ('sii', '0003_procesorentaanual_f22preparacionanual_and_more'),
+    ]
+    migrate_to = [
+        ('patrimonio', '0003_repair_legacy_representacion_modes'),
+        ('operacion', '0001_initial'),
+        ('contratos', '0001_initial'),
+        ('cobranza', '0004_distribucioncobromensual'),
+        ('sii', '0004_dte_emitido_distribucion_cobro_mensual'),
+    ]
+
+    def setUp(self):
+        super().setUp()
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate(self.migrate_from)
+        self.old_apps = self.executor.loader.project_state(self.migrate_from).apps
+
+    def migrate(self):
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate(self.migrate_to)
+        self.apps = self.executor.loader.project_state(self.migrate_to).apps
+
+    def test_dte_backfill_links_distribution_even_when_legacy_payment_lacked_facturable_amount(self):
+        Socio = self.old_apps.get_model('patrimonio', 'Socio')
+        Empresa = self.old_apps.get_model('patrimonio', 'Empresa')
+        ParticipacionPatrimonial = self.old_apps.get_model('patrimonio', 'ParticipacionPatrimonial')
+        Propiedad = self.old_apps.get_model('patrimonio', 'Propiedad')
+        CuentaRecaudadora = self.old_apps.get_model('operacion', 'CuentaRecaudadora')
+        MandatoOperacion = self.old_apps.get_model('operacion', 'MandatoOperacion')
+        Arrendatario = self.old_apps.get_model('contratos', 'Arrendatario')
+        Contrato = self.old_apps.get_model('contratos', 'Contrato')
+        ContratoPropiedad = self.old_apps.get_model('contratos', 'ContratoPropiedad')
+        PeriodoContractual = self.old_apps.get_model('contratos', 'PeriodoContractual')
+        PagoMensual = self.old_apps.get_model('cobranza', 'PagoMensual')
+        CapacidadTributariaSII = self.old_apps.get_model('sii', 'CapacidadTributariaSII')
+        DTEEmitidoOld = self.old_apps.get_model('sii', 'DTEEmitido')
+
+        socio_1 = Socio.objects.create(nombre='Socio Uno', rut='11111111-1', activo=True)
+        socio_2 = Socio.objects.create(nombre='Socio Dos', rut='22222222-2', activo=True)
+        empresa = Empresa.objects.create(razon_social='Empresa Legacy SII', rut='76999999-9', estado='activa')
+        ParticipacionPatrimonial.objects.create(
+            participante_socio_id=socio_1.id,
+            empresa_owner_id=empresa.id,
+            porcentaje='60.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio_id=socio_2.id,
+            empresa_owner_id=empresa.id,
+            porcentaje='40.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        propiedad = Propiedad.objects.create(
+            direccion='Av Legacy SII',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble='local',
+            codigo_propiedad='SII-HIST-001',
+            estado='activa',
+            empresa_owner_id=empresa.id,
+        )
+        cuenta = CuentaRecaudadora.objects.create(
+            empresa_owner_id=empresa.id,
+            institucion='Banco Uno',
+            numero_cuenta='ACC-SII-HIST',
+            tipo_cuenta='corriente',
+            titular_nombre=empresa.razon_social,
+            titular_rut=empresa.rut,
+            moneda_operativa='CLP',
+            estado_operativo='activa',
+        )
+        mandato = MandatoOperacion.objects.create(
+            propiedad_id=propiedad.id,
+            propietario_empresa_owner_id=empresa.id,
+            administrador_empresa_owner_id=empresa.id,
+            cuenta_recaudadora_id=cuenta.id,
+            entidad_facturadora_id=empresa.id,
+            tipo_relacion_operativa='mandato_externo',
+            autoriza_recaudacion=True,
+            autoriza_facturacion=True,
+            autoriza_comunicacion=True,
+            estado='activa',
+        )
+        arrendatario = Arrendatario.objects.create(
+            tipo_arrendatario='persona_natural',
+            nombre_razon_social='Arrendatario Legacy',
+            rut='56565656-5',
+            email='legacy@example.com',
+            telefono='777',
+            domicilio_notificaciones='Legacy',
+            estado_contacto='activo',
+        )
+        contrato = Contrato.objects.create(
+            codigo_contrato='SII-HIST',
+            mandato_operacion_id=mandato.id,
+            arrendatario_id=arrendatario.id,
+            fecha_inicio='2026-01-01',
+            fecha_fin_vigente='2026-12-31',
+            dia_pago_mensual=5,
+            estado='vigente',
+        )
+        ContratoPropiedad.objects.create(
+            contrato_id=contrato.id,
+            propiedad_id=propiedad.id,
+            rol_en_contrato='principal',
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='111',
+        )
+        periodo = PeriodoContractual.objects.create(
+            contrato_id=contrato.id,
+            numero_periodo=1,
+            fecha_inicio='2026-01-01',
+            fecha_fin='2026-12-31',
+            monto_base='100000.00',
+            moneda_base='CLP',
+            tipo_periodo='base',
+            origen_periodo='manual',
+        )
+        pago = PagoMensual.objects.create(
+            contrato_id=contrato.id,
+            periodo_contractual_id=periodo.id,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp='0.00',
+            monto_calculado_clp='100111.00',
+            monto_pagado_clp='100111.00',
+            fecha_vencimiento='2026-01-05',
+            estado_pago='pagado',
+            codigo_conciliacion_efectivo='111',
+        )
+        capacidad = CapacidadTributariaSII.objects.create(
+            empresa_id=empresa.id,
+            capacidad_key='DTEEmision',
+            certificado_ref='cert-legacy',
+            ambiente='certificacion',
+            estado_gate='abierto',
+        )
+        DTEEmitidoOld.objects.create(
+            empresa_id=empresa.id,
+            capacidad_tributaria_id=capacidad.id,
+            contrato_id=contrato.id,
+            pago_mensual_id=pago.id,
+            arrendatario_id=arrendatario.id,
+            tipo_dte='34',
+            monto_neto_clp='100000.00',
+            fecha_emision='2026-01-06',
+            estado_dte='borrador',
+        )
+
+        self.migrate()
+
+        DTEEmitidoNew = self.apps.get_model('sii', 'DTEEmitido')
+        dte = DTEEmitidoNew.objects.get(contrato__codigo_contrato='SII-HIST')
+
+        self.assertIsNotNone(dte.distribucion_cobro_mensual_id)
+        self.assertTrue(dte.distribucion_cobro_mensual.requiere_dte)
+        self.assertEqual(dte.distribucion_cobro_mensual.beneficiario_empresa_owner_id, dte.empresa_id)
