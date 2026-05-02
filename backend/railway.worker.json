@@ -4,7 +4,7 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "startCommand": "sh -lc \"celery -A leasemanager_api worker --loglevel=${CELERY_LOGLEVEL:-info}\"",
+    "startCommand": "sh -lc \"celery -A leasemanager_api worker --loglevel=${CELERY_LOGLEVEL:-info} --concurrency=${CELERY_CONCURRENCY:-2}\"",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
