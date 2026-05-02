@@ -35,6 +35,8 @@ if (-not $BackendTestDb) {
 
 $testTargets = @(
     'users.tests.UserAuthAPITests',
+    'core.tests.PlatformBootstrapAPITests',
+    'core.tests.EffectiveRoleUtilityTests',
     'core.tests_permissions.RolePermissionTests',
     'core.tests_scope_access.ScopeFilteringAPITests',
     'health.tests.HealthEndpointTests',

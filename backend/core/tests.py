@@ -10,6 +10,46 @@ from .permissions import get_effective_role_codes
 
 
 class PlatformBootstrapAPITests(APITestCase):
+    def test_platform_bootstrap_admin_default_role_sees_all_active_scopes(self):
+        user = get_user_model().objects.create_user(
+            username='platform-bootstrap-admin',
+            password='secret123',
+            default_role_code='AdministradorGlobal',
+        )
+        company_scope = Scope.objects.create(
+            code='company-101',
+            name='Empresa 101',
+            scope_type=Scope.ScopeType.COMPANY,
+            external_reference='101',
+            is_active=True,
+        )
+        property_scope = Scope.objects.create(
+            code='property-202',
+            name='Propiedad 202',
+            scope_type=Scope.ScopeType.PROPERTY,
+            external_reference='202',
+            is_active=True,
+        )
+        Scope.objects.create(
+            code='company-303',
+            name='Empresa 303',
+            scope_type=Scope.ScopeType.COMPANY,
+            external_reference='303',
+            is_active=False,
+        )
+        self.client.force_authenticate(user)
+
+        response = self.client.get(reverse('platform-bootstrap'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data['available_scopes'],
+            [
+                {'code': company_scope.code, 'name': company_scope.name, 'scope_type': company_scope.scope_type},
+                {'code': property_scope.code, 'name': property_scope.name, 'scope_type': property_scope.scope_type},
+            ],
+        )
+
     def test_platform_bootstrap_returns_only_effective_roles_and_assigned_active_scopes(self):
         user = get_user_model().objects.create_user(
             username='platform-bootstrap',

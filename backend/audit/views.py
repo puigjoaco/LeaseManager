@@ -178,7 +178,7 @@ class ResolveMigrationPropertyOwnerView(APIView):
             result = resolve_migration_property_owner_manual_resolution(
                 resolution=resolution,
                 nombre_comunidad=serializer.validated_data['nombre_comunidad'],
-                representante_socio_id=serializer.validated_data['representante_socio_id'],
+                representante_socio_id=serializer.validated_data.get('representante_socio_id'),
                 representante_modo=serializer.validated_data.get('representante_modo'),
                 participaciones=serializer.validated_data.get('participaciones'),
                 region=serializer.validated_data.get('region', ''),

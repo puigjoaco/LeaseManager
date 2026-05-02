@@ -230,6 +230,59 @@ class AuditAPITests(APITestCase):
         self.assertEqual(comunidad.representacion_vigente().modo_representacion, ModoRepresentacionComunidad.DESIGNATED)
         self.assertEqual(comunidad.representante_socio_id, socio_designado.pk)
 
+    def test_resolve_property_owner_designated_mode_can_use_default_representative(self):
+        socio_1 = Socio.objects.create(nombre='Socio Uno', rut='11111111-1', activo=True)
+        socio_2 = Socio.objects.create(nombre='Socio Dos', rut='22222222-2', activo=True)
+        default_representative = Socio.objects.create(nombre='Joaquin Puig Vittini', rut='17.366.287-4', activo=True)
+        resolution = ManualResolution.objects.create(
+            category='migration.propiedad.owner_manual_required',
+            scope_type='legacy_propiedad',
+            scope_reference='prop-legacy-default-representative',
+            summary='Owner manual',
+            metadata={
+                'codigo': 48,
+                'direccion': 'DIRECCION_TEST_NO_PRODUCTIVA',
+                'canonical_estado': 'activa',
+                'rol_avaluo': '123-3',
+                'comuna': 'Santiago',
+                'tipo_inmueble': 'departamento',
+                'candidate_owner_model': 'comunidad',
+                'socios': [
+                    {
+                        'socio_legacy_id': 'soc-1',
+                        'socio_nombre': socio_1.nombre,
+                        'socio_rut': socio_1.rut,
+                        'porcentaje': '50.00',
+                        'activo': True,
+                        'vigente_desde': '2026-01-01',
+                    },
+                    {
+                        'socio_legacy_id': 'soc-2',
+                        'socio_nombre': socio_2.nombre,
+                        'socio_rut': socio_2.rut,
+                        'porcentaje': '50.00',
+                        'activo': True,
+                        'vigente_desde': '2026-01-01',
+                    },
+                ],
+            },
+        )
+
+        response = self.client.post(
+            reverse('manual-resolution-resolve-property-owner', args=[resolution.pk]),
+            {
+                'nombre_comunidad': 'Comunidad Designada Default',
+                'representante_modo': ModoRepresentacionComunidad.DESIGNATED,
+                'region': 'RM',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        comunidad = ComunidadPatrimonial.objects.get()
+        self.assertEqual(comunidad.representacion_vigente().modo_representacion, ModoRepresentacionComunidad.DESIGNATED)
+        self.assertEqual(comunidad.representante_socio_id, default_representative.pk)
+
     def test_resolve_property_owner_manual_resolution_accepts_mixed_participants(self):
         socio_1 = Socio.objects.create(nombre='Socio Uno', rut='11111111-1', activo=True)
         empresa = Empresa.objects.create(razon_social='Inmobiliaria Puig SpA', rut='76311245-4', estado='activa')

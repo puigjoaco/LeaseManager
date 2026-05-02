@@ -2184,6 +2184,7 @@ function App() {
   async function loadWorkspace(activeToken: string, options: WorkspaceLoadOptions = {}) {
     const requestId = ++workspaceLoadRequestRef.current
     const isCurrentLoad = () => workspaceLoadRequestRef.current === requestId
+    let deferredControlLoadsStarted = false
     const hasImmediateOverviewData = activeView === 'overview' && Boolean(dashboard || manualSummary)
     const shouldShowGlobalRefresh = Boolean(
       options.forceUserRefresh
@@ -2538,6 +2539,7 @@ function App() {
         setWorkspaceLastLoadedAt(primaryLoadTimestamp)
       }
 
+      deferredControlLoadsStarted = true
       void (async () => {
         if (shouldLoadOverviewSecondary) {
           void (async () => {
@@ -2736,6 +2738,12 @@ function App() {
         setIsChannelsSnapshotLoading(false)
         setIsCobranzaSnapshotLoading(false)
         setIsConciliacionSnapshotLoading(false)
+        setIsSiiSnapshotLoading(false)
+        setIsAuditSnapshotLoading(false)
+        if (!deferredControlLoadsStarted) {
+          setIsControlCatalogLoading(false)
+          setIsControlActivityLoading(false)
+        }
         if (shouldShowGlobalRefresh) {
           setIsRefreshing(false)
         }
