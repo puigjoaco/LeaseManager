@@ -65,7 +65,7 @@ Step "Backend acceptance suite"
 $env:DATABASE_URL = $BackendTestDb
 $env:REDIS_URL = ''
 $env:CELERY_RESULT_BACKEND = ''
-$env:DJANGO_CACHE_URL = ''
+$env:DJANGO_CACHE_URL = 'locmem://leasemanager-acceptance-cache'
 Push-Location $backendDir
 try {
     & $pythonExe manage.py test @testTargets --keepdb
