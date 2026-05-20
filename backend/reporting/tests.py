@@ -44,7 +44,7 @@ class ReportingAPITests(APITestCase):
             activo=True,
         )
         propiedad = Propiedad.objects.create(
-            codigo_propiedad=f'{codigo}-001',
+            codigo_propiedad=f'P{codigo_num}-001',
             direccion=f'Av {codigo} 123',
             comuna='Santiago',
             region='RM',

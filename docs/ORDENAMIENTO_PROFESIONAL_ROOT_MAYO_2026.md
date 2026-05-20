@@ -90,12 +90,17 @@ Fecha: 2026-05-20.
   vulnerabilidades conocidas.
 - Backend: `.venv` local creado, dependencias instaladas y `manage.py check`
   ejecutado correctamente.
-- Backend tests: `manage.py test --noinput` pasa con overrides locales
-  `DJANGO_DEBUG=true`, `DATABASE_URL=sqlite:///test-codex-local-gate.db` y
+- Backend tests con entorno local aislado: `manage.py test --noinput` pasa con
+  overrides `DJANGO_DEBUG=true`,
+  `DATABASE_URL=sqlite:///test-codex-local-gate.db` y
   `DJANGO_CACHE_URL=locmem://test-cache`: 263/263 OK.
-- Infra real local: no validada todavia. Docker esta instalado, pero el daemon
-  no estaba corriendo; por eso los tests sin overrides quedaron bloqueados al
-  intentar usar PostgreSQL/Redis locales.
+- Infra real local: Docker Desktop iniciado, PostgreSQL y Redis levantados con
+  `infra/docker-compose.yml`, ambos en estado `healthy`.
+- Backend con PostgreSQL/Redis locales: `manage.py migrate --noinput` OK y
+  `manage.py test --noinput -v 1` OK, 263/263 tests.
+- Correcciones PostgreSQL aplicadas: fixture de `reporting` ajustado a
+  `codigo_propiedad.max_length=16` y migracion `cobranza.0005` marcada
+  `atomic = False` para permitir backfill seguido de constraints en PostgreSQL.
 - Higiene Git: se detectaron 49 archivos `.pyc` versionados. Quedan marcados
   para eliminacion porque `.gitignore` ya bloquea `__pycache__/` y `*.pyc`.
 
