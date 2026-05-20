@@ -522,14 +522,14 @@ Evidencia aceptable:
 - Prueba de integracion controlada.
 - Evidencia externa redactada.
 - Registro de decision del usuario.
-- Runbook o handoff actualizado.
+- Runbook vivo o resumen de transferencia redactado y actualizado.
 
 Fechas auditables obligatorias:
 
 - Fecha de movimiento bancario, fecha de deteccion/importacion, fecha de pago WebPay, fecha de devengo contable, fecha de emision DTE, fecha de aceptacion o rechazo SII, fecha UF usada, periodo contractual, periodo economico y periodo tributario son datos distintos.
 - Si una fecha obligatoria falta o contradice otra fuente superior, el sistema bloquea calculo, conciliacion, factura, cierre o reporte afectado hasta resolver la diferencia.
 
-La evidencia real/controlada que contenga datos, filas, payloads, XML, RUTs, cuentas, correos, tokens, secretos, dumps o respuestas crudas debe quedar fuera del repo/workspace. En el repo solo pueden quedar referencias redactadas, fingerprints, schemas, comandos, handoffs y resultados seguros.
+La evidencia real/controlada que contenga datos, filas, payloads, XML, RUTs, cuentas, correos, tokens, secretos, dumps o respuestas crudas debe quedar fuera del repo/workspace. En el repo solo pueden quedar referencias redactadas, fingerprints, schemas, comandos, resumenes seguros de transferencia y resultados seguros.
 
 No cuenta como cierre:
 

@@ -124,8 +124,8 @@ Y dentro de `runner_result.final_state`:
 
 Artefacto de verificacion:
 
-- [supabase_staging_verification_2026-04-10.json](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/bundles/supabase_staging_verification_2026-04-10.json)
-- [verify_current_migration_target_supabase.json](/D:/Proyectos/LeaseManager/Produccion%201.0/migration/bundles/verify_current_migration_target_supabase.json)
+- [supabase_staging_verification_2026-04-10.json](/D:/Proyectos/LeaseManager/migration/bundles/supabase_staging_verification_2026-04-10.json)
+- [verify_current_migration_target_supabase.json](/D:/Proyectos/LeaseManager/migration/bundles/verify_current_migration_target_supabase.json)
 
 Resultado validado:
 

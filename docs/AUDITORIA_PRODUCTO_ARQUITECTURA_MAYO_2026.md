@@ -90,9 +90,9 @@ cerrarse. El estado correcto es: producto base avanzado, no producto final.
    y SII cuando sus gates tengan evidencia.
 3. `parcial`: completar generacion PDF/storage documental; hoy existe registro
    documental y formalizacion, no motor PDF final.
-4. `requiere_decision_usuario`: decidir si los `.db` y capturas versionadas en
-   `backend/` y `migration/bundles/` deben moverse fuera del repo activo o
-   mantenerse como evidencia historica versionada.
+4. `resuelto_en_hardening`: los `.db` locales, capturas versionadas y handoffs
+   historicos del root anidado se sacaron del repo activo; quedan recuperables
+   desde savegame/historial, no como producto vivo.
 5. `desactualizado`: se corrigio `docs/DEPLOY_BACKEND_GREENFIELD.md`, que aun
    apuntaba a rutas antiguas `Produccion 1.0`.
 6. `implementado_sin_evidencia_real`: ejecutar release gate completo en CI y
@@ -100,8 +100,6 @@ cerrarse. El estado correcto es: producto base avanzado, no producto final.
 
 ## Proximo frente recomendado
 
-Crear un worktree `codex/phase0-release-gate-hardening` para cerrar base
-tecnica: quitar/decidir artefactos versionados, verificar CI remoto, ejecutar
-acceptance completa, revisar secrets inventory, endurecer deploy docs y producir
-un `RELEASE_GATE_BASELINE_MAYO_2026.md`. Despues de eso corresponde empezar
+Integrar el frente `codex/phase0-release-gate-hardening`, observar CI remoto y
+registrar el resultado. Despues de eso corresponde empezar
 `PlataformaBase`/`Patrimonio` con datos reales controlados.
