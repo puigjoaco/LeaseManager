@@ -1,4 +1,4 @@
-# Produccion 1.0 - LeaseManager
+# LeaseManager - Root limpio
 
 Este root ya no es solo un paquete documental. Ahora contiene dos cosas al mismo tiempo:
 
@@ -7,8 +7,13 @@ Este root ya no es solo un paquete documental. Ahora contiene dos cosas al mismo
 
 ## Regla principal
 
-- `D:/Proyectos/LeaseManager/Produccion 1.0` es el root activo del proyecto nuevo.
-- `D:/Proyectos/LeaseManager` queda como sistema **legacy read-only** para inventario, migración y extracción.
+- Este repositorio es el candidato limpio del proyecto nuevo.
+- Mientras viva en `D:/Proyectos/LeaseManager-lab-root-clean`, funciona como
+  laboratorio de integracion.
+- Cuando pase los gates de ordenamiento, este contenido debe promoverse a
+  `D:/Proyectos/LeaseManager`.
+- El root historico/sucio queda como savegame **read-only** para inventario,
+  migracion y extraccion.
 
 ## Qué leer primero
 
@@ -44,13 +49,13 @@ Este root ya no es solo un paquete documental. Ahora contiene dos cosas al mismo
 ### Infra local
 
 ```powershell
-docker compose -f "D:/Proyectos/LeaseManager/Produccion 1.0/infra/docker-compose.yml" up -d
+docker compose -f "infra/docker-compose.yml" up -d
 ```
 
 ### Backend
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0/backend"
+cd backend
 .\\.venv\\Scripts\\python.exe manage.py check
 .\\.venv\\Scripts\\python.exe manage.py migrate
 .\\.venv\\Scripts\\python.exe manage.py seed_demo_access
@@ -60,7 +65,7 @@ cd "D:/Proyectos/LeaseManager/Produccion 1.0/backend"
 ### Frontend
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0/frontend"
+cd frontend
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
@@ -75,7 +80,6 @@ npm run build
 ### Inventario legacy
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
 backend\\.venv\\Scripts\\python.exe migration\\scripts\\inventory_root_assets.py
 ```
 
