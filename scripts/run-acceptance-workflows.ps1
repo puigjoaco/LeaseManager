@@ -2,6 +2,7 @@ param(
     [string]$FrontendUrl = 'https://leasemanager-backoffice.vercel.app/',
     [string]$ApiBaseUrl = 'https://surprising-balance-production.up.railway.app',
     [string]$BackendTestDb = '',
+    [switch]$OnlySmoke,
     [switch]$SkipSmoke
 )
 
@@ -25,8 +26,13 @@ $frontendDir = Join-Path $repoRoot 'frontend'
 $pythonExe = Join-Path $backendDir '.venv\Scripts\python.exe'
 $smokeScript = Join-Path $PSScriptRoot 'smoke-public-backoffice.mjs'
 
-Assert-Condition (Test-Path $pythonExe) "No existe el Python del backend en $pythonExe"
-Assert-Condition (Test-Path $smokeScript) "No existe el smoke script en $smokeScript"
+Assert-Condition (-not ($OnlySmoke -and $SkipSmoke)) 'OnlySmoke y SkipSmoke no pueden usarse juntos.'
+if (-not $OnlySmoke) {
+    Assert-Condition (Test-Path $pythonExe) "No existe el Python del backend en $pythonExe"
+}
+if (-not $SkipSmoke) {
+    Assert-Condition (Test-Path $smokeScript) "No existe el smoke script en $smokeScript"
+}
 
 if (-not $BackendTestDb) {
     $resolvedDbPath = (Join-Path $backendDir 'test-acceptance-workflows.sqlite3') -replace '\\', '/'
@@ -61,40 +67,46 @@ $testTargets = @(
     'sii.tests.SiiMigrationSafetyTests'
 )
 
-Step "Backend acceptance suite"
-$env:DATABASE_URL = $BackendTestDb
-$env:REDIS_URL = ''
-$env:CELERY_RESULT_BACKEND = ''
-$env:DJANGO_CACHE_URL = 'locmem://leasemanager-acceptance-cache'
-Push-Location $backendDir
-try {
-    & $pythonExe manage.py test @testTargets --keepdb
-    Assert-Condition ($LASTEXITCODE -eq 0) 'La suite backend de acceptance fallo.'
+if (-not $OnlySmoke) {
+    Step "Backend acceptance suite"
+    $env:DATABASE_URL = $BackendTestDb
+    $env:REDIS_URL = ''
+    $env:CELERY_RESULT_BACKEND = ''
+    $env:DJANGO_CACHE_URL = 'locmem://leasemanager-acceptance-cache'
+    Push-Location $backendDir
+    try {
+        & $pythonExe manage.py test @testTargets --keepdb
+        Assert-Condition ($LASTEXITCODE -eq 0) 'La suite backend de acceptance fallo.'
 
-    Step "Backend system check"
-    & $pythonExe manage.py check
-    Assert-Condition ($LASTEXITCODE -eq 0) 'manage.py check fallo.'
-}
-finally {
-    Pop-Location
-}
+        Step "Backend system check"
+        & $pythonExe manage.py check
+        Assert-Condition ($LASTEXITCODE -eq 0) 'manage.py check fallo.'
+    }
+    finally {
+        Pop-Location
+    }
 
-Step "Frontend build"
-Push-Location $frontendDir
-try {
-    npm run build
-    Assert-Condition ($LASTEXITCODE -eq 0) 'npm run build fallo.'
-}
-finally {
-    Pop-Location
+    Step "Frontend build"
+    Push-Location $frontendDir
+    try {
+        npm run build
+        Assert-Condition ($LASTEXITCODE -eq 0) 'npm run build fallo.'
+    }
+    finally {
+        Pop-Location
+    }
 }
 
 if (-not $SkipSmoke) {
     Step "Public smoke via UI login"
     $smokeOutput = & node $smokeScript --frontend-url $FrontendUrl --api-base-url $ApiBaseUrl | Out-String
-    Assert-Condition ($LASTEXITCODE -eq 0) 'La smoke publica fallo.'
+    $smokeExitCode = $LASTEXITCODE
+    if ($smokeOutput.Trim()) {
+        Write-Host $smokeOutput
+    }
 
     $smokeResults = $smokeOutput | ConvertFrom-Json
+    Assert-Condition ($smokeExitCode -eq 0) 'La smoke publica fallo.'
     $adminResult = $smokeResults | Where-Object { $_.label -eq 'admin' } | Select-Object -First 1
     $operatorResult = $smokeResults | Where-Object { $_.label -eq 'operator' } | Select-Object -First 1
     $reviewerResult = $smokeResults | Where-Object { $_.label -eq 'reviewer' } | Select-Object -First 1
