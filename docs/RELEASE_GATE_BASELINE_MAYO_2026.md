@@ -45,9 +45,12 @@ El asset `frontend/src/assets/hero.png` se conserva porque es parte de la app.
 
 ## Gates existentes
 
-- `.github/workflows/release-gate.yml` ejecuta acceptance en PR sin smoke publico.
-- En push a `main`, el workflow ejecuta acceptance y smoke publico.
-- `scripts/run-acceptance-workflows.ps1` cubre backend acceptance, `manage.py check`, frontend build y smoke publico opcional.
+- `.github/workflows/release-gate.yml` ejecuta el gate deterministico en PR y
+  push a `main`: backend acceptance, `manage.py check` y frontend build.
+- El smoke publico contra URLs externas queda separado como `workflow_dispatch`
+  manual con `run_public_smoke=true`.
+- `scripts/run-acceptance-workflows.ps1` cubre backend acceptance, `manage.py
+  check`, frontend build y smoke publico opcional/manual.
 
 ## Validacion local
 
@@ -58,15 +61,24 @@ El asset `frontend/src/assets/hero.png` se conserva porque es parte de la app.
   ejecutado desde el worktree: OK.
 - `npm run build` ejecutado en frontend con `node_modules` enlazado localmente
   desde el root limpio principal: OK.
+- PR #5: gate remoto de PR OK.
+- Push posterior a `main`: backend acceptance, `manage.py check` y frontend
+  build OK; fallo solo el smoke publico externo. Por eso el smoke publico queda
+  separado del gate deterministico hasta tener ambiente externo aceptado.
+- `./scripts/run-acceptance-workflows.ps1 -SkipSmoke`: OK despues de separar
+  CI deterministico y smoke publico manual.
 
 ## Bloqueos que siguen vivos
 
 - CI remoto debe observarse en GitHub despues del merge para confirmar estado.
-- El smoke publico depende de URLs externas configuradas en el script.
+- El smoke publico depende de URLs externas y debe ejecutarse manualmente como
+  gate externo, no como requisito automatico de cada push mientras no exista
+  ambiente publico aceptado.
 - Integraciones reales Banco, UF automatica, Email/WhatsApp, SII, Railway y Vercel siguen bajo gates externos.
 - No hay cutover productivo sin datos reales/controlados, backup, rollback y aprobacion.
 
 ## Proximo paso
 
-Despues de este baseline, continuar con una rama acotada para revisar el estado
-de CI/release-gate remoto y ajustar scripts si GitHub Actions reporta fallas.
+Despues de este baseline, observar el nuevo gate remoto en `main`. Si queda
+verde, continuar con `PlataformaBase`/`Patrimonio` usando datos reales o
+controlados y manteniendo integraciones externas bajo gates separados.

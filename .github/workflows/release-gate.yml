@@ -2,6 +2,23 @@ name: Release Gate
 
 on:
   workflow_dispatch:
+    inputs:
+      run_public_smoke:
+        description: Run public smoke against external frontend/backend URLs
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      frontend_url:
+        description: Public frontend URL for manual smoke
+        required: false
+        default: "https://leasemanager-backoffice.vercel.app/"
+      api_base_url:
+        description: Public backend API base URL for manual smoke
+        required: false
+        default: "https://surprising-balance-production.up.railway.app"
   push:
     branches:
       - main
@@ -48,21 +65,22 @@ jobs:
         run: npm ci
 
       - name: Install smoke dependencies
+        if: github.event_name == 'workflow_dispatch' && inputs.run_public_smoke == 'true'
         working-directory: scripts
         shell: pwsh
         run: npm ci
 
       - name: Install Playwright browser
+        if: github.event_name == 'workflow_dispatch' && inputs.run_public_smoke == 'true'
         working-directory: scripts
         shell: pwsh
         run: npx playwright install chromium
 
-      - name: Run release gate without public smoke
-        if: github.event_name == 'pull_request'
+      - name: Run deterministic release gate
         shell: pwsh
         run: .\scripts\run-acceptance-workflows.ps1 -SkipSmoke
 
-      - name: Run release gate with public smoke
-        if: github.event_name != 'pull_request'
+      - name: Run public smoke against external environment
+        if: github.event_name == 'workflow_dispatch' && inputs.run_public_smoke == 'true'
         shell: pwsh
-        run: .\scripts\run-acceptance-workflows.ps1
+        run: .\scripts\run-acceptance-workflows.ps1 -OnlySmoke -FrontendUrl "${{ inputs.frontend_url }}" -ApiBaseUrl "${{ inputs.api_base_url }}"
