@@ -9,9 +9,10 @@ codigo, documentacion viva, gates reproducibles y evidencia no sensible.
 
 ## Estado verificado
 
-- `D:/Proyectos/LeaseManager` es el root historico Next/Supabase. Esta sucio y
-  contiene codigo, documentos utiles, herencia de herramientas, artefactos
-  locales, secretos locales y carpetas anidadas.
+- `D:/Proyectos/LeaseManager` es ahora el root limpio activo con la codebase
+  greenfield Django/DRF/PostgreSQL/Celery/Redis y React/Vite.
+- El root historico Next/Supabase quedo preservado como savegame/fuente de
+  rescate. No debe recibir desarrollo nuevo.
 - `D:/Proyectos/LeaseManager-clean-origin` es clon limpio de `origin/main` en
   GitHub, commit `c58cb44806f0a1cf225bac20e621cc5685d95a11`.
 - `D:/Proyectos/LeaseManager-lab-root-clean` es el worktree de laboratorio para
@@ -103,6 +104,32 @@ Fecha: 2026-05-20.
   `atomic = False` para permitir backfill seguido de constraints en PostgreSQL.
 - Higiene Git: se detectaron 49 archivos `.pyc` versionados. Quedan marcados
   para eliminacion porque `.gitignore` ya bloquea `__pycache__/` y `*.pyc`.
+
+## Resultado del reemplazo de root
+
+Fecha: 2026-05-20.
+
+- Root limpio activo: `D:/Proyectos/LeaseManager`.
+- Rama local: `codex/root-clean-integration`.
+- Commit promovido: `9e60d65a7464e06ab158a0a2c36989ff188e4c07`.
+- Remote `origin`: `https://github.com/puigjoaco/LeaseManager.git`.
+- Upstream: sin configurar hasta que el usuario pida push.
+- Savegame completo disponible:
+  `D:/Proyectos/LeaseManager-savegame-20260520-082940`.
+- Respaldo adicional de remanentes del intento fallido de swap:
+  `D:/Proyectos/LeaseManager-failed-swap-contents-20260520-154648`.
+- El reemplazo se ejecuto como swap de contenidos porque el directorio root
+  estaba bloqueado por el entorno local y no podia renombrarse de forma atomica.
+- No se hizo push, deploy, migracion productiva ni copia de secretos.
+
+Validacion post-swap desde el nuevo root:
+
+- `git status -sb`: limpio, con solo artefactos ignorados de entorno local.
+- Frontend: `npm ci`, `npm audit --audit-level=moderate` y `npm run build` OK.
+- Backend: `.venv` recreado, dependencias instaladas, `manage.py check` OK.
+- Infra local: PostgreSQL y Redis via `infra/docker-compose.yml` healthy.
+- Backend con PostgreSQL/Redis locales: `manage.py migrate --noinput` OK y
+  `manage.py test --noinput -v 1` OK, 263/263 tests.
 
 ## Definition of Done del ordenamiento
 

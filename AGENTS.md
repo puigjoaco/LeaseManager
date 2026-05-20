@@ -8,13 +8,12 @@ Este root es el proyecto **nuevo** de `LeaseManager`.
 
 Regla base:
 - Este repositorio contiene la codebase activa del greenfield.
-- Si este archivo se lee desde `D:/Proyectos/LeaseManager-lab-root-clean`,
-  ese path es un laboratorio de integracion. No es el root final hasta que pase
-  gates y sea promovido.
-- Al terminar el ordenamiento, `D:/Proyectos/LeaseManager` debe ser el root
-  limpio activo. El root historico/sucio queda como savegame read-only para
-  inventario, migracion, reglas de negocio, integraciones, certificados y
-  contraste.
+- `D:/Proyectos/LeaseManager` es el root limpio activo despues del reemplazo de
+  mayo 2026. La rama local de integracion es `codex/root-clean-integration`.
+- `D:/Proyectos/LeaseManager-lab-root-clean` y otros worktrees hermanos son
+  laboratorios tacticos, no la fuente principal diaria.
+- El root historico/sucio queda como savegame read-only para inventario,
+  migracion, reglas de negocio, integraciones, certificados y contraste.
 - No borrar ni reestructurar savegames o fuentes historicas salvo instruccion
   explicita del usuario y respaldo verificable.
 

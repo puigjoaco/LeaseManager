@@ -7,13 +7,13 @@ Este root ya no es solo un paquete documental. Ahora contiene dos cosas al mismo
 
 ## Regla principal
 
-- Este repositorio es el candidato limpio del proyecto nuevo.
-- Mientras viva en `D:/Proyectos/LeaseManager-lab-root-clean`, funciona como
-  laboratorio de integracion.
-- Cuando pase los gates de ordenamiento, este contenido debe promoverse a
-  `D:/Proyectos/LeaseManager`.
-- El root historico/sucio queda como savegame **read-only** para inventario,
-  migracion y extraccion.
+- Este repositorio es el root limpio activo del proyecto nuevo.
+- La rama actual `codex/root-clean-integration` contiene el ordenamiento
+  validado antes de publicarse o integrarse a `main`.
+- Los laboratorios y worktrees hermanos son tacticos; este root es el punto de
+  integracion local.
+- El root historico/sucio quedo preservado como savegame **read-only** para
+  inventario, migracion y extraccion. No se trabaja encima de ese respaldo.
 
 ## Qué leer primero
 
