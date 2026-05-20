@@ -84,7 +84,7 @@ $env:DATABASE_URL="postgresql://postgres:[PASSWORD]@db.<project_ref>.supabase.co
 Usar el script pensado para un PostgreSQL ya existente:
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
+cd "D:/Proyectos/LeaseManager"
 $env:DATABASE_URL="postgresql://..."
 backend\.venv\Scripts\python.exe migration\scripts\promote_current_migration_flow.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json --output migration\bundles\promote_current_migration_flow_supabase.json
 ```
@@ -139,7 +139,7 @@ Resultado validado:
 ## Comando reusable de verificacion
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
+cd "D:/Proyectos/LeaseManager"
 $env:DATABASE_URL="postgresql://..."
 backend\.venv\Scripts\python.exe migration\scripts\verify_current_migration_target.py --output migration\bundles\verify_current_migration_target.json
 ```

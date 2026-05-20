@@ -1,5 +1,9 @@
 # Runbook de reemplazo del root - Mayo 2026
 
+Estado: historico ejecutado. El reemplazo ya fue realizado y mergeado a
+`main` mediante el PR #2. Para el resultado final usar
+`docs/RESULTADO_REEMPLAZO_ROOT_MAYO_2026.md`.
+
 ## Objetivo
 
 Reemplazar `D:/Proyectos/LeaseManager` por una base limpia validada, dejando el

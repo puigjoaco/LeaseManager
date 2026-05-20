@@ -8,8 +8,10 @@ Este root ya no es solo un paquete documental. Ahora contiene dos cosas al mismo
 ## Regla principal
 
 - Este repositorio es el root limpio activo del proyecto nuevo.
-- La rama actual `codex/root-clean-integration` contiene el ordenamiento
-  validado antes de publicarse o integrarse a `main`.
+- La rama activa normal es `main`, ya sincronizada con `origin/main` despues
+  del merge del PR #2.
+- La rama `codex/root-clean-integration` queda como trazabilidad del
+  ordenamiento inicial, no como rama diaria.
 - Los laboratorios y worktrees hermanos son tacticos; este root es el punto de
   integracion local.
 - El root historico/sucio quedo preservado como savegame **read-only** para

@@ -3,9 +3,10 @@
 ## Objetivo
 
 Convertir LeaseManager en un repositorio limpio, integrable y profesional, con
-desarrollo gobernado por Git, ramas y worktrees. El root sucio actual se conserva
-como savegame/fuente historica; el root final debe contener solo producto,
-codigo, documentacion viva, gates reproducibles y evidencia no sensible.
+desarrollo gobernado por Git, ramas y worktrees. El root historico/sucio quedo
+conservado como savegame/fuente historica; el root activo debe contener solo
+producto, codigo, documentacion viva, gates reproducibles y evidencia no
+sensible.
 
 ## Estado verificado
 
@@ -13,19 +14,19 @@ codigo, documentacion viva, gates reproducibles y evidencia no sensible.
   greenfield Django/DRF/PostgreSQL/Celery/Redis y React/Vite.
 - El root historico Next/Supabase quedo preservado como savegame/fuente de
   rescate. No debe recibir desarrollo nuevo.
-- `D:/Proyectos/LeaseManager-clean-origin` es clon limpio de `origin/main` en
-  GitHub, commit `c58cb44806f0a1cf225bac20e621cc5685d95a11`.
-- `D:/Proyectos/LeaseManager-lab-root-clean` es el worktree de laboratorio para
-  integrar y validar antes de reemplazar el root principal.
+- `D:/Proyectos/LeaseManager-clean-origin` fue clon limpio de apoyo para armar
+  el reemplazo inicial desde GitHub.
+- `D:/Proyectos/LeaseManager-lab-root-clean` fue laboratorio de integracion para
+  validar antes de reemplazar el root principal.
 - `D:/Proyectos/LeaseManager/Produccion 1.0` es un repo anidado con rama
   `codex/review-findings-fixes`; contiene commits utiles que deben integrarse o
   descartarse por evidencia, no copiarse a ciegas.
 
 ## Decision operativa
 
-El candidato limpio parte desde `origin/main`, no desde el root sucio. El root
-sucio no recibe desarrollo nuevo salvo rescate puntual. Toda migracion se hace
-por diff, clasificacion y validacion.
+El root limpio partio desde `origin/main`, no desde el root sucio. El root
+historico/sucio no recibe desarrollo nuevo salvo rescate puntual. Toda migracion
+se hace por diff, clasificacion y validacion.
 
 ## Fuentes que se pueden rescatar
 
@@ -113,7 +114,7 @@ Fecha: 2026-05-20.
 - Rama local: `codex/root-clean-integration`.
 - Commit promovido: `9e60d65a7464e06ab158a0a2c36989ff188e4c07`.
 - Remote `origin`: `https://github.com/puigjoaco/LeaseManager.git`.
-- Upstream: sin configurar hasta que el usuario pida push.
+- Upstream inicial de la rama de integracion: configurado al hacer push.
 - Savegame completo disponible:
   `D:/Proyectos/LeaseManager-savegame-20260520-082940`.
 - Respaldo adicional de remanentes del intento fallido de swap:
@@ -131,10 +132,18 @@ Validacion post-swap desde el nuevo root:
 - Backend con PostgreSQL/Redis locales: `manage.py migrate --noinput` OK y
   `manage.py test --noinput -v 1` OK, 263/263 tests.
 
+Integracion a `main`:
+
+- PR: `https://github.com/puigjoaco/LeaseManager/pull/2`.
+- Merge commit: `0419374c05580b56fda00fb4860ce5d5267cdd22`.
+- Estado local final: `D:/Proyectos/LeaseManager` en `main`, sincronizado con
+  `origin/main`.
+- No se hizo deploy ni migracion productiva durante el merge.
+
 ## Definition of Done del ordenamiento
 
-El ordenamiento termina cuando `D:/Proyectos/LeaseManager` vuelve a ser el root
-limpio, el root sucio queda preservado como savegame, Git representa el estado
-real del proyecto, los worktrees salen de una base limpia, la documentacion
-rectora esta en rutas activas, los gates son ejecutables y no queda herencia
-operativa contaminando el flujo de desarrollo.
+El ordenamiento termina cuando `D:/Proyectos/LeaseManager` queda como root
+limpio activo, el root sucio queda preservado como savegame, Git representa el
+estado real del proyecto, los worktrees salen de una base limpia, la
+documentacion rectora esta en rutas activas, los gates son ejecutables y no
+queda herencia operativa contaminando el flujo de desarrollo.

@@ -32,8 +32,8 @@ y terminar el enlace del frontend con `VITE_API_BASE_URL`.
 ### Código fuente
 
 - root directory: `backend`
-- imagen: [backend/Dockerfile](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/Dockerfile)
-- config: [backend/railway.web.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.web.json)
+- imagen: [backend/Dockerfile](/D:/Proyectos/LeaseManager/backend/Dockerfile)
+- config: [backend/railway.web.json](/D:/Proyectos/LeaseManager/backend/railway.web.json)
 
 ### Variables mínimas
 
@@ -58,7 +58,7 @@ y terminar el enlace del frontend con `VITE_API_BASE_URL`.
 
 - root directory: `backend`
 - imagen: misma del backend web
-- config: [backend/railway.worker.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.worker.json)
+- config: [backend/railway.worker.json](/D:/Proyectos/LeaseManager/backend/railway.worker.json)
 
 ### Variables mínimas
 
@@ -105,7 +105,7 @@ Valor esperado:
 
 Automatización preparada:
 
-- [scripts/connect-frontend-to-backend.ps1](/D:/Proyectos/LeaseManager/Produccion%201.0/scripts/connect-frontend-to-backend.ps1)
+- [scripts/connect-frontend-to-backend.ps1](/D:/Proyectos/LeaseManager/scripts/connect-frontend-to-backend.ps1)
 
 Ejemplo:
 

@@ -1,6 +1,7 @@
 # Deploy Frontend Vercel
 
-Estado: activo para el greenfield de `Produccion 1.0`
+Estado: activo para el greenfield del root limpio `D:/Proyectos/LeaseManager`.
+No ejecutar deploy sin confirmacion explicita del usuario.
 
 ## Objetivo
 
@@ -9,7 +10,7 @@ Dejar explícito cómo se despliega el frontend del greenfield sin tocar el proy
 ## Decisión operativa
 
 - El proyecto Vercel heredado `leasemanager` **no** se reutiliza para el greenfield.
-- El frontend React + Vite de `Produccion 1.0/frontend` se despliega en un proyecto separado:
+- El frontend React + Vite de `frontend/` se despliega en un proyecto separado:
   - `leasemanager-backoffice`
   - alias productivo actual: [https://leasemanager-backoffice.vercel.app](https://leasemanager-backoffice.vercel.app)
 
@@ -24,7 +25,7 @@ El proyecto `leasemanager` en Vercel sigue configurado con:
 
 Eso no corresponde al greenfield activo, cuyo frontend vive en:
 
-- [frontend/package.json](/D:/Proyectos/LeaseManager/Produccion%201.0/frontend/package.json)
+- [frontend/package.json](/D:/Proyectos/LeaseManager/frontend/package.json)
 - stack `React + TypeScript + Vite`
 
 Reapuntar ese proyecto heredado directamente al frontend habría mezclado dos topologías distintas.

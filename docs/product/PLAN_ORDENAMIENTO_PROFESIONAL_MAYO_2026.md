@@ -1,6 +1,9 @@
 # Plan de Ordenamiento Profesional Mayo 2026
 
-Estado: plan candidato para ordenar LeaseManager antes de continuar desarrollo.
+Estado: antecedente de plan. El reemplazo del root ya fue ejecutado y mergeado
+a `main` en mayo 2026. Para el resultado real usar
+`docs/RESULTADO_REEMPLAZO_ROOT_MAYO_2026.md`; este documento conserva el plan y
+criterios que guiaron el proceso.
 Fecha: 2026-05-20.
 Relacion: complementa el PRD Canonico Mayo 2026 candidato y la Arquitectura Maestra.
 

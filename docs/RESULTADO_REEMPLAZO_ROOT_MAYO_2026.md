@@ -8,10 +8,14 @@ necesaria para continuar el desarrollo con Git, ramas y worktrees acotados.
 
 ## Identidad Git
 
-- Rama local: `codex/root-clean-integration`.
-- Commit base promovido: `9e60d65a7464e06ab158a0a2c36989ff188e4c07`.
+- Rama activa final: `main`.
+- Rama de integracion usada para el reemplazo: `codex/root-clean-integration`.
+- Commit base promovido antes del merge: `9e60d65a7464e06ab158a0a2c36989ff188e4c07`.
+- Commit documental final de la rama de integracion:
+  `6caf2aff41b59f1c92aa50dfc97042f643c3c2f0`.
+- Merge commit en `main`: `0419374c05580b56fda00fb4860ce5d5267cdd22`.
 - Remote `origin`: `https://github.com/puigjoaco/LeaseManager.git`.
-- Upstream: no configurado hasta que el usuario pida push.
+- PR de integracion: `https://github.com/puigjoaco/LeaseManager/pull/2`.
 
 ## Respaldos
 
