@@ -318,6 +318,8 @@ def noop_reverse(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
+
     dependencies = [
         ('audit', '0001_initial'),
         ('cobranza', '0004_distribucioncobromensual'),

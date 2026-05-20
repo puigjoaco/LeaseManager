@@ -1,15 +1,21 @@
 # AGENTS.md
 
-Guía operativa para trabajar dentro de `D:/Proyectos/LeaseManager/Produccion 1.0`.
+Guia operativa para trabajar dentro del root limpio de `LeaseManager`.
 
 ## Identidad del proyecto
 
 Este root es el proyecto **nuevo** de `LeaseManager`.
 
 Regla base:
-- `D:/Proyectos/LeaseManager/Produccion 1.0` es la codebase activa del greenfield.
-- `D:/Proyectos/LeaseManager` es **legacy read-only** para inventario, migración, reglas de negocio, integraciones, certificados y contraste.
-- No borrar, reestructurar ni “limpiar” el root legacy salvo instrucción explícita del usuario.
+- Este repositorio contiene la codebase activa del greenfield.
+- `D:/Proyectos/LeaseManager` es el root limpio activo despues del reemplazo de
+  mayo 2026. La rama local de integracion es `codex/root-clean-integration`.
+- `D:/Proyectos/LeaseManager-lab-root-clean` y otros worktrees hermanos son
+  laboratorios tacticos, no la fuente principal diaria.
+- El root historico/sucio queda como savegame read-only para inventario,
+  migracion, reglas de negocio, integraciones, certificados y contraste.
+- No borrar ni reestructurar savegames o fuentes historicas salvo instruccion
+  explicita del usuario y respaldo verificable.
 
 ## Precedencia documental
 
@@ -95,9 +101,9 @@ Reglas:
 - No abrir `Email`, `WhatsApp`, `Banco`, `UF`, `SII` hasta tener auditoría, permisos, trazabilidad y prueba aislada satisfactoria.
 - Las capacidades `Podadas` no se implementan como compromiso activo del v1.
 
-## Migración desde LeaseManager legacy
+## Migración desde LeaseManager historico
 
-El root legacy se usa solo para:
+El root historico se usa solo para:
 - inventario de secretos
 - inventario de activos sensibles
 - inventario de schema y migraciones
@@ -130,13 +136,13 @@ Antes de declarar listo un bloque base:
 - healthcheck responde
 - auth mínima funciona
 - frontend compila
-- inventarios de `migration/` se generan sin mutar el root legacy
+- inventarios de `migration/` se generan sin mutar el root historico
 
 Comandos útiles:
 
 ### Backend
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0/backend"
+cd backend
 .\\.venv\\Scripts\\python.exe manage.py check
 .\\.venv\\Scripts\\python.exe manage.py makemigrations
 .\\.venv\\Scripts\\python.exe manage.py migrate
@@ -145,7 +151,7 @@ cd "D:/Proyectos/LeaseManager/Produccion 1.0/backend"
 
 ### Frontend
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0/frontend"
+cd frontend
 npm install
 npm run dev
 npm run build
@@ -153,12 +159,11 @@ npm run build
 
 ### Infra
 ```powershell
-docker compose -f "D:/Proyectos/LeaseManager/Produccion 1.0/infra/docker-compose.yml" up -d
+docker compose -f "infra/docker-compose.yml" up -d
 ```
 
 ### Inventario legacy
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
 backend\\.venv\\Scripts\\python.exe migration\\scripts\\inventory_root_assets.py
 ```
 
@@ -166,8 +171,9 @@ backend\\.venv\\Scripts\\python.exe migration\\scripts\\inventory_root_assets.py
 
 - Preferir cambios pequeños, verificables y modulares.
 - Documentar decisiones nuevas en `docs/` cuando cambien arquitectura, migración o boundaries.
-- Mantener el proyecto nuevo desacoplado del tooling del root legacy.
-- Cuando un hallazgo del legacy contradiga el modelo nuevo, gana el set activo de `Produccion 1.0`.
+- Mantener el proyecto nuevo desacoplado del tooling del root historico.
+- Cuando un hallazgo historico contradiga el modelo nuevo, gana el set activo
+  del root limpio.
 
 ## Qué no hacer
 
