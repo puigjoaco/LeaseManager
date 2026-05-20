@@ -50,12 +50,12 @@ Del set vigente:
 
 Referencias:
 
-- [PRD_CANONICO.md:130](D:/Proyectos/LeaseManager/Produccion%201.0/01_Set_Vigente/PRD_CANONICO.md#L130)
-- [PRD_CANONICO.md:134](D:/Proyectos/LeaseManager/Produccion%201.0/01_Set_Vigente/PRD_CANONICO.md#L134)
-- [PRD_CANONICO.md:169](D:/Proyectos/LeaseManager/Produccion%201.0/01_Set_Vigente/PRD_CANONICO.md#L169)
-- [PRD_CANONICO.md:170](D:/Proyectos/LeaseManager/Produccion%201.0/01_Set_Vigente/PRD_CANONICO.md#L170)
-- [PRD_CANONICO.md:176](D:/Proyectos/LeaseManager/Produccion%201.0/01_Set_Vigente/PRD_CANONICO.md#L176)
-- [PRD_CANONICO.md:662](D:/Proyectos/LeaseManager/Produccion%201.0/01_Set_Vigente/PRD_CANONICO.md#L662)
+- [PRD_CANONICO.md:130](../01_Set_Vigente/PRD_CANONICO.md#L130)
+- [PRD_CANONICO.md:134](../01_Set_Vigente/PRD_CANONICO.md#L134)
+- [PRD_CANONICO.md:169](../01_Set_Vigente/PRD_CANONICO.md#L169)
+- [PRD_CANONICO.md:170](../01_Set_Vigente/PRD_CANONICO.md#L170)
+- [PRD_CANONICO.md:176](../01_Set_Vigente/PRD_CANONICO.md#L176)
+- [PRD_CANONICO.md:662](../01_Set_Vigente/PRD_CANONICO.md#L662)
 
 ### 3.2 Implementacion actual
 
@@ -69,8 +69,8 @@ Hoy el backend impone:
 
 Referencias:
 
-- [operacion/models.py](D:/Proyectos/LeaseManager/Produccion%201.0/backend/operacion/models.py)
-- [patrimonio/models.py](D:/Proyectos/LeaseManager/Produccion%201.0/backend/patrimonio/models.py)
+- [operacion/models.py](../backend/operacion/models.py)
+- [patrimonio/models.py](../backend/patrimonio/models.py)
 
 ## 4. Diagnostico del problema actual
 

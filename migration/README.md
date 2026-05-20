@@ -1,12 +1,14 @@
-# Migración read-only desde LeaseManager
+# Migración read-only desde savegame/legacy LeaseManager
 
-La carpeta `migration/` existe para inventariar y transformar el root actual de LeaseManager sin mutarlo.
+La carpeta `migration/` existe para inventariar y transformar fuentes
+historicas o savegames de LeaseManager sin mutarlas. El root limpio activo es
+`D:/Proyectos/LeaseManager`; las fuentes legacy se leen como respaldo externo.
 
 ## Principios
 
-- el root actual es solo fuente de lectura;
+- el savegame o fuente legacy es solo fuente de lectura;
 - no se copian secretos reales al repositorio nuevo;
-- el modelo final es el canónico de `Produccion 1.0`, no el schema actual de Supabase;
+- el modelo final es el canónico del root limpio activo, no el schema legacy de Supabase;
 - toda incompatibilidad fuerte pasa por `MigrationDecision` o `ManualResolutionQueue`.
 
 ## Artefactos
@@ -25,7 +27,7 @@ La carpeta `migration/` existe para inventariar y transformar el root actual de 
 1. Exportar bundle canónico read-only:
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
+cd "D:/Proyectos/LeaseManager"
 $env:LEGACY_DATABASE_URL="postgresql://..."
 backend\.venv\Scripts\python.exe migration\scripts\export_legacy_seed_bundle.py
 ```
@@ -35,21 +37,21 @@ backend\.venv\Scripts\python.exe migration\scripts\export_legacy_seed_bundle.py
 3. Importar entidades determinísticas al backend nuevo:
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
+cd "D:/Proyectos/LeaseManager"
 backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py migration\bundles\legacy_seed_bundle.json
 ```
 
 4. Resolver automáticamente las comunidades actuales del backlog que quedan como `migration.propiedad.owner_manual_required`:
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
+cd "D:/Proyectos/LeaseManager"
 backend\.venv\Scripts\python.exe migration\scripts\resolve_current_community_resolutions.py
 ```
 
 5. Reejecutar el import del mismo bundle:
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
+cd "D:/Proyectos/LeaseManager"
 backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py migration\bundles\legacy_seed_bundle.json
 ```
 
@@ -58,14 +60,14 @@ backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py migrati
 Alternativa equivalente en un solo comando:
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
+cd "D:/Proyectos/LeaseManager"
 backend\.venv\Scripts\python.exe migration\scripts\run_current_migration_flow.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json
 ```
 
 Rehearsal completamente automatizado sobre una base PostgreSQL nueva:
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
+cd "D:/Proyectos/LeaseManager"
 backend\.venv\Scripts\python.exe migration\scripts\rehearse_current_migration_flow.py leasemanager_migration_run_YYYYMMDD_vN --output migration\bundles\rehearse_current_migration_flow.json
 ```
 
@@ -88,7 +90,7 @@ El runner actual valida automaticamente que el resultado final coincida con el e
 Promoción a un PostgreSQL ya existente y vacío:
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/Produccion 1.0"
+cd "D:/Proyectos/LeaseManager"
 $env:DATABASE_URL="postgresql://..."
 backend\.venv\Scripts\python.exe migration\scripts\promote_current_migration_flow.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json --output migration\bundles\promote_current_migration_flow.json
 ```
