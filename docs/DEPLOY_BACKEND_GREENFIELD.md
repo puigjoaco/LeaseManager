@@ -16,15 +16,15 @@ Dejar el backend Django del greenfield listo para desplegar en una plataforma ti
 
 ## Cambios ya preparados
 
-- dependencias de runtime agregadas en [requirements.txt](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/requirements.txt):
+- dependencias de runtime agregadas en [requirements.txt](/D:/Proyectos/LeaseManager/backend/requirements.txt):
   - `gunicorn`
   - `whitenoise`
-- middleware y storage de estáticos preparados en [settings.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/leasemanager_api/settings.py)
-- comando de arranque web listo en [Procfile](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/Procfile)
+- middleware y storage de estáticos preparados en [settings.py](/D:/Proyectos/LeaseManager/backend/leasemanager_api/settings.py)
+- comando de arranque web listo en [Procfile](/D:/Proyectos/LeaseManager/backend/Procfile)
 
 ## Variables mínimas
 
-Usar [backend/.env.example](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/.env.example) como base y completar al menos:
+Usar [backend/.env.example](/D:/Proyectos/LeaseManager/backend/.env.example) como base y completar al menos:
 
 - `DJANGO_SECRET_KEY`
 - `DJANGO_DEBUG=false`
@@ -66,9 +66,9 @@ gunicorn leasemanager_api.wsgi:application --bind 0.0.0.0:$PORT --log-file -
 
 Artefactos ya preparados:
 
-- [backend/Dockerfile](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/Dockerfile)
-- [backend/.dockerignore](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/.dockerignore)
-- [backend/docker-entrypoint.sh](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/docker-entrypoint.sh)
+- [backend/Dockerfile](/D:/Proyectos/LeaseManager/backend/Dockerfile)
+- [backend/.dockerignore](/D:/Proyectos/LeaseManager/backend/.dockerignore)
+- [backend/docker-entrypoint.sh](/D:/Proyectos/LeaseManager/backend/docker-entrypoint.sh)
 
 Build:
 
@@ -104,10 +104,10 @@ Topología sugerida dentro de un mismo proyecto Railway:
 
 Config as code preparada:
 
-- [backend/railway.web.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.web.json)
-- [backend/railway.worker.json](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.worker.json)
-- [backend/railway.env.example](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/railway.env.example)
-- [scripts/railway-backend-bootstrap.ps1](/D:/Proyectos/LeaseManager/Produccion%201.0/scripts/railway-backend-bootstrap.ps1)
+- [backend/railway.web.json](/D:/Proyectos/LeaseManager/backend/railway.web.json)
+- [backend/railway.worker.json](/D:/Proyectos/LeaseManager/backend/railway.worker.json)
+- [backend/railway.env.example](/D:/Proyectos/LeaseManager/backend/railway.env.example)
+- [scripts/railway-backend-bootstrap.ps1](/D:/Proyectos/LeaseManager/scripts/railway-backend-bootstrap.ps1)
 
 ### Servicio web
 
@@ -158,5 +158,5 @@ python manage.py runserver 127.0.0.1:8000
 - este documento no fija todavía una plataforma final de hosting;
 - la URL pública final del backend sigue siendo un dato externo pendiente;
 - cuando esa URL exista, debe conectarse con el frontend vía `VITE_API_BASE_URL`;
-- si la plataforma usa proxy HTTPS, [settings.py](/D:/Proyectos/LeaseManager/Produccion%201.0/backend/leasemanager_api/settings.py) ya quedó preparado con `SECURE_PROXY_SSL_HEADER`;
+- si la plataforma usa proxy HTTPS, [settings.py](/D:/Proyectos/LeaseManager/backend/leasemanager_api/settings.py) ya quedó preparado con `SECURE_PROXY_SSL_HEADER`;
 - cuando `DJANGO_DEBUG=false`, el backend ya aplica cookies seguras, `X_FRAME_OPTIONS=DENY`, `SECURE_CONTENT_TYPE_NOSNIFF` y HSTS configurable.
