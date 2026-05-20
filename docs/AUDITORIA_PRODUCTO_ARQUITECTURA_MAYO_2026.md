@@ -84,22 +84,30 @@ cerrarse. El estado correcto es: producto base avanzado, no producto final.
 
 ## Brechas accionables priorizadas
 
-1. `bloqueado_externo`: definir ambiente real/controlado para datos, banco,
+1. `requiere_decision_usuario`: decidir si
+   `docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md` se promueve a PRD
+   vigente o queda como candidato historico.
+2. `bloqueado_externo`: definir ambiente real/controlado para datos, banco,
    SII, email, WhatsApp, Vercel/Railway y secretos.
-2. `parcial`: implementar adapters reales para UF, Banco de Chile, Gmail/Twilio
+3. `parcial`: implementar adapters reales para UF, Banco de Chile, Gmail/Twilio
    y SII cuando sus gates tengan evidencia.
-3. `parcial`: completar generacion PDF/storage documental; hoy existe registro
+4. `parcial`: completar generacion PDF/storage documental; hoy existe registro
    documental y formalizacion, no motor PDF final.
-4. `resuelto_en_hardening`: los `.db` locales, capturas versionadas y handoffs
+5. `resuelto_en_hardening`: los `.db` locales, capturas versionadas y handoffs
    historicos del root anidado se sacaron del repo activo; quedan recuperables
    desde savegame/historial, no como producto vivo.
-5. `desactualizado`: se corrigio `docs/DEPLOY_BACKEND_GREENFIELD.md`, que aun
+6. `desactualizado`: se corrigio `docs/DEPLOY_BACKEND_GREENFIELD.md`, que aun
    apuntaba a rutas antiguas `Produccion 1.0`.
-6. `implementado_sin_evidencia_real`: ejecutar release gate completo en CI y
-   registrar resultado antes de usar como baseline estable.
+7. `resuelto_confirmado_local`: el release gate deterministico quedo separado
+   del smoke publico manual y fue validado en CI.
+8. `parcial`: consolidar la capa de gobierno, arquitectura, plan trazable,
+   stage cards, evidencia y bloqueos para continuar sin depender de memoria de
+   conversacion.
 
 ## Proximo frente recomendado
 
-Integrar el frente `codex/phase0-release-gate-hardening`, observar CI remoto y
-registrar el resultado. Despues de eso corresponde empezar
-`PlataformaBase`/`Patrimonio` con datos reales controlados.
+Integrar el paquete de sistema operativo del proyecto: fuente de verdad,
+protocolo de trabajo, Arquitectura Maestra, plan trazable, stage cards,
+registro de evidencia y registro de bloqueos. Despues corresponde resolver la
+decision del PRD candidato y avanzar Etapa 1 con datos reales o snapshot
+controlado.
