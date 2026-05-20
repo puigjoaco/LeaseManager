@@ -6,7 +6,7 @@ Audiencia: producto, arquitectura, desarrollo, operaciones, contabilidad y cierr
 
 ## 1. Proposito documental
 
-Este documento propone una nueva version canonica de producto para LeaseManager. Nivela hacia arriba los 26 PRD fuente, el PRD canonico vigente de marzo 2026, la Arquitectura Maestra LeaseManager, los documentos de production-readiness, el contexto del Excel legacy Mayo 2026, las correcciones confirmadas por el usuario, el codigo real y los gates existentes.
+Este documento propone una nueva version canonica de producto para LeaseManager. Nivela hacia arriba los 26 PRD fuente, el PRD canonico vigente de marzo 2026, la Arquitectura Maestra LeaseManager, los documentos de readiness operativo, el contexto del Excel legacy Mayo 2026, las correcciones confirmadas por el usuario, el codigo real y los gates existentes.
 
 Mientras no sea aceptado formalmente, este documento no reemplaza al set vigente. Su funcion es servir como propuesta limpia para migrar el proyecto a una base profesional, sin herencia operativa innecesaria y sin arrastrar decisiones antiguas que ya no representan el estado real del producto.
 
@@ -20,7 +20,7 @@ El producto terminado debe permitir operar indefinidamente con datos reales, sin
 
 ## 3. Frontera de producto
 
-LeaseManager Produccion 1.0 cubre:
+LeaseManager v1 cubre:
 
 - Datos maestros reales de empresas, socios, comunidades, propiedades, participaciones, arrendatarios, contratos, cuentas bancarias y garantias.
 - Contratos y periodos contractuales, incluyendo renovaciones, alertas, avisos de termino, contrato futuro, garantias, codeudores, ajustes, tramos y casos especiales.
@@ -54,7 +54,7 @@ Si este candidato se acepta, la jerarquia propuesta queda asi:
 3. Matriz de gates externos: estado real de base de datos, Banco, WebPay,
    correo, SII, dominio, jobs, webhooks y dependencias externas.
 4. ADR activos: decisiones tecnicas y de implementacion que el PRD no debe congelar.
-5. Contextos obligatorios: Excel legacy, database, contabilidad, integraciones, invariantes, production-readiness y decisiones confirmadas por el usuario.
+5. Contextos obligatorios: Excel legacy, database, contabilidad, integraciones, invariantes, readiness operativo y decisiones confirmadas por el usuario.
 6. Codigo real, schema, migraciones, tests, auditores y datos verificados.
 7. Historicos: 26 PRD fuente, PRD maestro, PRD unificado, auditorias historicas y artefactos historicos, solo como trazabilidad o insumo para rescatar ideas validas.
 
@@ -71,7 +71,7 @@ Jerarquia de conflicto entre fuentes:
 3. SII, normativa vigente, instrucciones AT, folios, DTE aceptado/rechazado y documentos tributarios oficiales.
 4. Base real o snapshot real/controlado para estado operativo del sistema.
 5. Excel legacy para funcionamiento practico y logica historica del negocio.
-6. Production-readiness, gates, auditores y runbooks para readiness operativo.
+6. Readiness operativo, gates, auditores y runbooks para preparacion de uso.
 7. Material tributario de apoyo y documentos historicos, solo como insumo secundario.
 
 Si dos fuentes discrepan y la fuente superior no esta disponible o no resuelve el caso, el resultado correcto es bloqueo, verificacion o pregunta concreta; no se inventa conciliacion, dato, regla ni cierre.
@@ -574,7 +574,7 @@ Data protection y continuidad:
 
 ## 13. Reglas de aceptacion global
 
-LeaseManager Produccion 1.0 se considera listo solo si:
+LeaseManager v1 se considera listo solo si:
 
 - Todos los modulos obligatorios estan implementados o confirmados.
 - Todas las integraciones requeridas estan conectadas o formalmente bloqueadas/aceptadas sin saltar gates.
@@ -610,29 +610,29 @@ Escenarios transversales obligatorios:
 
 ## 14. Puntos que requieren verificacion antes de convertir este candidato en vigente
 
-- Confirmar si este PRD candidato reemplazara formalmente al PRD Canonico de marzo 2026 o si convivira como PRD de production-readiness.
-- Migrar el set vigente fuera del repo anidado a rutas limpias del root profesional.
-- Resolver la tension documental entre PRD de producto y Arquitectura Maestra: el PRD define producto; la arquitectura define camino integral, capas, gates y Definition of Done.
+- Confirmar si este PRD candidato reemplazara formalmente al PRD Canonico de marzo 2026 o si quedara como candidato historico.
+- Confirmar que `docs/governance/SOURCE_OF_TRUTH_MAYO_2026.md` queda actualizado si este documento se promueve.
+- Mantener la separacion documental entre PRD de producto y Arquitectura Maestra: el PRD define producto; la arquitectura describe capas, dependencias, gates y Definition of Done.
 - Confirmar con datos reales o snapshot controlado la Etapa 1 antes de permitir avance productivo.
 - Validar reglas tributarias anuales contra SII/normativa vigente o experto.
 - Confirmar si las capacidades podadas siguen fuera del boundary activo.
-- Reconciliar las menciones heredadas del root Next.js/Supabase/Vercel con
+- Reconciliar cualquier mencion heredada de stack antiguo con
   `ADR_STACK_FINAL.md` y el root limpio Django/React antes de convertir este
   candidato en vigente.
 - Aceptar o corregir este documento por el usuario antes de marcarlo como vigente.
 
 ## 15. Como continuar sin arrastrar desorden
 
-Antes de continuar desarrollo funcional, LeaseManager debe pasar por una fase de ordenamiento profesional. Esta fase no es avance productivo; es preparacion necesaria para que el avance posterior sea confiable.
+Antes de continuar desarrollo funcional mayor, LeaseManager debe conservar la base limpia ya creada y completar su sistema operativo documental. Esta fase no es avance productivo; es preparacion necesaria para que el avance posterior sea confiable.
 
-El plan rector de esa transicion vive en `docs/product/PLAN_ORDENAMIENTO_PROFESIONAL_MAYO_2026.md` y exige:
+La transicion de orden vive ahora en `docs/governance/`, `docs/architecture/` y `docs/product/PLAN_EJECUCION_TRAZABLE_CIERRE_MAYO_2026.md`. El plan historico `docs/product/PLAN_ORDENAMIENTO_PROFESIONAL_MAYO_2026.md` queda como antecedente. La continuidad exige:
 
-- proteger el estado actual mediante savegame;
+- conservar savegames como read-only;
 - separar fuente vigente, candidatos, anexos e historicos;
-- mover el set rector a rutas limpias;
-- aislar herencia operativa y repos anidados;
-- definir estructura profesional de carpetas;
-- clasificar cambios pendientes antes de migrarlos;
+- mantener el set rector en rutas limpias;
+- aislar herencia operativa;
+- mantener estructura profesional de carpetas;
+- clasificar cualquier cambio pendiente antes de migrarlo;
 - versionar en Git con commits pequenos;
 - validar build, type-check y auditores despues de cada paquete;
 - reanudar avance solo por etapas y gates.

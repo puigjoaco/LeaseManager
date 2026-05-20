@@ -1,52 +1,59 @@
 # LeaseManager - Root limpio
 
-Este root ya no es solo un paquete documental. Ahora contiene dos cosas al mismo tiempo:
+Este root contiene dos cosas al mismo tiempo:
 
-1. El **set canónico** que define el sistema (`01` a `08`)
-2. La **codebase greenfield** del proyecto nuevo (`backend`, `frontend`, `infra`, `migration`, `docs`)
+1. El set canonico que define el sistema.
+2. La codebase greenfield del proyecto nuevo.
 
 ## Regla principal
 
 - Este repositorio es el root limpio activo del proyecto nuevo.
-- La rama activa normal es `main`, ya sincronizada con `origin/main` despues
-  del merge del PR #2.
-- La rama `codex/root-clean-integration` queda como trazabilidad del
-  ordenamiento inicial, no como rama diaria.
-- Los laboratorios y worktrees hermanos son tacticos; este root es el punto de
-  integracion local.
-- El root historico/sucio quedo preservado como savegame **read-only** para
+- La rama activa normal es `main`, sincronizada con `origin/main`.
+- Las ramas `codex/...` y worktrees hermanos son laboratorios tacticos.
+- El root historico/sucio quedo preservado como savegame read-only para
   inventario, migracion y extraccion. No se trabaja encima de ese respaldo.
+- El PRD candidato de mayo 2026 no reemplaza al PRD vigente hasta aceptacion
+  explicita.
 
-## Qué leer primero
+## Que leer primero
 
 1. [AGENTS.md](./AGENTS.md)
 2. [ORDEN_DE_LECTURA.md](./ORDEN_DE_LECTURA.md)
-3. [01_Set_Vigente/PRD_CANONICO.md](./01_Set_Vigente/PRD_CANONICO.md)
-4. [01_Set_Vigente/MATRIZ_GATES_EXTERNOS.md](./01_Set_Vigente/MATRIZ_GATES_EXTERNOS.md)
-5. [08_Auditoria_Stack/ADR_STACK_FINAL.md](./08_Auditoria_Stack/ADR_STACK_FINAL.md)
+3. [docs/governance/SOURCE_OF_TRUTH_MAYO_2026.md](./docs/governance/SOURCE_OF_TRUTH_MAYO_2026.md)
+4. [01_Set_Vigente/PRD_CANONICO.md](./01_Set_Vigente/PRD_CANONICO.md)
+5. [01_Set_Vigente/MATRIZ_GATES_EXTERNOS.md](./01_Set_Vigente/MATRIZ_GATES_EXTERNOS.md)
+6. [docs/architecture/ARQUITECTURA_MAESTRA_LEASEMANAGER.md](./docs/architecture/ARQUITECTURA_MAESTRA_LEASEMANAGER.md)
+7. [docs/product/PLAN_EJECUCION_TRAZABLE_CIERRE_MAYO_2026.md](./docs/product/PLAN_EJECUCION_TRAZABLE_CIERRE_MAYO_2026.md)
 
 ## Estructura
 
-### Set canónico
+### Set canonico y gobierno
 
-- `01_Set_Vigente`: producto, reglas, boundary y gates
-- `02_ADR_Activos`: decisiones técnicas activas
-- `03_Ejecucion_Tecnica`: orden de construcción
-- `04_Auditoria_y_Cierre`: cierre del set activo
-- `05_Contexto_Historico`: histórico consolidado
-- `06_Fuentes_PRD_1_26`: PRD crudos
-- `07_ADR_Historicos_o_Podados`: decisiones históricas fuera del boundary activo
-- `08_Auditoria_Stack`: auditoría comparativa y ADR final del stack
+- `01_Set_Vigente`: producto, reglas, boundary y gates vigentes.
+- `02_ADR_Activos`: decisiones tecnicas activas.
+- `03_Ejecucion_Tecnica`: orden tecnico de construccion.
+- `04_Auditoria_y_Cierre`: cierre del set activo.
+- `08_Auditoria_Stack`: auditoria comparativa y ADR final del stack.
+- `docs/governance`: fuente de verdad y protocolo operativo.
+- `docs/architecture`: arquitectura de producto.
+- `docs/product`: PRD candidato, plan trazable, etapas, evidencia y bloqueos.
+- `docs/operations`: runbooks de operacion y cutover.
+
+### Trazabilidad historica
+
+- `05_Contexto_Historico`: historico consolidado.
+- `06_Fuentes_PRD_1_26`: PRD crudos.
+- `07_ADR_Historicos_o_Podados`: decisiones historicas fuera del boundary
+  activo.
 
 ### Codebase greenfield
 
-- `backend/`: Django 5 + DRF + Celery
-- `frontend/`: React + TypeScript + Vite
-- `infra/`: PostgreSQL y Redis locales
-- `migration/`: inventarios read-only y mapeos legacy -> canónico
-- `docs/`: bootstrap y runbooks del greenfield
+- `backend/`: Django 5 + DRF + Celery.
+- `frontend/`: React + TypeScript + Vite.
+- `infra/`: PostgreSQL y Redis locales.
+- `migration/`: inventarios read-only y mapeos legacy -> canonico.
 
-## Arranque rápido
+## Arranque rapido
 
 ### Infra local
 
@@ -89,7 +96,7 @@ backend\\.venv\\Scripts\\python.exe migration\\scripts\\inventory_root_assets.py
 
 Ya existe una `PlataformaBase` operable y un backoffice usable.
 
-Hoy están abiertos y operables en la app local:
+Hoy estan abiertos y operables en la app local:
 
 - `Patrimonio`
 - `Operacion`
@@ -100,7 +107,7 @@ Hoy están abiertos y operables en la app local:
 - `SII`
 - `Reporting`
 
-Además, el backend ya incorpora:
+Ademas, el backend ya incorpora:
 
 - auth por token;
 - RBAC efectivo por rol;
@@ -110,7 +117,8 @@ Además, el backend ya incorpora:
 
 ## Perfiles demo locales
 
-Después de correr `manage.py seed_demo_access`, quedan disponibles estos usuarios:
+Despues de correr `manage.py seed_demo_access`, quedan disponibles estos
+usuarios:
 
 - `demo-admin` / `demo12345`
 - `demo-operador` / `demo12345`
@@ -119,26 +127,30 @@ Después de correr `manage.py seed_demo_access`, quedan disponibles estos usuari
 
 Uso recomendado:
 
-- `demo-operador`: validar módulos operativos y navegación transversal;
-- `demo-revisor`: validar `Contabilidad`, `SII` y `Reporting` en solo lectura;
+- `demo-operador`: validar modulos operativos y navegacion transversal.
+- `demo-revisor`: validar `Contabilidad`, `SII` y `Reporting` en solo lectura.
 - `demo-socio`: validar resumen propio y restricciones de acceso.
 
-## Validación recomendada
+## Validacion recomendada
 
 Antes de dar por cerrado un bloque de trabajo:
 
 1. levantar backend y frontend locales;
 2. resembrar perfiles demo con `manage.py seed_demo_access`;
 3. probar al menos `demo-operador`, `demo-revisor` y `demo-socio`;
-4. confirmar que backend responde coherente con tests y no con un proceso viejo en memoria.
+4. confirmar que backend responde coherente con tests y no con un proceso viejo
+   en memoria;
+5. actualizar trazabilidad, evidencia y bloqueos si el bloque afecta cierre de
+   producto.
 
 ## Regla de conflicto
 
-Si hay conflicto entre documentación o implementación:
+Si hay conflicto entre documentacion o implementacion:
 
-1. manda `PRD_CANONICO`
-2. luego `MATRIZ_GATES_EXTERNOS`
-3. luego ADRs activos
-4. luego el código greenfield
-5. lo histórico nunca prevalece sobre el set activo
-
+1. manda `docs/governance/SOURCE_OF_TRUTH_MAYO_2026.md` para estado de fuentes;
+2. manda `PRD_CANONICO` para producto vigente;
+3. luego `MATRIZ_GATES_EXTERNOS`;
+4. luego ADRs activos;
+5. luego arquitectura y plan trazable;
+6. luego el codigo greenfield;
+7. lo historico nunca prevalece sobre el set activo.

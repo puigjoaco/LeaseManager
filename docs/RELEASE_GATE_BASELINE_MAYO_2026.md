@@ -70,15 +70,18 @@ El asset `frontend/src/assets/hero.png` se conserva porque es parte de la app.
 
 ## Bloqueos que siguen vivos
 
-- CI remoto debe observarse en GitHub despues del merge para confirmar estado.
+- CI remoto deterministico quedo verde en `main` despues del PR #6.
 - El smoke publico depende de URLs externas y debe ejecutarse manualmente como
   gate externo, no como requisito automatico de cada push mientras no exista
   ambiente publico aceptado.
 - Integraciones reales Banco, UF automatica, Email/WhatsApp, SII, Railway y Vercel siguen bajo gates externos.
 - No hay cutover productivo sin datos reales/controlados, backup, rollback y aprobacion.
+- Falta decision explicita sobre promocion del PRD candidato de mayo 2026.
+- Falta cerrar Etapa 1 con datos reales o snapshot controlado.
 
 ## Proximo paso
 
-Despues de este baseline, observar el nuevo gate remoto en `main`. Si queda
-verde, continuar con `PlataformaBase`/`Patrimonio` usando datos reales o
-controlados y manteniendo integraciones externas bajo gates separados.
+Despues de este baseline, mantener `main` limpio y continuar mediante worktrees
+por frente. El proximo cierre profesional es integrar la fuente de verdad, plan
+trazable, stage cards, evidencia y bloqueos; luego avanzar Etapa 1 con datos
+reales o controlados y mantener integraciones externas bajo gates separados.
