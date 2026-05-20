@@ -45,7 +45,14 @@ git -C "D:/Proyectos/LeaseManager-lab-root-clean" rev-parse --abbrev-ref HEAD
 
 Move-Item -LiteralPath $oldRoot -Destination $backup
 git clone --branch codex/root-clean-integration $source $newRoot
+git -C $newRoot remote set-url origin "https://github.com/puigjoaco/LeaseManager.git"
+git -C $newRoot branch --unset-upstream
 ```
+
+Nota: el clon usa `LeaseManager-clean-origin` como fuente local para preservar
+la rama validada sin requerir push previo. Despues se corrige `origin` para que
+el root final quede conectado a GitHub, no a una carpeta temporal local. La rama
+queda sin upstream hasta que el usuario pida push.
 
 Despues del clon:
 
