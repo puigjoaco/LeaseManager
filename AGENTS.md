@@ -9,9 +9,9 @@ Este root es el proyecto **nuevo** de `LeaseManager`.
 Regla base:
 - Este repositorio contiene la codebase activa del greenfield.
 - `D:/Proyectos/LeaseManager` es el root limpio activo despues del reemplazo de
-  mayo 2026. La rama local de integracion es `codex/root-clean-integration`.
-- `D:/Proyectos/LeaseManager-lab-root-clean` y otros worktrees hermanos son
-  laboratorios tacticos, no la fuente principal diaria.
+  mayo 2026. Su rama diaria debe ser `main`, sincronizada con `origin/main`.
+- Worktrees hermanos con ramas `codex/...` son laboratorios tacticos por frente,
+  no la fuente principal diaria.
 - El root historico/sucio queda como savegame read-only para inventario,
   migracion, reglas de negocio, integraciones, certificados y contraste.
 - No borrar ni reestructurar savegames o fuentes historicas salvo instruccion
@@ -181,5 +181,5 @@ backend\\.venv\\Scripts\\python.exe migration\\scripts\\inventory_root_assets.py
 - No reusar el schema Supabase como modelo final.
 - No implementar portales/IA/capacidades podadas sólo porque existan en el legacy.
 - No abrir gates por conveniencia.
-- No usar el root actual como si fuera la nueva arquitectura.
+- No usar el root historico/savegame como si fuera la nueva arquitectura.
 

@@ -2,7 +2,8 @@
 
 ## Objetivo
 
-Levantar la plataforma nueva de LeaseManager dentro de `Produccion 1.0` sin tocar el root legacy.
+Levantar la plataforma nueva de LeaseManager dentro del root limpio activo
+`D:/Proyectos/LeaseManager`, sin tocar los savegames historicos.
 
 ## Pasos base
 
@@ -11,7 +12,8 @@ Levantar la plataforma nueva de LeaseManager dentro de `Produccion 1.0` sin toca
 3. Ejecutar migraciones Django
 4. Crear superusuario
 5. Instalar y levantar `frontend/`
-6. Ejecutar inventario read-only del root actual
+6. Ejecutar inventario read-only del root historico/savegame cuando el alcance
+   requiera rescate de informacion
 
 ## Entregables ya preparados
 

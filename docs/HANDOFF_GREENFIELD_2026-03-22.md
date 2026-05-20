@@ -1,5 +1,9 @@
 # Handoff Greenfield 2026-03-22
 
+Estado: historico. Este handoff describe el greenfield antes de promoverlo al
+root limpio. Despues del reemplazo de mayo 2026, el root operativo es
+`D:/Proyectos/LeaseManager`; usar este documento solo como trazabilidad.
+
 Este documento resume el estado actual del greenfield `LeaseManager` dentro de `D:/Proyectos/LeaseManager/Produccion 1.0` para retomar en otro thread sin perder contexto.
 
 ## 1. Contexto de repositorio
