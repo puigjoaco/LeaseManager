@@ -144,6 +144,7 @@ def _has_required_stage1_data(summary: dict[str, int]) -> bool:
         'mandatos',
         'arrendatarios',
         'contratos',
+        'contratos_activos_o_futuros',
         'contrato_propiedades',
         'periodos_contractuales',
         'garantias_contractuales',

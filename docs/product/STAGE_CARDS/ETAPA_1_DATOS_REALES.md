@@ -19,6 +19,8 @@ contra datos reales o snapshot controlado.
 - Extractores read-only.
 - Sin secretos versionados.
 - Clasificacion de cada agregado migrable.
+- La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
+  historicos no constituyen evidencia operativa de Etapa 1.
 - Validacion de no duplicar propiedades por rol de avaluo ni identidad
   operativa fuerte; sin hardcodear montos.
 - Validacion de que cada contrato vigente o futuro tenga al menos un canal
