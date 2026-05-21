@@ -304,6 +304,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         self._validate_periods(periodos, fecha_inicio, fecha_fin_vigente)
         self._validate_codeudores(codeudores)
         self._validate_overlap(contrato_propiedades, estado)
+        self._validate_effective_code_namespace(contrato_propiedades, estado, mandato)
         self._validate_future_contract_requirements(contrato_propiedades, estado, fecha_inicio)
 
         candidate = build_validation_candidate(self.instance, Contrato)
@@ -436,6 +437,33 @@ class ContratoSerializer(serializers.ModelSerializer):
             label = 'vigente' if estado == EstadoContrato.ACTIVE else 'futuro'
             raise serializers.ValidationError(
                 {'contrato_propiedades': f'Las propiedades ya tienen un contrato {label} incompatible.'}
+            )
+
+    def _validate_effective_code_namespace(self, contrato_propiedades, estado, mandato):
+        if estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE} or not mandato:
+            return
+
+        primary_code = next(
+            item['codigo_conciliacion_efectivo_snapshot']
+            for item in contrato_propiedades
+            if item['rol_en_contrato'] == RolContratoPropiedad.PRIMARY
+        )
+        queryset = ContratoPropiedad.objects.filter(
+            contrato__mandato_operacion__cuenta_recaudadora_id=mandato.cuenta_recaudadora_id,
+            contrato__estado=estado,
+            codigo_conciliacion_efectivo_snapshot=primary_code,
+        )
+        if self.instance:
+            queryset = queryset.exclude(contrato=self.instance)
+
+        if queryset.exists():
+            label = 'vigente' if estado == EstadoContrato.ACTIVE else 'futuro'
+            raise serializers.ValidationError(
+                {
+                    'contrato_propiedades': (
+                        f'El codigo efectivo ya esta usado en otro contrato {label} de la misma cuenta recaudadora.'
+                    )
+                }
             )
 
     def _validate_future_contract_requirements(self, contrato_propiedades, estado, fecha_inicio):

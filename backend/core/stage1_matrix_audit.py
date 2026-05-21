@@ -322,6 +322,30 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
             message=f'Propiedad con {row["total"]} contratos {row["contrato__estado"]} como principal; maximo uno por estado.',
         )
 
+    duplicate_effective_codes = (
+        ContratoPropiedad.objects.filter(
+            contrato__estado__in=ACTIVE_CONTRACT_STATES,
+        )
+        .values(
+            'contrato__mandato_operacion__cuenta_recaudadora_id',
+            'contrato__estado',
+            'codigo_conciliacion_efectivo_snapshot',
+        )
+        .annotate(total=Count('contrato_id', distinct=True))
+        .filter(total__gt=1)
+    )
+    for row in duplicate_effective_codes:
+        _issue(
+            issues,
+            code='stage1.codigo_efectivo.duplicado_en_cuenta',
+            entity='CuentaRecaudadora',
+            entity_id=row['contrato__mandato_operacion__cuenta_recaudadora_id'],
+            message=(
+                f'Codigo efectivo {row["codigo_conciliacion_efectivo_snapshot"]} usado en '
+                f'{row["total"]} contratos {row["contrato__estado"]} de la misma cuenta recaudadora.'
+            ),
+        )
+
     contracts = Contrato.objects.filter(estado__in=ACTIVE_CONTRACT_STATES).select_related(
         'mandato_operacion',
         'mandato_operacion__propiedad',

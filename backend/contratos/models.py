@@ -209,6 +209,26 @@ class ContratoPropiedad(TimestampedModel):
                 {'propiedad': f'La propiedad ya participa en otro contrato {label}.'}
             )
 
+        same_code_links = ContratoPropiedad.objects.filter(
+            contrato__mandato_operacion__cuenta_recaudadora_id=(
+                self.contrato.mandato_operacion.cuenta_recaudadora_id
+            ),
+            contrato__estado=self.contrato.estado,
+            codigo_conciliacion_efectivo_snapshot=self.codigo_conciliacion_efectivo_snapshot,
+        ).exclude(pk=self.pk)
+        if self.contrato_id:
+            same_code_links = same_code_links.exclude(contrato_id=self.contrato_id)
+
+        if same_code_links.exists():
+            label = 'vigente' if self.contrato.estado == EstadoContrato.ACTIVE else 'futuro'
+            raise ValidationError(
+                {
+                    'codigo_conciliacion_efectivo_snapshot': (
+                        f'El codigo efectivo ya esta usado en otro contrato {label} de la misma cuenta recaudadora.'
+                    )
+                }
+            )
+
 
 class PeriodoContractual(TimestampedModel):
     contrato = models.ForeignKey(
