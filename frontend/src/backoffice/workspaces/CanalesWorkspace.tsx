@@ -53,6 +53,8 @@ type GateCanalDraft = {
   provider_key: string
   estado_gate: string
   evidencia_ref: string
+  prueba_aislada_ref: string
+  oauth_validado_ref: string
 }
 
 type MensajeDraft = {
@@ -140,6 +142,8 @@ export function CanalesWorkspace({
                 <option value="suspendido">Suspendido</option>
               </select>
               <input placeholder="Evidencia ref" value={gateCanalDraft.evidencia_ref} onChange={(event) => setGateCanalDraft((current) => ({ ...current, evidencia_ref: event.target.value }))} />
+              <input placeholder="Prueba aislada ref" value={gateCanalDraft.prueba_aislada_ref} onChange={(event) => setGateCanalDraft((current) => ({ ...current, prueba_aislada_ref: event.target.value }))} />
+              <input placeholder="OAuth ref" value={gateCanalDraft.oauth_validado_ref} onChange={(event) => setGateCanalDraft((current) => ({ ...current, oauth_validado_ref: event.target.value }))} />
               <button type="submit" className="button-primary" disabled={isSubmitting || !gateCanalDraft.provider_key}>Guardar gate</button>
             </form>
           </section>

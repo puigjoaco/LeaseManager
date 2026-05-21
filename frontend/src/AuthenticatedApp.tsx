@@ -1414,6 +1414,8 @@ function App() {
     provider_key: 'gmail_api',
     estado_gate: 'condicionado',
     evidencia_ref: '',
+    prueba_aislada_ref: '',
+    oauth_validado_ref: '',
   })
   const [mensajeDraft, setMensajeDraft] = useState({
     canal: 'email',
@@ -1955,6 +1957,8 @@ function App() {
       provider_key: 'gmail_api',
       estado_gate: 'condicionado',
       evidencia_ref: '',
+      prueba_aislada_ref: '',
+      oauth_validado_ref: '',
     })
     setMensajeDraft({
       canal: 'email',
@@ -4196,7 +4200,16 @@ function App() {
     const success = await submitMutation(
       '/api/v1/canales/gates/',
       'POST',
-      { ...gateCanalDraft, restricciones_operativas: {} },
+      {
+        canal: gateCanalDraft.canal,
+        provider_key: gateCanalDraft.provider_key,
+        estado_gate: gateCanalDraft.estado_gate,
+        evidencia_ref: gateCanalDraft.evidencia_ref,
+        restricciones_operativas: {
+          prueba_aislada_ref: gateCanalDraft.prueba_aislada_ref,
+          oauth_validado_ref: gateCanalDraft.oauth_validado_ref,
+        },
+      },
       'Gate de canal creado correctamente.',
       'canales',
     )

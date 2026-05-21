@@ -43,6 +43,16 @@ class CanalMensajeriaSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
 
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, CanalMensajeria)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
 
 class MensajeSalienteSerializer(serializers.ModelSerializer):
     class Meta:

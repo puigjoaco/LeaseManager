@@ -147,6 +147,11 @@ class CanalesAPITests(APITestCase):
         return empresa, contrato
 
     def _create_gate(self, canal='email', estado_gate='abierto', restricciones_operativas=None):
+        if restricciones_operativas is None and canal == 'email':
+            restricciones_operativas = {
+                'prueba_aislada_ref': 'email-readiness-controlled',
+                'oauth_validado_ref': 'oauth-readiness-controlled',
+            }
         response = self.client.post(
             reverse('canales-gate-list'),
             {
@@ -198,6 +203,22 @@ class CanalesAPITests(APITestCase):
         for url in urls:
             response = client.get(url) if 'preparar' not in url else client.post(url, {}, format='json')
             self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_open_email_gate_requires_readiness_references(self):
+        response = self.client.post(
+            reverse('canales-gate-list'),
+            {
+                'canal': 'email',
+                'provider_key': 'gmail_api',
+                'estado_gate': 'abierto',
+                'restricciones_operativas': {},
+                'evidencia_ref': 'email-evidence-only',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('restricciones_operativas', response.data)
 
     def test_prepare_email_message_uses_mandate_identity_assignment(self):
         empresa, contrato = self._create_contract_context(codigo='CH-EMAIL')
@@ -284,6 +305,39 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['estado'], EstadoMensajeSaliente.BLOCKED)
         self.assertIn('no permite envio automatico', response.data['motivo_bloqueo'].lower())
+
+    def test_prepare_email_message_blocks_without_isolated_readiness_refs(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-EMAIL-NOREADY')
+        gate = CanalMensajeria.objects.create(
+            canal='email',
+            provider_key='gmail_api',
+            estado_gate=EstadoGateCanal.OPEN,
+            evidencia_ref='email-evidence-only',
+            restricciones_operativas={},
+        )
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        response = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate.id,
+                'contrato': contrato.id,
+                'asunto': 'Sin prueba aislada',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoMensajeSaliente.BLOCKED)
+        self.assertIn('prueba aislada', response.data['motivo_bloqueo'].lower())
 
     def test_prepare_message_blocks_when_no_identity_is_available(self):
         _, contrato = self._create_contract_context(codigo='CH-NOIDENT')
@@ -633,6 +687,40 @@ class CanalesAPITests(APITestCase):
         self.assertIn('gate del canal', response.data['detail'])
         self.assertEqual(MensajeSaliente.objects.get(pk=prepared.data['id']).estado, EstadoMensajeSaliente.PREPARED)
 
+    def test_register_manual_email_send_rechecks_readiness_refs(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-SENDREADY')
+        gate = self._create_gate(canal='email')
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        prepared = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'asunto': 'Enviar',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+        CanalMensajeria.objects.filter(pk=gate['id']).update(restricciones_operativas={})
+
+        response = self.client.post(
+            reverse('canales-mensaje-enviar', args=[prepared.data['id']]),
+            {'external_ref': 'manual-after-readiness-close'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('prueba aislada', response.data['detail'].lower())
+        self.assertEqual(MensajeSaliente.objects.get(pk=prepared.data['id']).estado, EstadoMensajeSaliente.PREPARED)
+
     def test_formalized_document_can_be_prepared_and_sent_via_channel_workflow(self):
         empresa, contrato = self._create_contract_context(codigo='CH-DOCSEND')
         gate = self._create_gate(canal='email')
@@ -823,7 +911,16 @@ class CanalesScopeAPITests(APITestCase):
         )
         self.client.force_authenticate(self.user)
 
-        self.gate = CanalMensajeria.objects.create(canal='email', provider_key='gmail_api', estado_gate='abierto')
+        self.gate = CanalMensajeria.objects.create(
+            canal='email',
+            provider_key='gmail_api',
+            estado_gate='abierto',
+            evidencia_ref='scope-gate',
+            restricciones_operativas={
+                'prueba_aislada_ref': 'scope-email-readiness',
+                'oauth_validado_ref': 'scope-oauth-readiness',
+            },
+        )
         self.company_a, self.contract_a = self._create_contract_context(codigo='CH-SCOPE-A')
         self.company_b, self.contract_b = self._create_contract_context(codigo='CH-SCOPE-B')
         self.identity_a = self._create_identity(self.company_a, canal='email', direccion='scope-a@example.com')
