@@ -54,4 +54,10 @@ $env:DATABASE_URL="<snapshot-controlado-o-db-real-autorizada>"
 La etapa no cierra si no existe evidencia de datos reales/controlados. Codigo
 preparado sin esa evidencia queda `implementado_sin_evidencia`.
 
+El bloqueo por falta de fuente autorizada no forma parte de la arquitectura del
+producto: solo impide declarar cierre de Etapa 1. Si `BLK-002` ya esta
+registrado y no hay autorizacion nueva, no se debe repetir la misma solicitud
+en bucle; corresponde avanzar en preparacion segura o dejar una unica pregunta
+concreta.
+
 Procedimiento operativo: `docs/product/STAGE1_SNAPSHOT_INTAKE_MAYO_2026.md`.
