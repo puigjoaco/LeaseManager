@@ -13,6 +13,7 @@ from contratos.models import (
     AvisoTermino,
     Contrato,
     ContratoPropiedad,
+    EstadoContactoArrendatario,
     EstadoAvisoTermino,
     EstadoContrato,
     MonedaBaseContrato,
@@ -125,6 +126,9 @@ class Stage1MatrixAuditTests(TestCase):
             nombre_razon_social='Arrendatario Controlado',
             rut='33333333-3',
             email='arrendatario@example.com',
+            telefono='999',
+            domicilio_notificaciones='Domicilio Controlado 123',
+            estado_contacto=EstadoContactoArrendatario.ACTIVE,
         )
         contrato = Contrato.objects.create(
             codigo_contrato='CON-CTRL-001',
@@ -204,6 +208,45 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['issue_counts'].get('blocking', 0), 0)
         self.assertGreater(result['summary']['participaciones_patrimoniales'], 0)
         self.assertGreater(result['summary']['representaciones_comunidad'], 0)
+
+    def test_active_contract_without_ready_tenant_contact_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        arrendatario = contrato.arrendatario
+        arrendatario.email = ''
+        arrendatario.telefono = ''
+        arrendatario.domicilio_notificaciones = ''
+        arrendatario.estado_contacto = EstadoContactoArrendatario.PENDING
+        arrendatario.save(
+            update_fields=[
+                'email',
+                'telefono',
+                'domicilio_notificaciones',
+                'estado_contacto',
+                'updated_at',
+            ]
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.arrendatario.contacto_no_activo', issue_codes)
+        self.assertIn('stage1.arrendatario.contacto_operativo_faltante', issue_codes)
+        self.assertIn('stage1.arrendatario.domicilio_notificaciones_faltante', issue_codes)
+
+    def test_company_tenant_without_representative_snapshot_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        arrendatario = contrato.arrendatario
+        arrendatario.tipo_arrendatario = TipoArrendatario.COMPANY
+        arrendatario.save(update_fields=['tipo_arrendatario', 'updated_at'])
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.representante_legal_snapshot_faltante', issue_codes)
 
     def test_future_contract_without_notice_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

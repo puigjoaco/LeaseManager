@@ -16,11 +16,13 @@ from contratos.models import (
     AvisoTermino,
     Contrato,
     ContratoPropiedad,
+    EstadoContactoArrendatario,
     EstadoAvisoTermino,
     EstadoContrato,
     MonedaBaseContrato,
     PeriodoContractual,
     RolContratoPropiedad,
+    TipoArrendatario,
 )
 from operacion.models import CuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import (
@@ -432,6 +434,58 @@ def _audit_future_contract_closure_evidence(
         )
 
 
+def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Contrato) -> None:
+    tenant = contrato.arrendatario
+    if tenant.estado_contacto != EstadoContactoArrendatario.ACTIVE:
+        _issue(
+            issues,
+            code='stage1.arrendatario.contacto_no_activo',
+            entity='Arrendatario',
+            entity_id=tenant.pk,
+            message='Contrato vigente o futuro requiere arrendatario con estado de contacto activo.',
+        )
+
+    if not ((tenant.email or '').strip() or (tenant.telefono or '').strip()):
+        _issue(
+            issues,
+            code='stage1.arrendatario.contacto_operativo_faltante',
+            entity='Arrendatario',
+            entity_id=tenant.pk,
+            message='Contrato vigente o futuro requiere email o telefono operativo del arrendatario.',
+        )
+
+    if not (tenant.domicilio_notificaciones or '').strip():
+        _issue(
+            issues,
+            code='stage1.arrendatario.domicilio_notificaciones_faltante',
+            entity='Arrendatario',
+            entity_id=tenant.pk,
+            message='Contrato vigente o futuro requiere domicilio de notificaciones del arrendatario.',
+        )
+
+    if tenant.tipo_arrendatario == TipoArrendatario.COMPANY:
+        representative_snapshot = contrato.snapshot_representante_legal or {}
+        if not representative_snapshot:
+            _issue(
+                issues,
+                code='stage1.contrato.representante_legal_snapshot_faltante',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message='Contrato con arrendatario empresa requiere snapshot de representante legal.',
+            )
+        elif not (
+            (representative_snapshot.get('nombre') or '').strip()
+            and (representative_snapshot.get('rut') or '').strip()
+        ):
+            _issue(
+                issues,
+                code='stage1.contrato.representante_legal_snapshot_incompleto',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message='Snapshot de representante legal debe incluir al menos nombre y RUT.',
+            )
+
+
 def _audit_contratos(issues: list[dict[str, Any]]) -> None:
     _audit_model_validation(
         issues,
@@ -501,6 +555,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         )
 
     contracts = Contrato.objects.filter(estado__in=ACTIVE_CONTRACT_STATES).select_related(
+        'arrendatario',
         'mandato_operacion',
         'mandato_operacion__propiedad',
     )
@@ -540,6 +595,8 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                 entity_id=contrato.pk,
                 message='Contrato vigente o futuro requiere mandato operativo activo.',
             )
+
+        _audit_contract_tenant_readiness(issues, contrato)
 
         links = list(contrato.contrato_propiedades.select_related('propiedad'))
         for link in links:
