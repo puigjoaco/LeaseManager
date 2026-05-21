@@ -29,6 +29,8 @@ Verificacion reproducible desde `main` vigente:
 - El JSON de salida incluye `aggregate_classification`; en la verificacion
   vacia los agregados requeridos quedan `bloqueado_dato_real` y los agregados
   opcionales sin filas quedan `implementado_sin_evidencia`.
+- El auditor bloquea fuentes evidenciales sin `SourceLabel` trazable o con
+  etiqueta sensible, y redacta etiquetas invalidas antes de escribir el JSON.
 - Esta verificacion confirma que el gate funciona y que no existe evidencia de
   cierre sin una fuente `snapshot_controlado` o `real_autorizado` autorizada.
 
