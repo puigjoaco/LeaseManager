@@ -20,6 +20,7 @@ from .models import (
     EstadoAvisoTermino,
     EstadoCodeudorSolidario,
     EstadoContrato,
+    MonedaBaseContrato,
     PeriodoContractual,
     RolContratoPropiedad,
 )
@@ -178,6 +179,10 @@ class PeriodoContractualWriteSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs['fecha_fin'] < attrs['fecha_inicio']:
             raise serializers.ValidationError({'fecha_fin': 'La fecha fin del periodo no puede ser anterior al inicio.'})
+        if attrs['moneda_base'] == MonedaBaseContrato.CLP and attrs['monto_base'] < Decimal('1000.00'):
+            raise serializers.ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
+        if attrs['moneda_base'] == MonedaBaseContrato.UF and attrs['monto_base'] <= Decimal('0.00'):
+            raise serializers.ValidationError({'monto_base': 'Un periodo UF debe tener monto positivo.'})
         return attrs
 
 

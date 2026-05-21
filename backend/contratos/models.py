@@ -1,3 +1,4 @@
+import calendar
 from decimal import Decimal
 
 from django.conf import settings
@@ -143,6 +144,13 @@ class Contrato(TimestampedModel):
             raise ValidationError({'dias_prealerta_admin': 'Los dias de prealerta deben ser mayores que cero.'})
 
         if self.estado in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:
+            if self.fecha_inicio.day != 1:
+                raise ValidationError({'fecha_inicio': 'Un contrato vigente o futuro debe iniciar el dia 1.'})
+            last_day = calendar.monthrange(self.fecha_fin_vigente.year, self.fecha_fin_vigente.month)[1]
+            if self.fecha_fin_vigente.day != last_day:
+                raise ValidationError(
+                    {'fecha_fin_vigente': 'Un contrato vigente o futuro debe terminar el ultimo dia del mes.'}
+                )
             if self.mandato_operacion.estado != 'activa':
                 raise ValidationError(
                     {'mandato_operacion': 'Un contrato vigente o futuro requiere un mandato operativo activo.'}
@@ -212,6 +220,10 @@ class PeriodoContractual(TimestampedModel):
         super().clean()
         if self.fecha_fin < self.fecha_inicio:
             raise ValidationError({'fecha_fin': 'La fecha fin del periodo no puede ser anterior al inicio.'})
+        if self.moneda_base == MonedaBaseContrato.CLP and self.monto_base < Decimal('1000.00'):
+            raise ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
+        if self.moneda_base == MonedaBaseContrato.UF and self.monto_base <= Decimal('0.00'):
+            raise ValidationError({'monto_base': 'Un periodo UF debe tener monto positivo.'})
 
 
 class CodeudorSolidario(TimestampedModel):

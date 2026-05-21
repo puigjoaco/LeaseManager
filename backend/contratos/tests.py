@@ -205,6 +205,30 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('periodos_contractuales', response.data)
 
+    def test_active_contract_rejects_non_month_boundary_dates(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-DATES', owner_rut='11111113-8')
+        arrendatario = self._create_arrendatario(rut='22222223-0')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-DATES')
+        payload['fecha_inicio'] = '2026-01-02'
+        payload['fecha_entrega'] = '2026-01-02'
+        payload['periodos_contractuales'][0]['fecha_inicio'] = '2026-01-02'
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('fecha_inicio', response.data)
+
+    def test_contract_rejects_period_below_operational_minimum(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-MIN', owner_rut='11111114-6')
+        arrendatario = self._create_arrendatario(rut='22222224-9')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-MIN')
+        payload['periodos_contractuales'][0]['monto_base'] = '999.00'
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('periodos_contractuales', response.data)
+
     def test_create_contract_with_principal_and_linked_property_succeeds(self):
         mandato = self._create_active_mandato(codigo='MAND-102', owner_rut='33333333-3')
         vinculada = Propiedad.objects.create(
