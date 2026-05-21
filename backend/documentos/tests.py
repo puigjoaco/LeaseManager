@@ -175,6 +175,33 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(detail.data['usuario'], self.user.id)
         self.assertTrue(AuditEvent.objects.filter(event_type='documentos.documento_emitido.created').exists())
 
+    def test_document_storage_ref_must_be_pdf(self):
+        expediente = self._create_expediente(entidad_id='pdf-guard')
+        self._create_politica()
+
+        response = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v1',
+                'checksum': 'docx-ref',
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'emitido',
+                'storage_ref': 'storage/contracts/contrato-1.docx',
+                'firma_arrendador_registrada': False,
+                'firma_arrendatario_registrada': False,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('storage_ref', response.data)
+
     def test_main_contract_policy_requires_both_signatures(self):
         response = self.client.post(
             reverse('documentos-politica-list'),
@@ -218,6 +245,35 @@ class DocumentosAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_notary_receipt_must_be_issued_formalized_or_archived(self):
+        expediente = self._create_expediente(entidad_id='3B')
+        self._create_politica(requiere_notaria=True)
+        receipt = self._create_documento(
+            expediente['id'],
+            tipo_documental='comprobante_notarial',
+            version_plantilla='notary-v1',
+            checksum='notary-draft',
+            storage_ref='storage/contracts/notary-draft.pdf',
+            estado='borrador',
+        )
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {
+                'recepcion_notarial_registrada': True,
+                'comprobante_notarial': receipt['id'],
+            },
+            format='json',
+        )
+
+        self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('comprobante_notarial', formalize.data)
 
     def test_document_can_be_formalized_when_policy_is_satisfied(self):
         expediente = self._create_expediente(entidad_id='4')
@@ -274,6 +330,25 @@ class DocumentosAPITests(APITestCase):
         )
 
         self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_canceled_document_cannot_be_formalized(self):
+        expediente = self._create_expediente(entidad_id='4C')
+        self._create_politica()
+        documento = self._create_documento(
+            expediente['id'],
+            estado='cancelado',
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {},
+            format='json',
+        )
+
+        self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', formalize.data)
 
     def test_codeudor_signature_is_enforced_by_policy(self):
         expediente = self._create_expediente(entidad_id='5')

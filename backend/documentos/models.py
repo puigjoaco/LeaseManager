@@ -52,6 +52,11 @@ class ModoFirmaPermitido(models.TextChoices):
     MANUAL = 'manual', 'Manual'
 
 
+def is_pdf_storage_ref(value):
+    normalized = str(value or '').strip().lower().split('?', 1)[0].split('#', 1)[0]
+    return normalized.endswith('.pdf')
+
+
 class ExpedienteDocumental(TimestampedModel):
     entidad_tipo = models.CharField(max_length=64)
     entidad_id = models.CharField(max_length=64)
@@ -142,11 +147,22 @@ class DocumentoEmitido(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if self.storage_ref and not is_pdf_storage_ref(self.storage_ref):
+            raise ValidationError({'storage_ref': 'El documento canonico debe referenciar un PDF.'})
         if self.comprobante_notarial_id and self.comprobante_notarial.tipo_documental != TipoDocumental.NOTARY_RECEIPT:
             raise ValidationError({'comprobante_notarial': 'El comprobante vinculado debe ser un comprobante notarial.'})
+        if self.comprobante_notarial_id and self.pk and self.comprobante_notarial_id == self.pk:
+            raise ValidationError({'comprobante_notarial': 'Un documento no puede usarse como su propio comprobante notarial.'})
         if self.comprobante_notarial_id and self.comprobante_notarial.expediente_id != self.expediente_id:
             raise ValidationError(
                 {'comprobante_notarial': 'El comprobante notarial debe pertenecer al mismo expediente documental.'}
+            )
+        if self.comprobante_notarial_id and self.comprobante_notarial.estado in {
+            EstadoDocumento.DRAFT,
+            EstadoDocumento.CANCELED,
+        }:
+            raise ValidationError(
+                {'comprobante_notarial': 'El comprobante notarial debe estar emitido, formalizado o archivado.'}
             )
 
         if self.estado == EstadoDocumento.FORMALIZED:

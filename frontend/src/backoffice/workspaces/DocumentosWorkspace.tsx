@@ -74,6 +74,10 @@ type DocumentoFormalizarDraft = {
   comprobante_notarial: string
 }
 
+function isPdfStorageRef(value: string) {
+  return value.trim().toLowerCase().split('?', 1)[0].split('#', 1)[0].endsWith('.pdf')
+}
+
 export function DocumentosWorkspace({
   canEditDocumentos,
   editingExpedienteId,
@@ -126,6 +130,11 @@ export function DocumentosWorkspace({
   goToDocumentoContext: (documentoId: number) => void
 }) {
   const expedienteById = new Map(expedientes.map((item) => [item.id, item]))
+  const notaryReceiptOptions = documentosEmitidos.filter((item) =>
+    item.tipo_documental === 'comprobante_notarial'
+    && ['emitido', 'formalizado', 'archivado'].includes(item.estado)
+    && isPdfStorageRef(item.storage_ref),
+  )
 
   return (
     <>
@@ -215,8 +224,8 @@ export function DocumentosWorkspace({
                 <option value="archivado">Archivado</option>
                 <option value="cancelado">Cancelado</option>
               </select>
-              <input placeholder="Storage ref" value={documentoDraft.storage_ref} onChange={(event) => setDocumentoDraft((current) => ({ ...current, storage_ref: event.target.value }))} />
-              <button type="submit" className="button-primary" disabled={isSubmitting || !documentoDraft.expediente || !documentoDraft.checksum || !documentoDraft.storage_ref}>Guardar documento</button>
+              <input placeholder="Storage ref PDF" value={documentoDraft.storage_ref} onChange={(event) => setDocumentoDraft((current) => ({ ...current, storage_ref: event.target.value }))} />
+              <button type="submit" className="button-primary" disabled={isSubmitting || !documentoDraft.expediente || !documentoDraft.checksum || !isPdfStorageRef(documentoDraft.storage_ref)}>Guardar documento</button>
             </form>
           </section>
 
@@ -231,7 +240,7 @@ export function DocumentosWorkspace({
               </select>
               <select value={documentoFormalizarDraft.comprobante_notarial} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, comprobante_notarial: event.target.value }))}>
                 <option value="">Sin comprobante</option>
-                {documentosEmitidos.filter((item) => item.tipo_documental === 'comprobante_notarial').map((item) => (
+                {notaryReceiptOptions.map((item) => (
                   <option key={item.id} value={item.id}>{item.storage_ref}</option>
                 ))}
               </select>

@@ -207,6 +207,10 @@ class DocumentoFormalizarSerializer(serializers.Serializer):
             self.fields['comprobante_notarial'].queryset = scope_documento_queryset(DocumentoEmitido.objects.all(), user)
 
     def update(self, instance, validated_data):
+        if instance.estado in {EstadoDocumento.ARCHIVED, EstadoDocumento.CANCELED}:
+            raise DjangoValidationError(
+                {'estado': 'No se puede formalizar un documento archivado o cancelado.'}
+            )
         for field, value in validated_data.items():
             setattr(instance, field, value)
         instance.estado = EstadoDocumento.FORMALIZED
