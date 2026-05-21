@@ -18,7 +18,8 @@ contra datos reales o snapshot controlado.
 - Extractores read-only.
 - Sin secretos versionados.
 - Clasificacion de cada agregado migrable.
-- Validacion de no duplicar propiedades ni hardcodear montos.
+- Validacion de no duplicar propiedades por rol de avaluo ni identidad
+  operativa fuerte; sin hardcodear montos.
 - Auditor reproducible de matriz:
 
 ```powershell
