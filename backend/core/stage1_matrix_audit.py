@@ -13,8 +13,10 @@ from cobranza.models import GarantiaContractual
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from contratos.models import (
     Arrendatario,
+    AvisoTermino,
     Contrato,
     ContratoPropiedad,
+    EstadoAvisoTermino,
     EstadoContrato,
     MonedaBaseContrato,
     PeriodoContractual,
@@ -369,6 +371,67 @@ def _audit_contract_periods(issues: list[dict[str, Any]], contrato: Contrato) ->
             )
 
 
+def _audit_future_contract_closure_evidence(
+    issues: list[dict[str, Any]],
+    *,
+    contrato: Contrato,
+    primary_property_id: int | None,
+) -> None:
+    if contrato.estado != EstadoContrato.FUTURE or primary_property_id is None:
+        return
+
+    current_contract = (
+        Contrato.objects.filter(
+            estado=EstadoContrato.ACTIVE,
+            contrato_propiedades__propiedad_id=primary_property_id,
+            contrato_propiedades__rol_en_contrato=RolContratoPropiedad.PRIMARY,
+        )
+        .exclude(pk=contrato.pk)
+        .order_by('-fecha_inicio', '-id')
+        .first()
+    )
+    if current_contract:
+        aviso_exists = AvisoTermino.objects.filter(
+            contrato=current_contract,
+            estado=EstadoAvisoTermino.REGISTERED,
+            fecha_efectiva__lte=contrato.fecha_inicio,
+        ).exists()
+        if not aviso_exists:
+            _issue(
+                issues,
+                code='stage1.contrato_futuro.aviso_termino_faltante',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message=(
+                    'Contrato futuro requiere AvisoTermino registrado para el contrato vigente '
+                    'de la propiedad principal.'
+                ),
+            )
+        return
+
+    early_terminated_exists = (
+        Contrato.objects.filter(
+            estado=EstadoContrato.EARLY_TERMINATED,
+            fecha_fin_vigente__lte=contrato.fecha_inicio,
+            contrato_propiedades__propiedad_id=primary_property_id,
+            contrato_propiedades__rol_en_contrato=RolContratoPropiedad.PRIMARY,
+        )
+        .exclude(pk=contrato.pk)
+        .exists()
+    )
+    if not early_terminated_exists:
+        _issue(
+            issues,
+            code='stage1.contrato_futuro.respaldo_cierre_faltante',
+            entity='Contrato',
+            entity_id=contrato.pk,
+            message=(
+                'Contrato futuro requiere AvisoTermino registrado o terminacion anticipada '
+                'ejecutada sobre la propiedad principal.'
+            ),
+        )
+
+
 def _audit_contratos(issues: list[dict[str, Any]]) -> None:
     _audit_model_validation(
         issues,
@@ -493,6 +556,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                     )
 
         primary_links = [link for link in links if link.rol_en_contrato == RolContratoPropiedad.PRIMARY]
+        primary_property_id = None
         if len(primary_links) != 1:
             _issue(
                 issues,
@@ -501,14 +565,22 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                 entity_id=contrato.pk,
                 message=f'Contrato vigente/futuro con {len(primary_links)} propiedades principales; debe tener exactamente una.',
             )
-        elif primary_links[0].propiedad_id != contrato.mandato_operacion.propiedad_id:
-            _issue(
-                issues,
-                code='stage1.contrato.propiedad_principal_no_mandato',
-                entity='Contrato',
-                entity_id=contrato.pk,
-                message='La propiedad principal del contrato no coincide con la propiedad del mandato operativo.',
-            )
+        else:
+            primary_property_id = primary_links[0].propiedad_id
+            if primary_property_id != contrato.mandato_operacion.propiedad_id:
+                _issue(
+                    issues,
+                    code='stage1.contrato.propiedad_principal_no_mandato',
+                    entity='Contrato',
+                    entity_id=contrato.pk,
+                    message='La propiedad principal del contrato no coincide con la propiedad del mandato operativo.',
+                )
+
+        _audit_future_contract_closure_evidence(
+            issues,
+            contrato=contrato,
+            primary_property_id=primary_property_id,
+        )
 
         distribution_total = sum((link.porcentaje_distribucion_interna for link in links), Decimal('0.00'))
         if links and distribution_total != Decimal('100.00'):

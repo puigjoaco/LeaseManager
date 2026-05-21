@@ -10,8 +10,10 @@ from cobranza.models import EstadoGarantia, GarantiaContractual
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from contratos.models import (
     Arrendatario,
+    AvisoTermino,
     Contrato,
     ContratoPropiedad,
+    EstadoAvisoTermino,
     EstadoContrato,
     MonedaBaseContrato,
     PeriodoContractual,
@@ -153,6 +155,36 @@ class Stage1MatrixAuditTests(TestCase):
         GarantiaContractual.objects.create(contrato=contrato, monto_pactado='0.00')
         return contrato
 
+    def _create_future_contract_for(self, contrato: Contrato) -> Contrato:
+        future_contract = Contrato.objects.create(
+            codigo_contrato='CON-CTRL-FUT',
+            mandato_operacion=contrato.mandato_operacion,
+            arrendatario=contrato.arrendatario,
+            fecha_inicio=date(2027, 1, 1),
+            fecha_fin_vigente=date(2027, 12, 31),
+            dia_pago_mensual=5,
+            estado=EstadoContrato.FUTURE,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=future_contract,
+            propiedad=contrato.mandato_operacion.propiedad,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='002',
+        )
+        PeriodoContractual.objects.create(
+            contrato=future_contract,
+            numero_periodo=1,
+            fecha_inicio=date(2027, 1, 1),
+            fecha_fin=date(2027, 12, 31),
+            monto_base='250000.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='mensual',
+            origen_periodo='snapshot_controlado',
+        )
+        GarantiaContractual.objects.create(contrato=future_contract, monto_pactado='0.00')
+        return future_contract
+
     def test_empty_database_is_not_evidence_grade_ready(self):
         result = collect_stage1_matrix_audit(source_kind='local')
 
@@ -172,6 +204,34 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['issue_counts'].get('blocking', 0), 0)
         self.assertGreater(result['summary']['participaciones_patrimoniales'], 0)
         self.assertGreater(result['summary']['representaciones_comunidad'], 0)
+
+    def test_future_contract_without_notice_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        self._create_future_contract_for(contrato)
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato_futuro.aviso_termino_faltante', issue_codes)
+
+    def test_future_contract_with_registered_notice_can_pass_stage1_matrix_gate(self):
+        contrato = self._create_valid_stage1_matrix()
+        AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='Termino controlado para contrato futuro',
+            estado=EstadoAvisoTermino.REGISTERED,
+        )
+        self._create_future_contract_for(contrato)
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertNotIn('stage1.contrato_futuro.aviso_termino_faltante', issue_codes)
 
     def test_invalid_stage1_model_records_are_blocking(self):
         contrato = self._create_valid_stage1_matrix()
