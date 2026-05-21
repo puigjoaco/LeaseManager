@@ -11,7 +11,13 @@ from typing import Any
 from django.core.exceptions import ValidationError
 from django.db.models import Count
 
-from cobranza.models import GarantiaContractual, HistorialGarantia, TipoMovimientoGarantia
+from cobranza.models import (
+    DistribucionCobroMensual,
+    GarantiaContractual,
+    HistorialGarantia,
+    PagoMensual,
+    TipoMovimientoGarantia,
+)
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from contratos.models import (
     Arrendatario,
@@ -220,6 +226,8 @@ def _build_summary() -> dict[str, int]:
         'contratos_activos_o_futuros': Contrato.objects.filter(estado__in=ACTIVE_CONTRACT_STATES).count(),
         'contrato_propiedades': ContratoPropiedad.objects.count(),
         'periodos_contractuales': PeriodoContractual.objects.count(),
+        'pagos_mensuales': PagoMensual.objects.count(),
+        'distribuciones_cobro_mensual': DistribucionCobroMensual.objects.count(),
         'garantias_contractuales': GarantiaContractual.objects.count(),
         'historial_garantias': HistorialGarantia.objects.count(),
         'mandatos_con_facturacion': MandatoOperacion.objects.filter(autoriza_facturacion=True).count(),
@@ -653,6 +661,87 @@ def _audit_guarantee_history_consistency(
         )
 
 
+def _audit_payment_distribution_consistency(issues: list[dict[str, Any]]) -> None:
+    payments = PagoMensual.objects.select_related(
+        'contrato',
+        'contrato__mandato_operacion',
+        'periodo_contractual',
+    ).prefetch_related('distribuciones_cobro')
+
+    for payment in payments:
+        try:
+            payment.full_clean()
+        except ValidationError as error:
+            for message in _validation_messages(error):
+                _issue(
+                    issues,
+                    code='stage1.pago_mensual.validacion_modelo',
+                    entity='PagoMensual',
+                    entity_id=payment.pk,
+                    message=message,
+                )
+
+        distributions = list(payment.distribuciones_cobro.all())
+        if not distributions:
+            _issue(
+                issues,
+                code='stage1.pago_mensual.distribuciones_faltantes',
+                entity='PagoMensual',
+                entity_id=payment.pk,
+                message='Pago mensual existente sin DistribucionCobroMensual para validar facturacion esperada.',
+            )
+            continue
+
+        percentage_total = sum((item.porcentaje_snapshot for item in distributions), Decimal('0.00'))
+        accrued_total = sum((item.monto_devengado_clp for item in distributions), Decimal('0.00'))
+        reconciled_total = sum((item.monto_conciliado_clp for item in distributions), Decimal('0.00'))
+        taxable_total = sum((item.monto_facturable_clp for item in distributions), Decimal('0.00'))
+
+        if percentage_total != Decimal('100.00'):
+            _issue(
+                issues,
+                code='stage1.pago_mensual.distribucion_porcentaje_invalida',
+                entity='PagoMensual',
+                entity_id=payment.pk,
+                message=f'Distribuciones de pago suman {percentage_total}; deben sumar 100.00.',
+            )
+        if accrued_total != payment.monto_facturable_clp:
+            _issue(
+                issues,
+                code='stage1.pago_mensual.distribucion_devengo_inconsistente',
+                entity='PagoMensual',
+                entity_id=payment.pk,
+                message='Devengo distribuido no cuadra con el monto base del pago mensual.',
+            )
+        if reconciled_total != payment.monto_pagado_clp:
+            _issue(
+                issues,
+                code='stage1.pago_mensual.distribucion_conciliacion_inconsistente',
+                entity='PagoMensual',
+                entity_id=payment.pk,
+                message='Monto conciliado distribuido no cuadra con el monto pagado del pago mensual.',
+            )
+        if taxable_total > payment.monto_facturable_clp:
+            _issue(
+                issues,
+                code='stage1.pago_mensual.distribucion_facturable_inconsistente',
+                entity='PagoMensual',
+                entity_id=payment.pk,
+                message='Monto facturable distribuido excede el monto base del pago mensual.',
+            )
+
+        billing_company_id = payment.contrato.mandato_operacion.entidad_facturadora_id
+        for distribution in distributions:
+            if distribution.requiere_dte and distribution.beneficiario_empresa_owner_id != billing_company_id:
+                _issue(
+                    issues,
+                    code='stage1.distribucion_cobro.facturadora_inconsistente',
+                    entity='DistribucionCobroMensual',
+                    entity_id=distribution.pk,
+                    message='Distribucion marcada para DTE no coincide con la entidad facturadora del mandato.',
+                )
+
+
 def _audit_contratos(issues: list[dict[str, Any]]) -> None:
     _audit_model_validation(
         issues,
@@ -675,6 +764,17 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         code='stage1.historial_garantia.validacion_modelo',
         entity='HistorialGarantia',
     )
+    _audit_model_validation(
+        issues,
+        queryset=DistribucionCobroMensual.objects.select_related(
+            'pago_mensual',
+            'beneficiario_socio_owner',
+            'beneficiario_empresa_owner',
+        ),
+        code='stage1.distribucion_cobro.validacion_modelo',
+        entity='DistribucionCobroMensual',
+    )
+    _audit_payment_distribution_consistency(issues)
 
     duplicate_any_role = (
         ContratoPropiedad.objects.filter(contrato__estado__in=ACTIVE_CONTRACT_STATES)

@@ -27,6 +27,8 @@ contra datos reales o snapshot controlado.
   duplicados activos y maximo 3 activos por contrato.
 - Validacion de garantias: montos/estado coherentes y saldos recibidos,
   devueltos o aplicados conciliados contra `HistorialGarantia`.
+- Validacion de pagos y distribuciones existentes en el snapshot: si existen,
+  deben cuadrar devengo, conciliacion, porcentaje y entidad facturadora.
 - Auditor reproducible de matriz:
 
 ```powershell
