@@ -57,6 +57,176 @@ from patrimonio.models import (
 
 EVIDENCE_GRADE_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 ACTIVE_CONTRACT_STATES = {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}
+REQUIRED_STAGE1_COUNTS = (
+    'socios',
+    'empresas',
+    'comunidades',
+    'participaciones_patrimoniales',
+    'representaciones_comunidad',
+    'propiedades',
+    'cuentas_recaudadoras',
+    'mandatos',
+    'identidades_envio_activas',
+    'asignaciones_canal_activas',
+    'arrendatarios',
+    'contratos',
+    'contratos_activos_o_futuros',
+    'contrato_propiedades',
+    'periodos_contractuales',
+    'garantias_contractuales',
+    'mandatos_con_facturacion',
+    'configuraciones_fiscales_activas',
+)
+AGGREGATE_DEFINITIONS = (
+    {
+        'key': 'socios',
+        'canonical_entity': 'Socio',
+        'entities': {'Socio'},
+        'code_prefixes': ('stage1.socio.',),
+    },
+    {
+        'key': 'empresas',
+        'canonical_entity': 'Empresa',
+        'entities': {'Empresa'},
+        'code_prefixes': ('stage1.empresa.',),
+    },
+    {
+        'key': 'comunidades',
+        'canonical_entity': 'ComunidadPatrimonial',
+        'entities': {'ComunidadPatrimonial'},
+        'code_prefixes': ('stage1.comunidad.',),
+    },
+    {
+        'key': 'participaciones_patrimoniales',
+        'canonical_entity': 'ParticipacionPatrimonial',
+        'entities': {'ParticipacionPatrimonial'},
+        'code_prefixes': ('stage1.participacion.',),
+    },
+    {
+        'key': 'representaciones_comunidad',
+        'canonical_entity': 'RepresentacionComunidad',
+        'entities': {'RepresentacionComunidad'},
+        'code_prefixes': ('stage1.representacion.',),
+    },
+    {
+        'key': 'propiedades',
+        'canonical_entity': 'Propiedad',
+        'entities': {'Propiedad'},
+        'code_prefixes': ('stage1.propiedad.',),
+    },
+    {
+        'key': 'cuentas_recaudadoras',
+        'canonical_entity': 'CuentaRecaudadora',
+        'entities': {'CuentaRecaudadora'},
+        'code_prefixes': ('stage1.cuenta.',),
+    },
+    {
+        'key': 'mandatos',
+        'canonical_entity': 'MandatoOperacion',
+        'entities': {'MandatoOperacion'},
+        'code_prefixes': ('stage1.mandato.', 'stage1.facturacion.'),
+    },
+    {
+        'key': 'identidades_envio_activas',
+        'canonical_entity': 'IdentidadDeEnvio',
+        'entities': {'IdentidadDeEnvio'},
+        'code_prefixes': ('stage1.identidad_envio.',),
+    },
+    {
+        'key': 'asignaciones_canal_activas',
+        'canonical_entity': 'AsignacionCanalOperacion',
+        'entities': {'AsignacionCanalOperacion'},
+        'code_prefixes': ('stage1.asignacion_canal.', 'stage1.contrato.canal_operativo_'),
+    },
+    {
+        'key': 'arrendatarios',
+        'canonical_entity': 'Arrendatario',
+        'entities': {'Arrendatario'},
+        'code_prefixes': ('stage1.arrendatario.',),
+    },
+    {
+        'key': 'codeudores_solidarios',
+        'canonical_entity': 'CodeudorSolidario',
+        'entities': {'CodeudorSolidario'},
+        'code_prefixes': ('stage1.codeudor.',),
+    },
+    {
+        'key': 'contratos',
+        'canonical_entity': 'Contrato',
+        'entities': {'Contrato'},
+        'code_prefixes': ('stage1.contrato.', 'stage1.contrato_futuro.'),
+    },
+    {
+        'key': 'contratos_activos_o_futuros',
+        'canonical_entity': 'Contrato',
+        'entities': {'Contrato'},
+        'code_prefixes': ('stage1.contrato.', 'stage1.contrato_futuro.'),
+    },
+    {
+        'key': 'contrato_propiedades',
+        'canonical_entity': 'ContratoPropiedad',
+        'entities': {'ContratoPropiedad'},
+        'code_prefixes': ('stage1.contrato_propiedad.', 'stage1.codigo_efectivo.'),
+    },
+    {
+        'key': 'periodos_contractuales',
+        'canonical_entity': 'PeriodoContractual',
+        'entities': {'PeriodoContractual'},
+        'code_prefixes': ('stage1.periodo.',),
+    },
+    {
+        'key': 'ajustes_contrato',
+        'canonical_entity': 'AjusteContrato',
+        'entities': {'AjusteContrato'},
+        'code_prefixes': ('stage1.ajuste_contrato.',),
+    },
+    {
+        'key': 'pagos_mensuales',
+        'canonical_entity': 'PagoMensual',
+        'entities': {'PagoMensual'},
+        'code_prefixes': ('stage1.pago_mensual.',),
+    },
+    {
+        'key': 'distribuciones_cobro_mensual',
+        'canonical_entity': 'DistribucionCobroMensual',
+        'entities': {'DistribucionCobroMensual'},
+        'code_prefixes': ('stage1.distribucion_cobro.',),
+    },
+    {
+        'key': 'valores_uf_diarios',
+        'canonical_entity': 'ValorUFDiario',
+        'entities': {'ValorUFDiario'},
+        'code_prefixes': ('stage1.valor_uf.', 'stage1.pago_mensual.uf_valor_'),
+    },
+    {
+        'key': 'garantias_contractuales',
+        'canonical_entity': 'GarantiaContractual',
+        'entities': {'GarantiaContractual'},
+        'code_prefixes': ('stage1.garantia.',),
+    },
+    {
+        'key': 'historial_garantias',
+        'canonical_entity': 'HistorialGarantia',
+        'entities': {'HistorialGarantia'},
+        'code_prefixes': ('stage1.historial_garantia.',),
+    },
+    {
+        'key': 'mandatos_con_facturacion',
+        'canonical_entity': 'MandatoOperacion',
+        'entities': {'MandatoOperacion'},
+        'code_prefixes': ('stage1.facturacion.',),
+    },
+    {
+        'key': 'configuraciones_fiscales_activas',
+        'canonical_entity': 'ConfiguracionFiscalEmpresa',
+        'entities': {'ConfiguracionFiscalEmpresa', 'RegimenTributarioEmpresa'},
+        'code_prefixes': (
+            'stage1.configuracion_fiscal.',
+            'stage1.regimen_tributario.',
+            'stage1.facturacion.configuracion_',
+        ),
+    },
+)
 
 
 def _issue(
@@ -133,25 +303,56 @@ def _month_first_day(year: int, month: int):
 
 
 def _has_required_stage1_data(summary: dict[str, int]) -> bool:
-    required_positive_counts = (
-        'socios',
-        'empresas',
-        'comunidades',
-        'participaciones_patrimoniales',
-        'representaciones_comunidad',
-        'propiedades',
-        'cuentas_recaudadoras',
-        'mandatos',
-        'arrendatarios',
-        'contratos',
-        'contratos_activos_o_futuros',
-        'contrato_propiedades',
-        'periodos_contractuales',
-        'garantias_contractuales',
-        'mandatos_con_facturacion',
-        'configuraciones_fiscales_activas',
-    )
-    return all(summary[count_name] > 0 for count_name in required_positive_counts)
+    return all(summary[count_name] > 0 for count_name in REQUIRED_STAGE1_COUNTS)
+
+
+def _issue_matches_aggregate(issue: dict[str, Any], definition: dict[str, Any]) -> bool:
+    if issue.get('entity') in definition['entities']:
+        return True
+    issue_code = issue.get('code') or ''
+    return any(issue_code.startswith(prefix) for prefix in definition['code_prefixes'])
+
+
+def _build_aggregate_classification(
+    *,
+    summary: dict[str, int],
+    issues: list[dict[str, Any]],
+    has_required_data: bool,
+    evidence_grade: bool,
+    require_data: bool,
+) -> dict[str, dict[str, Any]]:
+    aggregate_classification = {}
+    for definition in AGGREGATE_DEFINITIONS:
+        key = definition['key']
+        blocking_codes = sorted(
+            {
+                issue['code']
+                for issue in issues
+                if issue.get('severity') == 'blocking'
+                and issue.get('code') != 'stage1.data_missing'
+                and _issue_matches_aggregate(issue, definition)
+            }
+        )
+        count = summary[key]
+        required = key in REQUIRED_STAGE1_COUNTS
+
+        if blocking_codes:
+            classification = 'defectuoso'
+        elif required and count == 0:
+            classification = 'bloqueado_dato_real' if require_data else 'implementado_sin_evidencia'
+        elif evidence_grade and (count > 0 or has_required_data):
+            classification = 'resuelto_confirmado'
+        else:
+            classification = 'implementado_sin_evidencia'
+
+        aggregate_classification[key] = {
+            'canonical_entity': definition['canonical_entity'],
+            'count': count,
+            'required_for_stage1_close': required,
+            'classification': classification,
+            'blocking_issue_codes': blocking_codes,
+        }
+    return aggregate_classification
 
 
 def _audit_property_identity_uniqueness(issues: list[dict[str, Any]], active_properties: list[Propiedad]) -> None:
@@ -1080,6 +1281,13 @@ def collect_stage1_matrix_audit(
     blocking_count = issue_counts['blocking']
     evidence_grade = source_kind in EVIDENCE_GRADE_SOURCE_KINDS
     gate_passed = blocking_count == 0 and has_required_data and evidence_grade
+    aggregate_classification = _build_aggregate_classification(
+        summary=summary,
+        issues=issues,
+        has_required_data=has_required_data,
+        evidence_grade=evidence_grade,
+        require_data=require_data,
+    )
 
     issue_codes = {issue['code'] for issue in issues}
     if blocking_count and issue_codes == {'stage1.data_missing'}:
@@ -1099,6 +1307,7 @@ def collect_stage1_matrix_audit(
         'source_label': source_label,
         'require_data': require_data,
         'summary': summary,
+        'aggregate_classification': aggregate_classification,
         'has_required_stage1_data': has_required_data,
         'evidence_grade': evidence_grade,
         'classification': classification,

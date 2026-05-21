@@ -244,6 +244,21 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'implementado_sin_evidencia')
 
+    def test_required_snapshot_reports_aggregate_classification_for_missing_data(self):
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        aggregates = result['aggregate_classification']
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(aggregates['socios']['classification'], 'bloqueado_dato_real')
+        self.assertTrue(aggregates['socios']['required_for_stage1_close'])
+        self.assertEqual(aggregates['contratos_activos_o_futuros']['classification'], 'bloqueado_dato_real')
+        self.assertEqual(aggregates['identidades_envio_activas']['classification'], 'bloqueado_dato_real')
+        self.assertTrue(aggregates['identidades_envio_activas']['required_for_stage1_close'])
+        self.assertEqual(aggregates['asignaciones_canal_activas']['classification'], 'bloqueado_dato_real')
+        self.assertTrue(aggregates['asignaciones_canal_activas']['required_for_stage1_close'])
+        self.assertEqual(aggregates['codeudores_solidarios']['classification'], 'implementado_sin_evidencia')
+        self.assertFalse(aggregates['codeudores_solidarios']['required_for_stage1_close'])
+
     def test_snapshot_without_active_or_future_contract_is_data_blocked(self):
         contrato = self._create_valid_stage1_matrix()
         contrato.estado = EstadoContrato.FINISHED
@@ -271,6 +286,11 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['issue_counts'].get('blocking', 0), 0)
         self.assertGreater(result['summary']['participaciones_patrimoniales'], 0)
         self.assertGreater(result['summary']['representaciones_comunidad'], 0)
+        self.assertEqual(result['aggregate_classification']['socios']['classification'], 'resuelto_confirmado')
+        self.assertEqual(
+            result['aggregate_classification']['codeudores_solidarios']['classification'],
+            'resuelto_confirmado',
+        )
 
     def test_controlled_snapshot_with_payment_distribution_can_pass_stage1_matrix_gate(self):
         contrato = self._create_valid_stage1_matrix()
@@ -399,6 +419,11 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertEqual(result['summary']['valores_uf_diarios'], 1)
         self.assertIn('stage1.valor_uf.validacion_modelo', issue_codes)
+        self.assertEqual(result['aggregate_classification']['valores_uf_diarios']['classification'], 'defectuoso')
+        self.assertIn(
+            'stage1.valor_uf.validacion_modelo',
+            result['aggregate_classification']['valores_uf_diarios']['blocking_issue_codes'],
+        )
 
     def test_duplicate_active_property_by_rol_avaluo_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
