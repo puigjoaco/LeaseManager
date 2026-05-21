@@ -243,6 +243,21 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'implementado_sin_evidencia')
 
+    def test_snapshot_without_active_or_future_contract_is_data_blocked(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.estado = EstadoContrato.FINISHED
+        contrato.save(update_fields=['estado', 'updated_at'])
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['summary']['contratos'], 1)
+        self.assertEqual(result['summary']['contratos_activos_o_futuros'], 0)
+        self.assertFalse(result['has_required_stage1_data'])
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'bloqueado_dato_real')
+        self.assertEqual(issue_codes, {'stage1.data_missing'})
+
     def test_valid_controlled_snapshot_can_pass_stage1_matrix_gate(self):
         self._create_valid_stage1_matrix()
 
