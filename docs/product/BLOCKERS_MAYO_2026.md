@@ -32,6 +32,20 @@ Fuentes candidatas externas detectadas:
   de prueba detectadas por metadata. Clasificacion: `bloqueado_dato_real`;
   deben ser autorizadas y clasificadas como `snapshot_controlado` o descartadas
   antes de ejecutar cualquier gate.
+  - Relectura schema-only read-only del 2026-05-21, sin filas ni valores:
+    `bundle-inspect-final.db`, `bundle-inspect.db`, `dev-bootstrap.sqlite3`,
+    `review-check.sqlite3`, `test-compliance-bootstrap.sqlite3`,
+    `test-control-activity.sqlite3`, `test-showcase-access.sqlite3`,
+    `test-showcase-empty.sqlite3`, `test-tax-annual-flow.sqlite3` y
+    `test-tax-monthly-flow.sqlite3` exponen tablas canonicas de Etapa 1
+    (`patrimonio_*`, `operacion_*`, `contratos_*`, `cobranza_*`,
+    `conciliacion_ingresodesconocido`, `contabilidad_*`, `sii_*`). Esto solo
+    prueba compatibilidad de esquema; no prueba que contengan datos reales,
+    snapshot controlado ni matriz valida.
+  - `review-fixes.sqlite3`, `review-focused.sqlite3`,
+    `test-codex-contract-code.sqlite3`, `test-codex-mandate-limit.sqlite3`,
+    `test-codex-migrations.sqlite3` y `test-codex.db` son archivos vacios por
+    metadata y quedan descartados como fuente directa.
 - `D:/Proyectos/LeaseManager-clean/infobackend/*.csv` y `*.sql`: exports
   legacy de empresas, socios, propiedades, contratos, cuentas y
   participaciones. Clasificacion: `requiere_decision_usuario`; sirven como
