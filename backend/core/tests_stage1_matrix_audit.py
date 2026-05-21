@@ -7,6 +7,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 
 from cobranza.models import (
+    AjusteContrato,
     DistribucionCobroMensual,
     EstadoGarantia,
     GarantiaContractual,
@@ -291,6 +292,26 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertEqual(result['summary']['pagos_mensuales'], 1)
         self.assertEqual(result['summary']['distribuciones_cobro_mensual'], 1)
+
+    def test_existing_contract_adjustment_with_invalid_dates_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        AjusteContrato.objects.create(
+            contrato=contrato,
+            tipo_ajuste='descuento_controlado',
+            monto=Decimal('1000.00'),
+            moneda=MonedaBaseContrato.CLP,
+            mes_inicio=date(2026, 3, 1),
+            mes_fin=date(2026, 2, 1),
+            justificacion='fixture de auditoria',
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['summary']['ajustes_contrato'], 1)
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.ajuste_contrato.validacion_modelo', issue_codes)
 
     def test_uf_payment_without_monthly_uf_value_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

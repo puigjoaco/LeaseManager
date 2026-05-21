@@ -29,6 +29,8 @@ contra datos reales o snapshot controlado.
   duplicados activos y maximo 3 activos por contrato.
 - Validacion de garantias: montos/estado coherentes y saldos recibidos,
   devueltos o aplicados conciliados contra `HistorialGarantia`.
+- Validacion de ajustes contractuales existentes: contrato, moneda, rango de
+  meses y justificacion deben ser coherentes antes de usarlos en cobranza.
 - Validacion de pagos y distribuciones existentes en el snapshot: si existen,
   deben cuadrar devengo, conciliacion, porcentaje y entidad facturadora.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
