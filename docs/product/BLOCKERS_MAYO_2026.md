@@ -6,7 +6,7 @@ preparar gates, pero impide declarar cierre del frente afectado.
 | ID | Bloqueo | Tipo | Impacto | Desbloqueo requerido | Estado |
 | --- | --- | --- | --- | --- | --- |
 | BLK-001 | PRD Mayo 2026 debia promoverse como rector formal. | requiere_decision_usuario | Podia existir ambiguedad entre PRD vigente y candidato. | Promovido a `01_Set_Vigente/PRD_CANONICO.md`; PRD marzo archivado. | cerrado |
-| BLK-002 | Falta validacion de datos reales o snapshot controlado para matriz contrato-propiedad-cuenta-facturacion. | bloqueado_dato_real | Etapa 1 no puede cerrarse. El gate local `audit_stage1_matrix` ya existe, pero aun falta ejecutarlo contra snapshot controlado o DB real autorizada. | Entregar o autorizar `DATABASE_URL` de snapshot/control de datos y ejecutar `scripts/run-stage1-snapshot-gate.ps1` con `SourceKind snapshot_controlado` o `real_autorizado`, `--require-data` y `--fail-on-violations` via wrapper seguro. | abierto |
+| BLK-002 | Falta validacion de datos reales o snapshot controlado para matriz contrato-propiedad-cuenta-facturacion. | bloqueado_dato_real | Etapa 1 no puede cerrarse. El gate local `audit_stage1_matrix` ya existe, pero aun falta ejecutarlo contra snapshot controlado o DB real autorizada. | Entregar o autorizar `DATABASE_URL` de snapshot/control de datos y ejecutar `scripts/run-stage1-snapshot-gate.ps1` con `SourceKind snapshot_controlado` o `real_autorizado`; el wrapper aplica internamente `--require-data` y `--fail-on-violations`. | abierto |
 | BLK-003 | Integraciones externas no estan abiertas por defecto. | bloqueado_externo | Email, WebPay, banco, UF, SII y storage no pueden declararse productivos. | Permisos, credenciales seguras, entorno aislado, pruebas y rollback. | abierto |
 | BLK-004 | Reglas tributarias finales requieren validacion oficial o experta. | bloqueado_externo | SII, DTE, F29/F21, renta anual y certificados no pueden cerrarse por suposicion. | Validacion contra SII, normativa vigente o experto responsable. | abierto |
 | BLK-005 | Politica final de firma/notaria y documentos operables debe cerrarse. | requiere_decision_usuario | Documentos y contratos no pueden cerrar totalmente. | Definir politica, responsables, evidencia y flujo PDF. | abierto |
@@ -64,6 +64,8 @@ desbloqueo:
 
 1. Ingresar un `DATABASE_URL` seguro para `snapshot_controlado` y ejecutar
    `scripts/run-stage1-snapshot-gate.ps1 -SourceKind snapshot_controlado`.
+   Ese wrapper llama a `audit_stage1_matrix` con datos obligatorios y falla si
+   encuentra violaciones de gate.
 2. Autorizar lectura puntual de un `.env` legacy solo para extraer una URL de
    snapshot/staging, sin imprimirla ni versionarla.
 3. Autorizar una base `.sqlite3`/`.db` historica como candidato de
