@@ -369,6 +369,19 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.codigo_efectivo.duplicado_en_cuenta', issue_codes)
         self.assertIn('stage1.contrato_propiedad.validacion_modelo', issue_codes)
 
+    def test_zero_effective_code_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        link = contrato.contrato_propiedades.get(rol_en_contrato=RolContratoPropiedad.PRIMARY)
+        link.codigo_conciliacion_efectivo_snapshot = '000'
+        link.save(update_fields=['codigo_conciliacion_efectivo_snapshot', 'updated_at'])
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato_propiedad.validacion_modelo', issue_codes)
+
     def test_command_can_fail_when_required_data_is_missing(self):
         with self.assertRaises(CommandError):
             call_command(

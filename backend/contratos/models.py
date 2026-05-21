@@ -191,6 +191,14 @@ class ContratoPropiedad(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if self.codigo_conciliacion_efectivo_snapshot == '000':
+            raise ValidationError(
+                {
+                    'codigo_conciliacion_efectivo_snapshot': (
+                        'El codigo efectivo debe estar en el rango 001-999.'
+                    )
+                }
+            )
         if not self.contrato_id or not self.propiedad_id:
             return
         if self.contrato.estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:

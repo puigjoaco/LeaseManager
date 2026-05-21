@@ -378,6 +378,17 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(second_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('contrato_propiedades', second_response.data)
 
+    def test_contract_rejects_zero_effective_code(self):
+        mandato = self._create_active_mandato(codigo='MAND-CODE-ZERO', owner_rut='75757575-6')
+        arrendatario = self._create_arrendatario(rut='76767676-3')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-CODE-ZERO')
+        payload['contrato_propiedades'][0]['codigo_conciliacion_efectivo_snapshot'] = '000'
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('contrato_propiedades', response.data)
+
     def test_future_contract_requires_registered_notice(self):
         mandato = self._create_active_mandato(codigo='MAND-105', owner_rut='12121212-4')
         arrendatario = self._create_arrendatario(rut='13131313-1')

@@ -149,6 +149,11 @@ class ContratoPropiedadWriteSerializer(serializers.Serializer):
         if user and getattr(user, 'is_authenticated', False):
             self.fields['propiedad_id'].queryset = _scoped_propiedad_queryset(user)
 
+    def validate_codigo_conciliacion_efectivo_snapshot(self, value):
+        if value == '000':
+            raise serializers.ValidationError('El codigo efectivo debe estar en el rango 001-999.')
+        return value
+
 
 class PeriodoContractualReadSerializer(serializers.ModelSerializer):
     class Meta:
