@@ -62,6 +62,8 @@ El JSON de salida debe indicar:
 - `ready_for_stage1_close: true`
 - `issue_counts.blocking` ausente o `0`
 - `classification: resuelto_confirmado`
+- `aggregate_classification` con cada agregado requerido en
+  `classification: resuelto_confirmado`
 
 Si falla por `stage1.data_missing`, el estado sigue `bloqueado_dato_real`. Si
 falla por otras reglas, se clasifica como `defectuoso` y debe corregirse la
