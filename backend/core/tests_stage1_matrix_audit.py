@@ -1,11 +1,12 @@
 from datetime import date
+from decimal import Decimal
 from io import StringIO
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from cobranza.models import GarantiaContractual
+from cobranza.models import EstadoGarantia, GarantiaContractual
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from contratos.models import (
     Arrendatario,
@@ -184,6 +185,21 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.contrato.propiedad_principal_invalida', issue_codes)
         self.assertIn('stage1.contrato.periodos_faltantes', issue_codes)
         self.assertIn('stage1.contrato.garantia_faltante', issue_codes)
+
+    def test_inconsistent_guarantee_state_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        garantia = contrato.garantia_contractual
+        garantia.monto_pactado = Decimal('100000.00')
+        garantia.monto_recibido = Decimal('50000.00')
+        garantia.estado_garantia = EstadoGarantia.PENDING
+        garantia.save(update_fields=['monto_pactado', 'monto_recibido', 'estado_garantia', 'updated_at'])
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.garantia.validacion_modelo', issue_codes)
 
     def test_command_can_fail_when_required_data_is_missing(self):
         with self.assertRaises(CommandError):

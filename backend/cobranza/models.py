@@ -288,8 +288,38 @@ class GarantiaContractual(TimestampedModel):
         if self.monto_recibido < 0 or self.monto_devuelto < 0 or self.monto_aplicado < 0:
             raise ValidationError('Los montos de garantia no pueden ser negativos.')
 
+        if self.monto_recibido > self.monto_pactado:
+            raise ValidationError({'monto_recibido': 'La garantia recibida no puede exceder el monto pactado.'})
+
         if self.monto_devuelto + self.monto_aplicado > self.monto_recibido:
             raise ValidationError('La garantia no puede devolver o aplicar mas de lo recibido.')
+
+        saldo = self.saldo_vigente
+        if self.monto_recibido == 0:
+            if self.estado_garantia != EstadoGarantia.PENDING:
+                raise ValidationError({'estado_garantia': 'Una garantia sin recepcion debe quedar pendiente.'})
+            if self.fecha_recepcion or self.fecha_cierre:
+                raise ValidationError({'fecha_recepcion': 'Una garantia sin recepcion no debe tener fechas operativas.'})
+            return
+
+        if not self.fecha_recepcion:
+            raise ValidationError({'fecha_recepcion': 'Una garantia recibida requiere fecha de recepcion.'})
+
+        if saldo > 0:
+            expected_state = EstadoGarantia.PARTIALLY_RETURNED if self.monto_devuelto > 0 else EstadoGarantia.HELD
+            if self.estado_garantia != expected_state:
+                raise ValidationError(
+                    {'estado_garantia': 'El estado de garantia no coincide con sus montos abiertos.'}
+                )
+            if self.fecha_cierre:
+                raise ValidationError({'fecha_cierre': 'Una garantia con saldo vigente no debe tener fecha de cierre.'})
+            return
+
+        expected_closed_state = EstadoGarantia.APPLIED if self.monto_aplicado > 0 else EstadoGarantia.RETURNED
+        if self.estado_garantia != expected_closed_state:
+            raise ValidationError({'estado_garantia': 'El estado de garantia no coincide con sus montos cerrados.'})
+        if not self.fecha_cierre:
+            raise ValidationError({'fecha_cierre': 'Una garantia cerrada requiere fecha de cierre.'})
 
 
 class HistorialGarantia(TimestampedModel):

@@ -365,7 +365,9 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
 
         _audit_contract_periods(issues, contrato)
 
-        if not GarantiaContractual.objects.filter(contrato=contrato).exists():
+        try:
+            garantia = contrato.garantia_contractual
+        except GarantiaContractual.DoesNotExist:
             _issue(
                 issues,
                 code='stage1.contrato.garantia_faltante',
@@ -373,6 +375,18 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                 entity_id=contrato.pk,
                 message='Contrato vigente o futuro sin GarantiaContractual registrada.',
             )
+        else:
+            try:
+                garantia.full_clean()
+            except ValidationError as error:
+                for message in _validation_messages(error):
+                    _issue(
+                        issues,
+                        code='stage1.garantia.validacion_modelo',
+                        entity='GarantiaContractual',
+                        entity_id=garantia.pk,
+                        message=message,
+                    )
 
 
 def collect_stage1_matrix_audit(

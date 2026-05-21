@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
@@ -440,6 +441,18 @@ class CobranzaAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_guarantee_full_clean_rejects_inconsistent_state_and_amounts(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-STATE', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual(
+            contrato=contrato,
+            monto_pactado=Decimal('100000.00'),
+            monto_recibido=Decimal('50000.00'),
+            estado_garantia=EstadoGarantia.PENDING,
+        )
+
+        with self.assertRaises(ValidationError):
+            garantia.full_clean()
 
     def test_guarantee_movement_rejects_origin_from_different_guarantee(self):
         contrato_a = self._create_active_contract(codigo='CON-GAR-A', monto_base='100000.00', code='111')
