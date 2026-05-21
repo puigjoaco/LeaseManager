@@ -9,30 +9,30 @@ vigente.
 
 | Fuente | Estado | Uso permitido |
 | --- | --- | --- |
-| `01_Set_Vigente/PRD_CANONICO.md` | vigente aceptado | Contrato principal de producto hasta decision explicita de reemplazo. |
+| `01_Set_Vigente/PRD_CANONICO.md` | vigente aceptado mayo 2026 | Contrato principal de producto. |
 | `01_Set_Vigente/MATRIZ_GATES_EXTERNOS.md` | vigente aceptado | Reglas de apertura, cierre y bloqueo de integraciones externas. |
 | `02_ADR_Activos/` | vigente aceptado | Decisiones tecnicas obligatorias por dominio. |
 | `08_Auditoria_Stack/ADR_STACK_FINAL.md` | vigente aceptado | Stack final del v1. |
 | `docs/architecture/ARQUITECTURA_MAESTRA_LEASEMANAGER.md` | vigente derivado | Sintesis navegable de producto, dominios, dependencias, gates y cierre. No reemplaza al PRD ni a los ADR. |
 | `docs/product/PLAN_EJECUCION_TRAZABLE_CIERRE_MAYO_2026.md` | vigente operativo | Plan de avance por etapas, evidencias y bloqueos. |
 | `docs/product/STAGE_CARDS/` | vigente operativo | Fichas ejecutables por etapa. |
-| `docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md` | candidato | Propuesta mejorada de mayo 2026. No rige hasta aceptacion explicita. |
+| `docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md` | historico de promocion | Trazabilidad del archivo candidato ya promovido. No es fuente paralela. |
+| `05_Contexto_Historico/PRD_CANONICO_MARZO_2026_HISTORICO.md` | historico | PRD rector anterior, reemplazado el 2026-05-20. |
 | `05_Contexto_Historico/` y `06_Fuentes_PRD_1_26/` | historico | Trazabilidad, contraste y recuperacion de reglas. No manda sobre el set vigente. |
 | Savegames externos | respaldo read-only | Inventario, recuperacion y contraste. No se trabaja encima de ellos. |
 
-## Regla de promocion del PRD candidato
+## Promocion del PRD Mayo 2026
 
-El PRD candidato de mayo 2026 no debe convivir como segundo rector. Existen dos
-estados posibles:
+El PRD Mayo 2026 fue aceptado por el usuario el 2026-05-20 y promovido a
+`01_Set_Vigente/PRD_CANONICO.md`.
 
-1. Si el usuario lo acepta explicitamente, se promueve a documento vigente,
-   se actualiza esta fuente de verdad, `AGENTS.md`, `README.md` y
-   `ORDEN_DE_LECTURA.md`.
-2. Si no se acepta, queda como candidato historico y el PRD vigente de marzo
-   2026 sigue mandando.
+Reglas:
 
-Mientras no exista esa decision, cualquier diferencia entre ambos documentos se
-registra como `requiere_decision_usuario`.
+1. No mantener dos PRD rectores.
+2. El archivo candidato queda solo como trazabilidad de promocion.
+3. El PRD de marzo 2026 queda archivado como historico.
+4. Toda correccion futura al PRD rector se hace sobre
+   `01_Set_Vigente/PRD_CANONICO.md`.
 
 ## Reglas de conflicto
 
@@ -58,7 +58,7 @@ registra como `requiere_decision_usuario`.
   validada.
 - `bloqueado_externo`: depende de servicio, credencial, certificacion o ambiente
   externo.
-- `requiere_decision_usuario`: falta decision de alcance, regla o promocion.
+- `requiere_decision_usuario`: falta decision de alcance o regla.
 - `defectuoso`: existe, pero falla o contradice reglas vigentes.
 - `duplicado`: hay dos fuentes o implementaciones que compiten.
 - `desactualizado`: ya no refleja el root limpio o el estado actual.

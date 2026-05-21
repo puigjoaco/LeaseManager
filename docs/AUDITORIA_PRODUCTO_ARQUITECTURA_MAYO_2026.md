@@ -84,9 +84,8 @@ cerrarse. El estado correcto es: producto base avanzado, no producto final.
 
 ## Brechas accionables priorizadas
 
-1. `requiere_decision_usuario`: decidir si
-   `docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md` se promueve a PRD
-   vigente o queda como candidato historico.
+1. `resuelto_confirmado`: PRD Canonico Mayo 2026 aceptado y promovido a
+   `01_Set_Vigente/PRD_CANONICO.md`.
 2. `bloqueado_externo`: definir ambiente real/controlado para datos, banco,
    SII, email, WhatsApp, Vercel/Railway y secretos.
 3. `parcial`: implementar adapters reales para UF, Banco de Chile, Gmail/Twilio
@@ -106,8 +105,7 @@ cerrarse. El estado correcto es: producto base avanzado, no producto final.
 
 ## Proximo frente recomendado
 
-Integrar el paquete de sistema operativo del proyecto: fuente de verdad,
-protocolo de trabajo, Arquitectura Maestra, plan trazable, stage cards,
-registro de evidencia y registro de bloqueos. Despues corresponde resolver la
-decision del PRD candidato y avanzar Etapa 1 con datos reales o snapshot
-controlado.
+Avanzar Etapa 1 con datos reales o snapshot controlado: matriz
+contrato-propiedad-cuenta-facturacion, entidades patrimoniales, mandatos,
+cuentas, contratos, periodos y garantias. Mantener integraciones externas
+cerradas hasta cumplir gates.

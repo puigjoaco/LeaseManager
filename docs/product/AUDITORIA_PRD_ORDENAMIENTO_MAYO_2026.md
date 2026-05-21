@@ -1,11 +1,11 @@
 # Auditoria PRD y Ordenamiento Mayo 2026
 
-Estado: auditoria documental candidata.
+Estado: auditoria documental aceptada y promovida.
 Fecha: 2026-05-20.
 
 ## 1. Alcance
 
-Esta auditoria revisa si el set documental candidato es suficiente para guiar el ordenamiento profesional de LeaseManager antes de continuar desarrollo funcional.
+Esta auditoria revisa el set documental que permitio promover el PRD Canonico Mayo 2026 y guiar el ordenamiento profesional de LeaseManager antes de continuar desarrollo funcional.
 
 Documentos revisados:
 
@@ -29,11 +29,11 @@ El set debe responder claramente:
 
 ## 3. Resultado
 
-Resultado: `apto_como_candidato_con_decision_usuario_pendiente`.
+Resultado: `aceptado_y_promovido_como_prd_vigente`.
 
-El set documental ya es suficiente como base candidata para ordenar el proyecto, siempre que el usuario lo acepte o corrija antes de marcarlo como vigente.
-
-No reemplaza todavia la fuente vigente y no cierra ninguna etapa productiva.
+El set documental ya fue aceptado por el usuario y el PRD Mayo 2026 fue
+promovido a `01_Set_Vigente/PRD_CANONICO.md`. Esto cierra la ambiguedad de
+fuente rectora, pero no cierra ninguna etapa productiva.
 
 ## 4. Hallazgos cerrados en esta pasada
 
@@ -291,12 +291,14 @@ Correccion: se agregaron como alias/capacidades conceptuales sin abrir alcance n
 
 ## 6. Riesgos pendientes
 
-- El usuario todavia debe aceptar o corregir el PRD candidato, anexo y plan.
-- El set vigente historico aun vive dentro de repo anidado y debe migrarse a rutas limpias.
-- Los ADR activos pueden contener decisiones tecnicas historicas que deben reemitirse para el stack real.
-- El root actual sigue con muchos cambios pendientes sin clasificar.
 - Etapa 1 sigue bloqueada hasta base real valida o snapshot real/controlado.
+- Los ADR activos pueden contener decisiones tecnicas historicas que deben reemitirse para el stack real.
+- Las reglas tributarias deben validarse contra SII, normativa vigente o experto.
+- Las integraciones externas siguen cerradas o condicionadas por gates.
 
 ## 7. Veredicto
 
-El set documental ya puede usarse para iniciar el ordenamiento profesional del proyecto, pero no para declarar producto listo ni avanzar etapas. La siguiente accion correcta es crear la base limpia, migrar la documentacion rectora, ejecutar gates minimos y clasificar cambios pendientes por paquete.
+El set documental ya puede usarse como base rectora del proyecto, pero no para
+declarar producto listo. La siguiente accion correcta es avanzar Etapa 1 con
+datos reales o snapshot controlado, ejecutar gates minimos y mantener cada
+avance en worktrees por frente.
