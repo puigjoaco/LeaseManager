@@ -17,5 +17,5 @@ proxima accion. Debe actualizarse cuando un frente avance.
 | Documentos | ADR estrategia documental | `backend/documentos`, docs operativos | 5 | parcial | PDF canonico, origen, firma/notaria definida | Cerrar politica de firma/notaria y pruebas PDF. |
 | SII | ADR SII, matriz gates | `backend/sii` | 4 | bloqueado_externo | Certificacion/ambiente SII y regla fiscal validada | Preparar sandbox sin emitir produccion. |
 | Reporting | PRD, contabilidad, SII | `backend/reporting`, frontend reporting | 7 | implementado_sin_evidencia | Reportes trazables a ledger/datos/documentos | Bloquear reportes sin origen verificable. |
-| Migracion legacy | Fuente de verdad, migration README | `migration/` | 1 | parcial | Extractores read-only, clasificacion migrable y contexto sensible externo | Actualizar inventario contra savegame autorizado y resolver `BLK-008`. |
+| Migracion legacy | Fuente de verdad, migration README | `migration/` | 1 | parcial | Extractores read-only, clasificacion migrable, contexto sensible externo y bundles no versionados | Validar snapshot/bundle controlado autorizado; decidir tratamiento de historial Git/savegames para `BLK-008`. |
 | Operacion productiva | Runbooks, gates externos | `docs/operations`, infra, CI | 7 | parcial | Backup/restore, smoke, rollback, aceptacion | Completar runbook y smoke real autorizado. |

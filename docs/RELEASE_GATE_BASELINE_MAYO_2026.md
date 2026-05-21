@@ -25,6 +25,7 @@ salidas locales, no al producto vivo:
 - `backend/bundle-inspect.db`
 - `backend/test-codex.db`
 - capturas `.png` historicas bajo `migration/bundles/`
+- JSON historicos de migracion/staging bajo `migration/bundles/`
 - paquete `HANDOFF/` historico y handoffs greenfield antiguos que apuntaban al
   root anidado `Produccion 1.0`
 
@@ -37,6 +38,7 @@ no deben viajar como parte del root activo.
 
 - bases SQLite/DB locales en `backend/`;
 - bases de test locales;
+- JSON generados bajo `migration/bundles/`;
 - capturas generadas bajo `migration/bundles/`;
 - screenshots locales;
 - handoffs historicos del antiguo root anidado.

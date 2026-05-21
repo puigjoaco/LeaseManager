@@ -34,14 +34,15 @@ sensible fuera del repo. No versionar estos valores:
 $env:MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT="<rut-representante>"
 $env:MIGRATION_CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER="<numero-cuenta>"
 $env:MIGRATION_KNOWN_SOCIO_ACCOUNT_OWNER_RUTS="<numero-cuenta-personal>=<rut-socio>"
+$bundlePath="<ruta-bundle-controlado-fuera-del-repo-o-local-no-versionada>"
 ```
 
 ```powershell
 cd "D:/Proyectos/LeaseManager"
-backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json
+backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py $bundlePath
 backend\.venv\Scripts\python.exe migration\scripts\resolve_current_community_resolutions.py
-backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json
-backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json
+backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py $bundlePath
+backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py $bundlePath
 ```
 
 Resultado esperado:
@@ -57,7 +58,7 @@ Runner equivalente validado en limpio:
 
 ```powershell
 cd "D:/Proyectos/LeaseManager"
-backend\.venv\Scripts\python.exe migration\scripts\run_current_migration_flow.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json --output migration\bundles\run_current_migration_flow.json
+backend\.venv\Scripts\python.exe migration\scripts\run_current_migration_flow.py $bundlePath --output migration\bundles\run_current_migration_flow.local.json
 ```
 
 Este runner ejecuta internamente:
@@ -73,27 +74,27 @@ Rehearsal local totalmente automatizado:
 
 ```powershell
 cd "D:/Proyectos/LeaseManager"
-backend\.venv\Scripts\python.exe migration\scripts\rehearse_current_migration_flow.py leasemanager_migration_run_YYYYMMDD_vN --output migration\bundles\rehearse_current_migration_flow.json
+backend\.venv\Scripts\python.exe migration\scripts\rehearse_current_migration_flow.py leasemanager_migration_run_YYYYMMDD_vN --bundle-path $bundlePath --output migration\bundles\rehearse_current_migration_flow.local.json
 ```
 
 Validación operativa realizada:
 
 - script: [rehearse_current_migration_flow.py](/D:/Proyectos/LeaseManager/migration/scripts/rehearse_current_migration_flow.py)
 - base creada automáticamente: `leasemanager_migration_run_20260410_v9`
-- artefacto: [rehearse_current_migration_flow_v9.json](/D:/Proyectos/LeaseManager/migration/bundles/rehearse_current_migration_flow_v9.json)
+- artefacto historico: `rehearse_current_migration_flow_v9.json` disponible solo en savegame/historial Git; no versionar en el root activo.
 
 Promoción al siguiente target PostgreSQL ya existente:
 
 ```powershell
 cd "D:/Proyectos/LeaseManager"
 $env:DATABASE_URL="postgresql://..."
-backend\.venv\Scripts\python.exe migration\scripts\promote_current_migration_flow.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json --output migration\bundles\promote_current_migration_flow.json
+backend\.venv\Scripts\python.exe migration\scripts\promote_current_migration_flow.py $bundlePath --output migration\bundles\promote_current_migration_flow.local.json
 ```
 
 Validación operativa realizada contra target PostgreSQL vacío:
 
 - script: [promote_current_migration_flow.py](/D:/Proyectos/LeaseManager/migration/scripts/promote_current_migration_flow.py)
 - base de prueba: `leasemanager_migration_run_20260410_v10`
-- artefacto: [promote_current_migration_flow_v10.json](/D:/Proyectos/LeaseManager/migration/bundles/promote_current_migration_flow_v10.json)
+- artefacto historico: `promote_current_migration_flow_v10.json` disponible solo en savegame/historial Git; no versionar en el root activo.
 
 

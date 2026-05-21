@@ -40,11 +40,14 @@ def main():
     parser.add_argument('database_name', help='Nombre de la base PostgreSQL destino.')
     parser.add_argument(
         '--bundle-path',
-        default=str(PROJECT_ROOT / 'migration' / 'bundles' / 'legacy_seed_bundle.regenerated.current_2026-04-08.json'),
+        default=os.environ.get('MIGRATION_BUNDLE_PATH', ''),
+        help='Ruta explicita al bundle controlado. Tambien puede venir de MIGRATION_BUNDLE_PATH.',
     )
     parser.add_argument('--reuse-existing', action='store_true')
     parser.add_argument('--output', default='')
     args = parser.parse_args()
+    if not args.bundle_path:
+        raise SystemExit('--bundle-path o MIGRATION_BUNDLE_PATH es obligatorio.')
 
     base_database_url = os.environ.get('DATABASE_URL') or read_backend_env_value('DATABASE_URL')
     if not base_database_url:

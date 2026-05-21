@@ -66,11 +66,14 @@ Metodo de conexion validado:
 Solo para esta promocion:
 
 - `DATABASE_URL`
+- `bundlePath` apuntando a un bundle controlado fuera del repo versionado o a
+  una ruta local ignorada por Git
 
 Ejemplo con session pooler:
 
 ```powershell
 $env:DATABASE_URL="postgresql://postgres.<project_ref>:[PASSWORD]@aws-0-<region>.pooler.supabase.com:5432/postgres"
+$bundlePath="<ruta-bundle-controlado-fuera-del-repo-o-local-no-versionada>"
 ```
 
 Ejemplo con direct connection:
@@ -86,7 +89,7 @@ Usar el script pensado para un PostgreSQL ya existente:
 ```powershell
 cd "D:/Proyectos/LeaseManager"
 $env:DATABASE_URL="postgresql://..."
-backend\.venv\Scripts\python.exe migration\scripts\promote_current_migration_flow.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json --output migration\bundles\promote_current_migration_flow_supabase.json
+backend\.venv\Scripts\python.exe migration\scripts\promote_current_migration_flow.py $bundlePath --output migration\bundles\promote_current_migration_flow_supabase.local.json
 ```
 
 ## Que hace el script
@@ -124,8 +127,8 @@ Y dentro de `runner_result.final_state`:
 
 Artefacto de verificacion:
 
-- [supabase_staging_verification_2026-04-10.json](/D:/Proyectos/LeaseManager/migration/bundles/supabase_staging_verification_2026-04-10.json)
-- [verify_current_migration_target_supabase.json](/D:/Proyectos/LeaseManager/migration/bundles/verify_current_migration_target_supabase.json)
+- `supabase_staging_verification_2026-04-10.json`: artefacto historico disponible solo en savegame/historial Git; no versionar en el root activo.
+- `verify_current_migration_target_supabase.json`: artefacto historico disponible solo en savegame/historial Git; no versionar en el root activo.
 
 Resultado validado:
 
@@ -141,7 +144,7 @@ Resultado validado:
 ```powershell
 cd "D:/Proyectos/LeaseManager"
 $env:DATABASE_URL="postgresql://..."
-backend\.venv\Scripts\python.exe migration\scripts\verify_current_migration_target.py --output migration\bundles\verify_current_migration_target.json
+backend\.venv\Scripts\python.exe migration\scripts\verify_current_migration_target.py --output migration\bundles\verify_current_migration_target.local.json
 ```
 
 Ese script falla con codigo no-cero si el target no coincide con el estado esperado.

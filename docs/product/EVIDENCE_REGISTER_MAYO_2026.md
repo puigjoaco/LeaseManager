@@ -14,6 +14,7 @@ registrar nuevas pruebas.
 | 2026-05-20 | `main` quedo verde despues de PR #6. | CI base | Confirmado | GitHub Actions en `origin/main` |
 | 2026-05-20 | PRD Canonico Mayo 2026 aceptado por el usuario y preparado para promocion formal. | Gobierno de producto | Confirmado por decision de usuario | `01_Set_Vigente/PRD_CANONICO.md` |
 | 2026-05-20 | Etapa 1 reforzada en worktree `codex/stage1-migration-config-gates`: contexto sensible de migracion sale del runtime hardcodeado y contratos rechazan huecos entre periodos. | Migracion, contratos | Local OK con fixtures y SQLite aislado; no cierra datos reales | `manage.py check`; `manage.py test contratos`; `manage.py test core.tests_migration_pipeline`; `manage.py test --noinput --verbosity 1` con `DJANGO_CACHE_URL=locmem://...` |
+| 2026-05-20 | `migration/bundles` convertido en salida local no versionada; JSON historicos removidos del root activo. | Migracion, privacidad, limpieza Etapa 1 | Local OK; no cierra `BLK-008` porque historial Git/savegames pueden conservar datos sensibles | `git diff --check`; `manage.py check`; `manage.py test core.tests_migration_pipeline core.tests_migration_orchestration contratos`; `manage.py test --noinput --verbosity 1`; `export_legacy_seed_bundle.py --help`; `rehearse_current_migration_flow.py --help` |
 
 ## Formato obligatorio para nueva evidencia
 
