@@ -34,7 +34,8 @@ contra datos reales o snapshot controlado.
 - Validacion de pagos y distribuciones existentes en el snapshot: si existen,
   deben cuadrar devengo, conciliacion, porcentaje y entidad facturadora.
 - Validacion de que pagos mensuales existentes conserven
-  `CodigoConciliacionEfectivo` en rango operativo `001-999`.
+  `CodigoConciliacionEfectivo` en rango operativo `001-999` y alineado con la
+  propiedad principal del contrato.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
   del mes operativo.

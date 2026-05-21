@@ -689,6 +689,23 @@ def _audit_payment_distribution_consistency(issues: list[dict[str, Any]]) -> Non
                     message=message,
                 )
 
+        primary_effective_code = (
+            payment.contrato.contrato_propiedades.filter(rol_en_contrato=RolContratoPropiedad.PRIMARY)
+            .values_list('codigo_conciliacion_efectivo_snapshot', flat=True)
+            .first()
+        )
+        if primary_effective_code and payment.codigo_conciliacion_efectivo != primary_effective_code:
+            _issue(
+                issues,
+                code='stage1.pago_mensual.codigo_efectivo_desalineado',
+                entity='PagoMensual',
+                entity_id=payment.pk,
+                message=(
+                    'Pago mensual existente con CodigoConciliacionEfectivo distinto del codigo '
+                    'de la propiedad principal del contrato.'
+                ),
+            )
+
         distributions = list(payment.distribuciones_cobro.all())
         month_start = _month_first_day(payment.anio, payment.mes)
         uf_required = payment.periodo_contractual.moneda_base == MonedaBaseContrato.UF
