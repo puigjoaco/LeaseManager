@@ -103,6 +103,33 @@ Validacion:
 "@
 }
 
+function Wait-PrChecks([int]$prNumber) {
+    $deadline = (Get-Date).AddMinutes(5)
+    $checksJson = ''
+
+    while ((Get-Date) -lt $deadline) {
+        $checksJson = Get-ExternalOutput 'gh' @(
+            'pr', 'checks', "$prNumber",
+            '--json', 'bucket,name,state,workflow'
+        ) -AllowFailure
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($checksJson)) {
+            $checks = $checksJson | ConvertFrom-Json
+            if (@($checks).Count -gt 0) {
+                Invoke-External 'gh' @(
+                    'pr', 'checks', "$prNumber",
+                    '--watch', '--fail-fast', '--interval', '10'
+                )
+                return
+            }
+        }
+
+        Write-Host 'Checks aun no reportados; esperando 10s...'
+        Start-Sleep -Seconds 10
+    }
+
+    throw "No aparecieron checks para PR #$prNumber despues de 5 minutos."
+}
+
 $repoRoot = (Get-ExternalOutput 'git' @('rev-parse', '--show-toplevel')).Replace('\', '/')
 Set-Location $repoRoot
 
@@ -194,7 +221,7 @@ Write-Host "PR #$($pr.number): $($pr.url)"
 
 if ($WatchChecks -or $Merge) {
     Step 'Watch checks'
-    Invoke-External 'gh' @('pr', 'checks', "$($pr.number)", '--watch', '--fail-fast', '--interval', '10')
+    Wait-PrChecks $pr.number
 }
 
 if ($Merge) {
