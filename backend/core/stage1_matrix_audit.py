@@ -26,7 +26,15 @@ from contratos.models import (
     RolContratoPropiedad,
     TipoArrendatario,
 )
-from operacion.models import CuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
+from operacion.models import (
+    AsignacionCanalOperacion,
+    CuentaRecaudadora,
+    EstadoAsignacionCanal,
+    EstadoIdentidadEnvio,
+    EstadoMandatoOperacion,
+    IdentidadDeEnvio,
+    MandatoOperacion,
+)
 from patrimonio.models import (
     ComunidadPatrimonial,
     Empresa,
@@ -197,6 +205,10 @@ def _build_summary() -> dict[str, int]:
         'propiedades': Propiedad.objects.count(),
         'cuentas_recaudadoras': CuentaRecaudadora.objects.count(),
         'mandatos': MandatoOperacion.objects.count(),
+        'identidades_envio_activas': IdentidadDeEnvio.objects.filter(estado=EstadoIdentidadEnvio.ACTIVE).count(),
+        'asignaciones_canal_activas': AsignacionCanalOperacion.objects.filter(
+            estado=EstadoAsignacionCanal.ACTIVE
+        ).count(),
         'arrendatarios': Arrendatario.objects.count(),
         'contratos': Contrato.objects.count(),
         'contratos_activos_o_futuros': Contrato.objects.filter(estado__in=ACTIVE_CONTRACT_STATES).count(),
@@ -311,6 +323,12 @@ def _audit_operacion(issues: list[dict[str, Any]]) -> None:
         code='stage1.cuenta.validacion_modelo',
         entity='CuentaRecaudadora',
     )
+    _audit_model_validation(
+        issues,
+        queryset=IdentidadDeEnvio.objects.select_related('empresa_owner', 'socio_owner'),
+        code='stage1.identidad_envio.validacion_modelo',
+        entity='IdentidadDeEnvio',
+    )
 
     fiscal_config_by_company = set(
         ConfiguracionFiscalEmpresa.objects.filter(estado=EstadoRegistro.ACTIVE).values_list('empresa_id', flat=True)
@@ -356,6 +374,23 @@ def _audit_operacion(issues: list[dict[str, Any]]) -> None:
                     entity_id=mandato.pk,
                     message='Entidad facturadora sin ConfiguracionFiscalEmpresa activa.',
                 )
+
+    _audit_model_validation(
+        issues,
+        queryset=AsignacionCanalOperacion.objects.select_related(
+            'mandato_operacion',
+            'mandato_operacion__propiedad',
+            'mandato_operacion__entidad_facturadora',
+            'mandato_operacion__administrador_empresa_owner',
+            'mandato_operacion__administrador_socio_owner',
+            'mandato_operacion__propietario_empresa_owner',
+            'mandato_operacion__propietario_comunidad_owner',
+            'mandato_operacion__propietario_socio_owner',
+            'identidad_envio',
+        ),
+        code='stage1.asignacion_canal.validacion_modelo',
+        entity='AsignacionCanalOperacion',
+    )
 
 
 def _audit_facturacion(issues: list[dict[str, Any]]) -> None:
@@ -665,6 +700,19 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                 entity='Contrato',
                 entity_id=contrato.pk,
                 message='Contrato vigente o futuro requiere mandato operativo activo.',
+            )
+        active_channel_exists = AsignacionCanalOperacion.objects.filter(
+            mandato_operacion=contrato.mandato_operacion,
+            estado=EstadoAsignacionCanal.ACTIVE,
+            identidad_envio__estado=EstadoIdentidadEnvio.ACTIVE,
+        ).exists()
+        if not active_channel_exists:
+            _issue(
+                issues,
+                code='stage1.contrato.canal_operativo_faltante',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message='Contrato vigente o futuro requiere al menos un canal operativo activo en su mandato.',
             )
 
         _audit_contract_tenant_readiness(issues, contrato)

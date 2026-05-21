@@ -20,6 +20,8 @@ contra datos reales o snapshot controlado.
 - Clasificacion de cada agregado migrable.
 - Validacion de no duplicar propiedades por rol de avaluo ni identidad
   operativa fuerte; sin hardcodear montos.
+- Validacion de que cada contrato vigente o futuro tenga al menos un canal
+  operativo activo asignado por su mandato.
 - Auditor reproducible de matriz:
 
 ```powershell
