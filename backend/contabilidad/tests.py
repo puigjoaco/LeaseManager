@@ -861,6 +861,74 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(reopen.status_code, status.HTTP_200_OK)
         self.assertEqual(reopen.data['estado'], 'reabierto')
 
+    def test_approve_monthly_close_revalidates_bank_movements(self):
+        empresa = self._create_active_empresa(nombre='ApproveBankGateCo', rut='56565656-6')
+        accounts = self._setup_contabilidad(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        config.tasa_ppm_vigente = '10.00'
+        config.save(update_fields=['tasa_ppm_vigente'])
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        _, cuenta = self._create_contract_with_company_admin(empresa, codigo='LED-APP-BANK')
+
+        event_response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'approve-bank-gate-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'approve-bank-gate-1',
+            },
+            format='json',
+        )
+        self.assertEqual(event_response.status_code, status.HTTP_201_CREATED)
+
+        prepare = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+
+        conexion = ConexionBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            provider_key='banco_de_chile',
+            credencial_ref='cred-approve-bank',
+            evidencia_gate_ref='bank-gate-approve',
+            prueba_conectividad_ref='bank-connectivity-approve',
+            prueba_movimientos_ref='bank-movements-approve',
+            estado_conexion='activa',
+            primaria_movimientos=True,
+        )
+        movimiento = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-20',
+                'tipo_movimiento': 'abono',
+                'monto': '888888.00',
+                'descripcion_origen': 'Abono posterior a preparacion',
+                'origen_importacion': 'manual_controlada',
+                'evidencia_importacion_ref': 'manual-import-approve-bank',
+            },
+            format='json',
+        )
+        self.assertEqual(movimiento.status_code, status.HTTP_201_CREATED)
+
+        approve = self.client.post(
+            reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
+            format='json',
+        )
+        self.assertEqual(approve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Conciliacion no cerrada', approve.data['detail'])
+
+        close = CierreMensualContable.objects.get(pk=prepare.data['id'])
+        self.assertEqual(close.estado, 'preparado')
+
     def test_prepare_monthly_close_rejects_already_approved_period(self):
         empresa = self._create_active_empresa(nombre='ApproveLockedCo', rut='57575757-5')
         accounts = self._setup_contabilidad(empresa)
