@@ -209,6 +209,87 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertGreater(result['summary']['participaciones_patrimoniales'], 0)
         self.assertGreater(result['summary']['representaciones_comunidad'], 0)
 
+    def test_duplicate_active_property_by_rol_avaluo_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        propiedad = contrato.mandato_operacion.propiedad
+        propiedad.rol_avaluo = '123-45'
+        propiedad.save(update_fields=['rol_avaluo', 'updated_at'])
+        empresa = contrato.mandato_operacion.propietario_empresa_owner
+
+        duplicate_property = Propiedad.objects.create(
+            rol_avaluo='123 45',
+            direccion='Direccion Controlada Rol Duplicado',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='CTRL-ROL',
+            estado='activa',
+            empresa_owner=empresa,
+        )
+        MandatoOperacion.objects.create(
+            propiedad=duplicate_property,
+            propietario_empresa_owner=empresa,
+            administrador_empresa_owner=empresa,
+            recaudador_empresa_owner=empresa,
+            entidad_facturadora=empresa,
+            cuenta_recaudadora=contrato.mandato_operacion.cuenta_recaudadora,
+            tipo_relacion_operativa='administracion_directa',
+            autoriza_recaudacion=True,
+            autoriza_facturacion=True,
+            autoriza_comunicacion=True,
+            estado=EstadoMandatoOperacion.ACTIVE,
+            vigencia_desde=date(2026, 1, 1),
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.propiedad.rol_avaluo_duplicado', issue_codes)
+
+    def test_duplicate_active_property_by_operational_identity_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        socio = Socio.objects.get(rut='11111111-1')
+        duplicate_property = Propiedad.objects.create(
+            direccion='  direccion   controlada 100 ',
+            comuna='santiago',
+            region='rm',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='CTRL-001',
+            estado='activa',
+            socio_owner=socio,
+        )
+        cuenta = CuentaRecaudadora.objects.create(
+            socio_owner=socio,
+            institucion='Banco Controlado',
+            numero_cuenta='CTRL-ACC-SOCIO',
+            tipo_cuenta='corriente',
+            titular_nombre=socio.nombre,
+            titular_rut=socio.rut,
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+        MandatoOperacion.objects.create(
+            propiedad=duplicate_property,
+            propietario_socio_owner=socio,
+            administrador_socio_owner=socio,
+            recaudador_socio_owner=socio,
+            cuenta_recaudadora=cuenta,
+            tipo_relacion_operativa='administracion_directa',
+            autoriza_recaudacion=True,
+            autoriza_facturacion=False,
+            autoriza_comunicacion=True,
+            estado=EstadoMandatoOperacion.ACTIVE,
+            vigencia_desde=date(2026, 1, 1),
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.propiedad.identidad_operativa_duplicada', issue_codes)
+
     def test_active_contract_without_ready_tenant_contact_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         arrendatario = contrato.arrendatario

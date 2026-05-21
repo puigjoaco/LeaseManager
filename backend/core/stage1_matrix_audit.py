@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import calendar
+import re
+import unicodedata
 from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
@@ -69,6 +71,20 @@ def _validation_messages(error: ValidationError) -> list[str]:
     return [str(message) for message in error.messages]
 
 
+def _normalize_identity_text(value: str | None) -> str:
+    normalized = unicodedata.normalize('NFKD', (value or '').strip())
+    ascii_value = normalized.encode('ascii', 'ignore').decode('ascii')
+    return ' '.join(ascii_value.upper().split())
+
+
+def _normalize_rol_avaluo(value: str | None) -> str:
+    return re.sub(r'[^0-9A-Z]', '', _normalize_identity_text(value))
+
+
+def _property_identity(propiedad: Propiedad) -> str:
+    return f'id={propiedad.pk}, codigo={propiedad.codigo_propiedad}, owner={propiedad.owner_tipo}:{propiedad.owner_id}'
+
+
 def _audit_model_validation(
     issues: list[dict[str, Any]],
     *,
@@ -113,6 +129,58 @@ def _has_required_stage1_data(summary: dict[str, int]) -> bool:
         'configuraciones_fiscales_activas',
     )
     return all(summary[count_name] > 0 for count_name in required_positive_counts)
+
+
+def _audit_property_identity_uniqueness(issues: list[dict[str, Any]], active_properties: list[Propiedad]) -> None:
+    by_rol: dict[str, list[Propiedad]] = defaultdict(list)
+    by_operational_identity: dict[tuple[str, str, str, str, str], list[Propiedad]] = defaultdict(list)
+
+    for propiedad in active_properties:
+        rol_key = _normalize_rol_avaluo(propiedad.rol_avaluo)
+        if rol_key:
+            by_rol[rol_key].append(propiedad)
+
+        identity_key = (
+            _normalize_identity_text(propiedad.direccion),
+            _normalize_identity_text(propiedad.comuna),
+            _normalize_identity_text(propiedad.region),
+            _normalize_identity_text(propiedad.tipo_inmueble),
+            _normalize_identity_text(propiedad.codigo_propiedad),
+        )
+        if all(identity_key):
+            by_operational_identity[identity_key].append(propiedad)
+
+    for duplicate_properties in by_rol.values():
+        if len(duplicate_properties) <= 1:
+            continue
+        duplicate_summary = ', '.join(_property_identity(propiedad) for propiedad in duplicate_properties)
+        for propiedad in duplicate_properties:
+            _issue(
+                issues,
+                code='stage1.propiedad.rol_avaluo_duplicado',
+                entity='Propiedad',
+                entity_id=propiedad.pk,
+                message=(
+                    'Propiedad activa comparte rol de avaluo normalizado con otro maestro activo; '
+                    f'debe existir un solo maestro por propiedad real: {duplicate_summary}.'
+                ),
+            )
+
+    for duplicate_properties in by_operational_identity.values():
+        if len(duplicate_properties) <= 1:
+            continue
+        duplicate_summary = ', '.join(_property_identity(propiedad) for propiedad in duplicate_properties)
+        for propiedad in duplicate_properties:
+            _issue(
+                issues,
+                code='stage1.propiedad.identidad_operativa_duplicada',
+                entity='Propiedad',
+                entity_id=propiedad.pk,
+                message=(
+                    'Propiedad activa comparte direccion, comuna, region, tipo y codigo operativo con otro '
+                    f'maestro activo; debe normalizarse sin duplicar propiedades: {duplicate_summary}.'
+                ),
+            )
 
 
 def _build_summary() -> dict[str, int]:
@@ -221,6 +289,9 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
         'comunidad_owner',
         'socio_owner',
     )
+    active_properties = list(active_properties)
+    _audit_property_identity_uniqueness(issues, active_properties)
+
     for propiedad in active_properties:
         active_mandates_count = propiedad.mandatos_operacion.filter(estado=EstadoMandatoOperacion.ACTIVE).count()
         if active_mandates_count != 1:
