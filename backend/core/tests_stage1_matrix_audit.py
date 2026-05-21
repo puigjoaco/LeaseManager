@@ -999,6 +999,29 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.pago_mensual.validacion_modelo', issue_codes)
 
+    def test_payment_effective_code_must_match_primary_contract_property(self):
+        contrato = self._create_valid_stage1_matrix()
+        payment = self._create_payment_for(contrato)
+        payment.codigo_conciliacion_efectivo = '002'
+        payment.save(update_fields=['codigo_conciliacion_efectivo', 'updated_at'])
+        DistribucionCobroMensual.objects.create(
+            pago_mensual=payment,
+            beneficiario_empresa_owner=contrato.mandato_operacion.entidad_facturadora,
+            porcentaje_snapshot=Decimal('100.00'),
+            monto_devengado_clp=Decimal('250000.00'),
+            monto_conciliado_clp=Decimal('0.00'),
+            monto_facturable_clp=Decimal('250000.00'),
+            requiere_dte=True,
+            origen_atribucion='snapshot_pago',
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.pago_mensual.codigo_efectivo_desalineado', issue_codes)
+
     def test_command_can_fail_when_required_data_is_missing(self):
         with self.assertRaises(CommandError):
             call_command(
