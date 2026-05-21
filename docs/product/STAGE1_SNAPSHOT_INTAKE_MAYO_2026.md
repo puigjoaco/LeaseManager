@@ -28,6 +28,9 @@ contrato-propiedad-cuenta-facturacion contra `snapshot_controlado` o
   autorizado; este script falla si se intenta migrarlo.
 - Un resultado fallido se registra como bloqueo o defecto, no como avance
   cerrado.
+- El auditor Django tambien bloquea fuentes evidenciales sin `SourceLabel`
+  trazable o con etiqueta que parezca URL, secreto, token, email o RUT; si una
+  etiqueta invalida llega al JSON, se redacta antes de escribirla.
 
 ## Comando recomendado
 

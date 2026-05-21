@@ -237,6 +237,13 @@ class Stage1MatrixAuditTests(TestCase):
             codigo_conciliacion_efectivo='001',
         )
 
+    def _collect_controlled_snapshot(self):
+        return collect_stage1_matrix_audit(
+            source_kind='snapshot_controlado',
+            source_label='stage-one-test-snapshot',
+            require_data=True,
+        )
+
     def test_empty_database_is_not_evidence_grade_ready(self):
         result = collect_stage1_matrix_audit(source_kind='local')
 
@@ -245,7 +252,7 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'implementado_sin_evidencia')
 
     def test_required_snapshot_reports_aggregate_classification_for_missing_data(self):
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         aggregates = result['aggregate_classification']
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -264,7 +271,7 @@ class Stage1MatrixAuditTests(TestCase):
         contrato.estado = EstadoContrato.FINISHED
         contrato.save(update_fields=['estado', 'updated_at'])
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertEqual(result['summary']['contratos'], 1)
@@ -277,7 +284,7 @@ class Stage1MatrixAuditTests(TestCase):
     def test_valid_controlled_snapshot_can_pass_stage1_matrix_gate(self):
         self._create_valid_stage1_matrix()
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
 
         self.assertTrue(result['has_required_stage1_data'])
         self.assertTrue(result['evidence_grade'])
@@ -291,6 +298,36 @@ class Stage1MatrixAuditTests(TestCase):
             result['aggregate_classification']['codeudores_solidarios']['classification'],
             'resuelto_confirmado',
         )
+
+    def test_evidence_grade_source_requires_traceable_source_label(self):
+        self._create_valid_stage1_matrix()
+
+        result = collect_stage1_matrix_audit(
+            source_kind='snapshot_controlado',
+            source_label='',
+            require_data=True,
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['has_required_stage1_data'])
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.source_label.faltante', issue_codes)
+
+    def test_evidence_grade_source_redacts_sensitive_source_label(self):
+        self._create_valid_stage1_matrix()
+
+        result = collect_stage1_matrix_audit(
+            source_kind='snapshot_controlado',
+            source_label='postgres://user:token@example.test/db',
+            require_data=True,
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['source_label'], '<redacted-invalid-source-label>')
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.source_label.sensible', issue_codes)
 
     def test_controlled_snapshot_with_payment_distribution_can_pass_stage1_matrix_gate(self):
         contrato = self._create_valid_stage1_matrix()
@@ -306,7 +343,7 @@ class Stage1MatrixAuditTests(TestCase):
             origen_atribucion='snapshot_pago',
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
 
         self.assertTrue(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'resuelto_confirmado')
@@ -325,7 +362,7 @@ class Stage1MatrixAuditTests(TestCase):
             justificacion='fixture de auditoria',
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertEqual(result['summary']['ajustes_contrato'], 1)
@@ -354,7 +391,7 @@ class Stage1MatrixAuditTests(TestCase):
             origen_atribucion='snapshot_pago',
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -383,7 +420,7 @@ class Stage1MatrixAuditTests(TestCase):
             origen_atribucion='snapshot_pago',
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertTrue(result['ready_for_stage1_close'])
@@ -412,7 +449,7 @@ class Stage1MatrixAuditTests(TestCase):
             origen_atribucion='snapshot_pago',
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -457,7 +494,7 @@ class Stage1MatrixAuditTests(TestCase):
             vigencia_desde=date(2026, 1, 1),
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -499,7 +536,7 @@ class Stage1MatrixAuditTests(TestCase):
             vigencia_desde=date(2026, 1, 1),
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -523,7 +560,7 @@ class Stage1MatrixAuditTests(TestCase):
             ]
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -536,7 +573,7 @@ class Stage1MatrixAuditTests(TestCase):
         contrato = self._create_valid_stage1_matrix()
         contrato.mandato_operacion.asignaciones_canal.all().delete()
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -550,7 +587,7 @@ class Stage1MatrixAuditTests(TestCase):
         mandato.vigencia_hasta = date(2026, 11, 30)
         mandato.save(update_fields=['vigencia_desde', 'vigencia_hasta', 'updated_at'])
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -562,7 +599,7 @@ class Stage1MatrixAuditTests(TestCase):
         contrato = self._create_valid_stage1_matrix()
         CodeudorSolidario.objects.create(contrato=contrato, snapshot_identidad={})
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -573,7 +610,7 @@ class Stage1MatrixAuditTests(TestCase):
         contrato = self._create_valid_stage1_matrix()
         self._create_payment_for(contrato)
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -594,7 +631,7 @@ class Stage1MatrixAuditTests(TestCase):
             origen_atribucion='snapshot_pago',
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -627,7 +664,7 @@ class Stage1MatrixAuditTests(TestCase):
             origen_atribucion='snapshot_pago',
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -643,7 +680,7 @@ class Stage1MatrixAuditTests(TestCase):
                 estado=EstadoCodeudorSolidario.ACTIVE,
             )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -663,7 +700,7 @@ class Stage1MatrixAuditTests(TestCase):
             estado=EstadoCodeudorSolidario.ACTIVE,
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -676,7 +713,7 @@ class Stage1MatrixAuditTests(TestCase):
         arrendatario.tipo_arrendatario = TipoArrendatario.COMPANY
         arrendatario.save(update_fields=['tipo_arrendatario', 'updated_at'])
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -687,7 +724,7 @@ class Stage1MatrixAuditTests(TestCase):
         contrato = self._create_valid_stage1_matrix()
         self._create_future_contract_for(contrato)
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -704,7 +741,7 @@ class Stage1MatrixAuditTests(TestCase):
         )
         self._create_future_contract_for(contrato)
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertTrue(result['ready_for_stage1_close'])
@@ -722,7 +759,7 @@ class Stage1MatrixAuditTests(TestCase):
         contrato.arrendatario.rut = '33333333-4'
         contrato.arrendatario.save(update_fields=['rut', 'updated_at'])
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -738,7 +775,7 @@ class Stage1MatrixAuditTests(TestCase):
         config.regimen_tributario.estado = EstadoRegistro.INACTIVE
         config.regimen_tributario.save(update_fields=['estado', 'updated_at'])
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -751,7 +788,7 @@ class Stage1MatrixAuditTests(TestCase):
         contrato.periodos_contractuales.all().delete()
         contrato.garantia_contractual.delete()
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -768,7 +805,7 @@ class Stage1MatrixAuditTests(TestCase):
         garantia.estado_garantia = EstadoGarantia.PENDING
         garantia.save(update_fields=['monto_pactado', 'monto_recibido', 'estado_garantia', 'updated_at'])
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -792,7 +829,7 @@ class Stage1MatrixAuditTests(TestCase):
             ]
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -822,7 +859,7 @@ class Stage1MatrixAuditTests(TestCase):
             fecha=date(2026, 1, 5),
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
 
         self.assertTrue(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'resuelto_confirmado')
@@ -894,7 +931,7 @@ class Stage1MatrixAuditTests(TestCase):
             movimiento_origen=origin,
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -963,7 +1000,7 @@ class Stage1MatrixAuditTests(TestCase):
         )
         GarantiaContractual.objects.create(contrato=second_contract, monto_pactado='0.00')
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -1025,7 +1062,7 @@ class Stage1MatrixAuditTests(TestCase):
         )
         GarantiaContractual.objects.create(contrato=second_contract, monto_pactado='0.00')
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -1039,7 +1076,7 @@ class Stage1MatrixAuditTests(TestCase):
         link.codigo_conciliacion_efectivo_snapshot = '000'
         link.save(update_fields=['codigo_conciliacion_efectivo_snapshot', 'updated_at'])
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -1062,7 +1099,7 @@ class Stage1MatrixAuditTests(TestCase):
             origen_atribucion='snapshot_pago',
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -1085,7 +1122,7 @@ class Stage1MatrixAuditTests(TestCase):
             origen_atribucion='snapshot_pago',
         )
 
-        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        result = self._collect_controlled_snapshot()
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage1_close'])
@@ -1097,6 +1134,7 @@ class Stage1MatrixAuditTests(TestCase):
             call_command(
                 'audit_stage1_matrix',
                 source_kind='snapshot_controlado',
+                source_label='stage-one-command-test',
                 require_data=True,
                 fail_on_violations=True,
                 stdout=StringIO(),

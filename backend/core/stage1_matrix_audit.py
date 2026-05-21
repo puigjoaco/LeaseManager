@@ -56,6 +56,10 @@ from patrimonio.models import (
 
 
 EVIDENCE_GRADE_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+SENSITIVE_SOURCE_LABEL_RE = re.compile(
+    r'://|@|password|passwd|pwd|secret|token|[0-9]{7,}-?[0-9kK]',
+    re.IGNORECASE,
+)
 ACTIVE_CONTRACT_STATES = {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}
 REQUIRED_STAGE1_COUNTS = (
     'socios',
@@ -304,6 +308,44 @@ def _month_first_day(year: int, month: int):
 
 def _has_required_stage1_data(summary: dict[str, int]) -> bool:
     return all(summary[count_name] > 0 for count_name in REQUIRED_STAGE1_COUNTS)
+
+
+def _source_label_looks_sensitive(source_label: str) -> bool:
+    return bool(SENSITIVE_SOURCE_LABEL_RE.search(source_label))
+
+
+def _safe_source_label(source_label: str) -> str:
+    normalized = (source_label or '').strip()
+    if _source_label_looks_sensitive(normalized):
+        return '<redacted-invalid-source-label>'
+    return normalized
+
+
+def _audit_evidence_source_label(
+    issues: list[dict[str, Any]],
+    *,
+    source_kind: str,
+    source_label: str,
+) -> None:
+    if source_kind not in EVIDENCE_GRADE_SOURCE_KINDS:
+        return
+
+    if not source_label:
+        _issue(
+            issues,
+            code='stage1.source_label.faltante',
+            entity='Stage1Matrix',
+            message='Una fuente evidencial requiere SourceLabel no sensible para trazabilidad.',
+        )
+        return
+
+    if len(source_label) < 3 or _source_label_looks_sensitive(source_label):
+        _issue(
+            issues,
+            code='stage1.source_label.sensible',
+            entity='Stage1Matrix',
+            message='SourceLabel de fuente evidencial parece vacio, demasiado corto o sensible; usar etiqueta trazable no secreta.',
+        )
 
 
 def _issue_matches_aggregate(issue: dict[str, Any], definition: dict[str, Any]) -> bool:
@@ -1258,8 +1300,16 @@ def collect_stage1_matrix_audit(
     require_data: bool = False,
 ) -> dict[str, Any]:
     issues: list[dict[str, Any]] = []
+    raw_source_label = (source_label or '').strip()
+    safe_source_label = _safe_source_label(source_label)
     summary = _build_summary()
     has_required_data = _has_required_stage1_data(summary)
+
+    _audit_evidence_source_label(
+        issues,
+        source_kind=source_kind,
+        source_label=raw_source_label,
+    )
 
     if require_data and not has_required_data:
         _issue(
@@ -1304,7 +1354,7 @@ def collect_stage1_matrix_audit(
     return {
         'stage': 'Etapa 1 - Datos reales y matriz base',
         'source_kind': source_kind,
-        'source_label': source_label,
+        'source_label': safe_source_label,
         'require_data': require_data,
         'summary': summary,
         'aggregate_classification': aggregate_classification,
