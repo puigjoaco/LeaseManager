@@ -5,7 +5,15 @@ from audit.models import ManualResolution
 from contratos.models import Arrendatario, Contrato
 from operacion.models import AsignacionCanalOperacion, CanalOperacion, EstadoIdentidadEnvio, EstadoMandatoOperacion
 
-from .models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
+from .models import (
+    EMAIL_CREDENTIAL_REF_KEYS,
+    EMAIL_READINESS_REF_KEYS,
+    CanalMensajeria,
+    EstadoGateCanal,
+    EstadoMensajeSaliente,
+    MensajeSaliente,
+    has_operational_ref,
+)
 
 
 WHATSAPP_WINDOW_START_HOUR = 8
@@ -114,6 +122,18 @@ def whatsapp_blocking_reason(arrendatario, canal_mensajeria):
     return ''
 
 
+def email_readiness_blocking_reason(canal_mensajeria):
+    if canal_mensajeria.canal != CanalOperacion.EMAIL:
+        return ''
+    if not canal_mensajeria.evidencia_ref.strip():
+        return 'Email requiere evidencia_ref del gate antes de preparar envios.'
+    if not has_operational_ref(canal_mensajeria.restricciones_operativas, EMAIL_READINESS_REF_KEYS):
+        return 'Email requiere prueba aislada de envio registrada en el gate.'
+    if not has_operational_ref(canal_mensajeria.restricciones_operativas, EMAIL_CREDENTIAL_REF_KEYS):
+        return 'Email requiere referencia OAuth o credencial validada en el gate.'
+    return ''
+
+
 @transaction.atomic
 def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None, documento_emitido=None, explicit_identity=None, asunto='', cuerpo='', usuario=None):
     arrendatario = resolve_arrendatario(contrato=contrato, arrendatario=arrendatario, documento_emitido=documento_emitido)
@@ -136,6 +156,8 @@ def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None
     blocking_reason = ''
     if canal_mensajeria.estado_gate != EstadoGateCanal.OPEN:
         blocking_reason = f'El gate del canal {canal} no permite envio automatico.'
+    elif canal == CanalOperacion.EMAIL and (reason := email_readiness_blocking_reason(canal_mensajeria)):
+        blocking_reason = reason
     elif not identidad or identidad.estado != EstadoIdentidadEnvio.ACTIVE:
         blocking_reason = f'No existe una identidad activa valida para el canal {canal}.'
     elif canal == CanalOperacion.WHATSAPP and (
@@ -172,6 +194,8 @@ def mark_message_as_sent(message, external_ref=''):
         raise ValueError('El envio manual requiere una referencia externa trazable.')
     if message.canal_mensajeria.estado_gate != EstadoGateCanal.OPEN:
         raise ValueError('No se puede registrar envio manual si el gate del canal no esta abierto.')
+    if message.canal == CanalOperacion.EMAIL and (reason := email_readiness_blocking_reason(message.canal_mensajeria)):
+        raise ValueError(f'No se puede registrar envio manual de Email: {reason}')
     if not message.identidad_envio or message.identidad_envio.estado != EstadoIdentidadEnvio.ACTIVE:
         raise ValueError('No se puede registrar envio manual sin identidad de envio activa.')
     if not message.destinatario:

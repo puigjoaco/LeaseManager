@@ -21,6 +21,10 @@ condicionados sin envios reales accidentales.
 - Evidencia de auditoria por operacion critica.
 - Registro manual de envio solo con `external_ref` trazable y revalidacion del
   gate abierto, identidad activa, destinatario y mandato operativo activo.
+- Email cerrado/condicionado por defecto: un gate `Email.Salida` abierto
+  requiere `evidencia_ref`, referencia de prueba aislada/envio y referencia
+  OAuth/credencial validada; preparar o registrar envio revalida esas
+  referencias antes de permitir operacion manual controlada.
 - WhatsApp cerrado por defecto: requiere opt-in con evidencia, template
   aprobado registrado en el gate, ventana `08:00-21:00 America/Santiago`,
   identidad activa y contacto no bloqueado.

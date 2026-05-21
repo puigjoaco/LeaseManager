@@ -8,6 +8,15 @@ from documentos.models import DocumentoEmitido
 from operacion.models import CanalOperacion, IdentidadDeEnvio
 
 
+EMAIL_READINESS_REF_KEYS = ('prueba_aislada_ref', 'prueba_envio_ref')
+EMAIL_CREDENTIAL_REF_KEYS = ('oauth_validado_ref', 'credencial_validada_ref')
+
+
+def has_operational_ref(restrictions, keys):
+    restrictions = restrictions or {}
+    return any(bool(str(restrictions.get(key, '')).strip()) for key in keys)
+
+
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -43,6 +52,28 @@ class CanalMensajeria(TimestampedModel):
 
     def __str__(self):
         return self.canal
+
+    def clean(self):
+        super().clean()
+        if self.canal == CanalOperacion.EMAIL and self.estado_gate == EstadoGateCanal.OPEN:
+            if not self.evidencia_ref.strip():
+                raise ValidationError({'evidencia_ref': 'Email abierto requiere evidencia_ref del gate.'})
+            if not has_operational_ref(self.restricciones_operativas, EMAIL_READINESS_REF_KEYS):
+                raise ValidationError(
+                    {
+                        'restricciones_operativas': (
+                            'Email abierto requiere prueba_aislada_ref o prueba_envio_ref trazable.'
+                        )
+                    }
+                )
+            if not has_operational_ref(self.restricciones_operativas, EMAIL_CREDENTIAL_REF_KEYS):
+                raise ValidationError(
+                    {
+                        'restricciones_operativas': (
+                            'Email abierto requiere oauth_validado_ref o credencial_validada_ref trazable.'
+                        )
+                    }
+                )
 
 
 class MensajeSaliente(TimestampedModel):
