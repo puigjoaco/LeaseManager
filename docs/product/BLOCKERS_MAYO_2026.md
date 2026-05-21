@@ -15,6 +15,49 @@ preparar gates, pero impide declarar cierre del frente afectado.
 | BLK-008 | Artefactos legacy versionados aun contienen datos y overrides sensibles de migracion. | requiere_decision_usuario | No pueden usarse como evidencia final ni como fuente productiva sin control adicional. El root activo ya no debe versionar JSON generados en `migration/bundles/`, pero historial Git/savegames siguen siendo fuentes sensibles. | Redactar, mover a snapshot controlado/manifest seguro o confirmar alcance autorizado de esos artefactos; si se requiere purga de historial, pedir decision explicita porque reescribe Git. | abierto |
 | BLK-009 | El paquete `codex/stage1-migration-config-gates` debia integrarse a `main`. | resuelto_confirmado | PR #9 paso `Release Gate / acceptance`, fue mergeado por squash en `main` como `5d62ee5` y el root limpio fue actualizado. | Completado; mantener `main` sincronizado y crear nuevos worktrees solo para el siguiente frente. | cerrado |
 
+## Detalle operativo de `BLK-002` - 2026-05-21
+
+Inventario metadata-only ejecutado desde el root limpio, sin abrir contenidos ni
+imprimir secretos, dumps, filas, RUTs, cuentas ni datos bancarios completos.
+
+Fuentes candidatas externas detectadas:
+
+- `D:/Proyectos/LeaseManager-Produccion-1.0/backend/.env` y
+  `D:/Proyectos/LeaseManager-Produccion-1.0/backend/.env.supabase-staging.local`:
+  posible origen de `DATABASE_URL` o credencial legacy. Clasificacion:
+  `requiere_decision_usuario` y `bloqueado_externo`; no se puede leer ni usar
+  sin autorizacion explicita.
+- `D:/Proyectos/LeaseManager-Produccion-1.0/backend/*.sqlite3` y
+  `D:/Proyectos/LeaseManager-Produccion-1.0/backend/*.db`: bases historicas o
+  de prueba detectadas por metadata. Clasificacion: `bloqueado_dato_real`;
+  deben ser autorizadas y clasificadas como `snapshot_controlado` o descartadas
+  antes de ejecutar cualquier gate.
+- `D:/Proyectos/LeaseManager-clean/infobackend/*.csv` y `*.sql`: exports
+  legacy de empresas, socios, propiedades, contratos, cuentas y
+  participaciones. Clasificacion: `requiere_decision_usuario`; sirven como
+  insumo de transformacion read-only, no como cierre directo de Etapa 1.
+- `D:/Proyectos/LeaseManager-savegame-20260520-082940/untracked-files/.Codex/context/excel-mayo-2026/Calculadora desde Nov 2023.xlsx`
+  y metadata `.codex-spreadsheet/*.json`: referencia operativa del Excel Mayo
+  2026. Clasificacion: `requiere_decision_usuario`; puede contrastar reglas y
+  casos, pero no reemplaza el gate contra snapshot/base autorizada.
+- `D:/Proyectos/LeaseManager-savegame-20260520-082940/untracked-files/docs/production-readiness/sql/etapa1_*.sql`
+  y `supabase/migrations/*.sql`: scripts historicos de preflight/export/rollback
+  y migracion legacy. Clasificacion: `parcial`; pueden orientar un preflight
+  read-only, pero el modelo canonico Django/PostgreSQL del root limpio manda.
+
+Proxima accion concreta: el usuario debe autorizar una de estas rutas de
+desbloqueo:
+
+1. Ingresar un `DATABASE_URL` seguro para `snapshot_controlado` y ejecutar
+   `scripts/run-stage1-snapshot-gate.ps1 -SourceKind snapshot_controlado`.
+2. Autorizar lectura puntual de un `.env` legacy solo para extraer una URL de
+   snapshot/staging, sin imprimirla ni versionarla.
+3. Autorizar una base `.sqlite3`/`.db` historica como candidato de
+   `snapshot_controlado` para clasificacion read-only previa.
+4. Autorizar construccion de snapshot controlado desde CSV/SQL/Excel legacy con
+   preflight, transformacion trazada, backup/rollback si aplica y sin declarar
+   cierre hasta que pase el gate.
+
 ## Regla de uso
 
 Todo bloqueo nuevo debe indicar tipo, impacto, desbloqueo requerido y estado.
