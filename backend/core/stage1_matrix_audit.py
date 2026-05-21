@@ -236,6 +236,7 @@ def _build_summary() -> dict[str, int]:
         'ajustes_contrato': AjusteContrato.objects.count(),
         'pagos_mensuales': PagoMensual.objects.count(),
         'distribuciones_cobro_mensual': DistribucionCobroMensual.objects.count(),
+        'valores_uf_diarios': ValorUFDiario.objects.count(),
         'garantias_contractuales': GarantiaContractual.objects.count(),
         'historial_garantias': HistorialGarantia.objects.count(),
         'mandatos_con_facturacion': MandatoOperacion.objects.filter(autoriza_facturacion=True).count(),
@@ -807,6 +808,12 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         queryset=AjusteContrato.objects.select_related('contrato'),
         code='stage1.ajuste_contrato.validacion_modelo',
         entity='AjusteContrato',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=ValorUFDiario.objects.all(),
+        code='stage1.valor_uf.validacion_modelo',
+        entity='ValorUFDiario',
     )
     _audit_model_validation(
         issues,
