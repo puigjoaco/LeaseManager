@@ -10,6 +10,7 @@ contra datos reales o snapshot controlado.
 - Socios, empresas, comunidades y participaciones.
 - Propiedades, cuentas recaudadoras y mandatos.
 - Arrendatarios, contratos, periodos, garantias y propiedades por contrato.
+- Codeudores solidarios cuando existan, con snapshot de identidad trazable.
 - Matriz contrato-propiedad-cuenta-facturacion.
 
 ## Gate
@@ -22,6 +23,8 @@ contra datos reales o snapshot controlado.
   operativa fuerte; sin hardcodear montos.
 - Validacion de que cada contrato vigente o futuro tenga al menos un canal
   operativo activo asignado por su mandato.
+- Validacion de codeudores solidarios: snapshot con nombre/RUT valido, sin
+  duplicados activos y maximo 3 activos por contrato.
 - Auditor reproducible de matriz:
 
 ```powershell

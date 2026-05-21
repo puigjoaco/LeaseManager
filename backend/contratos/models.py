@@ -294,6 +294,49 @@ class CodeudorSolidario(TimestampedModel):
     def __str__(self):
         return f'{self.contrato.codigo_contrato} - Codeudor {self.pk}'
 
+    def clean(self):
+        super().clean()
+        snapshot = self.snapshot_identidad or {}
+        if not isinstance(snapshot, dict):
+            raise ValidationError(
+                {'snapshot_identidad': 'El snapshot del codeudor debe ser un objeto con nombre y RUT.'}
+            )
+
+        nombre = str(snapshot.get('nombre') or '').strip()
+        rut_value = str(snapshot.get('rut') or '').strip()
+        if not nombre or not rut_value:
+            raise ValidationError(
+                {'snapshot_identidad': 'El snapshot del codeudor debe incluir nombre y RUT.'}
+            )
+
+        try:
+            normalized_rut = validate_rut(rut_value)
+        except ValidationError as error:
+            raise ValidationError({'snapshot_identidad': error.messages}) from error
+
+        if self.estado != EstadoCodeudorSolidario.ACTIVE or not self.contrato_id:
+            return
+
+        active_codebtors = CodeudorSolidario.objects.filter(
+            contrato_id=self.contrato_id,
+            estado=EstadoCodeudorSolidario.ACTIVE,
+        ).exclude(pk=self.pk)
+        if active_codebtors.count() >= 3:
+            raise ValidationError({'estado': 'Un contrato admite como maximo 3 codeudores solidarios activos.'})
+
+        for codebtor in active_codebtors:
+            other_snapshot = codebtor.snapshot_identidad or {}
+            if not isinstance(other_snapshot, dict):
+                continue
+            try:
+                other_rut = validate_rut(other_snapshot.get('rut'))
+            except ValidationError:
+                continue
+            if other_rut == normalized_rut:
+                raise ValidationError(
+                    {'snapshot_identidad': 'No puede repetir el mismo codeudor activo dentro del contrato.'}
+                )
+
 
 class AvisoTermino(TimestampedModel):
     contrato = models.ForeignKey(

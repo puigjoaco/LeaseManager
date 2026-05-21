@@ -11,10 +11,12 @@ from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, Regi
 from contratos.models import (
     Arrendatario,
     AvisoTermino,
+    CodeudorSolidario,
     Contrato,
     ContratoPropiedad,
     EstadoContactoArrendatario,
     EstadoAvisoTermino,
+    EstadoCodeudorSolidario,
     EstadoContrato,
     MonedaBaseContrato,
     PeriodoContractual,
@@ -349,6 +351,53 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.contrato.canal_operativo_faltante', issue_codes)
+
+    def test_codebtor_without_identity_snapshot_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        CodeudorSolidario.objects.create(contrato=contrato, snapshot_identidad={})
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.codeudor.validacion_modelo', issue_codes)
+
+    def test_contract_with_more_than_three_active_codebtors_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        for index, rut in enumerate(['44444444-4', '55555555-5', '66666666-6', '77777777-7'], start=1):
+            CodeudorSolidario.objects.create(
+                contrato=contrato,
+                snapshot_identidad={'nombre': f'Codeudor Controlado {index}', 'rut': rut},
+                estado=EstadoCodeudorSolidario.ACTIVE,
+            )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.codeudor.validacion_modelo', issue_codes)
+
+    def test_contract_with_duplicate_active_codebtor_rut_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        CodeudorSolidario.objects.create(
+            contrato=contrato,
+            snapshot_identidad={'nombre': 'Codeudor Controlado Uno', 'rut': '44444444-4'},
+            estado=EstadoCodeudorSolidario.ACTIVE,
+        )
+        CodeudorSolidario.objects.create(
+            contrato=contrato,
+            snapshot_identidad={'nombre': 'Codeudor Controlado Dos', 'rut': '44.444.444-4'},
+            estado=EstadoCodeudorSolidario.ACTIVE,
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.codeudor.validacion_modelo', issue_codes)
 
     def test_company_tenant_without_representative_snapshot_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

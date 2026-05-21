@@ -16,10 +16,12 @@ from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, Regi
 from contratos.models import (
     Arrendatario,
     AvisoTermino,
+    CodeudorSolidario,
     Contrato,
     ContratoPropiedad,
     EstadoContactoArrendatario,
     EstadoAvisoTermino,
+    EstadoCodeudorSolidario,
     EstadoContrato,
     MonedaBaseContrato,
     PeriodoContractual,
@@ -210,6 +212,10 @@ def _build_summary() -> dict[str, int]:
             estado=EstadoAsignacionCanal.ACTIVE
         ).count(),
         'arrendatarios': Arrendatario.objects.count(),
+        'codeudores_solidarios': CodeudorSolidario.objects.count(),
+        'codeudores_solidarios_activos': CodeudorSolidario.objects.filter(
+            estado=EstadoCodeudorSolidario.ACTIVE
+        ).count(),
         'contratos': Contrato.objects.count(),
         'contratos_activos_o_futuros': Contrato.objects.filter(estado__in=ACTIVE_CONTRACT_STATES).count(),
         'contrato_propiedades': ContratoPropiedad.objects.count(),
@@ -598,6 +604,12 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         queryset=Arrendatario.objects.all(),
         code='stage1.arrendatario.validacion_modelo',
         entity='Arrendatario',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=CodeudorSolidario.objects.select_related('contrato'),
+        code='stage1.codeudor.validacion_modelo',
+        entity='CodeudorSolidario',
     )
 
     duplicate_any_role = (
