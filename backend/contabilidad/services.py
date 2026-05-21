@@ -1,3 +1,5 @@
+from calendar import monthrange
+from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
@@ -5,7 +7,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from cobranza.models import HistorialGarantia, TipoMovimientoGarantia
-from conciliacion.models import MovimientoBancarioImportado
+from conciliacion.models import EstadoConciliacionMovimiento, EstadoIngresoDesconocido, MovimientoBancarioImportado
 
 from .models import (
     AsientoContable,
@@ -31,6 +33,10 @@ from .models import (
 
 
 DEFAULT_REGIME_CODE = 'EmpresaContabilidadCompletaV1'
+
+
+def period_date_bounds(anio, mes):
+    return date(anio, mes, 1), date(anio, mes, monthrange(anio, mes)[1])
 
 
 def _effective_company_allocations_for_community(comunidad, amount, effective_date):
@@ -444,11 +450,47 @@ def build_monthly_tax_obligations(empresa, anio, mes):
     return obligations
 
 
+def get_company_period_bank_movements(empresa, anio, mes):
+    start, end = period_date_bounds(anio, mes)
+    return MovimientoBancarioImportado.objects.filter(
+        conexion_bancaria__cuenta_recaudadora__empresa_owner=empresa,
+        fecha_movimiento__range=(start, end),
+    )
+
+
+def get_company_period_unresolved_bank_movements(empresa, anio, mes):
+    return get_company_period_bank_movements(empresa, anio, mes).filter(
+        Q(
+            estado_conciliacion__in=[
+                EstadoConciliacionMovimiento.PENDING,
+                EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+                EstadoConciliacionMovimiento.MANUAL_REQUIRED,
+            ]
+        )
+        | Q(ingreso_desconocido__estado=EstadoIngresoDesconocido.OPEN)
+    )
+
+
+def assert_company_period_conciliacion_ready(empresa, anio, mes):
+    unresolved = get_company_period_unresolved_bank_movements(empresa, anio, mes)
+    count = unresolved.count()
+    if count:
+        raise ValueError(
+            f'Conciliacion no cerrada para el periodo: existen {count} movimientos bancarios sin resolver.'
+        )
+    return {
+        'movimientos_bancarios_periodo': get_company_period_bank_movements(empresa, anio, mes).count(),
+        'movimientos_bancarios_no_resueltos': 0,
+    }
+
+
 @transaction.atomic
 def prepare_monthly_close(empresa, anio, mes):
     existing_close = CierreMensualContable.objects.filter(empresa=empresa, anio=anio, mes=mes).first()
     if existing_close and existing_close.estado == EstadoCierreMensual.APPROVED:
         raise ValueError('El periodo ya fue aprobado; debe reabrirse antes de volver a preparar el cierre.')
+
+    conciliacion_summary = assert_company_period_conciliacion_ready(empresa, anio, mes)
 
     pending_events = get_company_period_events(empresa, anio, mes).exclude(estado_contable=EstadoEventoContable.POSTED)
     if pending_events.exists():
@@ -482,6 +524,7 @@ def prepare_monthly_close(empresa, anio, mes):
             for obligation in obligations
         ],
         'snapshots': {key: value.periodo for key, value in snapshots.items()},
+        'conciliacion': conciliacion_summary,
     }
     close.save()
     return close
