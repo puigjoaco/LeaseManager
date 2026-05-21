@@ -83,7 +83,11 @@ class OperationSnapshotView(APIView):
             property_paths=('id',),
         )
         cuentas = scope_queryset_for_access(
-            CuentaRecaudadora.objects.select_related('empresa_owner', 'socio_owner').order_by('numero_cuenta', 'id'),
+            CuentaRecaudadora.objects.select_related(
+                'empresa_owner',
+                'comunidad_owner',
+                'socio_owner',
+            ).order_by('numero_cuenta', 'id'),
             access,
             bank_account_paths=('id',),
         )
@@ -102,6 +106,7 @@ class OperationSnapshotView(APIView):
                 'administrador_empresa_owner',
                 'administrador_socio_owner',
                 'recaudador_empresa_owner',
+                'recaudador_comunidad_owner',
                 'recaudador_socio_owner',
                 'entidad_facturadora',
                 'cuenta_recaudadora',
@@ -215,6 +220,7 @@ class OperationSnapshotView(APIView):
                         'recaudador_id': mandato.recaudador_id,
                         'recaudador_display': (
                             mandato.recaudador_empresa_owner.razon_social if mandato.recaudador_empresa_owner_id
+                            else mandato.recaudador_comunidad_owner.nombre if mandato.recaudador_comunidad_owner_id
                             else mandato.recaudador_socio_owner.nombre
                         ),
                         'entidad_facturadora_id': mandato.entidad_facturadora_id,
@@ -238,7 +244,7 @@ class OperationSnapshotView(APIView):
 class CuentaRecaudadoraListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = CuentaRecaudadoraSerializer
-    queryset = CuentaRecaudadora.objects.select_related('empresa_owner', 'socio_owner').all()
+    queryset = CuentaRecaudadora.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner').all()
     bank_account_scope_paths = ('id',)
     audit_entity_type = 'cuenta_recaudadora'
     audit_entity_label = 'cuenta recaudadora'
@@ -247,7 +253,7 @@ class CuentaRecaudadoraListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixi
 class CuentaRecaudadoraDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = CuentaRecaudadoraSerializer
-    queryset = CuentaRecaudadora.objects.select_related('empresa_owner', 'socio_owner').all()
+    queryset = CuentaRecaudadora.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner').all()
     bank_account_scope_paths = ('id',)
     audit_entity_type = 'cuenta_recaudadora'
     audit_entity_label = 'cuenta recaudadora'
@@ -284,6 +290,7 @@ class MandatoOperacionListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin
         'administrador_empresa_owner',
         'administrador_socio_owner',
         'recaudador_empresa_owner',
+        'recaudador_comunidad_owner',
         'recaudador_socio_owner',
         'entidad_facturadora',
         'cuenta_recaudadora',
@@ -305,6 +312,7 @@ class MandatoOperacionDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, ge
         'administrador_empresa_owner',
         'administrador_socio_owner',
         'recaudador_empresa_owner',
+        'recaudador_comunidad_owner',
         'recaudador_socio_owner',
         'entidad_facturadora',
         'cuenta_recaudadora',

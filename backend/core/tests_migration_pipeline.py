@@ -1189,6 +1189,72 @@ class MigrationPipelineTests(TestCase):
         self.assertEqual(Empresa.objects.count(), 1)
         self.assertGreaterEqual(report_again.updated.get('socios', 0), 1)
 
+    def test_import_bundle_imports_community_owned_account(self):
+        bundle = {
+            'patrimonio': {
+                'socios': [
+                    {
+                        'legacy_id': 'soc-1',
+                        'rut': '17.366.287-4',
+                        'nombre': 'Joaquin Puig Vittini',
+                        'email': '',
+                        'telefono': '',
+                        'domicilio': '',
+                        'activo': True,
+                    }
+                ],
+                'empresas': [],
+                'comunidades': [
+                    {
+                        'legacy_id': 'com-1',
+                        'nombre': 'Comunidad Operativa',
+                        'descripcion': '',
+                        'estado': 'activa',
+                        'representante_legacy_id': 'soc-1',
+                    }
+                ],
+                'participaciones': [
+                    {
+                        'legacy_id': 'par-1',
+                        'owner_kind': 'comunidad',
+                        'owner_legacy_id': 'com-1',
+                        'participante_kind': 'socio',
+                        'participante_legacy_id': 'soc-1',
+                        'porcentaje': '100.00',
+                        'vigente_desde': '2026-01-01',
+                        'vigente_hasta': None,
+                        'activo': True,
+                    }
+                ],
+                'propiedades': [],
+            },
+            'operacion': {
+                'cuentas_recaudadoras': [
+                    {
+                        'legacy_id': 'cta-com-1',
+                        'owner_kind': 'comunidad',
+                        'owner_legacy_id': 'com-1',
+                        'institucion': 'Banco de Chile',
+                        'numero_cuenta': '8240999000',
+                        'tipo_cuenta': 'corriente',
+                        'titular_nombre': 'Comunidad Operativa',
+                        'titular_rut': '17.366.287-4',
+                        'moneda_operativa': 'CLP',
+                        'estado_operativo': 'activa',
+                    }
+                ]
+            },
+            'contratos': {'arrendatarios': [], 'contratos_candidates': [], 'periodos_candidates': []},
+            'unresolved': {},
+        }
+
+        report = import_bundle(bundle)
+
+        self.assertEqual(report.created.get('cuentas_recaudadoras', 0), 1)
+        cuenta = CuentaRecaudadora.objects.get(numero_cuenta='8240999000')
+        self.assertEqual(cuenta.owner_tipo, 'comunidad')
+        self.assertEqual(cuenta.owner_display, 'Comunidad Operativa')
+
     def test_import_bundle_skips_contract_without_unique_active_mandate(self):
         bundle = {
             'patrimonio': {'socios': [], 'empresas': [], 'comunidades': [], 'participaciones': [], 'propiedades': []},

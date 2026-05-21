@@ -50,9 +50,11 @@ class MonedaOperativa(models.TextChoices):
     UF = 'UF', 'UF'
 
 
-def owner_tuple(*, empresa_id=None, socio_id=None):
+def owner_tuple(*, empresa_id=None, comunidad_id=None, socio_id=None):
     if empresa_id:
         return ('empresa', empresa_id)
+    if comunidad_id:
+        return ('comunidad', comunidad_id)
     if socio_id:
         return ('socio', socio_id)
     return (None, None)
@@ -71,6 +73,13 @@ def patrimonio_owner_tuple(*, empresa_id=None, comunidad_id=None, socio_id=None)
 class CuentaRecaudadora(TimestampedModel):
     empresa_owner = models.ForeignKey(
         Empresa,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='cuentas_recaudadoras',
+    )
+    comunidad_owner = models.ForeignKey(
+        ComunidadPatrimonial,
         null=True,
         blank=True,
         on_delete=models.PROTECT,
@@ -100,8 +109,9 @@ class CuentaRecaudadora(TimestampedModel):
         constraints = [
             models.CheckConstraint(
                 check=(
-                    Q(empresa_owner__isnull=False, socio_owner__isnull=True)
-                    | Q(empresa_owner__isnull=True, socio_owner__isnull=False)
+                    Q(empresa_owner__isnull=False, comunidad_owner__isnull=True, socio_owner__isnull=True)
+                    | Q(empresa_owner__isnull=True, comunidad_owner__isnull=False, socio_owner__isnull=True)
+                    | Q(empresa_owner__isnull=True, comunidad_owner__isnull=True, socio_owner__isnull=False)
                 ),
                 name='cuenta_recaudadora_exactly_one_owner',
             ),
@@ -116,21 +126,33 @@ class CuentaRecaudadora(TimestampedModel):
 
     @property
     def owner_tipo(self):
-        return owner_tuple(empresa_id=self.empresa_owner_id, socio_id=self.socio_owner_id)[0]
+        return owner_tuple(
+            empresa_id=self.empresa_owner_id,
+            comunidad_id=self.comunidad_owner_id,
+            socio_id=self.socio_owner_id,
+        )[0]
 
     @property
     def owner_id(self):
-        return owner_tuple(empresa_id=self.empresa_owner_id, socio_id=self.socio_owner_id)[1]
+        return owner_tuple(
+            empresa_id=self.empresa_owner_id,
+            comunidad_id=self.comunidad_owner_id,
+            socio_id=self.socio_owner_id,
+        )[1]
 
     @property
     def owner_display(self):
         if self.empresa_owner_id:
             return self.empresa_owner.razon_social
+        if self.comunidad_owner_id:
+            return self.comunidad_owner.nombre
         return self.socio_owner.nombre
 
     def owner_is_active(self):
         if self.empresa_owner_id:
             return self.empresa_owner.estado == 'activa'
+        if self.comunidad_owner_id:
+            return self.comunidad_owner.estado == 'activa'
         return self.socio_owner.activo
 
     def save(self, *args, **kwargs):
@@ -139,8 +161,8 @@ class CuentaRecaudadora(TimestampedModel):
 
     def clean(self):
         super().clean()
-        if sum(bool(value) for value in (self.empresa_owner_id, self.socio_owner_id)) != 1:
-            raise ValidationError('La cuenta recaudadora debe pertenecer exactamente a una empresa o socio.')
+        if sum(bool(value) for value in (self.empresa_owner_id, self.comunidad_owner_id, self.socio_owner_id)) != 1:
+            raise ValidationError('La cuenta recaudadora debe pertenecer exactamente a una empresa, comunidad o socio.')
 
         if self.estado_operativo == EstadoCuentaRecaudadora.ACTIVE and not self.owner_is_active():
             raise ValidationError({'estado_operativo': 'La cuenta activa requiere un owner activo.'})
@@ -261,6 +283,13 @@ class MandatoOperacion(TimestampedModel):
         on_delete=models.PROTECT,
         related_name='mandatos_como_recaudadora',
     )
+    recaudador_comunidad_owner = models.ForeignKey(
+        ComunidadPatrimonial,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='mandatos_como_recaudadora',
+    )
     recaudador_socio_owner = models.ForeignKey(
         Socio,
         null=True,
@@ -308,8 +337,9 @@ class MandatoOperacion(TimestampedModel):
             ),
             models.CheckConstraint(
                 check=(
-                    Q(recaudador_empresa_owner__isnull=False, recaudador_socio_owner__isnull=True)
-                    | Q(recaudador_empresa_owner__isnull=True, recaudador_socio_owner__isnull=False)
+                    Q(recaudador_empresa_owner__isnull=False, recaudador_comunidad_owner__isnull=True, recaudador_socio_owner__isnull=True)
+                    | Q(recaudador_empresa_owner__isnull=True, recaudador_comunidad_owner__isnull=False, recaudador_socio_owner__isnull=True)
+                    | Q(recaudador_empresa_owner__isnull=True, recaudador_comunidad_owner__isnull=True, recaudador_socio_owner__isnull=False)
                 ),
                 name='mandato_exactly_one_recaudador',
             ),
@@ -357,6 +387,7 @@ class MandatoOperacion(TimestampedModel):
     def recaudador_tipo(self):
         return owner_tuple(
             empresa_id=self.recaudador_empresa_owner_id,
+            comunidad_id=self.recaudador_comunidad_owner_id,
             socio_id=self.recaudador_socio_owner_id,
         )[0]
 
@@ -364,6 +395,7 @@ class MandatoOperacion(TimestampedModel):
     def recaudador_id(self):
         return owner_tuple(
             empresa_id=self.recaudador_empresa_owner_id,
+            comunidad_id=self.recaudador_comunidad_owner_id,
             socio_id=self.recaudador_socio_owner_id,
         )[1]
 
@@ -406,7 +438,14 @@ class MandatoOperacion(TimestampedModel):
         if sum(bool(value) for value in (self.administrador_empresa_owner_id, self.administrador_socio_owner_id)) != 1:
             raise ValidationError('El mandato debe declarar exactamente un administrador operativo.')
 
-        if sum(bool(value) for value in (self.recaudador_empresa_owner_id, self.recaudador_socio_owner_id)) != 1:
+        if sum(
+            bool(value)
+            for value in (
+                self.recaudador_empresa_owner_id,
+                self.recaudador_comunidad_owner_id,
+                self.recaudador_socio_owner_id,
+            )
+        ) != 1:
             raise ValidationError('El mandato debe declarar exactamente un recaudador.')
 
         if self.property_owner_tuple() != self.propietario_tuple():
@@ -437,6 +476,9 @@ class MandatoOperacion(TimestampedModel):
             raise ValidationError({'estado': 'El mandato activo requiere un administrador operativo activo.'})
 
         if self.recaudador_empresa_owner_id and self.recaudador_empresa_owner.estado != 'activa':
+            raise ValidationError({'estado': 'El mandato activo requiere un recaudador activo.'})
+
+        if self.recaudador_comunidad_owner_id and self.recaudador_comunidad_owner.estado != 'activa':
             raise ValidationError({'estado': 'El mandato activo requiere un recaudador activo.'})
 
         if self.recaudador_socio_owner_id and not self.recaudador_socio_owner.activo:

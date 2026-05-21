@@ -162,7 +162,11 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
 
 
 def _audit_operacion(issues: list[dict[str, Any]]) -> None:
-    for cuenta in CuentaRecaudadora.objects.filter(estado_operativo='activa').select_related('empresa_owner', 'socio_owner'):
+    for cuenta in CuentaRecaudadora.objects.filter(estado_operativo='activa').select_related(
+        'empresa_owner',
+        'comunidad_owner',
+        'socio_owner',
+    ):
         try:
             cuenta.full_clean()
         except ValidationError as error:
@@ -188,6 +192,7 @@ def _audit_operacion(issues: list[dict[str, Any]]) -> None:
         'administrador_empresa_owner',
         'administrador_socio_owner',
         'recaudador_empresa_owner',
+        'recaudador_comunidad_owner',
         'recaudador_socio_owner',
     ):
         try:

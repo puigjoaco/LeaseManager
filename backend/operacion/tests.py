@@ -124,15 +124,18 @@ class OperacionAPITests(APITestCase):
             socio_owner=socio,
         )
 
-    def _create_active_account(self, *, empresa=None, socio=None, numero='123456'):
+    def _create_active_account(self, *, empresa=None, comunidad=None, socio=None, numero='123456'):
+        titular_nombre = empresa.razon_social if empresa else comunidad.nombre if comunidad else socio.nombre
+        titular_rut = empresa.rut if empresa else comunidad.representante_socio.rut if comunidad else socio.rut
         return CuentaRecaudadora.objects.create(
             empresa_owner=empresa,
+            comunidad_owner=comunidad,
             socio_owner=socio,
             institucion='Banco Uno',
             numero_cuenta=numero,
             tipo_cuenta='corriente',
-            titular_nombre=empresa.razon_social if empresa else socio.nombre,
-            titular_rut=empresa.rut if empresa else socio.rut,
+            titular_nombre=titular_nombre,
+            titular_rut=titular_rut,
             moneda_operativa=MonedaOperativa.CLP,
             estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
         )
@@ -203,6 +206,26 @@ class OperacionAPITests(APITestCase):
 
         duplicate_response = self.client.post(reverse('operacion-cuenta-list'), payload, format='json')
         self.assertEqual(duplicate_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_active_account_for_comunidad_owner(self):
+        comunidad = self._create_active_comunidad('Comunidad Operativa')
+        payload = {
+            'owner_tipo': 'comunidad',
+            'owner_id': comunidad.id,
+            'institucion': 'Banco Uno',
+            'numero_cuenta': '999001',
+            'tipo_cuenta': 'corriente',
+            'titular_nombre': comunidad.nombre,
+            'titular_rut': comunidad.representante_socio.rut,
+            'moneda_operativa': MonedaOperativa.CLP,
+            'estado_operativo': EstadoCuentaRecaudadora.ACTIVE,
+        }
+
+        response = self.client.post(reverse('operacion-cuenta-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['owner_tipo'], 'comunidad')
+        self.assertEqual(response.data['owner_id'], comunidad.id)
 
     def test_create_identity_validates_email_when_channel_is_email(self):
         socio = self._create_socio('Operador Uno', '33333333-3')
@@ -296,6 +319,25 @@ class OperacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['recaudador_tipo'], 'socio')
         self.assertEqual(response.data['recaudador_id'], unrelated_owner.id)
+
+    def test_active_mandato_accepts_comunidad_recaudadora(self):
+        comunidad = self._create_active_comunidad('Comunidad Recaudadora')
+        admin = comunidad.representante_socio
+        propiedad = self._create_property_for_owner(comunidad=comunidad, codigo='COM-001')
+        cuenta = self._create_active_account(comunidad=comunidad, numero='ACC-COM-001')
+
+        response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='comunidad',
+            propietario_id=comunidad.id,
+            admin_tipo='socio',
+            admin_id=admin.id,
+            cuenta_id=cuenta.id,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['recaudador_tipo'], 'comunidad')
+        self.assertEqual(response.data['recaudador_id'], comunidad.id)
 
     def test_active_mandato_rejects_recaudador_that_does_not_match_account_owner(self):
         propietario = self._create_socio('Propietario Uno', '17171717-5')

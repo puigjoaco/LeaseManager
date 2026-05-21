@@ -74,12 +74,25 @@ def _scoped_identidad_queryset(user):
 
 
 def resolve_simple_owner(owner_tipo, owner_id, *, user=None):
-    model_map = {
-        'empresa': Empresa,
-        'socio': Socio,
-    }
     queryset_map = {
         'empresa': _scoped_empresa_queryset(user) if user else Empresa.objects.all(),
+        'socio': _scoped_socio_queryset(user) if user else Socio.objects.all(),
+    }
+    queryset = queryset_map[owner_tipo]
+    try:
+        return queryset.get(pk=owner_id)
+    except queryset.model.DoesNotExist as exc:
+        raise serializers.ValidationError({'owner_id': 'El owner indicado no existe.'}) from exc
+
+
+def resolve_operational_owner(owner_tipo, owner_id, *, user=None):
+    queryset_map = {
+        'empresa': _scoped_empresa_queryset(user) if user else Empresa.objects.all(),
+        'comunidad': scope_queryset_for_user(
+            ComunidadPatrimonial.objects.all(),
+            user,
+            property_paths=('propiedades__id',),
+        ) if user else ComunidadPatrimonial.objects.all(),
         'socio': _scoped_socio_queryset(user) if user else Socio.objects.all(),
     }
     queryset = queryset_map[owner_tipo]
@@ -107,7 +120,7 @@ def resolve_patrimonio_owner(owner_tipo, owner_id, *, user=None):
 
 
 class CuentaRecaudadoraSerializer(serializers.ModelSerializer):
-    owner_tipo = serializers.ChoiceField(choices=('empresa', 'socio'), write_only=True, required=False)
+    owner_tipo = serializers.ChoiceField(choices=('empresa', 'comunidad', 'socio'), write_only=True, required=False)
     owner_id = serializers.IntegerField(write_only=True, required=False)
     owner_display = serializers.CharField(read_only=True)
 
@@ -147,8 +160,9 @@ class CuentaRecaudadoraSerializer(serializers.ModelSerializer):
         elif owner_tipo is None or owner_id is None:
             raise serializers.ValidationError('Debe enviar owner_tipo y owner_id.')
 
-        owner = resolve_simple_owner(owner_tipo, owner_id, user=user)
+        owner = resolve_operational_owner(owner_tipo, owner_id, user=user)
         attrs['empresa_owner'] = owner if owner_tipo == 'empresa' else None
+        attrs['comunidad_owner'] = owner if owner_tipo == 'comunidad' else None
         attrs['socio_owner'] = owner if owner_tipo == 'socio' else None
 
         candidate = build_validation_candidate(self.instance, CuentaRecaudadora)
@@ -235,7 +249,7 @@ class MandatoOperacionSerializer(serializers.ModelSerializer):
     )
     administrador_operativo_id = serializers.IntegerField(write_only=True, required=False)
     recaudador_tipo = serializers.ChoiceField(
-        choices=('empresa', 'socio'),
+        choices=('empresa', 'comunidad', 'socio'),
         write_only=True,
         required=False,
     )
@@ -332,6 +346,8 @@ class MandatoOperacionSerializer(serializers.ModelSerializer):
     def get_recaudador_display(self, obj):
         if obj.recaudador_empresa_owner_id:
             return obj.recaudador_empresa_owner.razon_social
+        if obj.recaudador_comunidad_owner_id:
+            return obj.recaudador_comunidad_owner.nombre
         return obj.recaudador_socio_owner.nombre
 
     def validate(self, attrs):
@@ -365,7 +381,7 @@ class MandatoOperacionSerializer(serializers.ModelSerializer):
 
         propietario = resolve_patrimonio_owner(propietario_tipo, propietario_id, user=user)
         admin = resolve_simple_owner(admin_tipo, admin_id, user=user)
-        recaudador = resolve_simple_owner(recaudador_tipo, recaudador_id, user=user)
+        recaudador = resolve_operational_owner(recaudador_tipo, recaudador_id, user=user)
 
         attrs['propietario_empresa_owner'] = propietario if propietario_tipo == 'empresa' else None
         attrs['propietario_comunidad_owner'] = propietario if propietario_tipo == 'comunidad' else None
@@ -373,6 +389,7 @@ class MandatoOperacionSerializer(serializers.ModelSerializer):
         attrs['administrador_empresa_owner'] = admin if admin_tipo == 'empresa' else None
         attrs['administrador_socio_owner'] = admin if admin_tipo == 'socio' else None
         attrs['recaudador_empresa_owner'] = recaudador if recaudador_tipo == 'empresa' else None
+        attrs['recaudador_comunidad_owner'] = recaudador if recaudador_tipo == 'comunidad' else None
         attrs['recaudador_socio_owner'] = recaudador if recaudador_tipo == 'socio' else None
 
         candidate = build_validation_candidate(self.instance, MandatoOperacion)

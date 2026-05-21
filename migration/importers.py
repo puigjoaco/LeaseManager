@@ -575,6 +575,7 @@ def import_bundle(bundle):
     imported_accounts_by_owner = {}
     for item in bundle['operacion']['cuentas_recaudadoras']:
         empresa_owner = empresa_map.get(item['owner_legacy_id']) if item['owner_kind'] == 'empresa' else None
+        comunidad_owner = comunidad_map.get(item['owner_legacy_id']) if item['owner_kind'] == 'comunidad' else None
         socio_owner = socio_map.get(item['owner_legacy_id']) if item['owner_kind'] == 'socio' else None
         if item['owner_kind'] == 'empresa' and not empresa_owner:
             report.add_skip(
@@ -582,6 +583,16 @@ def import_bundle(bundle):
                 {
                     'legacy_id': item['legacy_id'],
                     'reason': 'No se encontro la empresa canónica para la cuenta recaudadora.',
+                    'owner_legacy_id': item['owner_legacy_id'],
+                },
+            )
+            continue
+        if item['owner_kind'] == 'comunidad' and not comunidad_owner:
+            report.add_skip(
+                'cuentas_recaudadoras',
+                {
+                    'legacy_id': item['legacy_id'],
+                    'reason': 'No se encontro la comunidad canónica para la cuenta recaudadora.',
                     'owner_legacy_id': item['owner_legacy_id'],
                 },
             )
@@ -601,6 +612,7 @@ def import_bundle(bundle):
             numero_cuenta=item['numero_cuenta'],
             defaults={
                 'empresa_owner': empresa_owner,
+                'comunidad_owner': comunidad_owner,
                 'socio_owner': socio_owner,
                 'tipo_cuenta': item['tipo_cuenta'],
                 'titular_nombre': item['titular_nombre'],
@@ -677,6 +689,7 @@ def import_bundle(bundle):
                         'administrador_empresa_owner': None,
                         'administrador_socio_owner': admin,
                         'recaudador_empresa_owner': cuenta.empresa_owner,
+                        'recaudador_comunidad_owner': cuenta.comunidad_owner,
                         'recaudador_socio_owner': cuenta.socio_owner,
                         'entidad_facturadora': entidad_facturadora,
                         'cuenta_recaudadora': cuenta,
@@ -714,6 +727,7 @@ def import_bundle(bundle):
                         'administrador_empresa_owner': None,
                         'administrador_socio_owner': owner,
                         'recaudador_empresa_owner': None,
+                        'recaudador_comunidad_owner': None,
                         'recaudador_socio_owner': owner,
                         'entidad_facturadora': None,
                         'cuenta_recaudadora': cuenta,
@@ -760,6 +774,7 @@ def import_bundle(bundle):
                 'administrador_empresa_owner': owner,
                 'administrador_socio_owner': None,
                 'recaudador_empresa_owner': owner,
+                'recaudador_comunidad_owner': None,
                 'recaudador_socio_owner': None,
                 'entidad_facturadora': owner,
                 'cuenta_recaudadora': cuenta,

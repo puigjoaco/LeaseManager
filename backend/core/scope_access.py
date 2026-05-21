@@ -61,6 +61,11 @@ class ScopeAccess:
                     | Q(comunidad_owner__participaciones__participante_empresa_id__in=self.company_ids)
                     | Q(mandatos_operacion__administrador_empresa_owner_id__in=self.company_ids)
                     | Q(mandatos_operacion__recaudador_empresa_owner_id__in=self.company_ids)
+                    | Q(
+                        mandatos_operacion__recaudador_comunidad_owner__participaciones__participante_empresa_id__in=(
+                            self.company_ids
+                        )
+                    )
                     | Q(mandatos_operacion__entidad_facturadora_id__in=self.company_ids)
                 )
                 .distinct()
@@ -79,7 +84,12 @@ class ScopeAccess:
         visible_ids = set(self.bank_account_ids)
         if self.company_ids:
             visible_ids.update(
-                CuentaRecaudadora.objects.filter(empresa_owner_id__in=self.company_ids).values_list('id', flat=True)
+                CuentaRecaudadora.objects.filter(
+                    Q(empresa_owner_id__in=self.company_ids)
+                    | Q(comunidad_owner__participaciones__participante_empresa_id__in=self.company_ids)
+                )
+                .distinct()
+                .values_list('id', flat=True)
             )
         if self.visible_property_ids:
             visible_ids.update(
