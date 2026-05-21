@@ -21,6 +21,9 @@ condicionados sin envios reales accidentales.
 - Evidencia de auditoria por operacion critica.
 - Registro manual de envio solo con `external_ref` trazable y revalidacion del
   gate abierto, identidad activa, destinatario y mandato operativo activo.
+- WhatsApp cerrado por defecto: requiere opt-in con evidencia, template
+  aprobado registrado en el gate, ventana `08:00-21:00 America/Santiago`,
+  identidad activa y contacto no bloqueado.
 
 ## Salida
 

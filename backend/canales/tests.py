@@ -1,3 +1,7 @@
+from datetime import datetime
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
+
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -63,6 +67,8 @@ class CanalesAPITests(APITestCase):
         propietario_rut='33333333-3',
         arrendatario_rut='44444444-4',
         socio_ruts=('11111111-1', '22222222-2'),
+        whatsapp_opt_in=False,
+        whatsapp_opt_in_evidencia_ref='',
     ):
         empresa = self._create_active_empresa(nombre=f'Empresa {codigo}', rut=empresa_rut, socio_ruts=socio_ruts)
         propietario = self._create_socio(f'Prop {codigo}', propietario_rut)
@@ -105,6 +111,8 @@ class CanalesAPITests(APITestCase):
             telefono='+56912345678',
             domicilio_notificaciones='Dir 123',
             estado_contacto='activo',
+            whatsapp_opt_in=whatsapp_opt_in,
+            whatsapp_opt_in_evidencia_ref=whatsapp_opt_in_evidencia_ref,
             whatsapp_bloqueado=whatsapp_blocked,
         )
         contrato = Contrato.objects.create(
@@ -138,14 +146,14 @@ class CanalesAPITests(APITestCase):
         )
         return empresa, contrato
 
-    def _create_gate(self, canal='email', estado_gate='abierto'):
+    def _create_gate(self, canal='email', estado_gate='abierto', restricciones_operativas=None):
         response = self.client.post(
             reverse('canales-gate-list'),
             {
                 'canal': canal,
                 'provider_key': 'gmail_api' if canal == 'email' else 'twilio_whatsapp',
                 'estado_gate': estado_gate,
-                'restricciones_operativas': {},
+                'restricciones_operativas': restricciones_operativas or {},
                 'evidencia_ref': 'evidence-1',
             },
             format='json',
@@ -296,7 +304,11 @@ class CanalesAPITests(APITestCase):
         self.assertIn('identidad', response.data['motivo_bloqueo'].lower())
 
     def test_prepare_whatsapp_message_blocks_when_tenant_has_whatsapp_blocked(self):
-        empresa, contrato = self._create_contract_context(codigo='CH-BLOCK', whatsapp_blocked=True)
+        empresa, contrato = self._create_contract_context(
+            codigo='CH-BLOCK',
+            whatsapp_blocked=True,
+            whatsapp_opt_in=False,
+        )
         gate = self._create_gate(canal='whatsapp')
         identidad = self._create_identity(empresa, canal='whatsapp')
         AsignacionCanalOperacion.objects.create(
@@ -319,6 +331,182 @@ class CanalesAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['estado'], EstadoMensajeSaliente.BLOCKED)
+        self.assertIn('bloqueado', response.data['motivo_bloqueo'].lower())
+
+    def test_prepare_whatsapp_message_blocks_without_opt_in(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-NOOPTIN')
+        gate = self._create_gate(canal='whatsapp', restricciones_operativas={'templates_aprobados': True})
+        identidad = self._create_identity(empresa, canal='whatsapp')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='whatsapp',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        response = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'whatsapp',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'cuerpo': 'Recordatorio',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoMensajeSaliente.BLOCKED)
+        self.assertIn('opt-in', response.data['motivo_bloqueo'].lower())
+
+    def test_prepare_whatsapp_message_blocks_without_approved_template(self):
+        empresa, contrato = self._create_contract_context(
+            codigo='CH-NOTEMPLATE',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='optin-controlled-1',
+        )
+        gate = self._create_gate(canal='whatsapp')
+        identidad = self._create_identity(empresa, canal='whatsapp')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='whatsapp',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        response = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'whatsapp',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'cuerpo': 'Recordatorio',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoMensajeSaliente.BLOCKED)
+        self.assertIn('template aprobado', response.data['motivo_bloqueo'].lower())
+
+    def test_prepare_whatsapp_message_blocks_outside_allowed_window(self):
+        empresa, contrato = self._create_contract_context(
+            codigo='CH-WINDOW',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='optin-controlled-2',
+        )
+        gate = self._create_gate(canal='whatsapp', restricciones_operativas={'templates_aprobados': True})
+        identidad = self._create_identity(empresa, canal='whatsapp')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='whatsapp',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        with patch(
+            'canales.services.timezone.localtime',
+            return_value=datetime(2026, 5, 21, 22, 0, tzinfo=ZoneInfo('America/Santiago')),
+        ):
+            response = self.client.post(
+                reverse('canales-mensaje-preparar'),
+                {
+                    'canal': 'whatsapp',
+                    'canal_mensajeria': gate['id'],
+                    'contrato': contrato.id,
+                    'cuerpo': 'Recordatorio',
+                },
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoMensajeSaliente.BLOCKED)
+        self.assertIn('08:00-21:00', response.data['motivo_bloqueo'])
+
+    def test_prepare_whatsapp_message_with_opt_in_template_and_window_is_prepared(self):
+        empresa, contrato = self._create_contract_context(
+            codigo='CH-WA-READY',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='optin-controlled-3',
+        )
+        gate = self._create_gate(canal='whatsapp', restricciones_operativas={'templates_aprobados': True})
+        identidad = self._create_identity(empresa, canal='whatsapp')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='whatsapp',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        with patch(
+            'canales.services.timezone.localtime',
+            return_value=datetime(2026, 5, 21, 10, 0, tzinfo=ZoneInfo('America/Santiago')),
+        ):
+            response = self.client.post(
+                reverse('canales-mensaje-preparar'),
+                {
+                    'canal': 'whatsapp',
+                    'canal_mensajeria': gate['id'],
+                    'contrato': contrato.id,
+                    'cuerpo': 'Recordatorio',
+                },
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoMensajeSaliente.PREPARED)
+        self.assertEqual(response.data['destinatario'], contrato.arrendatario.telefono)
+
+    def test_register_manual_whatsapp_send_rechecks_allowed_window(self):
+        empresa, contrato = self._create_contract_context(
+            codigo='CH-WA-SEND-WIN',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='optin-controlled-4',
+        )
+        gate = self._create_gate(canal='whatsapp', restricciones_operativas={'templates_aprobados': True})
+        identidad = self._create_identity(empresa, canal='whatsapp')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='whatsapp',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        with patch(
+            'canales.services.timezone.localtime',
+            return_value=datetime(2026, 5, 21, 10, 0, tzinfo=ZoneInfo('America/Santiago')),
+        ):
+            prepared = self.client.post(
+                reverse('canales-mensaje-preparar'),
+                {
+                    'canal': 'whatsapp',
+                    'canal_mensajeria': gate['id'],
+                    'contrato': contrato.id,
+                    'cuerpo': 'Recordatorio',
+                },
+                format='json',
+            )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(prepared.data['estado'], EstadoMensajeSaliente.PREPARED)
+
+        with patch(
+            'canales.services.timezone.localtime',
+            return_value=datetime(2026, 5, 21, 22, 0, tzinfo=ZoneInfo('America/Santiago')),
+        ):
+            response = self.client.post(
+                reverse('canales-mensaje-enviar', args=[prepared.data['id']]),
+                {'external_ref': 'manual-wa-1'},
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('WhatsApp', response.data['detail'])
+        self.assertEqual(MensajeSaliente.objects.get(pk=prepared.data['id']).estado, EstadoMensajeSaliente.PREPARED)
 
     def test_explicit_identity_override_is_used_when_valid(self):
         empresa, contrato = self._create_contract_context(codigo='CH-OVERRIDE')

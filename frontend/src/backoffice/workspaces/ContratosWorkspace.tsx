@@ -3,12 +3,12 @@ import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { Badge, TableBlock } from '../shared'
 
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
-type ArrendatarioItem = { id: number; nombre_razon_social: string; rut: string; tipo_arrendatario: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; whatsapp_bloqueado: boolean }
+type ArrendatarioItem = { id: number; nombre_razon_social: string; rut: string; tipo_arrendatario: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean }
 type MandatoItem = { id: number; propiedad_codigo: string; propietario_display: string }
 type ContratoItem = { id: number; codigo_contrato: string; mandato_operacion: number; arrendatario: number; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string | null; dia_pago_mensual: number; plazo_notificacion_termino_dias: number; dias_prealerta_admin: number; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; contrato_propiedades_detail: Array<{ propiedad: number; propiedad_codigo: string; propiedad_direccion: string; rol_en_contrato: string }>; periodos_contractuales_detail: Array<{ numero_periodo: number; fecha_inicio: string; fecha_fin: string; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string }>; codeudores_solidarios_detail: Array<{ id: number; snapshot_identidad: { nombre?: string; rut?: string }; fecha_inclusion: string; estado: string }> }
 type AvisoItem = { id: number; contrato: number; fecha_efectiva: string; causal: string; estado: string }
 
-type ArrendatarioDraft = { tipo_arrendatario: string; nombre_razon_social: string; rut: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; whatsapp_bloqueado: boolean }
+type ArrendatarioDraft = { tipo_arrendatario: string; nombre_razon_social: string; rut: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean }
 type ContratoDraft = { codigo_contrato: string; mandato_operacion: string; arrendatario: string; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string; dia_pago_mensual: string; plazo_notificacion_termino_dias: string; dias_prealerta_admin: string; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string }
 type AvisoDraft = { contrato: string; fecha_efectiva: string; causal: string; estado: string }
 
@@ -91,6 +91,8 @@ export function ContratosWorkspace({
             <input placeholder="Teléfono" value={arrendatarioDraft.telefono} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, telefono: event.target.value }))} />
             <input placeholder="Domicilio de notificaciones" value={arrendatarioDraft.domicilio_notificaciones} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, domicilio_notificaciones: event.target.value }))} />
             <select value={arrendatarioDraft.estado_contacto} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, estado_contacto: event.target.value }))}><option value="pendiente">Pendiente</option><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select>
+            <label className="checkbox-row"><input type="checkbox" checked={arrendatarioDraft.whatsapp_opt_in} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, whatsapp_opt_in: event.target.checked }))} />Opt-in WhatsApp</label>
+            <input placeholder="Evidencia opt-in WhatsApp" value={arrendatarioDraft.whatsapp_opt_in_evidencia_ref} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, whatsapp_opt_in_evidencia_ref: event.target.value }))} />
             <label className="checkbox-row"><input type="checkbox" checked={arrendatarioDraft.whatsapp_bloqueado} onChange={(event) => setArrendatarioDraft((current) => ({ ...current, whatsapp_bloqueado: event.target.checked }))} />WhatsApp bloqueado</label>
             <div className="inline-actions">
               <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos}>{editingArrendatarioId ? 'Guardar cambios' : 'Guardar arrendatario'}</button>
@@ -149,6 +151,7 @@ export function ContratosWorkspace({
         { label: 'RUT', render: (row) => row.rut },
         { label: 'Tipo', render: (row) => row.tipo_arrendatario.replaceAll('_', ' ') },
         { label: 'Contacto', render: (row) => row.email || row.telefono || 'Sin dato' },
+        { label: 'WhatsApp', render: (row) => row.whatsapp_bloqueado ? <Badge label="bloqueado" tone="danger" /> : row.whatsapp_opt_in ? <Badge label="opt-in" tone="positive" /> : <Badge label="sin opt-in" tone="warning" /> },
         { label: 'Estado', render: (row) => <Badge label={row.estado_contacto} tone={toneFor(row.estado_contacto)} /> },
         { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditArrendatario(row)}>Editar</button> },
         { label: 'Siguiente paso', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => goToArrendatarioContext(row.id)}>Estado de cuenta</button> },

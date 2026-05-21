@@ -164,6 +164,44 @@ class ContratosAPITests(APITestCase):
         duplicate_response = self.client.post(reverse('contratos-arrendatario-list'), payload, format='json')
         self.assertEqual(duplicate_response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_create_arrendatario_requires_whatsapp_opt_in_evidence(self):
+        payload = {
+            'tipo_arrendatario': 'persona_natural',
+            'nombre_razon_social': 'Arrendatario WhatsApp',
+            'rut': '22.222.222-2',
+            'email': 'wa@example.com',
+            'telefono': '+56912345678',
+            'domicilio_notificaciones': 'Direccion WA',
+            'estado_contacto': 'activo',
+            'whatsapp_opt_in': True,
+            'whatsapp_opt_in_evidencia_ref': '',
+            'whatsapp_bloqueado': False,
+        }
+
+        response = self.client.post(reverse('contratos-arrendatario-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('whatsapp_opt_in_evidencia_ref', response.data)
+
+    def test_create_arrendatario_rejects_opt_in_when_whatsapp_blocked(self):
+        payload = {
+            'tipo_arrendatario': 'persona_natural',
+            'nombre_razon_social': 'Arrendatario Bloqueado',
+            'rut': '44.444.444-4',
+            'email': 'wablock@example.com',
+            'telefono': '+56912345678',
+            'domicilio_notificaciones': 'Direccion WA',
+            'estado_contacto': 'activo',
+            'whatsapp_opt_in': True,
+            'whatsapp_opt_in_evidencia_ref': 'optin-test-1',
+            'whatsapp_bloqueado': True,
+        }
+
+        response = self.client.post(reverse('contratos-arrendatario-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('whatsapp_opt_in', response.data)
+
     def test_create_active_contract_with_nested_children_succeeds(self):
         mandato = self._create_active_mandato(codigo='MAND-101', owner_rut='11111111-1')
         arrendatario = self._create_arrendatario()

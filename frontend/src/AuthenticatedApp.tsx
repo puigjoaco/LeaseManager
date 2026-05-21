@@ -517,6 +517,8 @@ type Arrendatario = {
   telefono: string
   domicilio_notificaciones: string
   estado_contacto: string
+  whatsapp_opt_in: boolean
+  whatsapp_opt_in_evidencia_ref: string
   whatsapp_bloqueado: boolean
 }
 type Comunidad = {
@@ -1347,6 +1349,8 @@ function App() {
     telefono: '',
     domicilio_notificaciones: '',
     estado_contacto: 'activo',
+    whatsapp_opt_in: false,
+    whatsapp_opt_in_evidencia_ref: '',
     whatsapp_bloqueado: false,
   })
   const [contratoDraft, setContratoDraft] = useState({
@@ -1886,6 +1890,8 @@ function App() {
       telefono: '',
       domicilio_notificaciones: '',
       estado_contacto: 'activo',
+      whatsapp_opt_in: false,
+      whatsapp_opt_in_evidencia_ref: '',
       whatsapp_bloqueado: false,
     })
     setContratoDraft({
@@ -3155,6 +3161,8 @@ function App() {
         telefono: '',
         domicilio_notificaciones: '',
         estado_contacto: 'activo',
+        whatsapp_opt_in: false,
+        whatsapp_opt_in_evidencia_ref: '',
         whatsapp_bloqueado: false,
       })
       setEditingArrendatarioId(null)
@@ -3407,6 +3415,8 @@ function App() {
       telefono: row.telefono,
       domicilio_notificaciones: row.domicilio_notificaciones,
       estado_contacto: row.estado_contacto,
+      whatsapp_opt_in: row.whatsapp_opt_in,
+      whatsapp_opt_in_evidencia_ref: row.whatsapp_opt_in_evidencia_ref,
       whatsapp_bloqueado: row.whatsapp_bloqueado,
     })
     navigateWithContext('contratos', row.nombre_razon_social, `Editando arrendatario: ${row.nombre_razon_social}`)
@@ -3422,6 +3432,8 @@ function App() {
       telefono: '',
       domicilio_notificaciones: '',
       estado_contacto: 'activo',
+      whatsapp_opt_in: false,
+      whatsapp_opt_in_evidencia_ref: '',
       whatsapp_bloqueado: false,
     })
     clearContextNavigation()
