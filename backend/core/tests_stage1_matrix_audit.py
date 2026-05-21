@@ -370,6 +370,36 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertNotIn('stage1.pago_mensual.uf_valor_faltante', issue_codes)
 
+    def test_invalid_uf_value_is_blocking_even_when_month_exists(self):
+        contrato = self._create_valid_stage1_matrix()
+        periodo = contrato.periodos_contractuales.get(numero_periodo=1)
+        periodo.moneda_base = MonedaBaseContrato.UF
+        periodo.monto_base = Decimal('10.00')
+        periodo.save(update_fields=['moneda_base', 'monto_base', 'updated_at'])
+        ValorUFDiario.objects.create(fecha=date(2026, 1, 1), valor=Decimal('0.0000'), source_key='snapshot')
+        payment = self._create_payment_for(contrato)
+        payment.monto_facturable_clp = Decimal('350000.00')
+        payment.monto_calculado_clp = Decimal('350001.00')
+        payment.save(update_fields=['monto_facturable_clp', 'monto_calculado_clp', 'updated_at'])
+        DistribucionCobroMensual.objects.create(
+            pago_mensual=payment,
+            beneficiario_empresa_owner=contrato.mandato_operacion.entidad_facturadora,
+            porcentaje_snapshot=Decimal('100.00'),
+            monto_devengado_clp=Decimal('350000.00'),
+            monto_conciliado_clp=Decimal('0.00'),
+            monto_facturable_clp=Decimal('350000.00'),
+            requiere_dte=True,
+            origen_atribucion='snapshot_pago',
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertEqual(result['summary']['valores_uf_diarios'], 1)
+        self.assertIn('stage1.valor_uf.validacion_modelo', issue_codes)
+
     def test_duplicate_active_property_by_rol_avaluo_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         propiedad = contrato.mandato_operacion.propiedad
