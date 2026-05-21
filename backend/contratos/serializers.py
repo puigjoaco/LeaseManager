@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -385,6 +386,11 @@ class ContratoSerializer(serializers.ModelSerializer):
             if sorted_periods[index]['fecha_inicio'] <= sorted_periods[index - 1]['fecha_fin']:
                 raise serializers.ValidationError(
                     {'periodos_contractuales': 'Los periodos contractuales no pueden solaparse.'}
+                )
+            expected_start = sorted_periods[index - 1]['fecha_fin'] + timedelta(days=1)
+            if sorted_periods[index]['fecha_inicio'] != expected_start:
+                raise serializers.ValidationError(
+                    {'periodos_contractuales': 'Los periodos contractuales deben cubrir la vigencia sin huecos.'}
                 )
 
         if fecha_inicio and sorted_periods[0]['fecha_inicio'] != fecha_inicio:

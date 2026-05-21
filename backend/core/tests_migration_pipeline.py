@@ -1,5 +1,7 @@
+import os
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 from django.test import TestCase
 
@@ -29,7 +31,30 @@ from patrimonio.models import (  # noqa: E402
 )
 
 
+TEST_MIGRATION_ENV = {
+    'MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT': '17366287-4',
+    'MIGRATION_CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER': '8240452907',
+    'MIGRATION_KNOWN_SOCIO_ACCOUNT_OWNER_RUTS': '8240131105=17366287-4',
+}
+
+
 class MigrationPipelineTests(TestCase):
+    def setUp(self):
+        self._migration_env_patcher = patch.dict(os.environ, TEST_MIGRATION_ENV)
+        self._migration_env_patcher.start()
+        self.addCleanup(self._migration_env_patcher.stop)
+
+    def test_current_migration_flow_requires_explicit_current_context(self):
+        with patch.dict(
+            os.environ,
+            {
+                'MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT': '',
+                'MIGRATION_CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER': '',
+            },
+        ):
+            with self.assertRaisesMessage(ValueError, 'MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT'):
+                run_current_migration_flow({})
+
     def test_transform_legacy_bundle_separates_deterministic_and_unresolved_items(self):
         legacy_rows = {
             'empresas': [

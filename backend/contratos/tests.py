@@ -175,6 +175,36 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(len(response.data['codeudores_solidarios_detail']), 1)
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
 
+    def test_contract_rejects_period_gaps_inside_current_validity(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-GAP', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-GAP')
+        payload['periodos_contractuales'] = [
+            {
+                'numero_periodo': 1,
+                'fecha_inicio': '2026-01-01',
+                'fecha_fin': '2026-01-31',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'inicial',
+                'origen_periodo': 'manual',
+            },
+            {
+                'numero_periodo': 2,
+                'fecha_inicio': '2026-03-01',
+                'fecha_fin': '2026-12-31',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'renovacion',
+                'origen_periodo': 'manual',
+            },
+        ]
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('periodos_contractuales', response.data)
+
     def test_create_contract_with_principal_and_linked_property_succeeds(self):
         mandato = self._create_active_mandato(codigo='MAND-102', owner_rut='33333333-3')
         vinculada = Propiedad.objects.create(

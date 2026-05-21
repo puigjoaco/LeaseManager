@@ -24,6 +24,16 @@ historicas o savegames de LeaseManager sin mutarlas. El root limpio activo es
 
 ## Flujo recomendado
 
+Configura el contexto sensible del backlog actual fuera del repo antes de
+resolver comunidades o ejecutar el runner validado. Usa valores reales solo en
+terminal/secret manager autorizado:
+
+```powershell
+$env:MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT="<rut-representante>"
+$env:MIGRATION_CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER="<numero-cuenta>"
+$env:MIGRATION_KNOWN_SOCIO_ACCOUNT_OWNER_RUTS="<numero-cuenta-personal>=<rut-socio>"
+```
+
 1. Exportar bundle canónico read-only:
 
 ```powershell

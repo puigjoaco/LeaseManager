@@ -27,6 +27,15 @@ backend\\.venv\\Scripts\\python.exe migration\\scripts\\inventory_root_assets.py
 
 Secuencia validada al `2026-04-08` sobre PostgreSQL local del greenfield:
 
+Antes de resolver comunidades actuales o correr el runner, declara el contexto
+sensible fuera del repo. No versionar estos valores:
+
+```powershell
+$env:MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT="<rut-representante>"
+$env:MIGRATION_CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER="<numero-cuenta>"
+$env:MIGRATION_KNOWN_SOCIO_ACCOUNT_OWNER_RUTS="<numero-cuenta-personal>=<rut-socio>"
+```
+
 ```powershell
 cd "D:/Proyectos/LeaseManager"
 backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json

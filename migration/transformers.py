@@ -12,11 +12,8 @@ from migration.enrichments import (
     should_exclude_property_from_current_migration,
     should_exclude_tenant_from_current_migration,
 )
+from migration.runtime_config import get_current_community_representative_rut, get_known_socio_account_owner_ruts
 
-KNOWN_SOCIO_ACCOUNT_BY_NUMBER = {
-    '8240131105': '17366287-4',
-}
-CURRENT_COMMUNITY_DESIGNATED_REPRESENTATIVE_RUT = '17366287-4'
 DEFAULT_LEGACY_PARTICIPATION_START_DATE = '2017-03-16'
 
 
@@ -71,7 +68,10 @@ def infer_region_from_location(*, comuna='', ciudad='', raw_region=''):
 
 
 def resolve_current_community_representative_legacy_id(socio_by_legacy_id):
-    target = normalize_rut_like(CURRENT_COMMUNITY_DESIGNATED_REPRESENTATIVE_RUT)
+    configured_rut = get_current_community_representative_rut()
+    if not configured_rut:
+        return None
+    target = normalize_rut_like(configured_rut)
     for legacy_id, socio in socio_by_legacy_id.items():
         if normalize_rut_like(socio.get('rut')) == target:
             return legacy_id
@@ -378,7 +378,7 @@ def transform_legacy_bundle(legacy_rows):
     }
     for row in legacy_rows.get('cuentas_bancarias', []):
         if not row.get('empresa_id'):
-            owner_rut = KNOWN_SOCIO_ACCOUNT_BY_NUMBER.get(str(row.get('numero_cuenta') or ''))
+            owner_rut = get_known_socio_account_owner_ruts().get(str(row.get('numero_cuenta') or ''))
             owner = socio_by_normalized_rut.get(normalize_rut_like(owner_rut))
             if not owner:
                 unresolved['cuentas_sin_empresa'].append({'legacy_id': row['id'], 'reason': 'Legacy bank account has no empresa_id.'})

@@ -13,6 +13,7 @@ registrar nuevas pruebas.
 | 2026-05-20 | PR #6 separo CI deterministica de smoke publico manual. | CI y despliegue seguro | Confirmado por merge | `https://github.com/puigjoaco/LeaseManager/pull/6` |
 | 2026-05-20 | `main` quedo verde despues de PR #6. | CI base | Confirmado | GitHub Actions en `origin/main` |
 | 2026-05-20 | PRD Canonico Mayo 2026 aceptado por el usuario y preparado para promocion formal. | Gobierno de producto | Confirmado por decision de usuario | `01_Set_Vigente/PRD_CANONICO.md` |
+| 2026-05-20 | Etapa 1 reforzada en worktree `codex/stage1-migration-config-gates`: contexto sensible de migracion sale del runtime hardcodeado y contratos rechazan huecos entre periodos. | Migracion, contratos | Local OK con fixtures y SQLite aislado; no cierra datos reales | `manage.py check`; `manage.py test contratos`; `manage.py test core.tests_migration_pipeline`; `manage.py test --noinput --verbosity 1` con `DJANGO_CACHE_URL=locmem://...` |
 
 ## Formato obligatorio para nueva evidencia
 

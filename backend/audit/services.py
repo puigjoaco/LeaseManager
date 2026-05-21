@@ -1,3 +1,5 @@
+import os
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -16,7 +18,7 @@ from patrimonio.validators import normalize_rut
 from .models import AuditEvent, ManualResolution
 
 
-CURRENT_COMMUNITY_DESIGNATED_REPRESENTATIVE_RUT = '17366287-4'
+CURRENT_COMMUNITY_REPRESENTATIVE_RUT_ENV = 'MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT'
 
 
 def create_audit_event(
@@ -93,9 +95,12 @@ def _resolve_participants_from_metadata(metadata):
 
 
 def resolve_default_current_community_representative():
-    representante = Socio.objects.filter(rut=normalize_rut(CURRENT_COMMUNITY_DESIGNATED_REPRESENTATIVE_RUT)).first()
+    configured_rut = os.environ.get(CURRENT_COMMUNITY_REPRESENTATIVE_RUT_ENV, '').strip()
+    if not configured_rut:
+        raise ValueError(f'{CURRENT_COMMUNITY_REPRESENTATIVE_RUT_ENV} debe estar configurado para usar representante designado por defecto.')
+    representante = Socio.objects.filter(rut=normalize_rut(configured_rut)).first()
     if not representante:
-        raise ValueError('No existe el socio canónico Joaquín Puig Vittini para representar comunidades actuales.')
+        raise ValueError('No existe el socio canónico configurado para representar comunidades actuales.')
     return representante
 
 

@@ -9,8 +9,14 @@ from django.utils import timezone
 from audit.models import ManualResolution
 from audit.services import resolve_migration_property_owner_manual_resolution
 from contratos.models import Arrendatario, AvisoTermino, Contrato, ContratoPropiedad, EstadoAvisoTermino, PeriodoContractual
+from migration.runtime_config import (
+    get_current_community_recaudadora_account_number,
+    get_current_community_representative_rut,
+    require_current_community_recaudadora_account_number,
+    require_current_community_representative_rut,
+)
 from operacion.models import CuentaRecaudadora, MandatoOperacion
-from migration.transformers import CURRENT_COMMUNITY_DESIGNATED_REPRESENTATIVE_RUT, DEFAULT_LEGACY_PARTICIPATION_START_DATE
+from migration.transformers import DEFAULT_LEGACY_PARTICIPATION_START_DATE
 from patrimonio.models import (
     ComunidadPatrimonial,
     Empresa,
@@ -48,8 +54,6 @@ LEGACY_CONTRACT_STATE_MAP = {
     'terminado_anticipadamente': 'terminado_anticipadamente',
     'cancelado': 'cancelado',
 }
-
-CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER = '8240452907'
 
 EXPECTED_CURRENT_MIGRATION_FINAL_STATE = {
     'comunidades': 16,
@@ -198,12 +202,26 @@ def sync_migration_manual_resolutions(bundle, report):
     return {'created': created, 'updated': updated}
 
 
-def resolve_current_community_admin():
-    return Socio.objects.filter(rut=normalize_rut(CURRENT_COMMUNITY_DESIGNATED_REPRESENTATIVE_RUT)).first()
+def resolve_current_community_admin(*, required=False):
+    configured_rut = (
+        require_current_community_representative_rut()
+        if required
+        else get_current_community_representative_rut()
+    )
+    if not configured_rut:
+        return None
+    return Socio.objects.filter(rut=normalize_rut(configured_rut)).first()
 
 
-def resolve_current_community_account():
-    return CuentaRecaudadora.objects.filter(numero_cuenta=CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER).first()
+def resolve_current_community_account(*, required=False):
+    configured_account = (
+        require_current_community_recaudadora_account_number()
+        if required
+        else get_current_community_recaudadora_account_number()
+    )
+    if not configured_account:
+        return None
+    return CuentaRecaudadora.objects.filter(numero_cuenta=configured_account).first()
 
 
 def load_resolved_property_map():
@@ -233,9 +251,9 @@ def load_resolved_property_context():
 def resolve_current_community_manual_resolutions(*, actor_user=None, ip_address=None):
     resolved = 0
     skipped = []
-    representative = resolve_current_community_admin()
+    representative = resolve_current_community_admin(required=True)
     if representative is None:
-        raise ValueError('No existe el socio canónico Joaquín Puig Vittini para resolver comunidades actuales.')
+        raise ValueError('No existe el socio canónico configurado para resolver comunidades actuales.')
 
     resolutions = ManualResolution.objects.filter(
         category='migration.propiedad.owner_manual_required',
@@ -327,6 +345,8 @@ def validate_current_migration_empty_state(snapshot):
 
 
 def run_current_migration_flow(bundle):
+    require_current_community_representative_rut()
+    require_current_community_recaudadora_account_number()
     pass_1 = import_bundle(bundle)
     community_resolution = resolve_current_community_manual_resolutions()
     pass_2 = import_bundle(bundle)

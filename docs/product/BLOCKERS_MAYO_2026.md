@@ -12,6 +12,7 @@ preparar gates, pero impide declarar cierre del frente afectado.
 | BLK-005 | Politica final de firma/notaria y documentos operables debe cerrarse. | requiere_decision_usuario | Documentos y contratos no pueden cerrar totalmente. | Definir politica, responsables, evidencia y flujo PDF. | abierto |
 | BLK-006 | Public smoke real esta separado de CI deterministica. | bloqueado_externo | Deploy/ambiente publico no se valida automaticamente. | Ejecutar workflow manual con ambiente autorizado. | abierto |
 | BLK-007 | Migracion desde savegames debe mantenerse read-only hasta autorizacion. | requiere_decision_usuario | No se puede backfillear ni transformar datos reales. | Preflight, backup, rollback y confirmacion explicita. | abierto |
+| BLK-008 | Artefactos legacy versionados aun contienen datos y overrides sensibles de migracion. | requiere_decision_usuario | No pueden usarse como evidencia final ni como fuente productiva sin control adicional. | Redactar, mover a snapshot controlado/manifest seguro o confirmar alcance autorizado de esos artefactos. | abierto |
 
 ## Regla de uso
 
