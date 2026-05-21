@@ -37,6 +37,10 @@ class AmbienteSII(models.TextChoices):
     PRODUCTION = 'produccion', 'Produccion'
 
 
+def has_text(value):
+    return bool(str(value or '').strip())
+
+
 class EstadoDTE(models.TextChoices):
     DRAFT = 'borrador', 'Borrador'
     SENT_MANUAL = 'enviado_manual_controlado', 'Enviado manual controlado'
@@ -59,6 +63,10 @@ class CapacidadTributariaSII(TimestampedModel):
     )
     capacidad_key = models.CharField(max_length=32, choices=CapacidadSII.choices)
     certificado_ref = models.CharField(max_length=255, blank=True)
+    evidencia_ref = models.CharField(max_length=255, blank=True, default='')
+    prueba_flujo_ref = models.CharField(max_length=255, blank=True, default='')
+    autorizacion_ambiente_ref = models.CharField(max_length=255, blank=True, default='')
+    regla_fiscal_ref = models.CharField(max_length=255, blank=True, default='')
     ambiente = models.CharField(max_length=16, choices=AmbienteSII.choices, default=AmbienteSII.CERTIFICATION)
     estado_gate = models.CharField(max_length=16, choices=EstadoGateSII.choices, default=EstadoGateSII.CONDITIONED)
     ultimo_resultado = models.JSONField(default=dict, blank=True)
@@ -74,6 +82,43 @@ class CapacidadTributariaSII(TimestampedModel):
 
     def __str__(self):
         return f'{self.empresa.razon_social} - {self.capacidad_key}'
+
+    def readiness_errors(self):
+        if self.estado_gate != EstadoGateSII.OPEN:
+            return {}
+
+        errors = {}
+        if not has_text(self.certificado_ref):
+            errors['certificado_ref'] = 'SII abierto requiere certificado_ref trazable.'
+        if not has_text(self.evidencia_ref):
+            errors['evidencia_ref'] = 'SII abierto requiere evidencia_ref del gate.'
+        if not has_text(self.prueba_flujo_ref):
+            errors['prueba_flujo_ref'] = 'SII abierto requiere prueba_flujo_ref trazable.'
+        if not has_text(self.autorizacion_ambiente_ref):
+            errors['autorizacion_ambiente_ref'] = 'SII abierto requiere autorizacion_ambiente_ref.'
+
+        fiscal_rule_capabilities = {
+            CapacidadSII.DTE_EMISION,
+            CapacidadSII.F29_PREPARACION,
+            CapacidadSII.F29_PRESENTACION,
+            CapacidadSII.DDJJ_PREPARACION,
+            CapacidadSII.F22_PREPARACION,
+        }
+        if self.capacidad_key in fiscal_rule_capabilities and not has_text(self.regla_fiscal_ref):
+            errors['regla_fiscal_ref'] = 'SII abierto requiere regla_fiscal_ref validada.'
+
+        if self.ambiente == AmbienteSII.PRODUCTION:
+            metadata = self.ultimo_resultado if isinstance(self.ultimo_resultado, dict) else {}
+            if not has_text(metadata.get('autorizacion_produccion_ref')):
+                errors['ultimo_resultado'] = 'SII en produccion requiere autorizacion_produccion_ref en ultimo_resultado.'
+
+        return errors
+
+    def clean(self):
+        super().clean()
+        errors = self.readiness_errors()
+        if errors:
+            raise ValidationError(errors)
 
 
 class DTEEmitido(TimestampedModel):

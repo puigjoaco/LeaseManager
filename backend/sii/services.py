@@ -16,6 +16,37 @@ from .models import (
 )
 
 
+DTE_EXTERNAL_STATES = {
+    EstadoDTE.SENT_MANUAL,
+    EstadoDTE.ACCEPTED,
+    EstadoDTE.REJECTED,
+    EstadoDTE.CANCELED,
+}
+
+TAX_STATUS_REQUIRING_REF = {
+    EstadoPreparacionTributaria.APPROVED,
+    EstadoPreparacionTributaria.OBSERVED,
+    EstadoPreparacionTributaria.RECTIFIED,
+}
+
+
+def _first_readiness_error(errors):
+    if not errors:
+        return ''
+    field, message = next(iter(errors.items()))
+    return f'{field}: {message}'
+
+
+def ensure_sii_capability_ready(capability, capability_label=None):
+    capability_label = capability_label or capability.capacidad_key
+    if capability.estado_gate != EstadoGateSII.OPEN:
+        raise ValueError(f'La capacidad {capability_label} no esta habilitada por gate para esta empresa.')
+    reason = _first_readiness_error(capability.readiness_errors())
+    if reason:
+        raise ValueError(f'La capacidad {capability_label} no cumple readiness SII: {reason}')
+    return capability
+
+
 def resolve_facturadora_company(payment):
     distributions = list(
         payment.distribuciones_cobro.filter(requiere_dte=True).select_related('beneficiario_empresa_owner')
@@ -34,11 +65,7 @@ def get_active_dte_capability(empresa):
     capability = empresa.capacidades_sii.filter(capacidad_key=CapacidadSII.DTE_EMISION).first()
     if not capability:
         raise ValueError('La empresa no tiene configurada la capacidad DTEEmision.')
-    if capability.estado_gate != EstadoGateSII.OPEN:
-        raise ValueError('La capacidad DTEEmision no esta habilitada por gate para esta empresa.')
-    if not capability.certificado_ref:
-        raise ValueError('La capacidad DTEEmision requiere certificado_ref configurado.')
-    return capability
+    return ensure_sii_capability_ready(capability, CapacidadSII.DTE_EMISION)
 
 
 def validate_company_fiscal_readiness(empresa):
@@ -89,6 +116,15 @@ def generate_dte_draft(payment, tipo_dte='34'):
 
 
 def register_dte_status(dte, *, estado_dte, sii_track_id='', ultimo_estado_sii='', observaciones=''):
+    next_track_id = sii_track_id.strip() or dte.sii_track_id
+    next_sii_status = ultimo_estado_sii.strip() or dte.ultimo_estado_sii
+    if estado_dte in DTE_EXTERNAL_STATES:
+        ensure_sii_capability_ready(dte.capacidad_tributaria, dte.capacidad_tributaria.capacidad_key)
+        if not next_track_id:
+            raise ValueError('Actualizar estado SII controlado requiere sii_track_id trazable.')
+        if estado_dte in {EstadoDTE.ACCEPTED, EstadoDTE.REJECTED, EstadoDTE.CANCELED} and not next_sii_status:
+            raise ValueError('Actualizar aceptacion/rechazo/anulacion requiere ultimo_estado_sii trazable.')
+
     dte.estado_dte = estado_dte
     if sii_track_id:
         dte.sii_track_id = sii_track_id
@@ -104,11 +140,7 @@ def get_active_f29_capability(empresa):
     capability = empresa.capacidades_sii.filter(capacidad_key=CapacidadSII.F29_PREPARACION).first()
     if not capability:
         raise ValueError('La empresa no tiene configurada la capacidad F29Preparacion.')
-    if capability.estado_gate != EstadoGateSII.OPEN:
-        raise ValueError('La capacidad F29Preparacion no esta habilitada por gate para esta empresa.')
-    if not capability.certificado_ref:
-        raise ValueError('La capacidad F29Preparacion requiere certificado_ref configurado.')
-    return capability
+    return ensure_sii_capability_ready(capability, CapacidadSII.F29_PREPARACION)
 
 
 def generate_f29_draft(empresa, anio, mes):
@@ -163,6 +195,14 @@ def generate_f29_draft(empresa, anio, mes):
 
 
 def register_f29_status(draft, *, estado_preparacion, borrador_ref='', observaciones=''):
+    if estado_preparacion == EstadoPreparacionTributaria.PRESENTED:
+        raise ValueError('SII.F29Presentacion requiere gate propio y no se registra desde preparacion local.')
+    next_ref = borrador_ref.strip() or draft.borrador_ref
+    if estado_preparacion in TAX_STATUS_REQUIRING_REF:
+        ensure_sii_capability_ready(draft.capacidad_tributaria, draft.capacidad_tributaria.capacidad_key)
+        if not next_ref:
+            raise ValueError('Aprobar u observar F29 requiere borrador_ref trazable.')
+
     draft.estado_preparacion = estado_preparacion
     if borrador_ref:
         draft.borrador_ref = borrador_ref
@@ -176,11 +216,7 @@ def get_active_annual_capability(empresa, capability_key):
     capability = empresa.capacidades_sii.filter(capacidad_key=capability_key).first()
     if not capability:
         raise ValueError(f'La empresa no tiene configurada la capacidad {capability_key}.')
-    if capability.estado_gate != EstadoGateSII.OPEN:
-        raise ValueError(f'La capacidad {capability_key} no esta habilitada por gate para esta empresa.')
-    if not capability.certificado_ref:
-        raise ValueError(f'La capacidad {capability_key} requiere certificado_ref configurado.')
-    return capability
+    return ensure_sii_capability_ready(capability, capability_key)
 
 
 def validate_annual_readiness(empresa, anio_tributario):
@@ -270,6 +306,19 @@ def generate_annual_preparation(empresa, anio_tributario):
 
 
 def register_annual_status(document, *, estado_preparacion, ref_value='', observaciones=''):
+    if estado_preparacion == EstadoPreparacionTributaria.PRESENTED:
+        raise ValueError('SII.PresentacionAnualFinal esta podada del v1 y requiere reemision formal del set.')
+    current_ref = ''
+    if hasattr(document, 'paquete_ref'):
+        current_ref = document.paquete_ref
+    if hasattr(document, 'borrador_ref'):
+        current_ref = document.borrador_ref
+    next_ref = ref_value.strip() or current_ref
+    if estado_preparacion in TAX_STATUS_REQUIRING_REF:
+        ensure_sii_capability_ready(document.capacidad_tributaria, document.capacidad_tributaria.capacidad_key)
+        if not next_ref:
+            raise ValueError('Aprobar u observar preparacion anual requiere referencia trazable.')
+
     document.estado_preparacion = estado_preparacion
     if hasattr(document, 'paquete_ref') and ref_value:
         document.paquete_ref = ref_value

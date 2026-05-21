@@ -7,7 +7,17 @@ type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type EmpresaItem = { id: number; razon_social: string }
 type PagoItem = { id: number; contrato: number; mes: number; anio: number; estado_pago?: string; tiene_distribucion_facturable?: boolean; distribuciones_detail?: Array<{ requiere_dte: boolean }> }
 type ContratoItem = { id: number; codigo_contrato: string }
-type CapacidadSiiItem = { id: number; empresa: number; capacidad_key: string; ambiente: string; estado_gate: string }
+type CapacidadSiiItem = {
+  id: number
+  empresa: number
+  capacidad_key: string
+  evidencia_ref: string
+  prueba_flujo_ref: string
+  autorizacion_ambiente_ref: string
+  regla_fiscal_ref: string
+  ambiente: string
+  estado_gate: string
+}
 type DteEmitidoItem = { id: number; empresa: number; contrato: number; pago_mensual: number; monto_neto_clp: string; estado_dte: string; sii_track_id: string }
 type F29PreparacionItem = { id: number; empresa: number; capacidad_tributaria: number; anio: number; mes: number; estado_preparacion: string; borrador_ref: string }
 type ProcesoRentaAnualItem = { id: number; empresa: number; anio_tributario: number; estado: string; fecha_preparacion: string | null }
@@ -18,6 +28,10 @@ type CapacidadSiiDraft = {
   empresa: string
   capacidad_key: string
   certificado_ref: string
+  evidencia_ref: string
+  prueba_flujo_ref: string
+  autorizacion_ambiente_ref: string
+  regla_fiscal_ref: string
   ambiente: string
   estado_gate: string
 }
@@ -125,6 +139,10 @@ export function SiiWorkspace({
               <option value="F22Preparacion">F22 Preparación</option>
             </select>
             <input placeholder="Certificado ref" value={capacidadSiiDraft.certificado_ref} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, certificado_ref: event.target.value }))} />
+            <input placeholder="Evidencia gate ref" value={capacidadSiiDraft.evidencia_ref} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, evidencia_ref: event.target.value }))} />
+            <input placeholder="Prueba flujo ref" value={capacidadSiiDraft.prueba_flujo_ref} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, prueba_flujo_ref: event.target.value }))} />
+            <input placeholder="Autorización ambiente ref" value={capacidadSiiDraft.autorizacion_ambiente_ref} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, autorizacion_ambiente_ref: event.target.value }))} />
+            <input placeholder="Regla fiscal ref" value={capacidadSiiDraft.regla_fiscal_ref} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, regla_fiscal_ref: event.target.value }))} />
             <select value={capacidadSiiDraft.ambiente} onChange={(event) => setCapacidadSiiDraft((current) => ({ ...current, ambiente: event.target.value }))}>
               <option value="certificacion">Certificación</option>
               <option value="produccion">Producción</option>
@@ -184,6 +202,8 @@ export function SiiWorkspace({
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Capacidad', render: (row) => row.capacidad_key },
         { label: 'Ambiente', render: (row) => row.ambiente },
+        { label: 'Evidencia', render: (row) => row.evidencia_ref || 'Sin ref' },
+        { label: 'Prueba', render: (row) => row.prueba_flujo_ref || 'Sin ref' },
         { label: 'Estado', render: (row) => <Badge label={row.estado_gate} tone={toneFor(row.estado_gate)} /> },
       ]} />
       <TableBlock title="DTE emitidos" subtitle="Borradores y estados manuales de DTE." rows={filteredDtes} empty="No hay DTE para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[

@@ -5,9 +5,9 @@ from .models import CapacidadTributariaSII, DTEEmitido
 
 @admin.register(CapacidadTributariaSII)
 class CapacidadTributariaSIIAdmin(admin.ModelAdmin):
-    list_display = ('empresa', 'capacidad_key', 'ambiente', 'estado_gate')
+    list_display = ('empresa', 'capacidad_key', 'ambiente', 'estado_gate', 'evidencia_ref')
     list_filter = ('capacidad_key', 'ambiente', 'estado_gate')
-    search_fields = ('empresa__razon_social', 'certificado_ref')
+    search_fields = ('empresa__razon_social', 'certificado_ref', 'evidencia_ref', 'prueba_flujo_ref', 'regla_fiscal_ref')
 
 
 @admin.register(DTEEmitido)
