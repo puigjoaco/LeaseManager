@@ -219,6 +219,19 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('fecha_inicio', response.data)
 
+    def test_active_contract_rejects_mandate_outside_contract_validity(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-VIG', owner_rut='11111115-4')
+        mandato.vigencia_desde = '2026-02-01'
+        mandato.vigencia_hasta = '2026-11-30'
+        mandato.save(update_fields=['vigencia_desde', 'vigencia_hasta', 'updated_at'])
+        arrendatario = self._create_arrendatario(rut='22222225-7')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-VIG')
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('mandato_operacion', response.data)
+
     def test_contract_rejects_period_below_operational_minimum(self):
         mandato = self._create_active_mandato(codigo='MAND-101-MIN', owner_rut='11111114-6')
         arrendatario = self._create_arrendatario(rut='22222224-9')

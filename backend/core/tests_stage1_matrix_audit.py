@@ -488,6 +488,21 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.contrato.canal_operativo_faltante', issue_codes)
 
+    def test_active_contract_outside_mandate_validity_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        mandato = contrato.mandato_operacion
+        mandato.vigencia_desde = date(2026, 2, 1)
+        mandato.vigencia_hasta = date(2026, 11, 30)
+        mandato.save(update_fields=['vigencia_desde', 'vigencia_hasta', 'updated_at'])
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.mandato_no_vigente_al_inicio', issue_codes)
+        self.assertIn('stage1.contrato.mandato_no_cubre_fin', issue_codes)
+
     def test_codebtor_without_identity_snapshot_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         CodeudorSolidario.objects.create(contrato=contrato, snapshot_identidad={})

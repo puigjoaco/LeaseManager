@@ -155,6 +155,16 @@ class Contrato(TimestampedModel):
                 raise ValidationError(
                     {'mandato_operacion': 'Un contrato vigente o futuro requiere un mandato operativo activo.'}
                 )
+            mandato_errors = []
+            if self.mandato_operacion.vigencia_desde > self.fecha_inicio:
+                mandato_errors.append('El mandato operativo debe estar vigente al inicio del contrato.')
+            if (
+                self.mandato_operacion.vigencia_hasta
+                and self.mandato_operacion.vigencia_hasta < self.fecha_fin_vigente
+            ):
+                mandato_errors.append('El mandato operativo debe cubrir la fecha fin vigente del contrato.')
+            if mandato_errors:
+                raise ValidationError({'mandato_operacion': mandato_errors})
 
 
 class ContratoPropiedad(TimestampedModel):
