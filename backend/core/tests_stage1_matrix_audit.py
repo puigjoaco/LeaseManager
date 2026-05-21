@@ -192,6 +192,21 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.participacion.validacion_modelo', issue_codes)
         self.assertIn('stage1.arrendatario.validacion_modelo', issue_codes)
 
+    def test_invalid_fiscal_configuration_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        config = ConfiguracionFiscalEmpresa.objects.get(
+            empresa=contrato.mandato_operacion.entidad_facturadora,
+        )
+        config.regimen_tributario.estado = EstadoRegistro.INACTIVE
+        config.regimen_tributario.save(update_fields=['estado', 'updated_at'])
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.configuracion_fiscal.validacion_modelo', issue_codes)
+
     def test_contract_without_matrix_components_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         contrato.contrato_propiedades.all().delete()

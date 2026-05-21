@@ -116,6 +116,10 @@ class ConfiguracionFiscalEmpresa(TimestampedModel):
         super().clean()
         if self.estado == EstadoRegistro.ACTIVE and self.empresa.estado != 'activa':
             raise ValidationError({'estado': 'La configuracion fiscal activa requiere una empresa activa.'})
+        if self.estado == EstadoRegistro.ACTIVE and self.regimen_tributario.estado != EstadoRegistro.ACTIVE:
+            raise ValidationError(
+                {'regimen_tributario': 'La configuracion fiscal activa requiere un regimen tributario activo.'}
+            )
 
 
 class CuentaContable(TimestampedModel):

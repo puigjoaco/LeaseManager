@@ -1,4 +1,5 @@
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -308,6 +309,23 @@ class ContabilidadAPITests(APITestCase):
 
         config = ConfiguracionFiscalEmpresa.objects.get(pk=created.data['id'])
         self.assertEqual(str(config.tasa_ppm_vigente), '12.50')
+
+    def test_active_configuracion_fiscal_rejects_inactive_regime(self):
+        empresa = self._create_active_empresa(nombre='FiscalInactiveRegimeCo', rut='79797979-4')
+        regime = ensure_default_regime()
+        regime.estado = 'inactiva'
+        regime.save(update_fields=['estado', 'updated_at'])
+        config = ConfiguracionFiscalEmpresa(
+            empresa=empresa,
+            regimen_tributario=regime,
+            tasa_ppm_vigente='1.00',
+            aplica_ppm=True,
+            inicio_ejercicio='2026-01-01',
+            estado='activa',
+        )
+
+        with self.assertRaises(ValidationError):
+            config.full_clean()
 
     def test_control_snapshot_returns_initial_control_payload(self):
         empresa = self._create_active_empresa(nombre='SnapshotCo', rut='73737373-7')

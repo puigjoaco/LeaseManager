@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count
 
 from cobranza.models import GarantiaContractual
-from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro
+from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from contratos.models import (
     Arrendatario,
     Contrato,
@@ -283,6 +283,21 @@ def _audit_operacion(issues: list[dict[str, Any]]) -> None:
                 )
 
 
+def _audit_facturacion(issues: list[dict[str, Any]]) -> None:
+    _audit_model_validation(
+        issues,
+        queryset=RegimenTributarioEmpresa.objects.all(),
+        code='stage1.regimen_tributario.validacion_modelo',
+        entity='RegimenTributarioEmpresa',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario'),
+        code='stage1.configuracion_fiscal.validacion_modelo',
+        entity='ConfiguracionFiscalEmpresa',
+    )
+
+
 def _audit_contract_periods(issues: list[dict[str, Any]], contrato: Contrato) -> None:
     periods = list(contrato.periodos_contractuales.order_by('fecha_inicio', 'numero_periodo'))
     if not periods:
@@ -551,6 +566,7 @@ def collect_stage1_matrix_audit(
 
     _audit_patrimonio(issues)
     _audit_operacion(issues)
+    _audit_facturacion(issues)
     _audit_contratos(issues)
 
     issue_counts = defaultdict(int)
