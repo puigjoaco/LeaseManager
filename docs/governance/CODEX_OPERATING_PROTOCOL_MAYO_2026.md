@@ -45,6 +45,34 @@ mantenerse limpia y sincronizada.
 10. Mergear solo si los gates exigidos pasan o el bloqueo queda documentado.
 11. Sincronizar `main`, limpiar worktree y rama.
 
+## Automatizacion GitHub
+
+El cierre de paquetes en GitHub debe ejecutarse por Git y GitHub CLI/API, no por
+automatizacion visual de navegador. Playwright queda reservado para validar UI
+o flujos web del producto, no para operar PRs.
+
+Script canonico:
+
+```powershell
+.\scripts\codex-github-package.ps1 `
+  -StageAll `
+  -CommitMessage "<mensaje>" `
+  -PrTitle "<titulo>" `
+  -PrBody "<resumen seguro>" `
+  -WatchChecks `
+  -Merge
+```
+
+Reglas:
+
+- Ejecutar el script desde una rama `codex/...` en un worktree tactico.
+- No usarlo desde `main`.
+- No pegar secretos en titulo, cuerpo, commits ni evidencia.
+- Si `gh` no tiene sesion activa, el script puede usar el token ya disponible
+  en Git Credential Manager solo dentro del proceso y sin imprimirlo.
+- El merge solo procede despues de checks exitosos o de un bloqueo documentado
+  que justifique no declarar cierre del frente.
+
 ## Reglas de seguridad
 
 - No ejecutar produccion por defecto.
