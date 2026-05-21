@@ -233,6 +233,7 @@ def _build_summary() -> dict[str, int]:
         'contratos_activos_o_futuros': Contrato.objects.filter(estado__in=ACTIVE_CONTRACT_STATES).count(),
         'contrato_propiedades': ContratoPropiedad.objects.count(),
         'periodos_contractuales': PeriodoContractual.objects.count(),
+        'ajustes_contrato': AjusteContrato.objects.count(),
         'pagos_mensuales': PagoMensual.objects.count(),
         'distribuciones_cobro_mensual': DistribucionCobroMensual.objects.count(),
         'garantias_contractuales': GarantiaContractual.objects.count(),
@@ -783,6 +784,12 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         queryset=CodeudorSolidario.objects.select_related('contrato'),
         code='stage1.codeudor.validacion_modelo',
         entity='CodeudorSolidario',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=AjusteContrato.objects.select_related('contrato'),
+        code='stage1.ajuste_contrato.validacion_modelo',
+        entity='AjusteContrato',
     )
     _audit_model_validation(
         issues,
