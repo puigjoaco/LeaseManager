@@ -1,7 +1,9 @@
 from datetime import date
 from decimal import Decimal
 from io import StringIO
+from pathlib import Path
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
@@ -1139,3 +1141,34 @@ class Stage1MatrixAuditTests(TestCase):
                 fail_on_violations=True,
                 stdout=StringIO(),
             )
+
+    def test_command_rejects_versionable_repo_output(self):
+        blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'stage1-audit-should-not-be-versioned.json'
+
+        with self.assertRaisesMessage(CommandError, 'local-evidence'):
+            call_command(
+                'audit_stage1_matrix',
+                source_kind='local',
+                source_label='stage-one-output-test',
+                output=str(blocked_output),
+                stdout=StringIO(),
+            )
+
+        self.assertFalse(blocked_output.exists())
+
+    def test_command_allows_local_evidence_output(self):
+        allowed_output = Path(settings.PROJECT_ROOT) / 'local-evidence' / 'stage1' / 'command-output-guard.json'
+        allowed_output.unlink(missing_ok=True)
+
+        try:
+            call_command(
+                'audit_stage1_matrix',
+                source_kind='local',
+                source_label='stage-one-output-test',
+                output=str(allowed_output),
+                stdout=StringIO(),
+            )
+
+            self.assertTrue(allowed_output.exists())
+        finally:
+            allowed_output.unlink(missing_ok=True)

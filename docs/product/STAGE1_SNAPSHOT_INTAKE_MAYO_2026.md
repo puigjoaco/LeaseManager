@@ -18,7 +18,8 @@ contrato-propiedad-cuenta-facturacion contra `snapshot_controlado` o
 
 - No imprimir ni commitear `DATABASE_URL`, dumps, certificados o snapshots.
 - Si el output queda dentro del repo, debe quedar bajo `local-evidence/`, que no
-  se versiona.
+  se versiona. El wrapper y el comando Django rechazan rutas de `--output`
+  dentro del repo que no esten bajo `local-evidence/`.
 - Para SQLite local, una URL relativa como
   `sqlite:///local-evidence/stage1/snapshot.sqlite3` se resuelve contra el root
   limpio antes de cambiar al directorio `backend`.

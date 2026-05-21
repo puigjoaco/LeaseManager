@@ -31,6 +31,8 @@ Verificacion reproducible desde `main` vigente:
   opcionales sin filas quedan `implementado_sin_evidencia`.
 - El auditor bloquea fuentes evidenciales sin `SourceLabel` trazable o con
   etiqueta sensible, y redacta etiquetas invalidas antes de escribir el JSON.
+- El wrapper y el comando Django rechazan outputs dentro del repo fuera de
+  `local-evidence/`, para no versionar evidencia ni metadatos de auditoria.
 - Esta verificacion confirma que el gate funciona y que no existe evidencia de
   cierre sin una fuente `snapshot_controlado` o `real_autorizado` autorizada.
 
