@@ -930,6 +930,25 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                 entity_id=contrato.pk,
                 message='Contrato vigente o futuro requiere mandato operativo activo.',
             )
+        if contrato.mandato_operacion.vigencia_desde > contrato.fecha_inicio:
+            _issue(
+                issues,
+                code='stage1.contrato.mandato_no_vigente_al_inicio',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message='Contrato vigente o futuro inicia antes de la vigencia del mandato operativo.',
+            )
+        if (
+            contrato.mandato_operacion.vigencia_hasta
+            and contrato.mandato_operacion.vigencia_hasta < contrato.fecha_fin_vigente
+        ):
+            _issue(
+                issues,
+                code='stage1.contrato.mandato_no_cubre_fin',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message='Contrato vigente o futuro termina despues de la vigencia del mandato operativo.',
+            )
         active_channel_exists = AsignacionCanalOperacion.objects.filter(
             mandato_operacion=contrato.mandato_operacion,
             estado=EstadoAsignacionCanal.ACTIVE,
