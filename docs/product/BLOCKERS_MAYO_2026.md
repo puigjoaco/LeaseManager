@@ -1,12 +1,14 @@
 # Bloqueos activos - mayo 2026
 
-Este registro evita pendientes ocultos. Un bloqueo no impide documentar codigo o
-preparar gates, pero impide declarar cierre del frente afectado.
+Este registro evita pendientes ocultos. Un bloqueo no es arquitectura de
+producto ni debe redefinir dominios, entidades o dependencias. Un bloqueo no
+impide documentar codigo, preparar gates o avanzar en trabajo seguro, pero
+impide declarar cierre del frente afectado cuando falta evidencia.
 
 | ID | Bloqueo | Tipo | Impacto | Desbloqueo requerido | Estado |
 | --- | --- | --- | --- | --- | --- |
 | BLK-001 | PRD Mayo 2026 debia promoverse como rector formal. | requiere_decision_usuario | Podia existir ambiguedad entre PRD vigente y candidato. | Promovido a `01_Set_Vigente/PRD_CANONICO.md`; PRD marzo archivado. | cerrado |
-| BLK-002 | Falta validacion de datos reales o snapshot controlado para matriz contrato-propiedad-cuenta-facturacion. | bloqueado_dato_real | Etapa 1 no puede cerrarse. El gate local `audit_stage1_matrix` ya existe, pero aun falta ejecutarlo contra snapshot controlado o DB real autorizada. | Entregar o autorizar `DATABASE_URL` de snapshot/control de datos y ejecutar `scripts/run-stage1-snapshot-gate.ps1` con `SourceKind snapshot_controlado` o `real_autorizado`; el wrapper aplica internamente `--require-data` y `--fail-on-violations`. | abierto |
+| BLK-002 | Falta validacion de datos reales o snapshot controlado para matriz contrato-propiedad-cuenta-facturacion. | bloqueado_dato_real | Etapa 1 no puede cerrarse. No impide preparacion segura ni correcciones que no usen datos/secretos no autorizados. El gate local `audit_stage1_matrix` ya existe, pero aun falta ejecutarlo contra snapshot controlado o DB real autorizada. | Entregar o autorizar `DATABASE_URL` de snapshot/control de datos y ejecutar `scripts/run-stage1-snapshot-gate.ps1` con `SourceKind snapshot_controlado` o `real_autorizado`; el wrapper aplica internamente `--require-data` y `--fail-on-violations`. | abierto |
 | BLK-003 | Integraciones externas no estan abiertas por defecto. | bloqueado_externo | Email, WebPay, banco, UF, SII y storage no pueden declararse productivos. | Permisos, credenciales seguras, entorno aislado, pruebas y rollback. | abierto |
 | BLK-004 | Reglas tributarias finales requieren validacion oficial o experta. | bloqueado_externo | SII, DTE, F29/F21, renta anual y certificados no pueden cerrarse por suposicion. | Validacion contra SII, normativa vigente o experto responsable. | abierto |
 | BLK-005 | Politica final de firma/notaria y documentos operables debe cerrarse. | requiere_decision_usuario | Documentos y contratos no pueden cerrar totalmente. | Definir politica, responsables, evidencia y flujo PDF. | abierto |
@@ -89,6 +91,11 @@ desbloqueo:
 4. Autorizar construccion de snapshot controlado desde CSV/SQL/Excel legacy con
    preflight, transformacion trazada, backup/rollback si aplica y sin declarar
    cierre hasta que pase el gate.
+
+Regla anti-bucle: si ninguna ruta fue autorizada y el estado no cambio, no se
+debe repetir indefinidamente la misma solicitud. El frente sigue sin cierre,
+pero el trabajo debe cambiar a preparacion segura, integracion, documentacion
+de una nueva brecha real o una unica pregunta concreta.
 
 ## Regla de uso
 

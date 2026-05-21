@@ -1,8 +1,9 @@
 # Plan de ejecucion trazable de cierre - mayo 2026
 
-Este plan conecta arquitectura, codigo, gates, evidencia y bloqueos. No
-redefine el producto; ejecuta lo definido por el PRD vigente, gates externos,
-ADRs activos y Arquitectura Maestra.
+Este plan conecta arquitectura, codigo, gates, evidencia y bloqueos. Los
+bloqueos son controles operativos de cierre, no estructura de arquitectura ni
+modelo de dominio. El plan no redefine el producto; ejecuta lo definido por el
+PRD vigente, gates externos, ADRs activos y Arquitectura Maestra.
 
 ## Principio de avance
 
@@ -36,12 +37,23 @@ inconsistente, duplicado, desactualizado, inseguro, mal integrado o pendiente.
 | 6 | Renta anual | DDJJ, F22, certificados y trazabilidad anual. |
 | 7 | Operacion productiva | Backups, restore, runbook, monitoreo, smoke, aceptacion y continuidad. |
 
-## Regla de bloqueo por etapas
+## Regla de cierre por etapas
 
-No avanzar de una etapa a la siguiente si el gate de la etapa actual esta
+No declarar cerrada una etapa ni promover evidencia final si su gate esta
 bloqueado por dato real, decision de usuario o integracion externa no abierta.
-Se permite avanzar en codigo futuro solo si queda marcado como
-`implementado_sin_evidencia` y no se declara cerrado.
+El bloqueo afecta el cierre, no la arquitectura del producto.
+
+Se permite preparar trabajo de etapas posteriores o de integracion cuando no
+use datos/credenciales no autorizadas, no abra integraciones cerradas y quede
+clasificado como `implementado_sin_evidencia`, `parcial` o el estado real que
+corresponda. Esa preparacion no habilita saltar el gate ni declarar la etapa
+resuelta.
+
+Si el bloqueo dominante ya esta registrado con proxima accion concreta, no se
+debe repetir indefinidamente la misma solicitud. La siguiente accion valida es
+una de estas: ejecutar la ruta de desbloqueo si el usuario la autoriza, avanzar
+en preparacion segura que acerque el cierre, registrar una nueva brecha real o
+detenerse con una unica pregunta concreta si no queda trabajo seguro.
 
 ## Metodo de ejecucion
 
@@ -75,4 +87,5 @@ Al final de cada etapa debe existir una respuesta objetiva:
 - que sigue pendiente;
 - que bloqueo impide avanzar;
 - que evidencia respalda el estado;
-- que proxima accion desbloquea el proyecto.
+- que proxima accion desbloquea el proyecto;
+- que trabajo preparatorio sigue siendo valido sin declarar cierre.

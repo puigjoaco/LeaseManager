@@ -45,6 +45,25 @@ mantenerse limpia y sincronizada.
 10. Mergear solo si los gates exigidos pasan o el bloqueo queda documentado.
 11. Sincronizar `main`, limpiar worktree y rama.
 
+## Manejo de bloqueos
+
+Los bloqueos registrados en `docs/product/BLOCKERS_MAYO_2026.md` no son capas
+de arquitectura ni sustituyen al PRD. Son controles operativos para no declarar
+cierres sin evidencia suficiente.
+
+Cuando un bloqueo depende de dato real, credencial, servicio externo o decision
+de usuario:
+
+- no usar datos, `.env`, credenciales ni servicios no autorizados;
+- registrar el bloqueo y su proxima accion concreta;
+- separar explicitamente "no cierra" de "no se puede preparar nada";
+- continuar solo con trabajo seguro que no requiera la autorizacion pendiente;
+- no repetir la misma solicitud en bucle si el estado no cambio.
+
+Un mensaje de continuidad u objetivo persistente no cuenta como autorizacion
+para leer secretos, abrir bases historicas, tocar datos reales, desplegar,
+migrar, backfillear o ejecutar integraciones externas.
+
 ## Automatizacion GitHub
 
 El cierre de paquetes en GitHub debe ejecutarse por Git y GitHub CLI/API, no por
@@ -100,10 +119,11 @@ Cada avance relevante debe dejar al menos:
 
 ## Criterio de avance
 
-Un frente puede avanzar a la etapa siguiente solo cuando:
+Un frente puede declararse cerrado y avanzar formalmente a la etapa siguiente
+solo cuando:
 
 - su ficha de etapa esta satisfecha;
-- no hay bloqueos criticos sin registrar;
+- no hay bloqueos criticos abiertos que impidan el cierre declarado;
 - el codigo/documento esta integrado;
 - los gates aplicables pasan;
 - la evidencia es reproducible o el bloqueo esta explicitado.

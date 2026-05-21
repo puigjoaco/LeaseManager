@@ -5,7 +5,7 @@ proxima accion. Debe actualizarse cuando un frente avance.
 
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
-| Gobierno documental | Fuente de verdad, AGENTS, README | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes. |
+| Gobierno documental | Fuente de verdad, AGENTS, README | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto. |
 | PRD vigente | `01_Set_Vigente/PRD_CANONICO.md` | `01_Set_Vigente`, `docs/product` | 0 | resuelto_confirmado | PRD Mayo 2026 aceptado y promovido | Usarlo como contrato rector unico. |
 | PlataformaBase | PRD, ADR stack | `backend/core`, `users`, `audit`, `health`, `frontend`, `scripts/run-acceptance-workflows.ps1` | 0 | resuelto_confirmado | CI main verde, acceptance local, build frontend y guard Etapa 1 no evidencial | Mantener como baseline y no rehacer. |
 | Patrimonio | PRD, modelo canonico | `backend/patrimonio`, backoffice patrimonio | 1 | implementado_sin_evidencia | Datos reales/snapshot y validacion de entidades | Auditor Etapa 1 valida socios, empresas, comunidades, participaciones, representaciones, propiedades y duplicidad de identidad por rol de avaluo o identidad operativa fuerte; ejecutar `scripts/run-stage1-snapshot-gate.ps1` contra snapshot/DB autorizada. |

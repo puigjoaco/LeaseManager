@@ -27,7 +27,7 @@ maestro hasta el cierre mensual, renta anual y reporting.
 ## Capas de arquitectura
 
 1. Gobierno y fuente de verdad: PRD vigente, gates externos, ADR activos,
-   arquitectura, plan trazable, evidencia y bloqueos.
+   arquitectura y plan trazable.
 2. Plataforma base: auth, RBAC, auditoria, permisos, healthcheck, configuracion,
    jobs y observabilidad minima.
 3. Dominio patrimonial: socios, empresas, participaciones, propiedades,
@@ -90,6 +90,19 @@ Toda integracion externa parte cerrada o condicionada por
 WebPay, storage, dominios y despliegue requieren permisos, entorno, prueba
 aislada, evidencia y rollback.
 
+## Bloqueos y evidencia
+
+Los registros de evidencia y bloqueos son controles operativos de cierre, no
+capas de arquitectura ni componentes del producto. Un bloqueo puede impedir
+declarar cierre, abrir una integracion, usar datos reales o marcar evidencia
+final, pero no redefine dominios, entidades, dependencias ni el orden de
+construccion.
+
+Cuando una etapa queda bloqueada por dato real, decision o servicio externo, el
+avance permitido es preparacion verificable que no declare cierre ni use datos
+no autorizados. El bloqueo debe registrarse una vez con proxima accion concreta;
+no debe convertirse en una repeticion indefinida de la misma solicitud.
+
 ## Definition of Done del producto
 
 LeaseManager esta listo para uso cuando todo componente obligatorio esta:
@@ -102,5 +115,5 @@ LeaseManager esta listo para uso cuando todo componente obligatorio esta:
 - sin datos sensibles en evidencia;
 - sin duplicaciones activas;
 - sin contradicciones entre PRD, ADR, arquitectura y codigo;
-- sin bloqueos criticos no registrados;
+- sin bloqueos criticos abiertos que impidan el cierre declarado;
 - aceptado por el usuario o responsable designado.
