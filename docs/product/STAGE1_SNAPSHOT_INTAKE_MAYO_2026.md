@@ -19,6 +19,9 @@ contrato-propiedad-cuenta-facturacion contra `snapshot_controlado` o
 - No imprimir ni commitear `DATABASE_URL`, dumps, certificados o snapshots.
 - Si el output queda dentro del repo, debe quedar bajo `local-evidence/`, que no
   se versiona.
+- Para SQLite local, una URL relativa como
+  `sqlite:///local-evidence/stage1/snapshot.sqlite3` se resuelve contra el root
+  limpio antes de cambiar al directorio `backend`.
 - `snapshot_controlado` puede usar `-RunMigrations` solo si es un clon o base
   temporal preparada para este gate.
 - `real_autorizado` debe estar previamente migrado y accesible en modo

@@ -31,6 +31,32 @@ function Resolve-FullPath([string]$path) {
     return [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $path))
 }
 
+function Resolve-DatabaseUrl([string]$databaseUrl, [string]$rootPath) {
+    if ($databaseUrl -notmatch '^sqlite:///(?<Path>[^?]+)(?<Query>\?.*)?$') {
+        return $databaseUrl
+    }
+
+    $rawSqlitePath = $Matches['Path']
+    if ($rawSqlitePath -eq ':memory:' -or $rawSqlitePath -match '^[A-Za-z]:[\/\\]' -or $rawSqlitePath.StartsWith('/')) {
+        return $databaseUrl
+    }
+
+    $query = $Matches['Query']
+    if ($null -eq $query) {
+        $query = ''
+    }
+
+    $sqlitePath = [System.Uri]::UnescapeDataString($rawSqlitePath)
+    $absolutePath = [System.IO.Path]::GetFullPath((Join-Path $rootPath ($sqlitePath -replace '/', '\')))
+    $parentDir = Split-Path -Parent $absolutePath
+    if (-not [string]::IsNullOrWhiteSpace($parentDir)) {
+        New-Item -ItemType Directory -Force -Path $parentDir | Out-Null
+    }
+
+    $normalizedPath = $absolutePath -replace '\\', '/'
+    return "sqlite:///$normalizedPath$query"
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendDir = Join-Path $repoRoot 'backend'
 if ([string]::IsNullOrWhiteSpace($PythonExe)) {
@@ -65,7 +91,11 @@ Write-Host "Run migrations: $($RunMigrations.IsPresent)"
 Write-Host "Output: $resolvedOutput"
 
 $previousDatabaseUrl = $env:DATABASE_URL
-$env:DATABASE_URL = $DatabaseUrl
+$resolvedDatabaseUrl = Resolve-DatabaseUrl $DatabaseUrl $repoRoot
+if ($resolvedDatabaseUrl -ne $DatabaseUrl) {
+    Write-Host "Database URL: SQLite relativa resuelta contra el root del repo."
+}
+$env:DATABASE_URL = $resolvedDatabaseUrl
 
 Push-Location $backendDir
 try {
