@@ -201,6 +201,76 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.garantia.validacion_modelo', issue_codes)
 
+    def test_linked_property_with_independent_active_contract_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        empresa = contrato.mandato_operacion.propietario_empresa_owner
+        propiedad_linked_conflict = contrato.mandato_operacion.propiedad
+        propiedad_principal = Propiedad.objects.create(
+            direccion='Direccion Controlada 200',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='CTRL-002',
+            estado='activa',
+            empresa_owner=empresa,
+        )
+        mandato = MandatoOperacion.objects.create(
+            propiedad=propiedad_principal,
+            propietario_empresa_owner=empresa,
+            administrador_empresa_owner=empresa,
+            recaudador_empresa_owner=empresa,
+            entidad_facturadora=empresa,
+            cuenta_recaudadora=contrato.mandato_operacion.cuenta_recaudadora,
+            tipo_relacion_operativa='administracion_directa',
+            autoriza_recaudacion=True,
+            autoriza_facturacion=True,
+            autoriza_comunicacion=True,
+            estado=EstadoMandatoOperacion.ACTIVE,
+            vigencia_desde=date(2026, 1, 1),
+        )
+        second_contract = Contrato.objects.create(
+            codigo_contrato='CON-CTRL-002',
+            mandato_operacion=mandato,
+            arrendatario=contrato.arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            dia_pago_mensual=5,
+            estado=EstadoContrato.ACTIVE,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=second_contract,
+            propiedad=propiedad_principal,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='50.00',
+            codigo_conciliacion_efectivo_snapshot='002',
+        )
+        ContratoPropiedad.objects.create(
+            contrato=second_contract,
+            propiedad=propiedad_linked_conflict,
+            rol_en_contrato=RolContratoPropiedad.LINKED,
+            porcentaje_distribucion_interna='50.00',
+            codigo_conciliacion_efectivo_snapshot='002',
+        )
+        PeriodoContractual.objects.create(
+            contrato=second_contract,
+            numero_periodo=1,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin=date(2026, 12, 31),
+            monto_base='250000.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='mensual',
+            origen_periodo='snapshot_controlado',
+        )
+        GarantiaContractual.objects.create(contrato=second_contract, monto_pactado='0.00')
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.propiedad.contratos_duplicados', issue_codes)
+        self.assertIn('stage1.contrato_propiedad.validacion_modelo', issue_codes)
+
     def test_command_can_fail_when_required_data_is_missing(self):
         with self.assertRaises(CommandError):
             call_command(

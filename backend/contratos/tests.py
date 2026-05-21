@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -8,7 +9,7 @@ from audit.models import AuditEvent
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .models import Arrendatario, AvisoTermino, Contrato, EstadoAvisoTermino, EstadoContrato
+from .models import Arrendatario, AvisoTermino, Contrato, ContratoPropiedad, EstadoAvisoTermino, EstadoContrato, RolContratoPropiedad
 
 
 class ContratosAPITests(APITestCase):
@@ -289,6 +290,52 @@ class ContratosAPITests(APITestCase):
         second_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-104-B')
         second_response = self.client.post(reverse('contratos-contrato-list'), second_payload, format='json')
         self.assertEqual(second_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_contract_property_full_clean_rejects_linked_property_with_active_contract(self):
+        mandato_a = self._create_active_mandato(codigo='MAND-LINK-A', owner_rut='77777778-5')
+        arrendatario_a = self._create_arrendatario(rut='88888889-6')
+        first_payload = self._base_contract_payload(mandato_a, arrendatario_a, codigo='CTR-LINK-A')
+        first_response = self.client.post(reverse('contratos-contrato-list'), first_payload, format='json')
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+
+        propietario_b = self._create_socio('Prop MAND-LINK-B', '77777779-3')
+        admin_company = mandato_a.administrador_empresa_owner
+        propiedad_b = Propiedad.objects.create(
+            direccion='Av MAND-LINK-B',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='MAND-LINK-B',
+            estado='activa',
+            socio_owner=propietario_b,
+        )
+        mandato_b = MandatoOperacion.objects.create(
+            propiedad=propiedad_b,
+            propietario_socio_owner=propietario_b,
+            administrador_empresa_owner=admin_company,
+            recaudador_empresa_owner=admin_company,
+            cuenta_recaudadora=mandato_a.cuenta_recaudadora,
+            tipo_relacion_operativa='mandato_externo',
+            autoriza_recaudacion=True,
+            autoriza_comunicacion=True,
+            estado=EstadoMandatoOperacion.ACTIVE,
+            vigencia_desde='2026-01-01',
+        )
+        arrendatario_b = self._create_arrendatario(rut='88888890-K')
+        second_payload = self._base_contract_payload(mandato_b, arrendatario_b, codigo='CTR-LINK-B')
+        second_response = self.client.post(reverse('contratos-contrato-list'), second_payload, format='json')
+        self.assertEqual(second_response.status_code, status.HTTP_201_CREATED)
+
+        conflict = ContratoPropiedad(
+            contrato=Contrato.objects.get(pk=second_response.data['id']),
+            propiedad=mandato_a.propiedad,
+            rol_en_contrato=RolContratoPropiedad.LINKED,
+            porcentaje_distribucion_interna='50.00',
+            codigo_conciliacion_efectivo_snapshot='123',
+        )
+
+        with self.assertRaises(ValidationError):
+            conflict.full_clean()
 
     def test_future_contract_requires_registered_notice(self):
         mandato = self._create_active_mandato(codigo='MAND-105', owner_rut='12121212-4')

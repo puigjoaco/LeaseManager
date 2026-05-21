@@ -189,6 +189,26 @@ class ContratoPropiedad(TimestampedModel):
     def __str__(self):
         return f'{self.contrato.codigo_contrato} - {self.propiedad.codigo_propiedad}'
 
+    def clean(self):
+        super().clean()
+        if not self.contrato_id or not self.propiedad_id:
+            return
+        if self.contrato.estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:
+            return
+
+        same_state_links = ContratoPropiedad.objects.filter(
+            propiedad_id=self.propiedad_id,
+            contrato__estado=self.contrato.estado,
+        ).exclude(pk=self.pk)
+        if self.contrato_id:
+            same_state_links = same_state_links.exclude(contrato_id=self.contrato_id)
+
+        if same_state_links.exists():
+            label = 'vigente' if self.contrato.estado == EstadoContrato.ACTIVE else 'futuro'
+            raise ValidationError(
+                {'propiedad': f'La propiedad ya participa en otro contrato {label}.'}
+            )
+
 
 class PeriodoContractual(TimestampedModel):
     contrato = models.ForeignKey(

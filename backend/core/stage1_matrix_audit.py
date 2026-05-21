@@ -286,6 +286,24 @@ def _audit_contract_periods(issues: list[dict[str, Any]], contrato: Contrato) ->
 
 
 def _audit_contratos(issues: list[dict[str, Any]]) -> None:
+    duplicate_any_role = (
+        ContratoPropiedad.objects.filter(contrato__estado__in=ACTIVE_CONTRACT_STATES)
+        .values('propiedad_id', 'contrato__estado')
+        .annotate(total=Count('contrato_id', distinct=True))
+        .filter(total__gt=1)
+    )
+    for row in duplicate_any_role:
+        _issue(
+            issues,
+            code='stage1.propiedad.contratos_duplicados',
+            entity='Propiedad',
+            entity_id=row['propiedad_id'],
+            message=(
+                f'Propiedad participa en {row["total"]} contratos {row["contrato__estado"]}; '
+                'maximo uno por estado, incluyendo propiedades vinculadas.'
+            ),
+        )
+
     duplicate_primary = (
         ContratoPropiedad.objects.filter(
             rol_en_contrato=RolContratoPropiedad.PRIMARY,
@@ -335,6 +353,19 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
             )
 
         links = list(contrato.contrato_propiedades.select_related('propiedad'))
+        for link in links:
+            try:
+                link.full_clean()
+            except ValidationError as error:
+                for message in _validation_messages(error):
+                    _issue(
+                        issues,
+                        code='stage1.contrato_propiedad.validacion_modelo',
+                        entity='ContratoPropiedad',
+                        entity_id=link.pk,
+                        message=message,
+                    )
+
         primary_links = [link for link in links if link.rol_en_contrato == RolContratoPropiedad.PRIMARY]
         if len(primary_links) != 1:
             _issue(
