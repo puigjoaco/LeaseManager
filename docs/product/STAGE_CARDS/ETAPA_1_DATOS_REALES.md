@@ -29,6 +29,9 @@ contra datos reales o snapshot controlado.
   devueltos o aplicados conciliados contra `HistorialGarantia`.
 - Validacion de pagos y distribuciones existentes en el snapshot: si existen,
   deben cuadrar devengo, conciliacion, porcentaje y entidad facturadora.
+- Validacion de respaldo UF para pagos existentes: si el pago mensual depende
+  de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
+  del mes operativo.
 - Auditor reproducible de matriz:
 
 ```powershell

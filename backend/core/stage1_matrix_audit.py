@@ -4,7 +4,7 @@ import calendar
 import re
 import unicodedata
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -12,11 +12,13 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count
 
 from cobranza.models import (
+    AjusteContrato,
     DistribucionCobroMensual,
     GarantiaContractual,
     HistorialGarantia,
     PagoMensual,
     TipoMovimientoGarantia,
+    ValorUFDiario,
 )
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from contratos.models import (
@@ -124,6 +126,10 @@ def _audit_model_validation(
 
 def _month_last_day(year: int, month: int) -> int:
     return calendar.monthrange(year, month)[1]
+
+
+def _month_first_day(year: int, month: int):
+    return date(int(year), int(month), 1)
 
 
 def _has_required_stage1_data(summary: dict[str, int]) -> bool:
@@ -682,6 +688,28 @@ def _audit_payment_distribution_consistency(issues: list[dict[str, Any]]) -> Non
                 )
 
         distributions = list(payment.distribuciones_cobro.all())
+        month_start = _month_first_day(payment.anio, payment.mes)
+        uf_required = payment.periodo_contractual.moneda_base == MonedaBaseContrato.UF
+        if not uf_required:
+            uf_required = AjusteContrato.objects.filter(
+                contrato=payment.contrato,
+                activo=True,
+                moneda=MonedaBaseContrato.UF,
+                mes_inicio__lte=month_start,
+                mes_fin__gte=month_start,
+            ).exists()
+        if uf_required and not ValorUFDiario.objects.filter(fecha=month_start).exists():
+            _issue(
+                issues,
+                code='stage1.pago_mensual.uf_valor_faltante',
+                entity='PagoMensual',
+                entity_id=payment.pk,
+                message=(
+                    'Pago mensual existente requiere UF, pero no existe ValorUFDiario '
+                    f'para {month_start.isoformat()}.'
+                ),
+            )
+
         if not distributions:
             _issue(
                 issues,
