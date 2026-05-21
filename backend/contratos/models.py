@@ -79,6 +79,8 @@ class Arrendatario(TimestampedModel):
         choices=EstadoContactoArrendatario.choices,
         default=EstadoContactoArrendatario.PENDING,
     )
+    whatsapp_opt_in = models.BooleanField(default=False)
+    whatsapp_opt_in_evidencia_ref = models.CharField(max_length=255, blank=True)
     whatsapp_bloqueado = models.BooleanField(default=False)
 
     class Meta:
@@ -90,6 +92,23 @@ class Arrendatario(TimestampedModel):
     def save(self, *args, **kwargs):
         self.rut = normalize_rut(self.rut)
         super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if not self.whatsapp_opt_in:
+            return
+        if self.whatsapp_bloqueado:
+            raise ValidationError({'whatsapp_opt_in': 'No puede existir opt-in activo si WhatsApp esta bloqueado.'})
+        if not self.telefono:
+            raise ValidationError({'telefono': 'El opt-in de WhatsApp requiere telefono operativo.'})
+        if not self.whatsapp_opt_in_evidencia_ref.strip():
+            raise ValidationError(
+                {
+                    'whatsapp_opt_in_evidencia_ref': (
+                        'El opt-in de WhatsApp requiere referencia de evidencia.'
+                    )
+                }
+            )
 
 
 class Contrato(TimestampedModel):

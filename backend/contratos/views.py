@@ -104,6 +104,8 @@ class ContractsSnapshotView(APIView):
                         'telefono': item.telefono or '',
                         'domicilio_notificaciones': item.domicilio_notificaciones or '',
                         'estado_contacto': item.estado_contacto,
+                        'whatsapp_opt_in': item.whatsapp_opt_in,
+                        'whatsapp_opt_in_evidencia_ref': item.whatsapp_opt_in_evidencia_ref,
                         'whatsapp_bloqueado': item.whatsapp_bloqueado,
                     }
                     for item in arrendatarios

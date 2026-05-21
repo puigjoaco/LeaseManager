@@ -79,6 +79,8 @@ class ArrendatarioSerializer(serializers.ModelSerializer):
             'telefono',
             'domicilio_notificaciones',
             'estado_contacto',
+            'whatsapp_opt_in',
+            'whatsapp_opt_in_evidencia_ref',
             'whatsapp_bloqueado',
             'created_at',
             'updated_at',
@@ -93,6 +95,16 @@ class ArrendatarioSerializer(serializers.ModelSerializer):
         if queryset.exists():
             raise serializers.ValidationError('Ya existe un arrendatario con ese RUT.')
         return normalized
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, Arrendatario)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
 
 
 class CodeudorSolidarioReadSerializer(serializers.ModelSerializer):

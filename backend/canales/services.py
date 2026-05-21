@@ -8,6 +8,10 @@ from operacion.models import AsignacionCanalOperacion, CanalOperacion, EstadoIde
 from .models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
 
 
+WHATSAPP_WINDOW_START_HOUR = 8
+WHATSAPP_WINDOW_END_HOUR = 21
+
+
 def ensure_manual_resolution(category, message, payload=None):
     existing = ManualResolution.objects.filter(
         category=category,
@@ -71,9 +75,43 @@ def resolve_recipient(canal, arrendatario):
         return ''
     if canal == CanalOperacion.EMAIL:
         return arrendatario.email or ''
-    if arrendatario.whatsapp_bloqueado:
+    if (
+        arrendatario.whatsapp_bloqueado
+        or not arrendatario.whatsapp_opt_in
+        or not arrendatario.whatsapp_opt_in_evidencia_ref.strip()
+    ):
         return ''
     return arrendatario.telefono or ''
+
+
+def is_within_whatsapp_window(now=None):
+    current_time = timezone.localtime(now).time() if now else timezone.localtime().time()
+    return WHATSAPP_WINDOW_START_HOUR <= current_time.hour < WHATSAPP_WINDOW_END_HOUR
+
+
+def whatsapp_gate_has_approved_template(canal_mensajeria):
+    restrictions = canal_mensajeria.restricciones_operativas or {}
+    return bool(
+        restrictions.get('templates_aprobados')
+        or restrictions.get('template_aprobado_ref')
+        or restrictions.get('template_ref')
+    )
+
+
+def whatsapp_blocking_reason(arrendatario, canal_mensajeria):
+    if not arrendatario:
+        return ''
+    if arrendatario.whatsapp_bloqueado:
+        return 'El arrendatario tiene WhatsApp bloqueado.'
+    if not arrendatario.whatsapp_opt_in:
+        return 'WhatsApp requiere opt-in operativo del arrendatario.'
+    if not arrendatario.whatsapp_opt_in_evidencia_ref.strip():
+        return 'WhatsApp requiere evidencia trazable del opt-in.'
+    if not whatsapp_gate_has_approved_template(canal_mensajeria):
+        return 'WhatsApp requiere template aprobado registrado en el gate del canal.'
+    if not is_within_whatsapp_window():
+        return 'WhatsApp solo opera dentro de la ventana permitida 08:00-21:00 America/Santiago.'
+    return ''
 
 
 @transaction.atomic
@@ -100,6 +138,10 @@ def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None
         blocking_reason = f'El gate del canal {canal} no permite envio automatico.'
     elif not identidad or identidad.estado != EstadoIdentidadEnvio.ACTIVE:
         blocking_reason = f'No existe una identidad activa valida para el canal {canal}.'
+    elif canal == CanalOperacion.WHATSAPP and (
+        reason := whatsapp_blocking_reason(arrendatario, canal_mensajeria)
+    ):
+        blocking_reason = reason
     elif not destinatario:
         blocking_reason = f'No existe un destinatario valido para el canal {canal}.'
     elif contrato and contrato.mandato_operacion.estado != EstadoMandatoOperacion.ACTIVE:
@@ -136,6 +178,10 @@ def mark_message_as_sent(message, external_ref=''):
         raise ValueError('No se puede registrar envio manual sin destinatario trazable.')
     if message.contrato and message.contrato.mandato_operacion.estado != EstadoMandatoOperacion.ACTIVE:
         raise ValueError('No se puede registrar envio manual sin mandato operativo activo.')
+    if message.canal == CanalOperacion.WHATSAPP and (
+        reason := whatsapp_blocking_reason(message.arrendatario, message.canal_mensajeria)
+    ):
+        raise ValueError(f'No se puede registrar envio manual de WhatsApp: {reason}')
 
     message.estado = EstadoMensajeSaliente.SENT
     message.external_ref = external_ref
