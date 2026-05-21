@@ -137,6 +137,14 @@ class PagoMensual(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if self.codigo_conciliacion_efectivo == '000':
+            raise ValidationError(
+                {
+                    'codigo_conciliacion_efectivo': (
+                        'El codigo efectivo debe estar en el rango 001-999.'
+                    )
+                }
+            )
         if self.periodo_contractual.contrato_id != self.contrato_id:
             raise ValidationError({'periodo_contractual': 'El periodo contractual debe pertenecer al mismo contrato.'})
 

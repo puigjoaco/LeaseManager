@@ -267,6 +267,23 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.data['distribuciones_detail'][0]['monto_facturable_clp'], '0.00')
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.generated').exists())
 
+    def test_payment_full_clean_rejects_zero_effective_code(self):
+        contrato = self._create_active_contract(codigo='CON-PAY-ZERO', monto_base='100000.00', code='111')
+        periodo = contrato.periodos_contractuales.get(numero_periodo=1)
+        payment = PagoMensual(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp=Decimal('100000.00'),
+            monto_calculado_clp=Decimal('100000.00'),
+            fecha_vencimiento='2026-01-05',
+            codigo_conciliacion_efectivo='000',
+        )
+
+        with self.assertRaises(ValidationError):
+            payment.full_clean()
+
     def test_generate_uf_payment_requires_existing_uf_value(self):
         contrato = self._create_active_contract(codigo='CON-UF-MISS', moneda='UF', monto_base='10.00', code='123')
 

@@ -33,6 +33,8 @@ contra datos reales o snapshot controlado.
   meses y justificacion deben ser coherentes antes de usarlos en cobranza.
 - Validacion de pagos y distribuciones existentes en el snapshot: si existen,
   deben cuadrar devengo, conciliacion, porcentaje y entidad facturadora.
+- Validacion de que pagos mensuales existentes conserven
+  `CodigoConciliacionEfectivo` en rango operativo `001-999`.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
   del mes operativo.
