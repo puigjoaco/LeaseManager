@@ -22,12 +22,14 @@ contra datos reales o snapshot controlado.
 - Auditor reproducible de matriz:
 
 ```powershell
-cd "D:/Proyectos/LeaseManager/backend"
+cd "D:/Proyectos/LeaseManager"
 $env:DATABASE_URL="<snapshot-controlado-o-db-real-autorizada>"
-.\.venv\Scripts\python.exe manage.py audit_stage1_matrix --source-kind snapshot_controlado --source-label "<etiqueta-no-sensible>" --require-data --fail-on-violations
+.\scripts\run-stage1-snapshot-gate.ps1 -SourceKind snapshot_controlado -SourceLabel "<etiqueta-no-sensible>" -RunMigrations
 ```
 
 ## Salida
 
 La etapa no cierra si no existe evidencia de datos reales/controlados. Codigo
 preparado sin esa evidencia queda `implementado_sin_evidencia`.
+
+Procedimiento operativo: `docs/product/STAGE1_SNAPSHOT_INTAKE_MAYO_2026.md`.
