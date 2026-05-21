@@ -149,6 +149,10 @@ class SiiSnapshotView(APIView):
                         'id': item.id,
                         'empresa': item.empresa_id,
                         'capacidad_key': item.capacidad_key,
+                        'evidencia_ref': item.evidencia_ref,
+                        'prueba_flujo_ref': item.prueba_flujo_ref,
+                        'autorizacion_ambiente_ref': item.autorizacion_ambiente_ref,
+                        'regla_fiscal_ref': item.regla_fiscal_ref,
                         'ambiente': item.ambiente,
                         'estado_gate': item.estado_gate,
                     }
@@ -299,7 +303,10 @@ class DTEStatusUpdateView(APIView):
         )
         serializer = DTEStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        dte = register_dte_status(dte, **serializer.validated_data)
+        try:
+            dte = register_dte_status(dte, **serializer.validated_data)
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
         create_audit_event(
             event_type='sii.dte_emitido.status_updated',
             entity_type='dte_emitido',
@@ -369,7 +376,10 @@ class F29StatusUpdateView(APIView):
         )
         serializer = F29StatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        draft = register_f29_status(draft, **serializer.validated_data)
+        try:
+            draft = register_f29_status(draft, **serializer.validated_data)
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
         create_audit_event(
             event_type='sii.f29_preparacion.status_updated',
             entity_type='f29_preparacion',
@@ -449,7 +459,10 @@ class DDJJStatusUpdateView(APIView):
         )
         serializer = AnnualStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        document = register_annual_status(document, **serializer.validated_data)
+        try:
+            document = register_annual_status(document, **serializer.validated_data)
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
         create_audit_event(
             event_type='sii.ddjj_preparacion.status_updated',
             entity_type='ddjj_preparacion',
@@ -476,7 +489,10 @@ class F22StatusUpdateView(APIView):
         )
         serializer = AnnualStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        document = register_annual_status(document, **serializer.validated_data)
+        try:
+            document = register_annual_status(document, **serializer.validated_data)
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
         create_audit_event(
             event_type='sii.f22_preparacion.status_updated',
             entity_type='f22_preparacion',

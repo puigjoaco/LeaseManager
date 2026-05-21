@@ -1065,6 +1065,10 @@ type CapacidadSii = {
   empresa: number
   capacidad_key: string
   certificado_ref: string
+  evidencia_ref: string
+  prueba_flujo_ref: string
+  autorizacion_ambiente_ref: string
+  regla_fiscal_ref: string
   ambiente: string
   estado_gate: string
   ultimo_resultado: Record<string, unknown>
@@ -1565,9 +1569,13 @@ function App() {
   const [capacidadSiiDraft, setCapacidadSiiDraft] = useState({
     empresa: '',
     capacidad_key: 'DTEEmision',
-    certificado_ref: 'cert-local',
+    certificado_ref: '',
+    evidencia_ref: '',
+    prueba_flujo_ref: '',
+    autorizacion_ambiente_ref: '',
+    regla_fiscal_ref: '',
     ambiente: 'certificacion',
-    estado_gate: 'abierto',
+    estado_gate: 'condicionado',
   })
   const [dteDraft, setDteDraft] = useState({
     pago_mensual_id: '',
@@ -2114,9 +2122,13 @@ function App() {
     setCapacidadSiiDraft({
       empresa: '',
       capacidad_key: 'DTEEmision',
-      certificado_ref: 'cert-local',
+      certificado_ref: '',
+      evidencia_ref: '',
+      prueba_flujo_ref: '',
+      autorizacion_ambiente_ref: '',
+      regla_fiscal_ref: '',
       ambiente: 'certificacion',
-      estado_gate: 'abierto',
+      estado_gate: 'condicionado',
     })
     setDteDraft({
       pago_mensual_id: '',
@@ -3887,6 +3899,10 @@ function App() {
       empresa: Number(capacidadSiiDraft.empresa),
       capacidad_key: capacidadSiiDraft.capacidad_key,
       certificado_ref: capacidadSiiDraft.certificado_ref,
+      evidencia_ref: capacidadSiiDraft.evidencia_ref,
+      prueba_flujo_ref: capacidadSiiDraft.prueba_flujo_ref,
+      autorizacion_ambiente_ref: capacidadSiiDraft.autorizacion_ambiente_ref,
+      regla_fiscal_ref: capacidadSiiDraft.regla_fiscal_ref,
       ambiente: capacidadSiiDraft.ambiente,
       estado_gate: capacidadSiiDraft.estado_gate,
       ultimo_resultado: {},
@@ -3895,9 +3911,13 @@ function App() {
       setCapacidadSiiDraft({
         empresa: '',
         capacidad_key: 'DTEEmision',
-        certificado_ref: 'cert-local',
+        certificado_ref: '',
+        evidencia_ref: '',
+        prueba_flujo_ref: '',
+        autorizacion_ambiente_ref: '',
+        regla_fiscal_ref: '',
         ambiente: 'certificacion',
-        estado_gate: 'abierto',
+        estado_gate: 'condicionado',
       })
     }
   }
@@ -4765,7 +4785,15 @@ function App() {
   const filteredCapacidadesSii = useMemo(
     () =>
       capacidadesSii.filter((item) =>
-        matches(normalizedSearch, [item.empresa, item.capacidad_key, item.ambiente, item.estado_gate]),
+        matches(normalizedSearch, [
+          item.empresa,
+          item.capacidad_key,
+          item.ambiente,
+          item.estado_gate,
+          item.evidencia_ref,
+          item.prueba_flujo_ref,
+          item.regla_fiscal_ref,
+        ]),
       ),
     [capacidadesSii, normalizedSearch],
   )

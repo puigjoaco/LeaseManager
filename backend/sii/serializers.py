@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from core.scope_access import scope_queryset_for_user
@@ -16,6 +17,18 @@ from .models import (
 )
 
 
+def raise_drf_validation_error(error):
+    if hasattr(error, 'message_dict'):
+        raise serializers.ValidationError(error.message_dict)
+    raise serializers.ValidationError(error.messages)
+
+
+def build_validation_candidate(instance, model_class):
+    if instance is None:
+        return model_class()
+    return model_class.objects.get(pk=instance.pk)
+
+
 class CapacidadTributariaSIISerializer(serializers.ModelSerializer):
     class Meta:
         model = CapacidadTributariaSII
@@ -24,6 +37,10 @@ class CapacidadTributariaSIISerializer(serializers.ModelSerializer):
             'empresa',
             'capacidad_key',
             'certificado_ref',
+            'evidencia_ref',
+            'prueba_flujo_ref',
+            'autorizacion_ambiente_ref',
+            'regla_fiscal_ref',
             'ambiente',
             'estado_gate',
             'ultimo_resultado',
@@ -38,6 +55,16 @@ class CapacidadTributariaSIISerializer(serializers.ModelSerializer):
         user = getattr(request, 'user', None)
         if user and getattr(user, 'is_authenticated', False):
             self.fields['empresa'].queryset = scope_queryset_for_user(Empresa.objects.all(), user, company_paths=('id',))
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, CapacidadTributariaSII)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
 
 
 class DTEEmitidoSerializer(serializers.ModelSerializer):
