@@ -484,14 +484,7 @@ def assert_company_period_conciliacion_ready(empresa, anio, mes):
     }
 
 
-@transaction.atomic
-def prepare_monthly_close(empresa, anio, mes):
-    existing_close = CierreMensualContable.objects.filter(empresa=empresa, anio=anio, mes=mes).first()
-    if existing_close and existing_close.estado == EstadoCierreMensual.APPROVED:
-        raise ValueError('El periodo ya fue aprobado; debe reabrirse antes de volver a preparar el cierre.')
-
-    conciliacion_summary = assert_company_period_conciliacion_ready(empresa, anio, mes)
-
+def assert_company_period_accounting_ready(empresa, anio, mes):
     pending_events = get_company_period_events(empresa, anio, mes).exclude(estado_contable=EstadoEventoContable.POSTED)
     if pending_events.exists():
         raise ValueError('Existen eventos contables pendientes o en revision para el periodo.')
@@ -502,6 +495,16 @@ def prepare_monthly_close(empresa, anio, mes):
     for asiento in asientos:
         if asiento.debe_total != asiento.haber_total:
             raise ValueError('Existen asientos descuadrados en el periodo.')
+
+
+@transaction.atomic
+def prepare_monthly_close(empresa, anio, mes):
+    existing_close = CierreMensualContable.objects.filter(empresa=empresa, anio=anio, mes=mes).first()
+    if existing_close and existing_close.estado == EstadoCierreMensual.APPROVED:
+        raise ValueError('El periodo ya fue aprobado; debe reabrirse antes de volver a preparar el cierre.')
+
+    conciliacion_summary = assert_company_period_conciliacion_ready(empresa, anio, mes)
+    assert_company_period_accounting_ready(empresa, anio, mes)
 
     obligations = build_monthly_tax_obligations(empresa, anio, mes)
     snapshots = build_ledger_snapshots(empresa, anio, mes)
@@ -534,9 +537,16 @@ def prepare_monthly_close(empresa, anio, mes):
 def approve_monthly_close(close):
     if close.estado != EstadoCierreMensual.PREPARED:
         raise ValueError('Solo se puede aprobar un cierre mensual en estado preparado.')
+    conciliacion_summary = assert_company_period_conciliacion_ready(close.empresa, close.anio, close.mes)
+    assert_company_period_accounting_ready(close.empresa, close.anio, close.mes)
+
+    close.resumen_obligaciones = {
+        **(close.resumen_obligaciones or {}),
+        'conciliacion': conciliacion_summary,
+    }
     close.estado = EstadoCierreMensual.APPROVED
     close.fecha_aprobacion = timezone.now()
-    close.save(update_fields=['estado', 'fecha_aprobacion', 'updated_at'])
+    close.save(update_fields=['resumen_obligaciones', 'estado', 'fecha_aprobacion', 'updated_at'])
     return close
 
 
