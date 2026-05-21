@@ -42,6 +42,15 @@ class EstadoIngresoDesconocido(models.TextChoices):
     DISMISSED = 'descartado', 'Descartado'
 
 
+class OrigenImportacionMovimiento(models.TextChoices):
+    MANUAL_CONTROLLED = 'manual_controlada', 'Manual controlada'
+    PROVIDER_SYNC = 'provider_sync', 'Provider sync'
+
+
+def has_text(value):
+    return bool(str(value or '').strip())
+
+
 class ConexionBancaria(TimestampedModel):
     cuenta_recaudadora = models.ForeignKey(
         CuentaRecaudadora,
@@ -51,6 +60,10 @@ class ConexionBancaria(TimestampedModel):
     provider_key = models.CharField(max_length=64)
     credencial_ref = models.CharField(max_length=255)
     scope = models.CharField(max_length=255, blank=True)
+    evidencia_gate_ref = models.CharField(max_length=255, blank=True)
+    prueba_conectividad_ref = models.CharField(max_length=255, blank=True)
+    prueba_movimientos_ref = models.CharField(max_length=255, blank=True)
+    prueba_saldos_ref = models.CharField(max_length=255, blank=True)
     expira_en = models.DateTimeField(null=True, blank=True)
     estado_conexion = models.CharField(
         max_length=16,
@@ -90,6 +103,37 @@ class ConexionBancaria(TimestampedModel):
     def __str__(self):
         return f'{self.cuenta_recaudadora_id} - {self.provider_key}'
 
+    def clean(self):
+        super().clean()
+        operational = (
+            self.estado_conexion == EstadoConexionBancaria.ACTIVE
+            or self.primaria_movimientos
+            or self.primaria_saldos
+            or self.primaria_conectividad
+        )
+        if not operational:
+            return
+
+        errors = {}
+        if self.estado_conexion != EstadoConexionBancaria.ACTIVE:
+            errors['estado_conexion'] = 'Una conexion bancaria primaria debe estar activa.'
+        if not has_text(self.credencial_ref):
+            errors['credencial_ref'] = 'Una conexion bancaria operativa requiere credencial_ref trazable.'
+        if not has_text(self.evidencia_gate_ref):
+            errors['evidencia_gate_ref'] = 'Una conexion bancaria operativa requiere evidencia_gate_ref.'
+        if not has_text(self.prueba_conectividad_ref):
+            errors['prueba_conectividad_ref'] = 'Una conexion bancaria operativa requiere prueba_conectividad_ref.'
+        if self.primaria_movimientos and not has_text(self.prueba_movimientos_ref):
+            errors['prueba_movimientos_ref'] = 'Banca.Movimientos primaria requiere prueba_movimientos_ref.'
+        if self.primaria_saldos:
+            if not has_text(self.prueba_movimientos_ref):
+                errors['prueba_movimientos_ref'] = 'Banca.Saldos primaria requiere base Banca.Movimientos validada.'
+            if not has_text(self.prueba_saldos_ref):
+                errors['prueba_saldos_ref'] = 'Banca.Saldos primaria requiere prueba_saldos_ref.'
+
+        if errors:
+            raise ValidationError(errors)
+
 
 class MovimientoBancarioImportado(TimestampedModel):
     conexion_bancaria = models.ForeignKey(
@@ -101,6 +145,12 @@ class MovimientoBancarioImportado(TimestampedModel):
     tipo_movimiento = models.CharField(max_length=8, choices=TipoMovimientoBancario.choices)
     monto = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
     descripcion_origen = models.TextField()
+    origen_importacion = models.CharField(
+        max_length=24,
+        choices=OrigenImportacionMovimiento.choices,
+        default=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+    )
+    evidencia_importacion_ref = models.CharField(max_length=255, blank=True)
     numero_documento = models.CharField(max_length=64, blank=True)
     saldo_reportado = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     referencia = models.CharField(max_length=255, blank=True)
@@ -141,6 +191,44 @@ class MovimientoBancarioImportado(TimestampedModel):
 
     def __str__(self):
         return f'{self.fecha_movimiento} - {self.monto}'
+
+    def clean(self):
+        super().clean()
+        if self.origen_importacion == OrigenImportacionMovimiento.MANUAL_CONTROLLED:
+            if not has_text(self.evidencia_importacion_ref):
+                raise ValidationError(
+                    {'evidencia_importacion_ref': 'La carga manual bancaria requiere evidencia_importacion_ref.'}
+                )
+            return
+
+        if self.origen_importacion == OrigenImportacionMovimiento.PROVIDER_SYNC:
+            if not has_text(self.transaction_id_banco):
+                raise ValidationError({'transaction_id_banco': 'Provider sync requiere transaction_id_banco trazable.'})
+            try:
+                conexion = self.conexion_bancaria
+            except ConexionBancaria.DoesNotExist:
+                conexion = None
+            reason = bank_provider_sync_blocking_reason(conexion)
+            if reason:
+                raise ValidationError({'conexion_bancaria': reason})
+
+
+def bank_provider_sync_blocking_reason(conexion):
+    if conexion is None:
+        return ''
+    if conexion.estado_conexion != EstadoConexionBancaria.ACTIVE:
+        return 'Banca.Movimientos requiere conexion bancaria activa.'
+    if not conexion.primaria_movimientos:
+        return 'Banca.Movimientos requiere conexion primaria_movimientos.'
+    if not has_text(conexion.credencial_ref):
+        return 'Banca.Movimientos requiere credencial_ref trazable.'
+    if not has_text(conexion.evidencia_gate_ref):
+        return 'Banca.Movimientos requiere evidencia_gate_ref.'
+    if not has_text(conexion.prueba_conectividad_ref):
+        return 'Banca.Movimientos requiere prueba_conectividad_ref.'
+    if not has_text(conexion.prueba_movimientos_ref):
+        return 'Banca.Movimientos requiere prueba_movimientos_ref.'
+    return ''
 
 
 class IngresoDesconocido(TimestampedModel):

@@ -542,6 +542,9 @@ class ContabilidadAPITests(APITestCase):
             cuenta_recaudadora=cuenta,
             provider_key='banco_de_chile',
             credencial_ref='cred-pay',
+            evidencia_gate_ref='bank-gate-pay',
+            prueba_conectividad_ref='bank-connectivity-pay',
+            prueba_movimientos_ref='bank-movements-pay',
             estado_conexion='activa',
             primaria_movimientos=True,
         )
@@ -554,6 +557,8 @@ class ContabilidadAPITests(APITestCase):
                 'tipo_movimiento': 'abono',
                 'monto': '100111.00',
                 'descripcion_origen': 'Pago exacto',
+                'origen_importacion': 'manual_controlada',
+                'evidencia_importacion_ref': 'manual-import-pay',
             },
             format='json',
         )
@@ -633,6 +638,9 @@ class ContabilidadAPITests(APITestCase):
             cuenta_recaudadora=cuenta,
             provider_key='banco_de_chile',
             credencial_ref='cred-close',
+            evidencia_gate_ref='bank-gate-close',
+            prueba_conectividad_ref='bank-connectivity-close',
+            prueba_movimientos_ref='bank-movements-close',
             estado_conexion='activa',
             primaria_movimientos=True,
         )
@@ -644,6 +652,8 @@ class ContabilidadAPITests(APITestCase):
                 'tipo_movimiento': 'abono',
                 'monto': '100111.00',
                 'descripcion_origen': 'Pago exacto cierre',
+                'origen_importacion': 'manual_controlada',
+                'evidencia_importacion_ref': 'manual-import-close',
             },
             format='json',
         )
@@ -685,6 +695,9 @@ class ContabilidadAPITests(APITestCase):
             cuenta_recaudadora=cuenta,
             provider_key='banco_de_chile',
             credencial_ref='cred-workflow',
+            evidencia_gate_ref='bank-gate-workflow',
+            prueba_conectividad_ref='bank-connectivity-workflow',
+            prueba_movimientos_ref='bank-movements-workflow',
             estado_conexion='activa',
             primaria_movimientos=True,
         )
@@ -696,6 +709,8 @@ class ContabilidadAPITests(APITestCase):
                 'tipo_movimiento': 'abono',
                 'monto': '100111.00',
                 'descripcion_origen': 'Pago exacto workflow',
+                'origen_importacion': 'manual_controlada',
+                'evidencia_importacion_ref': 'manual-import-workflow',
             },
             format='json',
         )

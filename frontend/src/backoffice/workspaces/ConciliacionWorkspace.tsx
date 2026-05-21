@@ -5,8 +5,8 @@ import { Badge, TableBlock } from '../shared'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
 type CuentaItem = { id: number; numero_cuenta: string; owner_display: string }
-type ConexionBancariaItem = { id: number; cuenta_recaudadora: number; provider_key: string; credencial_ref: string; scope: string; estado_conexion: string }
-type MovimientoBancarioItem = { id: number; fecha_movimiento: string; tipo_movimiento: string; monto: string; descripcion_origen: string; referencia: string; estado_conciliacion: string }
+type ConexionBancariaItem = { id: number; cuenta_recaudadora: number; provider_key: string; credencial_ref: string; scope: string; evidencia_gate_ref: string; estado_conexion: string }
+type MovimientoBancarioItem = { id: number; fecha_movimiento: string; tipo_movimiento: string; monto: string; descripcion_origen: string; referencia: string; origen_importacion: string; evidencia_importacion_ref: string; estado_conciliacion: string }
 type IngresoDesconocidoItem = { id: number; cuenta_recaudadora: number; fecha_movimiento: string; monto: string; descripcion_origen: string; estado: string; sugerencia_asistida: { payment_candidate_ids?: number[] } }
 
 type ConexionDraft = {
@@ -14,6 +14,10 @@ type ConexionDraft = {
   provider_key: string
   credencial_ref: string
   scope: string
+  evidencia_gate_ref: string
+  prueba_conectividad_ref: string
+  prueba_movimientos_ref: string
+  prueba_saldos_ref: string
   expira_en: string
   estado_conexion: string
   primaria_movimientos: boolean
@@ -27,6 +31,8 @@ type MovimientoDraft = {
   tipo_movimiento: string
   monto: string
   descripcion_origen: string
+  origen_importacion: string
+  evidencia_importacion_ref: string
   numero_documento: string
   saldo_reportado: string
   referencia: string
@@ -85,6 +91,10 @@ export function ConciliacionWorkspace({
             <input placeholder="Provider key" value={conexionDraft.provider_key} onChange={(event) => setConexionDraft((current) => ({ ...current, provider_key: event.target.value }))} />
             <input placeholder="Credencial ref" value={conexionDraft.credencial_ref} onChange={(event) => setConexionDraft((current) => ({ ...current, credencial_ref: event.target.value }))} />
             <input placeholder="Scope" value={conexionDraft.scope} onChange={(event) => setConexionDraft((current) => ({ ...current, scope: event.target.value }))} />
+            <input placeholder="Evidencia gate ref" value={conexionDraft.evidencia_gate_ref} onChange={(event) => setConexionDraft((current) => ({ ...current, evidencia_gate_ref: event.target.value }))} />
+            <input placeholder="Prueba conectividad ref" value={conexionDraft.prueba_conectividad_ref} onChange={(event) => setConexionDraft((current) => ({ ...current, prueba_conectividad_ref: event.target.value }))} />
+            <input placeholder="Prueba movimientos ref" value={conexionDraft.prueba_movimientos_ref} onChange={(event) => setConexionDraft((current) => ({ ...current, prueba_movimientos_ref: event.target.value }))} />
+            <input placeholder="Prueba saldos ref" value={conexionDraft.prueba_saldos_ref} onChange={(event) => setConexionDraft((current) => ({ ...current, prueba_saldos_ref: event.target.value }))} />
             <input type="datetime-local" value={conexionDraft.expira_en} onChange={(event) => setConexionDraft((current) => ({ ...current, expira_en: event.target.value }))} />
             <select value={conexionDraft.estado_conexion} onChange={(event) => setConexionDraft((current) => ({ ...current, estado_conexion: event.target.value }))}>
               <option value="verificando">Verificando</option>
@@ -113,12 +123,17 @@ export function ConciliacionWorkspace({
             </select>
             <input placeholder="Monto" value={movimientoDraft.monto} onChange={(event) => setMovimientoDraft((current) => ({ ...current, monto: event.target.value }))} />
             <input placeholder="Descripción origen" value={movimientoDraft.descripcion_origen} onChange={(event) => setMovimientoDraft((current) => ({ ...current, descripcion_origen: event.target.value }))} />
+            <select value={movimientoDraft.origen_importacion} onChange={(event) => setMovimientoDraft((current) => ({ ...current, origen_importacion: event.target.value }))}>
+              <option value="manual_controlada">Manual controlada</option>
+              <option value="provider_sync">Provider sync</option>
+            </select>
+            <input placeholder="Evidencia importación ref" value={movimientoDraft.evidencia_importacion_ref} onChange={(event) => setMovimientoDraft((current) => ({ ...current, evidencia_importacion_ref: event.target.value }))} />
             <input placeholder="Número documento" value={movimientoDraft.numero_documento} onChange={(event) => setMovimientoDraft((current) => ({ ...current, numero_documento: event.target.value }))} />
             <input placeholder="Saldo reportado" value={movimientoDraft.saldo_reportado} onChange={(event) => setMovimientoDraft((current) => ({ ...current, saldo_reportado: event.target.value }))} />
             <input placeholder="Referencia" value={movimientoDraft.referencia} onChange={(event) => setMovimientoDraft((current) => ({ ...current, referencia: event.target.value }))} />
             <input placeholder="Transaction ID banco" value={movimientoDraft.transaction_id_banco} onChange={(event) => setMovimientoDraft((current) => ({ ...current, transaction_id_banco: event.target.value }))} />
             <input placeholder="Notas admin" value={movimientoDraft.notas_admin} onChange={(event) => setMovimientoDraft((current) => ({ ...current, notas_admin: event.target.value }))} />
-            <button type="submit" className="button-primary" disabled={isSubmitting || !canEditConciliacion || !movimientoDraft.conexion_bancaria || !movimientoDraft.monto || !movimientoDraft.descripcion_origen}>Guardar movimiento</button>
+            <button type="submit" className="button-primary" disabled={isSubmitting || !canEditConciliacion || !movimientoDraft.conexion_bancaria || !movimientoDraft.monto || !movimientoDraft.descripcion_origen || (movimientoDraft.origen_importacion === 'manual_controlada' && !movimientoDraft.evidencia_importacion_ref) || (movimientoDraft.origen_importacion === 'provider_sync' && !movimientoDraft.transaction_id_banco)}>Guardar movimiento</button>
           </form>
         </section>
       </section>
@@ -128,6 +143,7 @@ export function ConciliacionWorkspace({
         { label: 'Provider', render: (row) => row.provider_key },
         { label: 'Credencial', render: (row) => row.credencial_ref },
         { label: 'Scope', render: (row) => row.scope || 'Sin scope' },
+        { label: 'Evidencia', render: (row) => row.evidencia_gate_ref || 'Sin evidencia' },
         { label: 'Estado', render: (row) => <Badge label={row.estado_conexion} tone={toneFor(row.estado_conexion)} /> },
       ]} />
       <TableBlock title="Movimientos bancarios" subtitle="Entrada importada y resultado de conciliación." rows={filteredMovimientos} empty="No hay movimientos para este filtro." isLoading={isLoading} loadingLabel="Cargando conciliación..." columns={[
@@ -136,6 +152,8 @@ export function ConciliacionWorkspace({
         { label: 'Monto', render: (row) => row.monto },
         { label: 'Descripción', render: (row) => row.descripcion_origen },
         { label: 'Referencia', render: (row) => row.referencia || 'Sin referencia' },
+        { label: 'Origen', render: (row) => row.origen_importacion },
+        { label: 'Evidencia', render: (row) => row.evidencia_importacion_ref || 'Sin evidencia' },
         { label: 'Estado', render: (row) => <Badge label={row.estado_conciliacion} tone={toneFor(row.estado_conciliacion)} /> },
         { label: 'Acción', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => void handleRetryMatch(row.id)} disabled={isSubmitting || !canEditConciliacion}>Reintentar match</button> },
       ]} />

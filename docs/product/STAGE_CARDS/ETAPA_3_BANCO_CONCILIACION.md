@@ -17,6 +17,12 @@ sistema igual a saldo banco.
 
 - Banco real o snapshot autorizado.
 - Modo no productivo por defecto.
+- Conexion bancaria operativa/primaria solo con `credencial_ref`,
+  `evidencia_gate_ref`, `prueba_conectividad_ref` y prueba de movimientos o
+  saldos segun capacidad marcada.
+- Movimiento importado por `provider_sync` solo contra conexion activa,
+  primaria de movimientos, readiness trazable y `transaction_id_banco`; la
+  carga manual controlada exige `evidencia_importacion_ref`.
 - Diferencias registradas.
 - Saldo sistema igual a saldo banco antes de habilitar cierre.
 

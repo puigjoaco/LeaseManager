@@ -159,6 +159,9 @@ class Command(BaseCommand):
             defaults={
                 "credencial_ref": f"demo-{provider_key}-{cuenta.pk}",
                 "scope": "movimientos",
+                "evidencia_gate_ref": f"demo-bank-gate-{cuenta.pk}",
+                "prueba_conectividad_ref": f"demo-bank-connectivity-{cuenta.pk}",
+                "prueba_movimientos_ref": f"demo-bank-movements-{cuenta.pk}",
                 "estado_conexion": EstadoConexionBancaria.ACTIVE,
                 "primaria_movimientos": True,
             },
@@ -173,6 +176,15 @@ class Command(BaseCommand):
         if not connection.credencial_ref:
             connection.credencial_ref = f"demo-{provider_key}-{cuenta.pk}"
             dirty = True
+        if not connection.evidencia_gate_ref:
+            connection.evidencia_gate_ref = f"demo-bank-gate-{cuenta.pk}"
+            dirty = True
+        if not connection.prueba_conectividad_ref:
+            connection.prueba_conectividad_ref = f"demo-bank-connectivity-{cuenta.pk}"
+            dirty = True
+        if not connection.prueba_movimientos_ref:
+            connection.prueba_movimientos_ref = f"demo-bank-movements-{cuenta.pk}"
+            dirty = True
         if dirty:
             connection.save()
         return connection
@@ -186,12 +198,26 @@ class Command(BaseCommand):
                 monto=payment.monto_calculado_clp,
                 descripcion_origen=f"Bootstrap demo tributario pago {payment.id}",
                 defaults={
+                    "origen_importacion": "manual_controlada",
+                    "evidencia_importacion_ref": f"demo-manual-bank-import-{payment.id}",
                     "transaction_id_banco": f"demo-tax-{payment.id}",
                 },
             )
             if not created:
                 movement.descripcion_origen = f"Bootstrap demo tributario pago {payment.id}"
                 movement.transaction_id_banco = movement.transaction_id_banco or f"demo-tax-{payment.id}"
-                movement.save(update_fields=["descripcion_origen", "transaction_id_banco", "updated_at"])
+                movement.origen_importacion = movement.origen_importacion or "manual_controlada"
+                movement.evidencia_importacion_ref = (
+                    movement.evidencia_importacion_ref or f"demo-manual-bank-import-{payment.id}"
+                )
+                movement.save(
+                    update_fields=[
+                        "descripcion_origen",
+                        "transaction_id_banco",
+                        "origen_importacion",
+                        "evidencia_importacion_ref",
+                        "updated_at",
+                    ]
+                )
             result = reconcile_exact_movement(movement)
         return movement, result["status"]

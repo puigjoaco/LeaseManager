@@ -133,9 +133,25 @@ class ConciliacionAPITests(APITestCase):
             cuenta_recaudadora=cuenta,
             provider_key=provider,
             credencial_ref=f'cred-{provider}',
+            evidencia_gate_ref=f'evidence-{provider}',
+            prueba_conectividad_ref=f'connectivity-{provider}',
+            prueba_movimientos_ref=f'movements-{provider}',
             estado_conexion='activa',
             primaria_movimientos=True,
         )
+
+    def _movement_payload(self, conexion, **overrides):
+        payload = {
+            'conexion_bancaria': conexion.id,
+            'fecha_movimiento': '2026-01-08',
+            'tipo_movimiento': 'abono',
+            'monto': '100111.00',
+            'descripcion_origen': 'Pago arrendatario',
+            'origen_importacion': 'manual_controlada',
+            'evidencia_importacion_ref': 'manual-import-controlled',
+        }
+        payload.update(overrides)
+        return payload
 
     def _setup_contabilidad_for_company(self, empresa):
         ConfiguracionFiscalEmpresa.objects.create(
@@ -196,19 +212,90 @@ class ConciliacionAPITests(APITestCase):
             response = client.get(url)
             self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_active_bank_connection_requires_readiness_references(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BANK-GATE')
+
+        response = self.client.post(
+            reverse('conciliacion-conexion-list'),
+            {
+                'cuenta_recaudadora': cuenta.id,
+                'provider_key': 'banco_de_chile',
+                'credencial_ref': 'cred-bank',
+                'estado_conexion': 'activa',
+                'primaria_movimientos': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_gate_ref', response.data)
+        self.assertIn('prueba_conectividad_ref', response.data)
+        self.assertIn('prueba_movimientos_ref', response.data)
+
+    def test_manual_bank_movement_requires_import_evidence(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-MANUAL-GATE')
+        conexion = self._create_connection(cuenta)
+
+        response = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(conexion, evidencia_importacion_ref=''),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_importacion_ref', response.data)
+
+    def test_provider_sync_requires_primary_bank_readiness(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-PROVIDER-GATE')
+        conexion = ConexionBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            provider_key='banco_de_chile',
+            credencial_ref='',
+            estado_conexion='verificando',
+        )
+
+        response = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                origen_importacion='provider_sync',
+                evidencia_importacion_ref='',
+                transaction_id_banco='bank-provider-not-ready-001',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('conexion_bancaria', response.data)
+
+    def test_provider_sync_with_ready_connection_can_match_payment(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-PROVIDER-OK', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        response = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                origen_importacion='provider_sync',
+                evidencia_importacion_ref='',
+                transaction_id_banco='bank-provider-ready-001',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        movimiento = MovimientoBancarioImportado.objects.get(pk=response.data['id'])
+        pago.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
+        self.assertEqual(pago.estado_pago, EstadoPago.PAID)
+
     def test_exact_match_payment_marks_payment_as_paid(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-PAY', amount='100111.00')
         conexion = self._create_connection(cuenta)
 
         response = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-08',
-                'tipo_movimiento': 'abono',
-                'monto': '100111.00',
-                'descripcion_origen': 'Pago arrendatario',
-            },
+            self._movement_payload(conexion),
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -233,14 +320,13 @@ class ConciliacionAPITests(APITestCase):
 
         response = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2027-01-15',
-                'tipo_movimiento': 'abono',
-                'monto': '15000.00',
-                'descripcion_origen': 'Cobranza residual',
-                'referencia': residual.referencia_visible,
-            },
+            self._movement_payload(
+                conexion,
+                fecha_movimiento='2027-01-15',
+                monto='15000.00',
+                descripcion_origen='Cobranza residual',
+                referencia=residual.referencia_visible,
+            ),
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -257,13 +343,11 @@ class ConciliacionAPITests(APITestCase):
 
         response = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-08',
-                'tipo_movimiento': 'abono',
-                'monto': '999999.00',
-                'descripcion_origen': 'Abono desconocido',
-            },
+            self._movement_payload(
+                conexion,
+                monto='999999.00',
+                descripcion_origen='Abono desconocido',
+            ),
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -284,28 +368,23 @@ class ConciliacionAPITests(APITestCase):
 
         first = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-08',
-                'tipo_movimiento': 'abono',
-                'monto': '100111.00',
-                'descripcion_origen': 'Pago duplicado 1',
-                'transaction_id_banco': 'tx-dup-001',
-            },
+            self._movement_payload(
+                conexion,
+                descripcion_origen='Pago duplicado 1',
+                transaction_id_banco='tx-dup-001',
+            ),
             format='json',
         )
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
 
         second = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-09',
-                'tipo_movimiento': 'abono',
-                'monto': '100111.00',
-                'descripcion_origen': 'Pago duplicado 2',
-                'transaction_id_banco': 'tx-dup-001',
-            },
+            self._movement_payload(
+                conexion,
+                fecha_movimiento='2026-01-09',
+                descripcion_origen='Pago duplicado 2',
+                transaction_id_banco='tx-dup-001',
+            ),
             format='json',
         )
         self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
@@ -317,13 +396,13 @@ class ConciliacionAPITests(APITestCase):
 
         response = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-09',
-                'tipo_movimiento': 'cargo',
-                'monto': '50000.00',
-                'descripcion_origen': 'Cargo bancario',
-            },
+            self._movement_payload(
+                conexion,
+                fecha_movimiento='2026-01-09',
+                tipo_movimiento='cargo',
+                monto='50000.00',
+                descripcion_origen='Cargo bancario',
+            ),
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -344,13 +423,13 @@ class ConciliacionAPITests(APITestCase):
 
         create_movement = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-09',
-                'tipo_movimiento': 'cargo',
-                'monto': '50000.00',
-                'descripcion_origen': 'Cargo bancario clasificado manualmente',
-            },
+            self._movement_payload(
+                conexion,
+                fecha_movimiento='2026-01-09',
+                tipo_movimiento='cargo',
+                monto='50000.00',
+                descripcion_origen='Cargo bancario clasificado manualmente',
+            ),
             format='json',
         )
         self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
@@ -389,13 +468,10 @@ class ConciliacionAPITests(APITestCase):
 
         create_movement = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-08',
-                'tipo_movimiento': 'abono',
-                'monto': '100111.00',
-                'descripcion_origen': 'Pago ya conciliado',
-            },
+            self._movement_payload(
+                conexion,
+                descripcion_origen='Pago ya conciliado',
+            ),
             format='json',
         )
         self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
@@ -422,13 +498,11 @@ class ConciliacionAPITests(APITestCase):
 
         create_movement = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-08',
-                'tipo_movimiento': 'abono',
-                'monto': '777777.00',
-                'descripcion_origen': 'Abono temprano',
-            },
+            self._movement_payload(
+                conexion,
+                monto='777777.00',
+                descripcion_origen='Abono temprano',
+            ),
             format='json',
         )
         self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
@@ -459,13 +533,11 @@ class ConciliacionAPITests(APITestCase):
 
         create_movement = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-08',
-                'tipo_movimiento': 'abono',
-                'monto': '777777.00',
-                'descripcion_origen': 'Abono requiere regularizacion manual',
-            },
+            self._movement_payload(
+                conexion,
+                monto='777777.00',
+                descripcion_origen='Abono requiere regularizacion manual',
+            ),
             format='json',
         )
         self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
@@ -510,13 +582,11 @@ class ConciliacionAPITests(APITestCase):
 
         create_movement = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-08',
-                'tipo_movimiento': 'abono',
-                'monto': '677777.00',
-                'descripcion_origen': 'Abono complementario requiere regularizacion manual',
-            },
+            self._movement_payload(
+                conexion,
+                monto='677777.00',
+                descripcion_origen='Abono complementario requiere regularizacion manual',
+            ),
             format='json',
         )
         self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
@@ -553,13 +623,11 @@ class ConciliacionAPITests(APITestCase):
 
         create_movement = self.client.post(
             reverse('conciliacion-movimiento-list'),
-            {
-                'conexion_bancaria': conexion.id,
-                'fecha_movimiento': '2026-01-08',
-                'tipo_movimiento': 'abono',
-                'monto': '777777.00',
-                'descripcion_origen': 'Abono sobredimensionado',
-            },
+            self._movement_payload(
+                conexion,
+                monto='777777.00',
+                descripcion_origen='Abono sobredimensionado',
+            ),
             format='json',
         )
         self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
