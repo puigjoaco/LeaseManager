@@ -16,6 +16,9 @@ contables desde hechos conciliados.
 ## Gate
 
 - Conciliacion cerrada.
+- Preparar cierre mensual bloquea si existen movimientos bancarios del periodo
+  para cuentas de la empresa en `pendiente`, `ingreso_desconocido` o
+  `manual_requerida`.
 - Reglas contables vigentes.
 - Asientos balanceados.
 - Reportes con origen trazable.

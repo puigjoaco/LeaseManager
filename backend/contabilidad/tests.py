@@ -620,6 +620,46 @@ class ContabilidadAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_prepare_monthly_close_fails_when_bank_movements_are_unresolved(self):
+        empresa = self._create_active_empresa(nombre='BankOpenCo', rut='45454545-5')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        _, cuenta = self._create_contract_with_company_admin(empresa, codigo='LED-BANK-OPEN')
+        conexion = ConexionBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            provider_key='banco_de_chile',
+            credencial_ref='cred-bank-open',
+            evidencia_gate_ref='bank-gate-open',
+            prueba_conectividad_ref='bank-connectivity-open',
+            prueba_movimientos_ref='bank-movements-open',
+            estado_conexion='activa',
+            primaria_movimientos=True,
+        )
+
+        movimiento = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-08',
+                'tipo_movimiento': 'abono',
+                'monto': '999999.00',
+                'descripcion_origen': 'Abono sin clasificacion para cierre',
+                'origen_importacion': 'manual_controlada',
+                'evidencia_importacion_ref': 'manual-import-open-close',
+            },
+            format='json',
+        )
+        self.assertEqual(movimiento.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Conciliacion no cerrada', response.data['detail'])
+
     def test_prepare_monthly_close_creates_ppm_obligation_and_snapshots(self):
         empresa = self._create_active_empresa(nombre='MonthlyCo', rut='45454545-4')
         accounts = self._setup_contabilidad(empresa)
@@ -667,6 +707,8 @@ class ContabilidadAPITests(APITestCase):
         close = CierreMensualContable.objects.get(empresa=empresa, anio=2026, mes=1)
         obligation = ObligacionTributariaMensual.objects.get(empresa=empresa, anio=2026, mes=1, obligacion_tipo='PPM')
         self.assertEqual(close.estado, 'preparado')
+        self.assertEqual(close.resumen_obligaciones['conciliacion']['movimientos_bancarios_periodo'], 1)
+        self.assertEqual(close.resumen_obligaciones['conciliacion']['movimientos_bancarios_no_resueltos'], 0)
         self.assertEqual(str(obligation.base_imponible), '100111.00')
         self.assertEqual(str(obligation.monto_calculado), '10011.10')
         self.assertEqual(obligation.estado_preparacion, 'preparado')
