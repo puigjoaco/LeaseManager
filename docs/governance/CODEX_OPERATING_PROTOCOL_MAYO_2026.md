@@ -10,7 +10,7 @@ Antes de modificar archivos:
 
 1. Leer `AGENTS.md`.
 2. Leer `docs/governance/SOURCE_OF_TRUTH_MAYO_2026.md`.
-3. Identificar que PRD manda y si existe decision pendiente.
+3. Confirmar que `01_Set_Vigente/PRD_CANONICO.md` es el PRD rector vigente.
 4. Revisar la ficha de etapa aplicable en `docs/product/STAGE_CARDS/`.
 5. Revisar bloqueos activos en `docs/product/BLOCKERS_MAYO_2026.md`.
 6. Revisar evidencias existentes en `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`.

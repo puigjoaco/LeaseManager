@@ -1,6 +1,6 @@
 # Anexo Modelo Operativo Excel Mayo 2026
 
-Estado: anexo candidato del PRD Canonico Mayo 2026.
+Estado: anexo vigente de apoyo del PRD Canonico Mayo 2026.
 Fecha: 2026-05-20.
 Fuente principal: contexto Excel legacy Mayo 2026 y reglas confirmadas por el usuario.
 

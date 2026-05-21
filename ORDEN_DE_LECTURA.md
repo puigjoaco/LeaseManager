@@ -65,13 +65,14 @@ Lee:
 2. [08_Auditoria_Stack/MATRIZ_COMPARATIVA_STACK.md](./08_Auditoria_Stack/MATRIZ_COMPARATIVA_STACK.md)
 3. [08_Auditoria_Stack/ADR_STACK_FINAL.md](./08_Auditoria_Stack/ADR_STACK_FINAL.md)
 
-## 7. Si quieres revisar el PRD candidato de mayo 2026
+## 7. Si quieres revisar trazabilidad de promocion del PRD Mayo 2026
 
 Lee:
 
-1. [docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md](./docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md)
-2. [docs/product/PRD_CANONICO_MAYO_2026_AUDITORIA_FUENTES.md](./docs/product/PRD_CANONICO_MAYO_2026_AUDITORIA_FUENTES.md)
-3. [docs/product/AUDITORIA_PRD_ORDENAMIENTO_MAYO_2026.md](./docs/product/AUDITORIA_PRD_ORDENAMIENTO_MAYO_2026.md)
+1. [05_Contexto_Historico/PRD_CANONICO_MARZO_2026_HISTORICO.md](./05_Contexto_Historico/PRD_CANONICO_MARZO_2026_HISTORICO.md)
+2. [docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md](./docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md)
+3. [docs/product/PRD_CANONICO_MAYO_2026_AUDITORIA_FUENTES.md](./docs/product/PRD_CANONICO_MAYO_2026_AUDITORIA_FUENTES.md)
+4. [docs/product/AUDITORIA_PRD_ORDENAMIENTO_MAYO_2026.md](./docs/product/AUDITORIA_PRD_ORDENAMIENTO_MAYO_2026.md)
 
 ## 8. Si quieres contexto historico adicional
 

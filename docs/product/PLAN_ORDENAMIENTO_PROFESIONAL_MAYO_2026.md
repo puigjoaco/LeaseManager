@@ -5,7 +5,10 @@ a `main` en mayo 2026. Para el resultado real usar
 `docs/RESULTADO_REEMPLAZO_ROOT_MAYO_2026.md`; este documento conserva el plan y
 criterios que guiaron el proceso.
 Fecha: 2026-05-20.
-Relacion: complementa el PRD Canonico Mayo 2026 candidato y la Arquitectura Maestra.
+Relacion: antecedente del PRD Canonico Mayo 2026 vigente y la Arquitectura Maestra.
+Nota: las referencias internas a "candidato" corresponden al estado previo a la
+promocion formal del PRD Mayo 2026. La fuente vigente actual es
+`01_Set_Vigente/PRD_CANONICO.md`.
 
 ## 1. Proposito
 
@@ -34,7 +37,7 @@ No se avanza producto sobre una base confusa.
 
 Antes de nuevas features mayores, el proyecto debe tener:
 
-- PRD candidato aceptado o lista concreta de correcciones.
+- PRD Mayo 2026 aceptado como rector.
 - Arquitectura Maestra vigente y alineada.
 - Anexo Excel absorbido como modelo operativo practico.
 - Jerarquia documental limpia.
@@ -49,9 +52,9 @@ Antes de nuevas features mayores, el proyecto debe tener:
 El estado actual no se asume como cero. Hay trabajo valioso:
 
 - Codigo real implementado.
-- Auditores de production-readiness.
+- Auditores de readiness operativo.
 - Arquitectura Maestra.
-- PRD candidato Mayo 2026.
+- PRD Mayo 2026.
 - Anexo operativo del Excel.
 - Contextos obligatorios.
 - Gates por etapa.
@@ -116,7 +119,7 @@ Objetivo: decidir que documentos mandan antes de ordenar codigo.
 
 Acciones:
 
-- Revisar `PRD_CANONICO_MAYO_2026_CANDIDATO.md`.
+- Revisar `01_Set_Vigente/PRD_CANONICO.md`.
 - Revisar `ANEXO_MODELO_OPERATIVO_EXCEL_MAYO_2026.md`.
 - Revisar Arquitectura Maestra.
 - Revisar Matriz de Gates y ADR activos.
@@ -126,17 +129,17 @@ Acciones:
 Criterio de salida:
 
 - Existe una fuente rectora clara.
-- Se sabe que documentos son vigentes, candidatos, anexos o historicos.
+- Se sabe que documentos son vigentes, anexos, antecedentes o historicos.
 - Ningun sistema historico dirige el producto.
 
-Promocion del PRD candidato:
+Promocion del PRD Mayo 2026:
 
-- Si el usuario acepta el PRD candidato, crear `docs/product/PRD_CANONICO_MAYO_2026.md` como documento vigente.
-- Conservar `PRD_CANONICO_MAYO_2026_CANDIDATO.md` solo como trazabilidad o reemplazarlo por enlace al vigente, segun decision de versionado.
-- Mover el PRD canonico previo del repo anidado a historico limpio, sin dejar dos PRD vigentes compitiendo.
-- Actualizar `AGENTS.md`, indices y enlaces para apuntar al PRD vigente nuevo.
-- Registrar la decision de aceptacion, fecha, alcance, auditoria aplicada y riesgos pendientes.
-- No promover el candidato si existen correcciones abiertas del usuario, contradicciones con arquitectura/gates o faltantes de fuentes.
+- El usuario acepto el PRD Mayo 2026.
+- El contenido rector vive en `01_Set_Vigente/PRD_CANONICO.md`.
+- `PRD_CANONICO_MAYO_2026_CANDIDATO.md` queda solo como trazabilidad de promocion.
+- El PRD canonico previo quedo en historico limpio, sin dejar dos PRD vigentes compitiendo.
+- `AGENTS.md`, indices y enlaces apuntan al PRD vigente nuevo.
+- Toda correccion futura se hace sobre el PRD vigente mediante PR.
 
 ## 7. Fase 2 - Definir estructura profesional
 
@@ -145,22 +148,32 @@ Objetivo: ordenar carpetas y responsabilidades del repo.
 Estructura objetivo:
 
 ```text
-docs/product/
-  PRD_CANONICO_MAYO_2026.md
-  ANEXO_MODELO_OPERATIVO_EXCEL_MAYO_2026.md
+01_Set_Vigente/
+  PRD_CANONICO.md
   MATRIZ_GATES_EXTERNOS.md
+
+docs/product/
+  ANEXO_MODELO_OPERATIVO_EXCEL_MAYO_2026.md
+  PLAN_EJECUCION_TRAZABLE_CIERRE_MAYO_2026.md
+  TRACEABILITY_MATRIX_MAYO_2026.md
+  BLOCKERS_MAYO_2026.md
+  EVIDENCE_REGISTER_MAYO_2026.md
+  STAGE_CARDS/
 
 docs/architecture/
   ARQUITECTURA_MAESTRA_LEASEMANAGER.md
-  adr/
 
-docs/production-readiness/
-  etapas, gates, evidencia, handoffs, bloqueadores y runbook
+docs/governance/
+  SOURCE_OF_TRUTH_MAYO_2026.md
+  CODEX_OPERATING_PROTOCOL_MAYO_2026.md
 
-docs/context/
-  contextos vigentes migrados a ruta neutral o historicos claramente aislados
+docs/operations/
+  runbooks, cutover, backup, restore y operacion
 
-app/ components/ lib/ supabase/ scripts/ tests/
+05_Contexto_Historico/
+  PRD_CANONICO_MARZO_2026_HISTORICO.md
+
+backend/ frontend/ infra/ migration/ scripts/
   codigo productivo, auditores y pruebas
 
 archive/ o savegames externos
@@ -317,13 +330,12 @@ Si falta cualquiera de estos puntos, el trabajo siguiente sigue siendo ordenamie
 
 La siguiente accion correcta es no seguir agregando features. Primero se debe:
 
-1. Auditar y aceptar/corregir el PRD candidato, el anexo Excel y este plan.
-2. Crear `D:/Proyectos/LeaseManager-clean` desde una base Git limpia, salvo decision contraria del usuario.
-3. Migrar documentacion rectora a la base limpia.
-4. Ejecutar gates minimos del baseline.
-5. Clasificar los cambios pendientes por paquete.
-6. Migrar primero cambios documentales, despues auditores, despues codigo funcional.
-7. Recien entonces reanudar avance por Etapa 1.
+1. Mantener auditado el PRD vigente, el anexo Excel y este plan antecedente.
+2. Mantener `D:/Proyectos/LeaseManager` como root limpio activo.
+3. Ejecutar gates minimos del baseline en cada PR.
+4. Clasificar nuevos cambios por paquete.
+5. Migrar primero cambios documentales, despues auditores, despues codigo funcional.
+6. Reanudar avance por Etapa 1.
 
 ## 14. Primera ejecucion concreta
 

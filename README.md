@@ -12,8 +12,8 @@ Este root contiene dos cosas al mismo tiempo:
 - Las ramas `codex/...` y worktrees hermanos son laboratorios tacticos.
 - El root historico/sucio quedo preservado como savegame read-only para
   inventario, migracion y extraccion. No se trabaja encima de ese respaldo.
-- El PRD candidato de mayo 2026 no reemplaza al PRD vigente hasta aceptacion
-  explicita.
+- El PRD Canonico Mayo 2026 ya esta aceptado y vive en
+  `01_Set_Vigente/PRD_CANONICO.md`.
 
 ## Que leer primero
 
@@ -36,7 +36,7 @@ Este root contiene dos cosas al mismo tiempo:
 - `08_Auditoria_Stack`: auditoria comparativa y ADR final del stack.
 - `docs/governance`: fuente de verdad y protocolo operativo.
 - `docs/architecture`: arquitectura de producto.
-- `docs/product`: PRD candidato, plan trazable, etapas, evidencia y bloqueos.
+- `docs/product`: anexos, plan trazable, etapas, evidencia y bloqueos.
 - `docs/operations`: runbooks de operacion y cutover.
 
 ### Trazabilidad historica

@@ -76,12 +76,11 @@ El asset `frontend/src/assets/hero.png` se conserva porque es parte de la app.
   ambiente publico aceptado.
 - Integraciones reales Banco, UF automatica, Email/WhatsApp, SII, Railway y Vercel siguen bajo gates externos.
 - No hay cutover productivo sin datos reales/controlados, backup, rollback y aprobacion.
-- Falta decision explicita sobre promocion del PRD candidato de mayo 2026.
 - Falta cerrar Etapa 1 con datos reales o snapshot controlado.
 
 ## Proximo paso
 
-Despues de este baseline, mantener `main` limpio y continuar mediante worktrees
-por frente. El proximo cierre profesional es integrar la fuente de verdad, plan
-trazable, stage cards, evidencia y bloqueos; luego avanzar Etapa 1 con datos
-reales o controlados y mantener integraciones externas bajo gates separados.
+Despues de este baseline y de la promocion del PRD Mayo 2026, mantener `main`
+limpio y continuar mediante worktrees por frente. El proximo cierre profesional
+es avanzar Etapa 1 con datos reales o controlados y mantener integraciones
+externas bajo gates separados.

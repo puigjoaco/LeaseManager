@@ -26,8 +26,8 @@ Primero leer `docs/governance/SOURCE_OF_TRUTH_MAYO_2026.md`.
 Si hay conflicto, aplicar este orden:
 
 1. `docs/governance/SOURCE_OF_TRUTH_MAYO_2026.md` solo para estado de fuentes,
-   jerarquia documental y reglas de promocion.
-2. `01_Set_Vigente/PRD_CANONICO.md` como PRD vigente aceptado.
+   jerarquia documental y estado de archivos historicos.
+2. `01_Set_Vigente/PRD_CANONICO.md` como PRD vigente aceptado de mayo 2026.
 3. `01_Set_Vigente/MATRIZ_GATES_EXTERNOS.md`.
 4. ADRs activos en `02_ADR_Activos/`.
 5. `08_Auditoria_Stack/ADR_STACK_FINAL.md`.
@@ -39,8 +39,8 @@ Si hay conflicto, aplicar este orden:
 11. `05_Contexto_Historico/`, `06_Fuentes_PRD_1_26/`,
     `07_ADR_Historicos_o_Podados/` solo como trazabilidad.
 
-`docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md` es candidato, no rector,
-hasta decision explicita de promocion.
+`docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md` es solo trazabilidad de la
+promocion ya ejecutada. No debe usarse como segunda fuente de producto.
 
 ## Stack obligatorio
 
@@ -72,7 +72,7 @@ No introducir como base del proyecto:
   de migracion.
 - `docs/governance/`: fuente de verdad y protocolo operativo.
 - `docs/architecture/`: arquitectura de producto sin herramientas ejecutoras.
-- `docs/product/`: PRD candidato, plan trazable, etapas, evidencia y bloqueos.
+- `docs/product/`: anexos, plan trazable, etapas, evidencia y bloqueos.
 - `docs/operations/`: runbooks de operacion, cutover, backup y restore.
 
 ## Protocolo de trabajo

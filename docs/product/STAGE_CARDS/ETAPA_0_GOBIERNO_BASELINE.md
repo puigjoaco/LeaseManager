@@ -23,5 +23,6 @@ evidencia respalda el root limpio.
 
 ## Salida
 
-Estado minimo: `resuelto_confirmado` para gobierno base. Si falta decidir el
-PRD candidato, registrar `requiere_decision_usuario` sin bloquear la codebase.
+Estado minimo: `resuelto_confirmado` para gobierno base. El PRD Mayo 2026 ya
+esta promovido como rector; cualquier nueva decision de producto debe
+registrarse como cambio al PRD vigente o bloqueo concreto.

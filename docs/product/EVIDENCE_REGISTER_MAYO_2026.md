@@ -12,6 +12,7 @@ registrar nuevas pruebas.
 | 2026-05-20 | PR #5 removio artefactos historicos activos. | Limpieza de repo | Confirmado por merge | `https://github.com/puigjoaco/LeaseManager/pull/5` |
 | 2026-05-20 | PR #6 separo CI deterministica de smoke publico manual. | CI y despliegue seguro | Confirmado por merge | `https://github.com/puigjoaco/LeaseManager/pull/6` |
 | 2026-05-20 | `main` quedo verde despues de PR #6. | CI base | Confirmado | GitHub Actions en `origin/main` |
+| 2026-05-20 | PRD Canonico Mayo 2026 aceptado por el usuario y preparado para promocion formal. | Gobierno de producto | Confirmado por decision de usuario | `01_Set_Vigente/PRD_CANONICO.md` |
 
 ## Formato obligatorio para nueva evidencia
 
