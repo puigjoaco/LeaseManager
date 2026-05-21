@@ -4,17 +4,23 @@ from decimal import Decimal, ROUND_DOWN
 
 from django.db import transaction
 from django.utils import timezone
+from audit.models import ManualResolution
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 
 from .models import (
     AjusteContrato,
+    CapacidadCobroExterno,
     CodigoCobroResidual,
     DistribucionCobroMensual,
     EstadoGarantia,
+    EstadoGateCobroExterno,
+    EstadoIntentoPagoWebPay,
     EstadoPago,
     EstadoCuentaArrendatario,
+    GateCobroExterno,
     GarantiaContractual,
     HistorialGarantia,
+    IntentoPagoWebPay,
     PagoMensual,
     RepactacionDeuda,
     TipoMovimientoGarantia,
@@ -218,7 +224,7 @@ PAYMENT_STATE_TRANSITIONS = {
 
 
 def calculate_days_late(payment):
-    reference_date = payment.fecha_deposito_banco or payment.fecha_deteccion_sistema
+    reference_date = payment.fecha_deposito_banco or payment.fecha_pago_webpay or payment.fecha_deteccion_sistema
     if not reference_date:
         return 0
     return max(0, (reference_date - payment.fecha_vencimiento).days)
@@ -305,6 +311,165 @@ def generate_residual_reference():
         reference = f'CCR-{token}'
         if not CodigoCobroResidual.objects.filter(referencia_visible=reference).exists():
             return reference
+
+
+WEBPAY_REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+
+def generate_webpay_buy_order(payment):
+    while True:
+        token = ''.join(secrets.choice(WEBPAY_REFERENCE_ALPHABET) for _ in range(8))
+        buy_order = f'LM-PM-{payment.pk}-{token}'
+        if not IntentoPagoWebPay.objects.filter(buy_order=buy_order).exists():
+            return buy_order
+
+
+def get_or_create_webpay_gate(provider_key='transbank_webpay'):
+    gate, _ = GateCobroExterno.objects.get_or_create(
+        capacidad_key=CapacidadCobroExterno.WEBPAY_INTENT,
+        provider_key=provider_key,
+    )
+    return gate
+
+
+def ensure_manual_resolution_for_webpay_intent(intent, summary):
+    existing = ManualResolution.objects.filter(
+        category='cobranza.webpay.bloqueado',
+        scope_type='cobranza.webpay',
+        scope_reference=str(intent.pk),
+        status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
+    ).first()
+    if existing:
+        return existing
+    return ManualResolution.objects.create(
+        category='cobranza.webpay.bloqueado',
+        scope_type='cobranza.webpay',
+        scope_reference=str(intent.pk),
+        summary=summary,
+        metadata={
+            'intent_id': intent.pk,
+            'pago_mensual_id': intent.pago_mensual_id,
+            'gate_cobro_id': intent.gate_cobro_id,
+            'provider_key': intent.provider_key,
+        },
+    )
+
+
+def webpay_blocking_reason(payment, gate, return_url_ref):
+    if gate.estado_gate != EstadoGateCobroExterno.OPEN:
+        return 'El gate WebPay no esta abierto para preparar cobros externos.'
+    if not gate.evidencia_ref.strip():
+        return 'El gate WebPay requiere evidencia_ref antes de operar.'
+    if payment.estado_pago not in {EstadoPago.PENDING, EstadoPago.OVERDUE}:
+        return 'Solo se puede preparar WebPay para pagos pendientes o atrasados.'
+    pending_amount = Decimal(payment.monto_calculado_clp) - Decimal(payment.monto_pagado_clp)
+    if pending_amount <= 0:
+        return 'El pago no tiene saldo pendiente para WebPay.'
+    if not return_url_ref.strip():
+        return 'WebPay requiere una referencia de retorno no sensible.'
+    return ''
+
+
+@transaction.atomic
+def prepare_webpay_intent(*, payment, gate=None, provider_key='transbank_webpay', return_url_ref='', usuario=None):
+    provider_key = provider_key.strip()
+    gate = gate or get_or_create_webpay_gate(provider_key=provider_key or 'transbank_webpay')
+    provider_key = provider_key or gate.provider_key
+    if gate.provider_key != provider_key:
+        raise ValueError('El gate WebPay debe pertenecer al mismo provider_key solicitado.')
+    if gate.capacidad_key != CapacidadCobroExterno.WEBPAY_INTENT:
+        raise ValueError('El gate debe corresponder a WebPay.IntentoPago.')
+    return_url_ref = return_url_ref.strip()
+    pending_amount = Decimal(payment.monto_calculado_clp) - Decimal(payment.monto_pagado_clp)
+    blocking_reason = webpay_blocking_reason(payment, gate, return_url_ref)
+    if not blocking_reason:
+        existing = IntentoPagoWebPay.objects.filter(
+            pago_mensual=payment,
+            estado=EstadoIntentoPagoWebPay.PREPARED,
+        ).first()
+        if existing:
+            return existing
+
+    intent = IntentoPagoWebPay(
+        pago_mensual=payment,
+        gate_cobro=gate,
+        provider_key=provider_key,
+        monto_clp_snapshot=max(pending_amount, Decimal('0.00')),
+        return_url_ref=return_url_ref,
+        usuario=usuario,
+    )
+
+    if blocking_reason:
+        intent.estado = EstadoIntentoPagoWebPay.BLOCKED
+        intent.motivo_bloqueo = blocking_reason
+        intent.full_clean()
+        intent.save()
+        ensure_manual_resolution_for_webpay_intent(intent, blocking_reason)
+        return intent
+
+    intent.estado = EstadoIntentoPagoWebPay.PREPARED
+    intent.buy_order = generate_webpay_buy_order(payment)
+    intent.session_id = f'LM-WP-{payment.pk}-{timezone.now().strftime("%Y%m%d%H%M%S%f")}'
+    intent.full_clean()
+    intent.save()
+    return intent
+
+
+@transaction.atomic
+def confirm_webpay_intent_manually(*, intent, external_ref, fecha_pago_webpay, actor_user=None):
+    external_ref = external_ref.strip()
+    if intent.estado != EstadoIntentoPagoWebPay.PREPARED:
+        raise ValueError('Solo se puede confirmar manualmente un intento WebPay preparado.')
+    if not external_ref:
+        raise ValueError('La confirmacion WebPay requiere transaction id o token externo trazable.')
+    if not fecha_pago_webpay:
+        raise ValueError('La confirmacion WebPay requiere fecha de pago WebPay.')
+
+    payment = PagoMensual.objects.select_for_update().get(pk=intent.pago_mensual_id)
+    gate = GateCobroExterno.objects.select_for_update().get(pk=intent.gate_cobro_id)
+    blocking_reason = webpay_blocking_reason(payment, gate, intent.return_url_ref)
+    if blocking_reason:
+        raise ValueError(blocking_reason)
+
+    pending_amount = Decimal(payment.monto_calculado_clp) - Decimal(payment.monto_pagado_clp)
+    payment.monto_pagado_clp = Decimal(payment.monto_pagado_clp) + pending_amount
+    payment.fecha_pago_webpay = fecha_pago_webpay
+    payment.fecha_deteccion_sistema = payment.fecha_deteccion_sistema or timezone.localdate()
+    payment.estado_pago = EstadoPago.PAID
+    sync_payment_state(payment)
+    payment.full_clean()
+    payment.save(
+        update_fields=[
+            'monto_pagado_clp',
+            'fecha_pago_webpay',
+            'fecha_deteccion_sistema',
+            'estado_pago',
+            'dias_mora',
+            'updated_at',
+        ]
+    )
+    sync_payment_distribution(payment)
+
+    intent.pago_mensual = payment
+    intent.gate_cobro = gate
+    intent.estado = EstadoIntentoPagoWebPay.CONFIRMED_MANUAL
+    intent.external_ref = external_ref
+    intent.fecha_pago_webpay = fecha_pago_webpay
+    intent.confirmado_at = timezone.now()
+    if actor_user is not None:
+        intent.usuario = actor_user
+    intent.full_clean()
+    intent.save(
+        update_fields=[
+            'estado',
+            'external_ref',
+            'fecha_pago_webpay',
+            'confirmado_at',
+            'usuario',
+            'updated_at',
+        ]
+    )
+    return intent, payment
 
 
 def build_account_state_summary(arrendatario, access: ScopeAccess | None = None):

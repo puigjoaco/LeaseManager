@@ -24,7 +24,13 @@ Ningun roadmap ni promesa comercial puede abrir una capacidad si su gate sigue c
 | `Banca.Saldos` | `BancoDeChile` | `Condicionado` | misma base de `Banca.Movimientos` mas lectura de saldo validada | errores repetidos o datos inconsistentes | lectura correcta posterior y validacion humana o automatica | consulta manual externa con evidencia | muestra de saldo consistente contra origen bancario |
 | `Banca.Conectividad` | `BancoDeChile` | `Condicionado` | validacion positiva del adapter y del secreto activo | timeouts sostenidos o credencial invalida | healthcheck exitoso en ventana operativa | alerta y operacion manual | healthcheck registrado y monitoreado |
 
-## 3. Gates UF
+## 3. Gates de cobro externo
+
+| Capacidad | Provider inicial | Estado default | Entrada | Suspension | Salida | Fallback permitido | Evidencia minima |
+|---|---|---|---|---|---|---|---|
+| `WebPay.IntentoPago` | `TransbankWebPay` | `Condicionado` | comercio/ambiente autorizado, retorno controlado, prueba aislada satisfactoria y evidencia del gate | credencial invalida, error de provider, retorno no verificable o inconsistencia de token/transaction id | nueva prueba aislada satisfactoria y evidencia vigente | transferencia o registro manual controlado con evidencia | intento local trazado, token/transaction id externo y fecha WebPay diferenciada |
+
+## 4. Gates UF
 
 | Capacidad | Fuente inicial | Estado default | Entrada | Suspension | Salida | Fallback permitido | Evidencia minima |
 |---|---|---|---|---|---|---|---|
@@ -33,14 +39,14 @@ Ningun roadmap ni promesa comercial puede abrir una capacidad si su gate sigue c
 | `UF.MiIndicador` | `MiIndicador` | `Condicionado` | fuente accesible y dato consistente | caida o inconsistencia | lectura correcta posterior | carga manual auditada | valor validado por operador responsable |
 | `UF.CargaManualExtraordinaria` | `Humano` | `Abierto` | falla completa de fuentes automaticas y aprobacion auditada | dato manual observado como incorrecto | rectificacion auditada | no aplica | usuario, fecha, motivo y valor persistidos |
 
-## 4. Gates de comunicacion
+## 5. Gates de comunicacion
 
 | Capacidad | Provider inicial | Estado default | Entrada | Suspension | Salida | Fallback permitido | Evidencia minima |
 |---|---|---|---|---|---|---|---|
 | `Email.Salida` | `GmailAPI` | `Condicionado` | `IdentidadDeEnvio` activa, OAuth valido, prueba de envio satisfactoria | token revocado, quota agotada, error persistente de envio | renovacion de token y prueba satisfactoria | alerta al administrador y reintento manual controlado | envio y recepcion de prueba por identidad |
 | `WhatsApp.Salida` | `TwilioWhatsApp` | `Condicionado` | numero habilitado, templates aprobados, canal no bloqueado, opt-in operativo | bloqueo del canal, rechazo de template, error definitivo del provider | nueva prueba satisfactoria y desbloqueo operativo | email si esta disponible; si no, alerta critica | envio correcto con template vigente |
 
-## 5. Gates SII por capacidad
+## 6. Gates SII por capacidad
 
 | Capacidad | Provider inicial | Estado default | Entrada | Suspension | Salida | Fallback permitido | Evidencia minima |
 |---|---|---|---|---|---|---|---|
@@ -54,13 +60,13 @@ Ningun roadmap ni promesa comercial puede abrir una capacidad si su gate sigue c
 | `SII.F22Preparacion` | `SII` | `Condicionado` | proceso anual aprobado, `ConfiguracionFiscalEmpresa` vigente, mapeo tributario vigente, borrador probado | cambio normativo, inconsistencias anuales o fallo sistematico | reapertura con validacion anual | borrador y revision manual | borrador anual trazado contra datos de ledger |
 | `SII.PresentacionAnualFinal` | `SII` | `Podado` | no aplica en v1 | no aplica | solo por reemision formal del set | operacion manual controlada fuera del core | fuera del boundary activo |
 
-## 6. Gates regulatorios internos
+## 7. Gates regulatorios internos
 
 | Capacidad | Provider inicial | Estado default | Entrada | Suspension | Salida | Fallback permitido | Evidencia minima |
 |---|---|---|---|---|---|---|---|
 | `Compliance.DatosPersonalesChile2026` | `Interno` | `Condicionado` | politica aprobada, responsables designados, controles implementados y evidencia archivada | ausencia de readiness, incumplimiento detectado o cambio normativo no absorbido | nueva validacion legal-operativa | suspension de produccion posterior al `01/12/2026` | checklist formal aprobada y trazada |
 
-## 7. Capacidades podadas del boundary activo
+## 8. Capacidades podadas del boundary activo
 
 | Capacidad | Provider inicial | Estado default | Entrada | Suspension | Salida | Fallback permitido | Evidencia minima |
 |---|---|---|---|---|---|---|---|
@@ -70,7 +76,7 @@ Ningun roadmap ni promesa comercial puede abrir una capacidad si su gate sigue c
 | `IA.Semantica` | `PostgreSQL+pgvector` | `Podado` | no aplica en v1 | no aplica | solo por reemision formal del set | busqueda transaccional | fuera del boundary activo |
 | `IA.AsistenteConversacional` | `LLMProviderAprobado` | `Podado` | no aplica en v1 | no aplica | solo por reemision formal del set | consultas manuales y reportes tradicionales | fuera del boundary activo |
 
-## 8. Regla final
+## 9. Regla final
 
 Una capacidad externa solo puede marcarse como `Abierto` o `Condicionado` cuando la evidencia minima exista y quede trazada. Si la evidencia desaparece, el gate vuelve a `Cerrado` o `Suspendido` segun corresponda. Una capacidad `Podada` no puede reactivarse sin reemision formal del set activo.
 

@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
@@ -52,6 +53,25 @@ class EstadoCobroResidual(models.TextChoices):
     ACTIVE = 'activa', 'Activa'
     PAID = 'pagada', 'Pagada'
     CANCELED = 'cancelada', 'Cancelada'
+
+
+class EstadoGateCobroExterno(models.TextChoices):
+    OPEN = 'abierto', 'Abierto'
+    CONDITIONED = 'condicionado', 'Condicionado'
+    CLOSED = 'cerrado', 'Cerrado'
+    SUSPENDED = 'suspendido', 'Suspendido'
+
+
+class CapacidadCobroExterno(models.TextChoices):
+    WEBPAY_INTENT = 'WebPay.IntentoPago', 'WebPay intento de pago'
+
+
+class EstadoIntentoPagoWebPay(models.TextChoices):
+    BLOCKED = 'bloqueado_gate', 'Bloqueado por gate'
+    PREPARED = 'preparado', 'Preparado'
+    CONFIRMED_MANUAL = 'confirmado_manual_controlado', 'Confirmado manual controlado'
+    CANCELED = 'cancelado', 'Cancelado'
+    FAILED = 'fallido', 'Fallido'
 
 
 class TipoMovimientoGarantia(models.TextChoices):
@@ -118,6 +138,7 @@ class PagoMensual(TimestampedModel):
     monto_pagado_clp = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'))
     fecha_vencimiento = models.DateField()
     fecha_deposito_banco = models.DateField(null=True, blank=True)
+    fecha_pago_webpay = models.DateField(null=True, blank=True)
     fecha_deteccion_sistema = models.DateField(null=True, blank=True)
     estado_pago = models.CharField(max_length=32, choices=EstadoPago.choices, default=EstadoPago.PENDING)
     dias_mora = models.PositiveIntegerField(default=0)
@@ -147,6 +168,116 @@ class PagoMensual(TimestampedModel):
             )
         if self.periodo_contractual.contrato_id != self.contrato_id:
             raise ValidationError({'periodo_contractual': 'El periodo contractual debe pertenecer al mismo contrato.'})
+
+
+class GateCobroExterno(TimestampedModel):
+    capacidad_key = models.CharField(
+        max_length=32,
+        choices=CapacidadCobroExterno.choices,
+        default=CapacidadCobroExterno.WEBPAY_INTENT,
+    )
+    provider_key = models.CharField(max_length=64, default='transbank_webpay')
+    estado_gate = models.CharField(
+        max_length=16,
+        choices=EstadoGateCobroExterno.choices,
+        default=EstadoGateCobroExterno.CONDITIONED,
+    )
+    restricciones_operativas = models.JSONField(default=dict, blank=True)
+    evidencia_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['capacidad_key', 'provider_key']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['capacidad_key', 'provider_key'],
+                name='uniq_gate_cobro_externo_capacidad_provider',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.capacidad_key} - {self.provider_key}'
+
+    def clean(self):
+        super().clean()
+        if self.estado_gate == EstadoGateCobroExterno.OPEN and not self.evidencia_ref.strip():
+            raise ValidationError({'evidencia_ref': 'Un gate de cobro externo abierto requiere evidencia_ref.'})
+
+
+class IntentoPagoWebPay(TimestampedModel):
+    pago_mensual = models.ForeignKey(
+        PagoMensual,
+        on_delete=models.PROTECT,
+        related_name='intentos_webpay',
+    )
+    gate_cobro = models.ForeignKey(
+        GateCobroExterno,
+        on_delete=models.PROTECT,
+        related_name='intentos_webpay',
+    )
+    provider_key = models.CharField(max_length=64, default='transbank_webpay')
+    monto_clp_snapshot = models.DecimalField(max_digits=14, decimal_places=2)
+    buy_order = models.CharField(max_length=64, blank=True)
+    session_id = models.CharField(max_length=64, blank=True)
+    return_url_ref = models.CharField(max_length=255, blank=True)
+    estado = models.CharField(
+        max_length=32,
+        choices=EstadoIntentoPagoWebPay.choices,
+        default=EstadoIntentoPagoWebPay.BLOCKED,
+    )
+    motivo_bloqueo = models.TextField(blank=True)
+    external_ref = models.CharField(max_length=255, blank=True)
+    fecha_pago_webpay = models.DateField(null=True, blank=True)
+    confirmado_at = models.DateTimeField(null=True, blank=True)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='intentos_webpay',
+    )
+    provider_payload = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['pago_mensual'],
+                condition=models.Q(estado=EstadoIntentoPagoWebPay.PREPARED),
+                name='uniq_intento_webpay_preparado_por_pago',
+            ),
+            models.UniqueConstraint(
+                fields=['buy_order'],
+                condition=~models.Q(buy_order=''),
+                name='uniq_intento_webpay_buy_order_no_vacio',
+            ),
+        ]
+
+    def __str__(self):
+        return f'WebPay {self.pago_mensual_id} - {self.estado}'
+
+    def clean(self):
+        super().clean()
+        if self.gate_cobro.provider_key != self.provider_key:
+            raise ValidationError({'gate_cobro': 'El gate de cobro debe pertenecer al mismo provider_key.'})
+        if self.gate_cobro.capacidad_key != CapacidadCobroExterno.WEBPAY_INTENT:
+            raise ValidationError({'gate_cobro': 'El gate debe corresponder a WebPay.IntentoPago.'})
+        if self.estado in {EstadoIntentoPagoWebPay.PREPARED, EstadoIntentoPagoWebPay.CONFIRMED_MANUAL}:
+            if self.gate_cobro.estado_gate != EstadoGateCobroExterno.OPEN:
+                raise ValidationError({'estado': 'WebPay solo puede prepararse o confirmarse con gate abierto.'})
+            if not self.gate_cobro.evidencia_ref.strip():
+                raise ValidationError({'gate_cobro': 'WebPay requiere evidencia_ref del gate antes de operar.'})
+            if not self.return_url_ref.strip():
+                raise ValidationError({'return_url_ref': 'WebPay requiere una referencia de retorno no sensible.'})
+            if self.estado == EstadoIntentoPagoWebPay.PREPARED and self.pago_mensual.estado_pago not in {
+                EstadoPago.PENDING,
+                EstadoPago.OVERDUE,
+            }:
+                raise ValidationError({'pago_mensual': 'Solo se puede preparar WebPay para pagos pendientes o atrasados.'})
+        if self.estado == EstadoIntentoPagoWebPay.CONFIRMED_MANUAL:
+            if not self.external_ref.strip():
+                raise ValidationError({'external_ref': 'La confirmacion WebPay requiere transaction id o token externo.'})
+            if not self.fecha_pago_webpay:
+                raise ValidationError({'fecha_pago_webpay': 'La confirmacion WebPay requiere fecha de pago WebPay.'})
 
 
 class DistribucionCobroMensual(TimestampedModel):

@@ -4,8 +4,10 @@ from .models import (
     AjusteContrato,
     CodigoCobroResidual,
     EstadoCuentaArrendatario,
+    GateCobroExterno,
     GarantiaContractual,
     HistorialGarantia,
+    IntentoPagoWebPay,
     PagoMensual,
     RepactacionDeuda,
     ValorUFDiario,
@@ -28,9 +30,23 @@ class AjusteContratoAdmin(admin.ModelAdmin):
 
 @admin.register(PagoMensual)
 class PagoMensualAdmin(admin.ModelAdmin):
-    list_display = ('contrato', 'anio', 'mes', 'monto_calculado_clp', 'estado_pago', 'dias_mora')
+    list_display = ('contrato', 'anio', 'mes', 'monto_calculado_clp', 'estado_pago', 'fecha_pago_webpay', 'dias_mora')
     list_filter = ('estado_pago', 'anio', 'mes')
     search_fields = ('contrato__codigo_contrato',)
+
+
+@admin.register(GateCobroExterno)
+class GateCobroExternoAdmin(admin.ModelAdmin):
+    list_display = ('capacidad_key', 'provider_key', 'estado_gate', 'evidencia_ref')
+    list_filter = ('capacidad_key', 'estado_gate')
+    search_fields = ('provider_key', 'evidencia_ref')
+
+
+@admin.register(IntentoPagoWebPay)
+class IntentoPagoWebPayAdmin(admin.ModelAdmin):
+    list_display = ('pago_mensual', 'provider_key', 'monto_clp_snapshot', 'estado', 'external_ref', 'fecha_pago_webpay')
+    list_filter = ('estado', 'provider_key')
+    search_fields = ('pago_mensual__contrato__codigo_contrato', 'buy_order', 'external_ref')
 
 
 @admin.register(GarantiaContractual)

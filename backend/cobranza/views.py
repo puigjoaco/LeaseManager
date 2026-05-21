@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
-from core.permissions import OperationalModulePermission
+from core.permissions import AdminOnlyPermission, OperationalModulePermission
 from core.scope_access import (
     ScopedQuerysetMixin,
     ensure_queryset_scope,
@@ -16,22 +16,43 @@ from core.scope_access import (
 )
 from contratos.models import Arrendatario, Contrato
 
-from .models import AjusteContrato, DistribucionCobroMensual, GarantiaContractual, HistorialGarantia, PagoMensual, ValorUFDiario
+from .models import (
+    AjusteContrato,
+    DistribucionCobroMensual,
+    GateCobroExterno,
+    GarantiaContractual,
+    HistorialGarantia,
+    IntentoPagoWebPay,
+    PagoMensual,
+    ValorUFDiario,
+)
 from .serializers import (
     AjusteContratoSerializer,
     CodigoCobroResidualSerializer,
     EstadoCuentaArrendatarioSerializer,
     EstadoCuentaRecalculoSerializer,
+    GateCobroExternoSerializer,
     GarantiaContractualSerializer,
     GarantiaMovimientoSerializer,
     HistorialGarantiaReadSerializer,
+    IntentoPagoWebPaySerializer,
     PagoMensualGenerateSerializer,
     PagoMensualSerializer,
     DistribucionCobroMensualSerializer,
     RepactacionDeudaSerializer,
     ValorUFDiarioSerializer,
+    WebPayIntentConfirmSerializer,
+    WebPayIntentPrepareSerializer,
 )
-from .services import build_account_state_summary, calculate_monthly_amount, rebuild_account_state, sync_payment_distribution, sync_payment_state
+from .services import (
+    build_account_state_summary,
+    calculate_monthly_amount,
+    confirm_webpay_intent_manually,
+    prepare_webpay_intent,
+    rebuild_account_state,
+    sync_payment_distribution,
+    sync_payment_state,
+)
 from .models import CodigoCobroResidual, EstadoCuentaArrendatario, EstadoPago, RepactacionDeuda
 
 
@@ -115,9 +136,23 @@ class CobranzaSnapshotView(APIView):
             access,
             property_paths=('arrendatario__contratos__mandato_operacion__propiedad_id',),
         )
+        intentos_webpay = scope_queryset_for_access(
+            IntentoPagoWebPay.objects.select_related('pago_mensual__contrato', 'gate_cobro').order_by('-id'),
+            access,
+            property_paths=('pago_mensual__contrato__mandato_operacion__propiedad_id',),
+        )
 
         return Response(
             {
+                'gates_cobro': list(
+                    GateCobroExterno.objects.order_by('capacidad_key', 'provider_key', 'id').values(
+                        'id',
+                        'capacidad_key',
+                        'provider_key',
+                        'estado_gate',
+                        'evidencia_ref',
+                    )
+                ),
                 'contratos': [
                     {
                         'id': item.id,
@@ -164,8 +199,24 @@ class CobranzaSnapshotView(APIView):
                         'monto_calculado_clp': item.monto_calculado_clp,
                         'monto_pagado_clp': item.monto_pagado_clp,
                         'estado_pago': item.estado_pago,
+                        'fecha_pago_webpay': item.fecha_pago_webpay,
                     }
                     for item in pagos
+                ],
+                'intentos_webpay': [
+                    {
+                        'id': item.id,
+                        'pago_mensual': item.pago_mensual_id,
+                        'gate_cobro': item.gate_cobro_id,
+                        'provider_key': item.provider_key,
+                        'monto_clp_snapshot': item.monto_clp_snapshot,
+                        'buy_order': item.buy_order,
+                        'estado': item.estado,
+                        'motivo_bloqueo': item.motivo_bloqueo,
+                        'external_ref': item.external_ref,
+                        'fecha_pago_webpay': item.fecha_pago_webpay,
+                    }
+                    for item in intentos_webpay
                 ],
                 'garantias': [
                     {
@@ -288,7 +339,17 @@ class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
             instance = serializer.save()
             sync_payment_state(instance)
             sync_payment_distribution(instance)
-            instance.save(update_fields=['monto_pagado_clp', 'fecha_deposito_banco', 'fecha_deteccion_sistema', 'estado_pago', 'dias_mora', 'updated_at'])
+            instance.save(
+                update_fields=[
+                    'monto_pagado_clp',
+                    'fecha_deposito_banco',
+                    'fecha_pago_webpay',
+                    'fecha_deteccion_sistema',
+                    'estado_pago',
+                    'dias_mora',
+                    'updated_at',
+                ]
+            )
         self._create_audit_event(instance=instance, action='updated')
         if previous_state != self._extract_state(instance):
             self._create_audit_event(
@@ -346,6 +407,118 @@ class PagoMensualGenerateView(APIView):
             )
 
         return Response(PagoMensualSerializer(payment).data, status=status.HTTP_201_CREATED)
+
+
+class GateCobroExternoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [AdminOnlyPermission]
+    serializer_class = GateCobroExternoSerializer
+    queryset = GateCobroExterno.objects.all()
+    audit_entity_type = 'gate_cobro_externo'
+    audit_entity_label = 'gate de cobro externo'
+
+
+class GateCobroExternoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [AdminOnlyPermission]
+    serializer_class = GateCobroExternoSerializer
+    queryset = GateCobroExterno.objects.all()
+    audit_entity_type = 'gate_cobro_externo'
+    audit_entity_label = 'gate de cobro externo'
+
+
+class IntentoPagoWebPayListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = IntentoPagoWebPaySerializer
+    queryset = IntentoPagoWebPay.objects.select_related('pago_mensual__contrato', 'gate_cobro', 'usuario').all()
+    property_scope_paths = ('pago_mensual__contrato__mandato_operacion__propiedad_id',)
+
+
+class IntentoPagoWebPayDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = IntentoPagoWebPaySerializer
+    queryset = IntentoPagoWebPay.objects.select_related('pago_mensual__contrato', 'gate_cobro', 'usuario').all()
+    property_scope_paths = ('pago_mensual__contrato__mandato_operacion__propiedad_id',)
+
+
+class WebPayIntentPrepareView(APIView):
+    permission_classes = [OperationalModulePermission]
+
+    def post(self, request, pk):
+        payment = generics.get_object_or_404(
+            scope_queryset_for_user(
+                PagoMensual.objects.select_related('contrato', 'periodo_contractual'),
+                request.user,
+                property_paths=('contrato__mandato_operacion__propiedad_id',),
+                bank_account_paths=('contrato__mandato_operacion__cuenta_recaudadora_id',),
+            ),
+            pk=pk,
+        )
+        serializer = WebPayIntentPrepareSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            intent = prepare_webpay_intent(
+                payment=payment,
+                gate=data.get('gate_cobro'),
+                provider_key=data.get('provider_key', 'transbank_webpay'),
+                return_url_ref=data['return_url_ref'],
+                usuario=request.user,
+            )
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+        create_audit_event(
+            event_type='cobranza.webpay_intento.prepared',
+            entity_type='webpay_intento',
+            entity_id=str(intent.pk),
+            summary='Intento WebPay preparado o bloqueado segun gate',
+            actor_user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            metadata={'estado': intent.estado, 'pago_mensual_id': payment.pk, 'gate_cobro_id': intent.gate_cobro_id},
+        )
+        return Response(IntentoPagoWebPaySerializer(intent).data, status=status.HTTP_201_CREATED)
+
+
+class WebPayIntentManualConfirmView(APIView):
+    permission_classes = [OperationalModulePermission]
+
+    def post(self, request, pk):
+        intent = generics.get_object_or_404(
+            scope_queryset_for_user(
+                IntentoPagoWebPay.objects.select_related('pago_mensual__contrato', 'gate_cobro'),
+                request.user,
+                property_paths=('pago_mensual__contrato__mandato_operacion__propiedad_id',),
+                bank_account_paths=('pago_mensual__contrato__mandato_operacion__cuenta_recaudadora_id',),
+            ),
+            pk=pk,
+        )
+        serializer = WebPayIntentConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            intent, payment = confirm_webpay_intent_manually(
+                intent=intent,
+                external_ref=serializer.validated_data['external_ref'],
+                fecha_pago_webpay=serializer.validated_data['fecha_pago_webpay'],
+                actor_user=request.user,
+            )
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+        create_audit_event(
+            event_type='cobranza.webpay_intento.confirmed_manually',
+            entity_type='webpay_intento',
+            entity_id=str(intent.pk),
+            summary='Confirmacion WebPay manual controlada registrada',
+            actor_user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            metadata={
+                'external_ref': intent.external_ref,
+                'pago_mensual_id': payment.pk,
+                'fecha_pago_webpay': str(intent.fecha_pago_webpay),
+            },
+        )
+        return Response(IntentoPagoWebPaySerializer(intent).data, status=status.HTTP_200_OK)
 
 
 class DistribucionCobroMensualListView(ScopedQuerysetMixin, generics.ListAPIView):
