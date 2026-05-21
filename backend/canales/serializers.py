@@ -152,4 +152,4 @@ class MensajePrepararSerializer(serializers.Serializer):
 
 
 class MensajeRegistrarEnvioSerializer(serializers.Serializer):
-    external_ref = serializers.CharField(required=False, allow_blank=True)
+    external_ref = serializers.CharField(required=True, allow_blank=False, trim_whitespace=True)

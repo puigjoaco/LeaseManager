@@ -125,6 +125,18 @@ def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None
 def mark_message_as_sent(message, external_ref=''):
     if message.estado != EstadoMensajeSaliente.PREPARED:
         raise ValueError('Solo se puede registrar envio manual para mensajes preparados.')
+    external_ref = external_ref.strip()
+    if not external_ref:
+        raise ValueError('El envio manual requiere una referencia externa trazable.')
+    if message.canal_mensajeria.estado_gate != EstadoGateCanal.OPEN:
+        raise ValueError('No se puede registrar envio manual si el gate del canal no esta abierto.')
+    if not message.identidad_envio or message.identidad_envio.estado != EstadoIdentidadEnvio.ACTIVE:
+        raise ValueError('No se puede registrar envio manual sin identidad de envio activa.')
+    if not message.destinatario:
+        raise ValueError('No se puede registrar envio manual sin destinatario trazable.')
+    if message.contrato and message.contrato.mandato_operacion.estado != EstadoMandatoOperacion.ACTIVE:
+        raise ValueError('No se puede registrar envio manual sin mandato operativo activo.')
+
     message.estado = EstadoMensajeSaliente.SENT
     message.external_ref = external_ref
     message.enviado_at = timezone.now()
