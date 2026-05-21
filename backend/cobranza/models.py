@@ -346,6 +346,17 @@ class HistorialGarantia(TimestampedModel):
     def __str__(self):
         return f'{self.garantia_contractual.contrato.codigo_contrato} - {self.tipo_movimiento}'
 
+    def clean(self):
+        super().clean()
+        if (
+            self.movimiento_origen_id
+            and self.garantia_contractual_id
+            and self.movimiento_origen.garantia_contractual_id != self.garantia_contractual_id
+        ):
+            raise ValidationError(
+                {'movimiento_origen': 'El movimiento origen debe pertenecer a la misma garantia contractual.'}
+            )
+
 
 class RepactacionDeuda(TimestampedModel):
     arrendatario = models.ForeignKey(

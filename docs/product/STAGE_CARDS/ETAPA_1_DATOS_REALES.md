@@ -25,6 +25,8 @@ contra datos reales o snapshot controlado.
   operativo activo asignado por su mandato.
 - Validacion de codeudores solidarios: snapshot con nombre/RUT valido, sin
   duplicados activos y maximo 3 activos por contrato.
+- Validacion de garantias: montos/estado coherentes y saldos recibidos,
+  devueltos o aplicados conciliados contra `HistorialGarantia`.
 - Auditor reproducible de matriz:
 
 ```powershell

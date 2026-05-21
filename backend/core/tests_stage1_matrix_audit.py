@@ -6,7 +6,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from cobranza.models import EstadoGarantia, GarantiaContractual
+from cobranza.models import EstadoGarantia, GarantiaContractual, HistorialGarantia, TipoMovimientoGarantia
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from contratos.models import (
     Arrendatario,
@@ -503,6 +503,132 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.garantia.validacion_modelo', issue_codes)
+
+    def test_received_guarantee_without_history_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        garantia = contrato.garantia_contractual
+        garantia.monto_pactado = Decimal('100000.00')
+        garantia.monto_recibido = Decimal('50000.00')
+        garantia.fecha_recepcion = date(2026, 1, 5)
+        garantia.estado_garantia = EstadoGarantia.HELD
+        garantia.save(
+            update_fields=[
+                'monto_pactado',
+                'monto_recibido',
+                'fecha_recepcion',
+                'estado_garantia',
+                'updated_at',
+            ]
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.garantia.historial_recepcion_inconsistente', issue_codes)
+
+    def test_received_guarantee_with_matching_history_can_pass_stage1_matrix_gate(self):
+        contrato = self._create_valid_stage1_matrix()
+        garantia = contrato.garantia_contractual
+        garantia.monto_pactado = Decimal('100000.00')
+        garantia.monto_recibido = Decimal('50000.00')
+        garantia.fecha_recepcion = date(2026, 1, 5)
+        garantia.estado_garantia = EstadoGarantia.HELD
+        garantia.save(
+            update_fields=[
+                'monto_pactado',
+                'monto_recibido',
+                'fecha_recepcion',
+                'estado_garantia',
+                'updated_at',
+            ]
+        )
+        HistorialGarantia.objects.create(
+            garantia_contractual=garantia,
+            tipo_movimiento=TipoMovimientoGarantia.DEPOSIT,
+            monto_clp=Decimal('50000.00'),
+            fecha=date(2026, 1, 5),
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+
+    def test_guarantee_history_with_foreign_origin_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        empresa = contrato.mandato_operacion.propietario_empresa_owner
+        propiedad = Propiedad.objects.create(
+            direccion='Direccion Controlada Garantia',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='CTRL-GAR',
+            estado='activa',
+            empresa_owner=empresa,
+        )
+        mandato = MandatoOperacion.objects.create(
+            propiedad=propiedad,
+            propietario_empresa_owner=empresa,
+            administrador_empresa_owner=empresa,
+            recaudador_empresa_owner=empresa,
+            entidad_facturadora=empresa,
+            cuenta_recaudadora=contrato.mandato_operacion.cuenta_recaudadora,
+            tipo_relacion_operativa='administracion_directa',
+            autoriza_recaudacion=True,
+            autoriza_facturacion=True,
+            autoriza_comunicacion=True,
+            estado=EstadoMandatoOperacion.ACTIVE,
+            vigencia_desde=date(2026, 1, 1),
+        )
+        second_contract = Contrato.objects.create(
+            codigo_contrato='CON-CTRL-GAR',
+            mandato_operacion=mandato,
+            arrendatario=contrato.arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            dia_pago_mensual=5,
+            estado=EstadoContrato.ACTIVE,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=second_contract,
+            propiedad=propiedad,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='002',
+        )
+        PeriodoContractual.objects.create(
+            contrato=second_contract,
+            numero_periodo=1,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin=date(2026, 12, 31),
+            monto_base='250000.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='mensual',
+            origen_periodo='snapshot_controlado',
+        )
+        second_guarantee = GarantiaContractual.objects.create(contrato=second_contract, monto_pactado='0.00')
+        origin = HistorialGarantia.objects.create(
+            garantia_contractual=contrato.garantia_contractual,
+            tipo_movimiento=TipoMovimientoGarantia.DEPOSIT,
+            monto_clp=Decimal('1000.00'),
+            fecha=date(2026, 1, 5),
+        )
+        HistorialGarantia.objects.create(
+            garantia_contractual=second_guarantee,
+            tipo_movimiento=TipoMovimientoGarantia.PARTIAL_RETURN,
+            monto_clp=Decimal('1000.00'),
+            fecha=date(2026, 1, 6),
+            movimiento_origen=origin,
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.historial_garantia.validacion_modelo', issue_codes)
 
     def test_linked_property_with_independent_active_contract_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

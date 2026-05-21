@@ -11,7 +11,7 @@ from typing import Any
 from django.core.exceptions import ValidationError
 from django.db.models import Count
 
-from cobranza.models import GarantiaContractual
+from cobranza.models import GarantiaContractual, HistorialGarantia, TipoMovimientoGarantia
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from contratos.models import (
     Arrendatario,
@@ -221,6 +221,7 @@ def _build_summary() -> dict[str, int]:
         'contrato_propiedades': ContratoPropiedad.objects.count(),
         'periodos_contractuales': PeriodoContractual.objects.count(),
         'garantias_contractuales': GarantiaContractual.objects.count(),
+        'historial_garantias': HistorialGarantia.objects.count(),
         'mandatos_con_facturacion': MandatoOperacion.objects.filter(autoriza_facturacion=True).count(),
         'configuraciones_fiscales_activas': ConfiguracionFiscalEmpresa.objects.filter(
             estado=EstadoRegistro.ACTIVE
@@ -598,6 +599,60 @@ def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Con
             )
 
 
+def _audit_guarantee_history_consistency(
+    issues: list[dict[str, Any]],
+    garantia: GarantiaContractual,
+) -> None:
+    movements = list(garantia.historial_movimientos.all())
+    received_total = sum(
+        (movement.monto_clp for movement in movements if movement.tipo_movimiento == TipoMovimientoGarantia.DEPOSIT),
+        Decimal('0.00'),
+    )
+    returned_total = sum(
+        (
+            movement.monto_clp
+            for movement in movements
+            if movement.tipo_movimiento
+            in {TipoMovimientoGarantia.PARTIAL_RETURN, TipoMovimientoGarantia.TOTAL_RETURN}
+        ),
+        Decimal('0.00'),
+    )
+    applied_total = sum(
+        (
+            movement.monto_clp
+            for movement in movements
+            if movement.tipo_movimiento
+            in {TipoMovimientoGarantia.PARTIAL_RETENTION, TipoMovimientoGarantia.TOTAL_RETENTION}
+        ),
+        Decimal('0.00'),
+    )
+
+    if received_total != garantia.monto_recibido:
+        _issue(
+            issues,
+            code='stage1.garantia.historial_recepcion_inconsistente',
+            entity='GarantiaContractual',
+            entity_id=garantia.pk,
+            message='Monto recibido de garantia no cuadra con historial de depositos.',
+        )
+    if returned_total != garantia.monto_devuelto:
+        _issue(
+            issues,
+            code='stage1.garantia.historial_devolucion_inconsistente',
+            entity='GarantiaContractual',
+            entity_id=garantia.pk,
+            message='Monto devuelto de garantia no cuadra con historial de devoluciones.',
+        )
+    if applied_total != garantia.monto_aplicado:
+        _issue(
+            issues,
+            code='stage1.garantia.historial_aplicacion_inconsistente',
+            entity='GarantiaContractual',
+            entity_id=garantia.pk,
+            message='Monto aplicado o retenido de garantia no cuadra con historial de retenciones.',
+        )
+
+
 def _audit_contratos(issues: list[dict[str, Any]]) -> None:
     _audit_model_validation(
         issues,
@@ -610,6 +665,15 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         queryset=CodeudorSolidario.objects.select_related('contrato'),
         code='stage1.codeudor.validacion_modelo',
         entity='CodeudorSolidario',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=HistorialGarantia.objects.select_related(
+            'garantia_contractual',
+            'movimiento_origen',
+        ),
+        code='stage1.historial_garantia.validacion_modelo',
+        entity='HistorialGarantia',
     )
 
     duplicate_any_role = (
@@ -804,6 +868,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                         entity_id=garantia.pk,
                         message=message,
                     )
+            _audit_guarantee_history_consistency(issues, garantia)
 
 
 def collect_stage1_matrix_audit(
