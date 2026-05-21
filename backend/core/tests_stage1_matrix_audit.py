@@ -170,6 +170,27 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertTrue(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertEqual(result['issue_counts'].get('blocking', 0), 0)
+        self.assertGreater(result['summary']['participaciones_patrimoniales'], 0)
+        self.assertGreater(result['summary']['representaciones_comunidad'], 0)
+
+    def test_invalid_stage1_model_records_are_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        participacion = ParticipacionPatrimonial.objects.filter(
+            empresa_owner=contrato.mandato_operacion.propietario_empresa_owner,
+            activo=True,
+        ).first()
+        participacion.vigente_hasta = date(2025, 12, 31)
+        participacion.save(update_fields=['vigente_hasta', 'updated_at'])
+        contrato.arrendatario.rut = '33333333-4'
+        contrato.arrendatario.save(update_fields=['rut', 'updated_at'])
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.participacion.validacion_modelo', issue_codes)
+        self.assertIn('stage1.arrendatario.validacion_modelo', issue_codes)
 
     def test_contract_without_matrix_components_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

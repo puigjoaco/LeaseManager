@@ -21,7 +21,14 @@ from contratos.models import (
     RolContratoPropiedad,
 )
 from operacion.models import CuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
-from patrimonio.models import ComunidadPatrimonial, Empresa, Propiedad, Socio
+from patrimonio.models import (
+    ComunidadPatrimonial,
+    Empresa,
+    ParticipacionPatrimonial,
+    Propiedad,
+    RepresentacionComunidad,
+    Socio,
+)
 
 
 EVIDENCE_GRADE_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
@@ -58,6 +65,27 @@ def _validation_messages(error: ValidationError) -> list[str]:
     return [str(message) for message in error.messages]
 
 
+def _audit_model_validation(
+    issues: list[dict[str, Any]],
+    *,
+    queryset: Any,
+    code: str,
+    entity: str,
+) -> None:
+    for instance in queryset:
+        try:
+            instance.full_clean()
+        except ValidationError as error:
+            for message in _validation_messages(error):
+                _issue(
+                    issues,
+                    code=code,
+                    entity=entity,
+                    entity_id=instance.pk,
+                    message=message,
+                )
+
+
 def _month_last_day(year: int, month: int) -> int:
     return calendar.monthrange(year, month)[1]
 
@@ -67,6 +95,8 @@ def _has_required_stage1_data(summary: dict[str, int]) -> bool:
         'socios',
         'empresas',
         'comunidades',
+        'participaciones_patrimoniales',
+        'representaciones_comunidad',
         'propiedades',
         'cuentas_recaudadoras',
         'mandatos',
@@ -90,6 +120,8 @@ def _build_summary() -> dict[str, int]:
         'empresas': empresas_count,
         'comunidades': comunidades_count,
         'owner_entities': socios_count + empresas_count + comunidades_count,
+        'participaciones_patrimoniales': ParticipacionPatrimonial.objects.count(),
+        'representaciones_comunidad': RepresentacionComunidad.objects.count(),
         'propiedades': Propiedad.objects.count(),
         'cuentas_recaudadoras': CuentaRecaudadora.objects.count(),
         'mandatos': MandatoOperacion.objects.count(),
@@ -107,6 +139,48 @@ def _build_summary() -> dict[str, int]:
 
 
 def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
+    _audit_model_validation(
+        issues,
+        queryset=Socio.objects.all(),
+        code='stage1.socio.validacion_modelo',
+        entity='Socio',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=Empresa.objects.all(),
+        code='stage1.empresa.validacion_modelo',
+        entity='Empresa',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=ComunidadPatrimonial.objects.all(),
+        code='stage1.comunidad.validacion_modelo',
+        entity='ComunidadPatrimonial',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=ParticipacionPatrimonial.objects.select_related(
+            'participante_socio',
+            'participante_empresa',
+            'empresa_owner',
+            'comunidad_owner',
+        ),
+        code='stage1.participacion.validacion_modelo',
+        entity='ParticipacionPatrimonial',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=RepresentacionComunidad.objects.select_related('comunidad', 'socio_representante'),
+        code='stage1.representacion.validacion_modelo',
+        entity='RepresentacionComunidad',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=Propiedad.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner'),
+        code='stage1.propiedad.validacion_modelo',
+        entity='Propiedad',
+    )
+
     for empresa in Empresa.objects.filter(estado='activa'):
         total = empresa.total_participaciones_activas()
         if total != Decimal('100.00'):
@@ -138,7 +212,12 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
                 message=f'Comunidad activa con {representation_count} representaciones vigentes; debe tener exactamente una.',
             )
 
-    for propiedad in Propiedad.objects.filter(estado='activa').select_related('empresa_owner', 'comunidad_owner', 'socio_owner'):
+    active_properties = Propiedad.objects.filter(estado='activa').select_related(
+        'empresa_owner',
+        'comunidad_owner',
+        'socio_owner',
+    )
+    for propiedad in active_properties:
         active_mandates_count = propiedad.mandatos_operacion.filter(estado=EstadoMandatoOperacion.ACTIVE).count()
         if active_mandates_count != 1:
             _issue(
@@ -148,36 +227,15 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
                 entity_id=propiedad.pk,
                 message=f'Propiedad activa con {active_mandates_count} mandatos activos; debe tener exactamente uno.',
             )
-        try:
-            propiedad.full_clean()
-        except ValidationError as error:
-            for message in _validation_messages(error):
-                _issue(
-                    issues,
-                    code='stage1.propiedad.validacion_modelo',
-                    entity='Propiedad',
-                    entity_id=propiedad.pk,
-                    message=message,
-                )
 
 
 def _audit_operacion(issues: list[dict[str, Any]]) -> None:
-    for cuenta in CuentaRecaudadora.objects.filter(estado_operativo='activa').select_related(
-        'empresa_owner',
-        'comunidad_owner',
-        'socio_owner',
-    ):
-        try:
-            cuenta.full_clean()
-        except ValidationError as error:
-            for message in _validation_messages(error):
-                _issue(
-                    issues,
-                    code='stage1.cuenta.validacion_modelo',
-                    entity='CuentaRecaudadora',
-                    entity_id=cuenta.pk,
-                    message=message,
-                )
+    _audit_model_validation(
+        issues,
+        queryset=CuentaRecaudadora.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner'),
+        code='stage1.cuenta.validacion_modelo',
+        entity='CuentaRecaudadora',
+    )
 
     fiscal_config_by_company = set(
         ConfiguracionFiscalEmpresa.objects.filter(estado=EstadoRegistro.ACTIVE).values_list('empresa_id', flat=True)
@@ -267,6 +325,17 @@ def _audit_contract_periods(issues: list[dict[str, Any]], contrato: Contrato) ->
             break
 
     for period in periods:
+        try:
+            period.full_clean()
+        except ValidationError as error:
+            for message in _validation_messages(error):
+                _issue(
+                    issues,
+                    code='stage1.periodo.validacion_modelo',
+                    entity='PeriodoContractual',
+                    entity_id=period.pk,
+                    message=message,
+                )
         if period.moneda_base == MonedaBaseContrato.CLP and period.monto_base < Decimal('1000.00'):
             _issue(
                 issues,
@@ -286,6 +355,13 @@ def _audit_contract_periods(issues: list[dict[str, Any]], contrato: Contrato) ->
 
 
 def _audit_contratos(issues: list[dict[str, Any]]) -> None:
+    _audit_model_validation(
+        issues,
+        queryset=Arrendatario.objects.all(),
+        code='stage1.arrendatario.validacion_modelo',
+        entity='Arrendatario',
+    )
+
     duplicate_any_role = (
         ContratoPropiedad.objects.filter(contrato__estado__in=ACTIVE_CONTRACT_STATES)
         .values('propiedad_id', 'contrato__estado')
@@ -351,6 +427,17 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         'mandato_operacion__propiedad',
     )
     for contrato in contracts:
+        try:
+            contrato.full_clean()
+        except ValidationError as error:
+            for message in _validation_messages(error):
+                _issue(
+                    issues,
+                    code='stage1.contrato.validacion_modelo',
+                    entity='Contrato',
+                    entity_id=contrato.pk,
+                    message=message,
+                )
         if contrato.fecha_inicio.day != 1:
             _issue(
                 issues,
