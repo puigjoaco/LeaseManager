@@ -1941,7 +1941,8 @@ class MigrationPipelineTests(TestCase):
         self.assertEqual(mandate.propietario_tipo, 'comunidad')
         self.assertEqual(mandate.administrador_operativo_tipo, 'socio')
         self.assertEqual(mandate.recaudador_tipo, 'empresa')
-        self.assertEqual(mandate.entidad_facturadora.razon_social, 'Inmobiliaria Puig SpA')
+        self.assertIsNone(mandate.entidad_facturadora_id)
+        self.assertIn('mandatos_facturacion', report.skipped)
 
     def test_import_bundle_creates_manual_resolution_for_unresolved_property_owner(self):
         bundle = {
@@ -2362,7 +2363,8 @@ class MigrationPipelineTests(TestCase):
         comunidad = ComunidadPatrimonial.objects.get(nombre='Edificio Q Dpto 1014')
         self.assertEqual(comunidad.participaciones_activas().count(), 2)
         mandate = MandatoOperacion.objects.get(propiedad__direccion='Edificio Q Dpto 1014')
-        self.assertEqual(mandate.entidad_facturadora.razon_social, 'Inmobiliaria Puig SpA')
+        self.assertIsNone(mandate.entidad_facturadora_id)
+        self.assertIn('mandatos_facturacion', second_report.skipped)
 
     def test_run_current_migration_flow_executes_validated_sequence(self):
         bundle = {
@@ -2519,7 +2521,7 @@ class MigrationPipelineTests(TestCase):
         self.assertEqual(result['final_state']['periodos'], 1)
         self.assertEqual(result['final_state']['mandatos'], 1)
 
-    def test_import_bundle_rerun_preserves_resolved_community_participations_and_facturadora(self):
+    def test_import_bundle_rerun_preserves_resolved_community_participations_and_blocks_facturadora(self):
         bundle = {
             'patrimonio': {
                 'socios': [
@@ -2686,4 +2688,5 @@ class MigrationPipelineTests(TestCase):
         comunidad = ComunidadPatrimonial.objects.get(nombre='Edificio Q Dpto 1014')
         self.assertEqual(comunidad.participaciones_activas().count(), 2)
         mandate = MandatoOperacion.objects.get(propiedad__direccion='Edificio Q Dpto 1014')
-        self.assertEqual(mandate.entidad_facturadora.razon_social, 'Inmobiliaria Puig SpA')
+        self.assertIsNone(mandate.entidad_facturadora_id)
+        self.assertIn('mandatos_facturacion', second_report.skipped)

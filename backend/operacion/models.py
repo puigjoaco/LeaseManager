@@ -487,6 +487,22 @@ class MandatoOperacion(TimestampedModel):
         if self.entidad_facturadora_id and self.entidad_facturadora.estado != 'activa':
             raise ValidationError({'entidad_facturadora': 'La entidad facturadora debe estar activa.'})
 
+        if self.entidad_facturadora_id:
+            from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro
+
+            fiscal_config_exists = ConfiguracionFiscalEmpresa.objects.filter(
+                empresa_id=self.entidad_facturadora_id,
+                estado=EstadoRegistro.ACTIVE,
+            ).exists()
+            if not fiscal_config_exists:
+                raise ValidationError(
+                    {
+                        'entidad_facturadora': (
+                            'La entidad facturadora requiere ConfiguracionFiscalEmpresa activa.'
+                        )
+                    }
+                )
+
         if cuenta_owner_tuple != recaudador_tuple_value:
             raise ValidationError(
                 {'cuenta_recaudadora': 'La cuenta recaudadora debe pertenecer exactamente al recaudador del mandato.'}

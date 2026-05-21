@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from audit.models import ManualResolution
 from audit.services import resolve_migration_property_owner_manual_resolution
+from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro
 from contratos.models import Arrendatario, AvisoTermino, Contrato, ContratoPropiedad, EstadoAvisoTermino, PeriodoContractual
 from migration.runtime_config import (
     get_current_community_recaudadora_account_number,
@@ -222,6 +223,15 @@ def resolve_current_community_account(*, required=False):
     if not configured_account:
         return None
     return CuentaRecaudadora.objects.filter(numero_cuenta=configured_account).first()
+
+
+def company_has_active_fiscal_config(company):
+    if not company:
+        return False
+    return ConfiguracionFiscalEmpresa.objects.filter(
+        empresa=company,
+        estado=EstadoRegistro.ACTIVE,
+    ).exists()
 
 
 def load_resolved_property_map():
@@ -678,7 +688,20 @@ def import_bundle(bundle):
                     )
                     continue
 
-                entidad_facturadora = active_company_participants[0].participante_empresa if len(active_company_participants) == 1 else None
+                entidad_facturadora = None
+                if len(active_company_participants) == 1:
+                    participant_company = active_company_participants[0].participante_empresa
+                    if company_has_active_fiscal_config(participant_company):
+                        entidad_facturadora = participant_company
+                    else:
+                        report.add_skip(
+                            'mandatos_facturacion',
+                            {
+                                'property_legacy_id': item['legacy_id'],
+                                'reason': 'Empresa participante sin ConfiguracionFiscalEmpresa activa; mandato comunitario queda sin entidad facturadora.',
+                                'empresa_id': participant_company.id,
+                            },
+                        )
                 mandato, created = MandatoOperacion.objects.update_or_create(
                     propiedad=propiedad,
                     estado='activa',

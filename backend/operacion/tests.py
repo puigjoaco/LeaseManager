@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
+from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from patrimonio.models import (
     ComunidadPatrimonial,
     Empresa,
@@ -80,6 +81,30 @@ class OperacionAPITests(APITestCase):
             activo=True,
         )
         return empresa
+
+    def _create_active_fiscal_config(self, empresa):
+        regimen, _ = RegimenTributarioEmpresa.objects.get_or_create(
+            codigo_regimen='pro_pyme_general',
+            defaults={
+                'descripcion': 'Pro Pyme General',
+                'estado': EstadoRegistro.ACTIVE,
+            },
+        )
+        config, _ = ConfiguracionFiscalEmpresa.objects.get_or_create(
+            empresa=empresa,
+            defaults={
+                'regimen_tributario': regimen,
+                'afecta_iva_arriendo': False,
+                'tasa_iva': '0.00',
+                'tasa_ppm_vigente': '1.00',
+                'aplica_ppm': True,
+                'ddjj_habilitadas': [],
+                'inicio_ejercicio': '2026-01-01',
+                'moneda_funcional': 'CLP',
+                'estado': EstadoRegistro.ACTIVE,
+            },
+        )
+        return config
 
     def _create_active_comunidad(self, nombre):
         socio_1 = self._create_socio(f'{nombre} Socio 1', '55555555-5')
@@ -263,6 +288,7 @@ class OperacionAPITests(APITestCase):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
         admin_company = self._create_active_empresa('AdminCo', '88888888-8')
         facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
+        self._create_active_fiscal_config(facturadora)
         propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-001')
         cuenta = self._create_active_account(empresa=admin_company, numero='ACC-001')
 
@@ -279,6 +305,26 @@ class OperacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['administrador_operativo_tipo'], 'empresa')
         self.assertTrue(AuditEvent.objects.filter(event_type='operacion.mandato_operacion.created').exists())
+
+    def test_active_mandato_rejects_facturadora_without_active_fiscal_config(self):
+        propietario = self._create_socio('Propietario Uno', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo', '88888888-8')
+        facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-001B')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-001B')
+
+        response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+            facturadora_id=facturadora.id,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('entidad_facturadora', response.data)
 
     def test_active_mandato_rejects_property_owner_mismatch(self):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
@@ -302,6 +348,7 @@ class OperacionAPITests(APITestCase):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
         admin_company = self._create_active_empresa('AdminCo', '88888888-8')
         facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
+        self._create_active_fiscal_config(facturadora)
         unrelated_owner = self._create_socio('Tercero Uno', '13131313-1')
         propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-003')
         cuenta = self._create_active_account(socio=unrelated_owner, numero='ACC-003')
@@ -402,6 +449,7 @@ class OperacionAPITests(APITestCase):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
         admin_company = self._create_active_empresa('AdminCo', '88888888-8')
         facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
+        self._create_active_fiscal_config(facturadora)
         propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-005')
         cuenta = self._create_active_account(empresa=admin_company, numero='ACC-005')
         mandato_response = self._create_active_mandato(
