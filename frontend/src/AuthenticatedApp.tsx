@@ -720,6 +720,10 @@ type ConexionBancaria = {
   provider_key: string
   credencial_ref: string
   scope: string
+  evidencia_gate_ref: string
+  prueba_conectividad_ref: string
+  prueba_movimientos_ref: string
+  prueba_saldos_ref: string
   expira_en: string | null
   estado_conexion: string
   primaria_movimientos: boolean
@@ -734,6 +738,8 @@ type MovimientoBancario = {
   tipo_movimiento: string
   monto: string
   descripcion_origen: string
+  origen_importacion: string
+  evidencia_importacion_ref: string
   numero_documento: string
   saldo_reportado: string | null
   referencia: string
@@ -1476,9 +1482,13 @@ function App() {
     provider_key: 'banco_de_chile',
     credencial_ref: 'local-test',
     scope: 'movimientos',
+    evidencia_gate_ref: '',
+    prueba_conectividad_ref: '',
+    prueba_movimientos_ref: '',
+    prueba_saldos_ref: '',
     expira_en: '',
-    estado_conexion: 'activa',
-    primaria_movimientos: true,
+    estado_conexion: 'verificando',
+    primaria_movimientos: false,
     primaria_saldos: false,
     primaria_conectividad: false,
   })
@@ -1488,6 +1498,8 @@ function App() {
     tipo_movimiento: 'abono',
     monto: '',
     descripcion_origen: '',
+    origen_importacion: 'manual_controlada',
+    evidencia_importacion_ref: '',
     numero_documento: '',
     saldo_reportado: '',
     referencia: '',
@@ -2019,9 +2031,13 @@ function App() {
       provider_key: 'banco_de_chile',
       credencial_ref: 'local-test',
       scope: 'movimientos',
+      evidencia_gate_ref: '',
+      prueba_conectividad_ref: '',
+      prueba_movimientos_ref: '',
+      prueba_saldos_ref: '',
       expira_en: '',
-      estado_conexion: 'activa',
-      primaria_movimientos: true,
+      estado_conexion: 'verificando',
+      primaria_movimientos: false,
       primaria_saldos: false,
       primaria_conectividad: false,
     })
@@ -2031,6 +2047,8 @@ function App() {
       tipo_movimiento: 'abono',
       monto: '',
       descripcion_origen: '',
+      origen_importacion: 'manual_controlada',
+      evidencia_importacion_ref: '',
       numero_documento: '',
       saldo_reportado: '',
       referencia: '',
@@ -3616,9 +3634,13 @@ function App() {
         provider_key: 'banco_de_chile',
         credencial_ref: 'local-test',
         scope: 'movimientos',
+        evidencia_gate_ref: '',
+        prueba_conectividad_ref: '',
+        prueba_movimientos_ref: '',
+        prueba_saldos_ref: '',
         expira_en: '',
-        estado_conexion: 'activa',
-        primaria_movimientos: true,
+        estado_conexion: 'verificando',
+        primaria_movimientos: false,
         primaria_saldos: false,
         primaria_conectividad: false,
       })
@@ -3640,6 +3662,8 @@ function App() {
         tipo_movimiento: 'abono',
         monto: '',
         descripcion_origen: '',
+        origen_importacion: 'manual_controlada',
+        evidencia_importacion_ref: '',
         numero_documento: '',
         saldo_reportado: '',
         referencia: '',
