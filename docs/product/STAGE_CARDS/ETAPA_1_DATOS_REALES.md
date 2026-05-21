@@ -60,4 +60,11 @@ registrado y no hay autorizacion nueva, no se debe repetir la misma solicitud
 en bucle; corresponde avanzar en preparacion segura o dejar una unica pregunta
 concreta.
 
+Verificacion segura sin fuente autorizada:
+
+```powershell
+cd "D:/Proyectos/LeaseManager"
+.\scripts\run-stage1-local-readiness.ps1
+```
+
 Procedimiento operativo: `docs/product/STAGE1_SNAPSHOT_INTAKE_MAYO_2026.md`.
