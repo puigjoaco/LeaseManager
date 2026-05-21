@@ -13,8 +13,10 @@ from .models import (
     DistribucionCobroMensual,
     EstadoCuentaArrendatario,
     EstadoPago,
+    GateCobroExterno,
     GarantiaContractual,
     HistorialGarantia,
+    IntentoPagoWebPay,
     PagoMensual,
     RepactacionDeuda,
     ValorUFDiario,
@@ -124,6 +126,7 @@ class PagoMensualSerializer(serializers.ModelSerializer):
             'monto_pagado_clp',
             'fecha_vencimiento',
             'fecha_deposito_banco',
+            'fecha_pago_webpay',
             'fecha_deteccion_sistema',
             'estado_pago',
             'dias_mora',
@@ -169,11 +172,18 @@ class PagoMensualSerializer(serializers.ModelSerializer):
                     {'monto_pagado_clp': 'Los estados de pago efectivo requieren un monto_pagado_clp mayor que cero.'}
                 )
             if not attrs.get('fecha_deposito_banco', self.instance.fecha_deposito_banco) and not attrs.get(
+                'fecha_pago_webpay',
+                self.instance.fecha_pago_webpay,
+            ) and not attrs.get(
                 'fecha_deteccion_sistema',
                 self.instance.fecha_deteccion_sistema,
             ):
                 raise serializers.ValidationError(
-                    {'fecha_deposito_banco': 'Debe registrar fecha de deposito o deteccion para cerrar un pago.'}
+                    {
+                        'fecha_deposito_banco': (
+                            'Debe registrar fecha de deposito, fecha WebPay o deteccion para cerrar un pago.'
+                        )
+                    }
                 )
 
         candidate = build_validation_candidate(self.instance, PagoMensual)
@@ -204,6 +214,72 @@ class PagoMensualGenerateSerializer(serializers.Serializer):
         user = _request_user(self)
         if user and getattr(user, 'is_authenticated', False):
             self.fields['contrato_id'].queryset = _scoped_contrato_queryset(user)
+
+
+class GateCobroExternoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GateCobroExterno
+        fields = (
+            'id',
+            'capacidad_key',
+            'provider_key',
+            'estado_gate',
+            'restricciones_operativas',
+            'evidencia_ref',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, GateCobroExterno)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
+class IntentoPagoWebPaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IntentoPagoWebPay
+        fields = (
+            'id',
+            'pago_mensual',
+            'gate_cobro',
+            'provider_key',
+            'monto_clp_snapshot',
+            'buy_order',
+            'session_id',
+            'return_url_ref',
+            'estado',
+            'motivo_bloqueo',
+            'external_ref',
+            'fecha_pago_webpay',
+            'confirmado_at',
+            'usuario',
+            'provider_payload',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class WebPayIntentPrepareSerializer(serializers.Serializer):
+    gate_cobro = serializers.PrimaryKeyRelatedField(
+        queryset=GateCobroExterno.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    provider_key = serializers.CharField(required=False, allow_blank=True, default='transbank_webpay')
+    return_url_ref = serializers.CharField(required=True, allow_blank=False, trim_whitespace=True)
+
+
+class WebPayIntentConfirmSerializer(serializers.Serializer):
+    external_ref = serializers.CharField(required=True, allow_blank=False, trim_whitespace=True)
+    fecha_pago_webpay = serializers.DateField(required=True)
 
 
 class DistribucionCobroMensualSerializer(serializers.ModelSerializer):

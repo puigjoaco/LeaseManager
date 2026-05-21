@@ -9,7 +9,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from audit.models import AuditEvent
+from audit.models import AuditEvent, ManualResolution
 from core.models import Role, Scope, UserScopeAssignment
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
@@ -20,8 +20,12 @@ from .models import (
     DistribucionCobroMensual,
     CodigoCobroResidual,
     EstadoGarantia,
+    EstadoGateCobroExterno,
+    EstadoIntentoPagoWebPay,
     EstadoPago,
+    GateCobroExterno,
     GarantiaContractual,
+    IntentoPagoWebPay,
     PagoMensual,
     RepactacionDeuda,
     ValorUFDiario,
@@ -154,6 +158,16 @@ class CobranzaAPITests(APITestCase):
         )
         return contrato
 
+    def _generate_monthly_payment(self, *, codigo='CON-WEBPAY', monto_base='100000.00', code='111'):
+        contrato = self._create_active_contract(codigo=codigo, monto_base=monto_base, code=code)
+        response = self.client.post(
+            reverse('cobranza-pago-generate'),
+            {'contrato_id': contrato.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        return PagoMensual.objects.get(pk=response.data['id'])
+
     def _create_contract_for_company_and_arrendatario(self, *, empresa, arrendatario, codigo='CON-SHARED', owner_kind='empresa', comunidad=None):
         propietario_socio = None
         empresa_owner = empresa if owner_kind == 'empresa' else None
@@ -236,6 +250,8 @@ class CobranzaAPITests(APITestCase):
             reverse('cobranza-ajuste-list'),
             reverse('cobranza-pago-list'),
             reverse('cobranza-pago-generate'),
+            reverse('cobranza-webpay-gate-list'),
+            reverse('cobranza-webpay-intent-list'),
             reverse('cobranza-garantia-list'),
             reverse('cobranza-historial-list'),
             reverse('cobranza-repactacion-list'),
@@ -380,6 +396,131 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(update.status_code, status.HTTP_200_OK)
         self.assertEqual(update.data['estado_pago'], EstadoPago.OVERDUE)
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.state_changed').exists())
+
+    def test_webpay_prepare_blocks_when_gate_is_not_open(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-BLOCK')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.CONDITIONED,
+        )
+
+        response = self.client.post(
+            reverse('cobranza-webpay-prepare', args=[payment.pk]),
+            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoIntentoPagoWebPay.BLOCKED)
+        self.assertIn('gate WebPay no esta abierto', response.data['motivo_bloqueo'])
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(str(payment.monto_pagado_clp), '0.00')
+        self.assertTrue(
+            ManualResolution.objects.filter(
+                category='cobranza.webpay.bloqueado',
+                scope_type='cobranza.webpay',
+                scope_reference=str(response.data['id']),
+            ).exists()
+        )
+
+    def test_webpay_prepare_blocks_open_gate_without_evidence(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-NO-EVID')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='',
+        )
+
+        response = self.client.post(
+            reverse('cobranza-webpay-prepare', args=[payment.pk]),
+            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoIntentoPagoWebPay.BLOCKED)
+        self.assertIn('requiere evidencia_ref', response.data['motivo_bloqueo'])
+        self.assertEqual(IntentoPagoWebPay.objects.count(), 1)
+
+    def test_webpay_prepare_open_gate_creates_local_intent_without_closing_payment(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-PREP')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='evidence://webpay-sandbox-ok',
+        )
+
+        response = self.client.post(
+            reverse('cobranza-webpay-prepare', args=[payment.pk]),
+            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoIntentoPagoWebPay.PREPARED)
+        self.assertEqual(response.data['external_ref'], '')
+        self.assertTrue(response.data['buy_order'].startswith(f'LM-PM-{payment.pk}-'))
+        self.assertTrue(response.data['session_id'].startswith(f'LM-WP-{payment.pk}-'))
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+        self.assertIsNone(payment.fecha_pago_webpay)
+        self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.webpay_intento.prepared').exists())
+
+    def test_webpay_manual_confirmation_requires_external_ref(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-EXTREF')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='evidence://webpay-sandbox-ok',
+        )
+        intent = self.client.post(
+            reverse('cobranza-webpay-prepare', args=[payment.pk]),
+            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            format='json',
+        )
+        self.assertEqual(intent.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('cobranza-webpay-intent-confirm-manual', args=[intent.data['id']]),
+            {'external_ref': '', 'fecha_pago_webpay': '2026-01-06'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+
+    def test_webpay_manual_confirmation_marks_payment_paid_with_webpay_date(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-CONF')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='evidence://webpay-sandbox-ok',
+        )
+        intent = self.client.post(
+            reverse('cobranza-webpay-prepare', args=[payment.pk]),
+            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            format='json',
+        )
+        self.assertEqual(intent.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('cobranza-webpay-intent-confirm-manual', args=[intent.data['id']]),
+            {'external_ref': 'TBK-TEST-123', 'fecha_pago_webpay': '2026-01-08'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['estado'], EstadoIntentoPagoWebPay.CONFIRMED_MANUAL)
+        self.assertEqual(response.data['external_ref'], 'TBK-TEST-123')
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PAID)
+        self.assertEqual(str(payment.monto_pagado_clp), str(payment.monto_calculado_clp))
+        self.assertEqual(str(payment.fecha_pago_webpay), '2026-01-08')
+        self.assertIsNone(payment.fecha_deposito_banco)
+        self.assertEqual(payment.dias_mora, 3)
+        self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.webpay_intento.confirmed_manually').exists())
 
     def test_payment_rejects_invalid_state_transition(self):
         contrato = self._create_active_contract(codigo='CON-STATE', monto_base='100000.00', code='111')

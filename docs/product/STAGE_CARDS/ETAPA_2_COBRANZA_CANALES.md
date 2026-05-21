@@ -24,6 +24,10 @@ condicionados sin envios reales accidentales.
 - WhatsApp cerrado por defecto: requiere opt-in con evidencia, template
   aprobado registrado en el gate, ventana `08:00-21:00 America/Santiago`,
   identidad activa y contacto no bloqueado.
+- WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
+  `WebPay.IntentoPago`, retorno controlado y evidencia; confirmar manualmente
+  requiere `external_ref` trazable y `fecha_pago_webpay` diferenciada. Ningun
+  flujo llama Transbank ni marca pago confirmado sin revalidar el gate.
 
 ## Salida
 
