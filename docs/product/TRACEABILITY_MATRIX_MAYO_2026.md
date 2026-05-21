@@ -7,7 +7,7 @@ proxima accion. Debe actualizarse cuando un frente avance.
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes. |
 | PRD vigente | `01_Set_Vigente/PRD_CANONICO.md` | `01_Set_Vigente`, `docs/product` | 0 | resuelto_confirmado | PRD Mayo 2026 aceptado y promovido | Usarlo como contrato rector unico. |
-| PlataformaBase | PRD, ADR stack | `backend/core`, `users`, `audit`, `health`, `frontend` | 0 | resuelto_confirmado | CI main verde, acceptance local, build frontend | Mantener como baseline y no rehacer. |
+| PlataformaBase | PRD, ADR stack | `backend/core`, `users`, `audit`, `health`, `frontend`, `scripts/run-acceptance-workflows.ps1` | 0 | resuelto_confirmado | CI main verde, acceptance local, build frontend y guard Etapa 1 no evidencial | Mantener como baseline y no rehacer. |
 | Patrimonio | PRD, modelo canonico | `backend/patrimonio`, backoffice patrimonio | 1 | implementado_sin_evidencia | Datos reales/snapshot y validacion de entidades | Ejecutar `audit_stage1_matrix` contra snapshot/DB autorizada. |
 | Operacion | PRD, ADR identidad envio | `backend/operacion`, backoffice operacion | 1 | implementado_sin_evidencia | Cuentas, mandatos e identidades validadas | Usar `audit_stage1_matrix` para cerrar matriz entidad-cuenta-mandato. |
 | Contratos | PRD, reglas contractuales | `backend/contratos`, backoffice contratos | 1 | implementado_sin_evidencia | Matriz contrato-propiedad-periodo-garantia | Usar `audit_stage1_matrix`; continuidad de periodos ya tiene gate local. |

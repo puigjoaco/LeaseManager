@@ -48,11 +48,13 @@ El asset `frontend/src/assets/hero.png` se conserva porque es parte de la app.
 ## Gates existentes
 
 - `.github/workflows/release-gate.yml` ejecuta el gate deterministico en PR y
-  push a `main`: backend acceptance, `manage.py check` y frontend build.
+  push a `main`: backend acceptance, `manage.py check`, coherencia de
+  migraciones, guard local de matriz Etapa 1 y frontend build.
 - El smoke publico contra URLs externas queda separado como `workflow_dispatch`
   manual con `run_public_smoke=true`.
 - `scripts/run-acceptance-workflows.ps1` cubre backend acceptance, `manage.py
-  check`, frontend build y smoke publico opcional/manual.
+  check`, `makemigrations --check --dry-run`, `audit_stage1_matrix` como guard
+  local no evidencial, frontend build y smoke publico opcional/manual.
 
 ## Validacion local
 
