@@ -57,6 +57,23 @@ $env:DATABASE_URL="<db-real-autorizada>"
 Si se ejecuta desde un worktree sin `backend/.venv`, agregar `-PythonExe` con
 la ruta al Python autorizado del root limpio.
 
+## Verificacion local sin fuente autorizada
+
+Cuando no existe `DATABASE_URL` autorizado, no se debe repetir la misma
+solicitud de desbloqueo. Para avanzar en preparacion segura, ejecutar el
+readiness local:
+
+```powershell
+cd "D:/Proyectos/LeaseManager"
+.\scripts\run-stage1-local-readiness.ps1
+```
+
+Este comando crea una SQLite vacia bajo `local-evidence/`, ejecuta el wrapper
+del gate con `SourceKind snapshot_controlado` y valida que el resultado esperado
+sea `classification=bloqueado_dato_real`, `ready_for_stage1_close=false` y
+`stage1.data_missing`. Si el gate cerrara con una fuente vacia, el readiness
+falla.
+
 ## Criterio de cierre
 
 El JSON de salida debe indicar:
