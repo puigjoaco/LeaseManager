@@ -22,7 +22,16 @@ from contratos.models import (
     TipoArrendatario,
 )
 from core.stage1_matrix_audit import collect_stage1_matrix_audit
-from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
+from operacion.models import (
+    AsignacionCanalOperacion,
+    CanalOperacion,
+    CuentaRecaudadora,
+    EstadoCuentaRecaudadora,
+    EstadoIdentidadEnvio,
+    EstadoMandatoOperacion,
+    IdentidadDeEnvio,
+    MandatoOperacion,
+)
 from patrimonio.models import (
     ComunidadPatrimonial,
     Empresa,
@@ -120,6 +129,20 @@ class Stage1MatrixAuditTests(TestCase):
             autoriza_comunicacion=True,
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde=date(2026, 1, 1),
+        )
+        identidad_envio = IdentidadDeEnvio.objects.create(
+            empresa_owner=empresa,
+            canal=CanalOperacion.EMAIL,
+            remitente_visible='LeaseManager Controlado',
+            direccion_o_numero='cobranza@example.com',
+            credencial_ref='cred-ref-controlada',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=mandato,
+            canal=CanalOperacion.EMAIL,
+            identidad_envio=identidad_envio,
+            prioridad=1,
         )
         arrendatario = Arrendatario.objects.create(
             tipo_arrendatario=TipoArrendatario.NATURAL,
@@ -315,6 +338,17 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.arrendatario.contacto_no_activo', issue_codes)
         self.assertIn('stage1.arrendatario.contacto_operativo_faltante', issue_codes)
         self.assertIn('stage1.arrendatario.domicilio_notificaciones_faltante', issue_codes)
+
+    def test_active_contract_without_operational_channel_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.mandato_operacion.asignaciones_canal.all().delete()
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.canal_operativo_faltante', issue_codes)
 
     def test_company_tenant_without_representative_snapshot_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
