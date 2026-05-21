@@ -1,5 +1,7 @@
+import os
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 from django.test import TestCase
 
@@ -29,7 +31,30 @@ from patrimonio.models import (  # noqa: E402
 )
 
 
+TEST_MIGRATION_ENV = {
+    'MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT': '17366287-4',
+    'MIGRATION_CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER': '8240452907',
+    'MIGRATION_KNOWN_SOCIO_ACCOUNT_OWNER_RUTS': '8240131105=17366287-4',
+}
+
+
 class MigrationPipelineTests(TestCase):
+    def setUp(self):
+        self._migration_env_patcher = patch.dict(os.environ, TEST_MIGRATION_ENV)
+        self._migration_env_patcher.start()
+        self.addCleanup(self._migration_env_patcher.stop)
+
+    def test_current_migration_flow_requires_explicit_current_context(self):
+        with patch.dict(
+            os.environ,
+            {
+                'MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT': '',
+                'MIGRATION_CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER': '',
+            },
+        ):
+            with self.assertRaisesMessage(ValueError, 'MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT'):
+                run_current_migration_flow({})
+
     def test_transform_legacy_bundle_separates_deterministic_and_unresolved_items(self):
         legacy_rows = {
             'empresas': [
@@ -1164,6 +1189,72 @@ class MigrationPipelineTests(TestCase):
         self.assertEqual(Empresa.objects.count(), 1)
         self.assertGreaterEqual(report_again.updated.get('socios', 0), 1)
 
+    def test_import_bundle_imports_community_owned_account(self):
+        bundle = {
+            'patrimonio': {
+                'socios': [
+                    {
+                        'legacy_id': 'soc-1',
+                        'rut': '17.366.287-4',
+                        'nombre': 'Joaquin Puig Vittini',
+                        'email': '',
+                        'telefono': '',
+                        'domicilio': '',
+                        'activo': True,
+                    }
+                ],
+                'empresas': [],
+                'comunidades': [
+                    {
+                        'legacy_id': 'com-1',
+                        'nombre': 'Comunidad Operativa',
+                        'descripcion': '',
+                        'estado': 'activa',
+                        'representante_legacy_id': 'soc-1',
+                    }
+                ],
+                'participaciones': [
+                    {
+                        'legacy_id': 'par-1',
+                        'owner_kind': 'comunidad',
+                        'owner_legacy_id': 'com-1',
+                        'participante_kind': 'socio',
+                        'participante_legacy_id': 'soc-1',
+                        'porcentaje': '100.00',
+                        'vigente_desde': '2026-01-01',
+                        'vigente_hasta': None,
+                        'activo': True,
+                    }
+                ],
+                'propiedades': [],
+            },
+            'operacion': {
+                'cuentas_recaudadoras': [
+                    {
+                        'legacy_id': 'cta-com-1',
+                        'owner_kind': 'comunidad',
+                        'owner_legacy_id': 'com-1',
+                        'institucion': 'Banco de Chile',
+                        'numero_cuenta': '8240999000',
+                        'tipo_cuenta': 'corriente',
+                        'titular_nombre': 'Comunidad Operativa',
+                        'titular_rut': '17.366.287-4',
+                        'moneda_operativa': 'CLP',
+                        'estado_operativo': 'activa',
+                    }
+                ]
+            },
+            'contratos': {'arrendatarios': [], 'contratos_candidates': [], 'periodos_candidates': []},
+            'unresolved': {},
+        }
+
+        report = import_bundle(bundle)
+
+        self.assertEqual(report.created.get('cuentas_recaudadoras', 0), 1)
+        cuenta = CuentaRecaudadora.objects.get(numero_cuenta='8240999000')
+        self.assertEqual(cuenta.owner_tipo, 'comunidad')
+        self.assertEqual(cuenta.owner_display, 'Comunidad Operativa')
+
     def test_import_bundle_skips_contract_without_unique_active_mandate(self):
         bundle = {
             'patrimonio': {'socios': [], 'empresas': [], 'comunidades': [], 'participaciones': [], 'propiedades': []},
@@ -1850,7 +1941,8 @@ class MigrationPipelineTests(TestCase):
         self.assertEqual(mandate.propietario_tipo, 'comunidad')
         self.assertEqual(mandate.administrador_operativo_tipo, 'socio')
         self.assertEqual(mandate.recaudador_tipo, 'empresa')
-        self.assertEqual(mandate.entidad_facturadora.razon_social, 'Inmobiliaria Puig SpA')
+        self.assertIsNone(mandate.entidad_facturadora_id)
+        self.assertIn('mandatos_facturacion', report.skipped)
 
     def test_import_bundle_creates_manual_resolution_for_unresolved_property_owner(self):
         bundle = {
@@ -2271,7 +2363,8 @@ class MigrationPipelineTests(TestCase):
         comunidad = ComunidadPatrimonial.objects.get(nombre='Edificio Q Dpto 1014')
         self.assertEqual(comunidad.participaciones_activas().count(), 2)
         mandate = MandatoOperacion.objects.get(propiedad__direccion='Edificio Q Dpto 1014')
-        self.assertEqual(mandate.entidad_facturadora.razon_social, 'Inmobiliaria Puig SpA')
+        self.assertIsNone(mandate.entidad_facturadora_id)
+        self.assertIn('mandatos_facturacion', second_report.skipped)
 
     def test_run_current_migration_flow_executes_validated_sequence(self):
         bundle = {
@@ -2428,7 +2521,7 @@ class MigrationPipelineTests(TestCase):
         self.assertEqual(result['final_state']['periodos'], 1)
         self.assertEqual(result['final_state']['mandatos'], 1)
 
-    def test_import_bundle_rerun_preserves_resolved_community_participations_and_facturadora(self):
+    def test_import_bundle_rerun_preserves_resolved_community_participations_and_blocks_facturadora(self):
         bundle = {
             'patrimonio': {
                 'socios': [
@@ -2595,4 +2688,5 @@ class MigrationPipelineTests(TestCase):
         comunidad = ComunidadPatrimonial.objects.get(nombre='Edificio Q Dpto 1014')
         self.assertEqual(comunidad.participaciones_activas().count(), 2)
         mandate = MandatoOperacion.objects.get(propiedad__direccion='Edificio Q Dpto 1014')
-        self.assertEqual(mandate.entidad_facturadora.razon_social, 'Inmobiliaria Puig SpA')
+        self.assertIsNone(mandate.entidad_facturadora_id)
+        self.assertIn('mandatos_facturacion', second_report.skipped)

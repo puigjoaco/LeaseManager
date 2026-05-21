@@ -21,15 +21,31 @@ historicas o savegames de LeaseManager sin mutarlas. El root limpio activo es
 - `scripts/export_legacy_seed_bundle.py`: exporta un bundle canónico desde legacy usando `LEGACY_DATABASE_URL`
 - `scripts/import_seed_bundle.py`: importa al backend nuevo el bundle exportado
 - `inventory/`: salidas generadas del inventario legacy
+- `bundles/`: salida local no versionada para bundles y reportes generados
+
+Los JSON de `migration/bundles/` estan ignorados por Git. Si contienen datos
+legacy, RUTs, cuentas, direcciones o resultados de staging, deben mantenerse
+fuera del repo versionado o en almacenamiento seguro autorizado.
 
 ## Flujo recomendado
+
+Configura el contexto sensible del backlog actual fuera del repo antes de
+resolver comunidades o ejecutar el runner validado. Usa valores reales solo en
+terminal/secret manager autorizado:
+
+```powershell
+$env:MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT="<rut-representante>"
+$env:MIGRATION_CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER="<numero-cuenta>"
+$env:MIGRATION_KNOWN_SOCIO_ACCOUNT_OWNER_RUTS="<numero-cuenta-personal>=<rut-socio>"
+$bundlePath="<ruta-bundle-controlado-fuera-del-repo-o-local-no-versionada>"
+```
 
 1. Exportar bundle canónico read-only:
 
 ```powershell
 cd "D:/Proyectos/LeaseManager"
 $env:LEGACY_DATABASE_URL="postgresql://..."
-backend\.venv\Scripts\python.exe migration\scripts\export_legacy_seed_bundle.py
+backend\.venv\Scripts\python.exe migration\scripts\export_legacy_seed_bundle.py --output $bundlePath
 ```
 
 2. Revisar warnings y `unresolved` del bundle.
@@ -38,7 +54,7 @@ backend\.venv\Scripts\python.exe migration\scripts\export_legacy_seed_bundle.py
 
 ```powershell
 cd "D:/Proyectos/LeaseManager"
-backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py migration\bundles\legacy_seed_bundle.json
+backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py $bundlePath
 ```
 
 4. Resolver automáticamente las comunidades actuales del backlog que quedan como `migration.propiedad.owner_manual_required`:
@@ -52,7 +68,7 @@ backend\.venv\Scripts\python.exe migration\scripts\resolve_current_community_res
 
 ```powershell
 cd "D:/Proyectos/LeaseManager"
-backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py migration\bundles\legacy_seed_bundle.json
+backend\.venv\Scripts\python.exe migration\scripts\import_seed_bundle.py $bundlePath
 ```
 
 6. Reejecutar una tercera vez para validar idempotencia.
@@ -61,14 +77,14 @@ Alternativa equivalente en un solo comando:
 
 ```powershell
 cd "D:/Proyectos/LeaseManager"
-backend\.venv\Scripts\python.exe migration\scripts\run_current_migration_flow.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json
+backend\.venv\Scripts\python.exe migration\scripts\run_current_migration_flow.py $bundlePath
 ```
 
 Rehearsal completamente automatizado sobre una base PostgreSQL nueva:
 
 ```powershell
 cd "D:/Proyectos/LeaseManager"
-backend\.venv\Scripts\python.exe migration\scripts\rehearse_current_migration_flow.py leasemanager_migration_run_YYYYMMDD_vN --output migration\bundles\rehearse_current_migration_flow.json
+backend\.venv\Scripts\python.exe migration\scripts\rehearse_current_migration_flow.py leasemanager_migration_run_YYYYMMDD_vN --bundle-path $bundlePath --output migration\bundles\rehearse_current_migration_flow.local.json
 ```
 
 Ese script:
@@ -92,7 +108,7 @@ Promoción a un PostgreSQL ya existente y vacío:
 ```powershell
 cd "D:/Proyectos/LeaseManager"
 $env:DATABASE_URL="postgresql://..."
-backend\.venv\Scripts\python.exe migration\scripts\promote_current_migration_flow.py migration\bundles\legacy_seed_bundle.regenerated.current_2026-04-08.json --output migration\bundles\promote_current_migration_flow.json
+backend\.venv\Scripts\python.exe migration\scripts\promote_current_migration_flow.py $bundlePath --output migration\bundles\promote_current_migration_flow.local.json
 ```
 
 Ese script:

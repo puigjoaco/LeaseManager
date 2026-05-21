@@ -8,9 +8,16 @@ from django.utils import timezone
 
 from audit.models import ManualResolution
 from audit.services import resolve_migration_property_owner_manual_resolution
+from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro
 from contratos.models import Arrendatario, AvisoTermino, Contrato, ContratoPropiedad, EstadoAvisoTermino, PeriodoContractual
+from migration.runtime_config import (
+    get_current_community_recaudadora_account_number,
+    get_current_community_representative_rut,
+    require_current_community_recaudadora_account_number,
+    require_current_community_representative_rut,
+)
 from operacion.models import CuentaRecaudadora, MandatoOperacion
-from migration.transformers import CURRENT_COMMUNITY_DESIGNATED_REPRESENTATIVE_RUT, DEFAULT_LEGACY_PARTICIPATION_START_DATE
+from migration.transformers import DEFAULT_LEGACY_PARTICIPATION_START_DATE
 from patrimonio.models import (
     ComunidadPatrimonial,
     Empresa,
@@ -48,8 +55,6 @@ LEGACY_CONTRACT_STATE_MAP = {
     'terminado_anticipadamente': 'terminado_anticipadamente',
     'cancelado': 'cancelado',
 }
-
-CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER = '8240452907'
 
 EXPECTED_CURRENT_MIGRATION_FINAL_STATE = {
     'comunidades': 16,
@@ -198,12 +203,35 @@ def sync_migration_manual_resolutions(bundle, report):
     return {'created': created, 'updated': updated}
 
 
-def resolve_current_community_admin():
-    return Socio.objects.filter(rut=normalize_rut(CURRENT_COMMUNITY_DESIGNATED_REPRESENTATIVE_RUT)).first()
+def resolve_current_community_admin(*, required=False):
+    configured_rut = (
+        require_current_community_representative_rut()
+        if required
+        else get_current_community_representative_rut()
+    )
+    if not configured_rut:
+        return None
+    return Socio.objects.filter(rut=normalize_rut(configured_rut)).first()
 
 
-def resolve_current_community_account():
-    return CuentaRecaudadora.objects.filter(numero_cuenta=CURRENT_COMMUNITY_RECAUDADORA_ACCOUNT_NUMBER).first()
+def resolve_current_community_account(*, required=False):
+    configured_account = (
+        require_current_community_recaudadora_account_number()
+        if required
+        else get_current_community_recaudadora_account_number()
+    )
+    if not configured_account:
+        return None
+    return CuentaRecaudadora.objects.filter(numero_cuenta=configured_account).first()
+
+
+def company_has_active_fiscal_config(company):
+    if not company:
+        return False
+    return ConfiguracionFiscalEmpresa.objects.filter(
+        empresa=company,
+        estado=EstadoRegistro.ACTIVE,
+    ).exists()
 
 
 def load_resolved_property_map():
@@ -233,9 +261,9 @@ def load_resolved_property_context():
 def resolve_current_community_manual_resolutions(*, actor_user=None, ip_address=None):
     resolved = 0
     skipped = []
-    representative = resolve_current_community_admin()
+    representative = resolve_current_community_admin(required=True)
     if representative is None:
-        raise ValueError('No existe el socio canónico Joaquín Puig Vittini para resolver comunidades actuales.')
+        raise ValueError('No existe el socio canónico configurado para resolver comunidades actuales.')
 
     resolutions = ManualResolution.objects.filter(
         category='migration.propiedad.owner_manual_required',
@@ -327,6 +355,8 @@ def validate_current_migration_empty_state(snapshot):
 
 
 def run_current_migration_flow(bundle):
+    require_current_community_representative_rut()
+    require_current_community_recaudadora_account_number()
     pass_1 = import_bundle(bundle)
     community_resolution = resolve_current_community_manual_resolutions()
     pass_2 = import_bundle(bundle)
@@ -555,6 +585,7 @@ def import_bundle(bundle):
     imported_accounts_by_owner = {}
     for item in bundle['operacion']['cuentas_recaudadoras']:
         empresa_owner = empresa_map.get(item['owner_legacy_id']) if item['owner_kind'] == 'empresa' else None
+        comunidad_owner = comunidad_map.get(item['owner_legacy_id']) if item['owner_kind'] == 'comunidad' else None
         socio_owner = socio_map.get(item['owner_legacy_id']) if item['owner_kind'] == 'socio' else None
         if item['owner_kind'] == 'empresa' and not empresa_owner:
             report.add_skip(
@@ -562,6 +593,16 @@ def import_bundle(bundle):
                 {
                     'legacy_id': item['legacy_id'],
                     'reason': 'No se encontro la empresa canónica para la cuenta recaudadora.',
+                    'owner_legacy_id': item['owner_legacy_id'],
+                },
+            )
+            continue
+        if item['owner_kind'] == 'comunidad' and not comunidad_owner:
+            report.add_skip(
+                'cuentas_recaudadoras',
+                {
+                    'legacy_id': item['legacy_id'],
+                    'reason': 'No se encontro la comunidad canónica para la cuenta recaudadora.',
                     'owner_legacy_id': item['owner_legacy_id'],
                 },
             )
@@ -581,6 +622,7 @@ def import_bundle(bundle):
             numero_cuenta=item['numero_cuenta'],
             defaults={
                 'empresa_owner': empresa_owner,
+                'comunidad_owner': comunidad_owner,
                 'socio_owner': socio_owner,
                 'tipo_cuenta': item['tipo_cuenta'],
                 'titular_nombre': item['titular_nombre'],
@@ -646,7 +688,20 @@ def import_bundle(bundle):
                     )
                     continue
 
-                entidad_facturadora = active_company_participants[0].participante_empresa if len(active_company_participants) == 1 else None
+                entidad_facturadora = None
+                if len(active_company_participants) == 1:
+                    participant_company = active_company_participants[0].participante_empresa
+                    if company_has_active_fiscal_config(participant_company):
+                        entidad_facturadora = participant_company
+                    else:
+                        report.add_skip(
+                            'mandatos_facturacion',
+                            {
+                                'property_legacy_id': item['legacy_id'],
+                                'reason': 'Empresa participante sin ConfiguracionFiscalEmpresa activa; mandato comunitario queda sin entidad facturadora.',
+                                'empresa_id': participant_company.id,
+                            },
+                        )
                 mandato, created = MandatoOperacion.objects.update_or_create(
                     propiedad=propiedad,
                     estado='activa',
@@ -657,6 +712,7 @@ def import_bundle(bundle):
                         'administrador_empresa_owner': None,
                         'administrador_socio_owner': admin,
                         'recaudador_empresa_owner': cuenta.empresa_owner,
+                        'recaudador_comunidad_owner': cuenta.comunidad_owner,
                         'recaudador_socio_owner': cuenta.socio_owner,
                         'entidad_facturadora': entidad_facturadora,
                         'cuenta_recaudadora': cuenta,
@@ -694,6 +750,7 @@ def import_bundle(bundle):
                         'administrador_empresa_owner': None,
                         'administrador_socio_owner': owner,
                         'recaudador_empresa_owner': None,
+                        'recaudador_comunidad_owner': None,
                         'recaudador_socio_owner': owner,
                         'entidad_facturadora': None,
                         'cuenta_recaudadora': cuenta,
@@ -740,6 +797,7 @@ def import_bundle(bundle):
                 'administrador_empresa_owner': owner,
                 'administrador_socio_owner': None,
                 'recaudador_empresa_owner': owner,
+                'recaudador_comunidad_owner': None,
                 'recaudador_socio_owner': None,
                 'entidad_facturadora': owner,
                 'cuenta_recaudadora': cuenta,

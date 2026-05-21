@@ -45,6 +45,7 @@ $testTargets = @(
     'core.tests.EffectiveRoleUtilityTests',
     'core.tests_permissions.RolePermissionTests',
     'core.tests_scope_access.ScopeFilteringAPITests',
+    'core.tests_stage1_matrix_audit.Stage1MatrixAuditTests',
     'health.tests.HealthEndpointTests',
     'patrimonio.tests.PatrimonioAPITests',
     'patrimonio.tests.PatrimonioMigrationSafetyTests',
@@ -81,6 +82,22 @@ if (-not $OnlySmoke) {
         Step "Backend system check"
         & $pythonExe manage.py check
         Assert-Condition ($LASTEXITCODE -eq 0) 'manage.py check fallo.'
+
+        Step "Backend migration consistency"
+        & $pythonExe manage.py makemigrations --check --dry-run
+        Assert-Condition ($LASTEXITCODE -eq 0) 'makemigrations --check --dry-run detecto cambios pendientes.'
+
+        Step "Stage 1 matrix audit guard"
+        & $pythonExe manage.py migrate --noinput
+        Assert-Condition ($LASTEXITCODE -eq 0) 'migrate para auditor Stage 1 fallo.'
+        $stage1AuditOutput = & $pythonExe manage.py audit_stage1_matrix --source-kind local --source-label acceptance-local | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'audit_stage1_matrix fallo.'
+        if ($stage1AuditOutput.Trim()) {
+            Write-Host $stage1AuditOutput
+        }
+        $stage1Audit = $stage1AuditOutput | ConvertFrom-Json
+        Assert-Condition ($stage1Audit.ready_for_stage1_close -eq $false) 'Una fuente local no evidencial no puede cerrar Etapa 1.'
+        Assert-Condition ($stage1Audit.evidence_grade -eq $false) 'La auditoria local de Etapa 1 no debe marcar evidencia suficiente.'
     }
     finally {
         Pop-Location

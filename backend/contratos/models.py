@@ -1,3 +1,4 @@
+import calendar
 from decimal import Decimal
 
 from django.conf import settings
@@ -143,6 +144,13 @@ class Contrato(TimestampedModel):
             raise ValidationError({'dias_prealerta_admin': 'Los dias de prealerta deben ser mayores que cero.'})
 
         if self.estado in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:
+            if self.fecha_inicio.day != 1:
+                raise ValidationError({'fecha_inicio': 'Un contrato vigente o futuro debe iniciar el dia 1.'})
+            last_day = calendar.monthrange(self.fecha_fin_vigente.year, self.fecha_fin_vigente.month)[1]
+            if self.fecha_fin_vigente.day != last_day:
+                raise ValidationError(
+                    {'fecha_fin_vigente': 'Un contrato vigente o futuro debe terminar el ultimo dia del mes.'}
+                )
             if self.mandato_operacion.estado != 'activa':
                 raise ValidationError(
                     {'mandato_operacion': 'Un contrato vigente o futuro requiere un mandato operativo activo.'}
@@ -181,6 +189,54 @@ class ContratoPropiedad(TimestampedModel):
     def __str__(self):
         return f'{self.contrato.codigo_contrato} - {self.propiedad.codigo_propiedad}'
 
+    def clean(self):
+        super().clean()
+        if self.codigo_conciliacion_efectivo_snapshot == '000':
+            raise ValidationError(
+                {
+                    'codigo_conciliacion_efectivo_snapshot': (
+                        'El codigo efectivo debe estar en el rango 001-999.'
+                    )
+                }
+            )
+        if not self.contrato_id or not self.propiedad_id:
+            return
+        if self.contrato.estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:
+            return
+
+        same_state_links = ContratoPropiedad.objects.filter(
+            propiedad_id=self.propiedad_id,
+            contrato__estado=self.contrato.estado,
+        ).exclude(pk=self.pk)
+        if self.contrato_id:
+            same_state_links = same_state_links.exclude(contrato_id=self.contrato_id)
+
+        if same_state_links.exists():
+            label = 'vigente' if self.contrato.estado == EstadoContrato.ACTIVE else 'futuro'
+            raise ValidationError(
+                {'propiedad': f'La propiedad ya participa en otro contrato {label}.'}
+            )
+
+        same_code_links = ContratoPropiedad.objects.filter(
+            contrato__mandato_operacion__cuenta_recaudadora_id=(
+                self.contrato.mandato_operacion.cuenta_recaudadora_id
+            ),
+            contrato__estado=self.contrato.estado,
+            codigo_conciliacion_efectivo_snapshot=self.codigo_conciliacion_efectivo_snapshot,
+        ).exclude(pk=self.pk)
+        if self.contrato_id:
+            same_code_links = same_code_links.exclude(contrato_id=self.contrato_id)
+
+        if same_code_links.exists():
+            label = 'vigente' if self.contrato.estado == EstadoContrato.ACTIVE else 'futuro'
+            raise ValidationError(
+                {
+                    'codigo_conciliacion_efectivo_snapshot': (
+                        f'El codigo efectivo ya esta usado en otro contrato {label} de la misma cuenta recaudadora.'
+                    )
+                }
+            )
+
 
 class PeriodoContractual(TimestampedModel):
     contrato = models.ForeignKey(
@@ -212,6 +268,10 @@ class PeriodoContractual(TimestampedModel):
         super().clean()
         if self.fecha_fin < self.fecha_inicio:
             raise ValidationError({'fecha_fin': 'La fecha fin del periodo no puede ser anterior al inicio.'})
+        if self.moneda_base == MonedaBaseContrato.CLP and self.monto_base < Decimal('1000.00'):
+            raise ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
+        if self.moneda_base == MonedaBaseContrato.UF and self.monto_base <= Decimal('0.00'):
+            raise ValidationError({'monto_base': 'Un periodo UF debe tener monto positivo.'})
 
 
 class CodeudorSolidario(TimestampedModel):

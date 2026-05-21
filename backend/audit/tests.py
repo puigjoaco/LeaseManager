@@ -1,3 +1,6 @@
+import os
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -268,15 +271,16 @@ class AuditAPITests(APITestCase):
             },
         )
 
-        response = self.client.post(
-            reverse('manual-resolution-resolve-property-owner', args=[resolution.pk]),
-            {
-                'nombre_comunidad': 'Comunidad Designada Default',
-                'representante_modo': ModoRepresentacionComunidad.DESIGNATED,
-                'region': 'RM',
-            },
-            format='json',
-        )
+        with patch.dict(os.environ, {'MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT': default_representative.rut}):
+            response = self.client.post(
+                reverse('manual-resolution-resolve-property-owner', args=[resolution.pk]),
+                {
+                    'nombre_comunidad': 'Comunidad Designada Default',
+                    'representante_modo': ModoRepresentacionComunidad.DESIGNATED,
+                    'region': 'RM',
+                },
+                format='json',
+            )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         comunidad = ComunidadPatrimonial.objects.get()

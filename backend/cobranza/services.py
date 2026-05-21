@@ -281,7 +281,6 @@ def apply_guarantee_movement(*, garantia, tipo_movimiento, monto_clp, fecha, jus
     else:
         raise ValueError('Tipo de movimiento de garantia no soportado.')
 
-    garantia.full_clean()
     recalculate_guarantee_state(garantia)
     garantia.full_clean()
     garantia.save()

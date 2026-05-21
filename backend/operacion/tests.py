@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
+from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from patrimonio.models import (
     ComunidadPatrimonial,
     Empresa,
@@ -81,6 +82,30 @@ class OperacionAPITests(APITestCase):
         )
         return empresa
 
+    def _create_active_fiscal_config(self, empresa):
+        regimen, _ = RegimenTributarioEmpresa.objects.get_or_create(
+            codigo_regimen='pro_pyme_general',
+            defaults={
+                'descripcion': 'Pro Pyme General',
+                'estado': EstadoRegistro.ACTIVE,
+            },
+        )
+        config, _ = ConfiguracionFiscalEmpresa.objects.get_or_create(
+            empresa=empresa,
+            defaults={
+                'regimen_tributario': regimen,
+                'afecta_iva_arriendo': False,
+                'tasa_iva': '0.00',
+                'tasa_ppm_vigente': '1.00',
+                'aplica_ppm': True,
+                'ddjj_habilitadas': [],
+                'inicio_ejercicio': '2026-01-01',
+                'moneda_funcional': 'CLP',
+                'estado': EstadoRegistro.ACTIVE,
+            },
+        )
+        return config
+
     def _create_active_comunidad(self, nombre):
         socio_1 = self._create_socio(f'{nombre} Socio 1', '55555555-5')
         socio_2 = self._create_socio(f'{nombre} Socio 2', '66666666-6')
@@ -124,15 +149,18 @@ class OperacionAPITests(APITestCase):
             socio_owner=socio,
         )
 
-    def _create_active_account(self, *, empresa=None, socio=None, numero='123456'):
+    def _create_active_account(self, *, empresa=None, comunidad=None, socio=None, numero='123456'):
+        titular_nombre = empresa.razon_social if empresa else comunidad.nombre if comunidad else socio.nombre
+        titular_rut = empresa.rut if empresa else comunidad.representante_socio.rut if comunidad else socio.rut
         return CuentaRecaudadora.objects.create(
             empresa_owner=empresa,
+            comunidad_owner=comunidad,
             socio_owner=socio,
             institucion='Banco Uno',
             numero_cuenta=numero,
             tipo_cuenta='corriente',
-            titular_nombre=empresa.razon_social if empresa else socio.nombre,
-            titular_rut=empresa.rut if empresa else socio.rut,
+            titular_nombre=titular_nombre,
+            titular_rut=titular_rut,
             moneda_operativa=MonedaOperativa.CLP,
             estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
         )
@@ -204,6 +232,26 @@ class OperacionAPITests(APITestCase):
         duplicate_response = self.client.post(reverse('operacion-cuenta-list'), payload, format='json')
         self.assertEqual(duplicate_response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_create_active_account_for_comunidad_owner(self):
+        comunidad = self._create_active_comunidad('Comunidad Operativa')
+        payload = {
+            'owner_tipo': 'comunidad',
+            'owner_id': comunidad.id,
+            'institucion': 'Banco Uno',
+            'numero_cuenta': '999001',
+            'tipo_cuenta': 'corriente',
+            'titular_nombre': comunidad.nombre,
+            'titular_rut': comunidad.representante_socio.rut,
+            'moneda_operativa': MonedaOperativa.CLP,
+            'estado_operativo': EstadoCuentaRecaudadora.ACTIVE,
+        }
+
+        response = self.client.post(reverse('operacion-cuenta-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['owner_tipo'], 'comunidad')
+        self.assertEqual(response.data['owner_id'], comunidad.id)
+
     def test_create_identity_validates_email_when_channel_is_email(self):
         socio = self._create_socio('Operador Uno', '33333333-3')
         invalid_response = self.client.post(
@@ -240,6 +288,7 @@ class OperacionAPITests(APITestCase):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
         admin_company = self._create_active_empresa('AdminCo', '88888888-8')
         facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
+        self._create_active_fiscal_config(facturadora)
         propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-001')
         cuenta = self._create_active_account(empresa=admin_company, numero='ACC-001')
 
@@ -256,6 +305,26 @@ class OperacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['administrador_operativo_tipo'], 'empresa')
         self.assertTrue(AuditEvent.objects.filter(event_type='operacion.mandato_operacion.created').exists())
+
+    def test_active_mandato_rejects_facturadora_without_active_fiscal_config(self):
+        propietario = self._create_socio('Propietario Uno', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo', '88888888-8')
+        facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-001B')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-001B')
+
+        response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+            facturadora_id=facturadora.id,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('entidad_facturadora', response.data)
 
     def test_active_mandato_rejects_property_owner_mismatch(self):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
@@ -279,6 +348,7 @@ class OperacionAPITests(APITestCase):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
         admin_company = self._create_active_empresa('AdminCo', '88888888-8')
         facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
+        self._create_active_fiscal_config(facturadora)
         unrelated_owner = self._create_socio('Tercero Uno', '13131313-1')
         propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-003')
         cuenta = self._create_active_account(socio=unrelated_owner, numero='ACC-003')
@@ -296,6 +366,25 @@ class OperacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['recaudador_tipo'], 'socio')
         self.assertEqual(response.data['recaudador_id'], unrelated_owner.id)
+
+    def test_active_mandato_accepts_comunidad_recaudadora(self):
+        comunidad = self._create_active_comunidad('Comunidad Recaudadora')
+        admin = comunidad.representante_socio
+        propiedad = self._create_property_for_owner(comunidad=comunidad, codigo='COM-001')
+        cuenta = self._create_active_account(comunidad=comunidad, numero='ACC-COM-001')
+
+        response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='comunidad',
+            propietario_id=comunidad.id,
+            admin_tipo='socio',
+            admin_id=admin.id,
+            cuenta_id=cuenta.id,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['recaudador_tipo'], 'comunidad')
+        self.assertEqual(response.data['recaudador_id'], comunidad.id)
 
     def test_active_mandato_rejects_recaudador_that_does_not_match_account_owner(self):
         propietario = self._create_socio('Propietario Uno', '17171717-5')
@@ -360,6 +449,7 @@ class OperacionAPITests(APITestCase):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
         admin_company = self._create_active_empresa('AdminCo', '88888888-8')
         facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
+        self._create_active_fiscal_config(facturadora)
         propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-005')
         cuenta = self._create_active_account(empresa=admin_company, numero='ACC-005')
         mandato_response = self._create_active_mandato(

@@ -105,7 +105,7 @@ export function OperacionWorkspace({
             <select value={cuentaDraft.estado_operativo} onChange={(event) => setCuentaDraft((current) => ({ ...current, estado_operativo: event.target.value }))}><option value="activa">Activa</option><option value="pausada">Pausada</option><option value="inactiva">Inactiva</option></select>
             <select value={`${cuentaDraft.owner_tipo}:${cuentaDraft.owner_id}`} onChange={(event) => { const [tipo, id] = event.target.value.split(':'); setCuentaDraft((current) => ({ ...current, owner_tipo: tipo, owner_id: id || '' })) }}>
               <option value="">Selecciona owner</option>
-              {simpleOwners.map((owner) => <option key={`${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>)}
+              {patrimonioOwners.map((owner) => <option key={`${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>)}
             </select>
             <div className="inline-actions">
               <button type="submit" className="button-primary" disabled={isSubmitting || !canEditOperacion || !cuentaDraft.owner_id}>{editingCuentaId ? 'Guardar cambios' : 'Guardar cuenta'}</button>
@@ -131,7 +131,7 @@ export function OperacionWorkspace({
             </select>
             <select value={`${mandatoDraft.recaudador_tipo}:${mandatoDraft.recaudador_id}`} onChange={(event) => { const [tipo, id] = event.target.value.split(':'); setMandatoDraft((current) => ({ ...current, recaudador_tipo: tipo, recaudador_id: id || '' })) }}>
               <option value="">Selecciona recaudador</option>
-              {simpleOwners.map((owner) => <option key={`rec-${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>)}
+              {patrimonioOwners.map((owner) => <option key={`rec-${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>)}
             </select>
             <select value={mandatoDraft.entidad_facturadora_id} onChange={(event) => setMandatoDraft((current) => ({ ...current, entidad_facturadora_id: event.target.value }))}>
               <option value="">Sin facturadora</option>

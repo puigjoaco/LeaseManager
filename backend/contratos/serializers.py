@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -19,6 +20,7 @@ from .models import (
     EstadoAvisoTermino,
     EstadoCodeudorSolidario,
     EstadoContrato,
+    MonedaBaseContrato,
     PeriodoContractual,
     RolContratoPropiedad,
 )
@@ -147,6 +149,11 @@ class ContratoPropiedadWriteSerializer(serializers.Serializer):
         if user and getattr(user, 'is_authenticated', False):
             self.fields['propiedad_id'].queryset = _scoped_propiedad_queryset(user)
 
+    def validate_codigo_conciliacion_efectivo_snapshot(self, value):
+        if value == '000':
+            raise serializers.ValidationError('El codigo efectivo debe estar en el rango 001-999.')
+        return value
+
 
 class PeriodoContractualReadSerializer(serializers.ModelSerializer):
     class Meta:
@@ -177,6 +184,10 @@ class PeriodoContractualWriteSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs['fecha_fin'] < attrs['fecha_inicio']:
             raise serializers.ValidationError({'fecha_fin': 'La fecha fin del periodo no puede ser anterior al inicio.'})
+        if attrs['moneda_base'] == MonedaBaseContrato.CLP and attrs['monto_base'] < Decimal('1000.00'):
+            raise serializers.ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
+        if attrs['moneda_base'] == MonedaBaseContrato.UF and attrs['monto_base'] <= Decimal('0.00'):
+            raise serializers.ValidationError({'monto_base': 'Un periodo UF debe tener monto positivo.'})
         return attrs
 
 
@@ -298,6 +309,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         self._validate_periods(periodos, fecha_inicio, fecha_fin_vigente)
         self._validate_codeudores(codeudores)
         self._validate_overlap(contrato_propiedades, estado)
+        self._validate_effective_code_namespace(contrato_propiedades, estado, mandato)
         self._validate_future_contract_requirements(contrato_propiedades, estado, fecha_inicio)
 
         candidate = build_validation_candidate(self.instance, Contrato)
@@ -386,6 +398,11 @@ class ContratoSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {'periodos_contractuales': 'Los periodos contractuales no pueden solaparse.'}
                 )
+            expected_start = sorted_periods[index - 1]['fecha_fin'] + timedelta(days=1)
+            if sorted_periods[index]['fecha_inicio'] != expected_start:
+                raise serializers.ValidationError(
+                    {'periodos_contractuales': 'Los periodos contractuales deben cubrir la vigencia sin huecos.'}
+                )
 
         if fecha_inicio and sorted_periods[0]['fecha_inicio'] != fecha_inicio:
             raise serializers.ValidationError(
@@ -425,6 +442,33 @@ class ContratoSerializer(serializers.ModelSerializer):
             label = 'vigente' if estado == EstadoContrato.ACTIVE else 'futuro'
             raise serializers.ValidationError(
                 {'contrato_propiedades': f'Las propiedades ya tienen un contrato {label} incompatible.'}
+            )
+
+    def _validate_effective_code_namespace(self, contrato_propiedades, estado, mandato):
+        if estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE} or not mandato:
+            return
+
+        primary_code = next(
+            item['codigo_conciliacion_efectivo_snapshot']
+            for item in contrato_propiedades
+            if item['rol_en_contrato'] == RolContratoPropiedad.PRIMARY
+        )
+        queryset = ContratoPropiedad.objects.filter(
+            contrato__mandato_operacion__cuenta_recaudadora_id=mandato.cuenta_recaudadora_id,
+            contrato__estado=estado,
+            codigo_conciliacion_efectivo_snapshot=primary_code,
+        )
+        if self.instance:
+            queryset = queryset.exclude(contrato=self.instance)
+
+        if queryset.exists():
+            label = 'vigente' if estado == EstadoContrato.ACTIVE else 'futuro'
+            raise serializers.ValidationError(
+                {
+                    'contrato_propiedades': (
+                        f'El codigo efectivo ya esta usado en otro contrato {label} de la misma cuenta recaudadora.'
+                    )
+                }
             )
 
     def _validate_future_contract_requirements(self, contrato_propiedades, estado, fecha_inicio):

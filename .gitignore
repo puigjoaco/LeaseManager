@@ -21,6 +21,9 @@ scripts/node_modules/
 Joaquin Ingreso Manual/
 HANDOFF/
 docs/HANDOFF_GREENFIELD_*.md
+migration/bundles/*.json
+!migration/bundles/README.md
+!migration/bundles/.gitkeep
 migration/bundles/github-*.png
 migration/bundles/*.png
 screenshots/
