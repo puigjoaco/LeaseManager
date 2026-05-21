@@ -20,12 +20,15 @@ preparar gates, pero impide declarar cierre del frente afectado.
 Inventario metadata-only ejecutado desde el root limpio, sin abrir contenidos ni
 imprimir secretos, dumps, filas, RUTs, cuentas ni datos bancarios completos.
 
-Verificacion actual desde `main` en `5e6fde6`:
+Verificacion actual desde `main` en `1ee9039`:
 
 - `scripts/run-stage1-snapshot-gate.ps1` contra SQLite local vacio migrado en
   `local-evidence/` falla correctamente con `stage1.data_missing`.
 - Resultado del auditor: `classification=bloqueado_dato_real`,
   `ready_for_stage1_close=false`, `has_required_stage1_data=false`.
+- El JSON de salida incluye `aggregate_classification`; en la verificacion
+  vacia los agregados requeridos quedan `bloqueado_dato_real` y los agregados
+  opcionales sin filas quedan `implementado_sin_evidencia`.
 - Esta verificacion confirma que el gate funciona y que no existe evidencia de
   cierre sin una fuente `snapshot_controlado` o `real_autorizado` autorizada.
 
