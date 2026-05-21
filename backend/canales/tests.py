@@ -18,7 +18,7 @@ from operacion.models import (
 )
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .models import CanalMensajeria, EstadoMensajeSaliente, MensajeSaliente
+from .models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
 
 
 class CanalesAPITests(APITestCase):
@@ -378,6 +378,72 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(sent.status_code, status.HTTP_200_OK)
         self.assertEqual(sent.data['estado'], EstadoMensajeSaliente.SENT)
         self.assertEqual(sent.data['external_ref'], 'manual-123')
+
+    def test_register_manual_send_requires_external_reference(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-SENDREF')
+        gate = self._create_gate(canal='email')
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        prepared = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'asunto': 'Enviar',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('canales-mensaje-enviar', args=[prepared.data['id']]),
+            {'external_ref': '   '},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('external_ref', response.data)
+
+    def test_register_manual_send_rechecks_gate_state(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-SENDGATE')
+        gate = self._create_gate(canal='email')
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        prepared = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'asunto': 'Enviar',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+        CanalMensajeria.objects.filter(pk=gate['id']).update(estado_gate=EstadoGateCanal.SUSPENDED)
+
+        response = self.client.post(
+            reverse('canales-mensaje-enviar', args=[prepared.data['id']]),
+            {'external_ref': 'manual-after-gate-close'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('gate del canal', response.data['detail'])
+        self.assertEqual(MensajeSaliente.objects.get(pk=prepared.data['id']).estado, EstadoMensajeSaliente.PREPARED)
 
     def test_formalized_document_can_be_prepared_and_sent_via_channel_workflow(self):
         empresa, contrato = self._create_contract_context(codigo='CH-DOCSEND')
