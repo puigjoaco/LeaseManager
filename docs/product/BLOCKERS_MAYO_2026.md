@@ -20,7 +20,7 @@ preparar gates, pero impide declarar cierre del frente afectado.
 Inventario metadata-only ejecutado desde el root limpio, sin abrir contenidos ni
 imprimir secretos, dumps, filas, RUTs, cuentas ni datos bancarios completos.
 
-Verificacion actual desde `main` en `1ee9039`:
+Verificacion reproducible desde `main` vigente:
 
 - `scripts/run-stage1-snapshot-gate.ps1` contra SQLite local vacio migrado en
   `local-evidence/` falla correctamente con `stage1.data_missing`.
