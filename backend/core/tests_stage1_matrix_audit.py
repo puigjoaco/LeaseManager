@@ -6,7 +6,14 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from cobranza.models import EstadoGarantia, GarantiaContractual, HistorialGarantia, TipoMovimientoGarantia
+from cobranza.models import (
+    DistribucionCobroMensual,
+    EstadoGarantia,
+    GarantiaContractual,
+    HistorialGarantia,
+    PagoMensual,
+    TipoMovimientoGarantia,
+)
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from contratos.models import (
     Arrendatario,
@@ -214,6 +221,20 @@ class Stage1MatrixAuditTests(TestCase):
         GarantiaContractual.objects.create(contrato=future_contract, monto_pactado='0.00')
         return future_contract
 
+    def _create_payment_for(self, contrato: Contrato) -> PagoMensual:
+        periodo = contrato.periodos_contractuales.get(numero_periodo=1)
+        return PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp=Decimal('250000.00'),
+            monto_calculado_clp=Decimal('250001.00'),
+            monto_pagado_clp=Decimal('0.00'),
+            fecha_vencimiento=date(2026, 1, 5),
+            codigo_conciliacion_efectivo='001',
+        )
+
     def test_empty_database_is_not_evidence_grade_ready(self):
         result = collect_stage1_matrix_audit(source_kind='local')
 
@@ -233,6 +254,27 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['issue_counts'].get('blocking', 0), 0)
         self.assertGreater(result['summary']['participaciones_patrimoniales'], 0)
         self.assertGreater(result['summary']['representaciones_comunidad'], 0)
+
+    def test_controlled_snapshot_with_payment_distribution_can_pass_stage1_matrix_gate(self):
+        contrato = self._create_valid_stage1_matrix()
+        payment = self._create_payment_for(contrato)
+        DistribucionCobroMensual.objects.create(
+            pago_mensual=payment,
+            beneficiario_empresa_owner=contrato.mandato_operacion.entidad_facturadora,
+            porcentaje_snapshot=Decimal('100.00'),
+            monto_devengado_clp=Decimal('250000.00'),
+            monto_conciliado_clp=Decimal('0.00'),
+            monto_facturable_clp=Decimal('250000.00'),
+            requiere_dte=True,
+            origen_atribucion='snapshot_pago',
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertEqual(result['summary']['pagos_mensuales'], 1)
+        self.assertEqual(result['summary']['distribuciones_cobro_mensual'], 1)
 
     def test_duplicate_active_property_by_rol_avaluo_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
@@ -362,6 +404,71 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.codeudor.validacion_modelo', issue_codes)
+
+    def test_existing_payment_without_distribution_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        self._create_payment_for(contrato)
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.pago_mensual.distribuciones_faltantes', issue_codes)
+
+    def test_existing_payment_with_distribution_amount_mismatch_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        payment = self._create_payment_for(contrato)
+        DistribucionCobroMensual.objects.create(
+            pago_mensual=payment,
+            beneficiario_empresa_owner=contrato.mandato_operacion.entidad_facturadora,
+            porcentaje_snapshot=Decimal('100.00'),
+            monto_devengado_clp=Decimal('200000.00'),
+            monto_conciliado_clp=Decimal('0.00'),
+            monto_facturable_clp=Decimal('200000.00'),
+            requiere_dte=True,
+            origen_atribucion='snapshot_pago',
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.pago_mensual.distribucion_devengo_inconsistente', issue_codes)
+
+    def test_distribution_marked_for_dte_must_match_billing_entity(self):
+        contrato = self._create_valid_stage1_matrix()
+        payment = self._create_payment_for(contrato)
+        other_company = Empresa.objects.create(
+            razon_social='Facturadora Incorrecta SpA',
+            rut='99999999-9',
+            estado='activa',
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=Socio.objects.get(rut='11111111-1'),
+            empresa_owner=other_company,
+            porcentaje='100.00',
+            vigente_desde=date(2026, 1, 1),
+            activo=True,
+        )
+        DistribucionCobroMensual.objects.create(
+            pago_mensual=payment,
+            beneficiario_empresa_owner=other_company,
+            porcentaje_snapshot=Decimal('100.00'),
+            monto_devengado_clp=Decimal('250000.00'),
+            monto_conciliado_clp=Decimal('0.00'),
+            monto_facturable_clp=Decimal('250000.00'),
+            requiere_dte=True,
+            origen_atribucion='snapshot_pago',
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='snapshot_controlado', require_data=True)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.distribucion_cobro.facturadora_inconsistente', issue_codes)
 
     def test_contract_with_more_than_three_active_codebtors_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
