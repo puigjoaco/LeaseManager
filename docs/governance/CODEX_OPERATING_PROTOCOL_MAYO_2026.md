@@ -70,6 +70,8 @@ Reglas:
 - No pegar secretos en titulo, cuerpo, commits ni evidencia.
 - Si `gh` no tiene sesion activa, el script puede usar el token ya disponible
   en Git Credential Manager solo dentro del proceso y sin imprimirlo.
+- El merge del PR se ejecuta por GitHub API para no depender del checkout local
+  de `main` dentro de worktrees tacticos.
 - El merge solo procede despues de checks exitosos o de un bloqueo documentado
   que justifique no declarar cierre del frente.
 

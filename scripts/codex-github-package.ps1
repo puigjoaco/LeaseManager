@@ -130,6 +130,23 @@ function Wait-PrChecks([int]$prNumber) {
     throw "No aparecieron checks para PR #$prNumber despues de 5 minutos."
 }
 
+function Get-GithubRepoSlug() {
+    $repo = Get-ExternalOutput 'gh' @('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner')
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace($repo)) 'No se pudo resolver owner/repo con gh.'
+    return $repo
+}
+
+function Invoke-PrMergeApi([int]$prNumber, [string]$headSha) {
+    $repo = Get-GithubRepoSlug
+    Invoke-External 'gh' @(
+        'api',
+        '--method', 'PUT',
+        "repos/$repo/pulls/$prNumber/merge",
+        '-f', "merge_method=$MergeStrategy",
+        '-f', "sha=$headSha"
+    )
+}
+
 $repoRoot = (Get-ExternalOutput 'git' @('rev-parse', '--show-toplevel')).Replace('\', '/')
 Set-Location $repoRoot
 
@@ -227,20 +244,10 @@ if ($WatchChecks -or $Merge) {
 if ($Merge) {
     Step 'Merge PR'
     $headSha = Get-ExternalOutput 'git' @('rev-parse', 'HEAD')
-    $mergeArgs = @('pr', 'merge', "$($pr.number)", '--match-head-commit', $headSha)
-    if ($MergeStrategy -eq 'squash') {
-        $mergeArgs += '--squash'
-    }
-    elseif ($MergeStrategy -eq 'rebase') {
-        $mergeArgs += '--rebase'
-    }
-    else {
-        $mergeArgs += '--merge'
-    }
+    Invoke-PrMergeApi $pr.number $headSha
     if ($DeleteRemoteBranch) {
-        $mergeArgs += '--delete-branch'
+        Invoke-External 'git' @('push', $Remote, '--delete', $Branch)
     }
-    Invoke-External 'gh' $mergeArgs
 }
 
 Step 'Done'
