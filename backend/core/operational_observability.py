@@ -24,6 +24,36 @@ from contabilidad.models import CierreMensualContable, EstadoCierreMensual
 from documentos.models import DocumentoEmitido, EstadoDocumento
 from sii.models import CapacidadTributariaSII, EstadoGateSII
 
+from .models import OperationalRuntimeSignal, RuntimeSignalKey, RuntimeSignalStatus
+
+
+REQUIRED_RUNTIME_SIGNALS = {
+    RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY: {
+        'missing_code': 'observability.monthly_latency_metric_missing',
+        'attention_code': 'observability.monthly_latency_metric_attention',
+        'missing_message': 'No existe metrica persistida para latencia de calculo mensual.',
+        'attention_message': 'La metrica de latencia de calculo mensual requiere atencion.',
+    },
+    RuntimeSignalKey.QUEUE_RUNTIME: {
+        'missing_code': 'observability.queue_runtime_metric_missing',
+        'attention_code': 'observability.queue_runtime_metric_attention',
+        'missing_message': 'La auditoria local solo verifica configuracion de broker; falta metrica runtime de colas/tareas.',
+        'attention_message': 'La metrica runtime de colas/tareas requiere atencion.',
+    },
+    RuntimeSignalKey.FAILED_WEBHOOKS: {
+        'missing_code': 'observability.webhook_metric_missing',
+        'attention_code': 'observability.webhook_metric_attention',
+        'missing_message': 'No existe metrica persistida para webhooks fallidos.',
+        'attention_message': 'La metrica de webhooks fallidos requiere atencion.',
+    },
+    RuntimeSignalKey.FAILED_CRONS: {
+        'missing_code': 'observability.cron_metric_missing',
+        'attention_code': 'observability.cron_metric_attention',
+        'missing_message': 'No existe metrica persistida para crons fallidos.',
+        'attention_message': 'La metrica de crons fallidos requiere atencion.',
+    },
+}
+
 
 def _count_by(queryset, field_name):
     counter = Counter()
@@ -49,6 +79,36 @@ def _issue(code, message, count=1, severity='attention'):
         'count': int(count),
         'message': message,
     }
+
+
+def _runtime_signal_payload(signal):
+    if signal is None:
+        return {'status': RuntimeSignalStatus.MISSING, 'observed_at': None, 'source_kind': None, 'evidence_ref': ''}
+    return {
+        'status': signal.status,
+        'observed_at': signal.observed_at.isoformat() if signal.observed_at else None,
+        'source_kind': signal.source_kind,
+        'evidence_ref': signal.evidence_ref,
+        'value': signal.value if isinstance(signal.value, dict) else {},
+    }
+
+
+def _collect_runtime_signals():
+    signals_by_key = {signal.signal_key: signal for signal in OperationalRuntimeSignal.objects.all()}
+    runtime_payload = {
+        'celery_broker_configured': bool(str(settings.CELERY_BROKER_URL or '').strip()),
+    }
+    runtime_issues = []
+
+    for signal_key, definition in REQUIRED_RUNTIME_SIGNALS.items():
+        signal = signals_by_key.get(signal_key)
+        runtime_payload[signal_key] = _runtime_signal_payload(signal)
+        if signal is None:
+            runtime_issues.append(_issue(definition['missing_code'], definition['missing_message']))
+        elif signal.status != RuntimeSignalStatus.OK:
+            runtime_issues.append(_issue(definition['attention_code'], definition['attention_message']))
+
+    return runtime_payload, runtime_issues
 
 
 def collect_operational_observability_audit():
@@ -87,24 +147,7 @@ def collect_operational_observability_audit():
         Q(ultimo_exito_at__isnull=True) | Q(ultimo_error_at__gt=F('ultimo_exito_at'))
     ).count()
 
-    issues = [
-        _issue(
-            'observability.monthly_latency_metric_missing',
-            'No existe metrica persistida para latencia de calculo mensual.',
-        ),
-        _issue(
-            'observability.queue_runtime_metric_missing',
-            'La auditoria local solo verifica configuracion de broker; falta metrica runtime de colas/tareas.',
-        ),
-        _issue(
-            'observability.webhook_metric_missing',
-            'No existe metrica persistida para webhooks fallidos.',
-        ),
-        _issue(
-            'observability.cron_metric_missing',
-            'No existe metrica persistida para crons fallidos.',
-        ),
-    ]
+    runtime_signals, issues = _collect_runtime_signals()
 
     for code, count, message in [
         (
@@ -220,13 +263,7 @@ def collect_operational_observability_audit():
                 'cierres_mensuales_reabiertos': reopened_closes,
                 'documentos_cancelados': canceled_documents,
             },
-            'runtime_signals': {
-                'celery_broker_configured': bool(str(settings.CELERY_BROKER_URL or '').strip()),
-                'monthly_latency_metric': 'missing',
-                'queue_runtime_metric': 'missing',
-                'failed_webhook_metric': 'missing',
-                'failed_cron_metric': 'missing',
-            },
+            'runtime_signals': runtime_signals,
         },
         'limitations': [
             'Auditoria local de solo lectura; no conecta proveedores externos.',
