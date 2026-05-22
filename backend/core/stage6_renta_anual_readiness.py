@@ -33,6 +33,8 @@ SENSITIVE_REFERENCE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+AUTHORIZED_STAGE6_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+
 ANNUAL_TRACEABLE_STATES = {
     EstadoPreparacionTributaria.PREPARED,
     EstadoPreparacionTributaria.APPROVED,
@@ -248,8 +250,16 @@ def collect_stage6_renta_anual_readiness(
         'certificates_proof_ref': _non_sensitive_reference(certificates_proof_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE6_SOURCE_KINDS
 
     issues: list[dict[str, Any]] = []
+    if not source_kind_authorized_for_close:
+        issues.append(
+            _issue(
+                'stage6.source_kind_not_authorized',
+                'La readiness local de Etapa 6 no puede cerrar Renta anual sin fuente snapshot_controlado o real_autorizado.',
+            )
+        )
     if active_fiscal_configs.count() == 0:
         issues.append(
             _issue(
@@ -507,6 +517,8 @@ def collect_stage6_renta_anual_readiness(
         'generated_at': timezone.now().isoformat(),
         'stage': 'Etapa 6 - Renta anual',
         'source_kind': source_kind,
+        'authorized_source_kinds': sorted(AUTHORIZED_STAGE6_SOURCE_KINDS),
+        'source_kind_authorized_for_close': source_kind_authorized_for_close,
         'classification': 'resuelto_confirmado' if ready else 'parcial',
         'ready_for_stage6_renta_anual': ready,
         'issue_counts': dict(sorted(issue_counts.items())),
@@ -560,6 +572,7 @@ def collect_stage6_renta_anual_readiness(
         'limitations': [
             'Auditoria local de solo lectura; no presenta DDJJ, F22 ni declaraciones finales.',
             'No usa secretos, certificados reales, .env, datos reales ni ambientes SII externos.',
+            'Local, fixture y demo solo diagnostican; el cierre exige source_kind snapshot_controlado o real_autorizado.',
             'No cierra Etapa 6 sin configuracion fiscal activa por empresa, doce cierres evidenciados, regla fiscal validada y certificados/respaldos controlados.',
         ],
     }

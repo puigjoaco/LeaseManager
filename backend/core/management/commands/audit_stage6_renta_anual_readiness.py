@@ -5,7 +5,13 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import OperationalError, ProgrammingError
 
-from core.stage6_renta_anual_readiness import collect_stage6_renta_anual_readiness
+from core.stage6_renta_anual_readiness import (
+    AUTHORIZED_STAGE6_SOURCE_KINDS,
+    collect_stage6_renta_anual_readiness,
+)
+
+
+LOCAL_DIAGNOSTIC_SOURCE_KINDS = {'demo', 'fixture', 'local'}
 
 
 def _resolve_output_path(raw_output_path: str) -> Path:
@@ -44,6 +50,15 @@ class Command(BaseCommand):
         parser.add_argument('--certificates-proof-ref', default='', help='Referencia no sensible a certificados/respaldos.')
         parser.add_argument('--responsible-ref', default='', help='Referencia no sensible a responsables del frente.')
         parser.add_argument(
+            '--source-kind',
+            default='local',
+            choices=sorted(LOCAL_DIAGNOSTIC_SOURCE_KINDS | AUTHORIZED_STAGE6_SOURCE_KINDS),
+            help=(
+                'Tipo de fuente auditada. local, fixture y demo diagnostican; '
+                'solo snapshot_controlado o real_autorizado permiten cierre.'
+            ),
+        )
+        parser.add_argument(
             '--fail-on-attention',
             action='store_true',
             help='Sale con error si readiness Etapa 6 Renta anual no queda lista para cierre.',
@@ -62,6 +77,7 @@ class Command(BaseCommand):
                 fiscal_rule_ref=options['fiscal_rule_ref'],
                 certificates_proof_ref=options['certificates_proof_ref'],
                 responsible_ref=options['responsible_ref'],
+                source_kind=options['source_kind'],
             )
         except (OperationalError, ProgrammingError) as error:
             raise CommandError(

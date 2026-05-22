@@ -192,6 +192,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
             fiscal_rule_ref='annual-tax-rule-expert-v1',
             certificates_proof_ref='annual-certificates-controlled-v1',
             responsible_ref='stage6-responsibles-v1',
+            source_kind='snapshot_controlado',
         )
 
     def test_empty_database_reports_partial_without_sensitive_values(self):
@@ -200,6 +201,8 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
         self.assertEqual(result['classification'], 'parcial')
         self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage6.source_kind_not_authorized', issue_codes)
         self.assertIn('stage6.fiscal_config_missing', issue_codes)
         self.assertIn('stage6.ddjj.open_capability_missing', issue_codes)
         self.assertIn('stage6.annual_process_missing', issue_codes)
@@ -207,14 +210,33 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertIn('stage6.fiscal_rule_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
 
-    def test_valid_local_matrix_and_non_sensitive_refs_can_pass_readiness(self):
+    def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         self._create_valid_local_matrix()
 
         result = self._collect_with_final_refs()
 
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertTrue(result['ready_for_stage6_renta_anual'])
+        self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage6_renta_anual_readiness(
+            stage5_evidence_ref='stage5-ledger-year-controlled-v1',
+            stage4_sii_evidence_ref='stage4-sii-annual-controlled-v1',
+            fiscal_rule_ref='annual-tax-rule-expert-v1',
+            certificates_proof_ref='annual-certificates-controlled-v1',
+            responsible_ref='stage6-responsibles-v1',
+            source_kind='local',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage6.source_kind_not_authorized', issue_codes)
 
     def test_process_without_twelve_approved_closes_is_blocking(self):
         self._create_valid_local_matrix()
@@ -360,6 +382,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
             fiscal_rule_ref='https://sii.example/rule',
             certificates_proof_ref='annual-certificates-controlled-v1',
             responsible_ref='stage6-responsibles-v1',
+            source_kind='snapshot_controlado',
         )
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.fiscal_rule_ref_missing', {issue['code'] for issue in result['issues']})
@@ -370,6 +393,8 @@ class Stage6RentaAnualReadinessTests(TestCase):
             result = json.loads(output_path.read_text(encoding='utf-8'))
 
         self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage6.source_kind_not_authorized', {issue['code'] for issue in result['issues']})
         self.assertIn('annual_process', result['sections'])
 
         blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'stage6-readiness-should-not-be-versioned.json'
