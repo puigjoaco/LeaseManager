@@ -19,6 +19,10 @@ cierres mensuales.
 - Reglas tributarias validadas.
 - Documentos generados desde datos trazables.
 - Evidencia sin datos sensibles expuestos.
+- `audit_stage6_renta_anual_readiness` consolida configuracion fiscal,
+  capacidades DDJJ/F22, doce cierres, obligaciones mensuales, proceso anual,
+  respaldos tributarios PDF y referencias finales no sensibles sin conectar SII
+  ni leer certificados reales.
 
 ## Salida
 
