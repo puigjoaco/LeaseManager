@@ -265,6 +265,53 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertTrue(result['ready_for_stage4_sii'])
         self.assertEqual(result['issues'], [])
 
+    def test_capabilities_dte_and_f29_require_same_company_fiscal_config(self):
+        empresa_con_config = self._create_active_empresa(nombre='Empresa Fiscal Stage4 SpA', rut='77777777-7')
+        self._activate_fiscal_config(empresa_con_config)
+        empresa_sin_config = Empresa.objects.create(
+            razon_social='Empresa SII Sin Config SpA',
+            rut='99999999-9',
+            estado='activa',
+        )
+        dte_capability = self._open_capability(empresa_sin_config, CapacidadSII.DTE_EMISION, 'dte-sin-config')
+        f29_capability = self._open_capability(empresa_sin_config, CapacidadSII.F29_PREPARACION, 'f29-sin-config')
+        payment = self._create_paid_payment(empresa_sin_config)
+        distribution = payment.distribuciones_cobro.get()
+        DTEEmitido.objects.create(
+            empresa=empresa_sin_config,
+            capacidad_tributaria=dte_capability,
+            contrato=payment.contrato,
+            pago_mensual=payment,
+            distribucion_cobro_mensual=distribution,
+            arrendatario=payment.contrato.arrendatario,
+            tipo_dte='34',
+            monto_neto_clp=distribution.monto_facturable_clp,
+            fecha_emision=date(2026, 1, 8),
+            estado_dte=EstadoDTE.SENT_MANUAL,
+            sii_track_id='track-stage4-sin-config',
+            ultimo_estado_sii='Recibido controlado',
+        )
+        close = self._create_monthly_tax_inputs(empresa_sin_config)
+        F29PreparacionMensual.objects.create(
+            empresa=empresa_sin_config,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            resumen_formulario={'obligaciones': [{'tipo': 'PPM'}]},
+            borrador_ref='f29-stage4-sin-config',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertIn('stage4.capability_fiscal_config_missing', issue_codes)
+        self.assertIn('stage4.dte_fiscal_config_missing', issue_codes)
+        self.assertIn('stage4.f29_fiscal_config_missing', issue_codes)
+        self.assertEqual(result['sections']['capabilities']['open_without_active_fiscal_config'], 2)
+
     def test_open_capability_without_readiness_refs_is_blocking(self):
         empresa = self._create_active_empresa()
         CapacidadTributariaSII.objects.create(
