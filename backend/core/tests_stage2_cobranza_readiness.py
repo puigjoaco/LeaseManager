@@ -176,6 +176,8 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.payments_missing', issue_codes)
         self.assertIn('stage2.email.open_gate_missing', issue_codes)
+        self.assertIn('stage2.email.active_identity_missing', issue_codes)
+        self.assertIn('stage2.email.active_assignment_missing', issue_codes)
         self.assertIn('stage2.webpay.open_gate_missing', issue_codes)
         self.assertIn('stage2.stage1_evidence_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
@@ -190,6 +192,40 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertTrue(result['ready_for_stage2_cobranza'])
         self.assertEqual(result['issues'], [])
+
+    def test_email_gate_without_active_identity_or_assignment_is_blocking(self):
+        self._create_payment_matrix()
+        AsignacionCanalOperacion.objects.all().delete()
+        IdentidadDeEnvio.objects.all().delete()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.email.active_identity_missing', issue_codes)
+        self.assertIn('stage2.email.active_assignment_missing', issue_codes)
+        self.assertIn('channel_identities', result['sections'])
+
+    def test_open_whatsapp_gate_without_active_identity_or_assignment_is_blocking(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        CanalMensajeria.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            provider_key='twilio',
+            estado_gate=EstadoGateCanal.OPEN,
+            evidencia_ref='whatsapp-gate-v1',
+            restricciones_operativas={'template_aprobado_ref': 'whatsapp-template-v1'},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.active_identity_missing', issue_codes)
+        self.assertIn('stage2.whatsapp.active_assignment_missing', issue_codes)
 
     def test_open_email_gate_without_required_refs_is_blocking(self):
         CanalMensajeria.objects.create(
