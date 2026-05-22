@@ -61,6 +61,7 @@ $testTargets = @(
     'core.tests_stage1_matrix_audit.Stage1MatrixAuditTests',
     'core.tests_stage2_cobranza_readiness.Stage2CobranzaReadinessTests',
     'core.tests_stage3_conciliacion_readiness.Stage3ConciliacionReadinessTests',
+    'core.tests_stage5_contabilidad_readiness.Stage5ContabilidadReadinessTests',
     'health.tests.HealthEndpointTests',
     'patrimonio.tests.PatrimonioAPITests',
     'patrimonio.tests.PatrimonioMigrationSafetyTests',

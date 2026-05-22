@@ -21,6 +21,9 @@ contables desde hechos conciliados.
   `ingreso_desconocido` o `manual_requerida`.
 - Reglas contables vigentes.
 - Asientos balanceados.
+- `audit_stage5_contabilidad_readiness` consolida configuracion fiscal,
+  reglas/matriz, eventos, asientos, snapshots, cierres mensuales y conciliacion
+  del periodo sin presentar impuestos ni conectar servicios externos.
 - Reportes con origen trazable.
 - Diferencias registradas o corregidas.
 
