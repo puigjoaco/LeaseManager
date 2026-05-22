@@ -26,6 +26,10 @@ documentos o procesos tributarios trazables.
   referencia externa trazable.
 - Si falta alguno de esos origenes, la API responde con bloqueo de
   trazabilidad y no entrega el reporte como valido.
+- `audit_stage7_reporting_readiness` consolida readiness local de resumen
+  financiero mensual, libros por periodo, tributario anual, prueba API,
+  visualizacion backoffice y responsables sin ejecutar smoke publico ni leer
+  datos reales.
 
 ## Salida
 

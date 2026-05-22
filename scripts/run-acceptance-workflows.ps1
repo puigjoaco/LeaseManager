@@ -64,6 +64,7 @@ $testTargets = @(
     'core.tests_stage4_sii_readiness.Stage4SiiReadinessTests',
     'core.tests_stage5_contabilidad_readiness.Stage5ContabilidadReadinessTests',
     'core.tests_stage6_renta_anual_readiness.Stage6RentaAnualReadinessTests',
+    'core.tests_stage7_reporting_readiness.Stage7ReportingReadinessTests',
     'health.tests.HealthEndpointTests',
     'patrimonio.tests.PatrimonioAPITests',
     'patrimonio.tests.PatrimonioMigrationSafetyTests',
