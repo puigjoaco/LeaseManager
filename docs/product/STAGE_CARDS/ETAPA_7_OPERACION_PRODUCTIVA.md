@@ -20,6 +20,9 @@ runbook, smoke y aceptacion.
 - Etapas previas cerradas o excepciones aceptadas.
 - CI deterministica verde.
 - Smoke publico manual ejecutado con ambiente autorizado.
+- El smoke publico es opt-in: `run-acceptance-workflows.ps1` no toca URLs
+  externas por defecto, requiere `-RunPublicSmoke` o `-OnlySmoke` y URLs
+  explicitas.
 - Restore probado.
 - Bloqueos criticos cerrados.
 - Aceptacion registrada.

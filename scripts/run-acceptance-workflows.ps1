@@ -1,9 +1,10 @@
 param(
-    [string]$FrontendUrl = 'https://leasemanager-backoffice.vercel.app/',
-    [string]$ApiBaseUrl = 'https://surprising-balance-production.up.railway.app',
+    [string]$FrontendUrl = '',
+    [string]$ApiBaseUrl = '',
     [string]$BackendTestDb = '',
     [switch]$OnlySmoke,
-    [switch]$SkipSmoke
+    [switch]$SkipSmoke,
+    [switch]$RunPublicSmoke
 )
 
 Set-StrictMode -Version Latest
@@ -26,12 +27,17 @@ $frontendDir = Join-Path $repoRoot 'frontend'
 $pythonExe = Join-Path $backendDir '.venv\Scripts\python.exe'
 $smokeScript = Join-Path $PSScriptRoot 'smoke-public-backoffice.mjs'
 
+$shouldRunPublicSmoke = $OnlySmoke -or $RunPublicSmoke
+
 Assert-Condition (-not ($OnlySmoke -and $SkipSmoke)) 'OnlySmoke y SkipSmoke no pueden usarse juntos.'
+Assert-Condition (-not ($RunPublicSmoke -and $SkipSmoke)) 'RunPublicSmoke y SkipSmoke no pueden usarse juntos.'
 if (-not $OnlySmoke) {
     Assert-Condition (Test-Path $pythonExe) "No existe el Python del backend en $pythonExe"
 }
-if (-not $SkipSmoke) {
+if ($shouldRunPublicSmoke) {
     Assert-Condition (Test-Path $smokeScript) "No existe el smoke script en $smokeScript"
+    Assert-Condition ($FrontendUrl.Trim()) 'FrontendUrl es obligatorio para ejecutar smoke publico.'
+    Assert-Condition ($ApiBaseUrl.Trim()) 'ApiBaseUrl es obligatorio para ejecutar smoke publico.'
 }
 
 if (-not $BackendTestDb) {
@@ -114,9 +120,9 @@ if (-not $OnlySmoke) {
     }
 }
 
-if (-not $SkipSmoke) {
+if ($shouldRunPublicSmoke) {
     Step "Public smoke via UI login"
-    $smokeOutput = & node $smokeScript --frontend-url $FrontendUrl --api-base-url $ApiBaseUrl | Out-String
+    $smokeOutput = & node $smokeScript --allow-external --frontend-url $FrontendUrl --api-base-url $ApiBaseUrl | Out-String
     $smokeExitCode = $LASTEXITCODE
     if ($smokeOutput.Trim()) {
         Write-Host $smokeOutput
@@ -157,6 +163,9 @@ if (-not $SkipSmoke) {
 
     Step "Smoke summary"
     Write-Host ($smokeResults | ConvertTo-Json -Depth 6)
+} else {
+    Step "Public smoke skipped"
+    Write-Host "Smoke publico omitido. Ejecutar con -RunPublicSmoke o -OnlySmoke y URLs explicitas solo con ambiente autorizado." -ForegroundColor Yellow
 }
 
 Step "Acceptance complete"
