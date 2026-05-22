@@ -79,6 +79,10 @@ def _count_by(queryset, field_name: str) -> dict[str, int]:
     return dict(sorted(counter.items()))
 
 
+def _count_without_active_fiscal_config(items, active_fiscal_company_ids: set[int]) -> int:
+    return sum(1 for item in items if item.empresa_id not in active_fiscal_company_ids)
+
+
 def _collect_dte_issues(dtes) -> dict[str, int]:
     counts = Counter()
     for dte in dtes:
@@ -156,6 +160,7 @@ def collect_stage4_sii_readiness(
     fiscal_configs = ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario')
     active_fiscal_configs = fiscal_configs.filter(estado=EstadoRegistro.ACTIVE)
     invalid_active_fiscal_configs = _count_invalid(active_fiscal_configs)
+    active_fiscal_company_ids = set(active_fiscal_configs.values_list('empresa_id', flat=True))
 
     capabilities = CapacidadTributariaSII.objects.select_related('empresa')
     open_capabilities = capabilities.filter(estado_gate=EstadoGateSII.OPEN)
@@ -163,6 +168,10 @@ def collect_stage4_sii_readiness(
     open_dte_capabilities = open_capabilities.filter(capacidad_key=CapacidadSII.DTE_EMISION)
     open_f29_capabilities = open_capabilities.filter(capacidad_key=CapacidadSII.F29_PREPARACION)
     production_open_capabilities = open_capabilities.filter(ambiente=AmbienteSII.PRODUCTION)
+    open_capabilities_without_fiscal_config = _count_without_active_fiscal_config(
+        open_capabilities,
+        active_fiscal_company_ids,
+    )
 
     dtes = DTEEmitido.objects.select_related(
         'empresa',
@@ -173,9 +182,11 @@ def collect_stage4_sii_readiness(
         'arrendatario',
     )
     dte_issues = _collect_dte_issues(dtes)
+    dtes_without_fiscal_config = _count_without_active_fiscal_config(dtes, active_fiscal_company_ids)
 
     f29_drafts = F29PreparacionMensual.objects.select_related('empresa', 'capacidad_tributaria', 'cierre_mensual')
     f29_issues = _collect_f29_issues(f29_drafts)
+    f29_without_fiscal_config = _count_without_active_fiscal_config(f29_drafts, active_fiscal_company_ids)
 
     annual_processes = ProcesoRentaAnual.objects.select_related('empresa')
     ddjj_preparations = DDJJPreparacionAnual.objects.select_related(
@@ -235,6 +246,14 @@ def collect_stage4_sii_readiness(
                 count=invalid_open_capabilities,
             )
         )
+    if open_capabilities_without_fiscal_config:
+        issues.append(
+            _issue(
+                'stage4.capability_fiscal_config_missing',
+                'Existen capacidades SII abiertas sin ConfiguracionFiscalEmpresa activa para la misma empresa.',
+                count=open_capabilities_without_fiscal_config,
+            )
+        )
     if dtes.count() == 0:
         issues.append(
             _issue(
@@ -266,6 +285,14 @@ def collect_stage4_sii_readiness(
                 count=dte_issues['external_status_missing'],
             )
         )
+    if dtes_without_fiscal_config:
+        issues.append(
+            _issue(
+                'stage4.dte_fiscal_config_missing',
+                'Existen DTE asociados a empresas sin ConfiguracionFiscalEmpresa activa.',
+                count=dtes_without_fiscal_config,
+            )
+        )
     if f29_drafts.count() == 0:
         issues.append(
             _issue(
@@ -295,6 +322,14 @@ def collect_stage4_sii_readiness(
                 'stage4.f29_ref_missing',
                 'F29 aprobado, observado o rectificado requiere borrador_ref trazable.',
                 count=f29_issues['approved_ref_missing'],
+            )
+        )
+    if f29_without_fiscal_config:
+        issues.append(
+            _issue(
+                'stage4.f29_fiscal_config_missing',
+                'Existen borradores F29 asociados a empresas sin ConfiguracionFiscalEmpresa activa.',
+                count=f29_without_fiscal_config,
             )
         )
 
@@ -394,15 +429,18 @@ def collect_stage4_sii_readiness(
                 'open_f29': open_f29_capabilities.count(),
                 'open_production': production_open_capabilities.count(),
                 'invalid_open': invalid_open_capabilities,
+                'open_without_active_fiscal_config': open_capabilities_without_fiscal_config,
             },
             'dte': {
                 'total': dtes.count(),
                 'by_state': _count_by(dtes, 'estado_dte'),
+                'without_active_fiscal_config': dtes_without_fiscal_config,
                 **dte_issues,
             },
             'f29': {
                 'total': f29_drafts.count(),
                 'by_state': _count_by(f29_drafts, 'estado_preparacion'),
+                'without_active_fiscal_config': f29_without_fiscal_config,
                 **f29_issues,
             },
             'annual': {
@@ -419,6 +457,6 @@ def collect_stage4_sii_readiness(
         'limitations': [
             'Auditoria local de solo lectura; no conecta SII ni presenta DTE, F29, DDJJ o F22.',
             'No usa secretos, certificados, .env, datos reales ni ambientes externos.',
-            'No cierra Etapa 4 sin ambiente autorizado y regla fiscal validada por SII, normativa o experto.',
+            'No cierra Etapa 4 sin configuracion fiscal activa por empresa, ambiente autorizado y regla fiscal validada por SII, normativa o experto.',
         ],
     }
