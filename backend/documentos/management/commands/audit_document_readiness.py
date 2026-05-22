@@ -40,10 +40,16 @@ def _validate_output_path(output_path: Path) -> None:
 
 
 class Command(BaseCommand):
-    help = 'Audita readiness documental local de Etapa 5 sin leer storage ni datos externos.'
+    help = 'Audita readiness documental de Etapa 5 sin leer storage ni datos externos.'
 
     def add_arguments(self, parser):
         parser.add_argument('--output', default='', help='Ruta opcional para escribir el JSON de auditoria.')
+        parser.add_argument('--source-label', default='', help='Etiqueta no sensible de la fuente auditada.')
+        parser.add_argument(
+            '--authorization-ref',
+            default='',
+            help='Referencia no sensible a la autorizacion de uso de la fuente evidencial.',
+        )
         parser.add_argument('--final-policy-ref', default='', help='Referencia no sensible a la politica final aprobada.')
         parser.add_argument('--responsible-ref', default='', help='Referencia no sensible a responsables del proceso documental.')
         parser.add_argument('--controlled-pdf-ref', default='', help='Referencia no sensible a prueba PDF controlada.')
@@ -73,6 +79,8 @@ class Command(BaseCommand):
                 final_policy_ref=options['final_policy_ref'],
                 responsible_ref=options['responsible_ref'],
                 controlled_pdf_ref=options['controlled_pdf_ref'],
+                source_label=options['source_label'],
+                authorization_ref=options['authorization_ref'],
                 source_kind=options['source_kind'],
             )
         except (OperationalError, ProgrammingError) as error:

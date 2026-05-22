@@ -67,7 +67,15 @@ def _count_by(queryset, field_name):
     return dict(sorted(counter.items()))
 
 
-def collect_document_readiness(*, final_policy_ref='', responsible_ref='', controlled_pdf_ref='', source_kind='local'):
+def collect_document_readiness(
+    *,
+    final_policy_ref='',
+    responsible_ref='',
+    controlled_pdf_ref='',
+    source_label='',
+    authorization_ref='',
+    source_kind='local',
+):
     active_policies = PoliticaFirmaYNotaria.objects.filter(estado=EstadoPoliticaFirma.ACTIVE)
     active_policy_types = set(active_policies.values_list('tipo_documental', flat=True))
     missing_policy_types = sorted(REQUIRED_POLICY_TYPES - active_policy_types)
@@ -101,6 +109,10 @@ def collect_document_readiness(*, final_policy_ref='', responsible_ref='', contr
         'responsible_ref': _non_sensitive_reference(responsible_ref),
         'controlled_pdf_ref': _non_sensitive_reference(controlled_pdf_ref),
     }
+    source_trace = {
+        'source_label': _non_sensitive_reference(source_label),
+        'authorization_ref': _non_sensitive_reference(authorization_ref),
+    }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_DOCUMENT_SOURCE_KINDS
 
     issues = []
@@ -111,6 +123,21 @@ def collect_document_readiness(*, final_policy_ref='', responsible_ref='', contr
                 'La readiness local de Documentos no puede cerrar Etapa 5 sin fuente snapshot_controlado o real_autorizado.',
             )
         )
+    else:
+        for key, code, message in [
+            (
+                'source_label',
+                'documents.source_label_missing',
+                'Falta etiqueta no sensible de la fuente autorizada documental.',
+            ),
+            (
+                'authorization_ref',
+                'documents.authorization_ref_missing',
+                'Falta referencia no sensible a la autorizacion de uso de la fuente documental.',
+            ),
+        ]:
+            if not source_trace[key]:
+                issues.append(_issue(code, message))
     if missing_policy_types:
         issues.append(
             _issue(
@@ -220,6 +247,7 @@ def collect_document_readiness(*, final_policy_ref='', responsible_ref='', contr
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,
             },
             'final_evidence': checks,
+            'source_trace': source_trace,
         },
         'limitations': [
             'Auditoria local de solo lectura; no lee storage ni documentos productivos.',
