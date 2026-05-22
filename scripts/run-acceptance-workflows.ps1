@@ -30,6 +30,7 @@ if ([string]::IsNullOrWhiteSpace($pythonExe)) {
     $pythonExe = Join-Path $backendDir '.venv\Scripts\python.exe'
 }
 $smokeScript = Join-Path $PSScriptRoot 'smoke-public-backoffice.mjs'
+$stage1LocalReadinessScript = Join-Path $PSScriptRoot 'run-stage1-local-readiness.ps1'
 $stage7ReadinessScript = Join-Path $PSScriptRoot 'run-stage7-readiness-gate.ps1'
 
 $shouldRunPublicSmoke = $OnlySmoke -or $RunPublicSmoke
@@ -111,6 +112,20 @@ if (-not $OnlySmoke) {
         $stage1Audit = $stage1AuditOutput | ConvertFrom-Json
         Assert-Condition ($stage1Audit.ready_for_stage1_close -eq $false) 'Una fuente local no evidencial no puede cerrar Etapa 1.'
         Assert-Condition ($stage1Audit.evidence_grade -eq $false) 'La auditoria local de Etapa 1 no debe marcar evidencia suficiente.'
+
+        Step "Stage 1 local readiness wrapper"
+        Assert-Condition (Test-Path $stage1LocalReadinessScript) "No existe el guard local de readiness Etapa 1 en $stage1LocalReadinessScript"
+        $stage1LocalReadinessOutputPath = Join-Path $repoRoot 'local-evidence\stage1\acceptance\stage1_local_readiness_acceptance.json'
+        $stage1LocalReadinessOutput = & $stage1LocalReadinessScript -PythonExe $pythonExe -OutputPath $stage1LocalReadinessOutputPath | Out-String
+        if ($stage1LocalReadinessOutput.Trim()) {
+            Write-Host $stage1LocalReadinessOutput
+        }
+        Assert-Condition (Test-Path $stage1LocalReadinessOutputPath) 'run-stage1-local-readiness no genero JSON de auditoria.'
+        $stage1LocalReadiness = Get-Content -LiteralPath $stage1LocalReadinessOutputPath -Raw | ConvertFrom-Json
+        $stage1LocalIssueCodes = @($stage1LocalReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage1LocalReadiness.ready_for_stage1_close -eq $false) 'El readiness local no puede cerrar Etapa 1.'
+        Assert-Condition ($stage1LocalReadiness.classification -eq 'bloqueado_dato_real') 'El readiness local debe quedar bloqueado por dato real.'
+        Assert-Condition ($stage1LocalIssueCodes -contains 'stage1.data_missing') 'El readiness local debe confirmar stage1.data_missing.'
 
         Step "Stage 7 readiness guard"
         Assert-Condition (Test-Path $stage7ReadinessScript) "No existe el guard de readiness Etapa 7 en $stage7ReadinessScript"
