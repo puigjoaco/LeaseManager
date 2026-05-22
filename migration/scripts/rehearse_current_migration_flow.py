@@ -19,6 +19,7 @@ from migration.orchestration import (
     read_backend_env_value,
     replace_database_name,
 )
+from migration.output_paths import validate_generated_migration_output_path
 
 
 def run_command(command: list[str], *, env: dict[str, str], cwd: Path) -> str:
@@ -49,6 +50,11 @@ def main():
     if not args.bundle_path:
         raise SystemExit('--bundle-path o MIGRATION_BUNDLE_PATH es obligatorio.')
 
+    output_path = (
+        validate_generated_migration_output_path(args.output, 'reportes de rehearsal')
+        if args.output
+        else None
+    )
     base_database_url = os.environ.get('DATABASE_URL') or read_backend_env_value('DATABASE_URL')
     if not base_database_url:
         raise SystemExit('No se pudo resolver DATABASE_URL base desde el entorno ni desde backend/.env.')
@@ -69,8 +75,8 @@ def main():
         str(PROJECT_ROOT / 'migration' / 'scripts' / 'run_current_migration_flow.py'),
         args.bundle_path,
     ]
-    if args.output:
-        runner_command.extend(['--output', args.output])
+    if output_path is not None:
+        runner_command.extend(['--output', str(output_path)])
     runner_stdout = run_command(
         runner_command,
         env=env,

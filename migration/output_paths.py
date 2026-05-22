@@ -14,7 +14,7 @@ def resolve_output_path(raw_output_path: str) -> Path:
     return output_path.resolve()
 
 
-def validate_generated_bundle_output_path(raw_output_path: str) -> Path:
+def validate_generated_migration_output_path(raw_output_path: str, artifact_label: str = 'artefactos de migracion') -> Path:
     output_path = resolve_output_path(raw_output_path)
     try:
         output_path.relative_to(PROJECT_ROOT)
@@ -25,8 +25,12 @@ def validate_generated_bundle_output_path(raw_output_path: str) -> Path:
         output_path.relative_to(MIGRATION_BUNDLES_DIR)
     except ValueError as exc:
         raise ValueError(
-            'Los bundles legacy no pueden escribirse dentro del repo fuera de migration/bundles/. '
+            f'Los {artifact_label} no pueden escribirse dentro del repo fuera de migration/bundles/. '
             'Usa una ruta externa o migration/bundles/, que esta ignorado por Git.'
         ) from exc
 
     return output_path
+
+
+def validate_generated_bundle_output_path(raw_output_path: str) -> Path:
+    return validate_generated_migration_output_path(raw_output_path, artifact_label='bundles legacy')
