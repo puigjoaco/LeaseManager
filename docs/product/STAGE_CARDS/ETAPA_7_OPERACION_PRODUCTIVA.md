@@ -38,6 +38,9 @@ runbook, smoke y aceptacion.
 - La evidencia de smoke publico para cierre requiere `source_kind` autorizado
   y referencias no sensibles de autorizacion, ambiente y target/deploy; un
   resultado local o sintetico de cuatro roles solo prepara el gate.
+- La aceptacion final para cierre requiere evidencia JSON autorizada con
+  `accepted=true`, responsable, alcance/candidato, decision y referencias no
+  sensibles; una referencia simple no reemplaza la aceptacion final.
 - Restore probado.
 - Bloqueos criticos cerrados.
 - Aceptacion registrada.

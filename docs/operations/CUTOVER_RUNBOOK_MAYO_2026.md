@@ -41,7 +41,7 @@ mismo.
 14. Ejecutar guard local de readiness Etapa 7:
     `scripts/run-stage7-readiness-gate.ps1`. El cierre requiere ademas
     evidencia de restore de backup/snapshot autorizado, smoke publico
-    autorizado y aceptacion final.
+    autorizado y aceptacion final autorizada.
 15. Ejecutar auditoria local de readiness documental si el paquete incluye
     documentos contractuales:
     `backend\.venv\Scripts\python.exe backend\manage.py audit_document_readiness`.
@@ -62,6 +62,8 @@ mismo.
 10. Validar conciliacion o datos contables de muestra autorizada.
 11. Validar documentos y reportes.
 12. Registrar evidencia.
+13. Registrar aceptacion final con `accepted=true`, responsable, alcance,
+    decision y referencias no sensibles.
 
 ## Rollback
 
@@ -126,7 +128,7 @@ El guard local de readiness Etapa 7 es read-only y consolida evidencias. Sin
 argumentos debe quedar `classification=parcial`: no ejecuta smoke publico,
 no conecta proveedores externos y no cierra Operacion productiva sin
 restore de backup/snapshot autorizado, smoke autorizado, observabilidad lista y
-aceptacion final no sensible. Un rehearsal sintetico con `restore_verified=true`
+aceptacion final autorizada. Un rehearsal sintetico con `restore_verified=true`
 prepara el gate, pero no reemplaza una evidencia de restore con
 `source_kind`/`restore_source_kind` en `snapshot_controlado`,
 `real_autorizado`, `backup_autorizado` o `restore_autorizado`, mas
@@ -134,7 +136,13 @@ prepara el gate, pero no reemplaza una evidencia de restore con
 un arreglo de resultados de smoke con cuatro roles OK no cierra Operacion
 productiva si no viene envuelto como evidencia de ambiente autorizado con
 `authorization_ref`, `environment_ref` y `target_ref`/`deployment_ref` no
-sensibles.
+sensibles. Una referencia simple de aceptacion final prepara trazabilidad, pero
+el cierre exige evidencia JSON con `accepted=true`,
+`source_kind`/`final_acceptance_source_kind` en
+`aceptacion_final_autorizada`, `final_acceptance_autorizada`,
+`cutover_autorizado`, `ambiente_autorizado` o `real_autorizado`, mas
+`authorization_ref`, `responsible_ref`, `scope_ref`/`release_candidate_ref` y
+`acceptance_ref`/`decision_ref`/`signoff_ref` no sensibles.
 
 La auditoria documental es read-only: no abre storage ni PDFs reales. Consolida
 politicas activas por tipo documental, metadata obligatoria, referencias no
