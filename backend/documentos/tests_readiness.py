@@ -2,7 +2,9 @@ import json
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
@@ -170,3 +172,16 @@ class DocumentReadinessAuditTests(TestCase):
 
         with self.assertRaises(CommandError):
             call_command('audit_document_readiness', fail_on_attention=True, stdout=StringIO())
+
+    def test_command_rejects_repo_output_before_collecting_readiness(self):
+        blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'documents-readiness-should-not-be-versioned.json'
+        with patch('documentos.management.commands.audit_document_readiness.collect_document_readiness') as collect:
+            with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                call_command(
+                    'audit_document_readiness',
+                    output=str(blocked_output),
+                    stdout=StringIO(),
+                )
+
+        collect.assert_not_called()
+        self.assertFalse(blocked_output.exists())
