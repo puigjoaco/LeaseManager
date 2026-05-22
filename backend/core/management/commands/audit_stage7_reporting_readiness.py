@@ -40,10 +40,16 @@ def _validate_output_path(output_path: Path) -> None:
 
 
 class Command(BaseCommand):
-    help = 'Audita readiness local de Etapa 7 Reporting trazable sin usar datos reales ni servicios externos.'
+    help = 'Audita readiness de Etapa 7 Reporting trazable sin usar datos reales ni servicios externos.'
 
     def add_arguments(self, parser):
         parser.add_argument('--output', default='', help='Ruta opcional para escribir el JSON de auditoria.')
+        parser.add_argument('--source-label', default='', help='Etiqueta no sensible de la fuente auditada.')
+        parser.add_argument(
+            '--authorization-ref',
+            default='',
+            help='Referencia no sensible a la autorizacion de uso de la fuente evidencial.',
+        )
         parser.add_argument('--stage5-evidence-ref', default='', help='Referencia no sensible a ledger/cierres.')
         parser.add_argument('--stage6-evidence-ref', default='', help='Referencia no sensible a renta anual.')
         parser.add_argument('--reporting-api-proof-ref', default='', help='Referencia no sensible a prueba API reporting.')
@@ -77,6 +83,8 @@ class Command(BaseCommand):
                 reporting_api_proof_ref=options['reporting_api_proof_ref'],
                 backoffice_visual_ref=options['backoffice_visual_ref'],
                 responsible_ref=options['responsible_ref'],
+                source_label=options['source_label'],
+                authorization_ref=options['authorization_ref'],
                 source_kind=options['source_kind'],
             )
         except (OperationalError, ProgrammingError) as error:

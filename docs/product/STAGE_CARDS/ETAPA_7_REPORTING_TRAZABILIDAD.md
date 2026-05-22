@@ -34,6 +34,10 @@ documentos o procesos tributarios trazables.
 - `audit_stage7_reporting_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Reporting.
+- Una fuente autorizada debe declarar `--source-label` y `--authorization-ref`
+  no sensibles. El guard `run-stage7-readiness-gate.ps1` reenvia
+  `ReportingSourceLabel` y `ReportingAuthorizationRef` al auditor y mantiene el
+  diagnostico local como no cerrable.
 
 ## Salida
 

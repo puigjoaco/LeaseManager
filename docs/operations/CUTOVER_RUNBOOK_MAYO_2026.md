@@ -154,10 +154,10 @@ el cierre exige evidencia JSON con `accepted=true`,
 La readiness de Reporting dentro del guard ejecuta
 `audit_stage7_reporting_readiness` contra la misma base configurada. Para cierre
 productivo debe quedar `ready_for_stage7_reporting=true` y declarar
-`source_kind` `snapshot_controlado` o `real_autorizado`, mas referencias no
-sensibles a ledger/cierres, renta anual, prueba API, visualizacion backoffice y
-responsables. Una auditoria `local`, `fixture` o `demo` solo diagnostica y
-bloquea el cierre productivo.
+`source_kind` `snapshot_controlado` o `real_autorizado`, `source_label`,
+`authorization_ref`, mas referencias no sensibles a ledger/cierres, renta
+anual, prueba API, visualizacion backoffice y responsables. Una auditoria
+`local`, `fixture` o `demo` solo diagnostica y bloquea el cierre productivo.
 
 La auditoria documental es read-only: no abre storage ni PDFs reales. Consolida
 politicas activas por tipo documental, metadata obligatoria, referencias no
