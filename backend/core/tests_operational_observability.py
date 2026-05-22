@@ -2,7 +2,9 @@ import json
 from io import StringIO
 from tempfile import TemporaryDirectory
 from pathlib import Path
+from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -249,6 +251,25 @@ class OperationalObservabilityAuditTests(TestCase):
 
         with self.assertRaises(CommandError):
             call_command('audit_operational_observability', fail_on_attention=True, stdout=StringIO())
+
+    def test_command_rejects_repo_output_before_collecting_audit(self):
+        blocked_output = (
+            Path(settings.PROJECT_ROOT)
+            / 'docs'
+            / 'operational-observability-should-not-be-versioned.json'
+        )
+        with patch(
+            'core.management.commands.audit_operational_observability.collect_operational_observability_audit'
+        ) as collect:
+            with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                call_command(
+                    'audit_operational_observability',
+                    output=str(blocked_output),
+                    stdout=StringIO(),
+                )
+
+        collect.assert_not_called()
+        self.assertFalse(blocked_output.exists())
 
     def test_record_runtime_signal_rejects_sensitive_evidence_reference(self):
         with self.assertRaises(CommandError):
