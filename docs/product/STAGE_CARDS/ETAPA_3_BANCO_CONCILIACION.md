@@ -15,7 +15,8 @@ sistema igual a saldo banco.
 
 ## Gate
 
-- Banco real o snapshot autorizado.
+- Banco real o snapshot autorizado con `SourceLabel` y `AuthorizationRef` no
+  sensibles.
 - Modo no productivo por defecto.
 - Conexion bancaria operativa/primaria solo con `credencial_ref`,
   `evidencia_gate_ref`, `prueba_conectividad_ref` y prueba de movimientos o
@@ -29,6 +30,14 @@ sistema igual a saldo banco.
 - `audit_stage3_conciliacion_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 3.
+- `scripts/run-stage3-readiness-gate.ps1` normaliza la ejecucion del gate. En
+  modo local crea SQLite bajo `local-evidence/`, corre migraciones y debe
+  quedar `classification=parcial`, `ready_for_stage3_conciliacion=false` y
+  issue `stage3.source_kind_not_authorized`.
+- Para cierre con fuente autorizada, el wrapper exige `-SourceKind
+  snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
+  `-AuthorizationRef`, `-Stage2EvidenceRef`, `-BankProofRef`,
+  `-BalanceSquareRef`, `-ResponsibleRef` y `-RequireReady`.
 - Cuando hay saldos reportados en movimientos de una misma conexion, el
   auditor valida continuidad local: cada saldo posterior debe continuar desde
   el saldo reportado previo aplicando abonos y cargos intermedios.
@@ -39,3 +48,10 @@ sistema igual a saldo banco.
 
 Conciliacion cerrada produce hechos confiables para contabilidad. Sin eso,
 Contabilidad no puede cerrar.
+
+## Ejecucion local segura
+
+```powershell
+cd "D:/Proyectos/LeaseManager"
+.\scripts\run-stage3-readiness-gate.ps1
+```

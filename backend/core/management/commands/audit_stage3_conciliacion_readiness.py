@@ -40,10 +40,16 @@ def _validate_output_path(output_path: Path) -> None:
 
 
 class Command(BaseCommand):
-    help = 'Audita readiness local de Etapa 3 Banco/Conciliacion sin conectar proveedores bancarios.'
+    help = 'Audita readiness de Etapa 3 Banco/Conciliacion sin conectar proveedores bancarios.'
 
     def add_arguments(self, parser):
         parser.add_argument('--output', default='', help='Ruta opcional para escribir el JSON de auditoria.')
+        parser.add_argument('--source-label', default='', help='Etiqueta no sensible de la fuente auditada.')
+        parser.add_argument(
+            '--authorization-ref',
+            default='',
+            help='Referencia no sensible a la autorizacion de uso de la fuente evidencial.',
+        )
         parser.add_argument('--stage2-evidence-ref', default='', help='Referencia no sensible a evidencia Etapa 2.')
         parser.add_argument('--bank-proof-ref', default='', help='Referencia no sensible a prueba banco/snapshot.')
         parser.add_argument('--balance-square-ref', default='', help='Referencia no sensible a cuadratura sistema/banco.')
@@ -75,6 +81,8 @@ class Command(BaseCommand):
                 bank_proof_ref=options['bank_proof_ref'],
                 balance_square_ref=options['balance_square_ref'],
                 responsible_ref=options['responsible_ref'],
+                source_label=options['source_label'],
+                authorization_ref=options['authorization_ref'],
                 source_kind=options['source_kind'],
             )
         except (OperationalError, ProgrammingError) as error:

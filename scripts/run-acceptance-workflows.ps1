@@ -37,6 +37,7 @@ if ([string]::IsNullOrWhiteSpace($pythonExe)) {
 $smokeScript = Join-Path $PSScriptRoot 'smoke-public-backoffice.mjs'
 $stage1LocalReadinessScript = Join-Path $PSScriptRoot 'run-stage1-local-readiness.ps1'
 $stage2ReadinessScript = Join-Path $PSScriptRoot 'run-stage2-readiness-gate.ps1'
+$stage3ReadinessScript = Join-Path $PSScriptRoot 'run-stage3-readiness-gate.ps1'
 $stage7ReadinessScript = Join-Path $PSScriptRoot 'run-stage7-readiness-gate.ps1'
 $repoHygieneScript = Join-Path $PSScriptRoot 'assert-repo-hygiene.ps1'
 
@@ -162,6 +163,22 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage2Readiness.ready_for_stage2_cobranza -eq $false) 'El guard Etapa 2 local no puede cerrar Cobranza.'
         Assert-Condition ($stage2Readiness.classification -eq 'parcial') 'El guard Etapa 2 local debe quedar parcial.'
         Assert-Condition ($stage2IssueCodes -contains 'stage2.source_kind_not_authorized') 'El guard Etapa 2 local debe reportar source_kind_not_authorized.'
+
+        Step "Stage 3 readiness guard"
+        Assert-Condition (Test-Path $stage3ReadinessScript) "No existe el guard de readiness Etapa 3 en $stage3ReadinessScript"
+        $stage3OutputPath = Join-Path $repoRoot 'local-evidence\stage3\acceptance\stage3_readiness_acceptance.json'
+        $stage3Output = & $stage3ReadinessScript -PythonExe $pythonExe -OutputPath $stage3OutputPath | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage3-readiness-gate fallo.'
+        if ($stage3Output.Trim()) {
+            Write-Host $stage3Output
+        }
+        $stage3Readiness = Get-Content -LiteralPath $stage3OutputPath -Raw | ConvertFrom-Json
+        $stage3IssueCodes = @($stage3Readiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage3Readiness.source_kind -eq 'local') 'El guard Etapa 3 local debe declarar source_kind=local.'
+        Assert-Condition ($stage3Readiness.source_kind_authorized_for_close -eq $false) 'El guard Etapa 3 local no puede quedar autorizado para cierre.'
+        Assert-Condition ($stage3Readiness.ready_for_stage3_conciliacion -eq $false) 'El guard Etapa 3 local no puede cerrar Conciliacion.'
+        Assert-Condition ($stage3Readiness.classification -eq 'parcial') 'El guard Etapa 3 local debe quedar parcial.'
+        Assert-Condition ($stage3IssueCodes -contains 'stage3.source_kind_not_authorized') 'El guard Etapa 3 local debe reportar source_kind_not_authorized.'
 
         Step "Stage 7 readiness guard"
         Assert-Condition (Test-Path $stage7ReadinessScript) "No existe el guard de readiness Etapa 7 en $stage7ReadinessScript"
