@@ -32,6 +32,9 @@ condicionados sin envios reales accidentales.
   `WebPay.IntentoPago`, retorno controlado y evidencia; confirmar manualmente
   requiere `external_ref` trazable y `fecha_pago_webpay` diferenciada. Ningun
   flujo llama Transbank ni marca pago confirmado sin revalidar el gate.
+- Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
+  gates Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay
+  sin enviar mensajes ni conectar proveedores externos.
 
 ## Salida
 
