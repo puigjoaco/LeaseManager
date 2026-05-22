@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import PlatformSetting, Scope
-from .permissions import get_effective_role_codes
+from .operational_observability import collect_operational_observability_audit, redact_operational_observability_for_api
+from .permissions import OperationalOverviewPermission, get_effective_role_codes
 from .scope_access import get_scope_access
 
 
@@ -38,4 +39,12 @@ class PlatformBootstrapView(APIView):
                 'settings_count': PlatformSetting.objects.filter(is_active=True).count(),
             }
         )
+
+
+class OperationalObservabilityView(APIView):
+    permission_classes = [OperationalOverviewPermission]
+
+    def get(self, request):
+        result = collect_operational_observability_audit()
+        return Response(redact_operational_observability_for_api(result))
 

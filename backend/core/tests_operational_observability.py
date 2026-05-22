@@ -3,9 +3,13 @@ from io import StringIO
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
+from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.urls import reverse
 from django.test import TestCase
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from canales.models import CanalMensajeria, EstadoGateCanal
 from cobranza.models import EstadoGateCobroExterno, GateCobroExterno
@@ -152,3 +156,55 @@ class OperationalObservabilityAuditTests(TestCase):
 
         with self.assertRaises(CommandError):
             call_command('audit_operational_observability', fail_on_attention=True, stdout=StringIO())
+
+    def test_record_runtime_signal_rejects_sensitive_evidence_reference(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                'record_operational_runtime_signal',
+                signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+                status=RuntimeSignalStatus.OK,
+                evidence_ref='postgres://user:super-secret@example.com/db',
+                value_json='{"healthy": true}',
+                stdout=StringIO(),
+            )
+
+
+class OperationalObservabilityAPITests(APITestCase):
+    def test_api_requires_operational_role(self):
+        reviewer = get_user_model().objects.create_user(
+            username='observability-reviewer',
+            password='secret123',
+            default_role_code='RevisorFiscalExterno',
+        )
+        self.client.force_authenticate(reviewer)
+
+        response = self.client.get(reverse('platform-operational-observability'))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_api_returns_redacted_observability_for_admin(self):
+        admin = get_user_model().objects.create_user(
+            username='observability-admin',
+            password='secret123',
+            default_role_code='AdministradorGlobal',
+        )
+        OperationalRuntimeSignal.objects.create(
+            signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+            status=RuntimeSignalStatus.OK,
+            value={'healthy': True, 'debug_url': 'postgres://user:super-secret@example.com/db'},
+            evidence_ref='postgres://user:super-secret@example.com/db',
+        )
+        self.client.force_authenticate(admin)
+
+        response = self.client.get(reverse('platform-operational-observability'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        queue_signal = response.data['sections']['runtime_signals'][RuntimeSignalKey.QUEUE_RUNTIME]
+        self.assertEqual(queue_signal['status'], RuntimeSignalStatus.OK)
+        self.assertTrue(queue_signal['has_evidence_ref'])
+        self.assertEqual(queue_signal['value'], {'healthy': True})
+        self.assertNotIn('evidence_ref', queue_signal)
+
+        rendered = json.dumps(response.data, default=str)
+        self.assertNotIn('postgres://', rendered)
+        self.assertNotIn('super-secret', rendered)

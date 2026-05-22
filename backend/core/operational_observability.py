@@ -1,4 +1,5 @@
 from collections import Counter
+from copy import deepcopy
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -91,6 +92,60 @@ def _runtime_signal_payload(signal):
         'evidence_ref': signal.evidence_ref,
         'value': signal.value if isinstance(signal.value, dict) else {},
     }
+
+
+def _public_runtime_value(signal_key, payload):
+    value = payload.get('value') if isinstance(payload, dict) else {}
+    if not isinstance(value, dict):
+        return {}
+    if signal_key == RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY:
+        duration = value.get('duration_ms')
+        return {'duration_ms': duration} if _is_public_number(duration) else {}
+    if signal_key == RuntimeSignalKey.QUEUE_RUNTIME:
+        healthy = value.get('healthy')
+        return {'healthy': healthy} if isinstance(healthy, bool) else {}
+    if signal_key in {RuntimeSignalKey.FAILED_WEBHOOKS, RuntimeSignalKey.FAILED_CRONS}:
+        failed_count = value.get('failed_count')
+        return {'failed_count': failed_count} if isinstance(failed_count, int) and not isinstance(failed_count, bool) else {}
+    return {}
+
+
+def _is_public_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _public_runtime_signal_payload(signal_key, payload):
+    if not isinstance(payload, dict):
+        return {}
+    return {
+        'status': payload.get('status'),
+        'observed_at': payload.get('observed_at'),
+        'source_kind': payload.get('source_kind'),
+        'has_evidence_ref': bool(payload.get('evidence_ref')),
+        'value': _public_runtime_value(signal_key, payload),
+    }
+
+
+def redact_operational_observability_for_api(result):
+    public_result = deepcopy(result)
+    sections = public_result.get('sections', {})
+    if not isinstance(sections, dict):
+        return public_result
+
+    runtime_signals = sections.get('runtime_signals', {})
+    if not isinstance(runtime_signals, dict):
+        return public_result
+
+    public_runtime_signals = {}
+    celery_configured = runtime_signals.get('celery_broker_configured')
+    if isinstance(celery_configured, bool):
+        public_runtime_signals['celery_broker_configured'] = celery_configured
+
+    for signal_key in REQUIRED_RUNTIME_SIGNALS:
+        public_runtime_signals[signal_key] = _public_runtime_signal_payload(signal_key, runtime_signals.get(signal_key))
+
+    sections['runtime_signals'] = public_runtime_signals
+    return public_result
 
 
 def _collect_runtime_signals():
