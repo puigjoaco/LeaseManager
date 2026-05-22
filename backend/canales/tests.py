@@ -653,6 +653,41 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('external_ref', response.data)
 
+    def test_register_manual_send_rejects_sensitive_external_reference(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-SENDSECRET')
+        gate = self._create_gate(canal='email')
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        prepared = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'asunto': 'Enviar',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('canales-mensaje-enviar', args=[prepared.data['id']]),
+            {'external_ref': 'https://provider.example.test/token/secret'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('no sensible', response.data['detail'])
+        message = MensajeSaliente.objects.get(pk=prepared.data['id'])
+        self.assertEqual(message.estado, EstadoMensajeSaliente.PREPARED)
+        self.assertEqual(message.external_ref, '')
+
     def test_register_manual_send_rechecks_gate_state(self):
         empresa, contrato = self._create_contract_context(codigo='CH-SENDGATE')
         gate = self._create_gate(canal='email')

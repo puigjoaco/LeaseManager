@@ -6,6 +6,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator, RegexVa
 from django.db import models
 
 from contratos.models import Contrato, MonedaBaseContrato, PeriodoContractual
+from core.reference_validation import is_non_sensitive_reference
 from patrimonio.models import Empresa, Socio
 
 
@@ -276,6 +277,10 @@ class IntentoPagoWebPay(TimestampedModel):
         if self.estado == EstadoIntentoPagoWebPay.CONFIRMED_MANUAL:
             if not self.external_ref.strip():
                 raise ValidationError({'external_ref': 'La confirmacion WebPay requiere transaction id o token externo.'})
+            if not is_non_sensitive_reference(self.external_ref):
+                raise ValidationError(
+                    {'external_ref': 'external_ref debe ser una referencia no sensible, no una URL, token o credencial.'}
+                )
             if not self.fecha_pago_webpay:
                 raise ValidationError({'fecha_pago_webpay': 'La confirmacion WebPay requiere fecha de pago WebPay.'})
 

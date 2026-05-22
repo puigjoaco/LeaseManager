@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import Counter
-import re
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -24,6 +23,7 @@ from cobranza.models import (
     IntentoPagoWebPay,
     PagoMensual,
 )
+from core.reference_validation import is_non_sensitive_reference
 from operacion.models import (
     AsignacionCanalOperacion,
     CanalOperacion,
@@ -34,16 +34,11 @@ from operacion.models import (
 )
 
 
-SENSITIVE_REFERENCE_PATTERN = re.compile(
-    r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
-    re.IGNORECASE,
-)
 AUTHORIZED_STAGE2_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 
 
 def _non_sensitive_reference(value: str) -> bool:
-    normalized = str(value or '').strip()
-    return bool(normalized) and not SENSITIVE_REFERENCE_PATTERN.search(normalized)
+    return is_non_sensitive_reference(value)
 
 
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
@@ -112,10 +107,28 @@ def _collect_message_issues(messages) -> dict[str, int]:
             message.full_clean()
         except ValidationError:
             counts['invalid_model'] += 1
-        if message.estado == EstadoMensajeSaliente.SENT and not message.external_ref.strip():
-            counts['sent_without_external_ref'] += 1
+        if message.estado == EstadoMensajeSaliente.SENT:
+            if not message.external_ref.strip():
+                counts['sent_without_external_ref'] += 1
+            elif not _non_sensitive_reference(message.external_ref):
+                counts['sent_with_sensitive_external_ref'] += 1
         if _message_operational_issue(message):
             counts['prepared_or_sent_not_ready'] += 1
+    return dict(sorted(counts.items()))
+
+
+def _collect_webpay_intent_issues(intents) -> dict[str, int]:
+    counts = Counter()
+    for intent in intents:
+        try:
+            intent.full_clean()
+        except ValidationError:
+            counts['invalid_model'] += 1
+        if intent.estado == EstadoIntentoPagoWebPay.CONFIRMED_MANUAL:
+            if not intent.external_ref.strip():
+                counts['confirmed_without_external_ref'] += 1
+            elif not _non_sensitive_reference(intent.external_ref):
+                counts['confirmed_with_sensitive_external_ref'] += 1
     return dict(sorted(counts.items()))
 
 
@@ -184,7 +197,8 @@ def collect_stage2_cobranza_readiness(
     invalid_webpay_gates = _count_invalid(webpay_gates)
     valid_webpay_open_gates = webpay_open_gates.count() - _count_invalid(webpay_open_gates)
     webpay_intents = IntentoPagoWebPay.objects.select_related('pago_mensual', 'gate_cobro')
-    invalid_webpay_intents = _count_invalid(webpay_intents)
+    webpay_intent_issues = _collect_webpay_intent_issues(webpay_intents)
+    invalid_webpay_intents = webpay_intent_issues.get('invalid_model', 0)
 
     payments_total = PagoMensual.objects.count()
     final_evidence = {
@@ -312,6 +326,14 @@ def collect_stage2_cobranza_readiness(
                 count=message_issues['sent_without_external_ref'],
             )
         )
+    if message_issues.get('sent_with_sensitive_external_ref'):
+        issues.append(
+            _issue(
+                'stage2.message.sent_with_sensitive_external_ref',
+                'Existen mensajes marcados enviados con external_ref sensible.',
+                count=message_issues['sent_with_sensitive_external_ref'],
+            )
+        )
     if message_issues.get('prepared_or_sent_not_ready'):
         issues.append(
             _issue(
@@ -341,6 +363,22 @@ def collect_stage2_cobranza_readiness(
                 'stage2.webpay_intent_invalid',
                 'Existen intentos WebPay que no pasan validacion de dominio.',
                 count=invalid_webpay_intents,
+            )
+        )
+    if webpay_intent_issues.get('confirmed_without_external_ref'):
+        issues.append(
+            _issue(
+                'stage2.webpay_intent.confirmed_without_external_ref',
+                'Existen intentos WebPay confirmados sin external_ref trazable.',
+                count=webpay_intent_issues['confirmed_without_external_ref'],
+            )
+        )
+    if webpay_intent_issues.get('confirmed_with_sensitive_external_ref'):
+        issues.append(
+            _issue(
+                'stage2.webpay_intent.confirmed_with_sensitive_external_ref',
+                'Existen intentos WebPay confirmados con external_ref sensible.',
+                count=webpay_intent_issues['confirmed_with_sensitive_external_ref'],
             )
         )
 
@@ -422,6 +460,7 @@ def collect_stage2_cobranza_readiness(
                 'intents_total': webpay_intents.count(),
                 'intents_by_state': _count_by(webpay_intents, 'estado'),
                 'invalid_intents': invalid_webpay_intents,
+                **webpay_intent_issues,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,

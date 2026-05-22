@@ -491,6 +491,37 @@ class CobranzaAPITests(APITestCase):
         payment.refresh_from_db()
         self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
 
+    def test_webpay_manual_confirmation_rejects_sensitive_external_ref(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-SECRET')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='evidence://webpay-sandbox-ok',
+        )
+        intent = self.client.post(
+            reverse('cobranza-webpay-prepare', args=[payment.pk]),
+            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            format='json',
+        )
+        self.assertEqual(intent.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('cobranza-webpay-intent-confirm-manual', args=[intent.data['id']]),
+            {
+                'external_ref': 'https://transbank.example.test/token/secret',
+                'fecha_pago_webpay': '2026-01-06',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('no sensible', response.data['detail'])
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+        stored_intent = IntentoPagoWebPay.objects.get(pk=intent.data['id'])
+        self.assertEqual(stored_intent.estado, EstadoIntentoPagoWebPay.PREPARED)
+        self.assertEqual(stored_intent.external_ref, '')
+
     def test_webpay_manual_confirmation_marks_payment_paid_with_webpay_date(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-CONF')
         gate = GateCobroExterno.objects.create(
