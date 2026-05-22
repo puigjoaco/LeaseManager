@@ -23,6 +23,8 @@ runbook, smoke y aceptacion.
   dependencias ante falla.
 - Rehearsal de restore PostgreSQL local con datos sinteticos y evidencia bajo
   `local-evidence/`, antes de la prueba final con backup/snapshot autorizado.
+- Auditoria local de observabilidad operativa con gates, integraciones,
+  backlogs y senales runtime minimas.
 - Smoke publico manual ejecutado con ambiente autorizado.
 - El smoke publico es opt-in: `run-acceptance-workflows.ps1` no toca URLs
   externas por defecto, requiere `-RunPublicSmoke` o `-OnlySmoke` y URLs

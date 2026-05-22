@@ -36,6 +36,8 @@ mismo.
 12. Confirmar rehearsal de restore PostgreSQL con datos sinteticos o restore
     autorizado reciente. El rehearsal local no reemplaza la prueba final con
     backup/snapshot autorizado.
+13. Ejecutar auditoria local de observabilidad:
+    `backend\.venv\Scripts\python.exe backend\manage.py audit_operational_observability`.
 
 ## Ejecucion controlada
 
@@ -87,6 +89,8 @@ Cutover se considera listo solo cuando:
 - Plan de restore local sin tocar Docker: `scripts/run-postgres-restore-rehearsal.ps1 -PlanOnly`.
 - Rehearsal PostgreSQL local con fixture sintetico:
   `scripts/run-postgres-restore-rehearsal.ps1`.
+- Auditoria local de observabilidad operativa:
+  `backend\.venv\Scripts\python.exe backend\manage.py audit_operational_observability`.
 
 El smoke publico requiere URLs explicitas y el script Node rechaza destinos
 externos si no recibe `--allow-external`, que el wrapper solo agrega cuando se
@@ -95,3 +99,7 @@ usa `-RunPublicSmoke` o `-OnlySmoke`.
 El rehearsal de restore usa solo PostgreSQL local de `infra/docker-compose.yml`
 y escribe evidencia bajo `local-evidence/`. No lee `.env`, no usa datos reales
 y no cierra Operacion productiva sin restore de backup/snapshot autorizado.
+
+La auditoria de observabilidad es read-only: agrega estado de gates,
+integraciones, backlogs operativos y cobertura minima de senales runtime. No
+conecta proveedores externos y no reemplaza monitoreo productivo.
