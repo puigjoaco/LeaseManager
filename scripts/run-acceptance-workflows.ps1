@@ -27,6 +27,33 @@ function Assert-Condition($condition, $message) {
     }
 }
 
+function Assert-ReadinessOutputGuard($scriptPath, $label, $blockedFileName, [hashtable]$extraParams = @{}) {
+    Assert-Condition (Test-Path $scriptPath) "No existe el wrapper $label en $scriptPath"
+    $blockedOutputPath = Join-Path $repoRoot "docs\$blockedFileName"
+    Assert-Condition (-not (Test-Path $blockedOutputPath)) "La ruta bloqueada para $label ya existe: $blockedOutputPath"
+
+    $guardFailed = $false
+    $guardOutput = ''
+    $commandParams = @{}
+    foreach ($key in $extraParams.Keys) {
+        $commandParams[$key] = $extraParams[$key]
+    }
+    $commandParams['PythonExe'] = $pythonExe
+    $commandParams['OutputPath'] = $blockedOutputPath
+
+    try {
+        $guardOutput = & $scriptPath @commandParams 2>&1 | Out-String
+    }
+    catch {
+        $guardOutput = "$($_.Exception.Message)`n$($_ | Out-String)"
+        $guardFailed = $true
+    }
+
+    Assert-Condition $guardFailed "$label debe rechazar OutputPath versionable antes de generar auditoria."
+    Assert-Condition ($guardOutput -match 'local-evidence') "El rechazo de OutputPath en $label debe indicar local-evidence como ubicacion permitida."
+    Assert-Condition (-not (Test-Path $blockedOutputPath)) "$label no debe crear evidencia versionable bajo docs/."
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendDir = Join-Path $repoRoot 'backend'
 $frontendDir = Join-Path $repoRoot 'frontend'
@@ -36,6 +63,7 @@ if ([string]::IsNullOrWhiteSpace($pythonExe)) {
 }
 $smokeScript = Join-Path $PSScriptRoot 'smoke-public-backoffice.mjs'
 $stage1LocalReadinessScript = Join-Path $PSScriptRoot 'run-stage1-local-readiness.ps1'
+$stage1SnapshotGateScript = Join-Path $PSScriptRoot 'run-stage1-snapshot-gate.ps1'
 $stage2ReadinessScript = Join-Path $PSScriptRoot 'run-stage2-readiness-gate.ps1'
 $stage3ReadinessScript = Join-Path $PSScriptRoot 'run-stage3-readiness-gate.ps1'
 $stage4ReadinessScript = Join-Path $PSScriptRoot 'run-stage4-readiness-gate.ps1'
@@ -323,6 +351,26 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7AuthorizationIssueCodes -contains 'stage7.public_smoke_authorization_ref_missing') 'Smoke con responsible_ref no debe pasar como authorization_ref.'
         Assert-Condition ($stage7AuthorizationReadiness.restore_evidence.has_authorization_ref -eq $false) 'Restore debe marcar has_authorization_ref=false si solo tiene responsible_ref.'
         Assert-Condition ($stage7AuthorizationReadiness.public_smoke_evidence.has_authorization_ref -eq $false) 'Smoke debe marcar has_authorization_ref=false si solo tiene responsible_ref.'
+
+        Step "Readiness wrappers output guards"
+        Assert-ReadinessOutputGuard $stage1LocalReadinessScript 'Stage 1 local readiness' 'stage1-local-readiness-should-not-be-versioned.json'
+        Assert-ReadinessOutputGuard $stage1SnapshotGateScript 'Stage 1 snapshot gate' 'stage1-snapshot-gate-should-not-be-versioned.json' @{
+            SourceKind = 'snapshot_controlado'
+            SourceLabel = 'stage1-output-guard'
+            AuthorizationRef = 'stage1-authz-output-guard'
+            ResponsibleRef = 'stage1-owner-output-guard'
+            DatabaseUrl = 'sqlite:///local-evidence/stage1/output_guard.sqlite3'
+        }
+        Assert-ReadinessOutputGuard $stage2ReadinessScript 'Stage 2 readiness gate' 'stage2-readiness-should-not-be-versioned.json'
+        Assert-ReadinessOutputGuard $stage3ReadinessScript 'Stage 3 readiness gate' 'stage3-readiness-should-not-be-versioned.json'
+        Assert-ReadinessOutputGuard $stage4ReadinessScript 'Stage 4 readiness gate' 'stage4-readiness-should-not-be-versioned.json'
+        Assert-ReadinessOutputGuard $stage5ReadinessScript 'Stage 5 readiness gate' 'stage5-readiness-should-not-be-versioned.json'
+        Assert-ReadinessOutputGuard $stage5DocumentsReadinessScript 'Stage 5 documents readiness gate' 'stage5-documents-readiness-should-not-be-versioned.json'
+        Assert-ReadinessOutputGuard $stage6ReadinessScript 'Stage 6 readiness gate' 'stage6-readiness-should-not-be-versioned.json'
+        Assert-ReadinessOutputGuard $stage7ReadinessScript 'Stage 7 readiness gate' 'stage7-readiness-should-not-be-versioned.json' @{
+            DatabaseUrl = $BackendTestDb
+            SkipMigrations = $true
+        }
 
         Step "Restore rehearsal output guard"
         Assert-Condition (Test-Path $restoreRehearsalScript) "No existe el rehearsal de restore en $restoreRehearsalScript"
