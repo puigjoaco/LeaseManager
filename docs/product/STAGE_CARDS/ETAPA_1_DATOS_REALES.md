@@ -79,6 +79,9 @@ cd "D:/Proyectos/LeaseManager"
 
 El release gate deterministico ejecuta esta verificacion local dentro de
 `scripts/run-acceptance-workflows.ps1` para proteger la regla anti-bucle: sin
-fuente autorizada, el resultado esperado es `bloqueado_dato_real`, no cierre.
+fuente autorizada, la ruta local queda `implementado_sin_evidencia`, nunca se
+presenta como `snapshot_controlado` y no cierra la etapa. El estado
+`bloqueado_dato_real` queda reservado para el gate evidencial contra
+`snapshot_controlado` o `real_autorizado`.
 
 Procedimiento operativo: `docs/product/STAGE1_SNAPSHOT_INTAKE_MAYO_2026.md`.

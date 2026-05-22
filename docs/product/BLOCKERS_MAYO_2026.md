@@ -27,13 +27,17 @@ Verificacion reproducible desde `main` vigente:
 - `scripts/run-stage1-snapshot-gate.ps1` contra SQLite local vacio migrado en
   `local-evidence/` falla correctamente con `stage1.data_missing`.
 - `scripts/run-acceptance-workflows.ps1` ejecuta el readiness local de Etapa 1
-  para proteger que la falta de fuente autorizada siga siendo
-  `bloqueado_dato_real` y no una solicitud repetida de secretos.
-- Resultado del auditor: `classification=bloqueado_dato_real`,
-  `ready_for_stage1_close=false`, `has_required_stage1_data=false`.
-- El JSON de salida incluye `aggregate_classification`; en la verificacion
-  vacia los agregados requeridos quedan `bloqueado_dato_real` y los agregados
-  opcionales sin filas quedan `implementado_sin_evidencia`.
+  como diagnostico `source_kind=local`; protege que la falta de fuente
+  autorizada no derive en solicitud repetida de secretos ni en una fuente
+  controlada simulada.
+- Resultado del readiness local: `classification=implementado_sin_evidencia`,
+  `evidence_grade=false`, `ready_for_stage1_close=false`,
+  `has_required_stage1_data=false`.
+- Resultado del gate evidencial vacio: `classification=bloqueado_dato_real`,
+  `ready_for_stage1_close=false` y issue `stage1.data_missing`.
+- El JSON del gate evidencial incluye `aggregate_classification`; en la
+  verificacion vacia los agregados requeridos quedan `bloqueado_dato_real` y
+  los agregados opcionales sin filas quedan `implementado_sin_evidencia`.
 - El auditor bloquea fuentes evidenciales sin `SourceLabel`,
   `AuthorizationRef` o `ResponsibleRef` trazables, o con valores sensibles, y
   redacta valores invalidos antes de escribir el JSON.

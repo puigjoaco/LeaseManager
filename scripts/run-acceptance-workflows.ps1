@@ -140,9 +140,11 @@ if (-not $OnlySmoke) {
         Assert-Condition (Test-Path $stage1LocalReadinessOutputPath) 'run-stage1-local-readiness no genero JSON de auditoria.'
         $stage1LocalReadiness = Get-Content -LiteralPath $stage1LocalReadinessOutputPath -Raw | ConvertFrom-Json
         $stage1LocalIssueCodes = @($stage1LocalReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage1LocalReadiness.source_kind -eq 'local') 'El readiness local debe declarar source_kind=local.'
+        Assert-Condition ($stage1LocalReadiness.evidence_grade -eq $false) 'El readiness local no debe marcar evidence_grade.'
         Assert-Condition ($stage1LocalReadiness.ready_for_stage1_close -eq $false) 'El readiness local no puede cerrar Etapa 1.'
-        Assert-Condition ($stage1LocalReadiness.classification -eq 'bloqueado_dato_real') 'El readiness local debe quedar bloqueado por dato real.'
-        Assert-Condition ($stage1LocalIssueCodes -contains 'stage1.data_missing') 'El readiness local debe confirmar stage1.data_missing.'
+        Assert-Condition ($stage1LocalReadiness.classification -eq 'implementado_sin_evidencia') 'El readiness local debe quedar no evidencial.'
+        Assert-Condition (-not ($stage1LocalIssueCodes -contains 'stage1.data_missing')) 'stage1.data_missing debe quedar reservado para el gate evidencial con require-data.'
 
         Step "Stage 7 readiness guard"
         Assert-Condition (Test-Path $stage7ReadinessScript) "No existe el guard de readiness Etapa 7 en $stage7ReadinessScript"
