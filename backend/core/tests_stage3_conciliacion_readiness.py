@@ -276,6 +276,29 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.movements_unresolved', issue_codes)
         self.assertIn('stage3.unknown_income_open', issue_codes)
 
+    def test_reported_balance_continuity_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-BALANCE')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 9),
+            tipo_movimiento=TipoMovimientoBancario.DEBIT,
+            monto=Decimal('10000.00'),
+            descripcion_origen='Cargo bancario controlado',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3-charge',
+            saldo_reportado=Decimal('995000.00'),
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.balance_reported_continuity_mismatch', issue_codes)
+        self.assertEqual(result['sections']['movements']['reported_balance_continuity_checks'], 1)
+
     def test_sensitive_final_refs_do_not_close_readiness(self):
         cuenta, payment = self._create_payment_matrix()
         conexion = self._create_ready_connection(cuenta)

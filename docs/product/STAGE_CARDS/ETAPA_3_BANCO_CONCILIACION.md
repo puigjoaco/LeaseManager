@@ -26,6 +26,9 @@ sistema igual a saldo banco.
 - `audit_stage3_conciliacion_readiness` consolida readiness local de
   conexiones, movimientos, ingresos desconocidos, senales de saldo y
   referencias finales sin conectar bancos ni leer secretos.
+- Cuando hay saldos reportados en movimientos de una misma conexion, el
+  auditor valida continuidad local: cada saldo posterior debe continuar desde
+  el saldo reportado previo aplicando abonos y cargos intermedios.
 - Diferencias registradas.
 - Saldo sistema igual a saldo banco antes de habilitar cierre.
 
