@@ -157,6 +157,8 @@ def collect_stage4_sii_readiness(
     environment_proof_ref: str = '',
     fiscal_rule_ref: str = '',
     responsible_ref: str = '',
+    source_label: str = '',
+    authorization_ref: str = '',
     source_kind: str = 'local',
 ) -> dict[str, Any]:
     fiscal_configs = ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario')
@@ -209,6 +211,10 @@ def collect_stage4_sii_readiness(
         'fiscal_rule_ref': _non_sensitive_reference(fiscal_rule_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    source_trace = {
+        'source_label': _non_sensitive_reference(source_label),
+        'authorization_ref': _non_sensitive_reference(authorization_ref),
+    }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE4_SOURCE_KINDS
 
     issues: list[dict[str, Any]] = []
@@ -219,6 +225,21 @@ def collect_stage4_sii_readiness(
                 'La readiness local de Etapa 4 no puede cerrar SII sin fuente snapshot_controlado o real_autorizado.',
             )
         )
+    else:
+        for key, code, message in [
+            (
+                'source_label',
+                'stage4.source_label_missing',
+                'Falta etiqueta no sensible de la fuente autorizada de Etapa 4.',
+            ),
+            (
+                'authorization_ref',
+                'stage4.authorization_ref_missing',
+                'Falta referencia no sensible a la autorizacion de uso de la fuente Etapa 4.',
+            ),
+        ]:
+            if not source_trace[key]:
+                issues.append(_issue(code, message))
     if active_fiscal_configs.count() == 0:
         issues.append(
             _issue(
@@ -465,6 +486,7 @@ def collect_stage4_sii_readiness(
                 **annual_issues,
             },
             'final_evidence': final_evidence,
+            'source_trace': source_trace,
         },
         'limitations': [
             'Auditoria local de solo lectura; no conecta SII ni presenta DTE, F29, DDJJ o F22.',
