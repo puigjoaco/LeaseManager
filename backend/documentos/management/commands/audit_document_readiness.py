@@ -5,7 +5,13 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import OperationalError, ProgrammingError
 
-from documentos.readiness import collect_document_readiness
+from documentos.readiness import (
+    AUTHORIZED_DOCUMENT_SOURCE_KINDS,
+    collect_document_readiness,
+)
+
+
+LOCAL_DIAGNOSTIC_SOURCE_KINDS = {'demo', 'fixture', 'local'}
 
 
 def _resolve_output_path(raw_output_path: str) -> Path:
@@ -42,6 +48,15 @@ class Command(BaseCommand):
         parser.add_argument('--responsible-ref', default='', help='Referencia no sensible a responsables del proceso documental.')
         parser.add_argument('--controlled-pdf-ref', default='', help='Referencia no sensible a prueba PDF controlada.')
         parser.add_argument(
+            '--source-kind',
+            default='local',
+            choices=sorted(LOCAL_DIAGNOSTIC_SOURCE_KINDS | AUTHORIZED_DOCUMENT_SOURCE_KINDS),
+            help=(
+                'Tipo de fuente auditada. local, fixture y demo diagnostican; '
+                'solo snapshot_controlado o real_autorizado permiten cierre.'
+            ),
+        )
+        parser.add_argument(
             '--fail-on-attention',
             action='store_true',
             help='Sale con error si readiness documental no queda lista para cierre.',
@@ -58,6 +73,7 @@ class Command(BaseCommand):
                 final_policy_ref=options['final_policy_ref'],
                 responsible_ref=options['responsible_ref'],
                 controlled_pdf_ref=options['controlled_pdf_ref'],
+                source_kind=options['source_kind'],
             )
         except (OperationalError, ProgrammingError) as error:
             raise CommandError(
