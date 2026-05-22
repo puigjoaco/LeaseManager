@@ -13,34 +13,38 @@ from rest_framework.test import APITestCase
 
 from canales.models import CanalMensajeria, EstadoGateCanal
 from cobranza.models import EstadoGateCobroExterno, GateCobroExterno
-from core.models import OperationalRuntimeSignal, RuntimeSignalKey, RuntimeSignalStatus
+from core.models import OperationalRuntimeSignal, RuntimeSignalKey, RuntimeSignalSourceKind, RuntimeSignalStatus
 from core.operational_observability import collect_operational_observability_audit
 from patrimonio.models import Empresa
 from sii.models import AmbienteSII, CapacidadSII, CapacidadTributariaSII, EstadoGateSII
 
 
-def create_runtime_signals_ok():
+def create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.LOCAL):
     OperationalRuntimeSignal.objects.create(
         signal_key=RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY,
         status=RuntimeSignalStatus.OK,
+        source_kind=source_kind,
         value={'duration_ms': 120},
         evidence_ref='local-monthly-latency',
     )
     OperationalRuntimeSignal.objects.create(
         signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
         status=RuntimeSignalStatus.OK,
+        source_kind=source_kind,
         value={'healthy': True},
         evidence_ref='local-queue-runtime',
     )
     OperationalRuntimeSignal.objects.create(
         signal_key=RuntimeSignalKey.FAILED_WEBHOOKS,
         status=RuntimeSignalStatus.OK,
+        source_kind=source_kind,
         value={'failed_count': 0},
         evidence_ref='local-webhooks',
     )
     OperationalRuntimeSignal.objects.create(
         signal_key=RuntimeSignalKey.FAILED_CRONS,
         status=RuntimeSignalStatus.OK,
+        source_kind=source_kind,
         value={'failed_count': 0},
         evidence_ref='local-crons',
     )
@@ -93,22 +97,34 @@ class OperationalObservabilityAuditTests(TestCase):
         self.assertEqual(issues['observability.webpay_gate_invalid']['count'], 1)
         self.assertEqual(issues['observability.sii_capability_invalid']['count'], 1)
 
-    def test_runtime_signals_clear_metric_missing_issues(self):
+    def test_local_runtime_signals_clear_missing_but_do_not_close_productive_observability(self):
         create_runtime_signals_ok()
 
         result = collect_operational_observability_audit()
         issue_codes = {issue['code'] for issue in result['issues']}
 
-        self.assertTrue(result['ready_for_stage7_observability'])
-        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertFalse(result['ready_for_stage7_observability'])
+        self.assertEqual(result['classification'], 'parcial')
         self.assertNotIn('observability.monthly_latency_metric_missing', issue_codes)
+        self.assertIn('observability.monthly_latency_metric_source_not_authorized', issue_codes)
+        self.assertFalse(result['sections']['runtime_signals']['authorized_for_stage7_close'])
         self.assertEqual(
             result['sections']['runtime_signals'][RuntimeSignalKey.QUEUE_RUNTIME]['status'],
             RuntimeSignalStatus.OK,
         )
 
+    def test_authorized_runtime_signals_can_pass_observability_close(self):
+        create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO)
+
+        result = collect_operational_observability_audit()
+
+        self.assertTrue(result['ready_for_stage7_observability'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertTrue(result['sections']['runtime_signals']['authorized_for_stage7_close'])
+        self.assertEqual(result['issues'], [])
+
     def test_runtime_signal_attention_blocks_observability_close(self):
-        create_runtime_signals_ok()
+        create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO)
         OperationalRuntimeSignal.objects.filter(signal_key=RuntimeSignalKey.FAILED_CRONS).update(
             status=RuntimeSignalStatus.ATTENTION,
             value={'failed_count': 2},

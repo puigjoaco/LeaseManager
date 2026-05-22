@@ -377,11 +377,21 @@ finally {
 }
 
 $observability = Read-JsonFile $observabilityOutput
+$observabilityRuntimeAuthorized = $false
+if (
+    ($observability.PSObject.Properties.Name -contains 'sections') `
+    -and ($null -ne $observability.sections) `
+    -and ($observability.sections.PSObject.Properties.Name -contains 'runtime_signals') `
+    -and ($null -ne $observability.sections.runtime_signals) `
+    -and ($observability.sections.runtime_signals.PSObject.Properties.Name -contains 'authorized_for_stage7_close')
+) {
+    $observabilityRuntimeAuthorized = $observability.sections.runtime_signals.authorized_for_stage7_close -eq $true
+}
 if ($observability.ready_for_stage7_observability -ne $true) {
     $issues += [ordered]@{
         code = 'stage7.observability_not_ready'
         severity = 'attention'
-        message = 'La auditoria local de observabilidad aun no esta lista para cierre.'
+        message = 'La auditoria de observabilidad aun no esta lista para cierre con senales runtime autorizadas.'
     }
 }
 
@@ -551,6 +561,7 @@ $result = [ordered]@{
         output = ($observabilityOutput.Replace('\', '/'))
         classification = $observability.classification
         ready_for_stage7_observability = $observability.ready_for_stage7_observability
+        runtime_signals_authorized_for_close = $observabilityRuntimeAuthorized
         issue_counts = $observability.issue_counts
     }
     restore_evidence = $restoreEvidenceSummary

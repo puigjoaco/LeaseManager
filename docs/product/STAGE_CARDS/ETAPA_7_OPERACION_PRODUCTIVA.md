@@ -27,6 +27,9 @@ runbook, smoke y aceptacion.
   backlogs y senales runtime minimas.
 - Senales runtime persistidas para latencia mensual, cola/tareas, webhooks
   fallidos y crons fallidos, con evidencia no sensible.
+- Para cierre productivo, las cuatro senales runtime obligatorias deben venir
+  de `snapshot_controlado` o `real_autorizado`; mediciones locales, fixture o
+  demo solo preparan el gate.
 - API/backoffice autenticados exponen observabilidad operativa de solo lectura
   con referencias sensibles redactadas.
 - Guard local de readiness Etapa 7 consolida observabilidad, restore, smoke

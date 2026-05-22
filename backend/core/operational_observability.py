@@ -25,33 +25,52 @@ from contabilidad.models import CierreMensualContable, EstadoCierreMensual
 from documentos.models import DocumentoEmitido, EstadoDocumento
 from sii.models import CapacidadTributariaSII, EstadoGateSII
 
-from .models import OperationalRuntimeSignal, RuntimeSignalKey, RuntimeSignalStatus
+from .models import (
+    OperationalRuntimeSignal,
+    RuntimeSignalKey,
+    RuntimeSignalSourceKind,
+    RuntimeSignalStatus,
+)
+
+
+AUTHORIZED_RUNTIME_SIGNAL_SOURCE_KINDS = {
+    RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
+    RuntimeSignalSourceKind.REAL_AUTORIZADO,
+}
 
 
 REQUIRED_RUNTIME_SIGNALS = {
     RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY: {
         'missing_code': 'observability.monthly_latency_metric_missing',
         'attention_code': 'observability.monthly_latency_metric_attention',
+        'source_code': 'observability.monthly_latency_metric_source_not_authorized',
         'missing_message': 'No existe metrica persistida para latencia de calculo mensual.',
         'attention_message': 'La metrica de latencia de calculo mensual requiere atencion.',
+        'source_message': 'La metrica de latencia de calculo mensual requiere fuente snapshot_controlado o real_autorizado para cierre.',
     },
     RuntimeSignalKey.QUEUE_RUNTIME: {
         'missing_code': 'observability.queue_runtime_metric_missing',
         'attention_code': 'observability.queue_runtime_metric_attention',
+        'source_code': 'observability.queue_runtime_metric_source_not_authorized',
         'missing_message': 'La auditoria local solo verifica configuracion de broker; falta metrica runtime de colas/tareas.',
         'attention_message': 'La metrica runtime de colas/tareas requiere atencion.',
+        'source_message': 'La metrica runtime de colas/tareas requiere fuente snapshot_controlado o real_autorizado para cierre.',
     },
     RuntimeSignalKey.FAILED_WEBHOOKS: {
         'missing_code': 'observability.webhook_metric_missing',
         'attention_code': 'observability.webhook_metric_attention',
+        'source_code': 'observability.webhook_metric_source_not_authorized',
         'missing_message': 'No existe metrica persistida para webhooks fallidos.',
         'attention_message': 'La metrica de webhooks fallidos requiere atencion.',
+        'source_message': 'La metrica de webhooks fallidos requiere fuente snapshot_controlado o real_autorizado para cierre.',
     },
     RuntimeSignalKey.FAILED_CRONS: {
         'missing_code': 'observability.cron_metric_missing',
         'attention_code': 'observability.cron_metric_attention',
+        'source_code': 'observability.cron_metric_source_not_authorized',
         'missing_message': 'No existe metrica persistida para crons fallidos.',
         'attention_message': 'La metrica de crons fallidos requiere atencion.',
+        'source_message': 'La metrica de crons fallidos requiere fuente snapshot_controlado o real_autorizado para cierre.',
     },
 }
 
@@ -140,6 +159,9 @@ def redact_operational_observability_for_api(result):
     celery_configured = runtime_signals.get('celery_broker_configured')
     if isinstance(celery_configured, bool):
         public_runtime_signals['celery_broker_configured'] = celery_configured
+    authorized_for_close = runtime_signals.get('authorized_for_stage7_close')
+    if isinstance(authorized_for_close, bool):
+        public_runtime_signals['authorized_for_stage7_close'] = authorized_for_close
 
     for signal_key in REQUIRED_RUNTIME_SIGNALS:
         public_runtime_signals[signal_key] = _public_runtime_signal_payload(signal_key, runtime_signals.get(signal_key))
@@ -152,8 +174,11 @@ def _collect_runtime_signals():
     signals_by_key = {signal.signal_key: signal for signal in OperationalRuntimeSignal.objects.all()}
     runtime_payload = {
         'celery_broker_configured': bool(str(settings.CELERY_BROKER_URL or '').strip()),
+        'authorized_source_kinds': sorted(AUTHORIZED_RUNTIME_SIGNAL_SOURCE_KINDS),
+        'authorized_for_stage7_close': False,
     }
     runtime_issues = []
+    authorized_ok_signal_count = 0
 
     for signal_key, definition in REQUIRED_RUNTIME_SIGNALS.items():
         signal = signals_by_key.get(signal_key)
@@ -162,6 +187,12 @@ def _collect_runtime_signals():
             runtime_issues.append(_issue(definition['missing_code'], definition['missing_message']))
         elif signal.status != RuntimeSignalStatus.OK:
             runtime_issues.append(_issue(definition['attention_code'], definition['attention_message']))
+        elif signal.source_kind not in AUTHORIZED_RUNTIME_SIGNAL_SOURCE_KINDS:
+            runtime_issues.append(_issue(definition['source_code'], definition['source_message']))
+        else:
+            authorized_ok_signal_count += 1
+
+    runtime_payload['authorized_for_stage7_close'] = authorized_ok_signal_count == len(REQUIRED_RUNTIME_SIGNALS)
 
     return runtime_payload, runtime_issues
 
