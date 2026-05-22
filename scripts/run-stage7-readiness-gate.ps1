@@ -30,6 +30,23 @@ function Resolve-FullPath([string]$path) {
     return [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $path))
 }
 
+function Resolve-SqliteDatabaseUrl([string]$databaseUrl) {
+    if ($databaseUrl -notmatch '^sqlite:///(.+)$') {
+        return $databaseUrl
+    }
+    $sqlitePath = $Matches[1]
+    if ($sqlitePath -eq ':memory:') {
+        return $databaseUrl
+    }
+    $sqlitePath = $sqlitePath -replace '/', '\'
+    $resolvedSqlitePath = Resolve-FullPath $sqlitePath
+    $sqliteDirectory = Split-Path -Parent $resolvedSqlitePath
+    if (-not [string]::IsNullOrWhiteSpace($sqliteDirectory)) {
+        New-Item -ItemType Directory -Force -Path $sqliteDirectory | Out-Null
+    }
+    return 'sqlite:///' + ($resolvedSqlitePath -replace '\\', '/')
+}
+
 function Assert-OutputPathSafe([string]$path, [string]$repoRoot) {
     $resolvedOutput = Resolve-FullPath $path
     $localEvidenceRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'local-evidence'))
@@ -49,6 +66,63 @@ function Test-NonSensitiveReference([string]$value) {
         return $false
     }
     return $value -notmatch '(?i)(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)'
+}
+
+function Get-PayloadTextProperty($payload, [string[]]$names) {
+    foreach ($name in $names) {
+        if ($payload.PSObject.Properties.Name -contains $name) {
+            $value = $payload.$name
+            if ($null -ne $value -and -not [string]::IsNullOrWhiteSpace([string]$value)) {
+                return [string]$value
+            }
+        }
+    }
+    return ''
+}
+
+function Test-AuthorizedRestoreEvidence($payload) {
+    $sourceKind = Get-PayloadTextProperty $payload @('source_kind', 'restore_source_kind', 'source')
+    $rehearsalKind = Get-PayloadTextProperty $payload @('rehearsal_kind')
+    $mode = Get-PayloadTextProperty $payload @('mode')
+    $authorizationRef = Get-PayloadTextProperty $payload @('authorization_ref', 'responsible_ref')
+    $backupRef = Get-PayloadTextProperty $payload @('backup_ref', 'backup_evidence_ref', 'backup_file')
+    $allowedSourceKinds = @('snapshot_controlado', 'real_autorizado', 'backup_autorizado', 'restore_autorizado')
+    $verified = ($payload.PSObject.Properties.Name -contains 'restore_verified') -and $payload.restore_verified -eq $true
+    $syntheticOnly = $sourceKind -eq 'synthetic_fixture' -or $rehearsalKind -eq 'postgres_local_synthetic_restore' -or $mode -eq 'plan_only'
+    $hasAuthorizationRef = Test-NonSensitiveReference $authorizationRef
+    $hasBackupRef = Test-NonSensitiveReference $backupRef
+    $authorized = $verified `
+        -and (-not $syntheticOnly) `
+        -and ($allowedSourceKinds -contains $sourceKind) `
+        -and $hasAuthorizationRef `
+        -and $hasBackupRef
+
+    $reason = ''
+    if (-not $verified) {
+        $reason = 'restore_not_verified'
+    }
+    elseif ($syntheticOnly) {
+        $reason = 'synthetic_restore_not_authorized'
+    }
+    elseif (-not ($allowedSourceKinds -contains $sourceKind)) {
+        $reason = 'restore_source_kind_invalid'
+    }
+    elseif (-not $hasAuthorizationRef) {
+        $reason = 'restore_authorization_ref_missing'
+    }
+    elseif (-not $hasBackupRef) {
+        $reason = 'restore_backup_ref_missing'
+    }
+
+    return [ordered]@{
+        verified = $verified
+        authorized = $authorized
+        source_kind = $sourceKind
+        synthetic_only = $syntheticOnly
+        has_authorization_ref = $hasAuthorizationRef
+        has_backup_ref = $hasBackupRef
+        reason = $reason
+    }
 }
 
 function Read-JsonFile([string]$path) {
@@ -94,6 +168,7 @@ if ([string]::IsNullOrWhiteSpace($OutputPath)) {
 $resolvedOutput = Assert-OutputPathSafe $OutputPath $repoRoot
 $evidenceDir = Split-Path -Parent $resolvedOutput
 New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
+$DatabaseUrl = Resolve-SqliteDatabaseUrl $DatabaseUrl
 $observabilityOutput = Join-Path $evidenceDir "stage7_observability_$timestamp.json"
 
 $checks = [ordered]@{
@@ -101,10 +176,20 @@ $checks = [ordered]@{
     migrations_applied = $false
     observability_audit = $false
     restore_evidence = $false
+    restore_authorized_evidence = $false
     public_smoke_evidence = $false
     final_acceptance_ref = $false
 }
 $issues = @()
+$restoreEvidenceSummary = [ordered]@{
+    provided = $false
+    verified = $false
+    authorized = $false
+    source_kind = ''
+    synthetic_only = $false
+    has_authorization_ref = $false
+    has_backup_ref = $false
+}
 
 Step 'Backend local checks'
 $env:DATABASE_URL = $DatabaseUrl
@@ -153,12 +238,41 @@ if ([string]::IsNullOrWhiteSpace($RestoreEvidencePath)) {
 }
 else {
     $restoreEvidence = Read-JsonFile $RestoreEvidencePath
-    $checks.restore_evidence = ($restoreEvidence.restore_verified -eq $true)
-    if (-not $checks.restore_evidence) {
+    $restoreCheck = Test-AuthorizedRestoreEvidence $restoreEvidence
+    $checks.restore_evidence = $restoreCheck.verified
+    $checks.restore_authorized_evidence = $restoreCheck.authorized
+    $restoreEvidenceSummary = [ordered]@{
+        provided = $true
+        verified = $restoreCheck.verified
+        authorized = $restoreCheck.authorized
+        source_kind = $restoreCheck.source_kind
+        synthetic_only = $restoreCheck.synthetic_only
+        has_authorization_ref = $restoreCheck.has_authorization_ref
+        has_backup_ref = $restoreCheck.has_backup_ref
+    }
+    if (-not $restoreCheck.verified) {
         $issues += [ordered]@{
             code = 'stage7.restore_not_verified'
             severity = 'blocking'
             message = 'La evidencia de restore no reporta restore_verified=true.'
+        }
+    }
+    elseif (-not $restoreCheck.authorized) {
+        $issueCode = switch ($restoreCheck.reason) {
+            'restore_authorization_ref_missing' { 'stage7.restore_authorization_ref_missing' }
+            'restore_backup_ref_missing' { 'stage7.restore_backup_ref_missing' }
+            default { 'stage7.restore_authorized_backup_missing' }
+        }
+        $issueMessage = switch ($restoreCheck.reason) {
+            'synthetic_restore_not_authorized' { 'El restore sintetico prepara el gate, pero no reemplaza restore de backup/snapshot autorizado.' }
+            'restore_authorization_ref_missing' { 'La evidencia de restore requiere authorization_ref no sensible.' }
+            'restore_backup_ref_missing' { 'La evidencia de restore requiere backup_ref o backup_file no sensible.' }
+            default { 'La evidencia de restore debe declarar source_kind snapshot_controlado, real_autorizado, backup_autorizado o restore_autorizado.' }
+        }
+        $issues += [ordered]@{
+            code = $issueCode
+            severity = 'blocking'
+            message = $issueMessage
         }
     }
 }
@@ -191,7 +305,8 @@ if (-not $checks.final_acceptance_ref) {
     }
 }
 
-$readyForClose = ($issues | Where-Object { $_.severity -eq 'blocking' }).Count -eq 0 -and $observability.ready_for_stage7_observability -eq $true
+$blockingIssueCount = @($issues | Where-Object { $_.severity -eq 'blocking' }).Count
+$readyForClose = $blockingIssueCount -eq 0 -and $observability.ready_for_stage7_observability -eq $true
 $result = [ordered]@{
     generated_at = (Get-Date).ToUniversalTime().ToString('o')
     source_kind = 'local'
@@ -204,12 +319,13 @@ $result = [ordered]@{
         ready_for_stage7_observability = $observability.ready_for_stage7_observability
         issue_counts = $observability.issue_counts
     }
+    restore_evidence = $restoreEvidenceSummary
     issues = $issues
     limitations = @(
         'Gate local de solo lectura para consolidar readiness de Etapa 7.',
         'No ejecuta smoke publico ni conecta proveedores externos.',
         'No usa secretos, .env, datos reales ni backups productivos.',
-        'No cierra Operacion productiva sin restore verificado, smoke publico autorizado, observabilidad lista y aceptacion final.'
+        'No cierra Operacion productiva sin restore de backup/snapshot autorizado, smoke publico autorizado, observabilidad lista y aceptacion final.'
     )
 }
 
