@@ -28,6 +28,17 @@ cierres mensuales.
 - `audit_stage6_renta_anual_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 6.
+- Una fuente evidencial debe incluir `--source-label` y
+  `--authorization-ref` no sensibles. Sin esas refs, el tipo de fuente queda
+  reconocido pero no puede cerrar Etapa 6.
+- `scripts/run-stage6-readiness-gate.ps1` ejecuta el diagnostico local con
+  SQLite efimero bajo `local-evidence/`, no conecta SII, no lee `.env`, no usa
+  certificados y reserva `-RequireReady` para fuentes autorizadas con refs
+  trazables de Etapa 5, Etapa 4 SII, regla fiscal, certificados y responsable.
+
+```powershell
+scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe
+```
 
 ## Salida
 
