@@ -10,6 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from migration.readers import fetch_legacy_rows  # noqa: E402
+from migration.output_paths import validate_generated_bundle_output_path  # noqa: E402
 from migration.transformers import transform_legacy_bundle  # noqa: E402
 
 
@@ -28,10 +29,10 @@ def main():
     if not args.output:
         raise SystemExit('--output o MIGRATION_BUNDLE_OUTPUT es obligatorio.')
 
+    output_path = validate_generated_bundle_output_path(args.output)
     rows = fetch_legacy_rows(args.legacy_database_url)
     bundle = transform_legacy_bundle(rows)
 
-    output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(bundle, indent=2, ensure_ascii=True), encoding='utf-8')
     print(f'Bundle exportado en: {output_path}')

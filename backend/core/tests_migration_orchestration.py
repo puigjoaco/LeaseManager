@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
@@ -7,7 +8,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from migration.scripts import export_legacy_seed_bundle  # noqa: E402
 from migration.orchestration import describe_database_target, read_backend_env_value, replace_database_name  # noqa: E402
+from migration.output_paths import validate_generated_bundle_output_path  # noqa: E402
 from migration.importers import (  # noqa: E402
     validate_current_migration_empty_state,
     validate_current_migration_state,
@@ -49,6 +52,38 @@ class MigrationOrchestrationTests(SimpleTestCase):
                 'database_name': '',
             },
         )
+
+    def test_generated_bundle_output_allows_external_paths(self):
+        output_path = validate_generated_bundle_output_path(
+            str(PROJECT_ROOT.parent / 'controlled-bundles' / 'bundle.json')
+        )
+        self.assertEqual(output_path, (PROJECT_ROOT.parent / 'controlled-bundles' / 'bundle.json').resolve())
+
+    def test_generated_bundle_output_allows_ignored_bundle_dir(self):
+        output_path = validate_generated_bundle_output_path(
+            str(PROJECT_ROOT / 'migration' / 'bundles' / 'bundle.local.json')
+        )
+        self.assertEqual(output_path, (PROJECT_ROOT / 'migration' / 'bundles' / 'bundle.local.json').resolve())
+
+    def test_generated_bundle_output_rejects_tracked_repo_paths(self):
+        with self.assertRaisesMessage(ValueError, 'migration/bundles'):
+            validate_generated_bundle_output_path(str(PROJECT_ROOT / 'docs' / 'bundle.json'))
+
+    def test_export_bundle_rejects_repo_output_before_legacy_read(self):
+        argv = [
+            'export_legacy_seed_bundle.py',
+            '--legacy-database-url',
+            'postgresql://legacy.example/db',
+            '--output',
+            str(PROJECT_ROOT / 'docs' / 'bundle.json'),
+        ]
+        with (
+            patch.object(sys, 'argv', argv),
+            patch.object(export_legacy_seed_bundle, 'fetch_legacy_rows') as fetch_rows,
+        ):
+            with self.assertRaisesMessage(ValueError, 'migration/bundles'):
+                export_legacy_seed_bundle.main()
+        fetch_rows.assert_not_called()
 
     def test_validate_current_migration_state_accepts_expected_snapshot(self):
         snapshot = {
