@@ -78,6 +78,10 @@ def _count_by(queryset, field_name: str) -> dict[str, int]:
     return dict(sorted(counter.items()))
 
 
+def _count_without_active_fiscal_config(items, active_fiscal_company_ids: set[int]) -> int:
+    return sum(1 for item in items if item.empresa_id not in active_fiscal_company_ids)
+
+
 def _annual_summary_is_traceable(summary: Any) -> bool:
     if not isinstance(summary, dict):
         return False
@@ -180,6 +184,7 @@ def collect_stage6_renta_anual_readiness(
 ) -> dict[str, Any]:
     fiscal_configs = ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario')
     active_fiscal_configs = fiscal_configs.filter(estado=EstadoRegistro.ACTIVE)
+    active_fiscal_company_ids = set(active_fiscal_configs.values_list('empresa_id', flat=True))
     invalid_active_fiscal_configs = _count_invalid(active_fiscal_configs)
 
     capabilities = CapacidadTributariaSII.objects.select_related('empresa')
@@ -212,6 +217,22 @@ def collect_stage6_renta_anual_readiness(
         annual_processes,
         ddjj_preparations,
         f22_preparations,
+    )
+    open_annual_capabilities_without_fiscal_config = _count_without_active_fiscal_config(
+        annual_open_capabilities,
+        active_fiscal_company_ids,
+    )
+    annual_processes_without_fiscal_config = _count_without_active_fiscal_config(
+        annual_processes,
+        active_fiscal_company_ids,
+    )
+    ddjj_without_fiscal_config = _count_without_active_fiscal_config(
+        ddjj_preparations,
+        active_fiscal_company_ids,
+    )
+    f22_without_fiscal_config = _count_without_active_fiscal_config(
+        f22_preparations,
+        active_fiscal_company_ids,
     )
 
     tax_support_documents = DocumentoEmitido.objects.filter(tipo_documental=TipoDocumental.TAX_SUPPORT)
@@ -266,11 +287,27 @@ def collect_stage6_renta_anual_readiness(
                 count=invalid_annual_open_capabilities,
             )
         )
+    if open_annual_capabilities_without_fiscal_config:
+        issues.append(
+            _issue(
+                'stage6.annual_capability_fiscal_config_missing',
+                'Existen capacidades anuales SII abiertas para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+                count=open_annual_capabilities_without_fiscal_config,
+            )
+        )
     if annual_processes.count() == 0:
         issues.append(
             _issue(
                 'stage6.annual_process_missing',
                 'Etapa 6 requiere al menos un ProcesoRentaAnual preparado.',
+            )
+        )
+    if annual_processes_without_fiscal_config:
+        issues.append(
+            _issue(
+                'stage6.annual_process_fiscal_config_missing',
+                'Existen procesos de renta anual para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+                count=annual_processes_without_fiscal_config,
             )
         )
     if approved_closes.count() < 12:
@@ -289,8 +326,24 @@ def collect_stage6_renta_anual_readiness(
         )
     if ddjj_preparations.count() == 0:
         issues.append(_issue('stage6.ddjj_missing', 'Etapa 6 requiere preparacion DDJJ anual.'))
+    if ddjj_without_fiscal_config:
+        issues.append(
+            _issue(
+                'stage6.ddjj_fiscal_config_missing',
+                'Existen DDJJ anuales para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+                count=ddjj_without_fiscal_config,
+            )
+        )
     if f22_preparations.count() == 0:
         issues.append(_issue('stage6.f22_missing', 'Etapa 6 requiere preparacion F22 anual.'))
+    if f22_without_fiscal_config:
+        issues.append(
+            _issue(
+                'stage6.f22_fiscal_config_missing',
+                'Existen F22 anuales para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+                count=f22_without_fiscal_config,
+            )
+        )
     if usable_tax_support_documents.count() == 0:
         issues.append(
             _issue(
@@ -471,6 +524,7 @@ def collect_stage6_renta_anual_readiness(
                 'open_f22': open_f22_capabilities.count(),
                 'open_production': annual_production_capabilities.count(),
                 'invalid_open': invalid_annual_open_capabilities,
+                'open_without_active_fiscal_config': open_annual_capabilities_without_fiscal_config,
                 'by_capability': _count_by(annual_open_capabilities, 'capacidad_key'),
             },
             'monthly_sources': {
@@ -483,13 +537,16 @@ def collect_stage6_renta_anual_readiness(
             'annual_process': {
                 'processes_total': annual_processes.count(),
                 'processes_by_state': _count_by(annual_processes, 'estado'),
+                'without_active_fiscal_config': annual_processes_without_fiscal_config,
                 **process_issues,
             },
             'annual_documents': {
                 'ddjj_total': ddjj_preparations.count(),
                 'ddjj_by_state': _count_by(ddjj_preparations, 'estado_preparacion'),
+                'ddjj_without_active_fiscal_config': ddjj_without_fiscal_config,
                 'f22_total': f22_preparations.count(),
                 'f22_by_state': _count_by(f22_preparations, 'estado_preparacion'),
+                'f22_without_active_fiscal_config': f22_without_fiscal_config,
                 **annual_document_issues,
             },
             'tax_support_documents': {
@@ -503,6 +560,6 @@ def collect_stage6_renta_anual_readiness(
         'limitations': [
             'Auditoria local de solo lectura; no presenta DDJJ, F22 ni declaraciones finales.',
             'No usa secretos, certificados reales, .env, datos reales ni ambientes SII externos.',
-            'No cierra Etapa 6 sin doce cierres evidenciados, regla fiscal validada y certificados/respaldos controlados.',
+            'No cierra Etapa 6 sin configuracion fiscal activa por empresa, doce cierres evidenciados, regla fiscal validada y certificados/respaldos controlados.',
         ],
     }

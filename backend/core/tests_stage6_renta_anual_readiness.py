@@ -242,6 +242,64 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.annual_capability_invalid', {issue['code'] for issue in result['issues']})
 
+    def test_annual_capabilities_process_ddjj_and_f22_require_same_company_fiscal_config(self):
+        empresa_con_config = self._create_active_empresa(nombre='FiscalConfiguredStage6Co', rut='65656565-6')
+        self._activate_fiscal_config(empresa_con_config)
+        empresa_sin_config = self._create_active_empresa(nombre='AnnualNoFiscalCo', rut='75757575-7')
+        ddjj_capability = self._open_capability(
+            empresa_sin_config,
+            CapacidadSII.DDJJ_PREPARACION,
+            'ddjj-no-fiscal',
+        )
+        f22_capability = self._open_capability(
+            empresa_sin_config,
+            CapacidadSII.F22_PREPARACION,
+            'f22-no-fiscal',
+        )
+        self._create_twelve_approved_closes(empresa_sin_config)
+        summary = self._annual_summary()
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa_sin_config,
+            anio_tributario=2026,
+            estado=EstadoPreparacionTributaria.APPROVED,
+            fecha_preparacion=timezone.now(),
+            resumen_anual=summary,
+            paquete_ddjj_ref='ddjj-package-stage6-no-fiscal',
+            borrador_f22_ref='f22-draft-stage6-no-fiscal',
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa_sin_config,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2026,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': summary},
+            paquete_ref='ddjj-package-stage6-no-fiscal',
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa_sin_config,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2026,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            resumen_f22={'resumen_anual': summary, 'regimen_tributario': 'propyme-general-v1'},
+            borrador_ref='f22-draft-stage6-no-fiscal',
+        )
+        self._create_tax_support_document(process)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.annual_capability_fiscal_config_missing', issue_codes)
+        self.assertIn('stage6.annual_process_fiscal_config_missing', issue_codes)
+        self.assertIn('stage6.ddjj_fiscal_config_missing', issue_codes)
+        self.assertIn('stage6.f22_fiscal_config_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_capabilities']['open_without_active_fiscal_config'], 2)
+        self.assertEqual(result['sections']['annual_process']['without_active_fiscal_config'], 1)
+        self.assertEqual(result['sections']['annual_documents']['ddjj_without_active_fiscal_config'], 1)
+        self.assertEqual(result['sections']['annual_documents']['f22_without_active_fiscal_config'], 1)
+
     def test_process_without_summary_or_annual_documents_is_blocking(self):
         empresa = self._create_active_empresa(nombre='ProcessNoDocsCo', rut='68686868-6')
         self._activate_fiscal_config(empresa)
