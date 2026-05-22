@@ -38,6 +38,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--output', default='', help='Ruta opcional para escribir el JSON de auditoria.')
+        parser.add_argument(
+            '--source-kind',
+            default='local',
+            choices=['local', 'fixture', 'demo', 'snapshot_controlado', 'real_autorizado'],
+            help='Tipo de fuente auditada; solo snapshot_controlado o real_autorizado pueden cerrar Etapa 2.',
+        )
         parser.add_argument('--stage1-evidence-ref', default='', help='Referencia no sensible a evidencia Etapa 1.')
         parser.add_argument('--email-proof-ref', default='', help='Referencia no sensible a prueba controlada Email.')
         parser.add_argument('--webpay-proof-ref', default='', help='Referencia no sensible a prueba controlada WebPay.')
@@ -56,6 +62,7 @@ class Command(BaseCommand):
 
         try:
             result = collect_stage2_cobranza_readiness(
+                source_kind=options['source_kind'],
                 stage1_evidence_ref=options['stage1_evidence_ref'],
                 email_proof_ref=options['email_proof_ref'],
                 webpay_proof_ref=options['webpay_proof_ref'],

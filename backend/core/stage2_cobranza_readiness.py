@@ -38,6 +38,7 @@ SENSITIVE_REFERENCE_PATTERN = re.compile(
     r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
     re.IGNORECASE,
 )
+AUTHORIZED_STAGE2_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 
 
 def _non_sensitive_reference(value: str) -> bool:
@@ -190,8 +191,16 @@ def collect_stage2_cobranza_readiness(
         'webpay_proof_ref': _non_sensitive_reference(webpay_proof_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE2_SOURCE_KINDS
 
     issues: list[dict[str, Any]] = []
+    if not source_kind_authorized_for_close:
+        issues.append(
+            _issue(
+                'stage2.source_kind_not_authorized',
+                'La readiness local de Etapa 2 no puede cerrar Cobranza sin fuente snapshot_controlado o real_autorizado.',
+            )
+        )
     if payments_total == 0:
         issues.append(
             _issue(
@@ -346,6 +355,8 @@ def collect_stage2_cobranza_readiness(
         'generated_at': timezone.now().isoformat(),
         'stage': 'Etapa 2 - Cobranza y canales',
         'source_kind': source_kind,
+        'authorized_source_kinds': sorted(AUTHORIZED_STAGE2_SOURCE_KINDS),
+        'source_kind_authorized_for_close': source_kind_authorized_for_close,
         'classification': 'resuelto_confirmado' if ready else 'parcial',
         'ready_for_stage2_cobranza': ready,
         'issue_counts': dict(sorted(issue_counts.items())),
