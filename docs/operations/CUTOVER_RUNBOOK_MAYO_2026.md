@@ -42,7 +42,8 @@ mismo.
 4. Ejecutar migraciones aprobadas.
 5. Ejecutar backfills aprobados, si existen.
 6. Levantar servicios.
-7. Ejecutar healthcheck.
+7. Ejecutar healthcheck/readiness y confirmar que las respuestas publicas no
+   exponen detalles internos de DB, Redis, configuracion ni excepciones.
 8. Ejecutar smoke operativo solo con autorizacion explicita:
    `scripts/run-acceptance-workflows.ps1 -RunPublicSmoke -FrontendUrl <url> -ApiBaseUrl <url>`.
 9. Validar flujo minimo por rol.

@@ -7,10 +7,26 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 
+SERVICE_DOWN_DETAIL = 'unavailable'
+
+
+def service_down_status():
+    return {'status': 'down', 'detail': SERVICE_DOWN_DETAIL}
+
+
+def public_services_status(services):
+    return {
+        service_name: {'status': 'up'}
+        if service.get('status') == 'up'
+        else service_down_status()
+        for service_name, service in services.items()
+    }
+
+
 def get_services_status():
     services = {
-        'database': {'status': 'down'},
-        'redis': {'status': 'down'},
+        'database': service_down_status(),
+        'redis': service_down_status(),
     }
 
     try:
@@ -18,14 +34,14 @@ def get_services_status():
             cursor.execute('SELECT 1')
             cursor.fetchone()
         services['database'] = {'status': 'up'}
-    except Exception as error:
-        services['database'] = {'status': 'down', 'detail': str(error)}
+    except Exception:
+        services['database'] = service_down_status()
 
     try:
         Redis.from_url(settings.CELERY_BROKER_URL).ping()
         services['redis'] = {'status': 'up'}
-    except Exception as error:
-        services['redis'] = {'status': 'down', 'detail': str(error)}
+    except Exception:
+        services['redis'] = service_down_status()
 
     return services
 
@@ -34,12 +50,13 @@ class HealthCheckView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        services = public_services_status(get_services_status())
         return Response(
             {
                 'service': 'leasemanager-api',
                 'status': 'ok',
                 'environment': 'development' if settings.DEBUG else 'production',
-                'services': get_services_status(),
+                'services': services,
             }
         )
 
@@ -48,7 +65,7 @@ class ReadyCheckView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        services = get_services_status()
+        services = public_services_status(get_services_status())
         all_up = all(service['status'] == 'up' for service in services.values())
         return Response(
             {'ready': all_up, 'services': services},
