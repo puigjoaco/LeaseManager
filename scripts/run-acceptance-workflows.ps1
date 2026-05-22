@@ -65,6 +65,7 @@ $testTargets = @(
     'contratos.tests.ContratosAPITests',
     'documentos.tests.DocumentosAPITests',
     'documentos.tests.DocumentosScopeAPITests',
+    'documentos.tests_readiness.DocumentReadinessAuditTests',
     'canales.tests.CanalesAPITests',
     'canales.tests.CanalesScopeAPITests',
     'cobranza.tests.CobranzaAPITests',
