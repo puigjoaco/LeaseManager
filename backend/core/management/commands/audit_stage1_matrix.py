@@ -45,6 +45,16 @@ class Command(BaseCommand):
         )
         parser.add_argument('--source-label', default='', help='Etiqueta no sensible de la fuente auditada.')
         parser.add_argument(
+            '--authorization-ref',
+            default='',
+            help='Referencia no sensible a la autorizacion de uso de la fuente evidencial.',
+        )
+        parser.add_argument(
+            '--responsible-ref',
+            default='',
+            help='Referencia no sensible al responsable de la fuente o ejecucion del gate.',
+        )
+        parser.add_argument(
             '--require-data',
             action='store_true',
             help='Exige que existan los agregados minimos de Etapa 1.',
@@ -66,6 +76,8 @@ class Command(BaseCommand):
             result = collect_stage1_matrix_audit(
                 source_kind=options['source_kind'],
                 source_label=options['source_label'],
+                authorization_ref=options['authorization_ref'],
+                responsible_ref=options['responsible_ref'],
                 require_data=options['require_data'],
             )
         except (OperationalError, ProgrammingError) as error:

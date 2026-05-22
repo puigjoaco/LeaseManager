@@ -18,6 +18,8 @@ contra datos reales o snapshot controlado.
 - Snapshot o fuente real autorizada.
 - Extractores read-only.
 - Sin secretos versionados.
+- Referencias trazables no sensibles de `AuthorizationRef` y `ResponsibleRef`
+  en el gate evidencial.
 - Guard deterministico de higiene del repo: `scripts/assert-repo-hygiene.ps1`
   debe pasar para evitar reintroducir `.env`, DBs locales/historicas, bundles
   generados, dumps, snapshots, certificados o evidencia local versionada.
@@ -49,7 +51,12 @@ contra datos reales o snapshot controlado.
 ```powershell
 cd "D:/Proyectos/LeaseManager"
 $env:DATABASE_URL="<snapshot-controlado-o-db-real-autorizada>"
-.\scripts\run-stage1-snapshot-gate.ps1 -SourceKind snapshot_controlado -SourceLabel "<etiqueta-no-sensible>" -RunMigrations
+.\scripts\run-stage1-snapshot-gate.ps1 `
+  -SourceKind snapshot_controlado `
+  -SourceLabel "<etiqueta-no-sensible>" `
+  -AuthorizationRef "<autorizacion-no-sensible>" `
+  -ResponsibleRef "<responsable-no-sensible>" `
+  -RunMigrations
 ```
 
 ## Salida

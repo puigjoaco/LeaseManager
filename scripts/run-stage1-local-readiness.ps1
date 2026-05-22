@@ -34,6 +34,8 @@ Assert-Condition (Test-Path $wrapper) "No existe el wrapper de gate Etapa 1 en $
 $wrapperArgs = @{
     SourceKind = 'snapshot_controlado'
     SourceLabel = $SourceLabel
+    AuthorizationRef = 'stage1-local-readiness-self-test'
+    ResponsibleRef = 'codex-local-readiness'
     DatabaseUrl = $DatabaseUrl
     OutputPath = $OutputPath
     RunMigrations = $true

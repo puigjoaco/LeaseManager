@@ -243,6 +243,8 @@ class Stage1MatrixAuditTests(TestCase):
         return collect_stage1_matrix_audit(
             source_kind='snapshot_controlado',
             source_label='stage-one-test-snapshot',
+            authorization_ref='auth-stage-one-test',
+            responsible_ref='responsible-stage-one-test',
             require_data=True,
         )
 
@@ -307,6 +309,8 @@ class Stage1MatrixAuditTests(TestCase):
         result = collect_stage1_matrix_audit(
             source_kind='snapshot_controlado',
             source_label='',
+            authorization_ref='auth-stage-one-test',
+            responsible_ref='responsible-stage-one-test',
             require_data=True,
         )
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -322,6 +326,8 @@ class Stage1MatrixAuditTests(TestCase):
         result = collect_stage1_matrix_audit(
             source_kind='snapshot_controlado',
             source_label='postgres://user:token@example.test/db',
+            authorization_ref='auth-stage-one-test',
+            responsible_ref='responsible-stage-one-test',
             require_data=True,
         )
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -330,6 +336,43 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.source_label.sensible', issue_codes)
+
+    def test_evidence_grade_source_requires_authorization_and_responsible_refs(self):
+        self._create_valid_stage1_matrix()
+
+        result = collect_stage1_matrix_audit(
+            source_kind='snapshot_controlado',
+            source_label='stage-one-test-snapshot',
+            authorization_ref='',
+            responsible_ref='',
+            require_data=True,
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['has_required_stage1_data'])
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.authorization_ref.faltante', issue_codes)
+        self.assertIn('stage1.responsible_ref.faltante', issue_codes)
+
+    def test_evidence_grade_source_redacts_sensitive_authorization_refs(self):
+        self._create_valid_stage1_matrix()
+
+        result = collect_stage1_matrix_audit(
+            source_kind='snapshot_controlado',
+            source_label='stage-one-test-snapshot',
+            authorization_ref='https://example.test/token',
+            responsible_ref='user@example.test',
+            require_data=True,
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['authorization_ref'], '<redacted-invalid-reference>')
+        self.assertEqual(result['responsible_ref'], '<redacted-invalid-reference>')
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.authorization_ref.sensible', issue_codes)
+        self.assertIn('stage1.responsible_ref.sensible', issue_codes)
 
     def test_controlled_snapshot_with_payment_distribution_can_pass_stage1_matrix_gate(self):
         contrato = self._create_valid_stage1_matrix()
@@ -1137,6 +1180,8 @@ class Stage1MatrixAuditTests(TestCase):
                 'audit_stage1_matrix',
                 source_kind='snapshot_controlado',
                 source_label='stage-one-command-test',
+                authorization_ref='auth-stage-one-command-test',
+                responsible_ref='responsible-stage-one-command-test',
                 require_data=True,
                 fail_on_violations=True,
                 stdout=StringIO(),

@@ -8,7 +8,7 @@ impide declarar cierre del frente afectado cuando falta evidencia.
 | ID | Bloqueo | Tipo | Impacto | Desbloqueo requerido | Estado |
 | --- | --- | --- | --- | --- | --- |
 | BLK-001 | PRD Mayo 2026 debia promoverse como rector formal. | requiere_decision_usuario | Podia existir ambiguedad entre PRD vigente y candidato. | Promovido a `01_Set_Vigente/PRD_CANONICO.md`; PRD marzo archivado. | cerrado |
-| BLK-002 | Falta validacion de datos reales o snapshot controlado para matriz contrato-propiedad-cuenta-facturacion. | bloqueado_dato_real | Etapa 1 no puede cerrarse. No impide preparacion segura ni correcciones que no usen datos/secretos no autorizados. El gate local `audit_stage1_matrix` ya existe, pero aun falta ejecutarlo contra snapshot controlado o DB real autorizada. | Entregar o autorizar `DATABASE_URL` de snapshot/control de datos y ejecutar `scripts/run-stage1-snapshot-gate.ps1` con `SourceKind snapshot_controlado` o `real_autorizado`; el wrapper aplica internamente `--require-data` y `--fail-on-violations`. | abierto |
+| BLK-002 | Falta validacion de datos reales o snapshot controlado para matriz contrato-propiedad-cuenta-facturacion. | bloqueado_dato_real | Etapa 1 no puede cerrarse. No impide preparacion segura ni correcciones que no usen datos/secretos no autorizados. El gate local `audit_stage1_matrix` ya existe, pero aun falta ejecutarlo contra snapshot controlado o DB real autorizada con refs trazables. | Entregar o autorizar `DATABASE_URL` de snapshot/control de datos y ejecutar `scripts/run-stage1-snapshot-gate.ps1` con `SourceKind snapshot_controlado` o `real_autorizado`, `SourceLabel`, `AuthorizationRef` y `ResponsibleRef` no sensibles; el wrapper aplica internamente `--require-data` y `--fail-on-violations`. | abierto |
 | BLK-003 | Integraciones externas no estan abiertas por defecto. | bloqueado_externo | Email, WebPay, banco, UF, SII y storage no pueden declararse productivos. Email, WebPay, banco y SII ya tienen guardas locales trazables, pero no prueba productiva/sandbox autorizada. | Permisos, credenciales seguras, entorno aislado, pruebas y rollback. | abierto |
 | BLK-004 | Reglas tributarias finales requieren validacion oficial o experta. | bloqueado_externo | SII, DTE, F29/F21, renta anual y certificados no pueden cerrarse por suposicion. | Validacion contra SII, normativa vigente o experto responsable. | abierto |
 | BLK-005 | Politica final de firma/notaria y documentos operables debe cerrarse. | requiere_decision_usuario | Documentos y contratos no pueden cerrar totalmente. El flujo local ya exige PDF canonico y comprobante notarial emitido/formalizado/archivado antes de formalizar. | Definir politica final, responsables, evidencia y prueba PDF controlada. | abierto |
@@ -34,8 +34,9 @@ Verificacion reproducible desde `main` vigente:
 - El JSON de salida incluye `aggregate_classification`; en la verificacion
   vacia los agregados requeridos quedan `bloqueado_dato_real` y los agregados
   opcionales sin filas quedan `implementado_sin_evidencia`.
-- El auditor bloquea fuentes evidenciales sin `SourceLabel` trazable o con
-  etiqueta sensible, y redacta etiquetas invalidas antes de escribir el JSON.
+- El auditor bloquea fuentes evidenciales sin `SourceLabel`,
+  `AuthorizationRef` o `ResponsibleRef` trazables, o con valores sensibles, y
+  redacta valores invalidos antes de escribir el JSON.
 - El wrapper y el comando Django rechazan outputs dentro del repo fuera de
   `local-evidence/`, para no versionar evidencia ni metadatos de auditoria.
 - Esta verificacion confirma que el gate funciona y que no existe evidencia de
@@ -84,7 +85,8 @@ Proxima accion concreta: el usuario debe autorizar una de estas rutas de
 desbloqueo:
 
 1. Ingresar un `DATABASE_URL` seguro para `snapshot_controlado` y ejecutar
-   `scripts/run-stage1-snapshot-gate.ps1 -SourceKind snapshot_controlado`.
+   `scripts/run-stage1-snapshot-gate.ps1 -SourceKind snapshot_controlado` con
+   `SourceLabel`, `AuthorizationRef` y `ResponsibleRef` no sensibles.
    Ese wrapper llama a `audit_stage1_matrix` con datos obligatorios y falla si
    encuentra violaciones de gate.
 2. Autorizar lectura puntual de un `.env` legacy solo para extraer una URL de
