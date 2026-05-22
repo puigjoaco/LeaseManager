@@ -6,6 +6,12 @@ param(
     [string]$PublicSmokeEvidencePath = '',
     [string]$FinalAcceptanceRef = '',
     [string]$FinalAcceptanceEvidencePath = '',
+    [string]$ReportingSourceKind = 'local',
+    [string]$ReportingStage5EvidenceRef = '',
+    [string]$ReportingStage6EvidenceRef = '',
+    [string]$ReportingApiProofRef = '',
+    [string]$ReportingBackofficeVisualRef = '',
+    [string]$ReportingResponsibleRef = '',
     [switch]$SkipMigrations,
     [switch]$RequireClosure
 )
@@ -302,11 +308,14 @@ $evidenceDir = Split-Path -Parent $resolvedOutput
 New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
 $DatabaseUrl = Resolve-SqliteDatabaseUrl $DatabaseUrl
 $observabilityOutput = Join-Path $evidenceDir "stage7_observability_$timestamp.json"
+$reportingOutput = Join-Path $evidenceDir "stage7_reporting_$timestamp.json"
 
 $checks = [ordered]@{
     backend_check = $false
     migrations_applied = $false
     observability_audit = $false
+    reporting_readiness = $false
+    reporting_source_authorized_for_close = $false
     restore_evidence = $false
     restore_authorized_evidence = $false
     public_smoke_evidence = $false
@@ -371,12 +380,40 @@ try {
     & $PythonExe manage.py audit_operational_observability --output $observabilityOutput
     Assert-Condition ($LASTEXITCODE -eq 0) 'audit_operational_observability fallo.'
     $checks.observability_audit = $true
+
+    $reportingArgs = @(
+        'manage.py',
+        'audit_stage7_reporting_readiness',
+        '--source-kind',
+        $ReportingSourceKind,
+        '--output',
+        $reportingOutput
+    )
+    if (-not [string]::IsNullOrWhiteSpace($ReportingStage5EvidenceRef)) {
+        $reportingArgs += @('--stage5-evidence-ref', $ReportingStage5EvidenceRef)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ReportingStage6EvidenceRef)) {
+        $reportingArgs += @('--stage6-evidence-ref', $ReportingStage6EvidenceRef)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ReportingApiProofRef)) {
+        $reportingArgs += @('--reporting-api-proof-ref', $ReportingApiProofRef)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ReportingBackofficeVisualRef)) {
+        $reportingArgs += @('--backoffice-visual-ref', $ReportingBackofficeVisualRef)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ReportingResponsibleRef)) {
+        $reportingArgs += @('--responsible-ref', $ReportingResponsibleRef)
+    }
+    & $PythonExe @reportingArgs
+    Assert-Condition ($LASTEXITCODE -eq 0) 'audit_stage7_reporting_readiness fallo.'
+    $checks.reporting_readiness = $true
 }
 finally {
     Pop-Location
 }
 
 $observability = Read-JsonFile $observabilityOutput
+$reporting = Read-JsonFile $reportingOutput
 $observabilityRuntimeAuthorized = $false
 if (
     ($observability.PSObject.Properties.Name -contains 'sections') `
@@ -392,6 +429,19 @@ if ($observability.ready_for_stage7_observability -ne $true) {
         code = 'stage7.observability_not_ready'
         severity = 'attention'
         message = 'La auditoria de observabilidad aun no esta lista para cierre con senales runtime autorizadas.'
+    }
+}
+
+$reportingSourceAuthorized = $false
+if ($reporting.PSObject.Properties.Name -contains 'source_kind_authorized_for_close') {
+    $reportingSourceAuthorized = $reporting.source_kind_authorized_for_close -eq $true
+}
+$checks.reporting_source_authorized_for_close = $reportingSourceAuthorized
+if ($reporting.ready_for_stage7_reporting -ne $true) {
+    $issues += [ordered]@{
+        code = 'stage7.reporting_not_ready'
+        severity = 'blocking'
+        message = 'La readiness de Reporting aun no esta lista con fuente autorizada y evidencia trazable.'
     }
 }
 
@@ -550,7 +600,9 @@ else {
 }
 
 $blockingIssueCount = @($issues | Where-Object { $_.severity -eq 'blocking' }).Count
-$readyForClose = $blockingIssueCount -eq 0 -and $observability.ready_for_stage7_observability -eq $true
+$readyForClose = $blockingIssueCount -eq 0 `
+    -and $observability.ready_for_stage7_observability -eq $true `
+    -and $reporting.ready_for_stage7_reporting -eq $true
 $result = [ordered]@{
     generated_at = (Get-Date).ToUniversalTime().ToString('o')
     source_kind = 'local'
@@ -564,6 +616,14 @@ $result = [ordered]@{
         runtime_signals_authorized_for_close = $observabilityRuntimeAuthorized
         issue_counts = $observability.issue_counts
     }
+    reporting = [ordered]@{
+        output = ($reportingOutput.Replace('\', '/'))
+        source_kind = $reporting.source_kind
+        classification = $reporting.classification
+        ready_for_stage7_reporting = $reporting.ready_for_stage7_reporting
+        source_kind_authorized_for_close = $reportingSourceAuthorized
+        issue_counts = $reporting.issue_counts
+    }
     restore_evidence = $restoreEvidenceSummary
     public_smoke_evidence = $publicSmokeEvidenceSummary
     final_acceptance_evidence = $finalAcceptanceEvidenceSummary
@@ -572,7 +632,7 @@ $result = [ordered]@{
         'Gate local de solo lectura para consolidar readiness de Etapa 7.',
         'No ejecuta smoke publico ni conecta proveedores externos.',
         'No usa secretos, .env, datos reales ni backups productivos.',
-        'No cierra Operacion productiva sin restore de backup/snapshot autorizado, smoke publico autorizado con referencias no sensibles, observabilidad lista y aceptacion final autorizada.'
+        'No cierra Operacion productiva sin Reporting listo, restore de backup/snapshot autorizado, smoke publico autorizado con referencias no sensibles, observabilidad lista y aceptacion final autorizada.'
     )
 }
 

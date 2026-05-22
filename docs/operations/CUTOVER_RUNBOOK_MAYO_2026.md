@@ -40,8 +40,9 @@ mismo.
     `backend\.venv\Scripts\python.exe backend\manage.py audit_operational_observability`.
 14. Ejecutar guard local de readiness Etapa 7:
     `scripts/run-stage7-readiness-gate.ps1`. El cierre requiere ademas
-    evidencia de restore de backup/snapshot autorizado, smoke publico
-    autorizado y aceptacion final autorizada.
+    readiness de Reporting con fuente autorizada, evidencia de restore de
+    backup/snapshot autorizado, smoke publico autorizado y aceptacion final
+    autorizada.
 15. Ejecutar auditoria local de readiness documental si el paquete incluye
     documentos contractuales:
     `backend\.venv\Scripts\python.exe backend\manage.py audit_document_readiness`.
@@ -100,6 +101,8 @@ Cutover se considera listo solo cuando:
   `scripts/run-postgres-restore-rehearsal.ps1`.
 - Guard local de readiness Etapa 7:
   `scripts/run-stage7-readiness-gate.ps1`.
+- Auditoria local de readiness Reporting:
+  `backend\.venv\Scripts\python.exe backend\manage.py audit_stage7_reporting_readiness --source-kind local`.
 - Auditoria local de observabilidad operativa:
   `backend\.venv\Scripts\python.exe backend\manage.py audit_operational_observability`.
 - Auditoria local de readiness documental:
@@ -130,8 +133,9 @@ desde `snapshot_controlado` o `real_autorizado`.
 El guard local de readiness Etapa 7 es read-only y consolida evidencias. Sin
 argumentos debe quedar `classification=parcial`: no ejecuta smoke publico,
 no conecta proveedores externos y no cierra Operacion productiva sin
-restore de backup/snapshot autorizado, smoke autorizado, observabilidad lista y
-aceptacion final autorizada. Un rehearsal sintetico con `restore_verified=true`
+Reporting listo con fuente autorizada, restore de backup/snapshot autorizado,
+smoke autorizado, observabilidad lista y aceptacion final autorizada. Un
+rehearsal sintetico con `restore_verified=true`
 prepara el gate, pero no reemplaza una evidencia de restore con
 `source_kind`/`restore_source_kind` en `snapshot_controlado`,
 `real_autorizado`, `backup_autorizado` o `restore_autorizado`, mas
@@ -146,6 +150,14 @@ el cierre exige evidencia JSON con `accepted=true`,
 `cutover_autorizado`, `ambiente_autorizado` o `real_autorizado`, mas
 `authorization_ref`, `responsible_ref`, `scope_ref`/`release_candidate_ref` y
 `acceptance_ref`/`decision_ref`/`signoff_ref` no sensibles.
+
+La readiness de Reporting dentro del guard ejecuta
+`audit_stage7_reporting_readiness` contra la misma base configurada. Para cierre
+productivo debe quedar `ready_for_stage7_reporting=true` y declarar
+`source_kind` `snapshot_controlado` o `real_autorizado`, mas referencias no
+sensibles a ledger/cierres, renta anual, prueba API, visualizacion backoffice y
+responsables. Una auditoria `local`, `fixture` o `demo` solo diagnostica y
+bloquea el cierre productivo.
 
 La auditoria documental es read-only: no abre storage ni PDFs reales. Consolida
 politicas activas por tipo documental, metadata obligatoria, referencias no
