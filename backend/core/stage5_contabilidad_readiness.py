@@ -113,6 +113,8 @@ def collect_stage5_contabilidad_readiness(
     ledger_proof_ref: str = '',
     reports_proof_ref: str = '',
     responsible_ref: str = '',
+    source_label: str = '',
+    authorization_ref: str = '',
     source_kind: str = 'local',
 ) -> dict[str, Any]:
     fiscal_configs = ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario')
@@ -177,6 +179,10 @@ def collect_stage5_contabilidad_readiness(
         'reports_proof_ref': _non_sensitive_reference(reports_proof_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    source_trace = {
+        'source_label': _non_sensitive_reference(source_label),
+        'authorization_ref': _non_sensitive_reference(authorization_ref),
+    }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE5_SOURCE_KINDS
 
     issues: list[dict[str, Any]] = []
@@ -187,6 +193,21 @@ def collect_stage5_contabilidad_readiness(
                 'La readiness local de Etapa 5 no puede cerrar Contabilidad sin fuente snapshot_controlado o real_autorizado.',
             )
         )
+    else:
+        for key, code, message in [
+            (
+                'source_label',
+                'stage5.source_label_missing',
+                'Falta etiqueta no sensible de la fuente autorizada de Etapa 5.',
+            ),
+            (
+                'authorization_ref',
+                'stage5.authorization_ref_missing',
+                'Falta referencia no sensible a la autorizacion de uso de la fuente Etapa 5.',
+            ),
+        ]:
+            if not source_trace[key]:
+                issues.append(_issue(code, message))
     if active_fiscal_configs.count() == 0:
         issues.append(
             _issue(
@@ -435,6 +456,7 @@ def collect_stage5_contabilidad_readiness(
                 **close_issues,
             },
             'final_evidence': final_evidence,
+            'source_trace': source_trace,
         },
         'limitations': [
             'Auditoria local de solo lectura; no presenta F29/F21 ni conecta SII.',

@@ -30,9 +30,26 @@ contables desde hechos conciliados.
 - `audit_stage5_contabilidad_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 5.
+- Las fuentes autorizadas deben declarar `SourceLabel` y `AuthorizationRef` no
+  sensibles.
+- `scripts/run-stage5-readiness-gate.ps1` normaliza la ejecucion del gate. En
+  modo local crea SQLite bajo `local-evidence/`, corre migraciones y debe
+  quedar `classification=parcial`, `ready_for_stage5_contabilidad=false` y
+  issue `stage5.source_kind_not_authorized`.
+- Para cierre con fuente autorizada, el wrapper exige `-SourceKind
+  snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
+  `-AuthorizationRef`, `-Stage3EvidenceRef`, `-LedgerProofRef`,
+  `-ReportsProofRef`, `-ResponsibleRef` y `-RequireReady`.
 - Reportes con origen trazable.
 - Diferencias registradas o corregidas.
 
 ## Salida
 
 Un mes se considera cerrado solo si banco, ledger, asientos y reportes cuadran.
+
+## Ejecucion local segura
+
+```powershell
+cd "D:/Proyectos/LeaseManager"
+.\scripts\run-stage5-readiness-gate.ps1
+```

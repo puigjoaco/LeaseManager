@@ -40,10 +40,16 @@ def _validate_output_path(output_path: Path) -> None:
 
 
 class Command(BaseCommand):
-    help = 'Audita readiness local de Etapa 5 Cierre mensual/Contabilidad sin ejecutar integraciones externas.'
+    help = 'Audita readiness de Etapa 5 Cierre mensual/Contabilidad sin ejecutar integraciones externas.'
 
     def add_arguments(self, parser):
         parser.add_argument('--output', default='', help='Ruta opcional para escribir el JSON de auditoria.')
+        parser.add_argument('--source-label', default='', help='Etiqueta no sensible de la fuente auditada.')
+        parser.add_argument(
+            '--authorization-ref',
+            default='',
+            help='Referencia no sensible a la autorizacion de uso de la fuente evidencial.',
+        )
         parser.add_argument('--stage3-evidence-ref', default='', help='Referencia no sensible a evidencia Conciliacion.')
         parser.add_argument('--ledger-proof-ref', default='', help='Referencia no sensible a prueba ledger/asientos.')
         parser.add_argument('--reports-proof-ref', default='', help='Referencia no sensible a reportes contables.')
@@ -75,6 +81,8 @@ class Command(BaseCommand):
                 ledger_proof_ref=options['ledger_proof_ref'],
                 reports_proof_ref=options['reports_proof_ref'],
                 responsible_ref=options['responsible_ref'],
+                source_label=options['source_label'],
+                authorization_ref=options['authorization_ref'],
                 source_kind=options['source_kind'],
             )
         except (OperationalError, ProgrammingError) as error:
