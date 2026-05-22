@@ -124,6 +124,8 @@ def _collect_webpay_intent_issues(intents) -> dict[str, int]:
             intent.full_clean()
         except ValidationError:
             counts['invalid_model'] += 1
+        if intent.return_url_ref.strip() and not _non_sensitive_reference(intent.return_url_ref):
+            counts['sensitive_return_url_ref'] += 1
         if intent.estado == EstadoIntentoPagoWebPay.CONFIRMED_MANUAL:
             if not intent.external_ref.strip():
                 counts['confirmed_without_external_ref'] += 1
@@ -363,6 +365,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.webpay_intent_invalid',
                 'Existen intentos WebPay que no pasan validacion de dominio.',
                 count=invalid_webpay_intents,
+            )
+        )
+    if webpay_intent_issues.get('sensitive_return_url_ref'):
+        issues.append(
+            _issue(
+                'stage2.webpay_intent.sensitive_return_url_ref',
+                'Existen intentos WebPay con return_url_ref sensible.',
+                count=webpay_intent_issues['sensitive_return_url_ref'],
             )
         )
     if webpay_intent_issues.get('confirmed_without_external_ref'):

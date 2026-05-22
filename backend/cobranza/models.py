@@ -269,6 +269,14 @@ class IntentoPagoWebPay(TimestampedModel):
                 raise ValidationError({'gate_cobro': 'WebPay requiere evidencia_ref del gate antes de operar.'})
             if not self.return_url_ref.strip():
                 raise ValidationError({'return_url_ref': 'WebPay requiere una referencia de retorno no sensible.'})
+            if not is_non_sensitive_reference(self.return_url_ref):
+                raise ValidationError(
+                    {
+                        'return_url_ref': (
+                            'return_url_ref debe ser una referencia no sensible, no una URL, token o credencial.'
+                        )
+                    }
+                )
             if self.estado == EstadoIntentoPagoWebPay.PREPARED and self.pago_mensual.estado_pago not in {
                 EstadoPago.PENDING,
                 EstadoPago.OVERDUE,
