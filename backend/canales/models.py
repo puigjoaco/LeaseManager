@@ -5,6 +5,7 @@ from django.db.models import Q
 
 from contratos.models import Arrendatario, Contrato
 from documentos.models import DocumentoEmitido
+from core.reference_validation import is_non_sensitive_reference
 from operacion.models import CanalOperacion, IdentidadDeEnvio
 
 
@@ -149,4 +150,12 @@ class MensajeSaliente(TimestampedModel):
             raise ValidationError({'identidad_envio': 'La identidad de envio debe pertenecer al mismo canal del mensaje.'})
         if self.canal_mensajeria.canal != self.canal:
             raise ValidationError({'canal_mensajeria': 'El gate configurado debe corresponder al mismo canal del mensaje.'})
+        if (
+            self.estado == EstadoMensajeSaliente.SENT
+            and self.external_ref.strip()
+            and not is_non_sensitive_reference(self.external_ref)
+        ):
+            raise ValidationError(
+                {'external_ref': 'external_ref debe ser una referencia no sensible, no una URL, token o credencial.'}
+            )
 

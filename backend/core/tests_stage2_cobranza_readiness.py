@@ -11,7 +11,13 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 
 from canales.models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
-from cobranza.models import EstadoGateCobroExterno, GateCobroExterno, PagoMensual
+from cobranza.models import (
+    EstadoGateCobroExterno,
+    EstadoIntentoPagoWebPay,
+    GateCobroExterno,
+    IntentoPagoWebPay,
+    PagoMensual,
+)
 from contratos.models import (
     Arrendatario,
     Contrato,
@@ -320,6 +326,54 @@ class Stage2CobranzaReadinessTests(TestCase):
 
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.message.sent_without_external_ref', issue_codes)
+
+    def test_sent_message_with_sensitive_external_ref_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        MensajeSaliente.objects.create(
+            canal=CanalOperacion.EMAIL,
+            canal_mensajeria=email_gate,
+            identidad_envio=fixture['identity'],
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario=fixture['tenant'].email,
+            asunto='Aviso',
+            cuerpo='Cobranza controlada',
+            estado=EstadoMensajeSaliente.SENT,
+            external_ref='https://provider.example.test/token/secret',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.message.sent_with_sensitive_external_ref', issue_codes)
+        self.assertNotIn('provider.example.test', json.dumps(result))
+
+    def test_confirmed_webpay_with_sensitive_external_ref_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        webpay_gate = self._create_valid_webpay_gate()
+        IntentoPagoWebPay.objects.create(
+            pago_mensual=fixture['payment'],
+            gate_cobro=webpay_gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=fixture['payment'].monto_calculado_clp,
+            buy_order='LM-PM-STAGE2-SENSITIVE',
+            session_id='LM-WP-STAGE2-SENSITIVE',
+            return_url_ref='front://webpay/return',
+            estado=EstadoIntentoPagoWebPay.CONFIRMED_MANUAL,
+            external_ref='https://transbank.example.test/token/secret',
+            fecha_pago_webpay=date(2026, 1, 6),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.webpay_intent.confirmed_with_sensitive_external_ref', issue_codes)
+        self.assertNotIn('transbank.example.test', json.dumps(result))
 
     def test_sensitive_final_refs_do_not_close_readiness(self):
         self._create_payment_matrix()

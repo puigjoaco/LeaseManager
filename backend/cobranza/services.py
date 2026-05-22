@@ -5,6 +5,7 @@ from decimal import Decimal, ROUND_DOWN
 from django.db import transaction
 from django.utils import timezone
 from audit.models import ManualResolution
+from core.reference_validation import is_non_sensitive_reference
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 
 from .models import (
@@ -422,6 +423,10 @@ def confirm_webpay_intent_manually(*, intent, external_ref, fecha_pago_webpay, a
         raise ValueError('Solo se puede confirmar manualmente un intento WebPay preparado.')
     if not external_ref:
         raise ValueError('La confirmacion WebPay requiere transaction id o token externo trazable.')
+    if not is_non_sensitive_reference(external_ref):
+        raise ValueError(
+            'La confirmacion WebPay requiere external_ref no sensible; no use URLs, tokens, credenciales ni correos.'
+        )
     if not fecha_pago_webpay:
         raise ValueError('La confirmacion WebPay requiere fecha de pago WebPay.')
 

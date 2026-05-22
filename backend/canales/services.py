@@ -2,6 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from audit.models import ManualResolution
+from core.reference_validation import is_non_sensitive_reference
 from contratos.models import Arrendatario, Contrato
 from operacion.models import AsignacionCanalOperacion, CanalOperacion, EstadoIdentidadEnvio, EstadoMandatoOperacion
 
@@ -192,6 +193,10 @@ def mark_message_as_sent(message, external_ref=''):
     external_ref = external_ref.strip()
     if not external_ref:
         raise ValueError('El envio manual requiere una referencia externa trazable.')
+    if not is_non_sensitive_reference(external_ref):
+        raise ValueError(
+            'El envio manual requiere external_ref no sensible; no use URLs, tokens, credenciales ni correos.'
+        )
     if message.canal_mensajeria.estado_gate != EstadoGateCanal.OPEN:
         raise ValueError('No se puede registrar envio manual si el gate del canal no esta abierto.')
     if message.canal == CanalOperacion.EMAIL and (reason := email_readiness_blocking_reason(message.canal_mensajeria)):
