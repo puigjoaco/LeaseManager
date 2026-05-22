@@ -77,15 +77,16 @@ cd "D:/Proyectos/LeaseManager"
 .\scripts\run-stage1-local-readiness.ps1
 ```
 
-Este comando crea una SQLite vacia bajo `local-evidence/`, ejecuta el wrapper
-del gate con `SourceKind snapshot_controlado` y valida que el resultado esperado
-sea `classification=bloqueado_dato_real`, `ready_for_stage1_close=false` y
-`stage1.data_missing`. Si el gate cerrara con una fuente vacia, el readiness
-falla.
+Este comando crea una SQLite vacia bajo `local-evidence/` y ejecuta el auditor
+con `source_kind=local`, sin `--require-data` y sin `--fail-on-violations`. El
+resultado esperado es `classification=implementado_sin_evidencia`,
+`evidence_grade=false` y `ready_for_stage1_close=false`.
 
-El acceptance deterministico ejecuta este readiness local para comprobar que el
-wrapper sigue sano y que la ausencia de fuente autorizada queda registrada como
-bloqueo de datos, no como bloqueo estructural del proyecto.
+El acceptance deterministico ejecuta este readiness local para comprobar que la
+preparacion segura no solicita secretos ni simula una fuente controlada. El
+bloqueo `stage1.data_missing` queda reservado para el gate evidencial
+`run-stage1-snapshot-gate.ps1`, que solo acepta `snapshot_controlado` o
+`real_autorizado` con referencias trazables.
 
 ## Criterio de cierre
 
