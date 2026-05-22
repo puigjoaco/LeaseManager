@@ -164,6 +164,7 @@ class Stage3ConciliacionReadinessTests(TestCase):
             bank_proof_ref='bank-proof-controlled-v1',
             balance_square_ref='balance-square-controlled-v1',
             responsible_ref='stage3-responsibles-v1',
+            source_kind='snapshot_controlado',
         )
 
     def _create_reconciled_movement(self, conexion, payment):
@@ -186,12 +187,14 @@ class Stage3ConciliacionReadinessTests(TestCase):
 
         self.assertEqual(result['classification'], 'parcial')
         self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage3.source_kind_not_authorized', issue_codes)
         self.assertIn('stage3.bank_connection_missing', issue_codes)
         self.assertIn('stage3.movements_missing', issue_codes)
         self.assertIn('stage3.balance_square_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
 
-    def test_valid_local_matrix_and_non_sensitive_refs_can_pass_readiness(self):
+    def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         cuenta, payment = self._create_payment_matrix()
         conexion = self._create_ready_connection(cuenta)
         self._create_reconciled_movement(conexion, payment)
@@ -200,7 +203,27 @@ class Stage3ConciliacionReadinessTests(TestCase):
 
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertTrue(result['ready_for_stage3_conciliacion'])
+        self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
+        cuenta, payment = self._create_payment_matrix()
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+
+        result = collect_stage3_conciliacion_readiness(
+            stage2_evidence_ref='stage2-readiness-controlled-v1',
+            bank_proof_ref='bank-proof-controlled-v1',
+            balance_square_ref='balance-square-controlled-v1',
+            responsible_ref='stage3-responsibles-v1',
+            source_kind='local',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage3.source_kind_not_authorized', issue_codes)
 
     def test_provider_sync_without_transaction_or_ready_connection_is_blocking(self):
         cuenta, _ = self._create_payment_matrix(codigo='ST3-PROVIDER')
@@ -309,6 +332,7 @@ class Stage3ConciliacionReadinessTests(TestCase):
             bank_proof_ref='https://bank.example/proof',
             balance_square_ref='balance-square-controlled-v1',
             responsible_ref='stage3-responsibles-v1',
+            source_kind='snapshot_controlado',
         )
 
         self.assertFalse(result['ready_for_stage3_conciliacion'])
@@ -321,6 +345,8 @@ class Stage3ConciliacionReadinessTests(TestCase):
             result = json.loads(output_path.read_text(encoding='utf-8'))
 
         self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage3.source_kind_not_authorized', {issue['code'] for issue in result['issues']})
         self.assertIn('bank_connections', result['sections'])
 
         blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'stage3-readiness-should-not-be-versioned.json'

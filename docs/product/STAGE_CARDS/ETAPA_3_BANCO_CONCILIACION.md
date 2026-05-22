@@ -26,6 +26,9 @@ sistema igual a saldo banco.
 - `audit_stage3_conciliacion_readiness` consolida readiness local de
   conexiones, movimientos, ingresos desconocidos, senales de saldo y
   referencias finales sin conectar bancos ni leer secretos.
+- `audit_stage3_conciliacion_readiness` solo puede cerrar con `--source-kind`
+  `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
+  diagnostican brechas pero no habilitan cierre de Etapa 3.
 - Cuando hay saldos reportados en movimientos de una misma conexion, el
   auditor valida continuidad local: cada saldo posterior debe continuar desde
   el saldo reportado previo aplicando abonos y cargos intermedios.
