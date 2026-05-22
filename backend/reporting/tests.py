@@ -9,7 +9,17 @@ from canales.models import CanalMensajeria, MensajeSaliente
 from cobranza.models import EstadoCuentaArrendatario, PagoMensual
 from cobranza.services import sync_payment_distribution
 from conciliacion.models import ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
-from contabilidad.models import AsientoContable, BalanceComprobacion, CierreMensualContable, EventoContable, LibroDiario, LibroMayor, ObligacionTributariaMensual
+from contabilidad.models import (
+    AsientoContable,
+    BalanceComprobacion,
+    CierreMensualContable,
+    ConfiguracionFiscalEmpresa,
+    EventoContable,
+    LibroDiario,
+    LibroMayor,
+    ObligacionTributariaMensual,
+)
+from contabilidad.services import ensure_default_regime
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
@@ -163,6 +173,20 @@ class ReportingAPITests(APITestCase):
         operator_client = self.client_class()
         operator_client.force_authenticate(operator)
         return operator_client
+
+    def _activate_fiscal_config(self, empresa):
+        return ConfiguracionFiscalEmpresa.objects.create(
+            empresa=empresa,
+            regimen_tributario=ensure_default_regime(),
+            afecta_iva_arriendo=False,
+            tasa_iva='0.00',
+            tasa_ppm_vigente='10.00',
+            aplica_ppm=True,
+            ddjj_habilitadas=['1887'],
+            inicio_ejercicio='2026-01-01',
+            moneda_funcional='CLP',
+            estado='activa',
+        )
 
     def _create_manual_resolution_for_cuenta(self, cuenta, *, suffix='manual'):
         conexion = ConexionBancaria.objects.create(
@@ -569,6 +593,7 @@ class ReportingAPITests(APITestCase):
 
     def test_annual_tax_summary_returns_process_ddjj_and_f22(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUAL')
+        self._activate_fiscal_config(empresa)
         process = ProcesoRentaAnual.objects.create(
             empresa=empresa,
             anio_tributario=2027,
@@ -611,8 +636,55 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(len(response.data['ddjj_preparadas']), 1)
         self.assertEqual(len(response.data['f22_preparados']), 1)
 
+    def test_annual_tax_summary_blocks_without_active_fiscal_config(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALFISCAL')
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref='cert-ddjj-no-fiscal',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='F22Preparacion',
+                certificado_ref='cert-f22-no-fiscal',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_fiscal_config_missing')
+        self.assertEqual(
+            [str(item) for item in response.data['traceability']['details']['empresas_sin_configuracion_fiscal']],
+            [str(empresa.id)],
+        )
+
     def test_annual_tax_summary_blocks_incomplete_annual_summary(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALBLOCK')
+        self._activate_fiscal_config(empresa)
         ProcesoRentaAnual.objects.create(
             empresa=empresa,
             anio_tributario=2027,

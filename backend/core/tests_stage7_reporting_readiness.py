@@ -15,6 +15,7 @@ from contabilidad.models import (
     AsientoContable,
     BalanceComprobacion,
     CierreMensualContable,
+    ConfiguracionFiscalEmpresa,
     CuentaContable,
     EstadoAsientoContable,
     EstadoCierreMensual,
@@ -27,6 +28,7 @@ from contabilidad.models import (
     ObligacionTributariaMensual,
     TipoMovimientoAsiento,
 )
+from contabilidad.services import ensure_default_regime
 from core.stage7_reporting_readiness import collect_stage7_reporting_readiness
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import CapacidadTributariaSII, DDJJPreparacionAnual, F22PreparacionAnual, ProcesoRentaAnual
@@ -78,6 +80,20 @@ class Stage7ReportingReadinessTests(TestCase):
             es_control_obligatoria=True,
         )
         return debit, credit
+
+    def _activate_fiscal_config(self, empresa):
+        return ConfiguracionFiscalEmpresa.objects.create(
+            empresa=empresa,
+            regimen_tributario=ensure_default_regime(),
+            afecta_iva_arriendo=False,
+            tasa_iva='0.00',
+            tasa_ppm_vigente='10.00',
+            aplica_ppm=True,
+            ddjj_habilitadas=['1887'],
+            inicio_ejercicio=date(2026, 1, 1),
+            moneda_funcional='CLP',
+            estado='activa',
+        )
 
     def _create_posted_event_and_asiento(self, empresa, debit, credit, *, amount=Decimal('100000.00')):
         event = EventoContable.objects.create(
@@ -208,6 +224,7 @@ class Stage7ReportingReadinessTests(TestCase):
 
     def _create_valid_local_matrix(self):
         empresa = self._create_active_empresa()
+        self._activate_fiscal_config(empresa)
         debit, credit = self._create_accounts(empresa)
         self._create_posted_event_and_asiento(empresa, debit, credit)
         self._create_approved_close_and_snapshots(empresa)
@@ -268,6 +285,21 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage7_reporting'])
         self.assertIn('stage7.reporting.event_origin_missing', issue_codes)
         self.assertIn('stage7.reporting.accounting_entry_missing', issue_codes)
+
+    def test_annual_reporting_sources_require_same_company_fiscal_config(self):
+        empresa = self._create_valid_local_matrix()
+        ConfiguracionFiscalEmpresa.objects.filter(empresa=empresa).delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_reporting'])
+        self.assertIn('stage7.reporting.annual_process_fiscal_config_missing', issue_codes)
+        self.assertIn('stage7.reporting.annual_ddjj_fiscal_config_missing', issue_codes)
+        self.assertIn('stage7.reporting.annual_f22_fiscal_config_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_tax']['processes_without_active_fiscal_config'], 1)
+        self.assertEqual(result['sections']['annual_tax']['ddjj_without_active_fiscal_config'], 1)
+        self.assertEqual(result['sections']['annual_tax']['f22_without_active_fiscal_config'], 1)
 
     def test_accounting_entry_without_hash_or_movements_is_blocking(self):
         empresa = self._create_valid_local_matrix()
