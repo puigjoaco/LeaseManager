@@ -359,8 +359,8 @@ def ensure_manual_resolution_for_webpay_intent(intent, summary):
 def webpay_blocking_reason(payment, gate, return_url_ref):
     if gate.estado_gate != EstadoGateCobroExterno.OPEN:
         return 'El gate WebPay no esta abierto para preparar cobros externos.'
-    if not gate.evidencia_ref.strip():
-        return 'El gate WebPay requiere evidencia_ref antes de operar.'
+    if not is_non_sensitive_reference(gate.evidencia_ref):
+        return 'El gate WebPay requiere evidencia_ref no sensible antes de operar.'
     if payment.estado_pago not in {EstadoPago.PENDING, EstadoPago.OVERDUE}:
         return 'Solo se puede preparar WebPay para pagos pendientes o atrasados.'
     pending_amount = Decimal(payment.monto_calculado_clp) - Decimal(payment.monto_pagado_clp)

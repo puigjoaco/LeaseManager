@@ -23,7 +23,7 @@ from cobranza.models import (
     IntentoPagoWebPay,
     PagoMensual,
 )
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from operacion.models import (
     AsignacionCanalOperacion,
     CanalOperacion,
@@ -117,6 +117,13 @@ def _collect_message_issues(messages) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _gate_contains_sensitive_reference(gate) -> bool:
+    return (
+        bool(gate.evidencia_ref.strip() and not _non_sensitive_reference(gate.evidencia_ref))
+        or contains_sensitive_reference(gate.restricciones_operativas)
+    )
+
+
 def _collect_webpay_intent_issues(intents) -> dict[str, int]:
     counts = Counter()
     for intent in intents:
@@ -183,6 +190,7 @@ def collect_stage2_cobranza_readiness(
     whatsapp_open_without_template = sum(
         1 for gate in whatsapp_open_gates if not whatsapp_gate_has_approved_template(gate)
     )
+    sensitive_channel_gate_refs = sum(1 for gate in channel_gates if _gate_contains_sensitive_reference(gate))
 
     messages = MensajeSaliente.objects.select_related(
         'canal_mensajeria',
@@ -198,6 +206,7 @@ def collect_stage2_cobranza_readiness(
     webpay_open_gates = webpay_gates.filter(estado_gate=EstadoGateCobroExterno.OPEN)
     invalid_webpay_gates = _count_invalid(webpay_gates)
     valid_webpay_open_gates = webpay_open_gates.count() - _count_invalid(webpay_open_gates)
+    sensitive_webpay_gate_refs = sum(1 for gate in webpay_gates if _gate_contains_sensitive_reference(gate))
     webpay_intents = IntentoPagoWebPay.objects.select_related('pago_mensual', 'gate_cobro')
     webpay_intent_issues = _collect_webpay_intent_issues(webpay_intents)
     invalid_webpay_intents = webpay_intent_issues.get('invalid_model', 0)
@@ -290,6 +299,14 @@ def collect_stage2_cobranza_readiness(
                 count=invalid_channel_gates,
             )
         )
+    if sensitive_channel_gate_refs:
+        issues.append(
+            _issue(
+                'stage2.channel_gate_sensitive_reference',
+                'Existen gates de canales con evidencia_ref o restricciones_operativas sensibles.',
+                count=sensitive_channel_gate_refs,
+            )
+        )
     if whatsapp_open_without_template:
         issues.append(
             _issue(
@@ -357,6 +374,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.webpay_gate_invalid',
                 'Existen gates WebPay que no pasan validacion de dominio.',
                 count=invalid_webpay_gates,
+            )
+        )
+    if sensitive_webpay_gate_refs:
+        issues.append(
+            _issue(
+                'stage2.webpay_gate_sensitive_reference',
+                'Existen gates WebPay con evidencia_ref o restricciones_operativas sensibles.',
+                count=sensitive_webpay_gate_refs,
             )
         )
     if invalid_webpay_intents:
@@ -440,6 +465,7 @@ def collect_stage2_cobranza_readiness(
                 'by_gate_state': _count_by(channel_gates, 'estado_gate'),
                 'email_open_valid': max(valid_email_open_gates, 0),
                 'invalid_channel_gates': invalid_channel_gates,
+                'sensitive_channel_gate_refs': sensitive_channel_gate_refs,
                 'whatsapp_open_without_template': whatsapp_open_without_template,
             },
             'channel_identities': {
@@ -467,6 +493,7 @@ def collect_stage2_cobranza_readiness(
                 'by_gate_state': _count_by(webpay_gates, 'estado_gate'),
                 'open_valid': max(valid_webpay_open_gates, 0),
                 'invalid_gates': invalid_webpay_gates,
+                'sensitive_gate_refs': sensitive_webpay_gate_refs,
                 'intents_total': webpay_intents.count(),
                 'intents_by_state': _count_by(webpay_intents, 'estado'),
                 'invalid_intents': invalid_webpay_intents,

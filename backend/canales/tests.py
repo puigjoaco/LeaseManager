@@ -220,6 +220,44 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('restricciones_operativas', response.data)
 
+    def test_open_email_gate_rejects_sensitive_evidence_reference(self):
+        response = self.client.post(
+            reverse('canales-gate-list'),
+            {
+                'canal': 'email',
+                'provider_key': 'gmail_api',
+                'estado_gate': 'abierto',
+                'restricciones_operativas': {
+                    'prueba_aislada_ref': 'email-readiness-controlled',
+                    'oauth_validado_ref': 'oauth-readiness-controlled',
+                },
+                'evidencia_ref': 'https://mail.example.test/token/secret',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_ref', response.data)
+
+    def test_open_email_gate_rejects_sensitive_operational_references(self):
+        response = self.client.post(
+            reverse('canales-gate-list'),
+            {
+                'canal': 'email',
+                'provider_key': 'gmail_api',
+                'estado_gate': 'abierto',
+                'restricciones_operativas': {
+                    'prueba_aislada_ref': 'https://mail.example.test/proof?token=secret',
+                    'oauth_validado_ref': 'oauth-readiness-controlled',
+                },
+                'evidencia_ref': 'email-gate-evidence-controlled',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('restricciones_operativas', response.data)
+
     def test_prepare_email_message_uses_mandate_identity_assignment(self):
         empresa, contrato = self._create_contract_context(codigo='CH-EMAIL')
         gate = self._create_gate(canal='email')

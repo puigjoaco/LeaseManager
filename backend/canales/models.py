@@ -5,7 +5,7 @@ from django.db.models import Q
 
 from contratos.models import Arrendatario, Contrato
 from documentos.models import DocumentoEmitido
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from operacion.models import CanalOperacion, IdentidadDeEnvio
 
 
@@ -13,9 +13,9 @@ EMAIL_READINESS_REF_KEYS = ('prueba_aislada_ref', 'prueba_envio_ref')
 EMAIL_CREDENTIAL_REF_KEYS = ('oauth_validado_ref', 'credencial_validada_ref')
 
 
-def has_operational_ref(restrictions, keys):
+def has_non_sensitive_operational_ref(restrictions, keys):
     restrictions = restrictions or {}
-    return any(bool(str(restrictions.get(key, '')).strip()) for key in keys)
+    return any(is_non_sensitive_reference(restrictions.get(key, '')) for key in keys)
 
 
 class TimestampedModel(models.Model):
@@ -56,22 +56,32 @@ class CanalMensajeria(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if self.evidencia_ref.strip() and not is_non_sensitive_reference(self.evidencia_ref):
+            raise ValidationError({'evidencia_ref': 'evidencia_ref debe ser una referencia no sensible.'})
+        if contains_sensitive_reference(self.restricciones_operativas):
+            raise ValidationError(
+                {
+                    'restricciones_operativas': (
+                        'restricciones_operativas no debe contener URLs, tokens, credenciales ni correos.'
+                    )
+                }
+            )
         if self.canal == CanalOperacion.EMAIL and self.estado_gate == EstadoGateCanal.OPEN:
             if not self.evidencia_ref.strip():
                 raise ValidationError({'evidencia_ref': 'Email abierto requiere evidencia_ref del gate.'})
-            if not has_operational_ref(self.restricciones_operativas, EMAIL_READINESS_REF_KEYS):
+            if not has_non_sensitive_operational_ref(self.restricciones_operativas, EMAIL_READINESS_REF_KEYS):
                 raise ValidationError(
                     {
                         'restricciones_operativas': (
-                            'Email abierto requiere prueba_aislada_ref o prueba_envio_ref trazable.'
+                            'Email abierto requiere prueba_aislada_ref o prueba_envio_ref trazable no sensible.'
                         )
                     }
                 )
-            if not has_operational_ref(self.restricciones_operativas, EMAIL_CREDENTIAL_REF_KEYS):
+            if not has_non_sensitive_operational_ref(self.restricciones_operativas, EMAIL_CREDENTIAL_REF_KEYS):
                 raise ValidationError(
                     {
                         'restricciones_operativas': (
-                            'Email abierto requiere oauth_validado_ref o credencial_validada_ref trazable.'
+                            'Email abierto requiere oauth_validado_ref o credencial_validada_ref trazable no sensible.'
                         )
                     }
                 )

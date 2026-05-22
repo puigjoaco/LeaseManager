@@ -2,7 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from audit.models import ManualResolution
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from contratos.models import Arrendatario, Contrato
 from operacion.models import AsignacionCanalOperacion, CanalOperacion, EstadoIdentidadEnvio, EstadoMandatoOperacion
 
@@ -13,7 +13,7 @@ from .models import (
     EstadoGateCanal,
     EstadoMensajeSaliente,
     MensajeSaliente,
-    has_operational_ref,
+    has_non_sensitive_operational_ref,
 )
 
 
@@ -100,10 +100,11 @@ def is_within_whatsapp_window(now=None):
 
 def whatsapp_gate_has_approved_template(canal_mensajeria):
     restrictions = canal_mensajeria.restricciones_operativas or {}
-    return bool(
-        restrictions.get('templates_aprobados')
-        or restrictions.get('template_aprobado_ref')
-        or restrictions.get('template_ref')
+    if contains_sensitive_reference(restrictions):
+        return False
+    return bool(restrictions.get('templates_aprobados')) or has_non_sensitive_operational_ref(
+        restrictions,
+        ('template_aprobado_ref', 'template_ref'),
     )
 
 
@@ -126,12 +127,12 @@ def whatsapp_blocking_reason(arrendatario, canal_mensajeria):
 def email_readiness_blocking_reason(canal_mensajeria):
     if canal_mensajeria.canal != CanalOperacion.EMAIL:
         return ''
-    if not canal_mensajeria.evidencia_ref.strip():
-        return 'Email requiere evidencia_ref del gate antes de preparar envios.'
-    if not has_operational_ref(canal_mensajeria.restricciones_operativas, EMAIL_READINESS_REF_KEYS):
-        return 'Email requiere prueba aislada de envio registrada en el gate.'
-    if not has_operational_ref(canal_mensajeria.restricciones_operativas, EMAIL_CREDENTIAL_REF_KEYS):
-        return 'Email requiere referencia OAuth o credencial validada en el gate.'
+    if not is_non_sensitive_reference(canal_mensajeria.evidencia_ref):
+        return 'Email requiere evidencia_ref no sensible del gate antes de preparar envios.'
+    if not has_non_sensitive_operational_ref(canal_mensajeria.restricciones_operativas, EMAIL_READINESS_REF_KEYS):
+        return 'Email requiere prueba aislada de envio no sensible registrada en el gate.'
+    if not has_non_sensitive_operational_ref(canal_mensajeria.restricciones_operativas, EMAIL_CREDENTIAL_REF_KEYS):
+        return 'Email requiere referencia OAuth o credencial validada no sensible en el gate.'
     return ''
 
 
