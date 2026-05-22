@@ -18,6 +18,9 @@ contra datos reales o snapshot controlado.
 - Snapshot o fuente real autorizada.
 - Extractores read-only.
 - Sin secretos versionados.
+- Guard deterministico de higiene del repo: `scripts/assert-repo-hygiene.ps1`
+  debe pasar para evitar reintroducir `.env`, DBs locales/historicas, bundles
+  generados, dumps, snapshots, certificados o evidencia local versionada.
 - Clasificacion de cada agregado migrable.
 - La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
   historicos no constituyen evidencia operativa de Etapa 1.

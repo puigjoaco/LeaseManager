@@ -27,6 +27,12 @@ Los JSON de `migration/bundles/` estan ignorados por Git. Si contienen datos
 legacy, RUTs, cuentas, direcciones o resultados de staging, deben mantenerse
 fuera del repo versionado o en almacenamiento seguro autorizado.
 
+El acceptance deterministico ejecuta `scripts/assert-repo-hygiene.ps1` para
+bloquear regresiones en el root activo: `.env`, DBs locales/historicas, bundles
+generados, dumps, snapshots, certificados y evidencia local no deben quedar
+versionados. Este guard no resuelve el historial Git ni savegames sensibles
+asociados a `BLK-008`; solo protege el estado vivo del repositorio.
+
 ## Flujo recomendado
 
 Configura el contexto sensible del backlog actual fuera del repo antes de
