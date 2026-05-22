@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from decimal import Decimal
 import re
 from typing import Any
 
@@ -102,6 +103,43 @@ def _collect_movement_issues(movements) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _collect_reported_balance_issues(movements) -> dict[str, int]:
+    counts = Counter()
+    by_connection: dict[int, list[MovimientoBancarioImportado]] = {}
+    for movement in movements.order_by('conexion_bancaria_id', 'fecha_movimiento', 'id'):
+        by_connection.setdefault(movement.conexion_bancaria_id, []).append(movement)
+
+    for connection_movements in by_connection.values():
+        last_reported_balance = None
+        accumulated_delta = Decimal('0.00')
+
+        for movement in connection_movements:
+            if last_reported_balance is None:
+                if movement.saldo_reportado is not None:
+                    counts['reported_balance_points'] += 1
+                    last_reported_balance = movement.saldo_reportado
+                continue
+
+            if movement.tipo_movimiento == TipoMovimientoBancario.CREDIT:
+                accumulated_delta += movement.monto
+            else:
+                accumulated_delta -= movement.monto
+
+            if movement.saldo_reportado is None:
+                continue
+
+            counts['reported_balance_points'] += 1
+            counts['reported_balance_continuity_checks'] += 1
+            expected_balance = last_reported_balance + accumulated_delta
+            if movement.saldo_reportado != expected_balance:
+                counts['reported_balance_continuity_mismatch'] += 1
+
+            last_reported_balance = movement.saldo_reportado
+            accumulated_delta = Decimal('0.00')
+
+    return dict(sorted(counts.items()))
+
+
 def collect_stage3_conciliacion_readiness(
     *,
     stage2_evidence_ref: str = '',
@@ -134,6 +172,7 @@ def collect_stage3_conciliacion_readiness(
         'codigo_cobro_residual',
     ).all()
     movement_issues = _collect_movement_issues(movements)
+    reported_balance_issues = _collect_reported_balance_issues(movements)
     unresolved_movements = movements.filter(
         estado_conciliacion__in=[
             EstadoConciliacionMovimiento.PENDING,
@@ -256,6 +295,14 @@ def collect_stage3_conciliacion_readiness(
                 'No existe senal local de saldo bancario reportado o conexion primaria de saldos lista.',
             )
         )
+    if reported_balance_issues.get('reported_balance_continuity_mismatch'):
+        issues.append(
+            _issue(
+                'stage3.balance_reported_continuity_mismatch',
+                'Existen saldos reportados que no continuan segun los movimientos importados intermedios.',
+                count=reported_balance_issues['reported_balance_continuity_mismatch'],
+            )
+        )
 
     for key, code, message in [
         (
@@ -311,6 +358,7 @@ def collect_stage3_conciliacion_readiness(
                 'unresolved': unresolved_movements,
                 'with_reported_balance': movements_with_reported_balance,
                 **movement_issues,
+                **reported_balance_issues,
             },
             'unknown_income': {
                 'total': unknown_income.count(),
@@ -322,6 +370,6 @@ def collect_stage3_conciliacion_readiness(
         'limitations': [
             'Auditoria local de solo lectura; no conecta bancos ni consulta proveedores externos.',
             'No usa secretos, .env, datos reales ni snapshots externos.',
-            'No cierra Etapa 3 sin banco real o snapshot autorizado y cuadratura sistema/banco evidenciada.',
+            'No cierra Etapa 3 sin banco real o snapshot autorizado, continuidad de saldos reportados y cuadratura sistema/banco evidenciada.',
         ],
     }
