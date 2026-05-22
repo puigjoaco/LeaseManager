@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -619,6 +621,79 @@ class ContabilidadAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_prepare_monthly_close_rejects_asiento_movement_total_mismatch(self):
+        empresa = self._create_active_empresa(nombre='MovementMismatchCo', rut='46464646-4')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        event_response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'movement-mismatch-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'movement-mismatch-1',
+            },
+            format='json',
+        )
+        self.assertEqual(event_response.status_code, status.HTTP_201_CREATED)
+
+        asiento = AsientoContable.objects.get(evento_contable_id=event_response.data['id'])
+        movement = asiento.movimientos.get(tipo_movimiento='debe')
+        movement.monto = Decimal('99999.00')
+        movement.save(update_fields=['monto', 'updated_at'])
+
+        response = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('movimientos del asiento no cuadran', response.data['detail'])
+        self.assertFalse(CierreMensualContable.objects.filter(empresa=empresa, anio=2026, mes=1).exists())
+
+    def test_prepare_monthly_close_rejects_cross_company_movement_account(self):
+        empresa = self._create_active_empresa(nombre='MovementCompanyCo', rut='47474747-4')
+        other_empresa = self._create_active_empresa(nombre='MovementOtherCo', rut='48484848-4')
+        accounts = self._setup_contabilidad(empresa)
+        other_accounts = self._setup_contabilidad(other_empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        event_response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'cross-company-movement-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'cross-company-movement-1',
+            },
+            format='json',
+        )
+        self.assertEqual(event_response.status_code, status.HTTP_201_CREATED)
+
+        asiento = AsientoContable.objects.get(evento_contable_id=event_response.data['id'])
+        movement = asiento.movimientos.get(tipo_movimiento='debe')
+        movement.cuenta_contable = other_accounts['bancos']
+        movement.save(update_fields=['cuenta_contable', 'updated_at'])
+
+        response = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('cuentas de otra empresa', response.data['detail'])
 
     def test_prepare_monthly_close_fails_when_bank_movements_are_unresolved(self):
         empresa = self._create_active_empresa(nombre='BankOpenCo', rut='45454545-5')

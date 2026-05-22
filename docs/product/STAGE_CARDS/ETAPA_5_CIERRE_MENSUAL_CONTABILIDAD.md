@@ -21,9 +21,12 @@ contables desde hechos conciliados.
   `ingreso_desconocido` o `manual_requerida`.
 - Reglas contables vigentes.
 - Asientos balanceados.
+- Movimientos de asiento obligatorios, con sumas debe/haber iguales a los
+  totales del asiento y cuentas contables de la misma empresa del evento.
 - `audit_stage5_contabilidad_readiness` consolida configuracion fiscal,
-  reglas/matriz, eventos, asientos, snapshots, cierres mensuales y conciliacion
-  del periodo sin presentar impuestos ni conectar servicios externos.
+  reglas/matriz, eventos, asientos, integridad de movimientos, snapshots,
+  cierres mensuales y conciliacion del periodo sin presentar impuestos ni
+  conectar servicios externos.
 - Reportes con origen trazable.
 - Diferencias registradas o corregidas.
 

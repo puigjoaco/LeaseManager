@@ -29,6 +29,7 @@ from contabilidad.models import (
 from contabilidad.services import (
     get_company_period_events,
     get_company_period_unresolved_bank_movements,
+    summarize_asiento_movement_integrity,
 )
 
 
@@ -133,10 +134,24 @@ def collect_stage5_contabilidad_readiness(
     pending_events = events.exclude(estado_contable=EstadoEventoContable.POSTED).count()
     posted_events_without_asiento = posted_events.filter(asiento_contable__isnull=True).count()
 
-    asientos = AsientoContable.objects.select_related('evento_contable')
+    asientos_qs = AsientoContable.objects.select_related('evento_contable').prefetch_related(
+        'movimientos__cuenta_contable'
+    )
+    asientos = list(asientos_qs)
     unbalanced_asientos = sum(1 for asiento in asientos if asiento.debe_total != asiento.haber_total)
-    posted_asientos_without_hash = asientos.filter(estado=EstadoAsientoContable.POSTED, hash_integridad='').count()
+    posted_asientos_without_hash = asientos_qs.filter(estado=EstadoAsientoContable.POSTED, hash_integridad='').count()
     asientos_without_movements = sum(1 for asiento in asientos if not asiento.movimientos.exists())
+    movement_totals_mismatch = 0
+    movement_company_mismatch = 0
+    for asiento in asientos:
+        movement_integrity = summarize_asiento_movement_integrity(asiento)
+        if movement_integrity['company_mismatch_count']:
+            movement_company_mismatch += 1
+        if movement_integrity['movement_count'] and (
+            movement_integrity['debit_total'] != asiento.debe_total
+            or movement_integrity['credit_total'] != asiento.haber_total
+        ):
+            movement_totals_mismatch += 1
 
     obligations = ObligacionTributariaMensual.objects.select_related('empresa')
     pending_obligations = obligations.filter(
@@ -264,6 +279,22 @@ def collect_stage5_contabilidad_readiness(
                 count=asientos_without_movements,
             )
         )
+    if movement_company_mismatch:
+        issues.append(
+            _issue(
+                'stage5.asiento_movement_company_mismatch',
+                'Existen asientos con movimientos asociados a cuentas de otra empresa.',
+                count=movement_company_mismatch,
+            )
+        )
+    if movement_totals_mismatch:
+        issues.append(
+            _issue(
+                'stage5.asiento_movement_totals_mismatch',
+                'Existen asientos cuyos movimientos no cuadran con sus totales debe/haber.',
+                count=movement_totals_mismatch,
+            )
+        )
     if pending_obligations:
         issues.append(
             _issue(
@@ -373,11 +404,13 @@ def collect_stage5_contabilidad_readiness(
                 'events_by_state': _count_by(events, 'estado_contable'),
                 'pending_events': pending_events,
                 'posted_events_without_asiento': posted_events_without_asiento,
-                'asientos_total': asientos.count(),
-                'asientos_by_state': _count_by(asientos, 'estado'),
+                'asientos_total': asientos_qs.count(),
+                'asientos_by_state': _count_by(asientos_qs, 'estado'),
                 'unbalanced_asientos': unbalanced_asientos,
                 'posted_asientos_without_hash': posted_asientos_without_hash,
                 'asientos_without_movements': asientos_without_movements,
+                'movement_company_mismatch': movement_company_mismatch,
+                'movement_totals_mismatch': movement_totals_mismatch,
                 'movimientos_asiento_total': MovimientoAsiento.objects.count(),
                 'movimientos_by_type': _count_by(MovimientoAsiento.objects.all(), 'tipo_movimiento'),
             },
