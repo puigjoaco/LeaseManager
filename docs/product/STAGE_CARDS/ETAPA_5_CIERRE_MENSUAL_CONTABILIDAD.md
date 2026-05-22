@@ -27,6 +27,9 @@ contables desde hechos conciliados.
   reglas/matriz, eventos, asientos, integridad de movimientos, snapshots,
   cierres mensuales y conciliacion del periodo sin presentar impuestos ni
   conectar servicios externos.
+- `audit_stage5_contabilidad_readiness` solo puede cerrar con `--source-kind`
+  `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
+  diagnostican brechas pero no habilitan cierre de Etapa 5.
 - Reportes con origen trazable.
 - Diferencias registradas o corregidas.
 

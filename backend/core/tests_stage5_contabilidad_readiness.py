@@ -209,6 +209,7 @@ class Stage5ContabilidadReadinessTests(TestCase):
             ledger_proof_ref='ledger-proof-controlled-v1',
             reports_proof_ref='reports-proof-controlled-v1',
             responsible_ref='stage5-responsibles-v1',
+            source_kind='snapshot_controlado',
         )
 
     def test_empty_database_reports_partial_without_sensitive_values(self):
@@ -217,20 +218,40 @@ class Stage5ContabilidadReadinessTests(TestCase):
 
         self.assertEqual(result['classification'], 'parcial')
         self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage5.source_kind_not_authorized', issue_codes)
         self.assertIn('stage5.fiscal_config_missing', issue_codes)
         self.assertIn('stage5.events_missing', issue_codes)
         self.assertIn('stage5.approved_close_missing', issue_codes)
         self.assertIn('stage5.stage3_evidence_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
 
-    def test_valid_local_matrix_and_non_sensitive_refs_can_pass_readiness(self):
+    def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         self._create_valid_local_matrix()
 
         result = self._collect_with_final_refs()
 
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertTrue(result['ready_for_stage5_contabilidad'])
+        self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage5_contabilidad_readiness(
+            stage3_evidence_ref='stage3-conciliacion-controlled-v1',
+            ledger_proof_ref='ledger-proof-controlled-v1',
+            reports_proof_ref='reports-proof-controlled-v1',
+            responsible_ref='stage5-responsibles-v1',
+            source_kind='local',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage5.source_kind_not_authorized', issue_codes)
 
     def test_rule_without_active_matrix_is_blocking(self):
         empresa = self._create_active_empresa(nombre='RuleNoMatrixCo', rut='78787878-7')
@@ -364,6 +385,7 @@ class Stage5ContabilidadReadinessTests(TestCase):
             ledger_proof_ref='ledger-proof-controlled-v1',
             reports_proof_ref='reports-proof-controlled-v1',
             responsible_ref='stage5-responsibles-v1',
+            source_kind='snapshot_controlado',
         )
 
         self.assertFalse(result['ready_for_stage5_contabilidad'])
@@ -376,6 +398,8 @@ class Stage5ContabilidadReadinessTests(TestCase):
             result = json.loads(output_path.read_text(encoding='utf-8'))
 
         self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage5.source_kind_not_authorized', {issue['code'] for issue in result['issues']})
         self.assertIn('ledger', result['sections'])
 
         blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'stage5-readiness-should-not-be-versioned.json'
