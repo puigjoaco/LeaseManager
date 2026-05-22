@@ -44,14 +44,27 @@ function Resolve-FullPath([string]$path) {
     return [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $path))
 }
 
+function Test-PathInsideDirectory([string]$path, [string]$directory) {
+    $resolvedPath = [System.IO.Path]::GetFullPath($path)
+    $resolvedDirectory = [System.IO.Path]::GetFullPath($directory).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    return $resolvedPath.Equals($resolvedDirectory, [System.StringComparison]::OrdinalIgnoreCase) `
+        -or $resolvedPath.StartsWith(
+            "$resolvedDirectory$([System.IO.Path]::DirectorySeparatorChar)",
+            [System.StringComparison]::OrdinalIgnoreCase
+        )
+}
+
 function Assert-OutputPathSafe([string]$path, [string]$repoRoot) {
     $resolvedOutput = Resolve-FullPath $path
     $localEvidenceRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'local-evidence'))
     $repoRootFull = [System.IO.Path]::GetFullPath($repoRoot)
 
-    if ($resolvedOutput.StartsWith($repoRootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if (Test-PathInsideDirectory $resolvedOutput $repoRootFull) {
         Assert-Condition `
-            ($resolvedOutput.StartsWith($localEvidenceRoot, [System.StringComparison]::OrdinalIgnoreCase)) `
+            (Test-PathInsideDirectory $resolvedOutput $localEvidenceRoot) `
             'Si el output queda dentro del repo, debe estar bajo local-evidence/ para no versionar evidencia de restore.'
     }
 
@@ -120,10 +133,9 @@ if ($PlanOnly) {
         restore_verified = $false
         checks = [ordered]@{
             compose_file_exists = $true
-            output_under_local_evidence = $resolvedOutput.StartsWith(
-                [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'local-evidence')),
-                [System.StringComparison]::OrdinalIgnoreCase
-            )
+            output_under_local_evidence = Test-PathInsideDirectory `
+                $resolvedOutput `
+                ([System.IO.Path]::GetFullPath((Join-Path $repoRoot 'local-evidence')))
         }
         next_command = '.\scripts\run-postgres-restore-rehearsal.ps1'
         limitations = @(

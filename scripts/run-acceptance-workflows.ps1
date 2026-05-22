@@ -386,6 +386,22 @@ if (-not $OnlySmoke) {
         Assert-Condition $restoreOutputGuardFailed 'run-postgres-restore-rehearsal debe rechazar OutputPath versionable antes de generar evidencia.'
         Assert-Condition ($blockedRestoreOutput -match 'local-evidence') 'El rechazo de OutputPath debe indicar local-evidence como ubicacion permitida.'
         Assert-Condition (-not (Test-Path $blockedRestoreOutputPath)) 'El rehearsal de restore no debe crear evidencia versionable bajo docs/.'
+
+        Step "External sibling output path boundary guard"
+        $siblingEvidenceDir = Join-Path (Split-Path -Parent $repoRoot) 'LeaseManager-output-boundary-acceptance'
+        $siblingOutputPath = Join-Path $siblingEvidenceDir ("restore-plan-boundary_{0}.json" -f ([guid]::NewGuid().ToString('N')))
+        $siblingOutput = & $restoreRehearsalScript -PlanOnly -OutputPath $siblingOutputPath 2>&1 | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) "run-postgres-restore-rehearsal debe aceptar OutputPath externo hermano. Output: $siblingOutput"
+        Assert-Condition (Test-Path $siblingOutputPath) 'El rehearsal de restore debe escribir evidencia plan-only en ruta externa hermana permitida.'
+        $siblingEvidence = Get-Content -LiteralPath $siblingOutputPath -Raw | ConvertFrom-Json
+        Assert-Condition ($siblingEvidence.checks.output_under_local_evidence -eq $false) 'La evidencia externa hermana no debe clasificarse como local-evidence.'
+        $resolvedSiblingDir = [System.IO.Path]::GetFullPath($siblingEvidenceDir)
+        $resolvedSiblingOutput = [System.IO.Path]::GetFullPath($siblingOutputPath)
+        Assert-Condition ($resolvedSiblingOutput.StartsWith("$resolvedSiblingDir$([System.IO.Path]::DirectorySeparatorChar)", [System.StringComparison]::OrdinalIgnoreCase)) 'Cleanup externo abortado por ruta inesperada.'
+        Remove-Item -LiteralPath $resolvedSiblingOutput -Force
+        if (-not (Get-ChildItem -LiteralPath $resolvedSiblingDir -Force)) {
+            Remove-Item -LiteralPath $resolvedSiblingDir -Force
+        }
     }
     finally {
         Pop-Location

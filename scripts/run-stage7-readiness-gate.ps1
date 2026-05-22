@@ -39,6 +39,19 @@ function Resolve-FullPath([string]$path) {
     return [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $path))
 }
 
+function Test-PathInsideDirectory([string]$path, [string]$directory) {
+    $resolvedPath = [System.IO.Path]::GetFullPath($path)
+    $resolvedDirectory = [System.IO.Path]::GetFullPath($directory).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    return $resolvedPath.Equals($resolvedDirectory, [System.StringComparison]::OrdinalIgnoreCase) `
+        -or $resolvedPath.StartsWith(
+            "$resolvedDirectory$([System.IO.Path]::DirectorySeparatorChar)",
+            [System.StringComparison]::OrdinalIgnoreCase
+        )
+}
+
 function Resolve-SqliteDatabaseUrl([string]$databaseUrl) {
     if ($databaseUrl -notmatch '^sqlite:///(.+)$') {
         return $databaseUrl
@@ -61,9 +74,9 @@ function Assert-OutputPathSafe([string]$path, [string]$repoRoot) {
     $localEvidenceRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'local-evidence'))
     $repoRootFull = [System.IO.Path]::GetFullPath($repoRoot)
 
-    if ($resolvedOutput.StartsWith($repoRootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if (Test-PathInsideDirectory $resolvedOutput $repoRootFull) {
         Assert-Condition `
-            ($resolvedOutput.StartsWith($localEvidenceRoot, [System.StringComparison]::OrdinalIgnoreCase)) `
+            (Test-PathInsideDirectory $resolvedOutput $localEvidenceRoot) `
             'Si el output queda dentro del repo, debe estar bajo local-evidence/ para no versionar evidencia de readiness.'
     }
 
