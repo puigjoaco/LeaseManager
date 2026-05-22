@@ -13,9 +13,11 @@ from contabilidad.models import (
     AsientoContable,
     BalanceComprobacion,
     CierreMensualContable,
+    ConfiguracionFiscalEmpresa,
     EstadoAsientoContable,
     EstadoCierreMensual,
     EstadoPreparacionTributaria,
+    EstadoRegistro,
     EventoContable,
     LibroDiario,
     LibroMayor,
@@ -69,6 +71,17 @@ def _period_label(anio, mes) -> str:
 
 def _values_set(queryset, field: str) -> set[int]:
     return {value for value in queryset.values_list(field, flat=True).distinct() if value is not None}
+
+
+def _active_fiscal_company_ids(company_ids: set[int]) -> set[int]:
+    if not company_ids:
+        return set()
+    return set(
+        ConfiguracionFiscalEmpresa.objects.filter(
+            empresa_id__in=company_ids,
+            estado=EstadoRegistro.ACTIVE,
+        ).values_list('empresa_id', flat=True)
+    )
 
 
 def _traceability_payload(*, report_type: str, sources: list[str], checks: dict | None = None):
@@ -267,6 +280,18 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
 
     ddjj_by_process = {item.proceso_renta_anual_id: item for item in ddjj_items}
     f22_by_process = {item.proceso_renta_anual_id: item for item in f22_items}
+    company_ids = {item.empresa_id for item in [*processes, *ddjj_items, *f22_items]}
+    missing_fiscal_config = sorted(company_ids - _active_fiscal_company_ids(company_ids))
+    if missing_fiscal_config:
+        _raise_traceability_error(
+            'reporting.annual_fiscal_config_missing',
+            'El reporte tributario anual requiere ConfiguracionFiscalEmpresa activa para cada empresa incluida.',
+            {
+                'anio_tributario': anio_tributario,
+                'empresas_sin_configuracion_fiscal': missing_fiscal_config,
+            },
+        )
+
     for process in processes:
         if process.estado not in ANNUAL_TRACEABLE_STATES:
             _raise_traceability_error(

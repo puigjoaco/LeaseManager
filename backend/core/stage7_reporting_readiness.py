@@ -12,10 +12,12 @@ from contabilidad.models import (
     AsientoContable,
     BalanceComprobacion,
     CierreMensualContable,
+    ConfiguracionFiscalEmpresa,
     EstadoAsientoContable,
     EstadoCierreMensual,
     EstadoEventoContable,
     EstadoPreparacionTributaria,
+    EstadoRegistro,
     EventoContable,
     LibroDiario,
     LibroMayor,
@@ -75,6 +77,10 @@ def _count_invalid(queryset) -> int:
         except ValidationError:
             invalid_count += 1
     return invalid_count
+
+
+def _count_without_active_fiscal_config(items, active_fiscal_company_ids: set[int]) -> int:
+    return sum(1 for item in items if item.empresa_id not in active_fiscal_company_ids)
 
 
 def _period_label(anio: int, mes: int) -> str:
@@ -213,6 +219,10 @@ def collect_stage7_reporting_readiness(
     responsible_ref: str = '',
     source_kind: str = 'local',
 ) -> dict[str, Any]:
+    fiscal_configs = ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario')
+    active_fiscal_configs = fiscal_configs.filter(estado=EstadoRegistro.ACTIVE)
+    active_fiscal_company_ids = set(active_fiscal_configs.values_list('empresa_id', flat=True))
+
     approved_closes = CierreMensualContable.objects.filter(estado=EstadoCierreMensual.APPROVED).select_related('empresa')
     obligations = ObligacionTributariaMensual.objects.all()
 
@@ -238,6 +248,18 @@ def collect_stage7_reporting_readiness(
         'proceso_renta_anual',
     )
     annual_issues = _collect_annual_report_issues(annual_processes, ddjj_preparations, f22_preparations)
+    annual_processes_without_fiscal_config = _count_without_active_fiscal_config(
+        annual_processes,
+        active_fiscal_company_ids,
+    )
+    ddjj_without_fiscal_config = _count_without_active_fiscal_config(
+        ddjj_preparations,
+        active_fiscal_company_ids,
+    )
+    f22_without_fiscal_config = _count_without_active_fiscal_config(
+        f22_preparations,
+        active_fiscal_company_ids,
+    )
 
     final_evidence = {
         'stage5_evidence_ref': _non_sensitive_reference(stage5_evidence_ref),
@@ -283,6 +305,14 @@ def collect_stage7_reporting_readiness(
                 'Reporting tributario anual requiere ProcesoRentaAnual trazable.',
             )
         )
+    if annual_processes_without_fiscal_config:
+        issues.append(
+            _issue(
+                'stage7.reporting.annual_process_fiscal_config_missing',
+                'Existen procesos de renta anual para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+                count=annual_processes_without_fiscal_config,
+            )
+        )
     if ddjj_preparations.count() == 0:
         issues.append(
             _issue(
@@ -290,11 +320,27 @@ def collect_stage7_reporting_readiness(
                 'Reporting tributario anual requiere DDJJ asociada al proceso anual.',
             )
         )
+    if ddjj_without_fiscal_config:
+        issues.append(
+            _issue(
+                'stage7.reporting.annual_ddjj_fiscal_config_missing',
+                'Existen DDJJ anuales para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+                count=ddjj_without_fiscal_config,
+            )
+        )
     if f22_preparations.count() == 0:
         issues.append(
             _issue(
                 'stage7.reporting.f22_missing',
                 'Reporting tributario anual requiere F22 asociado al proceso anual.',
+            )
+        )
+    if f22_without_fiscal_config:
+        issues.append(
+            _issue(
+                'stage7.reporting.annual_f22_fiscal_config_missing',
+                'Existen F22 anuales para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+                count=f22_without_fiscal_config,
             )
         )
 
@@ -502,12 +548,16 @@ def collect_stage7_reporting_readiness(
                 **books_issues,
             },
             'annual_tax': {
+                'active_fiscal_configs': active_fiscal_configs.count(),
                 'processes_total': annual_processes.count(),
                 'processes_by_state': _count_by(annual_processes, 'estado'),
+                'processes_without_active_fiscal_config': annual_processes_without_fiscal_config,
                 'ddjj_total': ddjj_preparations.count(),
                 'ddjj_by_state': _count_by(ddjj_preparations, 'estado_preparacion'),
+                'ddjj_without_active_fiscal_config': ddjj_without_fiscal_config,
                 'f22_total': f22_preparations.count(),
                 'f22_by_state': _count_by(f22_preparations, 'estado_preparacion'),
+                'f22_without_active_fiscal_config': f22_without_fiscal_config,
                 **annual_issues,
             },
             'final_evidence': final_evidence,
@@ -515,6 +565,6 @@ def collect_stage7_reporting_readiness(
         'limitations': [
             'Auditoria local de solo lectura; no genera reportes publicos ni ejecuta smoke externo.',
             'No usa secretos, .env, datos reales, snapshots externos ni integraciones externas.',
-            'No cierra Reporting sin evidencia controlada de ledger, renta anual, APIs y visualizacion backoffice.',
+            'No cierra Reporting sin configuracion fiscal activa por empresa y evidencia controlada de ledger, renta anual, APIs y visualizacion backoffice.',
         ],
     }

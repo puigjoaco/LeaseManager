@@ -23,7 +23,8 @@ documentos o procesos tributarios trazables.
 - El resumen tributario anual requiere `ProcesoRentaAnual` preparado o superior,
   `resumen_anual` con ejercicio y obligaciones, y DDJJ/F22 asociados con resumen
   trazable. Estados aprobados, observados, rectificados o presentados requieren
-  referencia externa trazable.
+  referencia externa trazable. Cada empresa incluida debe tener
+  `ConfiguracionFiscalEmpresa` activa propia.
 - Si falta alguno de esos origenes, la API responde con bloqueo de
   trazabilidad y no entrega el reporte como valido.
 - `audit_stage7_reporting_readiness` consolida readiness local de resumen
