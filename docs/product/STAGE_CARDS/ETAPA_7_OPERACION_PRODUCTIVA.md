@@ -25,6 +25,9 @@ runbook, smoke y aceptacion.
   `local-evidence/`, antes de la prueba final con backup/snapshot autorizado.
 - Auditoria local de observabilidad operativa con gates, integraciones,
   backlogs y senales runtime minimas.
+- `audit_operational_observability` rechaza `--output` dentro del repo fuera
+  de `local-evidence/` antes de auditar, para no versionar evidencia ni
+  metadatos de observabilidad.
 - Senales runtime persistidas para latencia mensual, cola/tareas, webhooks
   fallidos y crons fallidos, con evidencia no sensible.
 - Para cierre productivo, las cuatro senales runtime obligatorias deben venir
