@@ -804,8 +804,14 @@ class ContabilidadAPITests(APITestCase):
         )
         self.assertEqual(approve.status_code, status.HTTP_200_OK)
         close.refresh_from_db()
+        libro_diario.refresh_from_db()
+        libro_mayor.refresh_from_db()
+        balance.refresh_from_db()
         self.assertEqual(close.estado, 'aprobado')
         self.assertIsNotNone(close.fecha_aprobacion)
+        self.assertEqual(libro_diario.estado_snapshot, 'aprobado')
+        self.assertEqual(libro_mayor.estado_snapshot, 'aprobado')
+        self.assertEqual(balance.estado_snapshot, 'aprobado')
 
         reopen = self.client.post(
             reverse('contabilidad-cierre-reopen', args=[close.id]),
@@ -813,7 +819,13 @@ class ContabilidadAPITests(APITestCase):
         )
         self.assertEqual(reopen.status_code, status.HTTP_200_OK)
         close.refresh_from_db()
+        libro_diario.refresh_from_db()
+        libro_mayor.refresh_from_db()
+        balance.refresh_from_db()
         self.assertEqual(close.estado, 'reabierto')
+        self.assertEqual(libro_diario.estado_snapshot, 'reabierto')
+        self.assertEqual(libro_mayor.estado_snapshot, 'reabierto')
+        self.assertEqual(balance.estado_snapshot, 'reabierto')
 
     def test_prepare_and_approve_and_reopen_monthly_close(self):
         empresa = self._create_active_empresa(nombre='ApproveCo', rut='56565656-5')

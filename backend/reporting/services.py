@@ -13,6 +13,9 @@ from contabilidad.models import (
     AsientoContable,
     BalanceComprobacion,
     CierreMensualContable,
+    EstadoAsientoContable,
+    EstadoCierreMensual,
+    EstadoPreparacionTributaria,
     EventoContable,
     LibroDiario,
     LibroMayor,
@@ -30,6 +33,26 @@ SOCIO_SCOPE_PATHS = (
     'participaciones_patrimoniales_como_participante__empresa_owner__propiedades__id',
     'participaciones_patrimoniales_como_participante__comunidad_owner__propiedades__id',
 )
+ANNUAL_TRACEABLE_STATES = {
+    EstadoPreparacionTributaria.PREPARED,
+    EstadoPreparacionTributaria.APPROVED,
+    EstadoPreparacionTributaria.PRESENTED,
+    EstadoPreparacionTributaria.OBSERVED,
+    EstadoPreparacionTributaria.RECTIFIED,
+}
+ANNUAL_STATES_REQUIRING_REF = {
+    EstadoPreparacionTributaria.APPROVED,
+    EstadoPreparacionTributaria.PRESENTED,
+    EstadoPreparacionTributaria.OBSERVED,
+    EstadoPreparacionTributaria.RECTIFIED,
+}
+
+
+class ReportingTraceabilityError(ValueError):
+    def __init__(self, code: str, message: str, details: dict | None = None):
+        super().__init__(message)
+        self.code = code
+        self.details = details or {}
 
 
 def _cache_key(prefix: str) -> str:
@@ -40,11 +63,256 @@ def _decimal_str(value: Decimal) -> str:
     return str(Decimal(value).quantize(Decimal('0.01')))
 
 
+def _period_label(anio, mes) -> str:
+    return f'{int(anio):04d}-{int(mes):02d}'
+
+
+def _values_set(queryset, field: str) -> set[int]:
+    return {value for value in queryset.values_list(field, flat=True).distinct() if value is not None}
+
+
+def _traceability_payload(*, report_type: str, sources: list[str], checks: dict | None = None):
+    return {
+        'estado': 'verificado',
+        'tipo_reporte': report_type,
+        'fuentes': sources,
+        'controles': checks or {},
+    }
+
+
+def _raise_traceability_error(code: str, message: str, details: dict | None = None):
+    raise ReportingTraceabilityError(code, message, details)
+
+
 def _scoped_socios_queryset(access: ScopeAccess):
     return scope_queryset_for_access(
         Socio.objects.all(),
         access,
         property_paths=SOCIO_SCOPE_PATHS,
+    )
+
+
+def _assert_financial_monthly_traceability(
+    *,
+    anio,
+    mes,
+    empresa_id,
+    access: ScopeAccess,
+    events,
+    obligations,
+    closures,
+    dtes,
+):
+    period_distributions = scope_queryset_for_access(
+        DistribucionCobroMensual.objects.filter(pago_mensual__anio=anio, pago_mensual__mes=mes),
+        access,
+        company_paths=('beneficiario_empresa_owner_id',),
+        property_paths=('pago_mensual__contrato__mandato_operacion__propiedad_id',),
+    )
+    if empresa_id is not None:
+        period_distributions = period_distributions.filter(beneficiario_empresa_owner_id=empresa_id)
+
+    company_ids = set()
+    if empresa_id is not None:
+        company_ids.add(empresa_id)
+    company_ids.update(_values_set(period_distributions, 'beneficiario_empresa_owner_id'))
+    company_ids.update(_values_set(events, 'empresa_id'))
+    company_ids.update(_values_set(obligations, 'empresa_id'))
+    company_ids.update(_values_set(dtes, 'empresa_id'))
+
+    if company_ids:
+        approved_company_ids = _values_set(
+            closures.filter(empresa_id__in=company_ids, estado=EstadoCierreMensual.APPROVED),
+            'empresa_id',
+        )
+        missing_closes = sorted(company_ids - approved_company_ids)
+        if missing_closes:
+            _raise_traceability_error(
+                'reporting.monthly_close_missing',
+                'El reporte financiero mensual requiere cierre mensual aprobado para cada empresa incluida.',
+                {'periodo': _period_label(anio, mes), 'empresas_sin_cierre_aprobado': missing_closes},
+            )
+
+    missing_event_origin_count = events.filter(Q(entidad_origen_tipo='') | Q(entidad_origen_id='')).count()
+    if missing_event_origin_count:
+        _raise_traceability_error(
+            'reporting.event_origin_missing',
+            'El reporte financiero mensual contiene eventos contables sin origen trazable.',
+            {'periodo': _period_label(anio, mes), 'eventos_sin_origen': missing_event_origin_count},
+        )
+
+    missing_asiento_count = events.filter(asiento_contable__isnull=True).count()
+    if missing_asiento_count:
+        _raise_traceability_error(
+            'reporting.accounting_entry_missing',
+            'El reporte financiero mensual contiene eventos contabilizados sin asiento contable asociado.',
+            {'periodo': _period_label(anio, mes), 'eventos_sin_asiento': missing_asiento_count},
+        )
+
+    asientos = AsientoContable.objects.filter(evento_contable__in=events)
+    invalid_asientos = [
+        asiento.id
+        for asiento in asientos
+        if asiento.estado != EstadoAsientoContable.POSTED or asiento.debe_total != asiento.haber_total
+    ]
+    if invalid_asientos:
+        _raise_traceability_error(
+            'reporting.accounting_entry_invalid',
+            'El reporte financiero mensual contiene asientos no posteados o descuadrados.',
+            {'periodo': _period_label(anio, mes), 'asientos_invalidos': invalid_asientos},
+        )
+
+    return _traceability_payload(
+        report_type='financiero_mensual',
+        sources=[
+            'PagoMensual',
+            'DistribucionCobroMensual',
+            'EventoContable',
+            'AsientoContable',
+            'ObligacionTributariaMensual',
+            'CierreMensualContable',
+            'DTEEmitido',
+        ],
+        checks={
+            'periodo': _period_label(anio, mes),
+            'empresas_con_cierre_aprobado': len(company_ids),
+            'eventos_con_asiento': asientos.count(),
+        },
+    )
+
+
+def _assert_period_books_traceability(*, empresa_id, periodo, libro_diario, libro_mayor, balance):
+    snapshots = {
+        'libro_diario': libro_diario,
+        'libro_mayor': libro_mayor,
+        'balance_comprobacion': balance,
+    }
+    missing = [name for name, snapshot in snapshots.items() if snapshot is None]
+    if missing:
+        _raise_traceability_error(
+            'reporting.books_snapshot_missing',
+            'El reporte de libros requiere libro diario, libro mayor y balance de comprobacion existentes.',
+            {'empresa_id': empresa_id, 'periodo': periodo, 'faltantes': missing},
+        )
+
+    not_approved = [
+        name
+        for name, snapshot in snapshots.items()
+        if snapshot.estado_snapshot != EstadoCierreMensual.APPROVED
+    ]
+    if not_approved:
+        _raise_traceability_error(
+            'reporting.books_snapshot_not_approved',
+            'El reporte de libros requiere snapshots contables aprobados.',
+            {'empresa_id': empresa_id, 'periodo': periodo, 'snapshots_no_aprobados': not_approved},
+        )
+
+    empty_summaries = [name for name, snapshot in snapshots.items() if not snapshot.resumen]
+    if empty_summaries:
+        _raise_traceability_error(
+            'reporting.books_snapshot_without_summary',
+            'El reporte de libros requiere resumen contable trazable en cada snapshot.',
+            {'empresa_id': empresa_id, 'periodo': periodo, 'snapshots_sin_resumen': empty_summaries},
+        )
+
+    if balance.resumen.get('cuadrado') is not True:
+        _raise_traceability_error(
+            'reporting.books_balance_not_balanced',
+            'El reporte de libros requiere balance de comprobacion cuadrado.',
+            {'empresa_id': empresa_id, 'periodo': periodo},
+        )
+
+    try:
+        anio_raw, mes_raw = periodo.split('-', 1)
+        anio = int(anio_raw)
+        mes = int(mes_raw)
+    except (TypeError, ValueError) as error:
+        raise ReportingTraceabilityError(
+            'reporting.books_period_invalid',
+            'El reporte de libros requiere periodo con formato YYYY-MM.',
+            {'empresa_id': empresa_id, 'periodo': periodo},
+        ) from error
+
+    approved_close = CierreMensualContable.objects.filter(
+        empresa_id=empresa_id,
+        anio=anio,
+        mes=mes,
+        estado=EstadoCierreMensual.APPROVED,
+    ).exists()
+    if not approved_close:
+        _raise_traceability_error(
+            'reporting.books_close_missing',
+            'El reporte de libros requiere cierre mensual aprobado para el periodo.',
+            {'empresa_id': empresa_id, 'periodo': periodo},
+        )
+
+    return _traceability_payload(
+        report_type='libros_periodo',
+        sources=['LibroDiario', 'LibroMayor', 'BalanceComprobacion', 'CierreMensualContable'],
+        checks={'empresa_id': empresa_id, 'periodo': periodo, 'snapshots_aprobados': 3},
+    )
+
+
+def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, ddjj_items, f22_items):
+    processes = list(processes)
+    ddjj_items = list(ddjj_items)
+    f22_items = list(f22_items)
+
+    if empresa_id is not None and not processes:
+        _raise_traceability_error(
+            'reporting.annual_process_missing',
+            'El reporte tributario anual requiere un proceso de renta anual preparado para la empresa.',
+            {'empresa_id': empresa_id, 'anio_tributario': anio_tributario},
+        )
+
+    ddjj_by_process = {item.proceso_renta_anual_id: item for item in ddjj_items}
+    f22_by_process = {item.proceso_renta_anual_id: item for item in f22_items}
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            _raise_traceability_error(
+                'reporting.annual_process_not_traceable',
+                'El reporte tributario anual contiene procesos sin estado trazable de preparacion.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario, 'estado': process.estado},
+            )
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        if 'fiscal_year' not in summary or not isinstance(summary.get('obligaciones'), list):
+            _raise_traceability_error(
+                'reporting.annual_summary_incomplete',
+                'El reporte tributario anual requiere resumen anual generado desde obligaciones mensuales trazables.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+
+        ddjj = ddjj_by_process.get(process.id)
+        f22 = f22_by_process.get(process.id)
+        if ddjj is None or f22 is None:
+            _raise_traceability_error(
+                'reporting.annual_documents_missing',
+                'El reporte tributario anual requiere DDJJ y F22 asociados al proceso anual.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if not ddjj.resumen_paquete or not f22.resumen_f22:
+            _raise_traceability_error(
+                'reporting.annual_documents_without_summary',
+                'El reporte tributario anual requiere resumen trazable de DDJJ y F22.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not ddjj.paquete_ref:
+            _raise_traceability_error(
+                'reporting.annual_ddjj_ref_missing',
+                'El reporte tributario anual requiere paquete_ref para DDJJ aprobada, observada, rectificada o presentada.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if f22.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not f22.borrador_ref:
+            _raise_traceability_error(
+                'reporting.annual_f22_ref_missing',
+                'El reporte tributario anual requiere borrador_ref para F22 aprobado, observado, rectificado o presentado.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+
+    return _traceability_payload(
+        report_type='tributario_anual',
+        sources=['ProcesoRentaAnual', 'DDJJPreparacionAnual', 'F22PreparacionAnual', 'ObligacionTributariaMensual'],
+        checks={'anio_tributario': anio_tributario, 'procesos_trazados': len(processes)},
     )
 
 
@@ -303,10 +571,22 @@ def build_financial_monthly_summary(anio, mes, empresa_id=None, access: ScopeAcc
     if empresa_id is not None:
         dtes = dtes.filter(empresa_id=empresa_id)
 
+    trazabilidad = _assert_financial_monthly_traceability(
+        anio=anio,
+        mes=mes,
+        empresa_id=empresa_id,
+        access=access,
+        events=events,
+        obligations=obligations,
+        closures=closures,
+        dtes=dtes,
+    )
+
     return {
         'anio': anio,
         'mes': mes,
         'empresa_id': empresa_id,
+        'trazabilidad': trazabilidad,
         'pagos_generados': pagos_generados,
         'monto_facturable_total_clp': _decimal_str(facturable_total),
         'monto_cobrado_total_clp': _decimal_str(cobrado_total),
@@ -476,10 +756,18 @@ def build_period_books_summary(empresa_id, periodo, access: ScopeAccess | None =
         access,
         company_paths=('empresa_id',),
     ).first()
+    trazabilidad = _assert_period_books_traceability(
+        empresa_id=empresa_id,
+        periodo=periodo,
+        libro_diario=libro_diario,
+        libro_mayor=libro_mayor,
+        balance=balance,
+    )
 
     return {
         'empresa_id': empresa_id,
         'periodo': periodo,
+        'trazabilidad': trazabilidad,
         'libro_diario': {
             'id': libro_diario.id if libro_diario else None,
             'estado_snapshot': libro_diario.estado_snapshot if libro_diario else None,
@@ -527,9 +815,21 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
     if empresa_id is not None:
         f22_queryset = f22_queryset.filter(empresa_id=empresa_id)
 
+    process_items = list(process_queryset.order_by('empresa_id'))
+    ddjj_items = list(ddjj_queryset.order_by('empresa_id'))
+    f22_items = list(f22_queryset.order_by('empresa_id'))
+    trazabilidad = _assert_annual_tax_traceability(
+        anio_tributario=anio_tributario,
+        empresa_id=empresa_id,
+        processes=process_items,
+        ddjj_items=ddjj_items,
+        f22_items=f22_items,
+    )
+
     return {
         'anio_tributario': anio_tributario,
         'empresa_id': empresa_id,
+        'trazabilidad': trazabilidad,
         'procesos_renta': [
             {
                 'empresa_id': process.empresa_id,
@@ -537,7 +837,7 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
                 'fecha_preparacion': process.fecha_preparacion.isoformat() if process.fecha_preparacion else None,
                 'resumen_anual': process.resumen_anual,
             }
-            for process in process_queryset.order_by('empresa_id')
+            for process in process_items
         ],
         'ddjj_preparadas': [
             {
@@ -546,7 +846,7 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
                 'paquete_ref': item.paquete_ref,
                 'resumen_paquete': item.resumen_paquete,
             }
-            for item in ddjj_queryset.order_by('empresa_id')
+            for item in ddjj_items
         ],
         'f22_preparados': [
             {
@@ -555,7 +855,7 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
                 'borrador_ref': item.borrador_ref,
                 'resumen_f22': item.resumen_f22,
             }
-            for item in f22_queryset.order_by('empresa_id')
+            for item in f22_items
         ],
     }
 

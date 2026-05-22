@@ -43,7 +43,15 @@ type ReportingMigrationDraft = {
   status: string
 }
 
+type ReportTraceability = {
+  estado: string
+  tipo_reporte: string
+  fuentes: string[]
+  controles: Record<string, string | number | boolean>
+}
+
 type ReportingFinancialSummary = {
+  trazabilidad: ReportTraceability
   pagos_generados: number
   monto_facturable_total_clp: string
   monto_cobrado_total_clp: string
@@ -64,12 +72,14 @@ type ReportingPartnerSummary = {
 
 type ReportingBooksSummary = {
   periodo: string
+  trazabilidad: ReportTraceability
   libro_diario: { resumen: Record<string, unknown> }
   libro_mayor: { resumen: Record<string, unknown> }
   balance_comprobacion: { resumen: Record<string, unknown> }
 }
 
 type ReportingAnnualSummary = {
+  trazabilidad: ReportTraceability
   procesos_renta: Array<{ empresa_id: number; estado: string; fecha_preparacion: string | null }>
   ddjj_preparadas: Array<{ empresa_id: number; estado_preparacion: string; paquete_ref: string }>
   f22_preparados: Array<{ empresa_id: number; estado_preparacion: string; borrador_ref: string }>
@@ -95,6 +105,20 @@ type ReportingMigrationSummary = {
 function sumPercentages(values: Array<{ porcentaje: string }>) {
   const total = values.reduce((accumulator, item) => accumulator + Number(item.porcentaje || 0), 0)
   return `${total.toFixed(2)}%`
+}
+
+function TraceabilityBlock({ value }: { value: ReportTraceability }) {
+  return (
+    <section className="panel">
+      <div className="section-heading"><div><h2>Trazabilidad</h2><p>{value.tipo_reporte}</p></div><Badge label={value.estado} tone="positive" /></div>
+      <div className="list-stack">
+        <div className="list-row"><span>Fuentes</span><strong>{value.fuentes.join(', ')}</strong></div>
+        {Object.entries(value.controles).map(([key, entry]) => (
+          <div className="list-row" key={key}><span>{key}</span><strong>{String(entry)}</strong></div>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 export function ReportingWorkspace({
@@ -263,6 +287,7 @@ export function ReportingWorkspace({
 
       {reportingFinancialSummary ? (
         <>
+          <TraceabilityBlock value={reportingFinancialSummary.trazabilidad} />
           <section className="metric-grid">
             <Metric label="Pagos generados" value={count(reportingFinancialSummary.pagos_generados)} tone="neutral" />
             <Metric label="Facturable total" value={reportingFinancialSummary.monto_facturable_total_clp} tone="positive" />
@@ -314,6 +339,7 @@ export function ReportingWorkspace({
 
       {reportingBooksSummary ? (
         <section className="panel-grid">
+          <TraceabilityBlock value={reportingBooksSummary.trazabilidad} />
           <section className="panel">
             <div className="section-heading"><div><h2>Libro diario</h2><p>{reportingBooksSummary.periodo}</p></div></div>
             <pre className="json-block">{JSON.stringify(reportingBooksSummary.libro_diario.resumen, null, 2)}</pre>
@@ -331,6 +357,7 @@ export function ReportingWorkspace({
 
       {reportingAnnualSummary ? (
         <>
+          <TraceabilityBlock value={reportingAnnualSummary.trazabilidad} />
           <TableBlock title="Procesos renta anual" subtitle="Resumen consolidado por empresa." rows={reportingAnnualSummary.procesos_renta.map((item) => ({ id: item.empresa_id, ...item }))} empty="No hay procesos de renta para este filtro." columns={[
             { label: 'Empresa', render: (row) => empresaById.get(row.empresa_id)?.razon_social || row.empresa_id },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },

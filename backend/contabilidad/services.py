@@ -394,6 +394,16 @@ def build_ledger_snapshots(empresa, anio, mes):
     }
 
 
+def update_ledger_snapshot_state(empresa, anio, mes, estado_snapshot):
+    period = f'{anio:04d}-{mes:02d}'
+    for model in (LibroDiario, LibroMayor, BalanceComprobacion):
+        snapshot = model.objects.filter(empresa=empresa, periodo=period).first()
+        if not snapshot:
+            raise ValueError('No se puede cambiar estado del cierre sin snapshots contables del periodo.')
+        snapshot.estado_snapshot = estado_snapshot
+        snapshot.save(update_fields=['estado_snapshot', 'updated_at'])
+
+
 def build_monthly_tax_obligations(empresa, anio, mes):
     config = get_active_fiscal_config(empresa)
     if not config or config.regimen_tributario.codigo_regimen != DEFAULT_REGIME_CODE:
@@ -544,6 +554,7 @@ def approve_monthly_close(close):
         **(close.resumen_obligaciones or {}),
         'conciliacion': conciliacion_summary,
     }
+    update_ledger_snapshot_state(close.empresa, close.anio, close.mes, EstadoCierreMensual.APPROVED)
     close.estado = EstadoCierreMensual.APPROVED
     close.fecha_aprobacion = timezone.now()
     close.save(update_fields=['resumen_obligaciones', 'estado', 'fecha_aprobacion', 'updated_at'])
@@ -554,6 +565,7 @@ def approve_monthly_close(close):
 def reopen_monthly_close(close):
     if close.estado != EstadoCierreMensual.APPROVED:
         raise ValueError('Solo se puede reabrir un cierre mensual aprobado.')
+    update_ledger_snapshot_state(close.empresa, close.anio, close.mes, EstadoCierreMensual.REOPENED)
     close.estado = EstadoCierreMensual.REOPENED
     close.save(update_fields=['estado', 'updated_at'])
     return close
