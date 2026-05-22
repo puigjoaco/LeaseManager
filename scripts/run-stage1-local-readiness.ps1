@@ -30,6 +30,19 @@ function Resolve-FullPath([string]$path) {
     return [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $path))
 }
 
+function Test-PathInsideDirectory([string]$path, [string]$directory) {
+    $resolvedPath = [System.IO.Path]::GetFullPath($path)
+    $resolvedDirectory = [System.IO.Path]::GetFullPath($directory).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    return $resolvedPath.Equals($resolvedDirectory, [System.StringComparison]::OrdinalIgnoreCase) `
+        -or $resolvedPath.StartsWith(
+            "$resolvedDirectory$([System.IO.Path]::DirectorySeparatorChar)",
+            [System.StringComparison]::OrdinalIgnoreCase
+        )
+}
+
 function Resolve-DatabaseUrl([string]$databaseUrl, [string]$rootPath) {
     if ($databaseUrl -notmatch '^sqlite:///(?<Path>[^?]+)(?<Query>\?.*)?$') {
         return $databaseUrl
@@ -78,8 +91,8 @@ $localEvidenceRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'local-e
 
 Assert-Condition (Test-Path $pythonExe) "No existe el Python del backend en $pythonExe"
 Assert-Condition (Test-NonSensitiveReference $SourceLabel) 'SourceLabel debe ser una etiqueta local no sensible.'
-if ($resolvedOutput.StartsWith([System.IO.Path]::GetFullPath($repoRoot), [System.StringComparison]::OrdinalIgnoreCase)) {
-    Assert-Condition ($resolvedOutput.StartsWith($localEvidenceRoot, [System.StringComparison]::OrdinalIgnoreCase)) 'Si el output queda dentro del repo, debe estar bajo local-evidence/ para no versionar auditorias locales.'
+if (Test-PathInsideDirectory $resolvedOutput $repoRoot) {
+    Assert-Condition (Test-PathInsideDirectory $resolvedOutput $localEvidenceRoot) 'Si el output queda dentro del repo, debe estar bajo local-evidence/ para no versionar auditorias locales.'
 }
 
 Write-Host "Stage 1 local readiness" -ForegroundColor Cyan
