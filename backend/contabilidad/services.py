@@ -313,6 +313,28 @@ def get_company_period_asientos(empresa, anio, mes):
     )
 
 
+def summarize_asiento_movement_integrity(asiento):
+    debit_total = Decimal('0.00')
+    credit_total = Decimal('0.00')
+    movement_count = 0
+    company_mismatch_count = 0
+    for movement in asiento.movimientos.all():
+        movement_count += 1
+        if movement.cuenta_contable.empresa_id != asiento.evento_contable.empresa_id:
+            company_mismatch_count += 1
+        if movement.tipo_movimiento == TipoMovimientoAsiento.DEBIT:
+            debit_total += movement.monto
+        elif movement.tipo_movimiento == TipoMovimientoAsiento.CREDIT:
+            credit_total += movement.monto
+
+    return {
+        'movement_count': movement_count,
+        'debit_total': debit_total,
+        'credit_total': credit_total,
+        'company_mismatch_count': company_mismatch_count,
+    }
+
+
 def build_ledger_snapshots(empresa, anio, mes):
     period = f'{anio:04d}-{mes:02d}'
     asientos = get_company_period_asientos(empresa, anio, mes).prefetch_related('movimientos__cuenta_contable')
@@ -499,12 +521,24 @@ def assert_company_period_accounting_ready(empresa, anio, mes):
     if pending_events.exists():
         raise ValueError('Existen eventos contables pendientes o en revision para el periodo.')
 
-    asientos = get_company_period_asientos(empresa, anio, mes)
+    asientos = get_company_period_asientos(empresa, anio, mes).select_related('evento_contable').prefetch_related(
+        'movimientos__cuenta_contable'
+    )
     if asientos.filter(debe_total__isnull=True).exists():
         raise ValueError('Existen asientos incompletos en el periodo.')
     for asiento in asientos:
         if asiento.debe_total != asiento.haber_total:
             raise ValueError('Existen asientos descuadrados en el periodo.')
+        movement_integrity = summarize_asiento_movement_integrity(asiento)
+        if movement_integrity['movement_count'] == 0:
+            raise ValueError('Existen asientos sin movimientos de debe/haber en el periodo.')
+        if movement_integrity['company_mismatch_count']:
+            raise ValueError('Existen movimientos contables asociados a cuentas de otra empresa.')
+        if (
+            movement_integrity['debit_total'] != asiento.debe_total
+            or movement_integrity['credit_total'] != asiento.haber_total
+        ):
+            raise ValueError('Los movimientos del asiento no cuadran con los totales registrados.')
 
 
 @transaction.atomic

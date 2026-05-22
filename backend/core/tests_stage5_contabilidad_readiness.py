@@ -277,6 +277,27 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertIn('stage5.events_not_posted', issue_codes)
         self.assertIn('stage5.asiento_unbalanced', issue_codes)
 
+    def test_asiento_movement_totals_and_company_mismatch_are_blocking(self):
+        empresa = self._create_valid_local_matrix()
+        other_empresa = self._create_active_empresa(nombre='OtherMovementCo', rut='76767676-7')
+        other_debit, _ = self._setup_contabilidad(other_empresa)
+        asiento = AsientoContable.objects.get(evento_contable__empresa=empresa)
+        debit_movement = asiento.movimientos.get(tipo_movimiento=TipoMovimientoAsiento.DEBIT)
+        debit_movement.monto = Decimal('99999.00')
+        debit_movement.save(update_fields=['monto', 'updated_at'])
+        credit_movement = asiento.movimientos.get(tipo_movimiento=TipoMovimientoAsiento.CREDIT)
+        credit_movement.cuenta_contable = other_debit
+        credit_movement.save(update_fields=['cuenta_contable', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.asiento_movement_totals_mismatch', issue_codes)
+        self.assertIn('stage5.asiento_movement_company_mismatch', issue_codes)
+        self.assertEqual(result['sections']['ledger']['movement_totals_mismatch'], 1)
+        self.assertEqual(result['sections']['ledger']['movement_company_mismatch'], 1)
+
     def test_approved_close_without_snapshots_or_square_balance_is_blocking(self):
         empresa = self._create_valid_local_matrix()
         LibroMayor.objects.all().delete()
