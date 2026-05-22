@@ -34,6 +34,9 @@ firma y notaria trazables.
   gate. En modo local crea SQLite bajo `local-evidence/`, corre migraciones y
   debe quedar `classification=parcial`, `ready_for_stage5_documents=false` y
   issue `documents.source_kind_not_authorized`.
+- El comando `audit_document_readiness` rechaza `--output` dentro del repo
+  fuera de `local-evidence/` antes de recolectar readiness, para no versionar
+  evidencia ni metadatos documentales.
 - Para cierre con fuente autorizada, el wrapper exige `-SourceKind
   snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
   `-AuthorizationRef`, `-FinalPolicyRef`, `-ControlledPdfRef`,
