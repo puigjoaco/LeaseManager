@@ -27,6 +27,7 @@ from migration.importers import (  # noqa: E402
     run_current_migration_flow,
     validate_current_migration_empty_state,
 )
+from migration.output_paths import validate_generated_migration_output_path  # noqa: E402
 
 
 def main():
@@ -38,6 +39,11 @@ def main():
     parser.add_argument('--allow-non-empty', action='store_true')
     args = parser.parse_args()
 
+    output_path = (
+        validate_generated_migration_output_path(args.output, 'reportes de promocion')
+        if args.output
+        else None
+    )
     bundle = json.loads(Path(args.bundle_path).read_text(encoding='utf-8'))
     call_command('migrate', interactive=False)
     pre_state = collect_migration_state_snapshot()
@@ -51,8 +57,9 @@ def main():
             'reason': 'Target PostgreSQL no esta vacio despues de migrate.',
         }
         rendered = json.dumps(result, indent=2, ensure_ascii=True)
-        if args.output:
-            Path(args.output).write_text(rendered, encoding='utf-8')
+        if output_path is not None:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(rendered, encoding='utf-8')
         print(rendered)
         raise SystemExit(1)
 
@@ -63,8 +70,9 @@ def main():
         'runner_result': runner_result,
     }
     rendered = json.dumps(result, indent=2, ensure_ascii=True)
-    if args.output:
-        Path(args.output).write_text(rendered, encoding='utf-8')
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(rendered, encoding='utf-8')
     print(rendered)
     if not runner_result['validation']['ok']:
         raise SystemExit(1)

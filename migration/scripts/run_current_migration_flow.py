@@ -19,6 +19,7 @@ import django
 django.setup()
 
 from migration.importers import run_current_migration_flow  # noqa: E402
+from migration.output_paths import validate_generated_migration_output_path  # noqa: E402
 
 
 def main():
@@ -30,12 +31,18 @@ def main():
     parser.add_argument('--no-assert-final-state', action='store_true')
     args = parser.parse_args()
 
+    output_path = (
+        validate_generated_migration_output_path(args.output, 'reportes de migracion')
+        if args.output
+        else None
+    )
     bundle = json.loads(Path(args.bundle_path).read_text(encoding='utf-8'))
     result = run_current_migration_flow(bundle)
     rendered = json.dumps(result, indent=2, ensure_ascii=True)
 
-    if args.output:
-        Path(args.output).write_text(rendered, encoding='utf-8')
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(rendered, encoding='utf-8')
 
     print(rendered)
     if not args.no_assert_final_state and not result['validation']['ok']:

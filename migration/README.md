@@ -26,9 +26,10 @@ historicas o savegames de LeaseManager sin mutarlas. El root limpio activo es
 Los JSON de `migration/bundles/` estan ignorados por Git. Si contienen datos
 legacy, RUTs, cuentas, direcciones o resultados de staging, deben mantenerse
 fuera del repo versionado o en almacenamiento seguro autorizado.
-El exportador read-only rechaza salidas dentro del repo fuera de
-`migration/bundles/`; esto falla antes de generar un bundle sensible en una
-ruta versionable.
+El exportador read-only y los reportes de runners/rehearsals/verificacion
+rechazan salidas dentro del repo fuera de `migration/bundles/`; esto falla
+antes de leer legacy, bundles controlados, DBs o snapshots si la ruta seria
+versionable.
 
 El acceptance deterministico ejecuta `scripts/assert-repo-hygiene.ps1` para
 bloquear regresiones en el root activo: `.env`, DBs locales/historicas, bundles

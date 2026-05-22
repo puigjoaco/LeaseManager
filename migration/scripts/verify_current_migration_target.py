@@ -20,6 +20,7 @@ django.setup()
 
 from migration.importers import validate_current_migration_state  # noqa: E402
 from migration.orchestration import describe_database_target  # noqa: E402
+from migration.output_paths import validate_generated_migration_output_path  # noqa: E402
 from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio  # noqa: E402
 from operacion.models import CuentaRecaudadora, MandatoOperacion  # noqa: E402
 from contratos.models import Arrendatario, Contrato, PeriodoContractual  # noqa: E402
@@ -79,6 +80,11 @@ def main():
     parser.add_argument('--output', default='')
     args = parser.parse_args()
 
+    output_path = (
+        validate_generated_migration_output_path(args.output, 'reportes de verificacion')
+        if args.output
+        else None
+    )
     snapshot = collect_snapshot()
     validation = validate_current_migration_state(snapshot)
     result = {
@@ -88,8 +94,9 @@ def main():
         **collect_semantic_checks(),
     }
     rendered = json.dumps(result, indent=2, ensure_ascii=True)
-    if args.output:
-        Path(args.output).write_text(rendered, encoding='utf-8')
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(rendered, encoding='utf-8')
     print(rendered)
     if not validation['ok']:
         raise SystemExit(1)
