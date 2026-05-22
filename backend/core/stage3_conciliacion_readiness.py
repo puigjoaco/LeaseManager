@@ -28,6 +28,8 @@ SENSITIVE_REFERENCE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+AUTHORIZED_STAGE3_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+
 
 def _non_sensitive_reference(value: str) -> bool:
     normalized = str(value or '').strip()
@@ -193,8 +195,16 @@ def collect_stage3_conciliacion_readiness(
         'balance_square_ref': _non_sensitive_reference(balance_square_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE3_SOURCE_KINDS
 
     issues: list[dict[str, Any]] = []
+    if not source_kind_authorized_for_close:
+        issues.append(
+            _issue(
+                'stage3.source_kind_not_authorized',
+                'La readiness local de Etapa 3 no puede cerrar Conciliacion sin fuente snapshot_controlado o real_autorizado.',
+            )
+        )
     if bank_connections.count() == 0:
         issues.append(
             _issue(
@@ -336,6 +346,8 @@ def collect_stage3_conciliacion_readiness(
         'generated_at': timezone.now().isoformat(),
         'stage': 'Etapa 3 - Banco y conciliacion',
         'source_kind': source_kind,
+        'authorized_source_kinds': sorted(AUTHORIZED_STAGE3_SOURCE_KINDS),
+        'source_kind_authorized_for_close': source_kind_authorized_for_close,
         'classification': 'resuelto_confirmado' if ready else 'parcial',
         'ready_for_stage3_conciliacion': ready,
         'issue_counts': dict(sorted(issue_counts.items())),
@@ -370,6 +382,7 @@ def collect_stage3_conciliacion_readiness(
         'limitations': [
             'Auditoria local de solo lectura; no conecta bancos ni consulta proveedores externos.',
             'No usa secretos, .env, datos reales ni snapshots externos.',
+            'Local, fixture y demo solo diagnostican; el cierre exige source_kind snapshot_controlado o real_autorizado.',
             'No cierra Etapa 3 sin banco real o snapshot autorizado, continuidad de saldos reportados y cuadratura sistema/banco evidenciada.',
         ],
     }
