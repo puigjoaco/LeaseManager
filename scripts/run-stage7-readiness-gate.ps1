@@ -147,6 +147,59 @@ function Test-SmokeEvidence($payload) {
     return $true
 }
 
+function Test-AuthorizedSmokeEvidence($payload) {
+    $sourceKind = Get-PayloadTextProperty $payload @('source_kind', 'smoke_source_kind', 'source')
+    $mode = Get-PayloadTextProperty $payload @('mode')
+    $authorizationRef = Get-PayloadTextProperty $payload @('authorization_ref', 'responsible_ref')
+    $environmentRef = Get-PayloadTextProperty $payload @('environment_ref', 'environment_evidence_ref', 'deployment_environment_ref')
+    $targetRef = Get-PayloadTextProperty $payload @('target_ref', 'target_evidence_ref', 'deployment_ref', 'base_url_ref')
+    $allowedSourceKinds = @('public_smoke_autorizado', 'ambiente_autorizado', 'staging_autorizado', 'real_autorizado')
+    $syntheticSourceKinds = @('synthetic_fixture', 'local_fixture', 'mock')
+    $syntheticModes = @('plan_only', 'local_only', 'mock', 'synthetic')
+    $verified = Test-SmokeEvidence $payload
+    $syntheticOnly = ($syntheticSourceKinds -contains $sourceKind) -or ($syntheticModes -contains $mode)
+    $hasAuthorizationRef = Test-NonSensitiveReference $authorizationRef
+    $hasEnvironmentRef = Test-NonSensitiveReference $environmentRef
+    $hasTargetRef = Test-NonSensitiveReference $targetRef
+    $authorized = $verified `
+        -and (-not $syntheticOnly) `
+        -and ($allowedSourceKinds -contains $sourceKind) `
+        -and $hasAuthorizationRef `
+        -and $hasEnvironmentRef `
+        -and $hasTargetRef
+
+    $reason = ''
+    if (-not $verified) {
+        $reason = 'public_smoke_invalid'
+    }
+    elseif ($syntheticOnly) {
+        $reason = 'public_smoke_synthetic_not_authorized'
+    }
+    elseif (-not ($allowedSourceKinds -contains $sourceKind)) {
+        $reason = 'public_smoke_source_kind_invalid'
+    }
+    elseif (-not $hasAuthorizationRef) {
+        $reason = 'public_smoke_authorization_ref_missing'
+    }
+    elseif (-not $hasEnvironmentRef) {
+        $reason = 'public_smoke_environment_ref_missing'
+    }
+    elseif (-not $hasTargetRef) {
+        $reason = 'public_smoke_target_ref_missing'
+    }
+
+    return [ordered]@{
+        verified = $verified
+        authorized = $authorized
+        source_kind = $sourceKind
+        synthetic_only = $syntheticOnly
+        has_authorization_ref = $hasAuthorizationRef
+        has_environment_ref = $hasEnvironmentRef
+        has_target_ref = $hasTargetRef
+        reason = $reason
+    }
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendDir = Join-Path $repoRoot 'backend'
 $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
@@ -178,6 +231,7 @@ $checks = [ordered]@{
     restore_evidence = $false
     restore_authorized_evidence = $false
     public_smoke_evidence = $false
+    public_smoke_authorized_evidence = $false
     final_acceptance_ref = $false
 }
 $issues = @()
@@ -189,6 +243,16 @@ $restoreEvidenceSummary = [ordered]@{
     synthetic_only = $false
     has_authorization_ref = $false
     has_backup_ref = $false
+}
+$publicSmokeEvidenceSummary = [ordered]@{
+    provided = $false
+    verified = $false
+    authorized = $false
+    source_kind = ''
+    synthetic_only = $false
+    has_authorization_ref = $false
+    has_environment_ref = $false
+    has_target_ref = $false
 }
 
 Step 'Backend local checks'
@@ -286,12 +350,44 @@ if ([string]::IsNullOrWhiteSpace($PublicSmokeEvidencePath)) {
 }
 else {
     $smokeEvidence = Read-JsonFile $PublicSmokeEvidencePath
-    $checks.public_smoke_evidence = Test-SmokeEvidence $smokeEvidence
-    if (-not $checks.public_smoke_evidence) {
+    $smokeCheck = Test-AuthorizedSmokeEvidence $smokeEvidence
+    $checks.public_smoke_evidence = $smokeCheck.verified
+    $checks.public_smoke_authorized_evidence = $smokeCheck.authorized
+    $publicSmokeEvidenceSummary = [ordered]@{
+        provided = $true
+        verified = $smokeCheck.verified
+        authorized = $smokeCheck.authorized
+        source_kind = $smokeCheck.source_kind
+        synthetic_only = $smokeCheck.synthetic_only
+        has_authorization_ref = $smokeCheck.has_authorization_ref
+        has_environment_ref = $smokeCheck.has_environment_ref
+        has_target_ref = $smokeCheck.has_target_ref
+    }
+    if (-not $smokeCheck.verified) {
         $issues += [ordered]@{
             code = 'stage7.public_smoke_invalid'
             severity = 'blocking'
             message = 'La evidencia de smoke no cubre los cuatro roles con login real.'
+        }
+    }
+    elseif (-not $smokeCheck.authorized) {
+        $issueCode = switch ($smokeCheck.reason) {
+            'public_smoke_authorization_ref_missing' { 'stage7.public_smoke_authorization_ref_missing' }
+            'public_smoke_environment_ref_missing' { 'stage7.public_smoke_environment_ref_missing' }
+            'public_smoke_target_ref_missing' { 'stage7.public_smoke_target_ref_missing' }
+            default { 'stage7.public_smoke_authorized_environment_missing' }
+        }
+        $issueMessage = switch ($smokeCheck.reason) {
+            'public_smoke_synthetic_not_authorized' { 'El smoke local/sintetico prepara el gate, pero no reemplaza un smoke publico con ambiente autorizado.' }
+            'public_smoke_authorization_ref_missing' { 'La evidencia de smoke publico requiere authorization_ref no sensible.' }
+            'public_smoke_environment_ref_missing' { 'La evidencia de smoke publico requiere environment_ref no sensible.' }
+            'public_smoke_target_ref_missing' { 'La evidencia de smoke publico requiere target_ref o deployment_ref no sensible.' }
+            default { 'La evidencia de smoke publico debe declarar source_kind public_smoke_autorizado, ambiente_autorizado, staging_autorizado o real_autorizado.' }
+        }
+        $issues += [ordered]@{
+            code = $issueCode
+            severity = 'blocking'
+            message = $issueMessage
         }
     }
 }
@@ -320,12 +416,13 @@ $result = [ordered]@{
         issue_counts = $observability.issue_counts
     }
     restore_evidence = $restoreEvidenceSummary
+    public_smoke_evidence = $publicSmokeEvidenceSummary
     issues = $issues
     limitations = @(
         'Gate local de solo lectura para consolidar readiness de Etapa 7.',
         'No ejecuta smoke publico ni conecta proveedores externos.',
         'No usa secretos, .env, datos reales ni backups productivos.',
-        'No cierra Operacion productiva sin restore de backup/snapshot autorizado, smoke publico autorizado, observabilidad lista y aceptacion final.'
+        'No cierra Operacion productiva sin restore de backup/snapshot autorizado, smoke publico autorizado con referencias no sensibles, observabilidad lista y aceptacion final.'
     )
 }
 

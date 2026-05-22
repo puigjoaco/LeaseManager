@@ -76,7 +76,8 @@ El asset `frontend/src/assets/hero.png` se conserva porque es parte de la app.
 
 - CI remoto deterministico quedo verde en `main` despues del PR #6.
 - El smoke publico depende de URLs externas y debe ejecutarse manualmente como
-  gate externo, no como requisito automatico de cada push mientras no exista
+  gate externo, con referencias no sensibles de autorizacion, ambiente y
+  target/deploy; no es requisito automatico de cada push mientras no exista
   ambiente publico aceptado.
 - Integraciones reales Banco, UF automatica, Email/WhatsApp, SII, Railway y Vercel siguen bajo gates externos.
 - No hay cutover productivo sin datos reales/controlados, backup, rollback y aprobacion.

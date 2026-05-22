@@ -35,6 +35,9 @@ runbook, smoke y aceptacion.
 - El smoke publico es opt-in: `run-acceptance-workflows.ps1` no toca URLs
   externas por defecto, requiere `-RunPublicSmoke` o `-OnlySmoke` y URLs
   explicitas.
+- La evidencia de smoke publico para cierre requiere `source_kind` autorizado
+  y referencias no sensibles de autorizacion, ambiente y target/deploy; un
+  resultado local o sintetico de cuatro roles solo prepara el gate.
 - Restore probado.
 - Bloqueos criticos cerrados.
 - Aceptacion registrada.

@@ -18,6 +18,11 @@ function parseArgs(argv) {
     accounts: [],
     allowExternal: false,
     screenshotDir: path.resolve(process.cwd(), 'screenshots'),
+    evidenceSourceKind: '',
+    authorizationRef: '',
+    environmentRef: '',
+    targetRef: '',
+    responsibleRef: '',
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -52,10 +57,36 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === '--evidence-source-kind' && next) {
+      options.evidenceSourceKind = next;
+      index += 1;
+      continue;
+    }
+    if (arg === '--authorization-ref' && next) {
+      options.authorizationRef = next;
+      index += 1;
+      continue;
+    }
+    if (arg === '--environment-ref' && next) {
+      options.environmentRef = next;
+      index += 1;
+      continue;
+    }
+    if (arg === '--target-ref' && next) {
+      options.targetRef = next;
+      index += 1;
+      continue;
+    }
+    if (arg === '--responsible-ref' && next) {
+      options.responsibleRef = next;
+      index += 1;
+      continue;
+    }
     throw new Error(`Unknown or incomplete argument: ${arg}`);
   }
 
   validateTargetUrls(options);
+  validateEvidenceOptions(options);
   if (!options.accounts.length) {
     options.accounts = [...DEFAULT_ACCOUNTS];
   }
@@ -78,6 +109,50 @@ function validateTargetUrls(options) {
   const targetsAreLocal = isLocalUrl(options.frontendUrl) && isLocalUrl(options.apiBaseUrl);
   if (!targetsAreLocal && !options.allowExternal) {
     throw new Error('External smoke targets require explicit --allow-external.');
+  }
+}
+
+function shouldEmitEvidenceEnvelope(options) {
+  return Boolean(
+    options.evidenceSourceKind
+      || options.authorizationRef
+      || options.environmentRef
+      || options.targetRef
+      || options.responsibleRef,
+  );
+}
+
+function isNonSensitiveReference(value) {
+  return Boolean(value && !/(?:\:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)/i.test(value));
+}
+
+function validateEvidenceOptions(options) {
+  if (!shouldEmitEvidenceEnvelope(options)) {
+    return;
+  }
+  const allowedSourceKinds = new Set([
+    'public_smoke_autorizado',
+    'ambiente_autorizado',
+    'staging_autorizado',
+    'real_autorizado',
+  ]);
+  if (!options.evidenceSourceKind) {
+    options.evidenceSourceKind = 'public_smoke_autorizado';
+  }
+  if (!allowedSourceKinds.has(options.evidenceSourceKind)) {
+    throw new Error('Evidence source kind is not accepted for public smoke closure.');
+  }
+  for (const [name, value] of [
+    ['authorization-ref', options.authorizationRef],
+    ['environment-ref', options.environmentRef],
+    ['target-ref', options.targetRef],
+  ]) {
+    if (!isNonSensitiveReference(value)) {
+      throw new Error(`--${name} must be a non-sensitive evidence reference, not a URL or secret.`);
+    }
+  }
+  if (options.responsibleRef && !isNonSensitiveReference(options.responsibleRef)) {
+    throw new Error('--responsible-ref must be non-sensitive when provided.');
   }
 }
 
@@ -173,7 +248,18 @@ async function main() {
     // Keep the run sequential to reduce noise from concurrent public requests.
     results.push(await runSmoke({ ...options, account }));
   }
-  console.log(JSON.stringify(results, null, 2));
+  const output = shouldEmitEvidenceEnvelope(options)
+    ? {
+        source_kind: options.evidenceSourceKind,
+        authorization_ref: options.authorizationRef,
+        environment_ref: options.environmentRef,
+        target_ref: options.targetRef,
+        responsible_ref: options.responsibleRef || undefined,
+        generated_at: new Date().toISOString(),
+        results,
+      }
+    : results;
+  console.log(JSON.stringify(output, null, 2));
   if (results.some((result) => !result.ok)) {
     process.exitCode = 1;
   }
