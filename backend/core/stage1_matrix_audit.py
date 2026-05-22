@@ -57,7 +57,7 @@ from patrimonio.models import (
 
 EVIDENCE_GRADE_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 SENSITIVE_SOURCE_LABEL_RE = re.compile(
-    r'://|@|password|passwd|pwd|secret|token|[0-9]{7,}-?[0-9kK]',
+    r'://|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial|[0-9]{7,}-?[0-9kK]',
     re.IGNORECASE,
 )
 ACTIVE_CONTRACT_STATES = {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}
@@ -321,11 +321,20 @@ def _safe_source_label(source_label: str) -> str:
     return normalized
 
 
-def _audit_evidence_source_label(
+def _safe_reference(value: str) -> str:
+    normalized = (value or '').strip()
+    if _source_label_looks_sensitive(normalized):
+        return '<redacted-invalid-reference>'
+    return normalized
+
+
+def _audit_evidence_source_metadata(
     issues: list[dict[str, Any]],
     *,
     source_kind: str,
     source_label: str,
+    authorization_ref: str,
+    responsible_ref: str,
 ) -> None:
     if source_kind not in EVIDENCE_GRADE_SOURCE_KINDS:
         return
@@ -345,6 +354,36 @@ def _audit_evidence_source_label(
             code='stage1.source_label.sensible',
             entity='Stage1Matrix',
             message='SourceLabel de fuente evidencial parece vacio, demasiado corto o sensible; usar etiqueta trazable no secreta.',
+        )
+
+    if not authorization_ref:
+        _issue(
+            issues,
+            code='stage1.authorization_ref.faltante',
+            entity='Stage1Matrix',
+            message='Una fuente evidencial requiere AuthorizationRef no sensible para probar autorizacion de uso.',
+        )
+    elif len(authorization_ref) < 3 or _source_label_looks_sensitive(authorization_ref):
+        _issue(
+            issues,
+            code='stage1.authorization_ref.sensible',
+            entity='Stage1Matrix',
+            message='AuthorizationRef de fuente evidencial parece vacio, demasiado corto o sensible; usar referencia trazable no secreta.',
+        )
+
+    if not responsible_ref:
+        _issue(
+            issues,
+            code='stage1.responsible_ref.faltante',
+            entity='Stage1Matrix',
+            message='Una fuente evidencial requiere ResponsibleRef no sensible para trazabilidad operacional.',
+        )
+    elif len(responsible_ref) < 3 or _source_label_looks_sensitive(responsible_ref):
+        _issue(
+            issues,
+            code='stage1.responsible_ref.sensible',
+            entity='Stage1Matrix',
+            message='ResponsibleRef de fuente evidencial parece vacio, demasiado corto o sensible; usar referencia trazable no secreta.',
         )
 
 
@@ -1297,18 +1336,26 @@ def collect_stage1_matrix_audit(
     *,
     source_kind: str = 'local',
     source_label: str = '',
+    authorization_ref: str = '',
+    responsible_ref: str = '',
     require_data: bool = False,
 ) -> dict[str, Any]:
     issues: list[dict[str, Any]] = []
     raw_source_label = (source_label or '').strip()
+    raw_authorization_ref = (authorization_ref or '').strip()
+    raw_responsible_ref = (responsible_ref or '').strip()
     safe_source_label = _safe_source_label(source_label)
+    safe_authorization_ref = _safe_reference(authorization_ref)
+    safe_responsible_ref = _safe_reference(responsible_ref)
     summary = _build_summary()
     has_required_data = _has_required_stage1_data(summary)
 
-    _audit_evidence_source_label(
+    _audit_evidence_source_metadata(
         issues,
         source_kind=source_kind,
         source_label=raw_source_label,
+        authorization_ref=raw_authorization_ref,
+        responsible_ref=raw_responsible_ref,
     )
 
     if require_data and not has_required_data:
@@ -1355,6 +1402,8 @@ def collect_stage1_matrix_audit(
         'stage': 'Etapa 1 - Datos reales y matriz base',
         'source_kind': source_kind,
         'source_label': safe_source_label,
+        'authorization_ref': safe_authorization_ref,
+        'responsible_ref': safe_responsible_ref,
         'require_data': require_data,
         'summary': summary,
         'aggregate_classification': aggregate_classification,

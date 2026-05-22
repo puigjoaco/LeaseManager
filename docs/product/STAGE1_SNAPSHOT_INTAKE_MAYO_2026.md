@@ -11,6 +11,10 @@ contrato-propiedad-cuenta-facturacion contra `snapshot_controlado` o
 - `SourceKind`: `snapshot_controlado` o `real_autorizado`.
 - `SourceLabel`: etiqueta no sensible, sin URL, RUT, token, password ni dato
   bancario.
+- `AuthorizationRef`: referencia no sensible a la autorizacion concreta de uso
+  de la fuente.
+- `ResponsibleRef`: referencia no sensible al responsable operativo del gate o
+  de la fuente.
 - Confirmacion explicita si el entorno permite migraciones. Para bases reales,
   no se ejecutan migraciones desde este gate.
 
@@ -29,9 +33,10 @@ contrato-propiedad-cuenta-facturacion contra `snapshot_controlado` o
   autorizado; este script falla si se intenta migrarlo.
 - Un resultado fallido se registra como bloqueo o defecto, no como avance
   cerrado.
-- El auditor Django tambien bloquea fuentes evidenciales sin `SourceLabel`
-  trazable o con etiqueta que parezca URL, secreto, token, email o RUT; si una
-  etiqueta invalida llega al JSON, se redacta antes de escribirla.
+- El auditor Django tambien bloquea fuentes evidenciales sin `SourceLabel`,
+  `AuthorizationRef` y `ResponsibleRef` trazables, o con valores que parezcan
+  URL, secreto, token, credencial, email o RUT; si un valor invalido llega al
+  JSON, se redacta antes de escribirlo.
 
 ## Comando recomendado
 
@@ -41,6 +46,8 @@ $env:DATABASE_URL="<snapshot-controlado-o-db-real-autorizada>"
 .\scripts\run-stage1-snapshot-gate.ps1 `
   -SourceKind snapshot_controlado `
   -SourceLabel "stage1-mayo-2026-v1" `
+  -AuthorizationRef "autorizacion-stage1-mayo-2026" `
+  -ResponsibleRef "responsable-stage1-operacion" `
   -RunMigrations
 ```
 
@@ -51,7 +58,9 @@ cd "D:/Proyectos/LeaseManager"
 $env:DATABASE_URL="<db-real-autorizada>"
 .\scripts\run-stage1-snapshot-gate.ps1 `
   -SourceKind real_autorizado `
-  -SourceLabel "stage1-real-autorizado-mayo-2026"
+  -SourceLabel "stage1-real-autorizado-mayo-2026" `
+  -AuthorizationRef "autorizacion-real-stage1-mayo-2026" `
+  -ResponsibleRef "responsable-stage1-real"
 ```
 
 Si se ejecuta desde un worktree sin `backend/.venv`, agregar `-PythonExe` con
@@ -98,5 +107,5 @@ fuente, transformacion o modelo antes de repetir el gate.
 
 Despues de un resultado valido, registrar en
 `docs/product/EVIDENCE_REGISTER_MAYO_2026.md` la fecha, `SourceKind`,
-`SourceLabel`, comando, resultado y ubicacion segura del JSON. No pegar datos
-sensibles en la evidencia.
+`SourceLabel`, `AuthorizationRef`, `ResponsibleRef`, comando, resultado y
+ubicacion segura del JSON. No pegar datos sensibles en la evidencia.

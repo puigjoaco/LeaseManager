@@ -6,6 +6,12 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$SourceLabel,
 
+    [Parameter(Mandatory = $true)]
+    [string]$AuthorizationRef,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ResponsibleRef,
+
     [string]$DatabaseUrl = $env:DATABASE_URL,
 
     [string]$OutputPath = '',
@@ -22,6 +28,12 @@ function Assert-Condition($condition, $message) {
     if (-not $condition) {
         throw $message
     }
+}
+
+function Test-NonSensitiveReference([string]$value) {
+    return -not [string]::IsNullOrWhiteSpace($value) `
+        -and $value.Trim().Length -ge 3 `
+        -and $value -notmatch '://|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial|[0-9]{7,}-?[0-9kK]'
 }
 
 function Resolve-FullPath([string]$path) {
@@ -68,7 +80,9 @@ Assert-Condition (Test-Path $pythonExe) "No existe el Python del backend en $pyt
 Assert-Condition (-not [string]::IsNullOrWhiteSpace($DatabaseUrl)) 'DATABASE_URL o -DatabaseUrl es obligatorio.'
 Assert-Condition (-not [string]::IsNullOrWhiteSpace($SourceLabel)) 'SourceLabel es obligatorio y no debe contener datos sensibles.'
 Assert-Condition ($SourceLabel.Trim().Length -ge 3) 'SourceLabel debe ser una etiqueta no sensible y trazable.'
-Assert-Condition ($SourceLabel -notmatch '://|@|password|passwd|pwd|secret|token|[0-9]{7,}-?[0-9kK]') 'SourceLabel parece contener URL, secreto o RUT; usa una etiqueta no sensible.'
+Assert-Condition (Test-NonSensitiveReference $SourceLabel) 'SourceLabel parece contener URL, secreto, credencial, email o RUT; usa una etiqueta no sensible.'
+Assert-Condition (Test-NonSensitiveReference $AuthorizationRef) 'AuthorizationRef es obligatorio y debe ser una referencia no sensible de autorizacion.'
+Assert-Condition (Test-NonSensitiveReference $ResponsibleRef) 'ResponsibleRef es obligatorio y debe ser una referencia no sensible de responsable.'
 Assert-Condition (-not ($SourceKind -eq 'real_autorizado' -and $RunMigrations)) 'No se ejecutan migraciones contra real_autorizado desde este gate; usa snapshot_controlado para clones migrables.'
 
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
@@ -87,6 +101,8 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Parent $resolvedOutput) |
 Write-Host "Stage 1 snapshot gate" -ForegroundColor Cyan
 Write-Host "Source kind: $SourceKind"
 Write-Host "Source label: $($SourceLabel.Trim())"
+Write-Host "Authorization ref: $($AuthorizationRef.Trim())"
+Write-Host "Responsible ref: $($ResponsibleRef.Trim())"
 Write-Host "Run migrations: $($RunMigrations.IsPresent)"
 Write-Host "Output: $resolvedOutput"
 
@@ -110,6 +126,8 @@ try {
     & $pythonExe manage.py audit_stage1_matrix `
         --source-kind $SourceKind `
         --source-label $SourceLabel.Trim() `
+        --authorization-ref $AuthorizationRef.Trim() `
+        --responsible-ref $ResponsibleRef.Trim() `
         --require-data `
         --fail-on-violations `
         --output $resolvedOutput
