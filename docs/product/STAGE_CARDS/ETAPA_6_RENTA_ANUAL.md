@@ -25,6 +25,9 @@ cierres mensuales.
   capacidades DDJJ/F22, doce cierres, obligaciones mensuales, proceso anual,
   respaldos tributarios PDF y referencias finales no sensibles sin conectar SII
   ni leer certificados reales.
+- `audit_stage6_renta_anual_readiness` solo puede cerrar con `--source-kind`
+  `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
+  diagnostican brechas pero no habilitan cierre de Etapa 6.
 
 ## Salida
 
