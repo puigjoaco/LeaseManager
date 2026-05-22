@@ -31,6 +31,9 @@ documentos o procesos tributarios trazables.
   financiero mensual, libros por periodo, tributario anual, prueba API,
   visualizacion backoffice y responsables sin ejecutar smoke publico ni leer
   datos reales.
+- `audit_stage7_reporting_readiness` solo puede cerrar con `--source-kind`
+  `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
+  diagnostican brechas pero no habilitan cierre de Reporting.
 
 ## Salida
 
