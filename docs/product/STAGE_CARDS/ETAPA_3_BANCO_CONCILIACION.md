@@ -23,6 +23,9 @@ sistema igual a saldo banco.
 - Movimiento importado por `provider_sync` solo contra conexion activa,
   primaria de movimientos, readiness trazable y `transaction_id_banco`; la
   carga manual controlada exige `evidencia_importacion_ref`.
+- `audit_stage3_conciliacion_readiness` consolida readiness local de
+  conexiones, movimientos, ingresos desconocidos, senales de saldo y
+  referencias finales sin conectar bancos ni leer secretos.
 - Diferencias registradas.
 - Saldo sistema igual a saldo banco antes de habilitar cierre.
 
