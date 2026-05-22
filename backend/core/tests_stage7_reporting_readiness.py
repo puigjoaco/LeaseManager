@@ -238,6 +238,8 @@ class Stage7ReportingReadinessTests(TestCase):
             reporting_api_proof_ref='reporting-api-controlled-v1',
             backoffice_visual_ref='backoffice-reporting-controlled-v1',
             responsible_ref='stage7-reporting-responsibles-v1',
+            source_label='stage7-reporting-controlled-v1',
+            authorization_ref='stage7-reporting-authorization-v1',
             source_kind='snapshot_controlado',
         )
 
@@ -264,6 +266,8 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertTrue(result['ready_for_stage7_reporting'])
         self.assertTrue(result['source_kind_authorized_for_close'])
+        self.assertTrue(result['sections']['source_trace']['source_label'])
+        self.assertTrue(result['sections']['source_trace']['authorization_ref'])
         self.assertEqual(result['issues'], [])
 
     def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
@@ -283,6 +287,27 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage7_reporting'])
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('stage7.reporting.source_kind_not_authorized', issue_codes)
+
+    def test_authorized_source_requires_source_trace_refs(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage7_reporting_readiness(
+            stage5_evidence_ref='stage5-ledger-reporting-controlled-v1',
+            stage6_evidence_ref='stage6-annual-reporting-controlled-v1',
+            reporting_api_proof_ref='reporting-api-controlled-v1',
+            backoffice_visual_ref='backoffice-reporting-controlled-v1',
+            responsible_ref='stage7-reporting-responsibles-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage7_reporting'])
+        self.assertTrue(result['source_kind_authorized_for_close'])
+        self.assertIn('stage7.reporting.source_label_missing', issue_codes)
+        self.assertIn('stage7.reporting.authorization_ref_missing', issue_codes)
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
     def test_posted_event_without_origin_or_asiento_is_blocking(self):
         empresa = self._create_active_empresa(nombre='EventGapCo', rut='87878787-8')
@@ -385,6 +410,8 @@ class Stage7ReportingReadinessTests(TestCase):
             reporting_api_proof_ref='https://reporting.example/api-proof',
             backoffice_visual_ref='backoffice-reporting-controlled-v1',
             responsible_ref='stage7-reporting-responsibles-v1',
+            source_label='stage7-reporting-controlled-v1',
+            authorization_ref='stage7-reporting-authorization-v1',
             source_kind='snapshot_controlado',
         )
         self.assertFalse(result['ready_for_stage7_reporting'])

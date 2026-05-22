@@ -7,6 +7,8 @@ param(
     [string]$FinalAcceptanceRef = '',
     [string]$FinalAcceptanceEvidencePath = '',
     [string]$ReportingSourceKind = 'local',
+    [string]$ReportingSourceLabel = 'stage7-reporting-local-readiness',
+    [string]$ReportingAuthorizationRef = '',
     [string]$ReportingStage5EvidenceRef = '',
     [string]$ReportingStage6EvidenceRef = '',
     [string]$ReportingApiProofRef = '',
@@ -288,6 +290,7 @@ function Test-AuthorizedFinalAcceptanceEvidence($payload, [string]$fallbackAccep
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendDir = Join-Path $repoRoot 'backend'
 $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+$authorizedReportingSourceKinds = @('snapshot_controlado', 'real_autorizado')
 
 if ([string]::IsNullOrWhiteSpace($PythonExe)) {
     $PythonExe = Join-Path $backendDir '.venv\Scripts\python.exe'
@@ -309,6 +312,17 @@ New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
 $DatabaseUrl = Resolve-SqliteDatabaseUrl $DatabaseUrl
 $observabilityOutput = Join-Path $evidenceDir "stage7_observability_$timestamp.json"
 $reportingOutput = Join-Path $evidenceDir "stage7_reporting_$timestamp.json"
+$reportingSourceKindAuthorizedByParam = $authorizedReportingSourceKinds -contains $ReportingSourceKind
+
+Assert-Condition (Test-NonSensitiveReference $ReportingSourceLabel) 'ReportingSourceLabel debe ser una etiqueta no sensible.'
+if ($reportingSourceKindAuthorizedByParam) {
+    Assert-Condition (Test-NonSensitiveReference $ReportingAuthorizationRef) 'ReportingAuthorizationRef es obligatorio para fuente evidencial Reporting y debe ser no sensible.'
+    Assert-Condition (Test-NonSensitiveReference $ReportingStage5EvidenceRef) 'ReportingStage5EvidenceRef es obligatorio para cierre Reporting y debe ser no sensible.'
+    Assert-Condition (Test-NonSensitiveReference $ReportingStage6EvidenceRef) 'ReportingStage6EvidenceRef es obligatorio para cierre Reporting y debe ser no sensible.'
+    Assert-Condition (Test-NonSensitiveReference $ReportingApiProofRef) 'ReportingApiProofRef es obligatorio para cierre Reporting y debe ser no sensible.'
+    Assert-Condition (Test-NonSensitiveReference $ReportingBackofficeVisualRef) 'ReportingBackofficeVisualRef es obligatorio para cierre Reporting y debe ser no sensible.'
+    Assert-Condition (Test-NonSensitiveReference $ReportingResponsibleRef) 'ReportingResponsibleRef es obligatorio para cierre Reporting y debe ser no sensible.'
+}
 
 $checks = [ordered]@{
     backend_check = $false
@@ -386,9 +400,14 @@ try {
         'audit_stage7_reporting_readiness',
         '--source-kind',
         $ReportingSourceKind,
+        '--source-label',
+        $ReportingSourceLabel.Trim(),
         '--output',
         $reportingOutput
     )
+    if (-not [string]::IsNullOrWhiteSpace($ReportingAuthorizationRef)) {
+        $reportingArgs += @('--authorization-ref', $ReportingAuthorizationRef.Trim())
+    }
     if (-not [string]::IsNullOrWhiteSpace($ReportingStage5EvidenceRef)) {
         $reportingArgs += @('--stage5-evidence-ref', $ReportingStage5EvidenceRef)
     }
@@ -437,6 +456,17 @@ if ($reporting.PSObject.Properties.Name -contains 'source_kind_authorized_for_cl
     $reportingSourceAuthorized = $reporting.source_kind_authorized_for_close -eq $true
 }
 $checks.reporting_source_authorized_for_close = $reportingSourceAuthorized
+Assert-Condition (
+    ($reporting.PSObject.Properties.Name -contains 'sections') `
+    -and ($null -ne $reporting.sections) `
+    -and ($reporting.sections.PSObject.Properties.Name -contains 'source_trace') `
+    -and ($null -ne $reporting.sections.source_trace)
+) 'La auditoria Reporting debe exponer sections.source_trace.'
+if ($reportingSourceKindAuthorizedByParam) {
+    Assert-Condition ($reportingSourceAuthorized -eq $true) 'La fuente evidencial Reporting debe quedar autorizada por tipo.'
+    Assert-Condition ($reporting.sections.source_trace.source_label -eq $true) 'La fuente evidencial Reporting debe tener source_label trazable.'
+    Assert-Condition ($reporting.sections.source_trace.authorization_ref -eq $true) 'La fuente evidencial Reporting debe tener authorization_ref trazable.'
+}
 if ($reporting.ready_for_stage7_reporting -ne $true) {
     $issues += [ordered]@{
         code = 'stage7.reporting_not_ready'
@@ -622,6 +652,7 @@ $result = [ordered]@{
         classification = $reporting.classification
         ready_for_stage7_reporting = $reporting.ready_for_stage7_reporting
         source_kind_authorized_for_close = $reportingSourceAuthorized
+        source_trace = $reporting.sections.source_trace
         issue_counts = $reporting.issue_counts
     }
     restore_evidence = $restoreEvidenceSummary
