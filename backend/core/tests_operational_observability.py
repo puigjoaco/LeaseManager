@@ -19,13 +19,29 @@ from patrimonio.models import Empresa
 from sii.models import AmbienteSII, CapacidadSII, CapacidadTributariaSII, EstadoGateSII
 
 
-def create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.LOCAL):
+AUTHORIZED_RUNTIME_TEST_SOURCE_KINDS = {
+    RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
+    RuntimeSignalSourceKind.REAL_AUTORIZADO,
+}
+
+
+def _runtime_source_trace(signal_key, source_kind, include_source_trace):
+    if source_kind not in AUTHORIZED_RUNTIME_TEST_SOURCE_KINDS or not include_source_trace:
+        return {}
+    return {
+        'source_label': f'{signal_key}-runtime-controlled-v1',
+        'authorization_ref': 'stage7-runtime-authorization-v1',
+    }
+
+
+def create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.LOCAL, *, include_source_trace=True):
     OperationalRuntimeSignal.objects.create(
         signal_key=RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY,
         status=RuntimeSignalStatus.OK,
         source_kind=source_kind,
         value={'duration_ms': 120},
         evidence_ref='local-monthly-latency',
+        **_runtime_source_trace(RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY, source_kind, include_source_trace),
     )
     OperationalRuntimeSignal.objects.create(
         signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
@@ -33,6 +49,7 @@ def create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.LOCAL):
         source_kind=source_kind,
         value={'healthy': True},
         evidence_ref='local-queue-runtime',
+        **_runtime_source_trace(RuntimeSignalKey.QUEUE_RUNTIME, source_kind, include_source_trace),
     )
     OperationalRuntimeSignal.objects.create(
         signal_key=RuntimeSignalKey.FAILED_WEBHOOKS,
@@ -40,6 +57,7 @@ def create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.LOCAL):
         source_kind=source_kind,
         value={'failed_count': 0},
         evidence_ref='local-webhooks',
+        **_runtime_source_trace(RuntimeSignalKey.FAILED_WEBHOOKS, source_kind, include_source_trace),
     )
     OperationalRuntimeSignal.objects.create(
         signal_key=RuntimeSignalKey.FAILED_CRONS,
@@ -47,6 +65,7 @@ def create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.LOCAL):
         source_kind=source_kind,
         value={'failed_count': 0},
         evidence_ref='local-crons',
+        **_runtime_source_trace(RuntimeSignalKey.FAILED_CRONS, source_kind, include_source_trace),
     )
 
 
@@ -123,6 +142,25 @@ class OperationalObservabilityAuditTests(TestCase):
         self.assertTrue(result['sections']['runtime_signals']['authorized_for_stage7_close'])
         self.assertEqual(result['issues'], [])
 
+    def test_authorized_runtime_signals_require_source_trace_refs(self):
+        create_runtime_signals_ok(
+            source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
+            include_source_trace=False,
+        )
+
+        result = collect_operational_observability_audit()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_observability'])
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['sections']['runtime_signals']['authorized_for_stage7_close'])
+        self.assertIn('observability.monthly_latency_metric_source_trace_missing', issue_codes)
+        self.assertFalse(
+            result['sections']['runtime_signals'][RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY]['source_trace'][
+                'source_label'
+            ]
+        )
+
     def test_runtime_signal_attention_blocks_observability_close(self):
         create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO)
         OperationalRuntimeSignal.objects.filter(signal_key=RuntimeSignalKey.FAILED_CRONS).update(
@@ -153,10 +191,49 @@ class OperationalObservabilityAuditTests(TestCase):
         with self.assertRaises(CommandError):
             call_command(
                 'record_operational_runtime_signal',
+                signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+                status=RuntimeSignalStatus.OK,
+                source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
+                evidence_ref='queue-runtime-controlled-v1',
+                value_json='{"healthy": true}',
+                stdout=StringIO(),
+            )
+
+        call_command(
+            'record_operational_runtime_signal',
+            signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+            status=RuntimeSignalStatus.OK,
+            source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
+            evidence_ref='queue-runtime-controlled-v1',
+            source_label='queue-runtime-controlled-source-v1',
+            authorization_ref='stage7-runtime-authorization-v1',
+            value_json='{"healthy": true}',
+            stdout=StringIO(),
+        )
+        signal = OperationalRuntimeSignal.objects.get(signal_key=RuntimeSignalKey.QUEUE_RUNTIME)
+        self.assertEqual(signal.source_label, 'queue-runtime-controlled-source-v1')
+        self.assertEqual(signal.authorization_ref, 'stage7-runtime-authorization-v1')
+
+        with self.assertRaises(CommandError):
+            call_command(
+                'record_operational_runtime_signal',
                 signal_key=RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY,
                 status=RuntimeSignalStatus.OK,
                 evidence_ref='bad-local-latency',
                 value_json='{"duration_ms": -1}',
+                stdout=StringIO(),
+            )
+
+        with self.assertRaises(CommandError):
+            call_command(
+                'record_operational_runtime_signal',
+                signal_key=RuntimeSignalKey.FAILED_CRONS,
+                status=RuntimeSignalStatus.OK,
+                source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
+                evidence_ref='cron-runtime-controlled-v1',
+                source_label='https://runtime.example/source',
+                authorization_ref='stage7-runtime-authorization-v1',
+                value_json='{"failed_count": 0}',
                 stdout=StringIO(),
             )
 
@@ -217,7 +294,8 @@ class OperationalObservabilityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         queue_signal = response.data['sections']['runtime_signals'][RuntimeSignalKey.QUEUE_RUNTIME]
         self.assertEqual(queue_signal['status'], RuntimeSignalStatus.OK)
-        self.assertTrue(queue_signal['has_evidence_ref'])
+        self.assertFalse(queue_signal['has_evidence_ref'])
+        self.assertEqual(queue_signal['source_trace'], {'source_label': False, 'authorization_ref': False})
         self.assertEqual(queue_signal['value'], {'healthy': True})
         self.assertNotIn('evidence_ref', queue_signal)
 

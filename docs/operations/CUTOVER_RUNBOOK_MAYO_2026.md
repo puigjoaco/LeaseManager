@@ -108,7 +108,7 @@ Cutover se considera listo solo cuando:
 - Auditoria local de readiness documental:
   `backend\.venv\Scripts\python.exe backend\manage.py audit_document_readiness`.
 - Registrar senales runtime locales/controladas:
-  `backend\.venv\Scripts\python.exe backend\manage.py record_operational_runtime_signal --signal-key <key> --status <status> --evidence-ref <ref> --value-json <json>`.
+  `backend\.venv\Scripts\python.exe backend\manage.py record_operational_runtime_signal --signal-key <key> --status <status> --evidence-ref <ref> --source-label <label> --authorization-ref <ref> --value-json <json>`.
 
 El smoke publico requiere URLs explicitas y el script Node rechaza destinos
 externos si no recibe `--allow-external`, que el wrapper solo agrega cuando se
@@ -128,7 +128,8 @@ integraciones, backlogs operativos y cobertura minima de senales runtime. No
 conecta proveedores externos y no reemplaza monitoreo productivo. Las senales
 runtime locales, fixture o demo preparan el gate, pero la observabilidad no
 queda lista para cierre productivo si sus cuatro senales obligatorias no vienen
-desde `snapshot_controlado` o `real_autorizado`.
+desde `snapshot_controlado` o `real_autorizado` con `source_label`,
+`authorization_ref` y `evidence_ref` no sensibles.
 
 El guard local de readiness Etapa 7 es read-only y consolida evidencias. Sin
 argumentos debe quedar `classification=parcial`: no ejecuta smoke publico,
@@ -167,4 +168,6 @@ Las senales runtime obligatorias son `monthly_calculation_latency`,
 `queue_runtime`, `failed_webhooks` y `failed_crons`. Deben registrarse con
 referencias no sensibles; una medicion local o sintetica prepara el gate, pero
 el cierre productivo requiere medicion de ambiente real/controlado con
-`source_kind` `snapshot_controlado` o `real_autorizado`.
+`source_kind` `snapshot_controlado` o `real_autorizado`, `source_label`,
+`authorization_ref` y `evidence_ref` no sensibles. La auditoria y API redactan
+valores runtime no canonicos antes de exponer observabilidad.

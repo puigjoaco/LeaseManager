@@ -105,6 +105,27 @@ SENSITIVE_EVIDENCE_REF_PATTERN = re.compile(
 )
 
 
+AUTHORIZED_RUNTIME_SIGNAL_MODEL_SOURCE_KINDS = {
+    RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
+    RuntimeSignalSourceKind.REAL_AUTORIZADO,
+}
+
+
+def _non_sensitive_reference(value):
+    normalized = str(value or '').strip()
+    return bool(normalized) and not SENSITIVE_EVIDENCE_REF_PATTERN.search(normalized)
+
+
+def _contains_sensitive_reference(value):
+    if isinstance(value, str):
+        return bool(SENSITIVE_EVIDENCE_REF_PATTERN.search(value))
+    if isinstance(value, dict):
+        return any(_contains_sensitive_reference(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_sensitive_reference(item) for item in value)
+    return False
+
+
 class OperationalRuntimeSignal(models.Model):
     signal_key = models.CharField(max_length=64, choices=RuntimeSignalKey.choices, unique=True)
     status = models.CharField(
@@ -119,6 +140,8 @@ class OperationalRuntimeSignal(models.Model):
     )
     value = models.JSONField(default=dict, blank=True)
     evidence_ref = models.CharField(max_length=255, blank=True)
+    source_label = models.CharField(max_length=255, blank=True)
+    authorization_ref = models.CharField(max_length=255, blank=True)
     observed_at = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -131,13 +154,27 @@ class OperationalRuntimeSignal(models.Model):
 
     def clean(self):
         super().clean()
+        errors = {}
         if self.status == RuntimeSignalStatus.OK and not self.evidence_ref.strip():
-            raise ValidationError({'evidence_ref': 'Una senal runtime OK requiere evidencia_ref trazable.'})
+            errors['evidence_ref'] = 'Una senal runtime OK requiere evidencia_ref trazable.'
         if self.evidence_ref and SENSITIVE_EVIDENCE_REF_PATTERN.search(self.evidence_ref):
-            raise ValidationError({'evidence_ref': 'evidence_ref debe ser una referencia no sensible, no una URL, token o credencial.'})
+            errors['evidence_ref'] = 'evidence_ref debe ser una referencia no sensible, no una URL, token o credencial.'
+        if self.source_label and SENSITIVE_EVIDENCE_REF_PATTERN.search(self.source_label):
+            errors['source_label'] = 'source_label debe ser una etiqueta no sensible.'
+        if self.authorization_ref and SENSITIVE_EVIDENCE_REF_PATTERN.search(self.authorization_ref):
+            errors['authorization_ref'] = 'authorization_ref debe ser una referencia no sensible.'
+        if (
+            self.status == RuntimeSignalStatus.OK
+            and self.source_kind in AUTHORIZED_RUNTIME_SIGNAL_MODEL_SOURCE_KINDS
+        ):
+            if not _non_sensitive_reference(self.source_label):
+                errors['source_label'] = 'Una senal runtime autorizada requiere source_label no sensible.'
+            if not _non_sensitive_reference(self.authorization_ref):
+                errors['authorization_ref'] = 'Una senal runtime autorizada requiere authorization_ref no sensible.'
 
         payload = self.value if isinstance(self.value, dict) else {}
-        errors = {}
+        if _contains_sensitive_reference(payload):
+            errors['value'] = 'value no debe contener URLs, tokens, credenciales ni referencias sensibles.'
         if self.signal_key == RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY:
             duration = _numeric_value(payload.get('duration_ms'))
             if self.status == RuntimeSignalStatus.OK and (duration is None or duration < 0):
