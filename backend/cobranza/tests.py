@@ -406,7 +406,7 @@ class CobranzaAPITests(APITestCase):
 
         response = self.client.post(
             reverse('cobranza-webpay-prepare', args=[payment.pk]),
-            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            {'gate_cobro': gate.pk, 'return_url_ref': 'webpay-return-controlled-v1'},
             format='json',
         )
 
@@ -434,7 +434,7 @@ class CobranzaAPITests(APITestCase):
 
         response = self.client.post(
             reverse('cobranza-webpay-prepare', args=[payment.pk]),
-            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            {'gate_cobro': gate.pk, 'return_url_ref': 'webpay-return-controlled-v1'},
             format='json',
         )
 
@@ -453,7 +453,7 @@ class CobranzaAPITests(APITestCase):
 
         response = self.client.post(
             reverse('cobranza-webpay-prepare', args=[payment.pk]),
-            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            {'gate_cobro': gate.pk, 'return_url_ref': 'webpay-return-controlled-v1'},
             format='json',
         )
 
@@ -467,6 +467,26 @@ class CobranzaAPITests(APITestCase):
         self.assertIsNone(payment.fecha_pago_webpay)
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.webpay_intento.prepared').exists())
 
+    def test_webpay_prepare_rejects_sensitive_return_reference_before_persisting(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-RETURN-SECRET')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='evidence://webpay-sandbox-ok',
+        )
+
+        response = self.client.post(
+            reverse('cobranza-webpay-prepare', args=[payment.pk]),
+            {'gate_cobro': gate.pk, 'return_url_ref': 'https://front.example.test/webpay?token=secret'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('return_url_ref no sensible', response.data['detail'])
+        self.assertEqual(IntentoPagoWebPay.objects.count(), 0)
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+
     def test_webpay_manual_confirmation_requires_external_ref(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-EXTREF')
         gate = GateCobroExterno.objects.create(
@@ -476,7 +496,7 @@ class CobranzaAPITests(APITestCase):
         )
         intent = self.client.post(
             reverse('cobranza-webpay-prepare', args=[payment.pk]),
-            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            {'gate_cobro': gate.pk, 'return_url_ref': 'webpay-return-controlled-v1'},
             format='json',
         )
         self.assertEqual(intent.status_code, status.HTTP_201_CREATED)
@@ -500,7 +520,7 @@ class CobranzaAPITests(APITestCase):
         )
         intent = self.client.post(
             reverse('cobranza-webpay-prepare', args=[payment.pk]),
-            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            {'gate_cobro': gate.pk, 'return_url_ref': 'webpay-return-controlled-v1'},
             format='json',
         )
         self.assertEqual(intent.status_code, status.HTTP_201_CREATED)
@@ -531,7 +551,7 @@ class CobranzaAPITests(APITestCase):
         )
         intent = self.client.post(
             reverse('cobranza-webpay-prepare', args=[payment.pk]),
-            {'gate_cobro': gate.pk, 'return_url_ref': 'front://webpay/return'},
+            {'gate_cobro': gate.pk, 'return_url_ref': 'webpay-return-controlled-v1'},
             format='json',
         )
         self.assertEqual(intent.status_code, status.HTTP_201_CREATED)

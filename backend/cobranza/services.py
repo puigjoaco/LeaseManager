@@ -381,6 +381,8 @@ def prepare_webpay_intent(*, payment, gate=None, provider_key='transbank_webpay'
     if gate.capacidad_key != CapacidadCobroExterno.WEBPAY_INTENT:
         raise ValueError('El gate debe corresponder a WebPay.IntentoPago.')
     return_url_ref = return_url_ref.strip()
+    if return_url_ref and not is_non_sensitive_reference(return_url_ref):
+        raise ValueError('WebPay requiere return_url_ref no sensible; no use URLs, tokens, credenciales ni correos.')
     pending_amount = Decimal(payment.monto_calculado_clp) - Decimal(payment.monto_pagado_clp)
     blocking_reason = webpay_blocking_reason(payment, gate, return_url_ref)
     if not blocking_reason:

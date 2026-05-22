@@ -36,15 +36,15 @@ condicionados sin envios reales accidentales.
   identidad activa y contacto no bloqueado. Si el gate WhatsApp queda abierto,
   el readiness exige identidad y asignacion WhatsApp activas.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
-  `WebPay.IntentoPago`, retorno controlado y evidencia; confirmar manualmente
-  requiere `external_ref` trazable no sensible y `fecha_pago_webpay`
-  diferenciada. Ningun flujo llama Transbank ni marca pago confirmado sin
-  revalidar el gate.
+  `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y evidencia;
+  confirmar manualmente requiere `external_ref` trazable no sensible y
+  `fecha_pago_webpay` diferenciada. Ningun flujo llama Transbank ni marca pago
+  confirmado sin revalidar el gate.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   identidades/asignaciones de canal, gates Email/WhatsApp/WebPay, mensajes
   enviados/preparados e intentos WebPay, incluyendo deteccion de
-  `external_ref` sensible, sin enviar mensajes ni conectar proveedores
-  externos. Para cierre debe ejecutarse con `--source-kind
+  `external_ref` o `return_url_ref` sensible, sin enviar mensajes ni conectar
+  proveedores externos. Para cierre debe ejecutarse con `--source-kind
   snapshot_controlado` o `--source-kind real_autorizado`; la fuente local no
   puede marcar `ready_for_stage2_cobranza=true`.
 - Wrapper reproducible:
