@@ -25,6 +25,9 @@ firma y notaria trazables.
 - Auditoria local `audit_document_readiness` debe consolidar politicas activas
   por tipo documental, metadata PDF, evidencia controlada, responsables y
   faltantes antes de declarar cierre.
+- `audit_document_readiness` solo puede cerrar con `--source-kind`
+  `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
+  diagnostican brechas pero no habilitan cierre documental.
 
 ## Salida
 

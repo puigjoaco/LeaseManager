@@ -20,6 +20,7 @@ SENSITIVE_REFERENCE_PATTERN = re.compile(
 )
 
 REQUIRED_POLICY_TYPES = set(TipoDocumental.values)
+AUTHORIZED_DOCUMENT_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 
 
 def _non_sensitive_reference(value):
@@ -100,8 +101,16 @@ def collect_document_readiness(*, final_policy_ref='', responsible_ref='', contr
         'responsible_ref': _non_sensitive_reference(responsible_ref),
         'controlled_pdf_ref': _non_sensitive_reference(controlled_pdf_ref),
     }
+    source_kind_authorized_for_close = source_kind in AUTHORIZED_DOCUMENT_SOURCE_KINDS
 
     issues = []
+    if not source_kind_authorized_for_close:
+        issues.append(
+            _issue(
+                'documents.source_kind_not_authorized',
+                'La readiness local de Documentos no puede cerrar Etapa 5 sin fuente snapshot_controlado o real_autorizado.',
+            )
+        )
     if missing_policy_types:
         issues.append(
             _issue(
@@ -186,6 +195,8 @@ def collect_document_readiness(*, final_policy_ref='', responsible_ref='', contr
         'generated_at': timezone.now().isoformat(),
         'stage': 'Etapa 5 - Documentos PDF y firma',
         'source_kind': source_kind,
+        'authorized_source_kinds': sorted(AUTHORIZED_DOCUMENT_SOURCE_KINDS),
+        'source_kind_authorized_for_close': source_kind_authorized_for_close,
         'classification': 'resuelto_confirmado' if ready else 'parcial',
         'ready_for_stage5_documents': ready,
         'issue_counts': dict(sorted(issue_counts.items())),
@@ -213,6 +224,7 @@ def collect_document_readiness(*, final_policy_ref='', responsible_ref='', contr
         'limitations': [
             'Auditoria local de solo lectura; no lee storage ni documentos productivos.',
             'No usa secretos, .env, datos reales ni integraciones externas.',
+            'Local, fixture y demo solo diagnostican; el cierre exige source_kind snapshot_controlado o real_autorizado.',
             'No reemplaza la decision final de politica de firma/notaria ni la prueba PDF controlada.',
         ],
     }

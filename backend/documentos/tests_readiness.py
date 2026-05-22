@@ -35,28 +35,48 @@ class DocumentReadinessAuditTests(TestCase):
 
         self.assertEqual(result['classification'], 'parcial')
         self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertEqual(
             set(result['sections']['policy']['missing_policy_types']),
             set(TipoDocumental.values),
         )
         issue_codes = {issue['code'] for issue in result['issues']}
+        self.assertIn('documents.source_kind_not_authorized', issue_codes)
         self.assertIn('documents.active_policy_missing', issue_codes)
         self.assertIn('documents.final_policy_ref_missing', issue_codes)
         self.assertIn('documents.controlled_pdf_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
 
-    def test_all_policies_and_non_sensitive_refs_can_pass_local_readiness(self):
+    def test_all_policies_and_non_sensitive_refs_can_pass_authorized_readiness(self):
         create_all_active_policies()
 
         result = collect_document_readiness(
             final_policy_ref='policy-final-docs-v1',
             responsible_ref='responsables-docs-v1',
             controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_kind='snapshot_controlado',
         )
 
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertTrue(result['ready_for_stage5_documents'])
+        self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_all_policies_and_non_sensitive_refs_cannot_close_local_readiness(self):
+        create_all_active_policies()
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_kind='local',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('documents.source_kind_not_authorized', issue_codes)
 
     def test_sensitive_final_refs_do_not_close_readiness(self):
         create_all_active_policies()
@@ -65,6 +85,7 @@ class DocumentReadinessAuditTests(TestCase):
             final_policy_ref='https://example.com/policy',
             responsible_ref='responsables-docs-v1',
             controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_kind='snapshot_controlado',
         )
 
         self.assertFalse(result['ready_for_stage5_documents'])
@@ -122,6 +143,8 @@ class DocumentReadinessAuditTests(TestCase):
             result = json.loads(output_path.read_text(encoding='utf-8'))
 
         self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('documents.source_kind_not_authorized', {issue['code'] for issue in result['issues']})
         self.assertIn('policy', result['sections'])
 
         with self.assertRaises(CommandError):
