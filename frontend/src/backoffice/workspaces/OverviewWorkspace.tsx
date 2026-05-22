@@ -28,17 +28,49 @@ type HealthLike = {
   services: Record<string, { status: string }>
 }
 
+type RuntimeSignalLike = {
+  status?: string | null
+  source_kind?: string | null
+  has_evidence_ref?: boolean
+  value?: Record<string, unknown>
+}
+
+type OperationalObservabilityLike = {
+  classification: string
+  ready_for_stage7_observability: boolean
+  issue_counts: Record<string, number>
+  sections: {
+    runtime_signals: Record<string, unknown>
+  }
+} | null
+
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
+
+function runtimeSignal(observability: OperationalObservabilityLike, key: string): RuntimeSignalLike {
+  const value = observability?.sections.runtime_signals[key]
+  return value && typeof value === 'object' ? value as RuntimeSignalLike : {}
+}
+
+function observabilityTone(value: string | boolean | undefined | null): Tone {
+  if (value === true) return 'positive'
+  const normalized = String(value || '').trim().toLowerCase()
+  if (['ok', 'resuelto_confirmado', 'ready'].includes(normalized)) return 'positive'
+  if (['attention', 'parcial', 'missing', 'pendiente'].includes(normalized)) return 'warning'
+  if (['blocked', 'bloqueado', 'down', 'fallido'].includes(normalized)) return 'danger'
+  return 'neutral'
+}
 
 export function OverviewWorkspace({
   dashboard,
   manualSummary,
+  operationalObservability,
   health,
   counts,
   toneFor,
 }: {
   dashboard: DashboardLike | null
   manualSummary: ManualSummaryLike
+  operationalObservability: OperationalObservabilityLike
   health: HealthLike
   counts: {
     socios: number
@@ -52,6 +84,11 @@ export function OverviewWorkspace({
   toneFor: (value: string) => Tone
 }) {
   const manualResolutionCount = dashboard?.resoluciones_manuales_abiertas ?? manualSummary?.total ?? 0
+  const monthlyLatencySignal = runtimeSignal(operationalObservability, 'monthly_calculation_latency')
+  const queueRuntimeSignal = runtimeSignal(operationalObservability, 'queue_runtime')
+  const failedWebhooksSignal = runtimeSignal(operationalObservability, 'failed_webhooks')
+  const failedCronsSignal = runtimeSignal(operationalObservability, 'failed_crons')
+  const observabilityAttention = operationalObservability?.issue_counts.attention ?? 0
 
   return (
     <>
@@ -66,6 +103,11 @@ export function OverviewWorkspace({
           tone={manualResolutionCount ? 'warning' : 'positive'}
         />
         <Metric label="DTE borrador" value={count(dashboard?.dtes_borrador)} tone="neutral" />
+        <Metric
+          label="Issues operación"
+          value={count(observabilityAttention)}
+          tone={observabilityAttention ? 'warning' : 'positive'}
+        />
       </section>
 
       <section className="panel-grid">
@@ -93,6 +135,35 @@ export function OverviewWorkspace({
             <div className="list-row"><span>API</span><Badge label={health.status} tone={toneFor(health.status)} /></div>
             <div className="list-row"><span>Base de datos</span><Badge label={health.services.database.status} tone={toneFor(health.services.database.status)} /></div>
             <div className="list-row"><span>Redis</span><Badge label={health.services.redis.status} tone={toneFor(health.services.redis.status)} /></div>
+          </div>
+        </section>
+        <section className="panel">
+          <div className="section-heading"><div><h2>Operación productiva</h2><p>Gates, backlog y señales runtime.</p></div></div>
+          <div className="list-stack">
+            {operationalObservability ? (
+              <>
+                <div className="list-row">
+                  <span>Clasificación</span>
+                  <Badge
+                    label={operationalObservability.classification}
+                    tone={observabilityTone(operationalObservability.classification)}
+                  />
+                </div>
+                <div className="list-row">
+                  <span>Gate observabilidad</span>
+                  <Badge
+                    label={operationalObservability.ready_for_stage7_observability ? 'ok' : 'parcial'}
+                    tone={observabilityTone(operationalObservability.ready_for_stage7_observability)}
+                  />
+                </div>
+                <div className="list-row"><span>Latencia mensual</span><Badge label={monthlyLatencySignal.status || 'missing'} tone={observabilityTone(monthlyLatencySignal.status)} /></div>
+                <div className="list-row"><span>Colas y tareas</span><Badge label={queueRuntimeSignal.status || 'missing'} tone={observabilityTone(queueRuntimeSignal.status)} /></div>
+                <div className="list-row"><span>Webhooks fallidos</span><Badge label={failedWebhooksSignal.status || 'missing'} tone={observabilityTone(failedWebhooksSignal.status)} /></div>
+                <div className="list-row"><span>Crons fallidos</span><Badge label={failedCronsSignal.status || 'missing'} tone={observabilityTone(failedCronsSignal.status)} /></div>
+              </>
+            ) : (
+              <div className="empty-state compact">Auditoría operativa no cargada.</div>
+            )}
           </div>
         </section>
         <section className="panel">

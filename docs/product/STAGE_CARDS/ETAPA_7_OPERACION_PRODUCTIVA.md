@@ -27,6 +27,8 @@ runbook, smoke y aceptacion.
   backlogs y senales runtime minimas.
 - Senales runtime persistidas para latencia mensual, cola/tareas, webhooks
   fallidos y crons fallidos, con evidencia no sensible.
+- API/backoffice autenticados exponen observabilidad operativa de solo lectura
+  con referencias sensibles redactadas.
 - Smoke publico manual ejecutado con ambiente autorizado.
 - El smoke publico es opt-in: `run-acceptance-workflows.ps1` no toca URLs
   externas por defecto, requiere `-RunPublicSmoke` o `-OnlySmoke` y URLs

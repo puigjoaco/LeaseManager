@@ -1,3 +1,5 @@
+import re
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -97,6 +99,12 @@ def _numeric_value(value):
     return None
 
 
+SENSITIVE_EVIDENCE_REF_PATTERN = re.compile(
+    r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
+    re.IGNORECASE,
+)
+
+
 class OperationalRuntimeSignal(models.Model):
     signal_key = models.CharField(max_length=64, choices=RuntimeSignalKey.choices, unique=True)
     status = models.CharField(
@@ -125,6 +133,8 @@ class OperationalRuntimeSignal(models.Model):
         super().clean()
         if self.status == RuntimeSignalStatus.OK and not self.evidence_ref.strip():
             raise ValidationError({'evidence_ref': 'Una senal runtime OK requiere evidencia_ref trazable.'})
+        if self.evidence_ref and SENSITIVE_EVIDENCE_REF_PATTERN.search(self.evidence_ref):
+            raise ValidationError({'evidence_ref': 'evidence_ref debe ser una referencia no sensible, no una URL, token o credencial.'})
 
         payload = self.value if isinstance(self.value, dict) else {}
         errors = {}

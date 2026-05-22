@@ -473,6 +473,15 @@ type ManualSummary = {
   categorias: Array<{ category: string; total: number }>
 }
 
+type OperationalObservability = {
+  classification: string
+  ready_for_stage7_observability: boolean
+  issue_counts: Record<string, number>
+  sections: {
+    runtime_signals: Record<string, unknown>
+  }
+}
+
 function hasOverviewSecondaryCounts(dashboard: Dashboard | null) {
   return (
     typeof dashboard?.socios_total === 'number'
@@ -1244,6 +1253,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => readStoredCurrentUser())
   const [dashboard, setDashboard] = useState<Dashboard | null>(initialOverviewSnapshot.dashboard)
   const [manualSummary, setManualSummary] = useState<ManualSummary | null>(initialOverviewSnapshot.manualSummary)
+  const [operationalObservability, setOperationalObservability] = useState<OperationalObservability | null>(null)
   const [socios, setSocios] = useState<Socio[]>([])
   const [empresas, setEmpresas] = useState<Empresa[]>(initialControlSnapshot?.empresas || [])
   const [arrendatarios, setArrendatarios] = useState<Arrendatario[]>([])
@@ -2280,6 +2290,10 @@ function App() {
         || !hasFreshOverviewSummary
         || manualSummary === null
       )
+      const shouldLoadOperationalObservability = loadOverview && (
+        shouldRefreshData
+        || operationalObservability === null
+      )
       const loadPatrimonioSnapshot = canReadOperational && targetView === 'patrimonio' && (shouldRefreshData || !isPatrimonioSnapshotLoaded)
       const loadOperationSnapshot = canReadOperational && targetView === 'operacion' && (shouldRefreshData || !isOperationSnapshotLoaded)
       const loadContractsSnapshot = canReadOperational && targetView === 'contratos' && (shouldRefreshData || !isContractsSnapshotLoaded)
@@ -2352,6 +2366,7 @@ function App() {
       const [
         dashboardPayload,
         manualPayload,
+        observabilityPayload,
         sociosPayload,
         empresasPayload,
         comunidadesPayload,
@@ -2380,6 +2395,11 @@ function App() {
           dashboard,
         ),
         manualSummary,
+        requestIf<OperationalObservability | null>(
+          shouldLoadOperationalObservability,
+          withRefreshParam('/api/v1/platform/operational-observability/'),
+          operationalObservability,
+        ),
         requestIf<Socio[]>(loadSocios, '/api/v1/patrimonio/socios/', socios),
         requestIf<Empresa[]>(loadEmpresas, '/api/v1/patrimonio/empresas/', empresas),
         requestIf<Comunidad[]>(loadComunidades, '/api/v1/patrimonio/comunidades/', comunidades),
@@ -2453,6 +2473,7 @@ function App() {
       if (!isCurrentLoad()) return
       setDashboard(dashboardPayload)
       setManualSummary(manualPayload)
+      setOperationalObservability(observabilityPayload)
       setSocios(sociosPayload)
       setEmpresas(empresasPayload)
       setComunidades(comunidadesPayload)
@@ -4982,6 +5003,7 @@ function App() {
           <OverviewWorkspace
             dashboard={dashboard}
             manualSummary={manualSummary}
+            operationalObservability={operationalObservability}
             health={health}
             counts={{
               socios: socios.length,
