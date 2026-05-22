@@ -33,6 +33,9 @@ mismo.
 11. Confirmar que cualquier smoke publico fue solicitado con ambiente, URLs y
     responsable autorizados. La suite local deterministica no ejecuta smoke
     publico por defecto.
+12. Confirmar rehearsal de restore PostgreSQL con datos sinteticos o restore
+    autorizado reciente. El rehearsal local no reemplaza la prueba final con
+    backup/snapshot autorizado.
 
 ## Ejecucion controlada
 
@@ -81,7 +84,14 @@ Cutover se considera listo solo cuando:
 - Acceptance deterministica local: `scripts/run-acceptance-workflows.ps1`.
 - Acceptance sin smoke, equivalente CI: `scripts/run-acceptance-workflows.ps1 -SkipSmoke`.
 - Smoke publico aislado: `scripts/run-acceptance-workflows.ps1 -OnlySmoke -FrontendUrl <url> -ApiBaseUrl <url>`.
+- Plan de restore local sin tocar Docker: `scripts/run-postgres-restore-rehearsal.ps1 -PlanOnly`.
+- Rehearsal PostgreSQL local con fixture sintetico:
+  `scripts/run-postgres-restore-rehearsal.ps1`.
 
 El smoke publico requiere URLs explicitas y el script Node rechaza destinos
 externos si no recibe `--allow-external`, que el wrapper solo agrega cuando se
 usa `-RunPublicSmoke` o `-OnlySmoke`.
+
+El rehearsal de restore usa solo PostgreSQL local de `infra/docker-compose.yml`
+y escribe evidencia bajo `local-evidence/`. No lee `.env`, no usa datos reales
+y no cierra Operacion productiva sin restore de backup/snapshot autorizado.
