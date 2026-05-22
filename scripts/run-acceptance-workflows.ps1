@@ -3,6 +3,11 @@ param(
     [string]$ApiBaseUrl = '',
     [string]$BackendTestDb = '',
     [string]$PythonExe = '',
+    [string]$PublicSmokeSourceKind = '',
+    [string]$PublicSmokeAuthorizationRef = '',
+    [string]$PublicSmokeEnvironmentRef = '',
+    [string]$PublicSmokeTargetRef = '',
+    [string]$PublicSmokeResponsibleRef = '',
     [switch]$OnlySmoke,
     [switch]$SkipSmoke,
     [switch]$RunPublicSmoke
@@ -162,13 +167,52 @@ if (-not $OnlySmoke) {
 
 if ($shouldRunPublicSmoke) {
     Step "Public smoke via UI login"
-    $smokeOutput = & node $smokeScript --allow-external --frontend-url $FrontendUrl --api-base-url $ApiBaseUrl | Out-String
+    $smokeArgs = @(
+        $smokeScript,
+        '--allow-external',
+        '--frontend-url',
+        $FrontendUrl,
+        '--api-base-url',
+        $ApiBaseUrl
+    )
+    $hasPublicSmokeEvidenceMetadata = $PublicSmokeSourceKind.Trim() `
+        -or $PublicSmokeAuthorizationRef.Trim() `
+        -or $PublicSmokeEnvironmentRef.Trim() `
+        -or $PublicSmokeTargetRef.Trim() `
+        -or $PublicSmokeResponsibleRef.Trim()
+    if ($hasPublicSmokeEvidenceMetadata) {
+        if ($PublicSmokeSourceKind.Trim()) {
+            $smokeArgs += @('--evidence-source-kind', $PublicSmokeSourceKind)
+        }
+        else {
+            $smokeArgs += @('--evidence-source-kind', 'public_smoke_autorizado')
+        }
+        if ($PublicSmokeAuthorizationRef.Trim()) {
+            $smokeArgs += @('--authorization-ref', $PublicSmokeAuthorizationRef)
+        }
+        if ($PublicSmokeEnvironmentRef.Trim()) {
+            $smokeArgs += @('--environment-ref', $PublicSmokeEnvironmentRef)
+        }
+        if ($PublicSmokeTargetRef.Trim()) {
+            $smokeArgs += @('--target-ref', $PublicSmokeTargetRef)
+        }
+        if ($PublicSmokeResponsibleRef.Trim()) {
+            $smokeArgs += @('--responsible-ref', $PublicSmokeResponsibleRef)
+        }
+    }
+    $smokeOutput = & node @smokeArgs | Out-String
     $smokeExitCode = $LASTEXITCODE
     if ($smokeOutput.Trim()) {
         Write-Host $smokeOutput
     }
 
-    $smokeResults = $smokeOutput | ConvertFrom-Json
+    $smokePayload = $smokeOutput | ConvertFrom-Json
+    if ($smokePayload.PSObject.Properties.Name -contains 'results') {
+        $smokeResults = @($smokePayload.results)
+    }
+    else {
+        $smokeResults = @($smokePayload)
+    }
     Assert-Condition ($smokeExitCode -eq 0) 'La smoke publica fallo.'
     $adminResult = $smokeResults | Where-Object { $_.label -eq 'admin' } | Select-Object -First 1
     $operatorResult = $smokeResults | Where-Object { $_.label -eq 'operator' } | Select-Object -First 1

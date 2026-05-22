@@ -30,9 +30,9 @@ mismo.
 9. Confirmar que datos reales usados en pruebas estan autorizados.
 10. Confirmar que integraciones externas no enviaran mensajes o documentos
     accidentales.
-11. Confirmar que cualquier smoke publico fue solicitado con ambiente, URLs y
-    responsable autorizados. La suite local deterministica no ejecuta smoke
-    publico por defecto.
+11. Confirmar que cualquier smoke publico fue solicitado con ambiente, URLs,
+    responsable y referencias de evidencia no sensibles autorizados. La suite
+    local deterministica no ejecuta smoke publico por defecto.
 12. Confirmar rehearsal de restore PostgreSQL con datos sinteticos o restore
     autorizado reciente. El rehearsal local no reemplaza la prueba final con
     backup/snapshot autorizado.
@@ -57,7 +57,7 @@ mismo.
 7. Ejecutar healthcheck/readiness y confirmar que las respuestas publicas no
    exponen detalles internos de DB, Redis, configuracion ni excepciones.
 8. Ejecutar smoke operativo solo con autorizacion explicita:
-   `scripts/run-acceptance-workflows.ps1 -RunPublicSmoke -FrontendUrl <url> -ApiBaseUrl <url>`.
+   `scripts/run-acceptance-workflows.ps1 -RunPublicSmoke -FrontendUrl <url> -ApiBaseUrl <url> -PublicSmokeAuthorizationRef <ref> -PublicSmokeEnvironmentRef <ref> -PublicSmokeTargetRef <ref>`.
 9. Validar flujo minimo por rol.
 10. Validar conciliacion o datos contables de muestra autorizada.
 11. Validar documentos y reportes.
@@ -92,7 +92,7 @@ Cutover se considera listo solo cuando:
 
 - Acceptance deterministica local: `scripts/run-acceptance-workflows.ps1`.
 - Acceptance sin smoke, equivalente CI: `scripts/run-acceptance-workflows.ps1 -SkipSmoke`.
-- Smoke publico aislado: `scripts/run-acceptance-workflows.ps1 -OnlySmoke -FrontendUrl <url> -ApiBaseUrl <url>`.
+- Smoke publico aislado: `scripts/run-acceptance-workflows.ps1 -OnlySmoke -FrontendUrl <url> -ApiBaseUrl <url> -PublicSmokeAuthorizationRef <ref> -PublicSmokeEnvironmentRef <ref> -PublicSmokeTargetRef <ref>`.
 - Plan de restore local sin tocar Docker: `scripts/run-postgres-restore-rehearsal.ps1 -PlanOnly`.
 - Rehearsal PostgreSQL local con fixture sintetico:
   `scripts/run-postgres-restore-rehearsal.ps1`.
@@ -107,7 +107,12 @@ Cutover se considera listo solo cuando:
 
 El smoke publico requiere URLs explicitas y el script Node rechaza destinos
 externos si no recibe `--allow-external`, que el wrapper solo agrega cuando se
-usa `-RunPublicSmoke` o `-OnlySmoke`.
+usa `-RunPublicSmoke` o `-OnlySmoke`. Para que esa salida sirva como evidencia
+de cierre de Etapa 7, debe emitirse con `source_kind`/`smoke_source_kind`
+`public_smoke_autorizado`, `ambiente_autorizado`, `staging_autorizado` o
+`real_autorizado`, mas `authorization_ref`, `environment_ref` y
+`target_ref`/`deployment_ref` no sensibles; URLs, tokens o credenciales no son
+referencias validas.
 
 El rehearsal de restore usa solo PostgreSQL local de `infra/docker-compose.yml`
 y escribe evidencia bajo `local-evidence/`. No lee `.env`, no usa datos reales
@@ -125,7 +130,11 @@ aceptacion final no sensible. Un rehearsal sintetico con `restore_verified=true`
 prepara el gate, pero no reemplaza una evidencia de restore con
 `source_kind`/`restore_source_kind` en `snapshot_controlado`,
 `real_autorizado`, `backup_autorizado` o `restore_autorizado`, mas
-`authorization_ref` y `backup_ref`/`backup_file` no sensibles.
+`authorization_ref` y `backup_ref`/`backup_file` no sensibles. Del mismo modo,
+un arreglo de resultados de smoke con cuatro roles OK no cierra Operacion
+productiva si no viene envuelto como evidencia de ambiente autorizado con
+`authorization_ref`, `environment_ref` y `target_ref`/`deployment_ref` no
+sensibles.
 
 La auditoria documental es read-only: no abre storage ni PDFs reales. Consolida
 politicas activas por tipo documental, metadata obligatoria, referencias no
