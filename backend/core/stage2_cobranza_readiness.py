@@ -24,7 +24,14 @@ from cobranza.models import (
     IntentoPagoWebPay,
     PagoMensual,
 )
-from operacion.models import CanalOperacion, EstadoIdentidadEnvio, EstadoMandatoOperacion
+from operacion.models import (
+    AsignacionCanalOperacion,
+    CanalOperacion,
+    EstadoAsignacionCanal,
+    EstadoIdentidadEnvio,
+    EstadoMandatoOperacion,
+    IdentidadDeEnvio,
+)
 
 
 SENSITIVE_REFERENCE_PATTERN = re.compile(
@@ -119,6 +126,37 @@ def collect_stage2_cobranza_readiness(
     responsible_ref: str = '',
     source_kind: str = 'local',
 ) -> dict[str, Any]:
+    identities = IdentidadDeEnvio.objects.select_related('empresa_owner', 'socio_owner')
+    channel_assignments = AsignacionCanalOperacion.objects.select_related(
+        'mandato_operacion',
+        'identidad_envio',
+        'identidad_envio__empresa_owner',
+        'identidad_envio__socio_owner',
+    )
+    invalid_identities = _count_invalid(identities)
+    invalid_assignments = _count_invalid(channel_assignments)
+
+    email_active_identities = identities.filter(
+        canal=CanalOperacion.EMAIL,
+        estado=EstadoIdentidadEnvio.ACTIVE,
+    )
+    whatsapp_active_identities = identities.filter(
+        canal=CanalOperacion.WHATSAPP,
+        estado=EstadoIdentidadEnvio.ACTIVE,
+    )
+    email_active_assignments = channel_assignments.filter(
+        canal=CanalOperacion.EMAIL,
+        estado=EstadoAsignacionCanal.ACTIVE,
+        identidad_envio__estado=EstadoIdentidadEnvio.ACTIVE,
+        mandato_operacion__estado=EstadoMandatoOperacion.ACTIVE,
+    )
+    whatsapp_active_assignments = channel_assignments.filter(
+        canal=CanalOperacion.WHATSAPP,
+        estado=EstadoAsignacionCanal.ACTIVE,
+        identidad_envio__estado=EstadoIdentidadEnvio.ACTIVE,
+        mandato_operacion__estado=EstadoMandatoOperacion.ACTIVE,
+    )
+
     channel_gates = CanalMensajeria.objects.all()
     email_open_gates = channel_gates.filter(canal=CanalOperacion.EMAIL, estado_gate=EstadoGateCanal.OPEN)
     whatsapp_open_gates = channel_gates.filter(canal=CanalOperacion.WHATSAPP, estado_gate=EstadoGateCanal.OPEN)
@@ -168,6 +206,36 @@ def collect_stage2_cobranza_readiness(
                 'Etapa 2 requiere al menos un gate Email abierto y valido para cierre.',
             )
         )
+    if email_active_identities.count() <= 0:
+        issues.append(
+            _issue(
+                'stage2.email.active_identity_missing',
+                'Etapa 2 requiere al menos una IdentidadDeEnvio Email activa para no inventar remitente.',
+            )
+        )
+    if email_active_assignments.count() <= 0:
+        issues.append(
+            _issue(
+                'stage2.email.active_assignment_missing',
+                'Etapa 2 requiere al menos una asignacion Email activa sobre mandato operativo activo.',
+            )
+        )
+    if invalid_identities:
+        issues.append(
+            _issue(
+                'stage2.channel_identity_invalid',
+                'Existen identidades de envio que no pasan validacion de dominio.',
+                count=invalid_identities,
+            )
+        )
+    if invalid_assignments:
+        issues.append(
+            _issue(
+                'stage2.channel_assignment_invalid',
+                'Existen asignaciones de canal que no pasan validacion de dominio.',
+                count=invalid_assignments,
+            )
+        )
     if invalid_channel_gates:
         issues.append(
             _issue(
@@ -182,6 +250,20 @@ def collect_stage2_cobranza_readiness(
                 'stage2.whatsapp.template_missing',
                 'WhatsApp abierto requiere template aprobado registrado en el gate.',
                 count=whatsapp_open_without_template,
+            )
+        )
+    if whatsapp_open_gates.count() > 0 and whatsapp_active_identities.count() <= 0:
+        issues.append(
+            _issue(
+                'stage2.whatsapp.active_identity_missing',
+                'WhatsApp abierto requiere una IdentidadDeEnvio WhatsApp activa.',
+            )
+        )
+    if whatsapp_open_gates.count() > 0 and whatsapp_active_assignments.count() <= 0:
+        issues.append(
+            _issue(
+                'stage2.whatsapp.active_assignment_missing',
+                'WhatsApp abierto requiere asignacion activa sobre mandato operativo activo.',
             )
         )
     if message_issues.get('invalid_model'):
@@ -280,6 +362,20 @@ def collect_stage2_cobranza_readiness(
                 'invalid_channel_gates': invalid_channel_gates,
                 'whatsapp_open_without_template': whatsapp_open_without_template,
             },
+            'channel_identities': {
+                'identities_total': identities.count(),
+                'identities_by_channel': _count_by(identities, 'canal'),
+                'identities_by_state': _count_by(identities, 'estado'),
+                'email_active_identities': email_active_identities.count(),
+                'whatsapp_active_identities': whatsapp_active_identities.count(),
+                'invalid_identities': invalid_identities,
+                'assignments_total': channel_assignments.count(),
+                'assignments_by_channel': _count_by(channel_assignments, 'canal'),
+                'assignments_by_state': _count_by(channel_assignments, 'estado'),
+                'email_active_assignments': email_active_assignments.count(),
+                'whatsapp_active_assignments': whatsapp_active_assignments.count(),
+                'invalid_assignments': invalid_assignments,
+            },
             'messages': {
                 'total': messages.count(),
                 'by_channel': _count_by(messages, 'canal'),
@@ -300,6 +396,6 @@ def collect_stage2_cobranza_readiness(
         'limitations': [
             'Auditoria local de solo lectura; no envia Email, WhatsApp ni WebPay.',
             'No usa secretos, .env, datos reales ni integraciones externas.',
-            'No cierra Etapa 2 sin evidencia Etapa 1 y pruebas aisladas/controladas de Email y WebPay.',
+            'No cierra Etapa 2 sin identidades/asignaciones activas, evidencia Etapa 1 y pruebas aisladas/controladas de Email y WebPay.',
         ],
     }
