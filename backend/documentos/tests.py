@@ -230,6 +230,55 @@ class DocumentosAPITests(APITestCase):
         )
         self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_document_cannot_be_created_as_formalized_from_generic_endpoint(self):
+        expediente = self._create_expediente(entidad_id='2A')
+        self._create_politica()
+
+        response = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v1',
+                'checksum': 'direct-formalized-create',
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'formalizado',
+                'storage_ref': 'storage/contracts/direct-formalized-create.pdf',
+                'firma_arrendador_registrada': True,
+                'firma_arrendatario_registrada': True,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        self.assertFalse(AuditEvent.objects.filter(event_type='documentos.documento_emitido.formalized').exists())
+
+    def test_document_cannot_be_patched_as_formalized_from_generic_endpoint(self):
+        expediente = self._create_expediente(entidad_id='2B')
+        self._create_politica()
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+
+        response = self.client.patch(
+            reverse('documentos-documento-detail', args=[documento['id']]),
+            {'estado': 'formalizado'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        stored = DocumentoEmitido.objects.get(pk=documento['id'])
+        self.assertEqual(stored.estado, EstadoDocumento.ISSUED)
+        self.assertFalse(AuditEvent.objects.filter(event_type='documentos.documento_emitido.formalized').exists())
+
     def test_document_with_notary_policy_requires_notary_receipt(self):
         expediente = self._create_expediente(entidad_id='3')
         self._create_politica(requiere_notaria=True)

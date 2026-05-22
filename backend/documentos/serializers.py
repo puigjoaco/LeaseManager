@@ -173,6 +173,13 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
         if not self.instance and 'fecha_carga' not in attrs:
             attrs['fecha_carga'] = timezone.now()
 
+        requested_state = attrs.get('estado')
+        current_state = getattr(self.instance, 'estado', None)
+        if requested_state == EstadoDocumento.FORMALIZED and current_state != EstadoDocumento.FORMALIZED:
+            raise serializers.ValidationError(
+                {'estado': 'La formalizacion debe ejecutarse desde el endpoint formalizar/ para registrar auditoria.'}
+            )
+
         candidate = build_validation_candidate(self.instance, DocumentoEmitido)
         for field, value in attrs.items():
             setattr(candidate, field, value)

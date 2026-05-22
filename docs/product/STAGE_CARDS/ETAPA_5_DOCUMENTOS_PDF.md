@@ -17,7 +17,9 @@ firma y notaria trazables.
 - `storage_ref` debe referenciar PDF canonico.
 - Documento emitido debe conservar `version_plantilla`, `checksum`, `usuario`,
   `fecha_carga`, `origen` y expediente.
-- Formalizacion requiere politica activa por tipo documental.
+- Formalizacion requiere politica activa por tipo documental y debe ejecutarse
+  desde el endpoint dedicado `formalizar/`, no desde create/update generico,
+  para conservar la auditoria especifica del acto de formalizacion.
 - Si la politica exige notaria, el comprobante notarial debe pertenecer al
   mismo expediente y estar emitido, formalizado o archivado.
 - Auditoria local `audit_document_readiness` debe consolidar politicas activas
