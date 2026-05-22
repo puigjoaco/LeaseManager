@@ -28,9 +28,26 @@ firma y notaria trazables.
 - `audit_document_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre documental.
+- Las fuentes autorizadas deben declarar `SourceLabel` y `AuthorizationRef` no
+  sensibles.
+- `scripts/run-stage5-documents-readiness-gate.ps1` normaliza la ejecucion del
+  gate. En modo local crea SQLite bajo `local-evidence/`, corre migraciones y
+  debe quedar `classification=parcial`, `ready_for_stage5_documents=false` y
+  issue `documents.source_kind_not_authorized`.
+- Para cierre con fuente autorizada, el wrapper exige `-SourceKind
+  snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
+  `-AuthorizationRef`, `-FinalPolicyRef`, `-ControlledPdfRef`,
+  `-ResponsibleRef` y `-RequireReady`.
 
 ## Salida
 
 Documentos no cierra sin politica final de firma/notaria, responsables y prueba
 PDF controlada. La preparacion local puede avanzar sin usar storage real ni
 documentos productivos.
+
+## Ejecucion local segura
+
+```powershell
+cd "D:/Proyectos/LeaseManager"
+.\scripts\run-stage5-documents-readiness-gate.ps1
+```

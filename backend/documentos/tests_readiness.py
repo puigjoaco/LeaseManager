@@ -54,6 +54,8 @@ class DocumentReadinessAuditTests(TestCase):
             final_policy_ref='policy-final-docs-v1',
             responsible_ref='responsables-docs-v1',
             controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
             source_kind='snapshot_controlado',
         )
 
@@ -78,6 +80,23 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('documents.source_kind_not_authorized', issue_codes)
 
+    def test_authorized_source_requires_source_trace_refs(self):
+        create_all_active_policies()
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.source_label_missing', issue_codes)
+        self.assertIn('documents.authorization_ref_missing', issue_codes)
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+
     def test_sensitive_final_refs_do_not_close_readiness(self):
         create_all_active_policies()
 
@@ -85,6 +104,8 @@ class DocumentReadinessAuditTests(TestCase):
             final_policy_ref='https://example.com/policy',
             responsible_ref='responsables-docs-v1',
             controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
             source_kind='snapshot_controlado',
         )
 
