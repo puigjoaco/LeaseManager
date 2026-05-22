@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from core.permissions import OperationalOverviewPermission, PartnerOwnSummaryPermission, ReportingPermission
 from core.scope_access import get_scope_access
 from .services import (
+    ReportingTraceabilityError,
     build_annual_tax_summary,
     build_financial_monthly_summary,
     build_manual_resolution_summary,
@@ -48,6 +49,21 @@ def _required_query_param(request, name: str) -> str:
     return raw_value
 
 
+def _traceable_response(builder, *args, **kwargs):
+    try:
+        return Response(builder(*args, **kwargs))
+    except ReportingTraceabilityError as error:
+        raise ValidationError(
+            {
+                'traceability': {
+                    'code': error.code,
+                    'detail': str(error),
+                    'details': error.details,
+                }
+            }
+        ) from error
+
+
 class OperationalDashboardView(APIView):
     permission_classes = [OperationalOverviewPermission]
 
@@ -77,13 +93,12 @@ class FinancialMonthlySummaryView(APIView):
         anio = _required_int_query_param(request, 'anio')
         mes = _required_int_query_param(request, 'mes')
         empresa_id = _optional_int_query_param(request, 'empresa_id')
-        return Response(
-            build_financial_monthly_summary(
-                anio,
-                mes,
-                empresa_id,
-                access=get_scope_access(request.user),
-            )
+        return _traceable_response(
+            build_financial_monthly_summary,
+            anio,
+            mes,
+            empresa_id,
+            access=get_scope_access(request.user),
         )
 
 
@@ -113,7 +128,7 @@ class PeriodBooksSummaryView(APIView):
     def get(self, request):
         empresa_id = _required_int_query_param(request, 'empresa_id')
         periodo = _required_query_param(request, 'periodo')
-        return Response(build_period_books_summary(empresa_id, periodo, access=get_scope_access(request.user)))
+        return _traceable_response(build_period_books_summary, empresa_id, periodo, access=get_scope_access(request.user))
 
 
 class AnnualTaxSummaryView(APIView):
@@ -122,12 +137,11 @@ class AnnualTaxSummaryView(APIView):
     def get(self, request):
         anio_tributario = _required_int_query_param(request, 'anio_tributario')
         empresa_id = _optional_int_query_param(request, 'empresa_id')
-        return Response(
-            build_annual_tax_summary(
-                anio_tributario,
-                empresa_id,
-                access=get_scope_access(request.user),
-            )
+        return _traceable_response(
+            build_annual_tax_summary,
+            anio_tributario,
+            empresa_id,
+            access=get_scope_access(request.user),
         )
 
 

@@ -9,7 +9,7 @@ from canales.models import CanalMensajeria, MensajeSaliente
 from cobranza.models import EstadoCuentaArrendatario, PagoMensual
 from cobranza.services import sync_payment_distribution
 from conciliacion.models import ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
-from contabilidad.models import BalanceComprobacion, CierreMensualContable, EventoContable, LibroDiario, LibroMayor, ObligacionTributariaMensual
+from contabilidad.models import AsientoContable, BalanceComprobacion, CierreMensualContable, EventoContable, LibroDiario, LibroMayor, ObligacionTributariaMensual
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
@@ -308,7 +308,7 @@ class ReportingAPITests(APITestCase):
             codigo_conciliacion_efectivo='111',
         )
         sync_payment_distribution(pago)
-        EventoContable.objects.create(
+        event = EventoContable.objects.create(
             empresa=empresa,
             evento_tipo='PagoConciliadoArriendo',
             entidad_origen_tipo='manual',
@@ -319,6 +319,14 @@ class ReportingAPITests(APITestCase):
             payload_resumen={},
             idempotency_key='rep-fin-1',
             estado_contable='contabilizado',
+        )
+        AsientoContable.objects.create(
+            evento_contable=event,
+            fecha_contable='2026-01-10',
+            periodo_contable='2026-01',
+            estado='contabilizado',
+            debe_total='100111.00',
+            haber_total='100111.00',
         )
         ObligacionTributariaMensual.objects.create(
             empresa=empresa,
@@ -356,9 +364,71 @@ class ReportingAPITests(APITestCase):
         )
         response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
+        self.assertIn('CierreMensualContable', response.data['trazabilidad']['fuentes'])
         self.assertEqual(response.data['eventos_contables_posteados'], 1)
         self.assertEqual(len(response.data['obligaciones']), 1)
         self.assertEqual(len(response.data['cierres']), 1)
+
+    def test_financial_monthly_summary_blocks_without_approved_close(self):
+        _, empresa, _, _, contrato, periodo = self._create_context('FINBLOCK', owner_kind='empresa', with_facturadora=True)
+        pago = PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp='100000.00',
+            monto_calculado_clp='100111.00',
+            monto_pagado_clp='100111.00',
+            fecha_vencimiento='2026-01-05',
+            estado_pago='pagado',
+            codigo_conciliacion_efectivo='111',
+        )
+        sync_payment_distribution(pago)
+
+        response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.monthly_close_missing')
+
+    def test_financial_monthly_summary_blocks_posted_event_without_accounting_entry(self):
+        _, empresa, _, _, contrato, periodo = self._create_context('FINASIENTO', owner_kind='empresa', with_facturadora=True)
+        pago = PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp='100000.00',
+            monto_calculado_clp='100111.00',
+            monto_pagado_clp='100111.00',
+            fecha_vencimiento='2026-01-05',
+            estado_pago='pagado',
+            codigo_conciliacion_efectivo='111',
+        )
+        sync_payment_distribution(pago)
+        EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='manual',
+            entidad_origen_id='1',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100111.00',
+            payload_resumen={},
+            idempotency_key='rep-fin-missing-asiento',
+            estado_contable='contabilizado',
+        )
+        CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='aprobado',
+        )
+
+        response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.accounting_entry_missing')
 
     def test_partner_summary_returns_shares_and_direct_properties(self):
         socio, _, _, _, contrato, _ = self._create_context('PARTNER')
@@ -448,19 +518,54 @@ class ReportingAPITests(APITestCase):
 
     def test_period_books_summary_returns_snapshot_payloads(self):
         _, empresa, _, _, _, _ = self._create_context('BOOKS')
-        LibroDiario.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='preparado', resumen={'asientos': []})
-        LibroMayor.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='preparado', resumen={'cuentas': []})
+        CierreMensualContable.objects.create(empresa=empresa, anio=2026, mes=1, estado='aprobado')
+        LibroDiario.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'asientos': [{'id': 1}]})
+        LibroMayor.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'cuentas': [{'id': 1}]})
         BalanceComprobacion.objects.create(
             empresa=empresa,
             periodo='2026-01',
-            estado_snapshot='preparado',
+            estado_snapshot='aprobado',
             resumen={'total_debe': '100.00', 'total_haber': '100.00', 'cuadrado': True},
         )
 
         response = self.client.get(f"{reverse('reporting-libros-periodo')}?empresa_id={empresa.id}&periodo=2026-01")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['libro_diario']['estado_snapshot'], 'preparado')
+        self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
+        self.assertEqual(response.data['libro_diario']['estado_snapshot'], 'aprobado')
         self.assertTrue(response.data['balance_comprobacion']['resumen']['cuadrado'])
+
+    def test_period_books_summary_blocks_unapproved_snapshots(self):
+        _, empresa, _, _, _, _ = self._create_context('BOOKSBLOCK')
+        CierreMensualContable.objects.create(empresa=empresa, anio=2026, mes=1, estado='aprobado')
+        LibroDiario.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='preparado', resumen={'asientos': [{'id': 1}]})
+        LibroMayor.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'cuentas': [{'id': 1}]})
+        BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            resumen={'total_debe': '100.00', 'total_haber': '100.00', 'cuadrado': True},
+        )
+
+        response = self.client.get(f"{reverse('reporting-libros-periodo')}?empresa_id={empresa.id}&periodo=2026-01")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.books_snapshot_not_approved')
+
+    def test_period_books_summary_blocks_without_approved_close(self):
+        _, empresa, _, _, _, _ = self._create_context('BOOKSCLOSE')
+        LibroDiario.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'asientos': [{'id': 1}]})
+        LibroMayor.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'cuentas': [{'id': 1}]})
+        BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            resumen={'total_debe': '100.00', 'total_haber': '100.00', 'cuadrado': True},
+        )
+
+        response = self.client.get(f"{reverse('reporting-libros-periodo')}?empresa_id={empresa.id}&periodo=2026-01")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.books_close_missing')
 
     def test_annual_tax_summary_returns_process_ddjj_and_f22(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUAL')
@@ -468,7 +573,7 @@ class ReportingAPITests(APITestCase):
             empresa=empresa,
             anio_tributario=2027,
             estado='preparado',
-            resumen_anual={'total_obligaciones': 12},
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
         )
         DDJJPreparacionAnual.objects.create(
             empresa=empresa,
@@ -482,7 +587,7 @@ class ReportingAPITests(APITestCase):
             proceso_renta_anual=process,
             anio_tributario=2027,
             estado_preparacion='preparado',
-            resumen_paquete={'ddjj_habilitadas': ['1887']},
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
         )
         F22PreparacionAnual.objects.create(
             empresa=empresa,
@@ -496,14 +601,29 @@ class ReportingAPITests(APITestCase):
             proceso_renta_anual=process,
             anio_tributario=2027,
             estado_preparacion='preparado',
-            resumen_f22={'base': '100.00'},
+            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
         )
 
         response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
         self.assertEqual(len(response.data['procesos_renta']), 1)
         self.assertEqual(len(response.data['ddjj_preparadas']), 1)
         self.assertEqual(len(response.data['f22_preparados']), 1)
+
+    def test_annual_tax_summary_blocks_incomplete_annual_summary(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALBLOCK')
+        ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'total_obligaciones': 12},
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_summary_incomplete')
 
     def test_migration_manual_resolution_summary_returns_category_breakdown(self):
         ManualResolution.objects.create(

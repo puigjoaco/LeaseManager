@@ -1166,10 +1166,18 @@ type ExportacionSensiblePreview = {
   payload: unknown
 } | null
 
+type ReportTraceability = {
+  estado: string
+  tipo_reporte: string
+  fuentes: string[]
+  controles: Record<string, string | number | boolean>
+}
+
 type ReportingFinancialSummary = {
   anio: number
   mes: number
   empresa_id: number | null
+  trazabilidad: ReportTraceability
   pagos_generados: number
   monto_facturable_total_clp: string
   monto_cobrado_total_clp: string
@@ -1193,6 +1201,7 @@ type ReportingPartnerSummary = {
 type ReportingBooksSummary = {
   empresa_id: number
   periodo: string
+  trazabilidad: ReportTraceability
   libro_diario: { id: number | null; estado_snapshot: string | null; storage_ref: string; resumen: Record<string, unknown> }
   libro_mayor: { id: number | null; estado_snapshot: string | null; storage_ref: string; resumen: Record<string, unknown> }
   balance_comprobacion: { id: number | null; estado_snapshot: string | null; storage_ref: string; resumen: Record<string, unknown> }
@@ -1201,6 +1210,7 @@ type ReportingBooksSummary = {
 type ReportingAnnualSummary = {
   anio_tributario: number
   empresa_id: number | null
+  trazabilidad: ReportTraceability
   procesos_renta: Array<{ empresa_id: number; estado: string; fecha_preparacion: string | null; resumen_anual: Record<string, unknown> }>
   ddjj_preparadas: Array<{ empresa_id: number; estado_preparacion: string; paquete_ref: string; resumen_paquete: Record<string, unknown> }>
   f22_preparados: Array<{ empresa_id: number; estado_preparacion: string; borrador_ref: string; resumen_f22: Record<string, unknown> }>

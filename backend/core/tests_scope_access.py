@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 
 from cobranza.models import PagoMensual
 from cobranza.services import sync_payment_distribution
-from contabilidad.models import ConfiguracionFiscalEmpresa, RegimenTributarioEmpresa
+from contabilidad.models import CierreMensualContable, ConfiguracionFiscalEmpresa, RegimenTributarioEmpresa
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
@@ -217,6 +217,12 @@ class ScopeFilteringAPITests(APITestCase):
         )
         self._assign_company_scope(user, self.reviewer_role, self.company_b)
         self.client.force_authenticate(user)
+        CierreMensualContable.objects.create(
+            empresa=self.company_b,
+            anio=2026,
+            mes=1,
+            estado='aprobado',
+        )
 
         configs = self.client.get(reverse('contabilidad-config-list'))
         financial = self.client.get(
@@ -230,6 +236,7 @@ class ScopeFilteringAPITests(APITestCase):
 
         self.assertEqual(financial.status_code, status.HTTP_200_OK)
         self.assertEqual(financial.data['empresa_id'], self.company_b.id)
+        self.assertEqual(financial.data['trazabilidad']['estado'], 'verificado')
         self.assertEqual(financial.data['pagos_generados'], 1)
         self.assertEqual(financial.data['monto_facturable_total_clp'], '100000.00')
         self.assertEqual(dashboard.status_code, status.HTTP_403_FORBIDDEN)

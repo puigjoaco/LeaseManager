@@ -259,6 +259,16 @@
   border-bottom: 1px solid #ecefe8;
 }
 
+.list-row span,
+.list-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.list-row strong {
+  text-align: right;
+}
+
 .list-row:last-child {
   border-bottom: none;
   padding-bottom: 0;
