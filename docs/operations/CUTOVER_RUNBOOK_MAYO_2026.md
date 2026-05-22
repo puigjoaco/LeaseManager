@@ -30,6 +30,9 @@ mismo.
 9. Confirmar que datos reales usados en pruebas estan autorizados.
 10. Confirmar que integraciones externas no enviaran mensajes o documentos
     accidentales.
+11. Confirmar que cualquier smoke publico fue solicitado con ambiente, URLs y
+    responsable autorizados. La suite local deterministica no ejecuta smoke
+    publico por defecto.
 
 ## Ejecucion controlada
 
@@ -40,7 +43,8 @@ mismo.
 5. Ejecutar backfills aprobados, si existen.
 6. Levantar servicios.
 7. Ejecutar healthcheck.
-8. Ejecutar smoke operativo.
+8. Ejecutar smoke operativo solo con autorizacion explicita:
+   `scripts/run-acceptance-workflows.ps1 -RunPublicSmoke -FrontendUrl <url> -ApiBaseUrl <url>`.
 9. Validar flujo minimo por rol.
 10. Validar conciliacion o datos contables de muestra autorizada.
 11. Validar documentos y reportes.
@@ -70,3 +74,13 @@ Cutover se considera listo solo cuando:
 - el responsable acepta el resultado;
 - existe ruta de soporte y continuidad;
 - el runbook queda actualizado con lo aprendido.
+
+## Comandos seguros
+
+- Acceptance deterministica local: `scripts/run-acceptance-workflows.ps1`.
+- Acceptance sin smoke, equivalente CI: `scripts/run-acceptance-workflows.ps1 -SkipSmoke`.
+- Smoke publico aislado: `scripts/run-acceptance-workflows.ps1 -OnlySmoke -FrontendUrl <url> -ApiBaseUrl <url>`.
+
+El smoke publico requiere URLs explicitas y el script Node rechaza destinos
+externos si no recibe `--allow-external`, que el wrapper solo agrega cuando se
+usa `-RunPublicSmoke` o `-OnlySmoke`.

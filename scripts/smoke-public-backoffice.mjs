@@ -4,8 +4,6 @@ import process from 'node:process';
 
 import { chromium } from 'playwright';
 
-const DEFAULT_FRONTEND_URL = 'https://leasemanager-backoffice.vercel.app/';
-const DEFAULT_API_BASE_URL = 'https://surprising-balance-production.up.railway.app';
 const DEFAULT_ACCOUNTS = [
   { label: 'admin', username: 'demo-admin', password: 'demo12345', displayName: 'Demo Administrador Global', waitFor: 'overview' },
   { label: 'operator', username: 'demo-operador', password: 'demo12345', displayName: 'Demo Operador de Cartera', waitFor: 'overview' },
@@ -15,15 +13,20 @@ const DEFAULT_ACCOUNTS = [
 
 function parseArgs(argv) {
   const options = {
-    frontendUrl: DEFAULT_FRONTEND_URL,
-    apiBaseUrl: DEFAULT_API_BASE_URL,
+    frontendUrl: '',
+    apiBaseUrl: '',
     accounts: [],
+    allowExternal: false,
     screenshotDir: path.resolve(process.cwd(), 'screenshots'),
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const next = argv[index + 1];
+    if (arg === '--allow-external') {
+      options.allowExternal = true;
+      continue;
+    }
     if (arg === '--frontend-url' && next) {
       options.frontendUrl = next;
       index += 1;
@@ -49,12 +52,33 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    throw new Error(`Unknown or incomplete argument: ${arg}`);
   }
 
+  validateTargetUrls(options);
   if (!options.accounts.length) {
     options.accounts = [...DEFAULT_ACCOUNTS];
   }
   return options;
+}
+
+function isLocalUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function validateTargetUrls(options) {
+  if (!options.frontendUrl || !options.apiBaseUrl) {
+    throw new Error('Explicit --frontend-url and --api-base-url are required.');
+  }
+  const targetsAreLocal = isLocalUrl(options.frontendUrl) && isLocalUrl(options.apiBaseUrl);
+  if (!targetsAreLocal && !options.allowExternal) {
+    throw new Error('External smoke targets require explicit --allow-external.');
+  }
 }
 
 async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
