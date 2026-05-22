@@ -32,6 +32,8 @@ SENSITIVE_REFERENCE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+AUTHORIZED_STAGE7_REPORTING_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+
 ANNUAL_TRACEABLE_STATES = {
     EstadoPreparacionTributaria.PREPARED,
     EstadoPreparacionTributaria.APPROVED,
@@ -268,8 +270,16 @@ def collect_stage7_reporting_readiness(
         'backoffice_visual_ref': _non_sensitive_reference(backoffice_visual_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE7_REPORTING_SOURCE_KINDS
 
     issues: list[dict[str, Any]] = []
+    if not source_kind_authorized_for_close:
+        issues.append(
+            _issue(
+                'stage7.reporting.source_kind_not_authorized',
+                'La readiness local de Etapa 7 Reporting no puede cerrar sin fuente snapshot_controlado o real_autorizado.',
+            )
+        )
     if approved_closes.count() == 0:
         issues.append(
             _issue(
@@ -521,6 +531,8 @@ def collect_stage7_reporting_readiness(
         'generated_at': timezone.now().isoformat(),
         'stage': 'Etapa 7 - Reporting trazable',
         'source_kind': source_kind,
+        'authorized_source_kinds': sorted(AUTHORIZED_STAGE7_REPORTING_SOURCE_KINDS),
+        'source_kind_authorized_for_close': source_kind_authorized_for_close,
         'classification': 'resuelto_confirmado' if ready else 'parcial',
         'ready_for_stage7_reporting': ready,
         'issue_counts': dict(sorted(issue_counts.items())),
@@ -565,6 +577,7 @@ def collect_stage7_reporting_readiness(
         'limitations': [
             'Auditoria local de solo lectura; no genera reportes publicos ni ejecuta smoke externo.',
             'No usa secretos, .env, datos reales, snapshots externos ni integraciones externas.',
+            'Local, fixture y demo solo diagnostican; el cierre exige source_kind snapshot_controlado o real_autorizado.',
             'No cierra Reporting sin configuracion fiscal activa por empresa y evidencia controlada de ledger, renta anual, APIs y visualizacion backoffice.',
         ],
     }
