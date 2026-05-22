@@ -26,6 +26,9 @@ Verificacion reproducible desde `main` vigente:
 
 - `scripts/run-stage1-snapshot-gate.ps1` contra SQLite local vacio migrado en
   `local-evidence/` falla correctamente con `stage1.data_missing`.
+- `scripts/run-acceptance-workflows.ps1` ejecuta el readiness local de Etapa 1
+  para proteger que la falta de fuente autorizada siga siendo
+  `bloqueado_dato_real` y no una solicitud repetida de secretos.
 - Resultado del auditor: `classification=bloqueado_dato_real`,
   `ready_for_stage1_close=false`, `has_required_stage1_data=false`.
 - El JSON de salida incluye `aggregate_classification`; en la verificacion

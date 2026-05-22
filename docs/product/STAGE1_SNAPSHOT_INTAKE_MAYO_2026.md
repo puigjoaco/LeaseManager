@@ -74,6 +74,10 @@ sea `classification=bloqueado_dato_real`, `ready_for_stage1_close=false` y
 `stage1.data_missing`. Si el gate cerrara con una fuente vacia, el readiness
 falla.
 
+El acceptance deterministico ejecuta este readiness local para comprobar que el
+wrapper sigue sano y que la ausencia de fuente autorizada queda registrada como
+bloqueo de datos, no como bloqueo estructural del proyecto.
+
 ## Criterio de cierre
 
 El JSON de salida debe indicar:

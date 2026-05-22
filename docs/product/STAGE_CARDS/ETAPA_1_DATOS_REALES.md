@@ -67,4 +67,8 @@ cd "D:/Proyectos/LeaseManager"
 .\scripts\run-stage1-local-readiness.ps1
 ```
 
+El release gate deterministico ejecuta esta verificacion local dentro de
+`scripts/run-acceptance-workflows.ps1` para proteger la regla anti-bucle: sin
+fuente autorizada, el resultado esperado es `bloqueado_dato_real`, no cierre.
+
 Procedimiento operativo: `docs/product/STAGE1_SNAPSHOT_INTAKE_MAYO_2026.md`.
