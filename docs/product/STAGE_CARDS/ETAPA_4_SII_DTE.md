@@ -28,6 +28,8 @@ produccion por defecto.
   gate antes de avanzar.
 - `F29Presentacion` y `PresentacionAnualFinal` no se registran desde el flujo
   local sin gate propio o reemision formal del set.
+- `audit_stage4_sii_readiness` consolida configuracion fiscal, capacidades SII,
+  DTE, F29 y preparacion anual sin conectar SII ni leer certificados.
 
 ## Salida
 
