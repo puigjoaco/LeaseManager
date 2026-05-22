@@ -41,6 +41,9 @@ mismo.
 14. Ejecutar guard local de readiness Etapa 7:
     `scripts/run-stage7-readiness-gate.ps1`. El cierre requiere ademas
     evidencia de restore, smoke publico autorizado y aceptacion final.
+15. Ejecutar auditoria local de readiness documental si el paquete incluye
+    documentos contractuales:
+    `backend\.venv\Scripts\python.exe backend\manage.py audit_document_readiness`.
 
 ## Ejecucion controlada
 
@@ -96,6 +99,8 @@ Cutover se considera listo solo cuando:
   `scripts/run-stage7-readiness-gate.ps1`.
 - Auditoria local de observabilidad operativa:
   `backend\.venv\Scripts\python.exe backend\manage.py audit_operational_observability`.
+- Auditoria local de readiness documental:
+  `backend\.venv\Scripts\python.exe backend\manage.py audit_document_readiness`.
 - Registrar senales runtime locales/controladas:
   `backend\.venv\Scripts\python.exe backend\manage.py record_operational_runtime_signal --signal-key <key> --status <status> --evidence-ref <ref> --value-json <json>`.
 
@@ -116,6 +121,10 @@ argumentos debe quedar `classification=parcial`: no ejecuta smoke publico,
 no conecta proveedores externos y no cierra Operacion productiva sin
 `restore_verified=true`, smoke autorizado, observabilidad lista y aceptacion
 final no sensible.
+
+La auditoria documental es read-only: no abre storage ni PDFs reales. Consolida
+politicas activas por tipo documental, metadata obligatoria, referencias no
+sensibles a politica final, responsables y prueba PDF controlada.
 
 Las senales runtime obligatorias son `monthly_calculation_latency`,
 `queue_runtime`, `failed_webhooks` y `failed_crons`. Deben registrarse con

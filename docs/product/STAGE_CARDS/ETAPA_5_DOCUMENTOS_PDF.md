@@ -20,6 +20,9 @@ firma y notaria trazables.
 - Formalizacion requiere politica activa por tipo documental.
 - Si la politica exige notaria, el comprobante notarial debe pertenecer al
   mismo expediente y estar emitido, formalizado o archivado.
+- Auditoria local `audit_document_readiness` debe consolidar politicas activas
+  por tipo documental, metadata PDF, evidencia controlada, responsables y
+  faltantes antes de declarar cierre.
 
 ## Salida
 

@@ -1,0 +1,218 @@
+from collections import Counter
+import re
+
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+from .models import (
+    DocumentoEmitido,
+    EstadoDocumento,
+    EstadoPoliticaFirma,
+    PoliticaFirmaYNotaria,
+    TipoDocumental,
+    is_pdf_storage_ref,
+)
+
+
+SENSITIVE_REFERENCE_PATTERN = re.compile(
+    r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
+    re.IGNORECASE,
+)
+
+REQUIRED_POLICY_TYPES = set(TipoDocumental.values)
+
+
+def _non_sensitive_reference(value):
+    normalized = str(value or '').strip()
+    return bool(normalized) and not SENSITIVE_REFERENCE_PATTERN.search(normalized)
+
+
+def _issue(code, message, count=1, severity='blocking'):
+    return {
+        'code': code,
+        'severity': severity,
+        'count': int(count),
+        'message': message,
+    }
+
+
+def _count_invalid(queryset):
+    invalid_count = 0
+    for item in queryset:
+        try:
+            item.full_clean()
+        except ValidationError:
+            invalid_count += 1
+    return invalid_count
+
+
+def _document_missing_metadata(document):
+    return not all(
+        [
+            str(document.version_plantilla or '').strip(),
+            str(document.checksum or '').strip(),
+            document.fecha_carga,
+            str(document.origen or '').strip(),
+            document.expediente_id,
+            str(document.storage_ref or '').strip(),
+        ]
+    )
+
+
+def _count_by(queryset, field_name):
+    counter = Counter()
+    for row in queryset.values(field_name):
+        counter[row[field_name] or 'sin_valor'] += 1
+    return dict(sorted(counter.items()))
+
+
+def collect_document_readiness(*, final_policy_ref='', responsible_ref='', controlled_pdf_ref='', source_kind='local'):
+    active_policies = PoliticaFirmaYNotaria.objects.filter(estado=EstadoPoliticaFirma.ACTIVE)
+    active_policy_types = set(active_policies.values_list('tipo_documental', flat=True))
+    missing_policy_types = sorted(REQUIRED_POLICY_TYPES - active_policy_types)
+    invalid_active_policies = _count_invalid(active_policies)
+
+    documents = DocumentoEmitido.objects.select_related('expediente', 'comprobante_notarial').all()
+    documents_without_policy = documents.exclude(tipo_documental__in=active_policy_types).count()
+    non_pdf_documents = 0
+    documents_missing_metadata = 0
+    invalid_formalized_documents = 0
+    notary_required_policies = set(
+        active_policies.filter(requiere_notaria=True).values_list('tipo_documental', flat=True)
+    )
+    formalized_without_notary_receipt = 0
+
+    for document in documents:
+        if not is_pdf_storage_ref(document.storage_ref):
+            non_pdf_documents += 1
+        if _document_missing_metadata(document):
+            documents_missing_metadata += 1
+        if document.estado == EstadoDocumento.FORMALIZED:
+            try:
+                document.full_clean()
+            except ValidationError:
+                invalid_formalized_documents += 1
+            if document.tipo_documental in notary_required_policies and not document.comprobante_notarial_id:
+                formalized_without_notary_receipt += 1
+
+    checks = {
+        'final_policy_ref': _non_sensitive_reference(final_policy_ref),
+        'responsible_ref': _non_sensitive_reference(responsible_ref),
+        'controlled_pdf_ref': _non_sensitive_reference(controlled_pdf_ref),
+    }
+
+    issues = []
+    if missing_policy_types:
+        issues.append(
+            _issue(
+                'documents.active_policy_missing',
+                'Faltan politicas activas de firma/notaria para tipos documentales canonicos.',
+                count=len(missing_policy_types),
+            )
+        )
+    if invalid_active_policies:
+        issues.append(
+            _issue(
+                'documents.active_policy_invalid',
+                'Existen politicas activas que no pasan validacion de dominio.',
+                count=invalid_active_policies,
+            )
+        )
+    if documents_without_policy:
+        issues.append(
+            _issue(
+                'documents.document_without_active_policy',
+                'Existen documentos emitidos sin politica activa para su tipo documental.',
+                count=documents_without_policy,
+            )
+        )
+    if non_pdf_documents:
+        issues.append(
+            _issue(
+                'documents.non_pdf_storage_ref',
+                'Existen documentos cuyo storage_ref no referencia PDF canonico.',
+                count=non_pdf_documents,
+            )
+        )
+    if documents_missing_metadata:
+        issues.append(
+            _issue(
+                'documents.metadata_missing',
+                'Existen documentos sin metadata obligatoria completa.',
+                count=documents_missing_metadata,
+            )
+        )
+    if invalid_formalized_documents:
+        issues.append(
+            _issue(
+                'documents.formalized_invalid',
+                'Existen documentos formalizados que no satisfacen firmas/notaria requeridas.',
+                count=invalid_formalized_documents,
+            )
+        )
+    if formalized_without_notary_receipt:
+        issues.append(
+            _issue(
+                'documents.notary_receipt_missing',
+                'Existen documentos formalizados con politica notarial sin comprobante asociado.',
+                count=formalized_without_notary_receipt,
+            )
+        )
+
+    for key, code, message in [
+        (
+            'final_policy_ref',
+            'documents.final_policy_ref_missing',
+            'Falta referencia no sensible a la politica final de firma/notaria.',
+        ),
+        (
+            'responsible_ref',
+            'documents.responsible_ref_missing',
+            'Falta referencia no sensible a responsables de operacion documental.',
+        ),
+        (
+            'controlled_pdf_ref',
+            'documents.controlled_pdf_ref_missing',
+            'Falta referencia no sensible a prueba PDF controlada.',
+        ),
+    ]:
+        if not checks[key]:
+            issues.append(_issue(code, message))
+
+    issue_counts = Counter(issue['severity'] for issue in issues)
+    ready = issue_counts.get('blocking', 0) == 0
+
+    return {
+        'generated_at': timezone.now().isoformat(),
+        'stage': 'Etapa 5 - Documentos PDF y firma',
+        'source_kind': source_kind,
+        'classification': 'resuelto_confirmado' if ready else 'parcial',
+        'ready_for_stage5_documents': ready,
+        'issue_counts': dict(sorted(issue_counts.items())),
+        'issues': issues,
+        'sections': {
+            'policy': {
+                'required_policy_types': sorted(REQUIRED_POLICY_TYPES),
+                'active_policy_types': sorted(active_policy_types),
+                'missing_policy_types': missing_policy_types,
+                'active_policies_total': active_policies.count(),
+                'invalid_active_policies': invalid_active_policies,
+            },
+            'documents': {
+                'total': documents.count(),
+                'by_state': _count_by(documents, 'estado'),
+                'by_type': _count_by(documents, 'tipo_documental'),
+                'without_active_policy': documents_without_policy,
+                'non_pdf_storage_refs': non_pdf_documents,
+                'missing_metadata': documents_missing_metadata,
+                'invalid_formalized_documents': invalid_formalized_documents,
+                'formalized_without_notary_receipt': formalized_without_notary_receipt,
+            },
+            'final_evidence': checks,
+        },
+        'limitations': [
+            'Auditoria local de solo lectura; no lee storage ni documentos productivos.',
+            'No usa secretos, .env, datos reales ni integraciones externas.',
+            'No reemplaza la decision final de politica de firma/notaria ni la prueba PDF controlada.',
+        ],
+    }
