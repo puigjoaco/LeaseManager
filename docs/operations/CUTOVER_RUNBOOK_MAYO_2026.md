@@ -38,6 +38,9 @@ mismo.
     backup/snapshot autorizado.
 13. Ejecutar auditoria local de observabilidad:
     `backend\.venv\Scripts\python.exe backend\manage.py audit_operational_observability`.
+14. Ejecutar guard local de readiness Etapa 7:
+    `scripts/run-stage7-readiness-gate.ps1`. El cierre requiere ademas
+    evidencia de restore, smoke publico autorizado y aceptacion final.
 
 ## Ejecucion controlada
 
@@ -89,6 +92,8 @@ Cutover se considera listo solo cuando:
 - Plan de restore local sin tocar Docker: `scripts/run-postgres-restore-rehearsal.ps1 -PlanOnly`.
 - Rehearsal PostgreSQL local con fixture sintetico:
   `scripts/run-postgres-restore-rehearsal.ps1`.
+- Guard local de readiness Etapa 7:
+  `scripts/run-stage7-readiness-gate.ps1`.
 - Auditoria local de observabilidad operativa:
   `backend\.venv\Scripts\python.exe backend\manage.py audit_operational_observability`.
 - Registrar senales runtime locales/controladas:
@@ -105,6 +110,12 @@ y no cierra Operacion productiva sin restore de backup/snapshot autorizado.
 La auditoria de observabilidad es read-only: agrega estado de gates,
 integraciones, backlogs operativos y cobertura minima de senales runtime. No
 conecta proveedores externos y no reemplaza monitoreo productivo.
+
+El guard local de readiness Etapa 7 es read-only y consolida evidencias. Sin
+argumentos debe quedar `classification=parcial`: no ejecuta smoke publico,
+no conecta proveedores externos y no cierra Operacion productiva sin
+`restore_verified=true`, smoke autorizado, observabilidad lista y aceptacion
+final no sensible.
 
 Las senales runtime obligatorias son `monthly_calculation_latency`,
 `queue_runtime`, `failed_webhooks` y `failed_crons`. Deben registrarse con
