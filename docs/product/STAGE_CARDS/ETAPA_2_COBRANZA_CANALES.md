@@ -20,31 +20,34 @@ condicionados sin envios reales accidentales.
   `SourceLabel` y `AuthorizationRef` no sensibles; auditorias `local`,
   `fixture` o `demo` solo preparan y diagnostican.
 - Envio externo cerrado por defecto.
-- Prueba aislada de correos/WebPay.
+- Prueba aislada de correos/WebPay con referencias no sensibles.
 - Evidencia de auditoria por operacion critica.
 - Registro manual de envio solo con `external_ref` trazable no sensible y
   revalidacion del gate abierto, identidad activa, destinatario y mandato
   operativo activo.
 - Email cerrado/condicionado por defecto: un gate `Email.Salida` abierto
   requiere `evidencia_ref`, referencia de prueba aislada/envio y referencia
-  OAuth/credencial validada; preparar o registrar envio revalida esas
-  referencias antes de permitir operacion manual controlada. El cierre local
-  exige `IdentidadDeEnvio` Email activa y `AsignacionCanalOperacion` activa
-  sobre mandato operativo activo; el sistema no inventa remitente sustituto.
+  OAuth/credencial validada, todas no sensibles; preparar o registrar envio
+  revalida esas referencias antes de permitir operacion manual controlada. El
+  cierre local exige `IdentidadDeEnvio` Email activa y
+  `AsignacionCanalOperacion` activa sobre mandato operativo activo; el sistema
+  no inventa remitente sustituto.
 - WhatsApp cerrado por defecto: requiere opt-in con evidencia, template
-  aprobado registrado en el gate, ventana `08:00-21:00 America/Santiago`,
-  identidad activa y contacto no bloqueado. Si el gate WhatsApp queda abierto,
-  el readiness exige identidad y asignacion WhatsApp activas.
+  aprobado registrado en el gate sin refs sensibles, ventana `08:00-21:00
+  America/Santiago`, identidad activa y contacto no bloqueado. Si el gate
+  WhatsApp queda abierto, el readiness exige identidad y asignacion WhatsApp
+  activas.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
-  `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y evidencia;
-  confirmar manualmente requiere `external_ref` trazable no sensible y
-  `fecha_pago_webpay` diferenciada. Ningun flujo llama Transbank ni marca pago
-  confirmado sin revalidar el gate.
+  `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y
+  `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`
+  trazable no sensible y `fecha_pago_webpay` diferenciada. Ningun flujo llama
+  Transbank ni marca pago confirmado sin revalidar el gate.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   identidades/asignaciones de canal, gates Email/WhatsApp/WebPay, mensajes
   enviados/preparados e intentos WebPay, incluyendo deteccion de
-  `external_ref` o `return_url_ref` sensible, sin enviar mensajes ni conectar
-  proveedores externos. Para cierre debe ejecutarse con `--source-kind
+  refs sensibles en gates, `external_ref` o `return_url_ref` sensible, sin
+  enviar mensajes ni conectar proveedores externos. Para cierre debe ejecutarse
+  con `--source-kind
   snapshot_controlado` o `--source-kind real_autorizado`; la fuente local no
   puede marcar `ready_for_stage2_cobranza=true`.
 - Wrapper reproducible:

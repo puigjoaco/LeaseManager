@@ -443,12 +443,32 @@ class CobranzaAPITests(APITestCase):
         self.assertIn('requiere evidencia_ref', response.data['motivo_bloqueo'])
         self.assertEqual(IntentoPagoWebPay.objects.count(), 1)
 
+    def test_webpay_gate_rejects_sensitive_references(self):
+        sensitive_evidence_gate = GateCobroExterno(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='https://transbank.example.test/token/secret',
+        )
+        with self.assertRaises(ValidationError) as evidence_error:
+            sensitive_evidence_gate.full_clean()
+        self.assertIn('evidencia_ref', evidence_error.exception.message_dict)
+
+        sensitive_restriction_gate = GateCobroExterno(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.CONDITIONED,
+            evidencia_ref='webpay-gate-evidence-controlled',
+            restricciones_operativas={'proof_ref': 'https://transbank.example.test/proof?token=secret'},
+        )
+        with self.assertRaises(ValidationError) as restriction_error:
+            sensitive_restriction_gate.full_clean()
+        self.assertIn('restricciones_operativas', restriction_error.exception.message_dict)
+
     def test_webpay_prepare_open_gate_creates_local_intent_without_closing_payment(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-PREP')
         gate = GateCobroExterno.objects.create(
             provider_key='transbank_webpay',
             estado_gate=EstadoGateCobroExterno.OPEN,
-            evidencia_ref='evidence://webpay-sandbox-ok',
+            evidencia_ref='webpay-sandbox-evidence-ok',
         )
 
         response = self.client.post(
@@ -472,7 +492,7 @@ class CobranzaAPITests(APITestCase):
         gate = GateCobroExterno.objects.create(
             provider_key='transbank_webpay',
             estado_gate=EstadoGateCobroExterno.OPEN,
-            evidencia_ref='evidence://webpay-sandbox-ok',
+            evidencia_ref='webpay-sandbox-evidence-ok',
         )
 
         response = self.client.post(
@@ -492,7 +512,7 @@ class CobranzaAPITests(APITestCase):
         gate = GateCobroExterno.objects.create(
             provider_key='transbank_webpay',
             estado_gate=EstadoGateCobroExterno.OPEN,
-            evidencia_ref='evidence://webpay-sandbox-ok',
+            evidencia_ref='webpay-sandbox-evidence-ok',
         )
         intent = self.client.post(
             reverse('cobranza-webpay-prepare', args=[payment.pk]),
@@ -516,7 +536,7 @@ class CobranzaAPITests(APITestCase):
         gate = GateCobroExterno.objects.create(
             provider_key='transbank_webpay',
             estado_gate=EstadoGateCobroExterno.OPEN,
-            evidencia_ref='evidence://webpay-sandbox-ok',
+            evidencia_ref='webpay-sandbox-evidence-ok',
         )
         intent = self.client.post(
             reverse('cobranza-webpay-prepare', args=[payment.pk]),
@@ -547,7 +567,7 @@ class CobranzaAPITests(APITestCase):
         gate = GateCobroExterno.objects.create(
             provider_key='transbank_webpay',
             estado_gate=EstadoGateCobroExterno.OPEN,
-            evidencia_ref='evidence://webpay-sandbox-ok',
+            evidencia_ref='webpay-sandbox-evidence-ok',
         )
         intent = self.client.post(
             reverse('cobranza-webpay-prepare', args=[payment.pk]),

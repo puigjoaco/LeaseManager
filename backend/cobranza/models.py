@@ -6,7 +6,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator, RegexVa
 from django.db import models
 
 from contratos.models import Contrato, MonedaBaseContrato, PeriodoContractual
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from patrimonio.models import Empresa, Socio
 
 
@@ -200,8 +200,18 @@ class GateCobroExterno(TimestampedModel):
 
     def clean(self):
         super().clean()
-        if self.estado_gate == EstadoGateCobroExterno.OPEN and not self.evidencia_ref.strip():
-            raise ValidationError({'evidencia_ref': 'Un gate de cobro externo abierto requiere evidencia_ref.'})
+        if self.evidencia_ref.strip() and not is_non_sensitive_reference(self.evidencia_ref):
+            raise ValidationError({'evidencia_ref': 'evidencia_ref debe ser una referencia no sensible.'})
+        if contains_sensitive_reference(self.restricciones_operativas):
+            raise ValidationError(
+                {
+                    'restricciones_operativas': (
+                        'restricciones_operativas no debe contener URLs, tokens, credenciales ni correos.'
+                    )
+                }
+            )
+        if self.estado_gate == EstadoGateCobroExterno.OPEN and not is_non_sensitive_reference(self.evidencia_ref):
+            raise ValidationError({'evidencia_ref': 'Un gate de cobro externo abierto requiere evidencia_ref no sensible.'})
 
 
 class IntentoPagoWebPay(TimestampedModel):
