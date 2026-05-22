@@ -20,6 +20,12 @@ class Command(BaseCommand):
         parser.add_argument('--status', required=True, choices=RuntimeSignalStatus.values)
         parser.add_argument('--source-kind', default=RuntimeSignalSourceKind.LOCAL, choices=RuntimeSignalSourceKind.values)
         parser.add_argument('--evidence-ref', default='', help='Referencia trazable no sensible de la medicion.')
+        parser.add_argument('--source-label', default='', help='Etiqueta no sensible de la fuente runtime autorizada.')
+        parser.add_argument(
+            '--authorization-ref',
+            default='',
+            help='Referencia no sensible a la autorizacion de uso de la medicion runtime.',
+        )
         parser.add_argument('--value-json', default='{}', help='Payload JSON no sensible con el resultado observado.')
         parser.add_argument('--notes', default='', help='Nota operativa no sensible.')
 
@@ -39,6 +45,8 @@ class Command(BaseCommand):
         signal.source_kind = options['source_kind']
         signal.value = value
         signal.evidence_ref = options['evidence_ref']
+        signal.source_label = options['source_label']
+        signal.authorization_ref = options['authorization_ref']
         signal.notes = options['notes']
         signal.observed_at = timezone.now()
         try:
@@ -55,6 +63,10 @@ class Command(BaseCommand):
                     'source_kind': signal.source_kind,
                     'observed_at': signal.observed_at.isoformat(),
                     'evidence_ref': signal.evidence_ref,
+                    'source_trace': {
+                        'source_label': bool(signal.source_label.strip()),
+                        'authorization_ref': bool(signal.authorization_ref.strip()),
+                    },
                     'value': signal.value,
                 },
                 indent=2,

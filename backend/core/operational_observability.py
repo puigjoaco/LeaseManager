@@ -30,6 +30,7 @@ from .models import (
     RuntimeSignalKey,
     RuntimeSignalSourceKind,
     RuntimeSignalStatus,
+    SENSITIVE_EVIDENCE_REF_PATTERN,
 )
 
 
@@ -43,34 +44,50 @@ REQUIRED_RUNTIME_SIGNALS = {
     RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY: {
         'missing_code': 'observability.monthly_latency_metric_missing',
         'attention_code': 'observability.monthly_latency_metric_attention',
+        'evidence_code': 'observability.monthly_latency_metric_evidence_ref_missing',
         'source_code': 'observability.monthly_latency_metric_source_not_authorized',
+        'trace_code': 'observability.monthly_latency_metric_source_trace_missing',
         'missing_message': 'No existe metrica persistida para latencia de calculo mensual.',
         'attention_message': 'La metrica de latencia de calculo mensual requiere atencion.',
+        'evidence_message': 'La metrica de latencia de calculo mensual requiere evidencia_ref no sensible.',
         'source_message': 'La metrica de latencia de calculo mensual requiere fuente snapshot_controlado o real_autorizado para cierre.',
+        'trace_message': 'La metrica de latencia de calculo mensual requiere source_label y authorization_ref no sensibles para cierre.',
     },
     RuntimeSignalKey.QUEUE_RUNTIME: {
         'missing_code': 'observability.queue_runtime_metric_missing',
         'attention_code': 'observability.queue_runtime_metric_attention',
+        'evidence_code': 'observability.queue_runtime_metric_evidence_ref_missing',
         'source_code': 'observability.queue_runtime_metric_source_not_authorized',
+        'trace_code': 'observability.queue_runtime_metric_source_trace_missing',
         'missing_message': 'La auditoria local solo verifica configuracion de broker; falta metrica runtime de colas/tareas.',
         'attention_message': 'La metrica runtime de colas/tareas requiere atencion.',
+        'evidence_message': 'La metrica runtime de colas/tareas requiere evidencia_ref no sensible.',
         'source_message': 'La metrica runtime de colas/tareas requiere fuente snapshot_controlado o real_autorizado para cierre.',
+        'trace_message': 'La metrica runtime de colas/tareas requiere source_label y authorization_ref no sensibles para cierre.',
     },
     RuntimeSignalKey.FAILED_WEBHOOKS: {
         'missing_code': 'observability.webhook_metric_missing',
         'attention_code': 'observability.webhook_metric_attention',
+        'evidence_code': 'observability.webhook_metric_evidence_ref_missing',
         'source_code': 'observability.webhook_metric_source_not_authorized',
+        'trace_code': 'observability.webhook_metric_source_trace_missing',
         'missing_message': 'No existe metrica persistida para webhooks fallidos.',
         'attention_message': 'La metrica de webhooks fallidos requiere atencion.',
+        'evidence_message': 'La metrica de webhooks fallidos requiere evidencia_ref no sensible.',
         'source_message': 'La metrica de webhooks fallidos requiere fuente snapshot_controlado o real_autorizado para cierre.',
+        'trace_message': 'La metrica de webhooks fallidos requiere source_label y authorization_ref no sensibles para cierre.',
     },
     RuntimeSignalKey.FAILED_CRONS: {
         'missing_code': 'observability.cron_metric_missing',
         'attention_code': 'observability.cron_metric_attention',
+        'evidence_code': 'observability.cron_metric_evidence_ref_missing',
         'source_code': 'observability.cron_metric_source_not_authorized',
+        'trace_code': 'observability.cron_metric_source_trace_missing',
         'missing_message': 'No existe metrica persistida para crons fallidos.',
         'attention_message': 'La metrica de crons fallidos requiere atencion.',
+        'evidence_message': 'La metrica de crons fallidos requiere evidencia_ref no sensible.',
         'source_message': 'La metrica de crons fallidos requiere fuente snapshot_controlado o real_autorizado para cierre.',
+        'trace_message': 'La metrica de crons fallidos requiere source_label y authorization_ref no sensibles para cierre.',
     },
 }
 
@@ -101,15 +118,35 @@ def _issue(code, message, count=1, severity='attention'):
     }
 
 
+def _non_sensitive_reference(value):
+    normalized = str(value or '').strip()
+    return bool(normalized) and not SENSITIVE_EVIDENCE_REF_PATTERN.search(normalized)
+
+
 def _runtime_signal_payload(signal):
     if signal is None:
-        return {'status': RuntimeSignalStatus.MISSING, 'observed_at': None, 'source_kind': None, 'evidence_ref': ''}
+        return {
+            'status': RuntimeSignalStatus.MISSING,
+            'observed_at': None,
+            'source_kind': None,
+            'evidence_ref': '',
+            'source_trace': {
+                'source_label': False,
+                'authorization_ref': False,
+            },
+            'value': {},
+        }
+    safe_evidence_ref = signal.evidence_ref if _non_sensitive_reference(signal.evidence_ref) else ''
     return {
         'status': signal.status,
         'observed_at': signal.observed_at.isoformat() if signal.observed_at else None,
         'source_kind': signal.source_kind,
-        'evidence_ref': signal.evidence_ref,
-        'value': signal.value if isinstance(signal.value, dict) else {},
+        'evidence_ref': safe_evidence_ref,
+        'source_trace': {
+            'source_label': _non_sensitive_reference(signal.source_label),
+            'authorization_ref': _non_sensitive_reference(signal.authorization_ref),
+        },
+        'value': _public_runtime_value(signal.signal_key, {'value': signal.value if isinstance(signal.value, dict) else {}}),
     }
 
 
@@ -141,6 +178,7 @@ def _public_runtime_signal_payload(signal_key, payload):
         'observed_at': payload.get('observed_at'),
         'source_kind': payload.get('source_kind'),
         'has_evidence_ref': bool(payload.get('evidence_ref')),
+        'source_trace': payload.get('source_trace') if isinstance(payload.get('source_trace'), dict) else {},
         'value': _public_runtime_value(signal_key, payload),
     }
 
@@ -187,8 +225,15 @@ def _collect_runtime_signals():
             runtime_issues.append(_issue(definition['missing_code'], definition['missing_message']))
         elif signal.status != RuntimeSignalStatus.OK:
             runtime_issues.append(_issue(definition['attention_code'], definition['attention_message']))
+        elif not _non_sensitive_reference(signal.evidence_ref):
+            runtime_issues.append(_issue(definition['evidence_code'], definition['evidence_message']))
         elif signal.source_kind not in AUTHORIZED_RUNTIME_SIGNAL_SOURCE_KINDS:
             runtime_issues.append(_issue(definition['source_code'], definition['source_message']))
+        elif not (
+            _non_sensitive_reference(signal.source_label)
+            and _non_sensitive_reference(signal.authorization_ref)
+        ):
+            runtime_issues.append(_issue(definition['trace_code'], definition['trace_message']))
         else:
             authorized_ok_signal_count += 1
 

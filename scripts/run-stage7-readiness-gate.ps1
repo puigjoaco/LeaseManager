@@ -443,6 +443,18 @@ if (
 ) {
     $observabilityRuntimeAuthorized = $observability.sections.runtime_signals.authorized_for_stage7_close -eq $true
 }
+if (
+    ($observability.PSObject.Properties.Name -contains 'sections') `
+    -and ($null -ne $observability.sections) `
+    -and ($observability.sections.PSObject.Properties.Name -contains 'runtime_signals') `
+    -and ($null -ne $observability.sections.runtime_signals)
+) {
+    foreach ($signalKey in @('monthly_calculation_latency', 'queue_runtime', 'failed_webhooks', 'failed_crons')) {
+        Assert-Condition ($observability.sections.runtime_signals.PSObject.Properties.Name -contains $signalKey) "La auditoria de observabilidad debe exponer $signalKey."
+        $runtimeSignal = $observability.sections.runtime_signals.$signalKey
+        Assert-Condition ($runtimeSignal.PSObject.Properties.Name -contains 'source_trace') "La senal runtime $signalKey debe exponer source_trace."
+    }
+}
 if ($observability.ready_for_stage7_observability -ne $true) {
     $issues += [ordered]@{
         code = 'stage7.observability_not_ready'
