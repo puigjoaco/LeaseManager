@@ -162,6 +162,7 @@ class Stage2CobranzaReadinessTests(TestCase):
 
     def _collect_with_final_refs(self):
         return collect_stage2_cobranza_readiness(
+            source_kind='snapshot_controlado',
             stage1_evidence_ref='stage1-snapshot-controlled-v1',
             email_proof_ref='email-proof-controlled-v1',
             webpay_proof_ref='webpay-proof-controlled-v1',
@@ -180,9 +181,10 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.email.active_assignment_missing', issue_codes)
         self.assertIn('stage2.webpay.open_gate_missing', issue_codes)
         self.assertIn('stage2.stage1_evidence_ref_missing', issue_codes)
+        self.assertIn('stage2.source_kind_not_authorized', issue_codes)
         self.assertNotIn('://', json.dumps(result))
 
-    def test_valid_local_matrix_and_non_sensitive_refs_can_pass_readiness(self):
+    def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         self._create_payment_matrix()
         self._create_valid_email_gate()
         self._create_valid_webpay_gate()
@@ -191,7 +193,27 @@ class Stage2CobranzaReadinessTests(TestCase):
 
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertTrue(result['ready_for_stage2_cobranza'])
+        self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_valid_local_matrix_and_refs_prepare_but_do_not_close_readiness(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+
+        result = collect_stage2_cobranza_readiness(
+            source_kind='local',
+            stage1_evidence_ref='stage1-snapshot-controlled-v1',
+            email_proof_ref='email-proof-controlled-v1',
+            webpay_proof_ref='webpay-proof-controlled-v1',
+            responsible_ref='stage2-responsibles-v1',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage2.source_kind_not_authorized', issue_codes)
 
     def test_email_gate_without_active_identity_or_assignment_is_blocking(self):
         self._create_payment_matrix()
@@ -283,6 +305,7 @@ class Stage2CobranzaReadinessTests(TestCase):
         self._create_valid_webpay_gate()
 
         result = collect_stage2_cobranza_readiness(
+            source_kind='snapshot_controlado',
             stage1_evidence_ref='https://example.com/stage1',
             email_proof_ref='email-proof-controlled-v1',
             webpay_proof_ref='webpay-proof-controlled-v1',

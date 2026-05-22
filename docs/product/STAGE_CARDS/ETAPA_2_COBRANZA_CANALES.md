@@ -16,6 +16,8 @@ condicionados sin envios reales accidentales.
 ## Gate
 
 - Datos de Etapa 1 confirmados.
+- Fuente de cierre `snapshot_controlado` o `real_autorizado`; auditorias
+  `local`, `fixture` o `demo` solo preparan y diagnostican.
 - Envio externo cerrado por defecto.
 - Prueba aislada de correos/WebPay.
 - Evidencia de auditoria por operacion critica.
@@ -38,7 +40,9 @@ condicionados sin envios reales accidentales.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   identidades/asignaciones de canal, gates Email/WhatsApp/WebPay, mensajes
   enviados/preparados e intentos WebPay sin enviar mensajes ni conectar
-  proveedores externos.
+  proveedores externos. Para cierre debe ejecutarse con `--source-kind
+  snapshot_controlado` o `--source-kind real_autorizado`; la fuente local no
+  puede marcar `ready_for_stage2_cobranza=true`.
 
 ## Salida
 
