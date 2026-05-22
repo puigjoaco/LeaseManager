@@ -2,6 +2,7 @@ param(
     [string]$FrontendUrl = '',
     [string]$ApiBaseUrl = '',
     [string]$BackendTestDb = '',
+    [string]$PythonExe = '',
     [switch]$OnlySmoke,
     [switch]$SkipSmoke,
     [switch]$RunPublicSmoke
@@ -24,8 +25,12 @@ function Assert-Condition($condition, $message) {
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendDir = Join-Path $repoRoot 'backend'
 $frontendDir = Join-Path $repoRoot 'frontend'
-$pythonExe = Join-Path $backendDir '.venv\Scripts\python.exe'
+$pythonExe = $PythonExe
+if ([string]::IsNullOrWhiteSpace($pythonExe)) {
+    $pythonExe = Join-Path $backendDir '.venv\Scripts\python.exe'
+}
 $smokeScript = Join-Path $PSScriptRoot 'smoke-public-backoffice.mjs'
+$stage7ReadinessScript = Join-Path $PSScriptRoot 'run-stage7-readiness-gate.ps1'
 
 $shouldRunPublicSmoke = $OnlySmoke -or $RunPublicSmoke
 
@@ -49,6 +54,7 @@ $testTargets = @(
     'users.tests.UserAuthAPITests',
     'core.tests.PlatformBootstrapAPITests',
     'core.tests.EffectiveRoleUtilityTests',
+    'core.tests_operational_observability',
     'core.tests_permissions.RolePermissionTests',
     'core.tests_scope_access.ScopeFilteringAPITests',
     'core.tests_stage1_matrix_audit.Stage1MatrixAuditTests',
@@ -104,6 +110,18 @@ if (-not $OnlySmoke) {
         $stage1Audit = $stage1AuditOutput | ConvertFrom-Json
         Assert-Condition ($stage1Audit.ready_for_stage1_close -eq $false) 'Una fuente local no evidencial no puede cerrar Etapa 1.'
         Assert-Condition ($stage1Audit.evidence_grade -eq $false) 'La auditoria local de Etapa 1 no debe marcar evidencia suficiente.'
+
+        Step "Stage 7 readiness guard"
+        Assert-Condition (Test-Path $stage7ReadinessScript) "No existe el guard de readiness Etapa 7 en $stage7ReadinessScript"
+        $stage7OutputPath = Join-Path $repoRoot 'local-evidence\stage7\acceptance\stage7_readiness_acceptance.json'
+        $stage7Output = & $stage7ReadinessScript -PythonExe $pythonExe -DatabaseUrl $BackendTestDb -OutputPath $stage7OutputPath -SkipMigrations | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage7-readiness-gate fallo.'
+        if ($stage7Output.Trim()) {
+            Write-Host $stage7Output
+        }
+        $stage7Readiness = Get-Content -LiteralPath $stage7OutputPath -Raw | ConvertFrom-Json
+        Assert-Condition ($stage7Readiness.ready_for_stage7_close -eq $false) 'El guard local no puede cerrar Operacion productiva sin restore, smoke y aceptacion.'
+        Assert-Condition ($stage7Readiness.classification -eq 'parcial') 'La readiness local Etapa 7 debe quedar parcial hasta evidencias externas/controladas.'
     }
     finally {
         Pop-Location

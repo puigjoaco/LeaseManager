@@ -29,6 +29,8 @@ runbook, smoke y aceptacion.
   fallidos y crons fallidos, con evidencia no sensible.
 - API/backoffice autenticados exponen observabilidad operativa de solo lectura
   con referencias sensibles redactadas.
+- Guard local de readiness Etapa 7 consolida observabilidad, restore, smoke
+  publico y aceptacion final sin ejecutar integraciones externas.
 - Smoke publico manual ejecutado con ambiente autorizado.
 - El smoke publico es opt-in: `run-acceptance-workflows.ps1` no toca URLs
   externas por defecto, requiere `-RunPublicSmoke` o `-OnlySmoke` y URLs
