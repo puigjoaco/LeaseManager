@@ -38,6 +38,8 @@ SENSITIVE_REFERENCE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+AUTHORIZED_STAGE5_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+
 
 def _non_sensitive_reference(value: str) -> bool:
     normalized = str(value or '').strip()
@@ -175,8 +177,16 @@ def collect_stage5_contabilidad_readiness(
         'reports_proof_ref': _non_sensitive_reference(reports_proof_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE5_SOURCE_KINDS
 
     issues: list[dict[str, Any]] = []
+    if not source_kind_authorized_for_close:
+        issues.append(
+            _issue(
+                'stage5.source_kind_not_authorized',
+                'La readiness local de Etapa 5 no puede cerrar Contabilidad sin fuente snapshot_controlado o real_autorizado.',
+            )
+        )
     if active_fiscal_configs.count() == 0:
         issues.append(
             _issue(
@@ -378,6 +388,8 @@ def collect_stage5_contabilidad_readiness(
         'generated_at': timezone.now().isoformat(),
         'stage': 'Etapa 5 - Cierre mensual y contabilidad',
         'source_kind': source_kind,
+        'authorized_source_kinds': sorted(AUTHORIZED_STAGE5_SOURCE_KINDS),
+        'source_kind_authorized_for_close': source_kind_authorized_for_close,
         'classification': 'resuelto_confirmado' if ready else 'parcial',
         'ready_for_stage5_contabilidad': ready,
         'issue_counts': dict(sorted(issue_counts.items())),
@@ -427,6 +439,7 @@ def collect_stage5_contabilidad_readiness(
         'limitations': [
             'Auditoria local de solo lectura; no presenta F29/F21 ni conecta SII.',
             'No usa secretos, .env, datos reales, banco real ni snapshots externos.',
+            'Local, fixture y demo solo diagnostican; el cierre exige source_kind snapshot_controlado o real_autorizado.',
             'No cierra Etapa 5 sin Conciliacion cerrada y evidencia controlada de ledger/reportes.',
         ],
     }
