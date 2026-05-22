@@ -41,6 +41,7 @@ $stage3ReadinessScript = Join-Path $PSScriptRoot 'run-stage3-readiness-gate.ps1'
 $stage4ReadinessScript = Join-Path $PSScriptRoot 'run-stage4-readiness-gate.ps1'
 $stage5ReadinessScript = Join-Path $PSScriptRoot 'run-stage5-readiness-gate.ps1'
 $stage5DocumentsReadinessScript = Join-Path $PSScriptRoot 'run-stage5-documents-readiness-gate.ps1'
+$stage6ReadinessScript = Join-Path $PSScriptRoot 'run-stage6-readiness-gate.ps1'
 $stage7ReadinessScript = Join-Path $PSScriptRoot 'run-stage7-readiness-gate.ps1'
 $repoHygieneScript = Join-Path $PSScriptRoot 'assert-repo-hygiene.ps1'
 
@@ -230,6 +231,22 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage5DocumentsReadiness.ready_for_stage5_documents -eq $false) 'El guard documental Etapa 5 local no puede cerrar Documentos.'
         Assert-Condition ($stage5DocumentsReadiness.classification -eq 'parcial') 'El guard documental Etapa 5 local debe quedar parcial.'
         Assert-Condition ($stage5DocumentsIssueCodes -contains 'documents.source_kind_not_authorized') 'El guard documental Etapa 5 local debe reportar source_kind_not_authorized.'
+
+        Step "Stage 6 readiness guard"
+        Assert-Condition (Test-Path $stage6ReadinessScript) "No existe el guard de readiness Etapa 6 en $stage6ReadinessScript"
+        $stage6OutputPath = Join-Path $repoRoot 'local-evidence\stage6\acceptance\stage6_readiness_acceptance.json'
+        $stage6Output = & $stage6ReadinessScript -PythonExe $pythonExe -OutputPath $stage6OutputPath | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage6-readiness-gate fallo.'
+        if ($stage6Output.Trim()) {
+            Write-Host $stage6Output
+        }
+        $stage6Readiness = Get-Content -LiteralPath $stage6OutputPath -Raw | ConvertFrom-Json
+        $stage6IssueCodes = @($stage6Readiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage6Readiness.source_kind -eq 'local') 'El guard Etapa 6 local debe declarar source_kind=local.'
+        Assert-Condition ($stage6Readiness.source_kind_authorized_for_close -eq $false) 'El guard Etapa 6 local no puede quedar autorizado para cierre.'
+        Assert-Condition ($stage6Readiness.ready_for_stage6_renta_anual -eq $false) 'El guard Etapa 6 local no puede cerrar Renta anual.'
+        Assert-Condition ($stage6Readiness.classification -eq 'parcial') 'El guard Etapa 6 local debe quedar parcial.'
+        Assert-Condition ($stage6IssueCodes -contains 'stage6.source_kind_not_authorized') 'El guard Etapa 6 local debe reportar source_kind_not_authorized.'
 
         Step "Stage 7 readiness guard"
         Assert-Condition (Test-Path $stage7ReadinessScript) "No existe el guard de readiness Etapa 7 en $stage7ReadinessScript"
