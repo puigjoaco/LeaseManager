@@ -144,7 +144,9 @@ prepara el gate, pero no reemplaza una evidencia de restore con
 un arreglo de resultados de smoke con cuatro roles OK no cierra Operacion
 productiva si no viene envuelto como evidencia de ambiente autorizado con
 `authorization_ref`, `environment_ref` y `target_ref`/`deployment_ref` no
-sensibles. Una referencia simple de aceptacion final prepara trazabilidad, pero
+sensibles. `responsible_ref` identifica al responsable operativo, pero no
+reemplaza `authorization_ref` en restore ni smoke. Una referencia simple de
+aceptacion final prepara trazabilidad, pero
 el cierre exige evidencia JSON con `accepted=true`,
 `source_kind`/`final_acceptance_source_kind` en
 `aceptacion_final_autorizada`, `final_acceptance_autorizada`,

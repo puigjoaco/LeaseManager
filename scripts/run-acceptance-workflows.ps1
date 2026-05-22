@@ -264,6 +264,64 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7Readiness.reporting.ready_for_stage7_reporting -eq $false) 'El guard local no puede cerrar Operacion productiva si Reporting no esta listo.'
         Assert-Condition ($stage7Readiness.reporting.source_kind_authorized_for_close -eq $false) 'Reporting local no debe quedar autorizado para cierre productivo.'
         Assert-Condition ($stage7IssueCodes -contains 'stage7.reporting_not_ready') 'El guard Etapa 7 debe bloquear cierre cuando Reporting sigue parcial.'
+
+        Step "Stage 7 explicit evidence authorization guard"
+        $stage7AcceptanceDir = Split-Path -Parent $stage7OutputPath
+        New-Item -ItemType Directory -Force -Path $stage7AcceptanceDir | Out-Null
+
+        $restoreMissingAuthorizationPath = Join-Path $stage7AcceptanceDir 'restore_missing_authorization_ref.json'
+        $smokeMissingAuthorizationPath = Join-Path $stage7AcceptanceDir 'smoke_missing_authorization_ref.json'
+        $finalAcceptanceAuthorizedPath = Join-Path $stage7AcceptanceDir 'final_acceptance_authorized.json'
+        $stage7AuthorizationOutputPath = Join-Path $stage7AcceptanceDir 'stage7_restore_smoke_missing_authorization_ref.json'
+
+        [ordered]@{
+            restore_verified = $true
+            source_kind = 'backup_autorizado'
+            responsible_ref = 'restore-owner-v1'
+            backup_ref = 'backup-snapshot-v1'
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $restoreMissingAuthorizationPath -Encoding UTF8
+
+        [ordered]@{
+            source_kind = 'public_smoke_autorizado'
+            responsible_ref = 'smoke-owner-v1'
+            environment_ref = 'staging-env-v1'
+            target_ref = 'deployment-target-v1'
+            results = @(
+                [ordered]@{ label = 'admin'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'operator'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'reviewer'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'partner'; ok = $true; authFlow = 'ui-login' }
+            )
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $smokeMissingAuthorizationPath -Encoding UTF8
+
+        [ordered]@{
+            accepted = $true
+            source_kind = 'aceptacion_final_autorizada'
+            authorization_ref = 'final-authorization-v1'
+            responsible_ref = 'final-owner-v1'
+            scope_ref = 'release-candidate-v1'
+            acceptance_ref = 'final-decision-v1'
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $finalAcceptanceAuthorizedPath -Encoding UTF8
+
+        $stage7AuthorizationOutput = & $stage7ReadinessScript `
+            -PythonExe $pythonExe `
+            -DatabaseUrl $BackendTestDb `
+            -OutputPath $stage7AuthorizationOutputPath `
+            -RestoreEvidencePath $restoreMissingAuthorizationPath `
+            -PublicSmokeEvidencePath $smokeMissingAuthorizationPath `
+            -FinalAcceptanceEvidencePath $finalAcceptanceAuthorizedPath `
+            -SkipMigrations | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage7-readiness-gate fallo al validar authorization_ref explicito.'
+        if ($stage7AuthorizationOutput.Trim()) {
+            Write-Host $stage7AuthorizationOutput
+        }
+
+        $stage7AuthorizationReadiness = Get-Content -LiteralPath $stage7AuthorizationOutputPath -Raw | ConvertFrom-Json
+        $stage7AuthorizationIssueCodes = @($stage7AuthorizationReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage7AuthorizationIssueCodes -contains 'stage7.restore_authorization_ref_missing') 'Restore con responsible_ref no debe pasar como authorization_ref.'
+        Assert-Condition ($stage7AuthorizationIssueCodes -contains 'stage7.public_smoke_authorization_ref_missing') 'Smoke con responsible_ref no debe pasar como authorization_ref.'
+        Assert-Condition ($stage7AuthorizationReadiness.restore_evidence.has_authorization_ref -eq $false) 'Restore debe marcar has_authorization_ref=false si solo tiene responsible_ref.'
+        Assert-Condition ($stage7AuthorizationReadiness.public_smoke_evidence.has_authorization_ref -eq $false) 'Smoke debe marcar has_authorization_ref=false si solo tiene responsible_ref.'
     }
     finally {
         Pop-Location

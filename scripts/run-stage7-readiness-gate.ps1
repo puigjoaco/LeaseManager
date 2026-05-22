@@ -108,7 +108,7 @@ function Test-AuthorizedRestoreEvidence($payload) {
     $sourceKind = Get-PayloadTextProperty $payload @('source_kind', 'restore_source_kind', 'source')
     $rehearsalKind = Get-PayloadTextProperty $payload @('rehearsal_kind')
     $mode = Get-PayloadTextProperty $payload @('mode')
-    $authorizationRef = Get-PayloadTextProperty $payload @('authorization_ref', 'responsible_ref')
+    $authorizationRef = Get-PayloadTextProperty $payload @('authorization_ref')
     $backupRef = Get-PayloadTextProperty $payload @('backup_ref', 'backup_evidence_ref', 'backup_file')
     $allowedSourceKinds = @('snapshot_controlado', 'real_autorizado', 'backup_autorizado', 'restore_autorizado')
     $verified = ($payload.PSObject.Properties.Name -contains 'restore_verified') -and $payload.restore_verified -eq $true
@@ -174,7 +174,7 @@ function Test-SmokeEvidence($payload) {
 function Test-AuthorizedSmokeEvidence($payload) {
     $sourceKind = Get-PayloadTextProperty $payload @('source_kind', 'smoke_source_kind', 'source')
     $mode = Get-PayloadTextProperty $payload @('mode')
-    $authorizationRef = Get-PayloadTextProperty $payload @('authorization_ref', 'responsible_ref')
+    $authorizationRef = Get-PayloadTextProperty $payload @('authorization_ref')
     $environmentRef = Get-PayloadTextProperty $payload @('environment_ref', 'environment_evidence_ref', 'deployment_environment_ref')
     $targetRef = Get-PayloadTextProperty $payload @('target_ref', 'target_evidence_ref', 'deployment_ref', 'base_url_ref')
     $allowedSourceKinds = @('public_smoke_autorizado', 'ambiente_autorizado', 'staging_autorizado', 'real_autorizado')
