@@ -40,10 +40,16 @@ def _validate_output_path(output_path: Path) -> None:
 
 
 class Command(BaseCommand):
-    help = 'Audita readiness local de Etapa 4 SII/DTE sin conectar SII ni usar certificados.'
+    help = 'Audita readiness de Etapa 4 SII/DTE sin conectar SII ni usar certificados.'
 
     def add_arguments(self, parser):
         parser.add_argument('--output', default='', help='Ruta opcional para escribir el JSON de auditoria.')
+        parser.add_argument('--source-label', default='', help='Etiqueta no sensible de la fuente auditada.')
+        parser.add_argument(
+            '--authorization-ref',
+            default='',
+            help='Referencia no sensible a la autorizacion de uso de la fuente evidencial.',
+        )
         parser.add_argument('--stage5-evidence-ref', default='', help='Referencia no sensible a ledger/cierre mensual.')
         parser.add_argument('--environment-proof-ref', default='', help='Referencia no sensible a ambiente/prueba SII.')
         parser.add_argument('--fiscal-rule-ref', default='', help='Referencia no sensible a regla fiscal validada.')
@@ -75,6 +81,8 @@ class Command(BaseCommand):
                 environment_proof_ref=options['environment_proof_ref'],
                 fiscal_rule_ref=options['fiscal_rule_ref'],
                 responsible_ref=options['responsible_ref'],
+                source_label=options['source_label'],
+                authorization_ref=options['authorization_ref'],
                 source_kind=options['source_kind'],
             )
         except (OperationalError, ProgrammingError) as error:

@@ -38,6 +38,7 @@ $smokeScript = Join-Path $PSScriptRoot 'smoke-public-backoffice.mjs'
 $stage1LocalReadinessScript = Join-Path $PSScriptRoot 'run-stage1-local-readiness.ps1'
 $stage2ReadinessScript = Join-Path $PSScriptRoot 'run-stage2-readiness-gate.ps1'
 $stage3ReadinessScript = Join-Path $PSScriptRoot 'run-stage3-readiness-gate.ps1'
+$stage4ReadinessScript = Join-Path $PSScriptRoot 'run-stage4-readiness-gate.ps1'
 $stage5ReadinessScript = Join-Path $PSScriptRoot 'run-stage5-readiness-gate.ps1'
 $stage5DocumentsReadinessScript = Join-Path $PSScriptRoot 'run-stage5-documents-readiness-gate.ps1'
 $stage7ReadinessScript = Join-Path $PSScriptRoot 'run-stage7-readiness-gate.ps1'
@@ -181,6 +182,22 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage3Readiness.ready_for_stage3_conciliacion -eq $false) 'El guard Etapa 3 local no puede cerrar Conciliacion.'
         Assert-Condition ($stage3Readiness.classification -eq 'parcial') 'El guard Etapa 3 local debe quedar parcial.'
         Assert-Condition ($stage3IssueCodes -contains 'stage3.source_kind_not_authorized') 'El guard Etapa 3 local debe reportar source_kind_not_authorized.'
+
+        Step "Stage 4 readiness guard"
+        Assert-Condition (Test-Path $stage4ReadinessScript) "No existe el guard de readiness Etapa 4 en $stage4ReadinessScript"
+        $stage4OutputPath = Join-Path $repoRoot 'local-evidence\stage4\acceptance\stage4_readiness_acceptance.json'
+        $stage4Output = & $stage4ReadinessScript -PythonExe $pythonExe -OutputPath $stage4OutputPath | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage4-readiness-gate fallo.'
+        if ($stage4Output.Trim()) {
+            Write-Host $stage4Output
+        }
+        $stage4Readiness = Get-Content -LiteralPath $stage4OutputPath -Raw | ConvertFrom-Json
+        $stage4IssueCodes = @($stage4Readiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage4Readiness.source_kind -eq 'local') 'El guard Etapa 4 local debe declarar source_kind=local.'
+        Assert-Condition ($stage4Readiness.source_kind_authorized_for_close -eq $false) 'El guard Etapa 4 local no puede quedar autorizado para cierre.'
+        Assert-Condition ($stage4Readiness.ready_for_stage4_sii -eq $false) 'El guard Etapa 4 local no puede cerrar SII.'
+        Assert-Condition ($stage4Readiness.classification -eq 'parcial') 'El guard Etapa 4 local debe quedar parcial.'
+        Assert-Condition ($stage4IssueCodes -contains 'stage4.source_kind_not_authorized') 'El guard Etapa 4 local debe reportar source_kind_not_authorized.'
 
         Step "Stage 5 readiness guard"
         Assert-Condition (Test-Path $stage5ReadinessScript) "No existe el guard de readiness Etapa 5 en $stage5ReadinessScript"
