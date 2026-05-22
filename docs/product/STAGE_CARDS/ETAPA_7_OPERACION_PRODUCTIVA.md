@@ -33,7 +33,11 @@ runbook, smoke y aceptacion.
 - API/backoffice autenticados exponen observabilidad operativa de solo lectura
   con referencias sensibles redactadas.
 - Guard local de readiness Etapa 7 consolida observabilidad, restore, smoke
-  publico y aceptacion final sin ejecutar integraciones externas.
+  publico, readiness de Reporting y aceptacion final sin ejecutar integraciones
+  externas.
+- El cierre productivo exige que Reporting este listo con `source_kind`
+  `snapshot_controlado` o `real_autorizado`; readiness local, fixture o demo
+  solo diagnostica.
 - Smoke publico manual ejecutado con ambiente autorizado.
 - El smoke publico es opt-in: `run-acceptance-workflows.ps1` no toca URLs
   externas por defecto, requiere `-RunPublicSmoke` o `-OnlySmoke` y URLs

@@ -153,8 +153,13 @@ if (-not $OnlySmoke) {
             Write-Host $stage7Output
         }
         $stage7Readiness = Get-Content -LiteralPath $stage7OutputPath -Raw | ConvertFrom-Json
+        $stage7IssueCodes = @($stage7Readiness.issues | ForEach-Object { $_.code })
         Assert-Condition ($stage7Readiness.ready_for_stage7_close -eq $false) 'El guard local no puede cerrar Operacion productiva sin restore, smoke y aceptacion.'
         Assert-Condition ($stage7Readiness.classification -eq 'parcial') 'La readiness local Etapa 7 debe quedar parcial hasta evidencias externas/controladas.'
+        Assert-Condition ($stage7Readiness.PSObject.Properties.Name -contains 'reporting') 'El guard Etapa 7 debe consolidar readiness de Reporting.'
+        Assert-Condition ($stage7Readiness.reporting.ready_for_stage7_reporting -eq $false) 'El guard local no puede cerrar Operacion productiva si Reporting no esta listo.'
+        Assert-Condition ($stage7Readiness.reporting.source_kind_authorized_for_close -eq $false) 'Reporting local no debe quedar autorizado para cierre productivo.'
+        Assert-Condition ($stage7IssueCodes -contains 'stage7.reporting_not_ready') 'El guard Etapa 7 debe bloquear cierre cuando Reporting sigue parcial.'
     }
     finally {
         Pop-Location
