@@ -16,8 +16,9 @@ condicionados sin envios reales accidentales.
 ## Gate
 
 - Datos de Etapa 1 confirmados.
-- Fuente de cierre `snapshot_controlado` o `real_autorizado`; auditorias
-  `local`, `fixture` o `demo` solo preparan y diagnostican.
+- Fuente de cierre `snapshot_controlado` o `real_autorizado`, con
+  `SourceLabel` y `AuthorizationRef` no sensibles; auditorias `local`,
+  `fixture` o `demo` solo preparan y diagnostican.
 - Envio externo cerrado por defecto.
 - Prueba aislada de correos/WebPay.
 - Evidencia de auditoria por operacion critica.
@@ -43,6 +44,20 @@ condicionados sin envios reales accidentales.
   proveedores externos. Para cierre debe ejecutarse con `--source-kind
   snapshot_controlado` o `--source-kind real_autorizado`; la fuente local no
   puede marcar `ready_for_stage2_cobranza=true`.
+- Wrapper reproducible:
+
+```powershell
+cd "D:/Proyectos/LeaseManager"
+.\scripts\run-stage2-readiness-gate.ps1
+```
+
+  La ejecucion local crea SQLite bajo `local-evidence/`, corre migraciones y
+  exige `source_kind=local`, `classification=parcial`,
+  `ready_for_stage2_cobranza=false` y `stage2.source_kind_not_authorized`.
+  Para cierre autorizado se debe usar el mismo wrapper con `-SourceKind
+  snapshot_controlado` o `-SourceKind real_autorizado`, `-SourceLabel`,
+  `-AuthorizationRef`, `-Stage1EvidenceRef`, `-EmailProofRef`,
+  `-WebPayProofRef`, `-ResponsibleRef` y `-RequireReady`.
 
 ## Salida
 

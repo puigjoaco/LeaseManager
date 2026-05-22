@@ -36,6 +36,7 @@ if ([string]::IsNullOrWhiteSpace($pythonExe)) {
 }
 $smokeScript = Join-Path $PSScriptRoot 'smoke-public-backoffice.mjs'
 $stage1LocalReadinessScript = Join-Path $PSScriptRoot 'run-stage1-local-readiness.ps1'
+$stage2ReadinessScript = Join-Path $PSScriptRoot 'run-stage2-readiness-gate.ps1'
 $stage7ReadinessScript = Join-Path $PSScriptRoot 'run-stage7-readiness-gate.ps1'
 $repoHygieneScript = Join-Path $PSScriptRoot 'assert-repo-hygiene.ps1'
 
@@ -145,6 +146,22 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage1LocalReadiness.ready_for_stage1_close -eq $false) 'El readiness local no puede cerrar Etapa 1.'
         Assert-Condition ($stage1LocalReadiness.classification -eq 'implementado_sin_evidencia') 'El readiness local debe quedar no evidencial.'
         Assert-Condition (-not ($stage1LocalIssueCodes -contains 'stage1.data_missing')) 'stage1.data_missing debe quedar reservado para el gate evidencial con require-data.'
+
+        Step "Stage 2 readiness guard"
+        Assert-Condition (Test-Path $stage2ReadinessScript) "No existe el guard de readiness Etapa 2 en $stage2ReadinessScript"
+        $stage2OutputPath = Join-Path $repoRoot 'local-evidence\stage2\acceptance\stage2_readiness_acceptance.json'
+        $stage2Output = & $stage2ReadinessScript -PythonExe $pythonExe -OutputPath $stage2OutputPath | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage2-readiness-gate fallo.'
+        if ($stage2Output.Trim()) {
+            Write-Host $stage2Output
+        }
+        $stage2Readiness = Get-Content -LiteralPath $stage2OutputPath -Raw | ConvertFrom-Json
+        $stage2IssueCodes = @($stage2Readiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage2Readiness.source_kind -eq 'local') 'El guard Etapa 2 local debe declarar source_kind=local.'
+        Assert-Condition ($stage2Readiness.source_kind_authorized_for_close -eq $false) 'El guard Etapa 2 local no puede quedar autorizado para cierre.'
+        Assert-Condition ($stage2Readiness.ready_for_stage2_cobranza -eq $false) 'El guard Etapa 2 local no puede cerrar Cobranza.'
+        Assert-Condition ($stage2Readiness.classification -eq 'parcial') 'El guard Etapa 2 local debe quedar parcial.'
+        Assert-Condition ($stage2IssueCodes -contains 'stage2.source_kind_not_authorized') 'El guard Etapa 2 local debe reportar source_kind_not_authorized.'
 
         Step "Stage 7 readiness guard"
         Assert-Condition (Test-Path $stage7ReadinessScript) "No existe el guard de readiness Etapa 7 en $stage7ReadinessScript"
