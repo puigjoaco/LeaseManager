@@ -242,6 +242,7 @@ class Stage4SiiReadinessTests(TestCase):
             environment_proof_ref='sii-certification-proof-v1',
             fiscal_rule_ref='tax-rule-expert-v1',
             responsible_ref='stage4-responsibles-v1',
+            source_kind='snapshot_controlado',
         )
 
     def test_empty_database_reports_partial_without_sensitive_values(self):
@@ -250,20 +251,40 @@ class Stage4SiiReadinessTests(TestCase):
 
         self.assertEqual(result['classification'], 'parcial')
         self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage4.source_kind_not_authorized', issue_codes)
         self.assertIn('stage4.fiscal_config_missing', issue_codes)
         self.assertIn('stage4.dte.open_capability_missing', issue_codes)
         self.assertIn('stage4.f29_missing', issue_codes)
         self.assertIn('stage4.environment_proof_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
 
-    def test_valid_local_matrix_and_non_sensitive_refs_can_pass_readiness(self):
+    def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         self._create_valid_local_matrix()
 
         result = self._collect_with_final_refs()
 
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertTrue(result['ready_for_stage4_sii'])
+        self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage4_sii_readiness(
+            stage5_evidence_ref='stage5-ledger-controlled-v1',
+            environment_proof_ref='sii-certification-proof-v1',
+            fiscal_rule_ref='tax-rule-expert-v1',
+            responsible_ref='stage4-responsibles-v1',
+            source_kind='local',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage4.source_kind_not_authorized', issue_codes)
 
     def test_capabilities_dte_and_f29_require_same_company_fiscal_config(self):
         empresa_con_config = self._create_active_empresa(nombre='Empresa Fiscal Stage4 SpA', rut='77777777-7')
@@ -380,6 +401,7 @@ class Stage4SiiReadinessTests(TestCase):
             environment_proof_ref='https://sii.example/proof',
             fiscal_rule_ref='tax-rule-expert-v1',
             responsible_ref='stage4-responsibles-v1',
+            source_kind='snapshot_controlado',
         )
 
         self.assertFalse(result['ready_for_stage4_sii'])
@@ -392,6 +414,8 @@ class Stage4SiiReadinessTests(TestCase):
             result = json.loads(output_path.read_text(encoding='utf-8'))
 
         self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('stage4.source_kind_not_authorized', {issue['code'] for issue in result['issues']})
         self.assertIn('capabilities', result['sections'])
 
         blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'stage4-readiness-should-not-be-versioned.json'

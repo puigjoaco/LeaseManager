@@ -5,7 +5,13 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import OperationalError, ProgrammingError
 
-from core.stage4_sii_readiness import collect_stage4_sii_readiness
+from core.stage4_sii_readiness import (
+    AUTHORIZED_STAGE4_SOURCE_KINDS,
+    collect_stage4_sii_readiness,
+)
+
+
+LOCAL_DIAGNOSTIC_SOURCE_KINDS = {'demo', 'fixture', 'local'}
 
 
 def _resolve_output_path(raw_output_path: str) -> Path:
@@ -43,6 +49,15 @@ class Command(BaseCommand):
         parser.add_argument('--fiscal-rule-ref', default='', help='Referencia no sensible a regla fiscal validada.')
         parser.add_argument('--responsible-ref', default='', help='Referencia no sensible a responsables del frente.')
         parser.add_argument(
+            '--source-kind',
+            default='local',
+            choices=sorted(LOCAL_DIAGNOSTIC_SOURCE_KINDS | AUTHORIZED_STAGE4_SOURCE_KINDS),
+            help=(
+                'Tipo de fuente auditada. local, fixture y demo diagnostican; '
+                'solo snapshot_controlado o real_autorizado permiten cierre.'
+            ),
+        )
+        parser.add_argument(
             '--fail-on-attention',
             action='store_true',
             help='Sale con error si readiness Etapa 4 SII no queda lista para cierre.',
@@ -60,6 +75,7 @@ class Command(BaseCommand):
                 environment_proof_ref=options['environment_proof_ref'],
                 fiscal_rule_ref=options['fiscal_rule_ref'],
                 responsible_ref=options['responsible_ref'],
+                source_kind=options['source_kind'],
             )
         except (OperationalError, ProgrammingError) as error:
             raise CommandError(

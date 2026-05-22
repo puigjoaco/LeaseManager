@@ -47,6 +47,8 @@ TAX_REF_REQUIRED_STATES = {
     EstadoPreparacionTributaria.RECTIFIED,
 }
 
+AUTHORIZED_STAGE4_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+
 
 def _non_sensitive_reference(value: str) -> bool:
     normalized = str(value or '').strip()
@@ -207,8 +209,16 @@ def collect_stage4_sii_readiness(
         'fiscal_rule_ref': _non_sensitive_reference(fiscal_rule_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE4_SOURCE_KINDS
 
     issues: list[dict[str, Any]] = []
+    if not source_kind_authorized_for_close:
+        issues.append(
+            _issue(
+                'stage4.source_kind_not_authorized',
+                'La readiness local de Etapa 4 no puede cerrar SII sin fuente snapshot_controlado o real_autorizado.',
+            )
+        )
     if active_fiscal_configs.count() == 0:
         issues.append(
             _issue(
@@ -410,6 +420,8 @@ def collect_stage4_sii_readiness(
         'generated_at': timezone.now().isoformat(),
         'stage': 'Etapa 4 - SII y DTE',
         'source_kind': source_kind,
+        'authorized_source_kinds': sorted(AUTHORIZED_STAGE4_SOURCE_KINDS),
+        'source_kind_authorized_for_close': source_kind_authorized_for_close,
         'classification': 'resuelto_confirmado' if ready else 'parcial',
         'ready_for_stage4_sii': ready,
         'issue_counts': dict(sorted(issue_counts.items())),
@@ -457,6 +469,7 @@ def collect_stage4_sii_readiness(
         'limitations': [
             'Auditoria local de solo lectura; no conecta SII ni presenta DTE, F29, DDJJ o F22.',
             'No usa secretos, certificados, .env, datos reales ni ambientes externos.',
+            'Local, fixture y demo solo diagnostican; el cierre exige source_kind snapshot_controlado o real_autorizado.',
             'No cierra Etapa 4 sin configuracion fiscal activa por empresa, ambiente autorizado y regla fiscal validada por SII, normativa o experto.',
         ],
     }
