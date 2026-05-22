@@ -33,6 +33,9 @@ produccion por defecto.
 - `audit_stage4_sii_readiness` consolida configuracion fiscal por empresa,
   capacidades SII, DTE, F29 y preparacion anual sin conectar SII ni leer
   certificados.
+- `audit_stage4_sii_readiness` solo puede cerrar con `--source-kind`
+  `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
+  diagnostican brechas pero no habilitan cierre SII.
 
 ## Salida
 
