@@ -5,6 +5,7 @@ param(
     [string]$RestoreEvidencePath = '',
     [string]$PublicSmokeEvidencePath = '',
     [string]$FinalAcceptanceRef = '',
+    [string]$FinalAcceptanceEvidencePath = '',
     [switch]$SkipMigrations,
     [switch]$RequireClosure
 )
@@ -78,6 +79,21 @@ function Get-PayloadTextProperty($payload, [string[]]$names) {
         }
     }
     return ''
+}
+
+function Get-PayloadBoolProperty($payload, [string[]]$names) {
+    foreach ($name in $names) {
+        if ($payload.PSObject.Properties.Name -contains $name) {
+            $value = $payload.$name
+            if ($value -eq $true) {
+                return $true
+            }
+            if ($null -ne $value -and [string]$value -match '^(?i:true)$') {
+                return $true
+            }
+        }
+    }
+    return $false
 }
 
 function Test-AuthorizedRestoreEvidence($payload) {
@@ -200,6 +216,69 @@ function Test-AuthorizedSmokeEvidence($payload) {
     }
 }
 
+function Test-AuthorizedFinalAcceptanceEvidence($payload, [string]$fallbackAcceptanceRef) {
+    $sourceKind = Get-PayloadTextProperty $payload @('source_kind', 'final_acceptance_source_kind', 'source')
+    $mode = Get-PayloadTextProperty $payload @('mode')
+    $authorizationRef = Get-PayloadTextProperty $payload @('authorization_ref')
+    $responsibleRef = Get-PayloadTextProperty $payload @('responsible_ref', 'accepted_by_ref')
+    $scopeRef = Get-PayloadTextProperty $payload @('scope_ref', 'acceptance_scope_ref', 'release_candidate_ref', 'candidate_ref')
+    $acceptanceRef = Get-PayloadTextProperty $payload @('acceptance_ref', 'decision_ref', 'signoff_ref')
+    if ([string]::IsNullOrWhiteSpace($acceptanceRef)) {
+        $acceptanceRef = $fallbackAcceptanceRef
+    }
+    $allowedSourceKinds = @('aceptacion_final_autorizada', 'final_acceptance_autorizada', 'cutover_autorizado', 'ambiente_autorizado', 'real_autorizado')
+    $syntheticSourceKinds = @('synthetic_fixture', 'local_fixture', 'mock')
+    $syntheticModes = @('plan_only', 'local_only', 'mock', 'synthetic')
+    $accepted = Get-PayloadBoolProperty $payload @('accepted', 'final_accepted', 'acceptance_approved')
+    $syntheticOnly = ($syntheticSourceKinds -contains $sourceKind) -or ($syntheticModes -contains $mode)
+    $hasAuthorizationRef = Test-NonSensitiveReference $authorizationRef
+    $hasResponsibleRef = Test-NonSensitiveReference $responsibleRef
+    $hasScopeRef = Test-NonSensitiveReference $scopeRef
+    $hasAcceptanceRef = Test-NonSensitiveReference $acceptanceRef
+    $authorized = $accepted `
+        -and (-not $syntheticOnly) `
+        -and ($allowedSourceKinds -contains $sourceKind) `
+        -and $hasAuthorizationRef `
+        -and $hasResponsibleRef `
+        -and $hasScopeRef `
+        -and $hasAcceptanceRef
+
+    $reason = ''
+    if (-not $accepted) {
+        $reason = 'final_acceptance_not_accepted'
+    }
+    elseif ($syntheticOnly) {
+        $reason = 'final_acceptance_synthetic_not_authorized'
+    }
+    elseif (-not ($allowedSourceKinds -contains $sourceKind)) {
+        $reason = 'final_acceptance_source_kind_invalid'
+    }
+    elseif (-not $hasAuthorizationRef) {
+        $reason = 'final_acceptance_authorization_ref_missing'
+    }
+    elseif (-not $hasResponsibleRef) {
+        $reason = 'final_acceptance_responsible_ref_missing'
+    }
+    elseif (-not $hasScopeRef) {
+        $reason = 'final_acceptance_scope_ref_missing'
+    }
+    elseif (-not $hasAcceptanceRef) {
+        $reason = 'final_acceptance_ref_missing'
+    }
+
+    return [ordered]@{
+        accepted = $accepted
+        authorized = $authorized
+        source_kind = $sourceKind
+        synthetic_only = $syntheticOnly
+        has_authorization_ref = $hasAuthorizationRef
+        has_responsible_ref = $hasResponsibleRef
+        has_scope_ref = $hasScopeRef
+        has_acceptance_ref = $hasAcceptanceRef
+        reason = $reason
+    }
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendDir = Join-Path $repoRoot 'backend'
 $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
@@ -233,6 +312,8 @@ $checks = [ordered]@{
     public_smoke_evidence = $false
     public_smoke_authorized_evidence = $false
     final_acceptance_ref = $false
+    final_acceptance_evidence = $false
+    final_acceptance_authorized_evidence = $false
 }
 $issues = @()
 $restoreEvidenceSummary = [ordered]@{
@@ -253,6 +334,17 @@ $publicSmokeEvidenceSummary = [ordered]@{
     has_authorization_ref = $false
     has_environment_ref = $false
     has_target_ref = $false
+}
+$finalAcceptanceEvidenceSummary = [ordered]@{
+    provided = $false
+    accepted = $false
+    authorized = $false
+    source_kind = ''
+    synthetic_only = $false
+    has_authorization_ref = $false
+    has_responsible_ref = $false
+    has_scope_ref = $false
+    has_acceptance_ref = $false
 }
 
 Step 'Backend local checks'
@@ -393,11 +485,57 @@ else {
 }
 
 $checks.final_acceptance_ref = Test-NonSensitiveReference $FinalAcceptanceRef
-if (-not $checks.final_acceptance_ref) {
+if ([string]::IsNullOrWhiteSpace($FinalAcceptanceEvidencePath)) {
     $issues += [ordered]@{
-        code = 'stage7.final_acceptance_missing'
+        code = if ($checks.final_acceptance_ref) { 'stage7.final_acceptance_evidence_missing' } else { 'stage7.final_acceptance_missing' }
         severity = 'blocking'
-        message = 'Falta referencia no sensible de aceptacion final.'
+        message = if ($checks.final_acceptance_ref) { 'La referencia simple de aceptacion final no reemplaza evidencia JSON autorizada.' } else { 'Falta evidencia JSON de aceptacion final autorizada.' }
+    }
+}
+else {
+    $finalAcceptanceEvidence = Read-JsonFile $FinalAcceptanceEvidencePath
+    $finalAcceptanceCheck = Test-AuthorizedFinalAcceptanceEvidence $finalAcceptanceEvidence $FinalAcceptanceRef
+    $checks.final_acceptance_evidence = $finalAcceptanceCheck.accepted
+    $checks.final_acceptance_authorized_evidence = $finalAcceptanceCheck.authorized
+    $finalAcceptanceEvidenceSummary = [ordered]@{
+        provided = $true
+        accepted = $finalAcceptanceCheck.accepted
+        authorized = $finalAcceptanceCheck.authorized
+        source_kind = $finalAcceptanceCheck.source_kind
+        synthetic_only = $finalAcceptanceCheck.synthetic_only
+        has_authorization_ref = $finalAcceptanceCheck.has_authorization_ref
+        has_responsible_ref = $finalAcceptanceCheck.has_responsible_ref
+        has_scope_ref = $finalAcceptanceCheck.has_scope_ref
+        has_acceptance_ref = $finalAcceptanceCheck.has_acceptance_ref
+    }
+    if (-not $finalAcceptanceCheck.accepted) {
+        $issues += [ordered]@{
+            code = 'stage7.final_acceptance_not_accepted'
+            severity = 'blocking'
+            message = 'La evidencia de aceptacion final no reporta accepted=true.'
+        }
+    }
+    elseif (-not $finalAcceptanceCheck.authorized) {
+        $issueCode = switch ($finalAcceptanceCheck.reason) {
+            'final_acceptance_authorization_ref_missing' { 'stage7.final_acceptance_authorization_ref_missing' }
+            'final_acceptance_responsible_ref_missing' { 'stage7.final_acceptance_responsible_ref_missing' }
+            'final_acceptance_scope_ref_missing' { 'stage7.final_acceptance_scope_ref_missing' }
+            'final_acceptance_ref_missing' { 'stage7.final_acceptance_ref_missing' }
+            default { 'stage7.final_acceptance_authorized_evidence_missing' }
+        }
+        $issueMessage = switch ($finalAcceptanceCheck.reason) {
+            'final_acceptance_synthetic_not_authorized' { 'La aceptacion local/sintetica prepara el gate, pero no reemplaza aceptacion final autorizada.' }
+            'final_acceptance_authorization_ref_missing' { 'La evidencia de aceptacion final requiere authorization_ref no sensible.' }
+            'final_acceptance_responsible_ref_missing' { 'La evidencia de aceptacion final requiere responsible_ref o accepted_by_ref no sensible.' }
+            'final_acceptance_scope_ref_missing' { 'La evidencia de aceptacion final requiere scope_ref, acceptance_scope_ref o release_candidate_ref no sensible.' }
+            'final_acceptance_ref_missing' { 'La evidencia de aceptacion final requiere acceptance_ref, decision_ref, signoff_ref o FinalAcceptanceRef no sensible.' }
+            default { 'La evidencia de aceptacion final debe declarar source_kind aceptacion_final_autorizada, final_acceptance_autorizada, cutover_autorizado, ambiente_autorizado o real_autorizado.' }
+        }
+        $issues += [ordered]@{
+            code = $issueCode
+            severity = 'blocking'
+            message = $issueMessage
+        }
     }
 }
 
@@ -417,12 +555,13 @@ $result = [ordered]@{
     }
     restore_evidence = $restoreEvidenceSummary
     public_smoke_evidence = $publicSmokeEvidenceSummary
+    final_acceptance_evidence = $finalAcceptanceEvidenceSummary
     issues = $issues
     limitations = @(
         'Gate local de solo lectura para consolidar readiness de Etapa 7.',
         'No ejecuta smoke publico ni conecta proveedores externos.',
         'No usa secretos, .env, datos reales ni backups productivos.',
-        'No cierra Operacion productiva sin restore de backup/snapshot autorizado, smoke publico autorizado con referencias no sensibles, observabilidad lista y aceptacion final.'
+        'No cierra Operacion productiva sin restore de backup/snapshot autorizado, smoke publico autorizado con referencias no sensibles, observabilidad lista y aceptacion final autorizada.'
     )
 }
 
