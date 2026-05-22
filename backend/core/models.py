@@ -1,5 +1,7 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 
 class Scope(models.Model):
@@ -64,3 +66,82 @@ class PlatformSetting(models.Model):
 
     def __str__(self):
         return self.key
+
+
+class RuntimeSignalKey(models.TextChoices):
+    MONTHLY_CALCULATION_LATENCY = 'monthly_calculation_latency', 'Latencia de calculo mensual'
+    QUEUE_RUNTIME = 'queue_runtime', 'Colas y tareas'
+    FAILED_WEBHOOKS = 'failed_webhooks', 'Webhooks fallidos'
+    FAILED_CRONS = 'failed_crons', 'Crons fallidos'
+
+
+class RuntimeSignalStatus(models.TextChoices):
+    OK = 'ok', 'OK'
+    ATTENTION = 'attention', 'Atencion'
+    MISSING = 'missing', 'Faltante'
+
+
+class RuntimeSignalSourceKind(models.TextChoices):
+    LOCAL = 'local', 'Local'
+    FIXTURE = 'fixture', 'Fixture'
+    DEMO = 'demo', 'Demo'
+    SNAPSHOT_CONTROLADO = 'snapshot_controlado', 'Snapshot controlado'
+    REAL_AUTORIZADO = 'real_autorizado', 'Real autorizado'
+
+
+def _numeric_value(value):
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    return None
+
+
+class OperationalRuntimeSignal(models.Model):
+    signal_key = models.CharField(max_length=64, choices=RuntimeSignalKey.choices, unique=True)
+    status = models.CharField(
+        max_length=16,
+        choices=RuntimeSignalStatus.choices,
+        default=RuntimeSignalStatus.MISSING,
+    )
+    source_kind = models.CharField(
+        max_length=32,
+        choices=RuntimeSignalSourceKind.choices,
+        default=RuntimeSignalSourceKind.LOCAL,
+    )
+    value = models.JSONField(default=dict, blank=True)
+    evidence_ref = models.CharField(max_length=255, blank=True)
+    observed_at = models.DateTimeField(default=timezone.now)
+    notes = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['signal_key']
+
+    def __str__(self):
+        return f'{self.signal_key} - {self.status}'
+
+    def clean(self):
+        super().clean()
+        if self.status == RuntimeSignalStatus.OK and not self.evidence_ref.strip():
+            raise ValidationError({'evidence_ref': 'Una senal runtime OK requiere evidencia_ref trazable.'})
+
+        payload = self.value if isinstance(self.value, dict) else {}
+        errors = {}
+        if self.signal_key == RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY:
+            duration = _numeric_value(payload.get('duration_ms'))
+            if self.status == RuntimeSignalStatus.OK and (duration is None or duration < 0):
+                errors['value'] = 'monthly_calculation_latency OK requiere duration_ms numerico no negativo.'
+        elif self.signal_key == RuntimeSignalKey.QUEUE_RUNTIME:
+            if self.status == RuntimeSignalStatus.OK and payload.get('healthy') is not True:
+                errors['value'] = 'queue_runtime OK requiere healthy=true.'
+        elif self.signal_key in {RuntimeSignalKey.FAILED_WEBHOOKS, RuntimeSignalKey.FAILED_CRONS}:
+            failed_count = payload.get('failed_count')
+            if (
+                self.status == RuntimeSignalStatus.OK
+                and (not isinstance(failed_count, int) or isinstance(failed_count, bool) or failed_count < 0)
+            ):
+                errors['value'] = f'{self.signal_key} OK requiere failed_count entero no negativo.'
+
+        if errors:
+            raise ValidationError(errors)

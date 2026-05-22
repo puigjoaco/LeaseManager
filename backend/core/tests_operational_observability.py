@@ -9,9 +9,37 @@ from django.test import TestCase
 
 from canales.models import CanalMensajeria, EstadoGateCanal
 from cobranza.models import EstadoGateCobroExterno, GateCobroExterno
+from core.models import OperationalRuntimeSignal, RuntimeSignalKey, RuntimeSignalStatus
 from core.operational_observability import collect_operational_observability_audit
 from patrimonio.models import Empresa
 from sii.models import AmbienteSII, CapacidadSII, CapacidadTributariaSII, EstadoGateSII
+
+
+def create_runtime_signals_ok():
+    OperationalRuntimeSignal.objects.create(
+        signal_key=RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY,
+        status=RuntimeSignalStatus.OK,
+        value={'duration_ms': 120},
+        evidence_ref='local-monthly-latency',
+    )
+    OperationalRuntimeSignal.objects.create(
+        signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+        status=RuntimeSignalStatus.OK,
+        value={'healthy': True},
+        evidence_ref='local-queue-runtime',
+    )
+    OperationalRuntimeSignal.objects.create(
+        signal_key=RuntimeSignalKey.FAILED_WEBHOOKS,
+        status=RuntimeSignalStatus.OK,
+        value={'failed_count': 0},
+        evidence_ref='local-webhooks',
+    )
+    OperationalRuntimeSignal.objects.create(
+        signal_key=RuntimeSignalKey.FAILED_CRONS,
+        status=RuntimeSignalStatus.OK,
+        value={'failed_count': 0},
+        evidence_ref='local-crons',
+    )
 
 
 class OperationalObservabilityAuditTests(TestCase):
@@ -60,6 +88,57 @@ class OperationalObservabilityAuditTests(TestCase):
         self.assertEqual(issues['observability.channel_gate_invalid']['count'], 1)
         self.assertEqual(issues['observability.webpay_gate_invalid']['count'], 1)
         self.assertEqual(issues['observability.sii_capability_invalid']['count'], 1)
+
+    def test_runtime_signals_clear_metric_missing_issues(self):
+        create_runtime_signals_ok()
+
+        result = collect_operational_observability_audit()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage7_observability'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertNotIn('observability.monthly_latency_metric_missing', issue_codes)
+        self.assertEqual(
+            result['sections']['runtime_signals'][RuntimeSignalKey.QUEUE_RUNTIME]['status'],
+            RuntimeSignalStatus.OK,
+        )
+
+    def test_runtime_signal_attention_blocks_observability_close(self):
+        create_runtime_signals_ok()
+        OperationalRuntimeSignal.objects.filter(signal_key=RuntimeSignalKey.FAILED_CRONS).update(
+            status=RuntimeSignalStatus.ATTENTION,
+            value={'failed_count': 2},
+        )
+
+        result = collect_operational_observability_audit()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_observability'])
+        self.assertIn('observability.cron_metric_attention', issue_codes)
+
+    def test_record_runtime_signal_command_validates_payload(self):
+        call_command(
+            'record_operational_runtime_signal',
+            signal_key=RuntimeSignalKey.FAILED_WEBHOOKS,
+            status=RuntimeSignalStatus.OK,
+            evidence_ref='local-webhook-check',
+            value_json='{"failed_count": 0}',
+            stdout=StringIO(),
+        )
+
+        signal = OperationalRuntimeSignal.objects.get(signal_key=RuntimeSignalKey.FAILED_WEBHOOKS)
+        self.assertEqual(signal.status, RuntimeSignalStatus.OK)
+        self.assertEqual(signal.value['failed_count'], 0)
+
+        with self.assertRaises(CommandError):
+            call_command(
+                'record_operational_runtime_signal',
+                signal_key=RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY,
+                status=RuntimeSignalStatus.OK,
+                evidence_ref='bad-local-latency',
+                value_json='{"duration_ms": -1}',
+                stdout=StringIO(),
+            )
 
     def test_command_writes_json_output_and_fail_on_attention_blocks_close(self):
         with TemporaryDirectory() as temp_dir:
