@@ -163,6 +163,8 @@ class Stage2CobranzaReadinessTests(TestCase):
     def _collect_with_final_refs(self):
         return collect_stage2_cobranza_readiness(
             source_kind='snapshot_controlado',
+            source_label='stage2-controlled-v1',
+            authorization_ref='stage2-authorization-v1',
             stage1_evidence_ref='stage1-snapshot-controlled-v1',
             email_proof_ref='email-proof-controlled-v1',
             webpay_proof_ref='webpay-proof-controlled-v1',
@@ -214,6 +216,26 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('stage2.source_kind_not_authorized', issue_codes)
+
+    def test_authorized_source_requires_source_trace_refs(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+
+        result = collect_stage2_cobranza_readiness(
+            source_kind='snapshot_controlado',
+            stage1_evidence_ref='stage1-snapshot-controlled-v1',
+            email_proof_ref='email-proof-controlled-v1',
+            webpay_proof_ref='webpay-proof-controlled-v1',
+            responsible_ref='stage2-responsibles-v1',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.source_label_missing', issue_codes)
+        self.assertIn('stage2.authorization_ref_missing', issue_codes)
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
     def test_email_gate_without_active_identity_or_assignment_is_blocking(self):
         self._create_payment_matrix()

@@ -34,7 +34,7 @@ def _validate_output_path(output_path: Path) -> None:
 
 
 class Command(BaseCommand):
-    help = 'Audita readiness local de Etapa 2 Cobranza/Canales sin ejecutar proveedores externos.'
+    help = 'Audita readiness de Etapa 2 Cobranza/Canales sin ejecutar proveedores externos.'
 
     def add_arguments(self, parser):
         parser.add_argument('--output', default='', help='Ruta opcional para escribir el JSON de auditoria.')
@@ -43,6 +43,12 @@ class Command(BaseCommand):
             default='local',
             choices=['local', 'fixture', 'demo', 'snapshot_controlado', 'real_autorizado'],
             help='Tipo de fuente auditada; solo snapshot_controlado o real_autorizado pueden cerrar Etapa 2.',
+        )
+        parser.add_argument('--source-label', default='', help='Etiqueta no sensible de la fuente auditada.')
+        parser.add_argument(
+            '--authorization-ref',
+            default='',
+            help='Referencia no sensible a la autorizacion de uso de la fuente evidencial.',
         )
         parser.add_argument('--stage1-evidence-ref', default='', help='Referencia no sensible a evidencia Etapa 1.')
         parser.add_argument('--email-proof-ref', default='', help='Referencia no sensible a prueba controlada Email.')
@@ -67,6 +73,8 @@ class Command(BaseCommand):
                 email_proof_ref=options['email_proof_ref'],
                 webpay_proof_ref=options['webpay_proof_ref'],
                 responsible_ref=options['responsible_ref'],
+                source_label=options['source_label'],
+                authorization_ref=options['authorization_ref'],
             )
         except (OperationalError, ProgrammingError) as error:
             raise CommandError(
