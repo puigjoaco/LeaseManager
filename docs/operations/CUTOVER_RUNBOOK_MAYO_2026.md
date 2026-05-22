@@ -122,7 +122,10 @@ y no cierra Operacion productiva sin restore de backup/snapshot autorizado.
 
 La auditoria de observabilidad es read-only: agrega estado de gates,
 integraciones, backlogs operativos y cobertura minima de senales runtime. No
-conecta proveedores externos y no reemplaza monitoreo productivo.
+conecta proveedores externos y no reemplaza monitoreo productivo. Las senales
+runtime locales, fixture o demo preparan el gate, pero la observabilidad no
+queda lista para cierre productivo si sus cuatro senales obligatorias no vienen
+desde `snapshot_controlado` o `real_autorizado`.
 
 El guard local de readiness Etapa 7 es read-only y consolida evidencias. Sin
 argumentos debe quedar `classification=parcial`: no ejecuta smoke publico,
@@ -151,4 +154,5 @@ sensibles a politica final, responsables y prueba PDF controlada.
 Las senales runtime obligatorias son `monthly_calculation_latency`,
 `queue_runtime`, `failed_webhooks` y `failed_crons`. Deben registrarse con
 referencias no sensibles; una medicion local o sintetica prepara el gate, pero
-el cierre productivo requiere medicion de ambiente real/controlado.
+el cierre productivo requiere medicion de ambiente real/controlado con
+`source_kind` `snapshot_controlado` o `real_autorizado`.
