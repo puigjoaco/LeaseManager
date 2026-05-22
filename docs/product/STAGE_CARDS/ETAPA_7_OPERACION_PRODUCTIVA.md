@@ -23,6 +23,9 @@ runbook, smoke y aceptacion.
   dependencias ante falla.
 - Rehearsal de restore PostgreSQL local con datos sinteticos y evidencia bajo
   `local-evidence/`, antes de la prueba final con backup/snapshot autorizado.
+- `run-postgres-restore-rehearsal.ps1` rechaza `OutputPath` dentro del repo
+  fuera de `local-evidence/` antes de generar plan, tocar Docker o producir
+  evidencia de restore.
 - Auditoria local de observabilidad operativa con gates, integraciones,
   backlogs y senales runtime minimas.
 - `audit_operational_observability` rechaza `--output` dentro del repo fuera

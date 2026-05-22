@@ -43,6 +43,7 @@ $stage5ReadinessScript = Join-Path $PSScriptRoot 'run-stage5-readiness-gate.ps1'
 $stage5DocumentsReadinessScript = Join-Path $PSScriptRoot 'run-stage5-documents-readiness-gate.ps1'
 $stage6ReadinessScript = Join-Path $PSScriptRoot 'run-stage6-readiness-gate.ps1'
 $stage7ReadinessScript = Join-Path $PSScriptRoot 'run-stage7-readiness-gate.ps1'
+$restoreRehearsalScript = Join-Path $PSScriptRoot 'run-postgres-restore-rehearsal.ps1'
 $repoHygieneScript = Join-Path $PSScriptRoot 'assert-repo-hygiene.ps1'
 
 $shouldRunPublicSmoke = $OnlySmoke -or $RunPublicSmoke
@@ -322,6 +323,21 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7AuthorizationIssueCodes -contains 'stage7.public_smoke_authorization_ref_missing') 'Smoke con responsible_ref no debe pasar como authorization_ref.'
         Assert-Condition ($stage7AuthorizationReadiness.restore_evidence.has_authorization_ref -eq $false) 'Restore debe marcar has_authorization_ref=false si solo tiene responsible_ref.'
         Assert-Condition ($stage7AuthorizationReadiness.public_smoke_evidence.has_authorization_ref -eq $false) 'Smoke debe marcar has_authorization_ref=false si solo tiene responsible_ref.'
+
+        Step "Restore rehearsal output guard"
+        Assert-Condition (Test-Path $restoreRehearsalScript) "No existe el rehearsal de restore en $restoreRehearsalScript"
+        $blockedRestoreOutputPath = Join-Path $repoRoot 'docs\restore-rehearsal-should-not-be-versioned.json'
+        $restoreOutputGuardFailed = $false
+        try {
+            $blockedRestoreOutput = & $restoreRehearsalScript -PlanOnly -OutputPath $blockedRestoreOutputPath 2>&1 | Out-String
+        }
+        catch {
+            $blockedRestoreOutput = $_ | Out-String
+            $restoreOutputGuardFailed = $true
+        }
+        Assert-Condition $restoreOutputGuardFailed 'run-postgres-restore-rehearsal debe rechazar OutputPath versionable antes de generar evidencia.'
+        Assert-Condition ($blockedRestoreOutput -match 'local-evidence') 'El rechazo de OutputPath debe indicar local-evidence como ubicacion permitida.'
+        Assert-Condition (-not (Test-Path $blockedRestoreOutputPath)) 'El rehearsal de restore no debe crear evidencia versionable bajo docs/.'
     }
     finally {
         Pop-Location
