@@ -121,7 +121,9 @@ referencias validas.
 
 El rehearsal de restore usa solo PostgreSQL local de `infra/docker-compose.yml`
 y escribe evidencia bajo `local-evidence/`. No lee `.env`, no usa datos reales
-y no cierra Operacion productiva sin restore de backup/snapshot autorizado.
+y no cierra Operacion productiva sin restore de backup/snapshot autorizado. Si
+`-OutputPath` apunta dentro del repo fuera de `local-evidence/`, el script
+falla antes de generar plan, tocar Docker o producir evidencia.
 
 La auditoria de observabilidad es read-only: agrega estado de gates,
 integraciones, backlogs operativos y cobertura minima de senales runtime. No
