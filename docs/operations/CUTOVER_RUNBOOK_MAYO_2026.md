@@ -40,7 +40,8 @@ mismo.
     `backend\.venv\Scripts\python.exe backend\manage.py audit_operational_observability`.
 14. Ejecutar guard local de readiness Etapa 7:
     `scripts/run-stage7-readiness-gate.ps1`. El cierre requiere ademas
-    evidencia de restore, smoke publico autorizado y aceptacion final.
+    evidencia de restore de backup/snapshot autorizado, smoke publico
+    autorizado y aceptacion final.
 15. Ejecutar auditoria local de readiness documental si el paquete incluye
     documentos contractuales:
     `backend\.venv\Scripts\python.exe backend\manage.py audit_document_readiness`.
@@ -119,8 +120,12 @@ conecta proveedores externos y no reemplaza monitoreo productivo.
 El guard local de readiness Etapa 7 es read-only y consolida evidencias. Sin
 argumentos debe quedar `classification=parcial`: no ejecuta smoke publico,
 no conecta proveedores externos y no cierra Operacion productiva sin
-`restore_verified=true`, smoke autorizado, observabilidad lista y aceptacion
-final no sensible.
+restore de backup/snapshot autorizado, smoke autorizado, observabilidad lista y
+aceptacion final no sensible. Un rehearsal sintetico con `restore_verified=true`
+prepara el gate, pero no reemplaza una evidencia de restore con
+`source_kind`/`restore_source_kind` en `snapshot_controlado`,
+`real_autorizado`, `backup_autorizado` o `restore_autorizado`, mas
+`authorization_ref` y `backup_ref`/`backup_file` no sensibles.
 
 La auditoria documental es read-only: no abre storage ni PDFs reales. Consolida
 politicas activas por tipo documental, metadata obligatoria, referencias no
