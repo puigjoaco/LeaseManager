@@ -6,6 +6,7 @@ from cryptography.fernet import Fernet
 from django.conf import settings
 from django.utils import timezone
 
+from core.reference_validation import contains_sensitive_reference
 from reporting.services import (
     build_annual_tax_summary,
     build_financial_monthly_summary,
@@ -18,6 +19,7 @@ from .models import CategoriaDato, EstadoExportacionSensible, ExportacionSensibl
 
 
 MAX_EXPORT_DAYS = 30
+SENSITIVE_EXPORT_METADATA_ERROR = 'La metadata visible de exportacion no puede contener referencias sensibles.'
 
 
 def get_fernet():
@@ -50,10 +52,19 @@ def decrypt_payload(token):
     return json.loads(raw.decode('utf-8'))
 
 
+def ensure_export_metadata_is_non_sensitive(*, scope_resumen, motivo):
+    if contains_sensitive_reference(motivo, include_sensitive_keys=True) or contains_sensitive_reference(
+        scope_resumen,
+        include_sensitive_keys=True,
+    ):
+        raise ValueError(SENSITIVE_EXPORT_METADATA_ERROR)
+
+
 def prepare_sensitive_export(*, categoria_dato, export_kind, scope_resumen, motivo, payload, created_by, hold_activo=False):
+    ensure_export_metadata_is_non_sensitive(scope_resumen=scope_resumen, motivo=motivo)
     encrypted_payload, payload_hash = encrypt_payload(payload)
     expires_at = timezone.now() + timedelta(days=MAX_EXPORT_DAYS)
-    export = ExportacionSensible.objects.create(
+    export = ExportacionSensible(
         categoria_dato=categoria_dato,
         export_kind=export_kind,
         scope_resumen=scope_resumen,
@@ -65,6 +76,8 @@ def prepare_sensitive_export(*, categoria_dato, export_kind, scope_resumen, moti
         hold_activo=hold_activo,
         created_by=created_by,
     )
+    export.full_clean()
+    export.save()
     return export
 
 
