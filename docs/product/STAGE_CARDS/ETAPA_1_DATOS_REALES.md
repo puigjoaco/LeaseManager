@@ -34,6 +34,8 @@ contra datos reales o snapshot controlado.
   vigencia del `MandatoOperacion` que define propiedad, cuenta y facturacion.
 - Validacion de que cada propiedad principal o vinculada de contratos vigentes
   o futuros este activa.
+- Validacion de que cada contrato vigente o futuro cubra una sola propiedad o
+  una pareja propiedad principal + vinculada.
 - Validacion de que la pareja propiedad principal + vinculada comparta el
   `CodigoConciliacionEfectivo` de la propiedad principal.
 - Validacion de codeudores solidarios: snapshot con nombre/RUT valido, sin
