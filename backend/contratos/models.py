@@ -339,6 +339,16 @@ class PeriodoContractual(TimestampedModel):
             raise ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
         if self.moneda_base == MonedaBaseContrato.UF and self.monto_base <= Decimal('0.00'):
             raise ValidationError({'monto_base': 'Un periodo UF debe tener monto positivo.'})
+        if not self.contrato_id:
+            return
+
+        errors = {}
+        if self.fecha_inicio < self.contrato.fecha_inicio:
+            errors['fecha_inicio'] = 'El periodo no puede iniciar antes de la vigencia del contrato.'
+        if self.fecha_fin > self.contrato.fecha_fin_vigente:
+            errors['fecha_fin'] = 'El periodo no puede terminar despues de la vigencia del contrato.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class CodeudorSolidario(TimestampedModel):
