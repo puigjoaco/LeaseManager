@@ -1,3 +1,6 @@
+from datetime import date
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -9,7 +12,16 @@ from audit.models import AuditEvent
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .models import Arrendatario, AvisoTermino, Contrato, ContratoPropiedad, EstadoAvisoTermino, EstadoContrato, RolContratoPropiedad
+from .models import (
+    Arrendatario,
+    AvisoTermino,
+    Contrato,
+    ContratoPropiedad,
+    EstadoAvisoTermino,
+    EstadoContrato,
+    PeriodoContractual,
+    RolContratoPropiedad,
+)
 
 
 class ContratosAPITests(APITestCase):
@@ -295,6 +307,43 @@ class ContratosAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('periodos_contractuales', response.data)
+
+    def test_period_full_clean_rejects_range_outside_contract_validity(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-PER-WIN', owner_rut='11111117-0')
+        arrendatario = self._create_arrendatario(rut='22222227-3')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-PER-WIN')
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        contrato = Contrato.objects.get(pk=response.data['id'])
+
+        starts_before = PeriodoContractual(
+            contrato=contrato,
+            numero_periodo=2,
+            fecha_inicio=date(2025, 12, 1),
+            fecha_fin=date(2026, 1, 31),
+            monto_base=Decimal('100000.00'),
+            moneda_base='CLP',
+            tipo_periodo='fixture',
+            origen_periodo='test',
+        )
+        ends_after = PeriodoContractual(
+            contrato=contrato,
+            numero_periodo=3,
+            fecha_inicio=date(2026, 12, 1),
+            fecha_fin=date(2027, 1, 31),
+            monto_base=Decimal('100000.00'),
+            moneda_base='CLP',
+            tipo_periodo='fixture',
+            origen_periodo='test',
+        )
+
+        with self.assertRaises(ValidationError) as start_error:
+            starts_before.full_clean()
+        self.assertIn('fecha_inicio', start_error.exception.message_dict)
+
+        with self.assertRaises(ValidationError) as end_error:
+            ends_after.full_clean()
+        self.assertIn('fecha_fin', end_error.exception.message_dict)
 
     def test_create_contract_with_principal_and_linked_property_succeeds(self):
         mandato = self._create_active_mandato(codigo='MAND-102', owner_rut='33333333-3')
