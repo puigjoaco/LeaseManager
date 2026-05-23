@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import (
     ScopedQuerysetMixin,
     get_scope_access,
@@ -105,7 +106,7 @@ class ConciliacionSnapshotView(APIView):
                         'id': item.id,
                         'cuenta_recaudadora': item.cuenta_recaudadora_id,
                         'provider_key': item.provider_key,
-                        'credencial_ref': item.credencial_ref,
+                        'credencial_ref': redact_sensitive_reference(item.credencial_ref),
                         'scope': item.scope,
                         'estado_conexion': item.estado_conexion,
                     }
