@@ -6,6 +6,7 @@ from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from patrimonio.models import (
     ComunidadPatrimonial,
     Empresa,
@@ -166,13 +167,14 @@ class OperacionAPITests(APITestCase):
         )
 
     def _create_active_identity(self, *, empresa=None, socio=None, canal=CanalOperacion.EMAIL, direccion='ops@example.com'):
+        safe_ref = f"identity-ref-{direccion.replace('@', '-').replace('.', '-')}"
         return IdentidadDeEnvio.objects.create(
             empresa_owner=empresa,
             socio_owner=socio,
             canal=canal,
             remitente_visible=empresa.razon_social if empresa else socio.nombre,
             direccion_o_numero=direccion,
-            credencial_ref=f'cred-{direccion}',
+            credencial_ref=safe_ref,
             estado=EstadoIdentidadEnvio.ACTIVE,
         )
 
@@ -283,6 +285,46 @@ class OperacionAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(valid_response.status_code, status.HTTP_201_CREATED)
+
+    def test_active_identity_rejects_sensitive_credential_ref_before_persisting(self):
+        socio = self._create_socio('Operador Sensible', '34343434-2')
+
+        response = self.client.post(
+            reverse('operacion-identidad-list'),
+            {
+                'owner_tipo': 'socio',
+                'owner_id': socio.id,
+                'canal': CanalOperacion.EMAIL,
+                'remitente_visible': socio.nombre,
+                'direccion_o_numero': 'sensible@example.com',
+                'credencial_ref': 'https://mail.example.test/token/secret',
+                'estado': EstadoIdentidadEnvio.ACTIVE,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('credencial_ref', response.data)
+        self.assertFalse(IdentidadDeEnvio.objects.filter(direccion_o_numero='sensible@example.com').exists())
+
+    def test_identity_api_redacts_inherited_sensitive_credential_ref(self):
+        socio = self._create_socio('Operador Heredado', '35353535-0')
+        identidad = IdentidadDeEnvio.objects.create(
+            socio_owner=socio,
+            canal=CanalOperacion.EMAIL,
+            remitente_visible=socio.nombre,
+            direccion_o_numero='heredado@example.com',
+            credencial_ref='https://mail.example.test/token/secret',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+
+        list_response = self.client.get(reverse('operacion-identidad-list'))
+        detail_response = self.client.get(reverse('operacion-identidad-detail', args=[identidad.id]))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['credencial_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['credencial_ref'], REDACTED_SENSITIVE_REFERENCE)
 
     def test_active_mandato_accepts_distinct_owner_admin_and_facturadora_when_authorized(self):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
