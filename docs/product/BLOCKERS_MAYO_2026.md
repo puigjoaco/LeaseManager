@@ -34,6 +34,9 @@ Verificacion reproducible desde `main` vigente:
 - `scripts/run-acceptance-workflows.ps1` tambien ejecuta el snapshot gate de
   Etapa 1 contra SQLite vacio bajo `local-evidence/` y exige que falle como
   `bloqueado_dato_real` con `stage1.data_missing`, sin declarar cierre.
+- `scripts/run-acceptance-workflows.ps1` protege que `real_autorizado` con
+  `-RunMigrations` falle antes de generar JSON, para no permitir migraciones
+  desde este gate contra una fuente real.
 - Resultado del readiness local: `classification=implementado_sin_evidencia`,
   `evidence_grade=false`, `ready_for_stage1_close=false`,
   `has_required_stage1_data=false`.

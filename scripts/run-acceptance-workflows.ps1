@@ -220,6 +220,33 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage1SnapshotEmptyAudit.classification -eq 'bloqueado_dato_real') 'El snapshot gate vacio debe clasificar bloqueado_dato_real.'
         Assert-Condition ($stage1SnapshotEmptyIssueCodes -contains 'stage1.data_missing') 'El snapshot gate vacio debe reportar stage1.data_missing.'
 
+        Step "Stage 1 real source migration guard"
+        $stage1RealMigrationOutputPath = Join-Path $repoRoot 'local-evidence\stage1\acceptance\stage1_real_migration_forbidden.json'
+        Remove-Item -LiteralPath $stage1RealMigrationOutputPath -Force -ErrorAction SilentlyContinue
+
+        $stage1RealMigrationFailed = $false
+        try {
+            $stage1RealMigrationOutput = & $stage1SnapshotGateScript `
+                -SourceKind real_autorizado `
+                -SourceLabel 'stage1-real-migration-guard' `
+                -AuthorizationRef 'stage-one-real-migration-authz' `
+                -ResponsibleRef 'stage-one-real-migration-owner' `
+                -DatabaseUrl 'sqlite:///local-evidence/stage1/acceptance/stage1_real_migration_forbidden.sqlite3' `
+                -OutputPath $stage1RealMigrationOutputPath `
+                -PythonExe $pythonExe `
+                -RunMigrations 2>&1 | Out-String
+        }
+        catch {
+            $stage1RealMigrationOutput = "$($_.Exception.Message)`n$($_ | Out-String)"
+            $stage1RealMigrationFailed = $true
+        }
+        if ($stage1RealMigrationOutput.Trim()) {
+            Write-Host $stage1RealMigrationOutput
+        }
+        Assert-Condition $stage1RealMigrationFailed 'El snapshot gate debe rechazar -RunMigrations con real_autorizado.'
+        Assert-Condition ($stage1RealMigrationOutput -match 'No se ejecutan migraciones contra real_autorizado') 'El rechazo debe explicar que no se migra real_autorizado desde este gate.'
+        Assert-Condition (-not (Test-Path $stage1RealMigrationOutputPath)) 'El rechazo de migracion real_autorizado debe ocurrir antes de generar JSON de auditoria.'
+
         Step "Stage 2 readiness guard"
         Assert-Condition (Test-Path $stage2ReadinessScript) "No existe el guard de readiness Etapa 2 en $stage2ReadinessScript"
         $stage2OutputPath = Join-Path $repoRoot 'local-evidence\stage2\acceptance\stage2_readiness_acceptance.json'

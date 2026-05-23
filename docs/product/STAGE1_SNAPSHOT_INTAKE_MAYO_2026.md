@@ -86,7 +86,10 @@ El acceptance deterministico ejecuta este readiness local para comprobar que la
 preparacion segura no solicita secretos ni simula una fuente controlada. El
 bloqueo `stage1.data_missing` queda reservado para el gate evidencial
 `run-stage1-snapshot-gate.ps1`, que solo acepta `snapshot_controlado` o
-`real_autorizado` con referencias trazables.
+`real_autorizado` con referencias trazables. El mismo acceptance tambien
+protege que `real_autorizado` con `-RunMigrations` falle antes de generar JSON:
+las migraciones desde este wrapper solo corresponden a clones
+`snapshot_controlado` preparados para el gate.
 
 ## Criterio de cierre
 
