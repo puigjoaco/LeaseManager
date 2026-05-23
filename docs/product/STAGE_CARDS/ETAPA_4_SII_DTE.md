@@ -23,16 +23,20 @@ produccion por defecto.
 
 ## Preparacion local segura
 
-- Las capacidades SII abiertas deben registrar refs trazables de certificado,
-  evidencia, prueba de flujo, autorizacion de ambiente y regla fiscal cuando
-  aplica, y no pueden sustituir la configuracion fiscal activa de otra empresa.
+- Las capacidades SII abiertas deben registrar refs trazables y no sensibles de
+  certificado, evidencia, prueba de flujo, autorizacion de ambiente y regla
+  fiscal cuando aplica, y no pueden sustituir la configuracion fiscal activa de
+  otra empresa.
+- DTE, F29, DDJJ/F22 y procesos anuales solo aceptan refs tributarias no
+  sensibles para tracking, borradores y paquetes; las APIs y snapshots redactan
+  refs o payloads sensibles heredados antes de exponerlos al backoffice.
 - Los borradores DTE/F29/anuales y los cambios de estado externo revalidan el
   gate antes de avanzar.
 - `F29Presentacion` y `PresentacionAnualFinal` no se registran desde el flujo
   local sin gate propio o reemision formal del set.
 - `audit_stage4_sii_readiness` consolida configuracion fiscal por empresa,
   capacidades SII, DTE, F29 y preparacion anual sin conectar SII ni leer
-  certificados.
+  certificados, y reporta refs sensibles existentes sin imprimir sus valores.
 - `audit_stage4_sii_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre SII.

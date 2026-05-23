@@ -433,6 +433,27 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage4_sii'])
         self.assertIn('stage4.environment_proof_ref_missing', {issue['code'] for issue in result['issues']})
 
+    def test_sensitive_sii_operational_refs_do_not_close_readiness(self):
+        self._create_valid_local_matrix()
+        CapacidadTributariaSII.objects.update(
+            certificado_ref='https://sii.example.test/cert?token=secret',
+            ultimo_resultado={'access_token': 'secret-token-value'},
+        )
+        DTEEmitido.objects.update(sii_track_id='https://sii.example.test/track?token=secret')
+        F29PreparacionMensual.objects.update(borrador_ref='https://sii.example.test/f29?token=secret')
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertIn('stage4.capability_sensitive_reference', issue_codes)
+        self.assertIn('stage4.dte_sensitive_tracking_ref', issue_codes)
+        self.assertIn('stage4.f29_sensitive_ref', issue_codes)
+        self.assertEqual(result['sections']['capabilities']['open_sensitive_refs'], 2)
+        self.assertEqual(result['sections']['dte']['sensitive_tracking_ref'], 1)
+        self.assertEqual(result['sections']['f29']['sensitive_ref'], 1)
+        self.assertNotIn('secret-token-value', json.dumps(result))
+
     def test_command_writes_json_and_rejects_versionable_repo_output(self):
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'stage4_readiness.json'

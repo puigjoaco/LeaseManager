@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from collections import Counter
-import re
 from typing import Any
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoPreparacionTributaria, EstadoRegistro
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from sii.models import (
     AmbienteSII,
     CapacidadSII,
@@ -22,11 +22,6 @@ from sii.models import (
     has_text,
 )
 
-
-SENSITIVE_REFERENCE_PATTERN = re.compile(
-    r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
-    re.IGNORECASE,
-)
 
 DTE_EXTERNAL_STATES = {
     EstadoDTE.SENT_MANUAL,
@@ -48,11 +43,17 @@ TAX_REF_REQUIRED_STATES = {
 }
 
 AUTHORIZED_STAGE4_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+CAPABILITY_REFERENCE_FIELDS = (
+    'certificado_ref',
+    'evidencia_ref',
+    'prueba_flujo_ref',
+    'autorizacion_ambiente_ref',
+    'regla_fiscal_ref',
+)
 
 
 def _non_sensitive_reference(value: str) -> bool:
-    normalized = str(value or '').strip()
-    return bool(normalized) and not SENSITIVE_REFERENCE_PATTERN.search(normalized)
+    return is_non_sensitive_reference(value)
 
 
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
@@ -85,6 +86,14 @@ def _count_without_active_fiscal_config(items, active_fiscal_company_ids: set[in
     return sum(1 for item in items if item.empresa_id not in active_fiscal_company_ids)
 
 
+def _capability_has_sensitive_reference(capability) -> bool:
+    return any(
+        has_text(getattr(capability, field_name, ''))
+        and not is_non_sensitive_reference(getattr(capability, field_name, ''))
+        for field_name in CAPABILITY_REFERENCE_FIELDS
+    ) or contains_sensitive_reference(capability.ultimo_resultado or {})
+
+
 def _collect_dte_issues(dtes) -> dict[str, int]:
     counts = Counter()
     for dte in dtes:
@@ -95,6 +104,8 @@ def _collect_dte_issues(dtes) -> dict[str, int]:
 
         if dte.estado_dte in DTE_EXTERNAL_STATES and not has_text(dte.sii_track_id):
             counts['external_tracking_missing'] += 1
+        if has_text(dte.sii_track_id) and not is_non_sensitive_reference(dte.sii_track_id):
+            counts['sensitive_tracking_ref'] += 1
         if dte.estado_dte in DTE_FINAL_STATES and not has_text(dte.ultimo_estado_sii):
             counts['external_status_missing'] += 1
 
@@ -113,6 +124,8 @@ def _collect_f29_issues(f29_drafts) -> dict[str, int]:
             counts['presented_boundary'] += 1
         if draft.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(draft.borrador_ref):
             counts['approved_ref_missing'] += 1
+        if has_text(draft.borrador_ref) and not is_non_sensitive_reference(draft.borrador_ref):
+            counts['sensitive_ref'] += 1
 
     return dict(sorted(counts.items()))
 
@@ -127,6 +140,14 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             EstadoPreparacionTributaria.APPROVED,
         } and not process.resumen_anual:
             counts['process_summary_missing'] += 1
+        if (
+            has_text(process.paquete_ddjj_ref)
+            and not is_non_sensitive_reference(process.paquete_ddjj_ref)
+        ) or (
+            has_text(process.borrador_f22_ref)
+            and not is_non_sensitive_reference(process.borrador_f22_ref)
+        ):
+            counts['sensitive_ref'] += 1
 
     for ddjj in ddjj_preparations:
         try:
@@ -137,6 +158,8 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['ddjj_presented_boundary'] += 1
         if ddjj.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(ddjj.paquete_ref):
             counts['ddjj_ref_missing'] += 1
+        if has_text(ddjj.paquete_ref) and not is_non_sensitive_reference(ddjj.paquete_ref):
+            counts['sensitive_ref'] += 1
 
     for f22 in f22_preparations:
         try:
@@ -147,6 +170,8 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['f22_presented_boundary'] += 1
         if f22.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(f22.borrador_ref):
             counts['f22_ref_missing'] += 1
+        if has_text(f22.borrador_ref) and not is_non_sensitive_reference(f22.borrador_ref):
+            counts['sensitive_ref'] += 1
 
     return dict(sorted(counts.items()))
 
@@ -175,6 +200,9 @@ def collect_stage4_sii_readiness(
     open_capabilities_without_fiscal_config = _count_without_active_fiscal_config(
         open_capabilities,
         active_fiscal_company_ids,
+    )
+    open_capabilities_with_sensitive_refs = sum(
+        1 for capability in open_capabilities if _capability_has_sensitive_reference(capability)
     )
 
     dtes = DTEEmitido.objects.select_related(
@@ -277,6 +305,14 @@ def collect_stage4_sii_readiness(
                 count=invalid_open_capabilities,
             )
         )
+    if open_capabilities_with_sensitive_refs:
+        issues.append(
+            _issue(
+                'stage4.capability_sensitive_reference',
+                'Existen capacidades SII abiertas con referencias sensibles o payloads de resultado sensibles.',
+                count=open_capabilities_with_sensitive_refs,
+            )
+        )
     if open_capabilities_without_fiscal_config:
         issues.append(
             _issue(
@@ -306,6 +342,14 @@ def collect_stage4_sii_readiness(
                 'stage4.dte_external_tracking_missing',
                 'Existen DTE en estado externo sin sii_track_id trazable.',
                 count=dte_issues['external_tracking_missing'],
+            )
+        )
+    if dte_issues.get('sensitive_tracking_ref'):
+        issues.append(
+            _issue(
+                'stage4.dte_sensitive_tracking_ref',
+                'Existen DTE con sii_track_id sensible; debe ser una referencia no sensible.',
+                count=dte_issues['sensitive_tracking_ref'],
             )
         )
     if dte_issues.get('external_status_missing'):
@@ -353,6 +397,14 @@ def collect_stage4_sii_readiness(
                 'stage4.f29_ref_missing',
                 'F29 aprobado, observado o rectificado requiere borrador_ref trazable.',
                 count=f29_issues['approved_ref_missing'],
+            )
+        )
+    if f29_issues.get('sensitive_ref'):
+        issues.append(
+            _issue(
+                'stage4.f29_sensitive_ref',
+                'Existen borradores F29 con borrador_ref sensible.',
+                count=f29_issues['sensitive_ref'],
             )
         )
     if f29_without_fiscal_config:
@@ -404,6 +456,11 @@ def collect_stage4_sii_readiness(
             'f22_ref_missing',
             'stage4.f22_ref_missing',
             'F22 aprobado, observado o rectificado requiere borrador_ref trazable.',
+        ),
+        (
+            'sensitive_ref',
+            'stage4.annual_sensitive_ref',
+            'Existen preparaciones anuales con referencias sensibles.',
         ),
     ]:
         if annual_issues.get(key):
@@ -462,6 +519,7 @@ def collect_stage4_sii_readiness(
                 'open_f29': open_f29_capabilities.count(),
                 'open_production': production_open_capabilities.count(),
                 'invalid_open': invalid_open_capabilities,
+                'open_sensitive_refs': open_capabilities_with_sensitive_refs,
                 'open_without_active_fiscal_config': open_capabilities_without_fiscal_config,
             },
             'dte': {

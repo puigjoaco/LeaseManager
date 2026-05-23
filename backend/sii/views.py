@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_queryset_for_access, scope_queryset_for_user
 from cobranza.models import PagoMensual
 from patrimonio.models import Empresa
@@ -149,10 +150,10 @@ class SiiSnapshotView(APIView):
                         'id': item.id,
                         'empresa': item.empresa_id,
                         'capacidad_key': item.capacidad_key,
-                        'evidencia_ref': item.evidencia_ref,
-                        'prueba_flujo_ref': item.prueba_flujo_ref,
-                        'autorizacion_ambiente_ref': item.autorizacion_ambiente_ref,
-                        'regla_fiscal_ref': item.regla_fiscal_ref,
+                        'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                        'prueba_flujo_ref': redact_sensitive_reference(item.prueba_flujo_ref),
+                        'autorizacion_ambiente_ref': redact_sensitive_reference(item.autorizacion_ambiente_ref),
+                        'regla_fiscal_ref': redact_sensitive_reference(item.regla_fiscal_ref),
                         'ambiente': item.ambiente,
                         'estado_gate': item.estado_gate,
                     }
@@ -166,7 +167,7 @@ class SiiSnapshotView(APIView):
                         'pago_mensual': item.pago_mensual_id,
                         'monto_neto_clp': item.monto_neto_clp,
                         'estado_dte': item.estado_dte,
-                        'sii_track_id': item.sii_track_id,
+                        'sii_track_id': redact_sensitive_reference(item.sii_track_id),
                     }
                     for item in dtes
                 ],
@@ -178,7 +179,7 @@ class SiiSnapshotView(APIView):
                         'anio': item.anio,
                         'mes': item.mes,
                         'estado_preparacion': item.estado_preparacion,
-                        'borrador_ref': item.borrador_ref,
+                        'borrador_ref': redact_sensitive_reference(item.borrador_ref),
                     }
                     for item in f29s
                 ],
@@ -198,7 +199,7 @@ class SiiSnapshotView(APIView):
                         'empresa': item.empresa_id,
                         'anio_tributario': item.anio_tributario,
                         'estado_preparacion': item.estado_preparacion,
-                        'paquete_ref': item.paquete_ref,
+                        'paquete_ref': redact_sensitive_reference(item.paquete_ref),
                     }
                     for item in ddjjs
                 ],
@@ -208,7 +209,7 @@ class SiiSnapshotView(APIView):
                         'empresa': item.empresa_id,
                         'anio_tributario': item.anio_tributario,
                         'estado_preparacion': item.estado_preparacion,
-                        'borrador_ref': item.borrador_ref,
+                        'borrador_ref': redact_sensitive_reference(item.borrador_ref),
                     }
                     for item in f22s
                 ],

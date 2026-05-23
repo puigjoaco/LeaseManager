@@ -4,6 +4,7 @@ from django.db import models
 from cobranza.models import DistribucionCobroMensual, PagoMensual
 from contabilidad.models import CierreMensualContable, EstadoPreparacionTributaria
 from contratos.models import Contrato
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from patrimonio.models import Empresa
 
 
@@ -39,6 +40,17 @@ class AmbienteSII(models.TextChoices):
 
 def has_text(value):
     return bool(str(value or '').strip())
+
+
+def _add_non_sensitive_reference_error(errors, instance, field_name):
+    value = getattr(instance, field_name, '')
+    if has_text(value) and not is_non_sensitive_reference(value):
+        errors[field_name] = f'{field_name} debe ser una referencia no sensible, no una URL, token o credencial.'
+
+
+def _add_non_sensitive_payload_error(errors, field_name, value):
+    if value and contains_sensitive_reference(value):
+        errors[field_name] = f'{field_name} no debe contener URLs, tokens, credenciales ni correos.'
 
 
 class EstadoDTE(models.TextChoices):
@@ -117,6 +129,15 @@ class CapacidadTributariaSII(TimestampedModel):
     def clean(self):
         super().clean()
         errors = self.readiness_errors()
+        for field_name in (
+            'certificado_ref',
+            'evidencia_ref',
+            'prueba_flujo_ref',
+            'autorizacion_ambiente_ref',
+            'regla_fiscal_ref',
+        ):
+            _add_non_sensitive_reference_error(errors, self, field_name)
+        _add_non_sensitive_payload_error(errors, 'ultimo_resultado', self.ultimo_resultado)
         if errors:
             raise ValidationError(errors)
 
@@ -168,18 +189,22 @@ class DTEEmitido(TimestampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'sii_track_id')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
-            raise ValidationError({'capacidad_tributaria': 'La capacidad SII debe pertenecer a la misma empresa del DTE.'})
+            errors['capacidad_tributaria'] = 'La capacidad SII debe pertenecer a la misma empresa del DTE.'
         if self.pago_mensual.contrato_id != self.contrato_id:
-            raise ValidationError({'pago_mensual': 'El pago mensual debe pertenecer al mismo contrato del DTE.'})
+            errors['pago_mensual'] = 'El pago mensual debe pertenecer al mismo contrato del DTE.'
         if self.distribucion_cobro_mensual.pago_mensual_id != self.pago_mensual_id:
-            raise ValidationError({'distribucion_cobro_mensual': 'La distribucion debe pertenecer al mismo pago mensual del DTE.'})
+            errors['distribucion_cobro_mensual'] = 'La distribucion debe pertenecer al mismo pago mensual del DTE.'
         if not self.distribucion_cobro_mensual.requiere_dte:
-            raise ValidationError({'distribucion_cobro_mensual': 'El DTE solo puede emitirse desde una distribucion facturable.'})
+            errors['distribucion_cobro_mensual'] = 'El DTE solo puede emitirse desde una distribucion facturable.'
         if self.distribucion_cobro_mensual.beneficiario_empresa_owner_id != self.empresa_id:
-            raise ValidationError({'empresa': 'La empresa del DTE debe coincidir con la empresa beneficiaria de la distribucion.'})
+            errors['empresa'] = 'La empresa del DTE debe coincidir con la empresa beneficiaria de la distribucion.'
         if self.contrato.arrendatario_id != self.arrendatario_id:
-            raise ValidationError({'arrendatario': 'El DTE debe pertenecer al mismo arrendatario del contrato.'})
+            errors['arrendatario'] = 'El DTE debe pertenecer al mismo arrendatario del contrato.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class F29PreparacionMensual(TimestampedModel):
@@ -220,10 +245,14 @@ class F29PreparacionMensual(TimestampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
-            raise ValidationError({'capacidad_tributaria': 'La capacidad SII debe pertenecer a la misma empresa del borrador F29.'})
+            errors['capacidad_tributaria'] = 'La capacidad SII debe pertenecer a la misma empresa del borrador F29.'
         if self.cierre_mensual.empresa_id != self.empresa_id or self.cierre_mensual.anio != self.anio or self.cierre_mensual.mes != self.mes:
-            raise ValidationError({'cierre_mensual': 'El cierre mensual debe coincidir con la empresa y periodo del F29.'})
+            errors['cierre_mensual'] = 'El cierre mensual debe coincidir con la empresa y periodo del F29.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class ProcesoRentaAnual(TimestampedModel):
@@ -251,6 +280,14 @@ class ProcesoRentaAnual(TimestampedModel):
 
     def __str__(self):
         return f'Renta {self.empresa_id} {self.anio_tributario}'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'paquete_ddjj_ref')
+        _add_non_sensitive_reference_error(errors, self, 'borrador_f22_ref')
+        if errors:
+            raise ValidationError(errors)
 
 
 class DDJJPreparacionAnual(TimestampedModel):
@@ -287,10 +324,14 @@ class DDJJPreparacionAnual(TimestampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'paquete_ref')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
-            raise ValidationError({'capacidad_tributaria': 'La capacidad DDJJ debe pertenecer a la misma empresa.'})
+            errors['capacidad_tributaria'] = 'La capacidad DDJJ debe pertenecer a la misma empresa.'
         if self.proceso_renta_anual.empresa_id != self.empresa_id or self.proceso_renta_anual.anio_tributario != self.anio_tributario:
-            raise ValidationError({'proceso_renta_anual': 'El proceso anual debe coincidir con la empresa y año tributario de DDJJ.'})
+            errors['proceso_renta_anual'] = 'El proceso anual debe coincidir con la empresa y año tributario de DDJJ.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class F22PreparacionAnual(TimestampedModel):
@@ -327,7 +368,11 @@ class F22PreparacionAnual(TimestampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
-            raise ValidationError({'capacidad_tributaria': 'La capacidad F22 debe pertenecer a la misma empresa.'})
+            errors['capacidad_tributaria'] = 'La capacidad F22 debe pertenecer a la misma empresa.'
         if self.proceso_renta_anual.empresa_id != self.empresa_id or self.proceso_renta_anual.anio_tributario != self.anio_tributario:
-            raise ValidationError({'proceso_renta_anual': 'El proceso anual debe coincidir con la empresa y año tributario del F22.'})
+            errors['proceso_renta_anual'] = 'El proceso anual debe coincidir con la empresa y año tributario del F22.'
+        if errors:
+            raise ValidationError(errors)

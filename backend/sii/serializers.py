@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from cobranza.models import PagoMensual
 
@@ -29,7 +30,31 @@ def build_validation_candidate(instance, model_class):
     return model_class.objects.get(pk=instance.pk)
 
 
-class CapacidadTributariaSIISerializer(serializers.ModelSerializer):
+class RedactSensitiveSiiFieldsMixin:
+    redacted_reference_fields = ()
+    redacted_payload_fields = ()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        for field_name in self.redacted_reference_fields:
+            if field_name in data:
+                data[field_name] = redact_sensitive_reference(data[field_name])
+        for field_name in self.redacted_payload_fields:
+            if field_name in data:
+                data[field_name] = redact_sensitive_payload(data[field_name])
+        return data
+
+
+class CapacidadTributariaSIISerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = (
+        'certificado_ref',
+        'evidencia_ref',
+        'prueba_flujo_ref',
+        'autorizacion_ambiente_ref',
+        'regla_fiscal_ref',
+    )
+    redacted_payload_fields = ('ultimo_resultado',)
+
     class Meta:
         model = CapacidadTributariaSII
         fields = (
@@ -67,7 +92,9 @@ class CapacidadTributariaSIISerializer(serializers.ModelSerializer):
         return attrs
 
 
-class DTEEmitidoSerializer(serializers.ModelSerializer):
+class DTEEmitidoSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('sii_track_id',)
+
     class Meta:
         model = DTEEmitido
         fields = (
@@ -130,7 +157,10 @@ class DTEStatusSerializer(serializers.Serializer):
     observaciones = serializers.CharField(required=False, allow_blank=True)
 
 
-class F29PreparacionMensualSerializer(serializers.ModelSerializer):
+class F29PreparacionMensualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('borrador_ref',)
+    redacted_payload_fields = ('resumen_formulario',)
+
     class Meta:
         model = F29PreparacionMensual
         fields = (
@@ -169,7 +199,10 @@ class F29StatusSerializer(serializers.Serializer):
     observaciones = serializers.CharField(required=False, allow_blank=True)
 
 
-class ProcesoRentaAnualSerializer(serializers.ModelSerializer):
+class ProcesoRentaAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('paquete_ddjj_ref', 'borrador_f22_ref')
+    redacted_payload_fields = ('resumen_anual',)
+
     class Meta:
         model = ProcesoRentaAnual
         fields = (
@@ -187,7 +220,10 @@ class ProcesoRentaAnualSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class DDJJPreparacionAnualSerializer(serializers.ModelSerializer):
+class DDJJPreparacionAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('paquete_ref',)
+    redacted_payload_fields = ('resumen_paquete',)
+
     class Meta:
         model = DDJJPreparacionAnual
         fields = (
@@ -206,7 +242,10 @@ class DDJJPreparacionAnualSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class F22PreparacionAnualSerializer(serializers.ModelSerializer):
+class F22PreparacionAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('borrador_ref',)
+    redacted_payload_fields = ('resumen_f22',)
+
     class Meta:
         model = F22PreparacionAnual
         fields = (
