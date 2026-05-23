@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_payload_values, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from contratos.models import Arrendatario, Contrato
 from documentos.scope import scope_documento_queryset
@@ -91,6 +91,7 @@ class ChannelsSnapshotView(APIView):
                         'canal': item.canal,
                         'provider_key': item.provider_key,
                         'estado_gate': item.estado_gate,
+                        'restricciones_operativas': redact_sensitive_payload_values(item.restricciones_operativas),
                         'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
                     }
                     for item in CanalMensajeria.objects.order_by('canal', 'provider_key', 'id')
@@ -137,7 +138,7 @@ class ChannelsSnapshotView(APIView):
                     {
                         'id': item.id,
                         'tipo_documental': item.tipo_documental,
-                        'storage_ref': item.storage_ref,
+                        'storage_ref': redact_sensitive_reference(item.storage_ref),
                     }
                     for item in documentos
                 ],
