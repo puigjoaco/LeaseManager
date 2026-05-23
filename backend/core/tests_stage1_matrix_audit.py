@@ -793,6 +793,22 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertNotIn('stage1.contrato_futuro.aviso_termino_faltante', issue_codes)
 
+    def test_notice_effective_date_after_contract_end_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2027, 1, 31),
+            causal='Termino fuera de rango contractual',
+            estado=EstadoAvisoTermino.REGISTERED,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.aviso_termino.validacion_modelo', issue_codes)
+
     def test_invalid_stage1_model_records_are_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         participacion = ParticipacionPatrimonial.objects.filter(

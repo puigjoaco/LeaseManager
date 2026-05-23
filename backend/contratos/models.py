@@ -439,6 +439,10 @@ class AvisoTermino(TimestampedModel):
         super().clean()
         if self.fecha_efectiva < self.contrato.fecha_inicio:
             raise ValidationError({'fecha_efectiva': 'La fecha efectiva no puede ser anterior al inicio del contrato.'})
+        if self.fecha_efectiva > self.contrato.fecha_fin_vigente:
+            raise ValidationError(
+                {'fecha_efectiva': 'La fecha efectiva no puede ser posterior a la fecha fin vigente del contrato.'}
+            )
 
         if self.estado == EstadoAvisoTermino.CANCELED:
             principal_ids = list(

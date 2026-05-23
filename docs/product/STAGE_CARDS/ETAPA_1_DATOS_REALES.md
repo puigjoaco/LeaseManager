@@ -44,6 +44,8 @@ contra datos reales o snapshot controlado.
   devueltos o aplicados conciliados contra `HistorialGarantia`.
 - Validacion de ajustes contractuales existentes: contrato, moneda, rango de
   meses y justificacion deben ser coherentes antes de usarlos en cobranza.
+- Validacion de avisos de termino existentes: la fecha efectiva debe quedar
+  dentro del rango del contrato asociado.
 - Validacion de pagos y distribuciones existentes en el snapshot: si existen,
   deben cuadrar devengo, conciliacion, porcentaje y entidad facturadora.
 - Validacion de que pagos mensuales existentes conserven
