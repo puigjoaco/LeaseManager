@@ -120,7 +120,11 @@ def _contains_sensitive_reference(value):
     if isinstance(value, str):
         return bool(SENSITIVE_EVIDENCE_REF_PATTERN.search(value))
     if isinstance(value, dict):
-        return any(_contains_sensitive_reference(item) for item in value.values())
+        return any(
+            (isinstance(key, str) and SENSITIVE_EVIDENCE_REF_PATTERN.search(key))
+            or _contains_sensitive_reference(item)
+            for key, item in value.items()
+        )
     if isinstance(value, (list, tuple)):
         return any(_contains_sensitive_reference(item) for item in value)
     return False
