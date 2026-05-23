@@ -1,3 +1,5 @@
+import json
+
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
@@ -6,6 +8,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from audit.models import AuditEvent
 from cobranza.models import PagoMensual
 from cobranza.services import sync_payment_distribution
 from contabilidad.models import CierreMensualContable, ConfiguracionFiscalEmpresa, ObligacionTributariaMensual, RegimenTributarioEmpresa
@@ -564,6 +567,34 @@ class SiiAPITests(APITestCase):
         self.assertEqual(update.status_code, status.HTTP_200_OK)
         self.assertEqual(update.data['estado_dte'], 'enviado_manual_controlado')
         self.assertEqual(update.data['sii_track_id'], '0245399452')
+
+    def test_dte_status_audit_metadata_redacts_inherited_sensitive_tracking_ref(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_capability(empresa, estado_gate='abierto')
+        self._activate_fiscal_config(empresa)
+        generated = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        DTEEmitido.objects.filter(pk=generated.data['id']).update(
+            sii_track_id='https://sii.example.test/track?token=secret'
+        )
+
+        update = self.client.post(
+            reverse('sii-dte-status', args=[generated.data['id']]),
+            {'estado_dte': 'borrador'},
+            format='json',
+        )
+
+        self.assertEqual(update.status_code, status.HTTP_200_OK)
+        self.assertEqual(update.data['sii_track_id'], REDACTED_SENSITIVE_REFERENCE)
+        event = AuditEvent.objects.filter(
+            event_type='sii.dte_emitido.status_updated',
+            entity_id=str(generated.data['id']),
+        ).latest('id')
+        self.assertEqual(event.metadata['sii_track_id'], REDACTED_SENSITIVE_REFERENCE)
+        serialized_metadata = json.dumps(event.metadata)
+        self.assertNotIn('sii.example.test', serialized_metadata)
+        self.assertNotIn('token', serialized_metadata)
+        self.assertNotIn('secret', serialized_metadata)
 
     def test_update_dte_status_requires_tracking_reference_for_external_state(self):
         empresa, pago = self._setup_paid_payment()

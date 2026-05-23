@@ -315,7 +315,7 @@ class DTEStatusUpdateView(APIView):
             summary='Estado DTE actualizado manualmente',
             actor_user=request.user,
             ip_address=request.META.get('REMOTE_ADDR'),
-            metadata={'estado_dte': dte.estado_dte, 'sii_track_id': dte.sii_track_id},
+            metadata={'estado_dte': dte.estado_dte, 'sii_track_id': redact_sensitive_reference(dte.sii_track_id)},
         )
         return Response(DTEEmitidoSerializer(dte).data, status=status.HTTP_200_OK)
 
