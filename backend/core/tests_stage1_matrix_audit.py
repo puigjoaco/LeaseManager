@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
@@ -7,6 +7,7 @@ from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
+from django.utils import timezone
 
 from cobranza.models import (
     AjusteContrato,
@@ -317,6 +318,23 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.identidad_envio.validacion_modelo', issue_codes)
         self.assertEqual(
             result['aggregate_classification']['identidades_envio_activas']['classification'],
+            'defectuoso',
+        )
+
+    def test_active_company_future_only_participations_are_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        empresa = contrato.mandato_operacion.propietario_empresa_owner
+        future_date = timezone.localdate() + timedelta(days=30)
+        ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).update(vigente_desde=future_date)
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.empresa.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['empresas']['classification'],
             'defectuoso',
         )
 

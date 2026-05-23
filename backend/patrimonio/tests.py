@@ -1,9 +1,12 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -175,6 +178,35 @@ class PatrimonioAPITests(APITestCase):
             response = self.client.post(reverse('patrimonio-empresa-list'), payload, format='json')
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_empresa_active_rejects_future_participations_for_activation(self):
+        socio_1 = self._create_socio('Socio Futuro Uno', '11111111-1')
+        socio_2 = self._create_socio('Socio Futuro Dos', '22222222-2')
+        future_date = (timezone.localdate() + timedelta(days=30)).isoformat()
+        payload = self._empresa_payload(
+            participaciones=[
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_1.id,
+                    'porcentaje': '60.00',
+                    'vigente_desde': future_date,
+                    'activo': True,
+                },
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_2.id,
+                    'porcentaje': '40.00',
+                    'vigente_desde': future_date,
+                    'activo': True,
+                },
+            ]
+        )
+
+        response = self.client.post(reverse('patrimonio-empresa-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('participaciones', response.data)
+        self.assertFalse(Empresa.objects.filter(razon_social='Empresa Canonica').exists())
+
     def test_empresa_rejects_empresa_participant(self):
         company_participant = self.client.post(
             reverse('patrimonio-empresa-list'),
@@ -232,6 +264,37 @@ class PatrimonioAPITests(APITestCase):
 
         response = self.client.post(reverse('patrimonio-comunidad-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_comunidad_active_rejects_future_participations_for_activation(self):
+        socio_1 = self._create_socio('Socio Comunidad Futuro Uno', '11111111-1')
+        socio_2 = self._create_socio('Socio Comunidad Futuro Dos', '22222222-2')
+        future_date = (timezone.localdate() + timedelta(days=30)).isoformat()
+        payload = self._comunidad_payload(
+            representante_modo=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+            representante_socio_id=socio_1.id,
+            participaciones=[
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_1.id,
+                    'porcentaje': '50.00',
+                    'vigente_desde': future_date,
+                    'activo': True,
+                },
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_2.id,
+                    'porcentaje': '50.00',
+                    'vigente_desde': future_date,
+                    'activo': True,
+                },
+            ],
+        )
+
+        response = self.client.post(reverse('patrimonio-comunidad-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('participaciones', response.data)
+        self.assertFalse(ComunidadPatrimonial.objects.filter(nombre='Comunidad Patrimonial Uno').exists())
 
     def test_comunidad_allows_designated_representative_outside_participaciones(self):
         socio_1 = self._create_socio('Socio Uno', '11111111-1')

@@ -24,6 +24,9 @@ contra datos reales o snapshot controlado.
   debe pasar para evitar reintroducir `.env`, DBs locales/historicas, bundles
   generados, dumps, snapshots, certificados o evidencia local versionada.
 - Clasificacion de cada agregado migrable.
+- Validacion de participaciones actualmente vigentes: para activar empresas o
+  comunidades solo cuentan participaciones activas con `vigente_desde` ya
+  alcanzado y sin `vigente_hasta` vencido.
 - La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
   historicos no constituyen evidencia operativa de Etapa 1.
 - Validacion de no duplicar propiedades por rol de avaluo ni identidad

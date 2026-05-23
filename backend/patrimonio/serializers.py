@@ -167,12 +167,20 @@ class OwnerBaseSerializer(serializers.ModelSerializer):
             )
         return payload
 
+    def _participacion_is_currently_active(self, participacion, today):
+        vigente_desde = participacion.get('vigente_desde') or today
+        vigente_hasta = participacion.get('vigente_hasta')
+        return (
+            participacion.get('activo', True)
+            and vigente_desde <= today
+            and (vigente_hasta is None or vigente_hasta >= today)
+        )
+
     def _get_active_total(self, participaciones):
         today = timezone.localdate()
         total = Decimal('0.00')
         for participacion in participaciones:
-            vigente_hasta = participacion.get('vigente_hasta')
-            if participacion.get('activo', True) and (vigente_hasta is None or vigente_hasta >= today):
+            if self._participacion_is_currently_active(participacion, today):
                 total += Decimal(participacion['porcentaje'])
         return total
 
@@ -363,12 +371,12 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
                     {'representacion_vigente': 'La comunidad activa debe tener una representacion vigente.'}
                 )
 
+            today = timezone.localdate()
             active_socio_ids = {
                 participacion['participante_socio'].id
                 for participacion in participaciones
                 if participacion.get('participante_socio')
-                if participacion.get('activo', True)
-                and (participacion.get('vigente_hasta') is None or participacion.get('vigente_hasta') >= timezone.localdate())
+                if self._participacion_is_currently_active(participacion, today)
             }
             if representante_modo == ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT and representante.id not in active_socio_ids:
                 raise serializers.ValidationError(
