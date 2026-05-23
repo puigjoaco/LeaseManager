@@ -32,7 +32,8 @@ runbook, smoke y aceptacion.
   de `local-evidence/` antes de auditar, para no versionar evidencia ni
   metadatos de observabilidad.
 - Senales runtime persistidas para latencia mensual, cola/tareas, webhooks
-  fallidos y crons fallidos, con evidencia no sensible.
+  fallidos y crons fallidos, con evidencia y payload no sensibles; las claves
+  de payload con forma de secreto o credencial tambien se rechazan.
 - Para cierre productivo, las cuatro senales runtime obligatorias deben venir
   de `snapshot_controlado` o `real_autorizado`; mediciones locales, fixture o
   demo solo preparan el gate.

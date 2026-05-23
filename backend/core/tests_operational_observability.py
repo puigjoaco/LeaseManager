@@ -282,6 +282,17 @@ class OperationalObservabilityAuditTests(TestCase):
                 stdout=StringIO(),
             )
 
+    def test_record_runtime_signal_rejects_sensitive_payload_keys(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                'record_operational_runtime_signal',
+                signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+                status=RuntimeSignalStatus.OK,
+                evidence_ref='queue-runtime-controlled-v1',
+                value_json='{"healthy": true, "access_token": "opaque-runtime-value"}',
+                stdout=StringIO(),
+            )
+
 
 class OperationalObservabilityAPITests(APITestCase):
     def test_api_requires_operational_role(self):
