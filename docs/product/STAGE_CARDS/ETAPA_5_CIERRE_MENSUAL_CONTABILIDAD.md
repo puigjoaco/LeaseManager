@@ -23,10 +23,18 @@ contables desde hechos conciliados.
 - Asientos balanceados.
 - Movimientos de asiento obligatorios, con sumas debe/haber iguales a los
   totales del asiento y cuentas contables de la misma empresa del evento.
+- Eventos, movimientos, obligaciones, libros, balances y cierres no pueden
+  persistir nuevas URLs, tokens, credenciales, correos ni referencias sensibles
+  en payloads, `storage_ref` o `centro_resultado_ref`.
+- APIs de contabilidad y reporting de libros redactan payloads y referencias
+  sensibles heredadas antes de exponerlas al backoffice.
 - `audit_stage5_contabilidad_readiness` consolida configuracion fiscal,
   reglas/matriz, eventos, asientos, integridad de movimientos, snapshots,
   cierres mensuales y conciliacion del periodo sin presentar impuestos ni
   conectar servicios externos.
+- `audit_stage5_contabilidad_readiness` bloquea cierre si detecta payloads,
+  `storage_ref`, resumenes de snapshot, obligaciones, cierres o movimientos de
+  asiento con referencias sensibles heredadas.
 - `audit_stage5_contabilidad_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 5.

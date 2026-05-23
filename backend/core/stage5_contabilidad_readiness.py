@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import Counter
-import re
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -31,19 +30,14 @@ from contabilidad.services import (
     get_company_period_unresolved_bank_movements,
     summarize_asiento_movement_integrity,
 )
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
-
-SENSITIVE_REFERENCE_PATTERN = re.compile(
-    r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
-    re.IGNORECASE,
-)
 
 AUTHORIZED_STAGE5_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 
 
 def _non_sensitive_reference(value: str) -> bool:
-    normalized = str(value or '').strip()
-    return bool(normalized) and not SENSITIVE_REFERENCE_PATTERN.search(normalized)
+    return is_non_sensitive_reference(value)
 
 
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
@@ -63,6 +57,23 @@ def _count_invalid(queryset) -> int:
         except ValidationError:
             invalid_count += 1
     return invalid_count
+
+
+def _count_sensitive_payloads(queryset, field_name: str) -> int:
+    count = 0
+    for item in queryset:
+        if contains_sensitive_reference(getattr(item, field_name, None), include_sensitive_keys=True):
+            count += 1
+    return count
+
+
+def _count_sensitive_references(queryset, field_name: str) -> int:
+    count = 0
+    for item in queryset:
+        value = getattr(item, field_name, '')
+        if str(value or '').strip() and not is_non_sensitive_reference(value):
+            count += 1
+    return count
 
 
 def _count_by(queryset, field_name: str) -> dict[str, int]:
@@ -137,6 +148,7 @@ def collect_stage5_contabilidad_readiness(
     posted_events = events.filter(estado_contable=EstadoEventoContable.POSTED)
     pending_events = events.exclude(estado_contable=EstadoEventoContable.POSTED).count()
     posted_events_without_asiento = posted_events.filter(asiento_contable__isnull=True).count()
+    events_sensitive_payloads = _count_sensitive_payloads(events, 'payload_resumen')
 
     asientos_qs = AsientoContable.objects.select_related('evento_contable').prefetch_related(
         'movimientos__cuenta_contable'
@@ -156,6 +168,7 @@ def collect_stage5_contabilidad_readiness(
             or movement_integrity['credit_total'] != asiento.haber_total
         ):
             movement_totals_mismatch += 1
+    movement_sensitive_refs = _count_sensitive_references(MovimientoAsiento.objects.all(), 'centro_resultado_ref')
 
     obligations = ObligacionTributariaMensual.objects.select_related('empresa')
     pending_obligations = obligations.filter(
@@ -165,12 +178,27 @@ def collect_stage5_contabilidad_readiness(
             EstadoPreparacionTributaria.OBSERVED,
         ]
     ).count()
+    obligations_sensitive_payloads = _count_sensitive_payloads(obligations, 'detalle_calculo')
 
     closes = CierreMensualContable.objects.select_related('empresa')
     prepared_or_approved_closes = closes.filter(
         estado__in=[EstadoCierreMensual.PREPARED, EstadoCierreMensual.APPROVED]
     )
     approved_closes = closes.filter(estado=EstadoCierreMensual.APPROVED)
+    libro_diario_snapshots = LibroDiario.objects.all()
+    libro_mayor_snapshots = LibroMayor.objects.all()
+    balance_snapshots = BalanceComprobacion.objects.all()
+    ledger_snapshot_sensitive_references = sum(
+        [
+            _count_sensitive_references(libro_diario_snapshots, 'storage_ref'),
+            _count_sensitive_payloads(libro_diario_snapshots, 'resumen'),
+            _count_sensitive_references(libro_mayor_snapshots, 'storage_ref'),
+            _count_sensitive_payloads(libro_mayor_snapshots, 'resumen'),
+            _count_sensitive_references(balance_snapshots, 'storage_ref'),
+            _count_sensitive_payloads(balance_snapshots, 'resumen'),
+        ]
+    )
+    close_sensitive_payloads = _count_sensitive_payloads(closes, 'resumen_obligaciones')
     close_issues = _ledger_close_issues(prepared_or_approved_closes)
 
     final_evidence = {
@@ -286,6 +314,14 @@ def collect_stage5_contabilidad_readiness(
                 count=posted_events_without_asiento,
             )
         )
+    if events_sensitive_payloads:
+        issues.append(
+            _issue(
+                'stage5.events_sensitive_payload',
+                'Existen eventos contables con payload heredado que contiene URLs, tokens, credenciales o correos.',
+                count=events_sensitive_payloads,
+            )
+        )
     if unbalanced_asientos:
         issues.append(
             _issue(
@@ -326,12 +362,44 @@ def collect_stage5_contabilidad_readiness(
                 count=movement_totals_mismatch,
             )
         )
+    if movement_sensitive_refs:
+        issues.append(
+            _issue(
+                'stage5.asiento_movement_sensitive_reference',
+                'Existen movimientos de asiento con referencias de centro de resultado sensibles.',
+                count=movement_sensitive_refs,
+            )
+        )
     if pending_obligations:
         issues.append(
             _issue(
                 'stage5.tax_obligations_pending',
                 'Existen obligaciones tributarias mensuales pendientes, en preparacion u observadas.',
                 count=pending_obligations,
+            )
+        )
+    if obligations_sensitive_payloads:
+        issues.append(
+            _issue(
+                'stage5.tax_obligations_sensitive_payload',
+                'Existen obligaciones tributarias mensuales con detalle de calculo sensible.',
+                count=obligations_sensitive_payloads,
+            )
+        )
+    if ledger_snapshot_sensitive_references:
+        issues.append(
+            _issue(
+                'stage5.ledger_snapshot_sensitive_reference',
+                'Existen snapshots de libros o balance con storage_ref/resumen sensible heredado.',
+                count=ledger_snapshot_sensitive_references,
+            )
+        )
+    if close_sensitive_payloads:
+        issues.append(
+            _issue(
+                'stage5.close_sensitive_payload',
+                'Existen cierres mensuales con resumen de obligaciones sensible.',
+                count=close_sensitive_payloads,
             )
         )
     if approved_closes.count() == 0:
@@ -437,6 +505,7 @@ def collect_stage5_contabilidad_readiness(
                 'events_by_state': _count_by(events, 'estado_contable'),
                 'pending_events': pending_events,
                 'posted_events_without_asiento': posted_events_without_asiento,
+                'events_sensitive_payloads': events_sensitive_payloads,
                 'asientos_total': asientos_qs.count(),
                 'asientos_by_state': _count_by(asientos_qs, 'estado'),
                 'unbalanced_asientos': unbalanced_asientos,
@@ -444,15 +513,19 @@ def collect_stage5_contabilidad_readiness(
                 'asientos_without_movements': asientos_without_movements,
                 'movement_company_mismatch': movement_company_mismatch,
                 'movement_totals_mismatch': movement_totals_mismatch,
+                'movement_sensitive_refs': movement_sensitive_refs,
                 'movimientos_asiento_total': MovimientoAsiento.objects.count(),
                 'movimientos_by_type': _count_by(MovimientoAsiento.objects.all(), 'tipo_movimiento'),
+                'ledger_snapshot_sensitive_references': ledger_snapshot_sensitive_references,
             },
             'monthly_close': {
                 'closes_total': closes.count(),
                 'closes_by_state': _count_by(closes, 'estado'),
                 'approved_closes': approved_closes.count(),
+                'close_sensitive_payloads': close_sensitive_payloads,
                 'obligations_total': obligations.count(),
                 'obligations_by_state': _count_by(obligations, 'estado_preparacion'),
+                'obligations_sensitive_payloads': obligations_sensitive_payloads,
                 **close_issues,
             },
             'final_evidence': final_evidence,

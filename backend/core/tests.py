@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 
 from .models import PlatformSetting, Role, Scope, UserScopeAssignment
 from .permissions import get_effective_role_codes
-from .reference_validation import REDACTED_SENSITIVE_REFERENCE, redact_sensitive_payload
+from .reference_validation import REDACTED_SENSITIVE_REFERENCE, contains_sensitive_reference, redact_sensitive_payload
 
 
 class PlatformBootstrapAPITests(APITestCase):
@@ -138,3 +138,9 @@ class ReferenceValidationTests(TestCase):
         self.assertEqual(redacted['nested'][1]['result_ref'], 'controlled-result')
         self.assertEqual(redacted['count'], 2)
         self.assertIsNone(redacted['empty'])
+
+    def test_contains_sensitive_reference_can_include_sensitive_keys(self):
+        payload = {'access_token': 'opaque-value', 'safe_ref': 'controlled-reference'}
+
+        self.assertFalse(contains_sensitive_reference(payload))
+        self.assertTrue(contains_sensitive_reference(payload, include_sensitive_keys=True))

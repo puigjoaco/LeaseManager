@@ -9,6 +9,7 @@ from canales.models import CanalMensajeria, MensajeSaliente
 from cobranza.models import EstadoCuentaArrendatario, PagoMensual
 from cobranza.services import sync_payment_distribution
 from conciliacion.models import ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from contabilidad.models import (
     AsientoContable,
     BalanceComprobacion,
@@ -557,6 +558,46 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
         self.assertEqual(response.data['libro_diario']['estado_snapshot'], 'aprobado')
         self.assertTrue(response.data['balance_comprobacion']['resumen']['cuadrado'])
+
+    def test_period_books_summary_redacts_inherited_sensitive_snapshot_refs(self):
+        _, empresa, _, _, _, _ = self._create_context('BOOKSREDACT')
+        CierreMensualContable.objects.create(empresa=empresa, anio=2026, mes=1, estado='aprobado')
+        LibroDiario.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            storage_ref='https://storage.example.test/diario.pdf?token=secret',
+            resumen={'authorization': 'Bearer inherited-ledger-value', 'safe_ref': 'diario-controlled-ref'},
+        )
+        LibroMayor.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            storage_ref='https://storage.example.test/mayor.pdf?token=secret',
+            resumen={'callback': 'https://storage.example.test/mayor?token=secret'},
+        )
+        BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            storage_ref='https://storage.example.test/balance.pdf?token=secret',
+            resumen={'total_debe': '100.00', 'total_haber': '100.00', 'cuadrado': True, 'api_key': 'secret-key'},
+        )
+
+        response = self.client.get(f"{reverse('reporting-libros-periodo')}?empresa_id={empresa.id}&periodo=2026-01")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
+        self.assertEqual(response.data['libro_diario']['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(response.data['libro_diario']['resumen']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(response.data['libro_diario']['resumen']['safe_ref'], 'diario-controlled-ref')
+        self.assertEqual(response.data['libro_mayor']['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(response.data['libro_mayor']['resumen']['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(response.data['balance_comprobacion']['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(response.data['balance_comprobacion']['resumen']['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        rendered = str(response.data)
+        self.assertNotIn('storage.example.test', rendered)
+        self.assertNotIn('secret-key', rendered)
 
     def test_period_books_summary_blocks_unapproved_snapshots(self):
         _, empresa, _, _, _, _ = self._create_context('BOOKSBLOCK')

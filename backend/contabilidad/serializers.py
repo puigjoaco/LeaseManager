@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from patrimonio.models import Empresa
 
@@ -41,6 +42,21 @@ def _request_user(serializer):
 
 def _scoped_empresa_queryset(user):
     return scope_queryset_for_user(Empresa.objects.all(), user, company_paths=('id',))
+
+
+class RedactSensitiveAccountingFieldsMixin:
+    redacted_payload_fields = ()
+    redacted_reference_fields = ()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        for field_name in self.redacted_reference_fields:
+            if field_name in data:
+                data[field_name] = redact_sensitive_reference(data[field_name])
+        for field_name in self.redacted_payload_fields:
+            if field_name in data:
+                data[field_name] = redact_sensitive_payload(data[field_name])
+        return data
 
 
 class RegimenTributarioEmpresaSerializer(serializers.ModelSerializer):
@@ -212,7 +228,9 @@ class MatrizReglasContablesSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class EventoContableSerializer(serializers.ModelSerializer):
+class EventoContableSerializer(RedactSensitiveAccountingFieldsMixin, serializers.ModelSerializer):
+    redacted_payload_fields = ('payload_resumen',)
+
     class Meta:
         model = EventoContable
         fields = (
@@ -253,7 +271,9 @@ class EventoContableSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class MovimientoAsientoSerializer(serializers.ModelSerializer):
+class MovimientoAsientoSerializer(RedactSensitiveAccountingFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('centro_resultado_ref',)
+
     class Meta:
         model = MovimientoAsiento
         fields = (
@@ -317,7 +337,9 @@ class PoliticaReversoContableSerializer(serializers.ModelSerializer):
             self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
 
 
-class ObligacionTributariaMensualSerializer(serializers.ModelSerializer):
+class ObligacionTributariaMensualSerializer(RedactSensitiveAccountingFieldsMixin, serializers.ModelSerializer):
+    redacted_payload_fields = ('detalle_calculo',)
+
     class Meta:
         model = ObligacionTributariaMensual
         fields = (
@@ -336,28 +358,39 @@ class ObligacionTributariaMensualSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class LibroDiarioSerializer(serializers.ModelSerializer):
+class LibroDiarioSerializer(RedactSensitiveAccountingFieldsMixin, serializers.ModelSerializer):
+    redacted_payload_fields = ('resumen',)
+    redacted_reference_fields = ('storage_ref',)
+
     class Meta:
         model = LibroDiario
         fields = ('id', 'empresa', 'periodo', 'estado_snapshot', 'storage_ref', 'resumen', 'created_at', 'updated_at')
         read_only_fields = fields
 
 
-class LibroMayorSerializer(serializers.ModelSerializer):
+class LibroMayorSerializer(RedactSensitiveAccountingFieldsMixin, serializers.ModelSerializer):
+    redacted_payload_fields = ('resumen',)
+    redacted_reference_fields = ('storage_ref',)
+
     class Meta:
         model = LibroMayor
         fields = ('id', 'empresa', 'periodo', 'estado_snapshot', 'storage_ref', 'resumen', 'created_at', 'updated_at')
         read_only_fields = fields
 
 
-class BalanceComprobacionSerializer(serializers.ModelSerializer):
+class BalanceComprobacionSerializer(RedactSensitiveAccountingFieldsMixin, serializers.ModelSerializer):
+    redacted_payload_fields = ('resumen',)
+    redacted_reference_fields = ('storage_ref',)
+
     class Meta:
         model = BalanceComprobacion
         fields = ('id', 'empresa', 'periodo', 'estado_snapshot', 'storage_ref', 'resumen', 'created_at', 'updated_at')
         read_only_fields = fields
 
 
-class CierreMensualContableSerializer(serializers.ModelSerializer):
+class CierreMensualContableSerializer(RedactSensitiveAccountingFieldsMixin, serializers.ModelSerializer):
+    redacted_payload_fields = ('resumen_obligaciones',)
+
     class Meta:
         model = CierreMensualContable
         fields = (
