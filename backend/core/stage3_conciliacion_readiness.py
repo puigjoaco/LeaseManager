@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import Counter
 from decimal import Decimal
-import re
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -21,19 +20,22 @@ from conciliacion.models import (
     bank_provider_sync_blocking_reason,
     has_text,
 )
+from core.reference_validation import is_non_sensitive_reference
 
-
-SENSITIVE_REFERENCE_PATTERN = re.compile(
-    r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
-    re.IGNORECASE,
-)
 
 AUTHORIZED_STAGE3_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+CONNECTION_REFERENCE_FIELDS = (
+    'credencial_ref',
+    'evidencia_gate_ref',
+    'prueba_conectividad_ref',
+    'prueba_movimientos_ref',
+    'prueba_saldos_ref',
+)
+MOVEMENT_REFERENCE_FIELDS = ('evidencia_importacion_ref', 'transaction_id_banco')
 
 
 def _non_sensitive_reference(value: str) -> bool:
-    normalized = str(value or '').strip()
-    return bool(normalized) and not SENSITIVE_REFERENCE_PATTERN.search(normalized)
+    return is_non_sensitive_reference(value)
 
 
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
@@ -62,6 +64,13 @@ def _count_by(queryset, field_name: str) -> dict[str, int]:
     return dict(sorted(counter.items()))
 
 
+def _has_sensitive_reference(instance, field_names) -> bool:
+    return any(
+        has_text(getattr(instance, field_name, '')) and not _non_sensitive_reference(getattr(instance, field_name, ''))
+        for field_name in field_names
+    )
+
+
 def _balance_connection_ready(connection: ConexionBancaria) -> bool:
     if not connection.primaria_saldos:
         return False
@@ -83,6 +92,9 @@ def _collect_movement_issues(movements) -> dict[str, int]:
             movement.full_clean()
         except ValidationError:
             counts['invalid_model'] += 1
+
+        if _has_sensitive_reference(movement, MOVEMENT_REFERENCE_FIELDS):
+            counts['sensitive_reference'] += 1
 
         if movement.origen_importacion == OrigenImportacionMovimiento.MANUAL_CONTROLLED:
             if not has_text(movement.evidencia_importacion_ref):
@@ -160,6 +172,9 @@ def collect_stage3_conciliacion_readiness(
         | Q(primaria_conectividad=True)
     )
     invalid_operational_connections = _count_invalid(operational_connections)
+    sensitive_connection_refs = sum(
+        1 for connection in bank_connections if _has_sensitive_reference(connection, CONNECTION_REFERENCE_FIELDS)
+    )
     ready_primary_movements = sum(
         1
         for connection in bank_connections
@@ -248,6 +263,14 @@ def collect_stage3_conciliacion_readiness(
                 count=invalid_operational_connections,
             )
         )
+    if sensitive_connection_refs:
+        issues.append(
+            _issue(
+                'stage3.bank_connection.sensitive_reference',
+                'Existen conexiones bancarias con referencias operativas sensibles.',
+                count=sensitive_connection_refs,
+            )
+        )
     if bank_recent_errors:
         issues.append(
             _issue(
@@ -293,6 +316,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.movement.provider_sync_connection_not_ready',
                 'Existen movimientos provider_sync asociados a conexion bancaria no lista.',
                 count=movement_issues['provider_sync_connection_not_ready'],
+            )
+        )
+    if movement_issues.get('sensitive_reference'):
+        issues.append(
+            _issue(
+                'stage3.movement.sensitive_reference',
+                'Existen movimientos bancarios con referencias de importacion o proveedor sensibles.',
+                count=movement_issues['sensitive_reference'],
             )
         )
     if movement_issues.get('credit_exact_match_without_target'):
@@ -381,6 +412,7 @@ def collect_stage3_conciliacion_readiness(
                 'ready_primary_movements': ready_primary_movements,
                 'ready_primary_balances': ready_primary_balances,
                 'invalid_operational_connections': invalid_operational_connections,
+                'sensitive_references': sensitive_connection_refs,
                 'recent_error_after_success': bank_recent_errors,
             },
             'movements': {
