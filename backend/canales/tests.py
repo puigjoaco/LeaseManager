@@ -9,6 +9,7 @@ from rest_framework.test import APITestCase
 
 from audit.models import ManualResolution
 from core.models import Role, Scope, UserScopeAssignment
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from documentos.models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental
 from operacion.models import (
@@ -257,6 +258,49 @@ class CanalesAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('restricciones_operativas', response.data)
+
+    def test_channel_apis_redact_inherited_sensitive_references(self):
+        _, contrato = self._create_contract_context(codigo='CH-API-REDACT')
+        gate = CanalMensajeria.objects.create(
+            canal='email',
+            provider_key='gmail_api',
+            estado_gate=EstadoGateCanal.OPEN,
+            evidencia_ref='https://mail.example.test/token/secret',
+            restricciones_operativas={
+                'prueba_aislada_ref': 'email-readiness-controlled',
+                'oauth_validado_ref': 'oauth-readiness-controlled',
+            },
+        )
+        MensajeSaliente.objects.create(
+            canal='email',
+            canal_mensajeria=gate,
+            contrato=contrato,
+            destinatario='tenant@example.com',
+            asunto='Cobro mensual',
+            cuerpo='Mensaje heredado',
+            estado=EstadoMensajeSaliente.SENT,
+            external_ref='https://provider.example.test/token/secret',
+            usuario=self.user,
+        )
+
+        gates_response = self.client.get(reverse('canales-gate-list'))
+        messages_response = self.client.get(reverse('canales-mensaje-list'))
+        snapshot_response = self.client.get(reverse('canales-snapshot'))
+
+        self.assertEqual(gates_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(messages_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(gates_response.data[0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(messages_response.data[0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['gates'][0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['mensajes'][0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+
+        for response in (gates_response, messages_response, snapshot_response):
+            body = response.content.decode()
+            self.assertNotIn('mail.example.test', body)
+            self.assertNotIn('provider.example.test', body)
+            self.assertNotIn('token', body)
+            self.assertNotIn('secret', body)
 
     def test_prepare_email_message_uses_mandate_identity_assignment(self):
         empresa, contrato = self._create_contract_context(codigo='CH-EMAIL')

@@ -11,6 +11,7 @@ from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent, ManualResolution
 from core.models import Role, Scope, UserScopeAssignment
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
@@ -462,6 +463,49 @@ class CobranzaAPITests(APITestCase):
         with self.assertRaises(ValidationError) as restriction_error:
             sensitive_restriction_gate.full_clean()
         self.assertIn('restricciones_operativas', restriction_error.exception.message_dict)
+
+    def test_webpay_apis_redact_inherited_sensitive_references(self):
+        self.user.default_role_code = 'AdministradorGlobal'
+        self.user.save(update_fields=['default_role_code'])
+        payment = self._generate_monthly_payment(codigo='CON-WP-API-REDACT')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='https://transbank.example.test/token/secret',
+        )
+        IntentoPagoWebPay.objects.create(
+            pago_mensual=payment,
+            gate_cobro=gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=payment.monto_calculado_clp,
+            buy_order='BUY-LEGACY-SECRET',
+            session_id='SESSION-LEGACY',
+            return_url_ref='https://front.example.test/webpay?token=secret',
+            estado=EstadoIntentoPagoWebPay.CONFIRMED_MANUAL,
+            external_ref='https://transbank.example.test/token/secret',
+            fecha_pago_webpay='2026-01-06',
+            usuario=self.user,
+        )
+
+        gates_response = self.client.get(reverse('cobranza-webpay-gate-list'))
+        intents_response = self.client.get(reverse('cobranza-webpay-intent-list'))
+        snapshot_response = self.client.get(reverse('cobranza-snapshot'))
+
+        self.assertEqual(gates_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(intents_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(gates_response.data[0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(intents_response.data[0]['return_url_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(intents_response.data[0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['gates_cobro'][0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['intentos_webpay'][0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+
+        for response in (gates_response, intents_response, snapshot_response):
+            body = response.content.decode()
+            self.assertNotIn('transbank.example.test', body)
+            self.assertNotIn('front.example.test', body)
+            self.assertNotIn('token', body)
+            self.assertNotIn('secret', body)
 
     def test_webpay_prepare_open_gate_creates_local_intent_without_closing_payment(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-PREP')
