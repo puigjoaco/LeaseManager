@@ -313,6 +313,39 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(len(response.data['contrato_propiedades_detail']), 2)
 
+    def test_active_contract_rejects_inactive_linked_property(self):
+        mandato = self._create_active_mandato(codigo='MAND-102-INACT', owner_rut='33333334-1')
+        vinculada = Propiedad.objects.create(
+            direccion='Av Vinculada Inactiva',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='MAND-102-I',
+            estado='inactiva',
+            socio_owner=mandato.propietario_socio_owner,
+        )
+        arrendatario = self._create_arrendatario(rut='44444445-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-102-INACT')
+        payload['contrato_propiedades'] = [
+            {
+                'propiedad_id': mandato.propiedad_id,
+                'rol_en_contrato': 'principal',
+                'porcentaje_distribucion_interna': '50.00',
+                'codigo_conciliacion_efectivo_snapshot': '321',
+            },
+            {
+                'propiedad_id': vinculada.id,
+                'rol_en_contrato': 'vinculada',
+                'porcentaje_distribucion_interna': '50.00',
+                'codigo_conciliacion_efectivo_snapshot': '321',
+            },
+        ]
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('contrato_propiedades', response.data)
+
     def test_contract_rejects_when_principal_property_differs_from_mandato(self):
         mandato = self._create_active_mandato(codigo='MAND-103', owner_rut='55555555-5')
         other_property = Propiedad.objects.create(

@@ -317,7 +317,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         fecha_inicio = attrs.get('fecha_inicio', getattr(self.instance, 'fecha_inicio', None))
         fecha_fin_vigente = attrs.get('fecha_fin_vigente', getattr(self.instance, 'fecha_fin_vigente', None))
 
-        self._validate_contract_properties(contrato_propiedades, mandato)
+        self._validate_contract_properties(contrato_propiedades, mandato, estado)
         self._validate_periods(periodos, fecha_inicio, fecha_fin_vigente)
         self._validate_codeudores(codeudores)
         self._validate_overlap(contrato_propiedades, estado)
@@ -339,7 +339,7 @@ class ContratoSerializer(serializers.ModelSerializer):
 
         return attrs
 
-    def _validate_contract_properties(self, contrato_propiedades, mandato):
+    def _validate_contract_properties(self, contrato_propiedades, mandato, estado):
         if not contrato_propiedades:
             raise serializers.ValidationError({'contrato_propiedades': 'Debe enviar al menos una propiedad.'})
         if len(contrato_propiedades) > 2:
@@ -353,6 +353,17 @@ class ContratoSerializer(serializers.ModelSerializer):
         ]
         if len(property_ids) != len(set(property_ids)):
             raise serializers.ValidationError({'contrato_propiedades': 'No puede repetir la misma propiedad dentro del contrato.'})
+
+        if estado in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:
+            inactive_properties = [
+                item['propiedad'].codigo_propiedad
+                for item in contrato_propiedades
+                if item['propiedad'].estado != 'activa'
+            ]
+            if inactive_properties:
+                raise serializers.ValidationError(
+                    {'contrato_propiedades': 'Contratos vigentes o futuros solo pueden usar propiedades activas.'}
+                )
 
         roles = [item['rol_en_contrato'] for item in contrato_propiedades]
         if roles.count(RolContratoPropiedad.PRIMARY) != 1:
