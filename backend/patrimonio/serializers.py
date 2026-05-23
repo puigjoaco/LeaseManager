@@ -43,6 +43,14 @@ class SocioSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Ya existe un socio con ese RUT.')
         return normalized
 
+    def validate(self, attrs):
+        activo = attrs.get('activo', getattr(self.instance, 'activo', True))
+        if self.instance and not activo:
+            errors = self.instance.inactive_dependency_errors()
+            if errors:
+                raise serializers.ValidationError({'activo': errors})
+        return attrs
+
     class Meta:
         model = Socio
         fields = (
@@ -306,6 +314,11 @@ class EmpresaSerializer(OwnerBaseSerializer):
         self._validate_no_duplicate_participantes(participaciones)
         self._validate_allowed_participants(Empresa, participaciones)
         self._validate_activation_requirements(attrs, participaciones)
+        estado = attrs.get('estado', getattr(self.instance, 'estado', EstadoPatrimonial.DRAFT))
+        if self.instance and estado != EstadoPatrimonial.ACTIVE:
+            errors = self.instance.inactive_state_dependency_errors()
+            if errors:
+                raise serializers.ValidationError({'estado': errors})
         return attrs
 
 
@@ -401,6 +414,10 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
                 )
             if not representante.activo:
                 raise serializers.ValidationError({'representacion_vigente': 'La representacion activa requiere un socio activo.'})
+        elif self.instance:
+            errors = self.instance.inactive_state_dependency_errors()
+            if errors:
+                raise serializers.ValidationError({'estado': errors})
         return attrs
 
     def _sync_representacion(self, comunidad, *, representante_modo=None, representante=None):
