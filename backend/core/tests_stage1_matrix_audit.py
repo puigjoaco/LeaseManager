@@ -638,6 +638,24 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_existing_contract_period_with_non_month_boundary_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        periodo = contrato.periodos_contractuales.get(numero_periodo=1)
+        periodo.fecha_fin = date(2026, 12, 30)
+        periodo.save(update_fields=['fecha_fin', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['summary']['periodos_contractuales'], 1)
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.periodo.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['periodos_contractuales']['classification'],
+            'defectuoso',
+        )
+
     def test_uf_payment_without_monthly_uf_value_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         periodo = contrato.periodos_contractuales.get(numero_periodo=1)

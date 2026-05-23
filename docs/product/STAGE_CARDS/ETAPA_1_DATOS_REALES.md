@@ -59,7 +59,8 @@ contra datos reales o snapshot controlado.
   API anidada y el auditor, sin duplicados activos y maximo 3 activos por
   contrato.
 - Validacion de periodos contractuales existentes: cada tramo debe quedar
-  dentro de la vigencia del contrato antes de calcular cobranza.
+  dentro de la vigencia del contrato, iniciar el dia 1 y cerrar el ultimo dia
+  del mes antes de calcular cobranza.
 - Validacion de garantias: montos/estado coherentes y saldos recibidos,
   devueltos o aplicados conciliados contra `HistorialGarantia`.
 - Validacion de ajustes contractuales existentes: contrato, moneda, rango de

@@ -282,7 +282,38 @@ class ContratosAPITests(APITestCase):
         response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('fecha_inicio', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-DATES').exists())
+
+    def test_contract_rejects_period_non_month_boundary_dates(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-PER-DATES', owner_rut='11111118-9')
+        arrendatario = self._create_arrendatario(rut='22222228-1')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-PER-DATES')
+        payload['periodos_contractuales'] = [
+            {
+                'numero_periodo': 1,
+                'fecha_inicio': '2026-01-01',
+                'fecha_fin': '2026-01-15',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'inicial',
+                'origen_periodo': 'manual',
+            },
+            {
+                'numero_periodo': 2,
+                'fecha_inicio': '2026-01-16',
+                'fecha_fin': '2026-12-31',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'renovacion',
+                'origen_periodo': 'manual',
+            },
+        ]
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('periodos_contractuales', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-PER-DATES').exists())
 
     def test_active_contract_rejects_mandate_outside_contract_validity(self):
         mandato = self._create_active_mandato(codigo='MAND-101-VIG', owner_rut='11111115-4')

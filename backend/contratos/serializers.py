@@ -1,3 +1,4 @@
+import calendar
 from datetime import timedelta
 from decimal import Decimal
 
@@ -203,6 +204,11 @@ class PeriodoContractualWriteSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs['fecha_fin'] < attrs['fecha_inicio']:
             raise serializers.ValidationError({'fecha_fin': 'La fecha fin del periodo no puede ser anterior al inicio.'})
+        if attrs['fecha_inicio'].day != 1:
+            raise serializers.ValidationError({'fecha_inicio': 'El periodo contractual debe iniciar el primer dia del mes.'})
+        last_day = calendar.monthrange(attrs['fecha_fin'].year, attrs['fecha_fin'].month)[1]
+        if attrs['fecha_fin'].day != last_day:
+            raise serializers.ValidationError({'fecha_fin': 'El periodo contractual debe terminar el ultimo dia del mes.'})
         if attrs['moneda_base'] == MonedaBaseContrato.CLP and attrs['monto_base'] < Decimal('1000.00'):
             raise serializers.ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
         if attrs['moneda_base'] == MonedaBaseContrato.UF and attrs['monto_base'] <= Decimal('0.00'):
