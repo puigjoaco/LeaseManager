@@ -481,6 +481,8 @@ class GarantiaContractual(TimestampedModel):
 
         if not self.fecha_recepcion:
             raise ValidationError({'fecha_recepcion': 'Una garantia recibida requiere fecha de recepcion.'})
+        if self.fecha_cierre and self.fecha_cierre < self.fecha_recepcion:
+            raise ValidationError({'fecha_cierre': 'La fecha de cierre no puede ser anterior a la recepcion.'})
 
         if saldo > 0:
             expected_state = EstadoGarantia.PARTIALLY_RETURNED if self.monto_devuelto > 0 else EstadoGarantia.HELD

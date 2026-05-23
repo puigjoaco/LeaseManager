@@ -61,8 +61,9 @@ contra datos reales o snapshot controlado.
 - Validacion de periodos contractuales existentes: cada tramo debe quedar
   dentro de la vigencia del contrato, iniciar el dia 1 y cerrar el ultimo dia
   del mes antes de calcular cobranza.
-- Validacion de garantias: montos/estado coherentes y saldos recibidos,
-  devueltos o aplicados conciliados contra `HistorialGarantia`.
+- Validacion de garantias: montos/estado coherentes, fechas de recepcion y
+  cierre consistentes, y saldos recibidos, devueltos o aplicados conciliados
+  contra `HistorialGarantia`.
 - Validacion de ajustes contractuales existentes: contrato, moneda, rango de
   meses normalizado al primer dia del mes dentro de la vigencia contractual y
   justificacion deben ser coherentes antes de usarlos en cobranza.

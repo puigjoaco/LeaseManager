@@ -236,7 +236,7 @@ def sync_payment_state(payment):
     return payment
 
 
-def recalculate_guarantee_state(garantia):
+def recalculate_guarantee_state(garantia, fecha_cierre=None):
     if garantia.monto_recibido == 0:
         garantia.estado_garantia = EstadoGarantia.PENDING
         garantia.fecha_cierre = None
@@ -253,7 +253,7 @@ def recalculate_guarantee_state(garantia):
         garantia.fecha_cierre = None
         return garantia
 
-    garantia.fecha_cierre = garantia.fecha_cierre or timezone.localdate()
+    garantia.fecha_cierre = garantia.fecha_cierre or fecha_cierre or timezone.localdate()
     garantia.estado_garantia = EstadoGarantia.APPLIED if garantia.monto_aplicado > 0 else EstadoGarantia.RETURNED
     return garantia
 
@@ -288,7 +288,7 @@ def apply_guarantee_movement(*, garantia, tipo_movimiento, monto_clp, fecha, jus
     else:
         raise ValueError('Tipo de movimiento de garantia no soportado.')
 
-    recalculate_guarantee_state(garantia)
+    recalculate_guarantee_state(garantia, fecha_cierre=fecha)
     garantia.full_clean()
     garantia.save()
 
