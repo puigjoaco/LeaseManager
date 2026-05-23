@@ -13,6 +13,7 @@ from cobranza.models import (
     AjusteContrato,
     DistribucionCobroMensual,
     EstadoGarantia,
+    EstadoPago,
     GarantiaContractual,
     HistorialGarantia,
     PagoMensual,
@@ -1675,6 +1676,31 @@ class Stage1MatrixAuditTests(TestCase):
         payment = self._create_payment_for(contrato)
         payment.fecha_vencimiento = date(2026, 2, 5)
         payment.save(update_fields=['fecha_vencimiento', 'updated_at'])
+        DistribucionCobroMensual.objects.create(
+            pago_mensual=payment,
+            beneficiario_empresa_owner=contrato.mandato_operacion.entidad_facturadora,
+            porcentaje_snapshot=Decimal('100.00'),
+            monto_devengado_clp=Decimal('250000.00'),
+            monto_conciliado_clp=Decimal('0.00'),
+            monto_facturable_clp=Decimal('250000.00'),
+            requiere_dte=True,
+            origen_atribucion='snapshot_pago',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.pago_mensual.validacion_modelo', issue_codes)
+        self.assertEqual(result['aggregate_classification']['pagos_mensuales']['classification'], 'defectuoso')
+
+    def test_paid_payment_without_traceable_payment_evidence_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        payment = self._create_payment_for(contrato)
+        payment.estado_pago = EstadoPago.PAID
+        payment.monto_pagado_clp = Decimal('0.00')
+        payment.save(update_fields=['estado_pago', 'monto_pagado_clp', 'updated_at'])
         DistribucionCobroMensual.objects.create(
             pago_mensual=payment,
             beneficiario_empresa_owner=contrato.mandato_operacion.entidad_facturadora,

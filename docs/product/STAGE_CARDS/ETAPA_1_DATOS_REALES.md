@@ -76,6 +76,8 @@ contra datos reales o snapshot controlado.
   alineado al mes operativo y al dia de pago contractual, y conserven
   `CodigoConciliacionEfectivo` en rango operativo `001-999` y alineado con la
   propiedad principal del contrato.
+- Validacion de que pagos mensuales existentes en estado pagado efectivo tengan
+  monto pagado mayor que cero y fecha trazable de deposito, WebPay o deteccion.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
   del mes operativo.
