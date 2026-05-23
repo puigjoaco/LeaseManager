@@ -303,6 +303,23 @@ class Stage1MatrixAuditTests(TestCase):
             'resuelto_confirmado',
         )
 
+    def test_active_identity_sensitive_credential_ref_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        identidad = contrato.mandato_operacion.asignaciones_canal.get().identidad_envio
+        identidad.credencial_ref = 'https://mail.example.test/token/secret'
+        identidad.save(update_fields=['credencial_ref', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.identidad_envio.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['identidades_envio_activas']['classification'],
+            'defectuoso',
+        )
+
     def test_evidence_grade_source_requires_traceable_source_label(self):
         self._create_valid_stage1_matrix()
 

@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import EmailValidator
 from rest_framework import serializers
 
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from patrimonio.models import ComunidadPatrimonial, Empresa, Propiedad, Socio
 
@@ -202,6 +203,7 @@ class IdentidadDeEnvioSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data['owner_tipo'] = instance.owner_tipo
         data['owner_id'] = instance.owner_id
+        data['credencial_ref'] = redact_sensitive_reference(data.get('credencial_ref'))
         return data
 
     def validate(self, attrs):

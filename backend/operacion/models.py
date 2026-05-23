@@ -3,6 +3,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from core.reference_validation import is_non_sensitive_reference
 from patrimonio.models import ComunidadPatrimonial, Empresa, Propiedad, Socio
 from patrimonio.validators import normalize_rut, validate_rut
 
@@ -235,6 +236,14 @@ class IdentidadDeEnvio(TimestampedModel):
         if self.estado == EstadoIdentidadEnvio.ACTIVE:
             if not self.credencial_ref:
                 raise ValidationError({'credencial_ref': 'La identidad activa requiere una referencia de credencial.'})
+            if not is_non_sensitive_reference(self.credencial_ref):
+                raise ValidationError(
+                    {
+                        'credencial_ref': (
+                            'La identidad activa requiere una referencia de credencial trazable no sensible.'
+                        )
+                    }
+                )
             if not self.owner_is_active():
                 raise ValidationError({'estado': 'La identidad activa requiere un owner activo.'})
 

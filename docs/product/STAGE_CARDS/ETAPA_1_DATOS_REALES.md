@@ -30,6 +30,8 @@ contra datos reales o snapshot controlado.
   operativa fuerte; sin hardcodear montos.
 - Validacion de que cada contrato vigente o futuro tenga al menos un canal
   operativo activo asignado por su mandato.
+- Validacion de que las identidades de envio activas usen `credencial_ref`
+  trazable no sensible; la API debe redactar referencias sensibles heredadas.
 - Validacion de que cada contrato vigente o futuro este cubierto por la
   vigencia del `MandatoOperacion` que define propiedad, cuenta y facturacion.
 - Validacion de que cada propiedad principal o vinculada de contratos vigentes
