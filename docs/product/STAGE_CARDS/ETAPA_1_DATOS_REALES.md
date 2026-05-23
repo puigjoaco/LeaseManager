@@ -71,7 +71,8 @@ contra datos reales o snapshot controlado.
   dentro del rango del contrato asociado.
 - Validacion de pagos y distribuciones existentes en el snapshot: si existen,
   deben cuadrar devengo, conciliacion, porcentaje y entidad facturadora.
-- Validacion de que pagos mensuales existentes conserven
+- Validacion de que pagos mensuales existentes queden dentro de la vigencia
+  del contrato y del periodo contractual referenciado, y conserven
   `CodigoConciliacionEfectivo` en rango operativo `001-999` y alineado con la
   propiedad principal del contrato.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende

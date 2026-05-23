@@ -302,6 +302,36 @@ class CobranzaAPITests(APITestCase):
         with self.assertRaises(ValidationError):
             payment.full_clean()
 
+    def test_payment_full_clean_rejects_month_outside_period(self):
+        contrato = self._create_active_contract(codigo='CON-PAY-PERIOD', monto_base='100000.00', code='111')
+        first_period = contrato.periodos_contractuales.get(numero_periodo=1)
+        first_period.fecha_fin = date(2026, 6, 30)
+        first_period.save(update_fields=['fecha_fin', 'updated_at'])
+        PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=2,
+            fecha_inicio=date(2026, 7, 1),
+            fecha_fin=date(2026, 12, 31),
+            monto_base=Decimal('120000.00'),
+            moneda_base='CLP',
+            tipo_periodo='renovacion',
+            origen_periodo='manual',
+        )
+        payment = PagoMensual(
+            contrato=contrato,
+            periodo_contractual=first_period,
+            mes=7,
+            anio=2026,
+            monto_facturable_clp=Decimal('100000.00'),
+            monto_calculado_clp=Decimal('100111.00'),
+            fecha_vencimiento=date(2026, 7, 5),
+            codigo_conciliacion_efectivo='111',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            payment.full_clean()
+        self.assertIn('periodo_contractual', error.exception.message_dict)
+
     def test_generate_uf_payment_requires_existing_uf_value(self):
         contrato = self._create_active_contract(codigo='CON-UF-MISS', moneda='UF', monto_base='10.00', code='123')
 
