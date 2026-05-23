@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from contratos.models import Arrendatario, Contrato
 from documentos.scope import scope_documento_queryset
@@ -84,29 +85,31 @@ class ChannelsSnapshotView(APIView):
 
         return Response(
             {
-                'gates': list(
-                    CanalMensajeria.objects.order_by('canal', 'provider_key', 'id').values(
-                        'id',
-                        'canal',
-                        'provider_key',
-                        'estado_gate',
-                        'evidencia_ref',
-                    )
-                ),
-                'mensajes': list(
-                    scope_mensaje_queryset(MensajeSaliente.objects.all().order_by('-id'), request.user).values(
-                        'id',
-                        'canal',
-                        'contrato',
-                        'documento_emitido',
-                        'destinatario',
-                        'asunto',
-                        'cuerpo',
-                        'estado',
-                        'motivo_bloqueo',
-                        'external_ref',
-                    )
-                ),
+                'gates': [
+                    {
+                        'id': item.id,
+                        'canal': item.canal,
+                        'provider_key': item.provider_key,
+                        'estado_gate': item.estado_gate,
+                        'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                    }
+                    for item in CanalMensajeria.objects.order_by('canal', 'provider_key', 'id')
+                ],
+                'mensajes': [
+                    {
+                        'id': item.id,
+                        'canal': item.canal,
+                        'contrato': item.contrato_id,
+                        'documento_emitido': item.documento_emitido_id,
+                        'destinatario': item.destinatario,
+                        'asunto': item.asunto,
+                        'cuerpo': item.cuerpo,
+                        'estado': item.estado,
+                        'motivo_bloqueo': item.motivo_bloqueo,
+                        'external_ref': redact_sensitive_reference(item.external_ref),
+                    }
+                    for item in scope_mensaje_queryset(MensajeSaliente.objects.all().order_by('-id'), request.user)
+                ],
                 'identidades': [
                     {
                         'id': item.id,
@@ -248,6 +251,6 @@ class MensajeRegistrarEnvioView(APIView):
             summary='Envio manual registrado',
             actor_user=request.user,
             ip_address=request.META.get('REMOTE_ADDR'),
-            metadata={'external_ref': message.external_ref},
+            metadata={'external_ref': redact_sensitive_reference(message.external_ref)},
         )
         return Response(MensajeSalienteSerializer(message).data, status=status.HTTP_200_OK)

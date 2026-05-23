@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import (
     ScopedQuerysetMixin,
     ensure_queryset_scope,
@@ -144,15 +145,16 @@ class CobranzaSnapshotView(APIView):
 
         return Response(
             {
-                'gates_cobro': list(
-                    GateCobroExterno.objects.order_by('capacidad_key', 'provider_key', 'id').values(
-                        'id',
-                        'capacidad_key',
-                        'provider_key',
-                        'estado_gate',
-                        'evidencia_ref',
-                    )
-                ),
+                'gates_cobro': [
+                    {
+                        'id': item.id,
+                        'capacidad_key': item.capacidad_key,
+                        'provider_key': item.provider_key,
+                        'estado_gate': item.estado_gate,
+                        'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                    }
+                    for item in GateCobroExterno.objects.order_by('capacidad_key', 'provider_key', 'id')
+                ],
                 'contratos': [
                     {
                         'id': item.id,
@@ -213,7 +215,7 @@ class CobranzaSnapshotView(APIView):
                         'buy_order': item.buy_order,
                         'estado': item.estado,
                         'motivo_bloqueo': item.motivo_bloqueo,
-                        'external_ref': item.external_ref,
+                        'external_ref': redact_sensitive_reference(item.external_ref),
                         'fecha_pago_webpay': item.fecha_pago_webpay,
                     }
                     for item in intentos_webpay
@@ -513,7 +515,7 @@ class WebPayIntentManualConfirmView(APIView):
             actor_user=request.user,
             ip_address=request.META.get('REMOTE_ADDR'),
             metadata={
-                'external_ref': intent.external_ref,
+                'external_ref': redact_sensitive_reference(intent.external_ref),
                 'pago_mensual_id': payment.pk,
                 'fecha_pago_webpay': str(intent.fecha_pago_webpay),
             },
