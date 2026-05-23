@@ -1,7 +1,9 @@
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 from contabilidad.services import DEFAULT_REGIME_CODE
 from contabilidad.models import EstadoPreparacionTributaria, ObligacionTributariaMensual
+from core.reference_validation import is_non_sensitive_reference
 
 from .models import (
     CapacidadSII,
@@ -37,6 +39,13 @@ def _first_readiness_error(errors):
     return f'{field}: {message}'
 
 
+def _ensure_non_sensitive_reference(value, field_name):
+    normalized = str(value or '').strip()
+    if normalized and not is_non_sensitive_reference(normalized):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible; no use URLs, tokens, credenciales ni correos.')
+    return normalized
+
+
 def ensure_sii_capability_ready(capability, capability_label=None):
     capability_label = capability_label or capability.capacidad_key
     if capability.estado_gate != EstadoGateSII.OPEN:
@@ -44,6 +53,12 @@ def ensure_sii_capability_ready(capability, capability_label=None):
     reason = _first_readiness_error(capability.readiness_errors())
     if reason:
         raise ValueError(f'La capacidad {capability_label} no cumple readiness SII: {reason}')
+    try:
+        capability.full_clean()
+    except ValidationError as error:
+        errors = error.message_dict if hasattr(error, 'message_dict') else {'capacidad': error.messages}
+        reason = _first_readiness_error(errors)
+        raise ValueError(f'La capacidad {capability_label} no cumple readiness SII: {reason}') from error
     return capability
 
 
@@ -116,18 +131,20 @@ def generate_dte_draft(payment, tipo_dte='34'):
 
 
 def register_dte_status(dte, *, estado_dte, sii_track_id='', ultimo_estado_sii='', observaciones=''):
-    next_track_id = sii_track_id.strip() or dte.sii_track_id
-    next_sii_status = ultimo_estado_sii.strip() or dte.ultimo_estado_sii
+    input_track_id = _ensure_non_sensitive_reference(sii_track_id, 'sii_track_id')
+    next_track_id = input_track_id or dte.sii_track_id
+    next_sii_status = str(ultimo_estado_sii or '').strip() or dte.ultimo_estado_sii
     if estado_dte in DTE_EXTERNAL_STATES:
         ensure_sii_capability_ready(dte.capacidad_tributaria, dte.capacidad_tributaria.capacidad_key)
         if not next_track_id:
             raise ValueError('Actualizar estado SII controlado requiere sii_track_id trazable.')
+        _ensure_non_sensitive_reference(next_track_id, 'sii_track_id')
         if estado_dte in {EstadoDTE.ACCEPTED, EstadoDTE.REJECTED, EstadoDTE.CANCELED} and not next_sii_status:
             raise ValueError('Actualizar aceptacion/rechazo/anulacion requiere ultimo_estado_sii trazable.')
 
     dte.estado_dte = estado_dte
-    if sii_track_id:
-        dte.sii_track_id = sii_track_id
+    if input_track_id:
+        dte.sii_track_id = input_track_id
     if ultimo_estado_sii:
         dte.ultimo_estado_sii = ultimo_estado_sii
     if observaciones:
@@ -197,15 +214,17 @@ def generate_f29_draft(empresa, anio, mes):
 def register_f29_status(draft, *, estado_preparacion, borrador_ref='', observaciones=''):
     if estado_preparacion == EstadoPreparacionTributaria.PRESENTED:
         raise ValueError('SII.F29Presentacion requiere gate propio y no se registra desde preparacion local.')
-    next_ref = borrador_ref.strip() or draft.borrador_ref
+    input_ref = _ensure_non_sensitive_reference(borrador_ref, 'borrador_ref')
+    next_ref = input_ref or draft.borrador_ref
     if estado_preparacion in TAX_STATUS_REQUIRING_REF:
         ensure_sii_capability_ready(draft.capacidad_tributaria, draft.capacidad_tributaria.capacidad_key)
         if not next_ref:
             raise ValueError('Aprobar u observar F29 requiere borrador_ref trazable.')
+        _ensure_non_sensitive_reference(next_ref, 'borrador_ref')
 
     draft.estado_preparacion = estado_preparacion
-    if borrador_ref:
-        draft.borrador_ref = borrador_ref
+    if input_ref:
+        draft.borrador_ref = input_ref
     if observaciones:
         draft.observaciones = observaciones
     draft.save(update_fields=['estado_preparacion', 'borrador_ref', 'observaciones', 'updated_at'])
@@ -313,17 +332,19 @@ def register_annual_status(document, *, estado_preparacion, ref_value='', observ
         current_ref = document.paquete_ref
     if hasattr(document, 'borrador_ref'):
         current_ref = document.borrador_ref
-    next_ref = ref_value.strip() or current_ref
+    input_ref = _ensure_non_sensitive_reference(ref_value, 'ref_value')
+    next_ref = input_ref or current_ref
     if estado_preparacion in TAX_STATUS_REQUIRING_REF:
         ensure_sii_capability_ready(document.capacidad_tributaria, document.capacidad_tributaria.capacidad_key)
         if not next_ref:
             raise ValueError('Aprobar u observar preparacion anual requiere referencia trazable.')
+        _ensure_non_sensitive_reference(next_ref, 'ref_value')
 
     document.estado_preparacion = estado_preparacion
-    if hasattr(document, 'paquete_ref') and ref_value:
-        document.paquete_ref = ref_value
-    if hasattr(document, 'borrador_ref') and ref_value:
-        document.borrador_ref = ref_value
+    if hasattr(document, 'paquete_ref') and input_ref:
+        document.paquete_ref = input_ref
+    if hasattr(document, 'borrador_ref') and input_ref:
+        document.borrador_ref = input_ref
     if observaciones:
         document.observaciones = observaciones
     fields = ['estado_preparacion', 'updated_at']
@@ -336,10 +357,10 @@ def register_annual_status(document, *, estado_preparacion, ref_value='', observ
     document.save(update_fields=fields)
 
     process = getattr(document, 'proceso_renta_anual', None)
-    if process and ref_value:
+    if process and input_ref:
         if hasattr(document, 'paquete_ref'):
-            process.paquete_ddjj_ref = ref_value
+            process.paquete_ddjj_ref = input_ref
         if hasattr(document, 'borrador_ref'):
-            process.borrador_f22_ref = ref_value
+            process.borrador_f22_ref = input_ref
         process.save(update_fields=['paquete_ddjj_ref', 'borrador_f22_ref', 'updated_at'])
     return document

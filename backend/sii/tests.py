@@ -9,11 +9,12 @@ from rest_framework.test import APITestCase
 from cobranza.models import PagoMensual
 from cobranza.services import sync_payment_distribution
 from contabilidad.models import CierreMensualContable, ConfiguracionFiscalEmpresa, ObligacionTributariaMensual, RegimenTributarioEmpresa
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 
-from .models import CapacidadTributariaSII, DDJJPreparacionAnual, DTEEmitido, EstadoGateSII, F22PreparacionAnual, ProcesoRentaAnual
+from .models import CapacidadTributariaSII, DDJJPreparacionAnual, DTEEmitido, EstadoGateSII, F22PreparacionAnual, F29PreparacionMensual, ProcesoRentaAnual
 
 
 class SiiAPITests(APITestCase):
@@ -283,6 +284,180 @@ class SiiAPITests(APITestCase):
         response = self._activate_capability(empresa)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
+    def test_open_sii_capability_rejects_sensitive_references(self):
+        empresa = self._create_active_empresa()
+
+        response = self.client.post(
+            reverse('sii-capacidad-list'),
+            {
+                'empresa': empresa.id,
+                'capacidad_key': 'DTEEmision',
+                **self._sii_readiness_fields('dte'),
+                'certificado_ref': 'https://sii.example.test/cert?token=secret',
+                'ambiente': 'certificacion',
+                'estado_gate': 'abierto',
+                'ultimo_resultado': {},
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('certificado_ref', response.data)
+
+        response = self.client.post(
+            reverse('sii-capacidad-list'),
+            {
+                'empresa': empresa.id,
+                'capacidad_key': 'F29Preparacion',
+                **self._sii_readiness_fields('f29'),
+                'ambiente': 'produccion',
+                'estado_gate': 'abierto',
+                'ultimo_resultado': {
+                    'autorizacion_produccion_ref': 'prod-auth-safe',
+                    'access_token': 'opaque-token-value',
+                },
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('ultimo_resultado', response.data)
+
+    def test_sii_apis_redact_inherited_sensitive_references(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
+        dte_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DTEEmision',
+            certificado_ref='https://sii.example.test/cert?token=secret',
+            evidencia_ref='https://sii.example.test/evidence?token=secret',
+            prueba_flujo_ref='https://sii.example.test/flow?token=secret',
+            autorizacion_ambiente_ref='https://sii.example.test/env?token=secret',
+            regla_fiscal_ref='https://sii.example.test/rule?token=secret',
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={'access_token': 'opaque-token-value', 'safe_ref': 'controlled-result'},
+        )
+        f29_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F29Preparacion',
+            **self._sii_readiness_fields('f29'),
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={},
+        )
+        ddjj_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DDJJPreparacion',
+            **self._sii_readiness_fields('ddjj'),
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={},
+        )
+        f22_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F22Preparacion',
+            **self._sii_readiness_fields('f22'),
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={},
+        )
+        distribution = pago.distribuciones_cobro.get()
+        dte = DTEEmitido.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=dte_capability,
+            contrato=pago.contrato,
+            pago_mensual=pago,
+            distribucion_cobro_mensual=distribution,
+            arrendatario=pago.contrato.arrendatario,
+            tipo_dte='34',
+            monto_neto_clp=distribution.monto_facturable_clp,
+            fecha_emision='2026-01-08',
+            estado_dte='aceptado',
+            sii_track_id='https://sii.example.test/track?token=secret',
+            ultimo_estado_sii='Aceptado controlado',
+        )
+        close, _ = self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        f29 = F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_formulario={'callback': 'https://sii.example.test/f29?token=secret'},
+            borrador_ref='https://sii.example.test/f29?token=secret',
+        )
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'callback': 'https://sii.example.test/anual?token=secret'},
+            paquete_ddjj_ref='https://sii.example.test/ddjj?token=secret',
+            borrador_f22_ref='https://sii.example.test/f22?token=secret',
+        )
+        ddjj = DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_paquete={'api_key': 'secret-api-key-value'},
+            paquete_ref='https://sii.example.test/ddjj?token=secret',
+        )
+        f22 = F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_f22={'access_token': 'secret-f22-token-value'},
+            borrador_ref='https://sii.example.test/f22?token=secret',
+        )
+
+        capabilities = self.client.get(reverse('sii-capacidad-list'))
+        capability_detail = self.client.get(reverse('sii-capacidad-detail', args=[dte_capability.id]))
+        dtes = self.client.get(reverse('sii-dte-list'))
+        dte_detail = self.client.get(reverse('sii-dte-detail', args=[dte.id]))
+        f29s = self.client.get(reverse('sii-f29-list'))
+        f29_detail = self.client.get(reverse('sii-f29-detail', args=[f29.id]))
+        annual = self.client.get(reverse('sii-anual-list'))
+        ddjjs = self.client.get(reverse('sii-ddjj-list'))
+        f22s = self.client.get(reverse('sii-f22-list'))
+        snapshot = self.client.get(reverse('sii-snapshot'))
+
+        capability_data = next(item for item in capabilities.data if item['id'] == dte_capability.id)
+        self.assertEqual(capability_data['certificado_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(capability_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(capability_data['ultimo_resultado']['access_token'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(capability_data['ultimo_resultado']['safe_ref'], 'controlled-result')
+        self.assertEqual(capability_detail.data['regla_fiscal_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(dtes.data[0]['sii_track_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(dte_detail.data['sii_track_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f29s.data[0]['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f29_detail.data['resumen_formulario']['callback'], REDACTED_SENSITIVE_REFERENCE)
+        process_data = next(item for item in annual.data if item['id'] == process.id)
+        self.assertEqual(process_data['paquete_ddjj_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(process_data['resumen_anual']['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(ddjjs.data[0]['paquete_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(ddjjs.data[0]['resumen_paquete']['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f22s.data[0]['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f22s.data[0]['resumen_f22']['access_token'], REDACTED_SENSITIVE_REFERENCE)
+        snapshot_capability = next(item for item in snapshot.data['capacidades'] if item['id'] == dte_capability.id)
+        self.assertEqual(snapshot_capability['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot.data['dtes'][0]['sii_track_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot.data['f29s'][0]['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot.data['ddjjs'][0]['paquete_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot.data['f22s'][0]['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
+
+        body = b''.join(
+            response.content
+            for response in [capabilities, capability_detail, dtes, dte_detail, f29s, f29_detail, annual, ddjjs, f22s, snapshot]
+        ).decode()
+        self.assertNotIn('sii.example.test', body)
+        self.assertNotIn('opaque-token-value', body)
+        self.assertNotIn('secret-api-key-value', body)
+        self.assertEqual(ddjj.estado_preparacion, 'aprobado_para_presentacion')
+        self.assertEqual(f22.estado_preparacion, 'aprobado_para_presentacion')
+
     def test_generate_dte_draft_rejects_conditioned_gate(self):
         empresa, pago = self._setup_paid_payment()
         self._activate_capability(empresa, estado_gate='condicionado')
@@ -407,6 +582,80 @@ class SiiAPITests(APITestCase):
 
         self.assertEqual(update.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('sii_track_id', update.data['detail'])
+
+    def test_sii_status_updates_reject_sensitive_references(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_capability(empresa, estado_gate='abierto')
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
+        generated_dte = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
+        self.assertEqual(generated_dte.status_code, status.HTTP_201_CREATED)
+
+        dte_update = self.client.post(
+            reverse('sii-dte-status', args=[generated_dte.data['id']]),
+            {
+                'estado_dte': 'aceptado',
+                'sii_track_id': 'https://sii.example.test/track?token=secret',
+                'ultimo_estado_sii': 'Aceptado',
+            },
+            format='json',
+        )
+        self.assertEqual(dte_update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('sii_track_id', dte_update.data['detail'])
+
+        self.client.post(
+            reverse('sii-capacidad-list'),
+            {
+                'empresa': empresa.id,
+                'capacidad_key': 'F29Preparacion',
+                **self._sii_readiness_fields('f29'),
+                'ambiente': 'certificacion',
+                'estado_gate': 'abierto',
+                'ultimo_resultado': {},
+            },
+            format='json',
+        )
+        self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        generated_f29 = self.client.post(
+            reverse('sii-f29-generate'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(generated_f29.status_code, status.HTTP_201_CREATED)
+        f29_update = self.client.post(
+            reverse('sii-f29-status', args=[generated_f29.data['id']]),
+            {
+                'estado_preparacion': 'aprobado_para_presentacion',
+                'borrador_ref': 'https://sii.example.test/f29?token=secret',
+            },
+            format='json',
+        )
+        self.assertEqual(f29_update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('borrador_ref', f29_update.data['detail'])
+
+        annual_empresa = Empresa.objects.create(
+            razon_social='Annual Sensitive SpA',
+            rut='33333333-3',
+            estado='activa',
+        )
+        self._activate_fiscal_config(annual_empresa, ddjj_habilitadas=['1887'])
+        self._activate_annual_capabilities(annual_empresa)
+        self._create_twelve_approved_closes(annual_empresa, fiscal_year=2026)
+        generated_annual = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': annual_empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated_annual.status_code, status.HTTP_201_CREATED)
+        ddjj_update = self.client.post(
+            reverse('sii-ddjj-status', args=[generated_annual.data['ddjj_preparacion']['id']]),
+            {
+                'estado_preparacion': 'aprobado_para_presentacion',
+                'ref_value': 'https://sii.example.test/ddjj?token=secret',
+            },
+            format='json',
+        )
+        self.assertEqual(ddjj_update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('ref_value', ddjj_update.data['detail'])
 
     def test_generate_f29_requires_capability_and_approved_close(self):
         empresa, _ = self._setup_paid_payment()
