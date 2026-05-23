@@ -1,8 +1,9 @@
 from collections import Counter
-import re
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+
+from core.reference_validation import is_non_sensitive_reference
 
 from .models import (
     DocumentoEmitido,
@@ -14,18 +15,17 @@ from .models import (
 )
 
 
-SENSITIVE_REFERENCE_PATTERN = re.compile(
-    r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
-    re.IGNORECASE,
-)
-
 REQUIRED_POLICY_TYPES = set(TipoDocumental.values)
 AUTHORIZED_DOCUMENT_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 
 
 def _non_sensitive_reference(value):
+    return is_non_sensitive_reference(value)
+
+
+def _sensitive_reference(value):
     normalized = str(value or '').strip()
-    return bool(normalized) and not SENSITIVE_REFERENCE_PATTERN.search(normalized)
+    return bool(normalized) and not is_non_sensitive_reference(normalized)
 
 
 def _issue(code, message, count=1, severity='blocking'):
@@ -84,6 +84,7 @@ def collect_document_readiness(
     documents = DocumentoEmitido.objects.select_related('expediente', 'comprobante_notarial').all()
     documents_without_policy = documents.exclude(tipo_documental__in=active_policy_types).count()
     non_pdf_documents = 0
+    sensitive_storage_refs = 0
     documents_missing_metadata = 0
     invalid_formalized_documents = 0
     notary_required_policies = set(
@@ -94,6 +95,8 @@ def collect_document_readiness(
     for document in documents:
         if not is_pdf_storage_ref(document.storage_ref):
             non_pdf_documents += 1
+        if _sensitive_reference(document.storage_ref):
+            sensitive_storage_refs += 1
         if _document_missing_metadata(document):
             documents_missing_metadata += 1
         if document.estado == EstadoDocumento.FORMALIZED:
@@ -170,6 +173,14 @@ def collect_document_readiness(
                 count=non_pdf_documents,
             )
         )
+    if sensitive_storage_refs:
+        issues.append(
+            _issue(
+                'documents.sensitive_storage_ref',
+                'Existen documentos cuyo storage_ref contiene URLs, tokens, credenciales o correos.',
+                count=sensitive_storage_refs,
+            )
+        )
     if documents_missing_metadata:
         issues.append(
             _issue(
@@ -242,6 +253,7 @@ def collect_document_readiness(
                 'by_type': _count_by(documents, 'tipo_documental'),
                 'without_active_policy': documents_without_policy,
                 'non_pdf_storage_refs': non_pdf_documents,
+                'sensitive_storage_refs': sensitive_storage_refs,
                 'missing_metadata': documents_missing_metadata,
                 'invalid_formalized_documents': invalid_formalized_documents,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,

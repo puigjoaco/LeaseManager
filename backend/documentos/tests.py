@@ -1,11 +1,13 @@
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from core.models import Role, Scope, UserScopeAssignment
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
@@ -201,6 +203,62 @@ class DocumentosAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('storage_ref', response.data)
+
+    def test_document_storage_ref_must_be_non_sensitive_pdf_reference(self):
+        expediente = self._create_expediente(entidad_id='pdf-sensitive-guard')
+        self._create_politica()
+
+        response = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v1',
+                'checksum': 'sensitive-pdf-ref',
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'emitido',
+                'storage_ref': 'https://storage.example.test/contracts/contrato-1.pdf?token=secret',
+                'firma_arrendador_registrada': False,
+                'firma_arrendatario_registrada': False,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('storage_ref', response.data)
+
+    def test_document_apis_redact_inherited_sensitive_storage_ref(self):
+        expediente = self._create_expediente(entidad_id='pdf-redaction')
+        self._create_politica()
+        document = DocumentoEmitido.objects.create(
+            expediente_id=expediente['id'],
+            tipo_documental='contrato_principal',
+            version_plantilla='v1',
+            checksum='inherited-sensitive-pdf',
+            fecha_carga=timezone.now(),
+            usuario=self.user,
+            origen='generado_sistema',
+            estado='emitido',
+            storage_ref='https://storage.example.test/contracts/contrato-1.pdf?token=secret',
+        )
+
+        list_response = self.client.get(reverse('documentos-documento-list'))
+        detail_response = self.client.get(reverse('documentos-documento-detail', args=[document.id]))
+        snapshot_response = self.client.get(reverse('documentos-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['documentos_emitidos'][0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
+        self.assertNotIn('storage.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
 
     def test_main_contract_policy_requires_both_signatures(self):
         response = self.client.post(

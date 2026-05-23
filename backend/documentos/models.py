@@ -2,6 +2,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from core.reference_validation import is_non_sensitive_reference
+
 
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -149,6 +151,10 @@ class DocumentoEmitido(TimestampedModel):
         super().clean()
         if self.storage_ref and not is_pdf_storage_ref(self.storage_ref):
             raise ValidationError({'storage_ref': 'El documento canonico debe referenciar un PDF.'})
+        if self.storage_ref and not is_non_sensitive_reference(self.storage_ref):
+            raise ValidationError(
+                {'storage_ref': 'storage_ref debe ser una referencia PDF no sensible, no una URL, token o credencial.'}
+            )
         if self.comprobante_notarial_id and self.comprobante_notarial.tipo_documental != TipoDocumental.NOTARY_RECEIPT:
             raise ValidationError({'comprobante_notarial': 'El comprobante vinculado debe ser un comprobante notarial.'})
         if self.comprobante_notarial_id and self.pk and self.comprobante_notarial_id == self.pk:

@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
+from core.reference_validation import redact_sensitive_reference
 
 from .scope import scope_documento_queryset, scope_expediente_queryset
 from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria
@@ -105,7 +106,7 @@ class DocumentsSnapshotView(APIView):
                         'version_plantilla': item.version_plantilla,
                         'origen': item.origen,
                         'estado': item.estado,
-                        'storage_ref': item.storage_ref,
+                        'storage_ref': redact_sensitive_reference(item.storage_ref),
                     }
                     for item in documentos
                 ],
