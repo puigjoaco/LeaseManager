@@ -117,6 +117,10 @@ class AjusteContrato(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if self.mes_inicio.day != 1:
+            raise ValidationError({'mes_inicio': 'El mes inicial del ajuste debe ser el primer dia del mes.'})
+        if self.mes_fin.day != 1:
+            raise ValidationError({'mes_fin': 'El mes final del ajuste debe ser el primer dia del mes.'})
         if self.mes_fin < self.mes_inicio:
             raise ValidationError({'mes_fin': 'El mes final del ajuste no puede ser anterior al inicial.'})
 
