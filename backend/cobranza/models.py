@@ -204,6 +204,7 @@ class PagoMensual(TimestampedModel):
         contract_end = _coerce_date(self.contrato.fecha_fin_vigente)
         period_start = _coerce_date(self.periodo_contractual.fecha_inicio)
         period_end = _coerce_date(self.periodo_contractual.fecha_fin)
+        due_date = _coerce_date(self.fecha_vencimiento)
         if not all((contract_start, contract_end, period_start, period_end)):
             return
 
@@ -212,6 +213,16 @@ class PagoMensual(TimestampedModel):
             errors['mes'] = 'El mes operativo del pago debe quedar dentro de la vigencia del contrato.'
         if month_start < period_start or month_start > period_end:
             errors['periodo_contractual'] = 'El periodo contractual debe cubrir el mes operativo del pago.'
+        if due_date:
+            try:
+                expected_due_date = date(int(self.anio), int(self.mes), int(self.contrato.dia_pago_mensual))
+            except (TypeError, ValueError):
+                expected_due_date = None
+            if expected_due_date and due_date != expected_due_date:
+                errors['fecha_vencimiento'] = (
+                    'La fecha de vencimiento debe coincidir con el dia de pago mensual del contrato '
+                    'para el mes operativo.'
+                )
         if errors:
             raise ValidationError(errors)
 
