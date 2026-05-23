@@ -120,6 +120,17 @@ class AjusteContrato(TimestampedModel):
         if self.mes_fin < self.mes_inicio:
             raise ValidationError({'mes_fin': 'El mes final del ajuste no puede ser anterior al inicial.'})
 
+        if not self.contrato_id:
+            return
+
+        errors = {}
+        if self.mes_inicio < self.contrato.fecha_inicio:
+            errors['mes_inicio'] = 'El ajuste no puede iniciar antes de la vigencia del contrato.'
+        if self.mes_fin > self.contrato.fecha_fin_vigente:
+            errors['mes_fin'] = 'El ajuste no puede terminar despues de la vigencia del contrato.'
+        if errors:
+            raise ValidationError(errors)
+
 
 class PagoMensual(TimestampedModel):
     contrato = models.ForeignKey(

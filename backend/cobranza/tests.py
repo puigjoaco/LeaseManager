@@ -792,6 +792,44 @@ class CobranzaAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_adjustment_rejects_month_range_outside_contract_validity(self):
+        contrato = self._create_active_contract(codigo='CON-AJUSTE-VIG', monto_base='100000.00', code='111')
+
+        starts_before = self.client.post(
+            reverse('cobranza-ajuste-list'),
+            {
+                'contrato': contrato.id,
+                'tipo_ajuste': 'cargo_controlado',
+                'monto': '1000.00',
+                'moneda': 'CLP',
+                'mes_inicio': '2025-12-01',
+                'mes_fin': '2026-01-01',
+                'justificacion': 'Fuera de vigencia',
+                'activo': True,
+            },
+            format='json',
+        )
+        ends_after = self.client.post(
+            reverse('cobranza-ajuste-list'),
+            {
+                'contrato': contrato.id,
+                'tipo_ajuste': 'cargo_controlado',
+                'monto': '1000.00',
+                'moneda': 'CLP',
+                'mes_inicio': '2026-12-01',
+                'mes_fin': '2027-01-01',
+                'justificacion': 'Fuera de vigencia',
+                'activo': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(starts_before.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('mes_inicio', starts_before.data)
+        self.assertEqual(ends_after.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('mes_fin', ends_after.data)
+        self.assertFalse(AjusteContrato.objects.filter(contrato=contrato).exists())
+
     def test_create_residual_code_generates_canonical_reference(self):
         contrato = self._create_active_contract(codigo='CON-RES', monto_base='100000.00', code='111')
 
