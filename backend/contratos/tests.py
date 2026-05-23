@@ -422,6 +422,32 @@ class ContratosAPITests(APITestCase):
         with self.assertRaises(ValidationError):
             conflict.full_clean()
 
+    def test_contract_property_full_clean_rejects_linked_property_with_different_effective_code(self):
+        mandato = self._create_active_mandato(codigo='MAND-LINK-CODE', owner_rut='77777780-7')
+        arrendatario = self._create_arrendatario(rut='88888891-8')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-LINK-CODE')
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        linked_property = Propiedad.objects.create(
+            direccion='Av Linked Code',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='LINK-CODE',
+            estado='activa',
+            socio_owner=mandato.propietario_socio_owner,
+        )
+        linked = ContratoPropiedad(
+            contrato=Contrato.objects.get(pk=response.data['id']),
+            propiedad=linked_property,
+            rol_en_contrato=RolContratoPropiedad.LINKED,
+            porcentaje_distribucion_interna='50.00',
+            codigo_conciliacion_efectivo_snapshot='999',
+        )
+
+        with self.assertRaises(ValidationError):
+            linked.full_clean()
+
     def test_contract_rejects_duplicate_effective_code_in_same_account_namespace(self):
         mandato_a = self._create_active_mandato(codigo='MAND-CODE-A', owner_rut='71717171-7')
         arrendatario_a = self._create_arrendatario(rut='72727272-4')
