@@ -223,6 +223,13 @@ class PagoMensual(TimestampedModel):
                     'La fecha de vencimiento debe coincidir con el dia de pago mensual del contrato '
                     'para el mes operativo.'
                 )
+        if self.estado_pago in {EstadoPago.PAID, EstadoPago.PAID_VIA_REPAYMENT, EstadoPago.PAID_BY_TERMINATION}:
+            if self.monto_pagado_clp <= 0:
+                errors['monto_pagado_clp'] = 'Los estados de pago efectivo requieren monto pagado mayor que cero.'
+            if not (self.fecha_deposito_banco or self.fecha_pago_webpay or self.fecha_deteccion_sistema):
+                errors['fecha_deposito_banco'] = (
+                    'Los estados de pago efectivo requieren fecha de deposito, fecha WebPay o deteccion trazable.'
+                )
         if errors:
             raise ValidationError(errors)
 

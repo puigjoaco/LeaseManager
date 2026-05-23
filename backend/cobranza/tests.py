@@ -350,6 +350,27 @@ class CobranzaAPITests(APITestCase):
             payment.full_clean()
         self.assertIn('fecha_vencimiento', error.exception.message_dict)
 
+    def test_payment_full_clean_rejects_paid_state_without_traceable_payment(self):
+        contrato = self._create_active_contract(codigo='CON-PAY-CLOSE', monto_base='100000.00', code='111')
+        periodo = contrato.periodos_contractuales.get(numero_periodo=1)
+        payment = PagoMensual(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp=Decimal('100000.00'),
+            monto_calculado_clp=Decimal('100111.00'),
+            monto_pagado_clp=Decimal('0.00'),
+            fecha_vencimiento=date(2026, 1, 5),
+            estado_pago=EstadoPago.PAID,
+            codigo_conciliacion_efectivo='111',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            payment.full_clean()
+        self.assertIn('monto_pagado_clp', error.exception.message_dict)
+        self.assertIn('fecha_deposito_banco', error.exception.message_dict)
+
     def test_generate_uf_payment_requires_existing_uf_value(self):
         contrato = self._create_active_contract(codigo='CON-UF-MISS', moneda='UF', monto_base='10.00', code='123')
 
