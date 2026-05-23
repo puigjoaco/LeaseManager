@@ -904,6 +904,36 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.contrato.periodos_faltantes', issue_codes)
         self.assertIn('stage1.contrato.garantia_faltante', issue_codes)
 
+    def test_active_contract_with_inactive_linked_property_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        principal_link = contrato.contrato_propiedades.get(rol_en_contrato=RolContratoPropiedad.PRIMARY)
+        principal_link.porcentaje_distribucion_interna = Decimal('50.00')
+        principal_link.save(update_fields=['porcentaje_distribucion_interna', 'updated_at'])
+        inactive_property = Propiedad.objects.create(
+            direccion='Direccion Vinculada Inactiva',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='CTRL-INACT',
+            estado='inactiva',
+            empresa_owner=contrato.mandato_operacion.propietario_empresa_owner,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=contrato,
+            propiedad=inactive_property,
+            rol_en_contrato=RolContratoPropiedad.LINKED,
+            porcentaje_distribucion_interna='50.00',
+            codigo_conciliacion_efectivo_snapshot='001',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato_propiedad.validacion_modelo', issue_codes)
+        self.assertEqual(result['aggregate_classification']['contrato_propiedades']['classification'], 'defectuoso')
+
     def test_inconsistent_guarantee_state_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         garantia = contrato.garantia_contractual

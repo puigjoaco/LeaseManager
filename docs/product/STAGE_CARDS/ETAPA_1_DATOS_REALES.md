@@ -32,6 +32,8 @@ contra datos reales o snapshot controlado.
   operativo activo asignado por su mandato.
 - Validacion de que cada contrato vigente o futuro este cubierto por la
   vigencia del `MandatoOperacion` que define propiedad, cuenta y facturacion.
+- Validacion de que cada propiedad principal o vinculada de contratos vigentes
+  o futuros este activa.
 - Validacion de codeudores solidarios: snapshot con nombre/RUT valido, sin
   duplicados activos y maximo 3 activos por contrato.
 - Validacion de garantias: montos/estado coherentes y saldos recibidos,

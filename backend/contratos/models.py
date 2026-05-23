@@ -233,6 +233,11 @@ class ContratoPropiedad(TimestampedModel):
         if self.contrato.estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:
             return
 
+        if self.propiedad.estado != 'activa':
+            raise ValidationError(
+                {'propiedad': 'Un contrato vigente o futuro solo puede usar propiedades activas.'}
+            )
+
         same_state_links = ContratoPropiedad.objects.filter(
             propiedad_id=self.propiedad_id,
             contrato__estado=self.contrato.estado,
