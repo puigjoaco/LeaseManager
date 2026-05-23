@@ -1,3 +1,5 @@
+import json
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -253,6 +255,49 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('credencial_ref', response.data)
 
+    def test_bank_connection_api_redacts_existing_sensitive_references(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BANK-REDACT')
+        ConexionBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            provider_key='banco_de_chile',
+            credencial_ref='https://bank.example.test/token/secret',
+            evidencia_gate_ref='bank-gate-token-secret',
+            prueba_conectividad_ref='connectivity-controlled',
+            prueba_movimientos_ref='movements-controlled',
+            estado_conexion='activa',
+            primaria_movimientos=True,
+        )
+
+        response = self.client.get(reverse('conciliacion-conexion-list'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rendered = json.dumps(response.data)
+        self.assertEqual(response.data[0]['credencial_ref'], '<redacted-sensitive-reference>')
+        self.assertEqual(response.data[0]['evidencia_gate_ref'], '<redacted-sensitive-reference>')
+        self.assertNotIn('bank.example.test', rendered)
+        self.assertNotIn('secret', rendered)
+
+    def test_conciliacion_snapshot_redacts_existing_sensitive_credential_ref(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-SNAPSHOT-REDACT')
+        ConexionBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            provider_key='banco_de_chile',
+            credencial_ref='https://bank.example.test/token/secret',
+            evidencia_gate_ref='bank-gate-controlled',
+            prueba_conectividad_ref='connectivity-controlled',
+            prueba_movimientos_ref='movements-controlled',
+            estado_conexion='activa',
+            primaria_movimientos=True,
+        )
+
+        response = self.client.get(reverse('conciliacion-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rendered = json.dumps(response.data)
+        self.assertEqual(response.data['conexiones'][0]['credencial_ref'], '<redacted-sensitive-reference>')
+        self.assertNotIn('bank.example.test', rendered)
+        self.assertNotIn('secret', rendered)
+
     def test_manual_bank_movement_requires_import_evidence(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-MANUAL-GATE')
         conexion = self._create_connection(cuenta)
@@ -281,6 +326,30 @@ class ConciliacionAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('evidencia_importacion_ref', response.data)
+
+    def test_bank_movement_api_redacts_existing_sensitive_references(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-MOV-REDACT')
+        conexion = self._create_connection(cuenta)
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='100111.00',
+            descripcion_origen='Movimiento con refs heredadas',
+            origen_importacion='provider_sync',
+            evidencia_importacion_ref='https://bank.example.test/import?token=secret',
+            transaction_id_banco='https://bank.example.test/tx?token=secret',
+            estado_conciliacion=EstadoConciliacionMovimiento.PENDING,
+        )
+
+        response = self.client.get(reverse('conciliacion-movimiento-list'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rendered = json.dumps(response.data)
+        self.assertEqual(response.data[0]['evidencia_importacion_ref'], '<redacted-sensitive-reference>')
+        self.assertEqual(response.data[0]['transaction_id_banco'], '<redacted-sensitive-reference>')
+        self.assertNotIn('bank.example.test', rendered)
+        self.assertNotIn('secret', rendered)
 
     def test_provider_sync_requires_primary_bank_readiness(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-PROVIDER-GATE')

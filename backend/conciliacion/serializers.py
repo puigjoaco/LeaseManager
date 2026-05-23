@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 
 from .models import ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
@@ -37,7 +38,26 @@ def _scoped_conexion_queryset(user):
     )
 
 
-class ConexionBancariaSerializer(serializers.ModelSerializer):
+class RedactReferenceFieldsMixin:
+    redacted_reference_fields = ()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        for field_name in self.redacted_reference_fields:
+            if field_name in data:
+                data[field_name] = redact_sensitive_reference(data[field_name])
+        return data
+
+
+class ConexionBancariaSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = (
+        'credencial_ref',
+        'evidencia_gate_ref',
+        'prueba_conectividad_ref',
+        'prueba_movimientos_ref',
+        'prueba_saldos_ref',
+    )
+
     class Meta:
         model = ConexionBancaria
         fields = (
@@ -79,7 +99,9 @@ class ConexionBancariaSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class MovimientoBancarioImportadoSerializer(serializers.ModelSerializer):
+class MovimientoBancarioImportadoSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('evidencia_importacion_ref', 'transaction_id_banco')
+
     class Meta:
         model = MovimientoBancarioImportado
         fields = (
