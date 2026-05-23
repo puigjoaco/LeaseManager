@@ -812,6 +812,59 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.participacion.validacion_modelo', issue_codes)
         self.assertIn('stage1.arrendatario.validacion_modelo', issue_codes)
 
+    def test_historical_contract_structural_rows_are_validated(self):
+        contrato = self._create_valid_stage1_matrix()
+        historical_contract = Contrato.objects.create(
+            codigo_contrato='CON-HIST-INVALID',
+            mandato_operacion=contrato.mandato_operacion,
+            arrendatario=contrato.arrendatario,
+            fecha_inicio=date(2024, 1, 1),
+            fecha_fin_vigente=date(2023, 12, 31),
+            dia_pago_mensual=5,
+            estado=EstadoContrato.FINISHED,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=historical_contract,
+            propiedad=contrato.mandato_operacion.propiedad,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='000',
+        )
+        PeriodoContractual.objects.create(
+            contrato=historical_contract,
+            numero_periodo=1,
+            fecha_inicio=date(2024, 1, 1),
+            fecha_fin=date(2024, 12, 31),
+            monto_base='500.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='mensual',
+            origen_periodo='snapshot_controlado',
+        )
+        GarantiaContractual.objects.create(
+            contrato=historical_contract,
+            monto_pactado='1000.00',
+            monto_recibido='2000.00',
+            estado_garantia=EstadoGarantia.HELD,
+            fecha_recepcion=date(2024, 1, 5),
+        )
+        AvisoTermino.objects.create(
+            contrato=historical_contract,
+            fecha_efectiva=date(2023, 12, 1),
+            causal='fixture historico invalido',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['has_required_stage1_data'])
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.contrato_propiedad.validacion_modelo', issue_codes)
+        self.assertIn('stage1.periodo.validacion_modelo', issue_codes)
+        self.assertIn('stage1.garantia.validacion_modelo', issue_codes)
+        self.assertIn('stage1.aviso_termino.validacion_modelo', issue_codes)
+
     def test_invalid_fiscal_configuration_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         config = ConfiguracionFiscalEmpresa.objects.get(
