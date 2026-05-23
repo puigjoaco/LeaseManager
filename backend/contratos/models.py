@@ -335,6 +335,11 @@ class PeriodoContractual(TimestampedModel):
         super().clean()
         if self.fecha_fin < self.fecha_inicio:
             raise ValidationError({'fecha_fin': 'La fecha fin del periodo no puede ser anterior al inicio.'})
+        if self.fecha_inicio.day != 1:
+            raise ValidationError({'fecha_inicio': 'El periodo contractual debe iniciar el primer dia del mes.'})
+        last_day = calendar.monthrange(self.fecha_fin.year, self.fecha_fin.month)[1]
+        if self.fecha_fin.day != last_day:
+            raise ValidationError({'fecha_fin': 'El periodo contractual debe terminar el ultimo dia del mes.'})
         if self.moneda_base == MonedaBaseContrato.CLP and self.monto_base < Decimal('1000.00'):
             raise ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
         if self.moneda_base == MonedaBaseContrato.UF and self.monto_base <= Decimal('0.00'):
