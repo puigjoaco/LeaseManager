@@ -338,6 +338,26 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_active_participation_with_inactive_participant_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        socio = ParticipacionPatrimonial.objects.filter(
+            empresa_owner=contrato.mandato_operacion.propietario_empresa_owner,
+            activo=True,
+        ).last().participante_socio
+        socio.activo = False
+        socio.save(update_fields=['activo', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.participacion.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['participaciones_patrimoniales']['classification'],
+            'defectuoso',
+        )
+
     def test_evidence_grade_source_requires_traceable_source_label(self):
         self._create_valid_stage1_matrix()
 

@@ -27,6 +27,9 @@ contra datos reales o snapshot controlado.
 - Validacion de participaciones actualmente vigentes: para activar empresas o
   comunidades solo cuentan participaciones activas con `vigente_desde` ya
   alcanzado y sin `vigente_hasta` vencido.
+- Validacion de participantes patrimoniales activos: una participacion activa
+  solo puede apuntar a un socio activo o a una empresa participante activa con
+  participaciones completas.
 - La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
   historicos no constituyen evidencia operativa de Etapa 1.
 - Validacion de no duplicar propiedades por rol de avaluo ni identidad
