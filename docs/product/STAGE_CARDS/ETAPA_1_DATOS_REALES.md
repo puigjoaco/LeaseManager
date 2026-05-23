@@ -41,6 +41,9 @@ contra datos reales o snapshot controlado.
   operativo activo asignado por su mandato.
 - Validacion de que las identidades de envio activas usen `credencial_ref`
   trazable no sensible; la API debe redactar referencias sensibles heredadas.
+- Validacion de transiciones operativas: cuentas recaudadoras e identidades de
+  envio no pueden pausarse, suspenderse o inactivarse si sostienen mandatos o
+  asignaciones de canal activas.
 - Validacion de que cada contrato vigente o futuro este cubierto por la
   vigencia del `MandatoOperacion` que define propiedad, cuenta y facturacion.
 - Validacion de que cada propiedad principal o vinculada de contratos vigentes
