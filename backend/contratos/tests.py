@@ -683,6 +683,27 @@ class ContratosAPITests(APITestCase):
         )
         self.assertEqual(cancel_response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_notice_rejects_effective_date_after_contract_end(self):
+        mandato = self._create_active_mandato(codigo='MAND-107-LATE', owner_rut='16161617-K')
+        arrendatario = self._create_arrendatario(rut='17171718-7')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-107-LATE')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        aviso_response = self.client.post(
+            reverse('contratos-aviso-list'),
+            {
+                'contrato': current_response.data['id'],
+                'fecha_efectiva': '2027-01-31',
+                'causal': 'No renovacion fuera de rango',
+                'estado': EstadoAvisoTermino.REGISTERED,
+            },
+            format='json',
+        )
+
+        self.assertEqual(aviso_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('fecha_efectiva', aviso_response.data)
+
     def test_notice_to_future_contract_workflow_preserves_registered_notice(self):
         mandato = self._create_active_mandato(codigo='MAND-109', owner_rut='20202020-2')
         arrendatario = self._create_arrendatario(rut='21212121-0')
