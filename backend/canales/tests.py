@@ -268,8 +268,29 @@ class CanalesAPITests(APITestCase):
             evidencia_ref='https://mail.example.test/token/secret',
             restricciones_operativas={
                 'prueba_aislada_ref': 'email-readiness-controlled',
-                'oauth_validado_ref': 'oauth-readiness-controlled',
+                'credencial_validada_ref': 'email-ref-validado-v1',
+                'callback_ref': 'https://mail.example.test/proof?token=secret',
+                'headers': {'authorization': 'Bearer inherited-channel-value'},
             },
+        )
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='contrato',
+            entidad_id=str(contrato.id),
+            estado='abierto',
+            owner_operativo=f'mandato:{contrato.mandato_operacion.id}',
+        )
+        DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental='contrato_principal',
+            version_plantilla='v1',
+            checksum='channel-snapshot-storage',
+            fecha_carga=datetime(2026, 3, 18, 10, 0, tzinfo=ZoneInfo('America/Santiago')),
+            usuario=self.user,
+            origen='generado_sistema',
+            estado=EstadoDocumento.ISSUED,
+            storage_ref='https://storage.example.test/contracts/contrato-1.pdf?token=secret',
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
         )
         MensajeSaliente.objects.create(
             canal='email',
@@ -300,6 +321,15 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(messages_response.data[0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['gates'][0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['mensajes'][0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+        gate_restrictions = gates_response.data[0]['restricciones_operativas']
+        self.assertEqual(gate_restrictions['prueba_aislada_ref'], 'email-readiness-controlled')
+        self.assertEqual(gate_restrictions['credencial_validada_ref'], 'email-ref-validado-v1')
+        self.assertEqual(gate_restrictions['callback_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(gate_restrictions['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        snapshot_gate_restrictions = snapshot_response.data['gates'][0]['restricciones_operativas']
+        self.assertEqual(snapshot_gate_restrictions['credencial_validada_ref'], 'email-ref-validado-v1')
+        self.assertEqual(snapshot_gate_restrictions['callback_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['documentos_emitidos'][0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
         payload = messages_response.data[0]['provider_payload']
         self.assertEqual(payload['provider_message_id'], 'MSG-SAFE-001')
         self.assertEqual(payload['callback'], REDACTED_SENSITIVE_REFERENCE)
@@ -310,6 +340,7 @@ class CanalesAPITests(APITestCase):
             body = response.content.decode()
             self.assertNotIn('mail.example.test', body)
             self.assertNotIn('provider.example.test', body)
+            self.assertNotIn('storage.example.test', body)
             self.assertNotIn('token', body)
             self.assertNotIn('secret', body)
 

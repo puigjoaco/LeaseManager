@@ -7,7 +7,12 @@ from rest_framework.test import APITestCase
 
 from .models import PlatformSetting, Role, Scope, UserScopeAssignment
 from .permissions import get_effective_role_codes
-from .reference_validation import REDACTED_SENSITIVE_REFERENCE, contains_sensitive_reference, redact_sensitive_payload
+from .reference_validation import (
+    REDACTED_SENSITIVE_REFERENCE,
+    contains_sensitive_reference,
+    redact_sensitive_payload,
+    redact_sensitive_payload_values,
+)
 
 
 class PlatformBootstrapAPITests(APITestCase):
@@ -138,6 +143,20 @@ class ReferenceValidationTests(TestCase):
         self.assertEqual(redacted['nested'][1]['result_ref'], 'controlled-result')
         self.assertEqual(redacted['count'], 2)
         self.assertIsNone(redacted['empty'])
+
+    def test_redact_sensitive_payload_values_preserves_operational_reference_keys(self):
+        payload = {
+            'credencial_validada_ref': 'email-ref-validado-v1',
+            'callback_ref': 'https://provider.example.test/token/value',
+            'nested': [{'oauth_validado_ref': 'oauth-ref-v1'}, {'headers': 'Bearer inherited-value'}],
+        }
+
+        redacted = redact_sensitive_payload_values(payload)
+
+        self.assertEqual(redacted['credencial_validada_ref'], 'email-ref-validado-v1')
+        self.assertEqual(redacted['callback_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(redacted['nested'][0]['oauth_validado_ref'], 'oauth-ref-v1')
+        self.assertEqual(redacted['nested'][1]['headers'], REDACTED_SENSITIVE_REFERENCE)
 
     def test_contains_sensitive_reference_can_include_sensitive_keys(self):
         payload = {'access_token': 'opaque-value', 'safe_ref': 'controlled-reference'}
