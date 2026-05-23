@@ -1,6 +1,12 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from core.reference_validation import (
+    contains_sensitive_reference,
+    redact_sensitive_payload,
+    redact_sensitive_reference,
+)
+
 from .models import EstadoRegistro, ExportacionSensible, PoliticaRetencionDatos
 
 
@@ -64,6 +70,12 @@ class ExportacionSensibleSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['scope_resumen'] = redact_sensitive_payload(data.get('scope_resumen') or {})
+        data['motivo'] = redact_sensitive_reference(data.get('motivo'))
+        return data
+
 
 class ExportacionPrepareSerializer(serializers.Serializer):
     categoria_dato = serializers.ChoiceField(choices=PoliticaRetencionDatos._meta.get_field('categoria_dato').choices)
@@ -115,4 +127,16 @@ class ExportacionPrepareSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {'categoria_dato': 'No existe una politica de retencion activa para la categoria indicada.'}
             )
+        scope_resumen = {
+            key: value
+            for key, value in attrs.items()
+            if key not in {'categoria_dato', 'export_kind', 'motivo', 'hold_activo'}
+        }
+        errors = {}
+        if contains_sensitive_reference(attrs.get('motivo'), include_sensitive_keys=True):
+            errors['motivo'] = 'El motivo no puede contener URLs, correos, tokens, bearer, claves ni credenciales.'
+        if contains_sensitive_reference(scope_resumen, include_sensitive_keys=True):
+            errors['scope_resumen'] = 'El scope de exportacion no puede contener referencias sensibles.'
+        if errors:
+            raise serializers.ValidationError(errors)
         return attrs

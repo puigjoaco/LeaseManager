@@ -1,6 +1,9 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
+
+from core.reference_validation import contains_sensitive_reference
 
 
 class TimestampedModel(models.Model):
@@ -73,6 +76,13 @@ class ExportacionSensible(TimestampedModel):
 
     def clean(self):
         super().clean()
-        if not self.hold_activo and self.estado == EstadoExportacionSensible.PREPARED and self.expires_at <= self.created_at:
-            raise ValidationError({'expires_at': 'La exportacion preparada debe expirar en el futuro.'})
-
+        errors = {}
+        reference_time = self.created_at or timezone.now()
+        if not self.hold_activo and self.estado == EstadoExportacionSensible.PREPARED and self.expires_at <= reference_time:
+            errors['expires_at'] = 'La exportacion preparada debe expirar en el futuro.'
+        if contains_sensitive_reference(self.motivo, include_sensitive_keys=True):
+            errors['motivo'] = 'El motivo no puede contener URLs, correos, tokens, bearer, claves ni credenciales.'
+        if contains_sensitive_reference(self.scope_resumen, include_sensitive_keys=True):
+            errors['scope_resumen'] = 'El scope de exportacion no puede contener referencias sensibles.'
+        if errors:
+            raise ValidationError(errors)

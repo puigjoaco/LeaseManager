@@ -1,15 +1,18 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from reporting.tests import ReportingAPITests
 
 from .models import ExportacionSensible, PoliticaRetencionDatos
+from .services import SENSITIVE_EXPORT_METADATA_ERROR, encrypt_payload, prepare_sensitive_export
 
 
 class ComplianceAPITests(APITestCase):
@@ -79,6 +82,100 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(content.status_code, status.HTTP_200_OK)
         self.assertEqual(content.data['id'], export.id)
         self.assertTrue(AuditEvent.objects.filter(event_type='compliance.exportacion_sensible.accessed').exists())
+
+    def test_prepare_export_rejects_sensitive_visible_metadata(self):
+        self._create_policy('financiero')
+
+        sensitive_motive = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'financiero',
+                'export_kind': 'financiero_mensual',
+                'motivo': 'Revision https://provider.example.test/export?token=secret',
+                'anio': 2026,
+                'mes': 1,
+            },
+            format='json',
+        )
+        self.assertEqual(sensitive_motive.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('motivo', sensitive_motive.data)
+
+        sensitive_scope = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'financiero',
+                'export_kind': 'libros_periodo',
+                'motivo': 'Revision libros',
+                'empresa_id': 1,
+                'periodo': '2026-01?api_key=secret',
+            },
+            format='json',
+        )
+        self.assertEqual(sensitive_scope.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('scope_resumen', sensitive_scope.data)
+
+    def test_prepare_sensitive_export_service_rejects_sensitive_visible_metadata(self):
+        with self.assertRaisesMessage(ValueError, SENSITIVE_EXPORT_METADATA_ERROR):
+            prepare_sensitive_export(
+                categoria_dato='financiero',
+                export_kind='financiero_mensual',
+                scope_resumen={'api_key': 'legacy-key'},
+                motivo='Revision mensual',
+                payload={'resultado': 'controlado'},
+                created_by=self.user,
+            )
+
+    def test_export_model_clean_rejects_sensitive_visible_metadata(self):
+        encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = ExportacionSensible(
+            categoria_dato='financiero',
+            export_kind='financiero_mensual',
+            scope_resumen={'periodo': '2026-01?token=secret'},
+            motivo='Revision mensual',
+            encrypted_payload=encrypted_payload,
+            payload_hash=payload_hash,
+            encrypted_ref=f'export://financiero_mensual/{payload_hash[:12]}',
+            expires_at=timezone.now() + timedelta(days=1),
+            created_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            export.full_clean()
+        self.assertIn('scope_resumen', context.exception.message_dict)
+
+    def test_export_apis_redact_inherited_sensitive_visible_metadata(self):
+        encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = ExportacionSensible.objects.create(
+            categoria_dato='financiero',
+            export_kind='financiero_mensual',
+            scope_resumen={
+                'periodo': '2026-01',
+                'callback': 'https://provider.example.test/export?token=secret',
+                'api_key': 'legacy-key',
+            },
+            motivo='Revision con Bearer inherited-token',
+            encrypted_payload=encrypted_payload,
+            payload_hash=payload_hash,
+            encrypted_ref=f'export://financiero_mensual/{payload_hash[:12]}',
+            expires_at=timezone.now() + timedelta(days=1),
+            created_by=self.user,
+        )
+
+        list_response = self.client.get(reverse('compliance-export-list'))
+        detail_response = self.client.get(reverse('compliance-export-detail', args=[export.id]))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        for export_data in (list_response.data[0], detail_response.data):
+            self.assertEqual(export_data['motivo'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(export_data['scope_resumen']['periodo'], '2026-01')
+            self.assertEqual(export_data['scope_resumen']['callback'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(export_data['scope_resumen']['api_key'], REDACTED_SENSITIVE_REFERENCE)
+
+        rendered = str(list_response.data) + str(detail_response.data)
+        self.assertNotIn('token=secret', rendered)
+        self.assertNotIn('legacy-key', rendered)
+        self.assertNotIn('inherited-token', rendered)
 
     def test_export_can_be_revoked(self):
         self._create_context('REV')
