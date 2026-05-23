@@ -207,6 +207,34 @@ class PatrimonioAPITests(APITestCase):
         self.assertIn('participaciones', response.data)
         self.assertFalse(Empresa.objects.filter(razon_social='Empresa Canonica').exists())
 
+    def test_empresa_active_rejects_inactive_socio_participant(self):
+        socio_activo = self._create_socio('Socio Activo', '11111111-1')
+        socio_inactivo = self._create_socio('Socio Inactivo', '22222222-2', activo=False)
+        payload = self._empresa_payload(
+            participaciones=[
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_activo.id,
+                    'porcentaje': '60.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_inactivo.id,
+                    'porcentaje': '40.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+            ]
+        )
+
+        response = self.client.post(reverse('patrimonio-empresa-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('participaciones', response.data)
+        self.assertFalse(Empresa.objects.filter(razon_social='Empresa Canonica').exists())
+
     def test_empresa_rejects_empresa_participant(self):
         company_participant = self.client.post(
             reverse('patrimonio-empresa-list'),
@@ -296,6 +324,40 @@ class PatrimonioAPITests(APITestCase):
         self.assertIn('participaciones', response.data)
         self.assertFalse(ComunidadPatrimonial.objects.filter(nombre='Comunidad Patrimonial Uno').exists())
 
+    def test_comunidad_active_rejects_inactive_empresa_participant(self):
+        socio = self._create_socio('Socio Comunidad Activo', '11111111-1')
+        empresa_participante = Empresa.objects.create(
+            razon_social='Empresa Participante Inactiva',
+            rut='99999999-9',
+            estado=EstadoPatrimonial.DRAFT,
+        )
+        payload = self._comunidad_payload(
+            representante_modo=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+            representante_socio_id=socio.id,
+            participaciones=[
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio.id,
+                    'porcentaje': '50.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+                {
+                    'participante_tipo': 'empresa',
+                    'participante_id': empresa_participante.id,
+                    'porcentaje': '50.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+            ],
+        )
+
+        response = self.client.post(reverse('patrimonio-comunidad-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('participaciones', response.data)
+        self.assertFalse(ComunidadPatrimonial.objects.filter(nombre='Comunidad Patrimonial Uno').exists())
+
     def test_comunidad_allows_designated_representative_outside_participaciones(self):
         socio_1 = self._create_socio('Socio Uno', '11111111-1')
         socio_2 = self._create_socio('Socio Dos', '22222222-2')
@@ -329,7 +391,7 @@ class PatrimonioAPITests(APITestCase):
     def test_comunidad_mixta_accepts_empresa_participant(self):
         empresa_participante = self.client.post(
             reverse('patrimonio-empresa-list'),
-            self._empresa_payload(estado=EstadoPatrimonial.DRAFT),
+            self._empresa_payload(),
             format='json',
         )
         self.assertEqual(empresa_participante.status_code, status.HTTP_201_CREATED)

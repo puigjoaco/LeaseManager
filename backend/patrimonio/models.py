@@ -334,6 +334,21 @@ class ParticipacionPatrimonial(TimestampedModel):
             raise ValidationError({'vigente_hasta': 'La vigencia final no puede ser anterior a la inicial.'})
         if self.empresa_owner_id and self.participante_empresa_id:
             raise ValidationError({'participante_empresa': 'Una empresa no puede tener empresas como participantes patrimoniales en el boundary actual.'})
+        if self.activo and self.participante_socio_id and not self.participante_socio.activo:
+            raise ValidationError({'participante_socio': 'La participacion activa requiere un socio activo.'})
+        if self.activo and self.participante_empresa_id:
+            if (
+                self.participante_empresa.estado != EstadoPatrimonial.ACTIVE
+                or not self.participante_empresa.participaciones_completas()
+            ):
+                raise ValidationError(
+                    {
+                        'participante_empresa': (
+                            'La participacion activa requiere una empresa participante activa '
+                            'con participaciones completas.'
+                        )
+                    }
+                )
 
 
 class Propiedad(TimestampedModel):

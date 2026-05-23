@@ -107,6 +107,23 @@ class ParticipacionPatrimonialWriteSerializer(serializers.Serializer):
         except model.DoesNotExist as error:
             raise serializers.ValidationError({'participante_id': 'El participante indicado no existe.'}) from error
 
+        if attrs.get('activo', True):
+            if participante_tipo == 'socio' and not participante.activo:
+                raise serializers.ValidationError(
+                    {'participante_id': 'La participacion activa requiere un socio activo.'}
+                )
+            if participante_tipo == 'empresa' and (
+                participante.estado != EstadoPatrimonial.ACTIVE or not participante.participaciones_completas()
+            ):
+                raise serializers.ValidationError(
+                    {
+                        'participante_id': (
+                            'La participacion activa requiere una empresa participante activa '
+                            'con participaciones completas.'
+                        )
+                    }
+                )
+
         attrs['participante_socio'] = participante if participante_tipo == 'socio' else None
         attrs['participante_empresa'] = participante if participante_tipo == 'empresa' else None
         return attrs
