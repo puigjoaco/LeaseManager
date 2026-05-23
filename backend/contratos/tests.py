@@ -448,6 +448,55 @@ class ContratosAPITests(APITestCase):
         with self.assertRaises(ValidationError):
             linked.full_clean()
 
+    def test_contract_property_full_clean_rejects_more_than_principal_and_linked_pair(self):
+        mandato = self._create_active_mandato(codigo='MAND-LINK-LIMIT', owner_rut='77777781-5')
+        linked_a = Propiedad.objects.create(
+            direccion='Av Linked Limit A',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='LINK-LIMIT-A',
+            estado='activa',
+            socio_owner=mandato.propietario_socio_owner,
+        )
+        arrendatario = self._create_arrendatario(rut='88888892-6')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-LINK-LIMIT')
+        payload['contrato_propiedades'] = [
+            {
+                'propiedad_id': mandato.propiedad_id,
+                'rol_en_contrato': 'principal',
+                'porcentaje_distribucion_interna': '50.00',
+                'codigo_conciliacion_efectivo_snapshot': '321',
+            },
+            {
+                'propiedad_id': linked_a.id,
+                'rol_en_contrato': 'vinculada',
+                'porcentaje_distribucion_interna': '50.00',
+                'codigo_conciliacion_efectivo_snapshot': '321',
+            },
+        ]
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        linked_b = Propiedad.objects.create(
+            direccion='Av Linked Limit B',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='LINK-LIMIT-B',
+            estado='activa',
+            socio_owner=mandato.propietario_socio_owner,
+        )
+        extra_link = ContratoPropiedad(
+            contrato=Contrato.objects.get(pk=response.data['id']),
+            propiedad=linked_b,
+            rol_en_contrato=RolContratoPropiedad.LINKED,
+            porcentaje_distribucion_interna='10.00',
+            codigo_conciliacion_efectivo_snapshot='321',
+        )
+
+        with self.assertRaises(ValidationError):
+            extra_link.full_clean()
+
     def test_contract_rejects_duplicate_effective_code_in_same_account_namespace(self):
         mandato_a = self._create_active_mandato(codigo='MAND-CODE-A', owner_rut='71717171-7')
         arrendatario_a = self._create_arrendatario(rut='72727272-4')

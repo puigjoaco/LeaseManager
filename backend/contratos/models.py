@@ -239,6 +239,11 @@ class ContratoPropiedad(TimestampedModel):
             )
 
         same_contract_links = ContratoPropiedad.objects.filter(contrato_id=self.contrato_id).exclude(pk=self.pk)
+        if same_contract_links.count() >= 2:
+            raise ValidationError(
+                {'contrato': 'Un contrato vigente o futuro solo puede cubrir una propiedad o una pareja principal + vinculada.'}
+            )
+
         if self.rol_en_contrato == RolContratoPropiedad.PRIMARY:
             mismatched_contract_codes = same_contract_links.exclude(
                 codigo_conciliacion_efectivo_snapshot=self.codigo_conciliacion_efectivo_snapshot,
