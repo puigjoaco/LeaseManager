@@ -238,6 +238,34 @@ class ContratoPropiedad(TimestampedModel):
                 {'propiedad': 'Un contrato vigente o futuro solo puede usar propiedades activas.'}
             )
 
+        same_contract_links = ContratoPropiedad.objects.filter(contrato_id=self.contrato_id).exclude(pk=self.pk)
+        if self.rol_en_contrato == RolContratoPropiedad.PRIMARY:
+            mismatched_contract_codes = same_contract_links.exclude(
+                codigo_conciliacion_efectivo_snapshot=self.codigo_conciliacion_efectivo_snapshot,
+            )
+            if mismatched_contract_codes.exists():
+                raise ValidationError(
+                    {
+                        'codigo_conciliacion_efectivo_snapshot': (
+                            'La propiedad principal y la vinculada deben compartir el mismo codigo efectivo.'
+                        )
+                    }
+                )
+        else:
+            primary_link = same_contract_links.filter(rol_en_contrato=RolContratoPropiedad.PRIMARY).first()
+            if (
+                primary_link
+                and primary_link.codigo_conciliacion_efectivo_snapshot
+                != self.codigo_conciliacion_efectivo_snapshot
+            ):
+                raise ValidationError(
+                    {
+                        'codigo_conciliacion_efectivo_snapshot': (
+                            'La propiedad principal y la vinculada deben compartir el mismo codigo efectivo.'
+                        )
+                    }
+                )
+
         same_state_links = ContratoPropiedad.objects.filter(
             propiedad_id=self.propiedad_id,
             contrato__estado=self.contrato.estado,
