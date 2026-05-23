@@ -183,6 +183,43 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage1LocalReadiness.classification -eq 'implementado_sin_evidencia') 'El readiness local debe quedar no evidencial.'
         Assert-Condition (-not ($stage1LocalIssueCodes -contains 'stage1.data_missing')) 'stage1.data_missing debe quedar reservado para el gate evidencial con require-data.'
 
+        Step "Stage 1 snapshot gate empty evidence guard"
+        Assert-Condition (Test-Path $stage1SnapshotGateScript) "No existe el snapshot gate Etapa 1 en $stage1SnapshotGateScript"
+        $stage1SnapshotEmptyDbPath = Join-Path $repoRoot 'local-evidence\stage1\acceptance\stage1_snapshot_empty_acceptance.sqlite3'
+        $stage1SnapshotEmptyOutputPath = Join-Path $repoRoot 'local-evidence\stage1\acceptance\stage1_snapshot_empty_acceptance.json'
+        Remove-Item -LiteralPath $stage1SnapshotEmptyDbPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $stage1SnapshotEmptyOutputPath -Force -ErrorAction SilentlyContinue
+
+        $stage1SnapshotEmptyFailed = $false
+        try {
+            $stage1SnapshotEmptyOutput = & $stage1SnapshotGateScript `
+                -SourceKind snapshot_controlado `
+                -SourceLabel 'stage1-empty-snapshot-acceptance' `
+                -AuthorizationRef 'stage-one-empty-snapshot-authz' `
+                -ResponsibleRef 'stage-one-empty-snapshot-owner' `
+                -DatabaseUrl 'sqlite:///local-evidence/stage1/acceptance/stage1_snapshot_empty_acceptance.sqlite3' `
+                -OutputPath $stage1SnapshotEmptyOutputPath `
+                -PythonExe $pythonExe `
+                -RunMigrations 2>&1 | Out-String
+        }
+        catch {
+            $stage1SnapshotEmptyOutput = "$($_.Exception.Message)`n$($_ | Out-String)"
+            $stage1SnapshotEmptyFailed = $true
+        }
+        if ($stage1SnapshotEmptyOutput.Trim()) {
+            Write-Host $stage1SnapshotEmptyOutput
+        }
+        Assert-Condition $stage1SnapshotEmptyFailed 'El snapshot gate evidencial con SQLite vacio debe fallar, no cerrar Etapa 1.'
+        Assert-Condition (Test-Path $stage1SnapshotEmptyOutputPath) 'El snapshot gate vacio debe dejar JSON de auditoria bajo local-evidence/.'
+        $stage1SnapshotEmptyAudit = Get-Content -LiteralPath $stage1SnapshotEmptyOutputPath -Raw | ConvertFrom-Json
+        $stage1SnapshotEmptyIssueCodes = @($stage1SnapshotEmptyAudit.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage1SnapshotEmptyAudit.source_kind -eq 'snapshot_controlado') 'El snapshot gate vacio debe declarar source_kind=snapshot_controlado.'
+        Assert-Condition ($stage1SnapshotEmptyAudit.evidence_grade -eq $true) 'El snapshot gate vacio debe marcar la fuente como evidencial por tipo.'
+        Assert-Condition ($stage1SnapshotEmptyAudit.has_required_stage1_data -eq $false) 'El snapshot gate vacio no debe marcar datos requeridos.'
+        Assert-Condition ($stage1SnapshotEmptyAudit.ready_for_stage1_close -eq $false) 'El snapshot gate vacio no puede cerrar Etapa 1.'
+        Assert-Condition ($stage1SnapshotEmptyAudit.classification -eq 'bloqueado_dato_real') 'El snapshot gate vacio debe clasificar bloqueado_dato_real.'
+        Assert-Condition ($stage1SnapshotEmptyIssueCodes -contains 'stage1.data_missing') 'El snapshot gate vacio debe reportar stage1.data_missing.'
+
         Step "Stage 2 readiness guard"
         Assert-Condition (Test-Path $stage2ReadinessScript) "No existe el guard de readiness Etapa 2 en $stage2ReadinessScript"
         $stage2OutputPath = Join-Path $repoRoot 'local-evidence\stage2\acceptance\stage2_readiness_acceptance.json'
