@@ -30,6 +30,8 @@ produccion por defecto.
 - DTE, F29, DDJJ/F22 y procesos anuales solo aceptan refs tributarias no
   sensibles para tracking, borradores y paquetes; las APIs y snapshots redactan
   refs o payloads sensibles heredados antes de exponerlos al backoffice.
+- Los eventos de auditoria de cambios de estado DTE registran `sii_track_id`
+  redactado si existe una referencia sensible heredada.
 - Los borradores DTE/F29/anuales y los cambios de estado externo revalidan el
   gate antes de avanzar.
 - `F29Presentacion` y `PresentacionAnualFinal` no se registran desde el flujo
