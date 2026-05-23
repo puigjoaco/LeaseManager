@@ -409,6 +409,32 @@ class OperacionAPITests(APITestCase):
         self.assertEqual(response.data['recaudador_tipo'], 'socio')
         self.assertEqual(response.data['recaudador_id'], unrelated_owner.id)
 
+    def test_account_deactivation_rejects_active_mandate_dependency(self):
+        propietario = self._create_socio('Propietario Uno', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo', '88888888-8')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-003C')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-003C')
+        mandato_response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+        )
+        self.assertEqual(mandato_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('operacion-cuenta-detail', args=[cuenta.id]),
+            {'estado_operativo': EstadoCuentaRecaudadora.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado_operativo', response.data)
+        cuenta.refresh_from_db()
+        self.assertEqual(cuenta.estado_operativo, EstadoCuentaRecaudadora.ACTIVE)
+
     def test_active_mandato_accepts_comunidad_recaudadora(self):
         comunidad = self._create_active_comunidad('Comunidad Recaudadora')
         admin = comunidad.representante_socio
@@ -571,6 +597,46 @@ class OperacionAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(unauthorized_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_identity_deactivation_rejects_active_assignment_dependency(self):
+        propietario = self._create_socio('Propietario Uno', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo', '88888888-8')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-006B')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-006B')
+        mandato_response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+        )
+        self.assertEqual(mandato_response.status_code, status.HTTP_201_CREATED)
+
+        identidad = self._create_active_identity(empresa=admin_company, direccion='admin-state@example.com')
+        assignment_response = self.client.post(
+            reverse('operacion-asignacion-list'),
+            {
+                'mandato_operacion_id': mandato_response.data['id'],
+                'canal': CanalOperacion.EMAIL,
+                'identidad_envio_id': identidad.id,
+                'prioridad': 1,
+                'estado': EstadoAsignacionCanal.ACTIVE,
+            },
+            format='json',
+        )
+        self.assertEqual(assignment_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('operacion-identidad-detail', args=[identidad.id]),
+            {'estado': EstadoIdentidadEnvio.SUSPENDED},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        identidad.refresh_from_db()
+        self.assertEqual(identidad.estado, EstadoIdentidadEnvio.ACTIVE)
 
     def test_mandato_update_emits_update_and_state_change_audit_events(self):
         propietario = self._create_socio('Propietario Uno', '77777777-7')

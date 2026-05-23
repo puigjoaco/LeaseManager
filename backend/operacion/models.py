@@ -156,6 +156,11 @@ class CuentaRecaudadora(TimestampedModel):
             return self.comunidad_owner.estado == 'activa'
         return self.socio_owner.activo
 
+    def active_mandate_dependencies(self):
+        if not self.pk:
+            return MandatoOperacion.objects.none()
+        return self.mandatos_operacion.filter(estado=EstadoMandatoOperacion.ACTIVE)
+
     def save(self, *args, **kwargs):
         self.titular_rut = normalize_rut(self.titular_rut)
         super().save(*args, **kwargs)
@@ -167,6 +172,18 @@ class CuentaRecaudadora(TimestampedModel):
 
         if self.estado_operativo == EstadoCuentaRecaudadora.ACTIVE and not self.owner_is_active():
             raise ValidationError({'estado_operativo': 'La cuenta activa requiere un owner activo.'})
+
+        if (
+            self.estado_operativo != EstadoCuentaRecaudadora.ACTIVE
+            and self.active_mandate_dependencies().exists()
+        ):
+            raise ValidationError(
+                {
+                    'estado_operativo': (
+                        'No se puede inactivar o pausar una cuenta recaudadora con mandatos operativos activos.'
+                    )
+                }
+            )
 
 
 class IdentidadDeEnvio(TimestampedModel):
@@ -228,6 +245,11 @@ class IdentidadDeEnvio(TimestampedModel):
             return self.empresa_owner.estado == 'activa'
         return self.socio_owner.activo
 
+    def active_channel_dependencies(self):
+        if not self.pk:
+            return AsignacionCanalOperacion.objects.none()
+        return self.asignaciones_operacion.filter(estado=EstadoAsignacionCanal.ACTIVE)
+
     def clean(self):
         super().clean()
         if sum(bool(value) for value in (self.empresa_owner_id, self.socio_owner_id)) != 1:
@@ -246,6 +268,15 @@ class IdentidadDeEnvio(TimestampedModel):
                 )
             if not self.owner_is_active():
                 raise ValidationError({'estado': 'La identidad activa requiere un owner activo.'})
+
+        if self.estado != EstadoIdentidadEnvio.ACTIVE and self.active_channel_dependencies().exists():
+            raise ValidationError(
+                {
+                    'estado': (
+                        'No se puede suspender o inactivar una identidad de envio con asignaciones de canal activas.'
+                    )
+                }
+            )
 
 
 class MandatoOperacion(TimestampedModel):
