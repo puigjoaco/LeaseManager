@@ -332,6 +332,24 @@ class CobranzaAPITests(APITestCase):
             payment.full_clean()
         self.assertIn('periodo_contractual', error.exception.message_dict)
 
+    def test_payment_full_clean_rejects_due_date_outside_operational_month(self):
+        contrato = self._create_active_contract(codigo='CON-PAY-DUE', monto_base='100000.00', code='111')
+        periodo = contrato.periodos_contractuales.get(numero_periodo=1)
+        payment = PagoMensual(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp=Decimal('100000.00'),
+            monto_calculado_clp=Decimal('100111.00'),
+            fecha_vencimiento=date(2026, 2, 5),
+            codigo_conciliacion_efectivo='111',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            payment.full_clean()
+        self.assertIn('fecha_vencimiento', error.exception.message_dict)
+
     def test_generate_uf_payment_requires_existing_uf_value(self):
         contrato = self._create_active_contract(codigo='CON-UF-MISS', moneda='UF', monto_base='10.00', code='123')
 
