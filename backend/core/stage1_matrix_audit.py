@@ -387,7 +387,37 @@ def _audit_evidence_source_metadata(
         )
 
 
+def _issue_entity_id(issue: dict[str, Any]) -> int | None:
+    entity_id = issue.get('entity_id')
+    if entity_id is None:
+        return None
+    try:
+        return int(entity_id)
+    except (TypeError, ValueError):
+        return None
+
+
+def _issue_matches_active_or_future_contract(issue: dict[str, Any]) -> bool:
+    entity_id = _issue_entity_id(issue)
+    if entity_id is None:
+        return False
+
+    if issue.get('entity') == 'Contrato':
+        return Contrato.objects.filter(pk=entity_id, estado__in=ACTIVE_CONTRACT_STATES).exists()
+
+    if issue.get('entity') == 'AvisoTermino':
+        return AvisoTermino.objects.filter(
+            pk=entity_id,
+            contrato__estado__in=ACTIVE_CONTRACT_STATES,
+        ).exists()
+
+    return False
+
+
 def _issue_matches_aggregate(issue: dict[str, Any], definition: dict[str, Any]) -> bool:
+    if definition['key'] == 'contratos_activos_o_futuros':
+        return _issue_matches_active_or_future_contract(issue)
+
     if issue.get('entity') in definition['entities']:
         return True
     issue_code = issue.get('code') or ''
