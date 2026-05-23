@@ -1,9 +1,11 @@
+from datetime import date
 from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
+from django.utils.dateparse import parse_date
 
 from contratos.models import Contrato, MonedaBaseContrato, PeriodoContractual
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
@@ -22,6 +24,14 @@ class TimestampedModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+def _coerce_date(value):
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        return parse_date(value)
+    return None
 
 
 class EstadoPago(models.TextChoices):
@@ -184,6 +194,26 @@ class PagoMensual(TimestampedModel):
             )
         if self.periodo_contractual.contrato_id != self.contrato_id:
             raise ValidationError({'periodo_contractual': 'El periodo contractual debe pertenecer al mismo contrato.'})
+
+        try:
+            month_start = date(int(self.anio), int(self.mes), 1)
+        except (TypeError, ValueError):
+            return
+
+        contract_start = _coerce_date(self.contrato.fecha_inicio)
+        contract_end = _coerce_date(self.contrato.fecha_fin_vigente)
+        period_start = _coerce_date(self.periodo_contractual.fecha_inicio)
+        period_end = _coerce_date(self.periodo_contractual.fecha_fin)
+        if not all((contract_start, contract_end, period_start, period_end)):
+            return
+
+        errors = {}
+        if month_start < contract_start or month_start > contract_end:
+            errors['mes'] = 'El mes operativo del pago debe quedar dentro de la vigencia del contrato.'
+        if month_start < period_start or month_start > period_end:
+            errors['periodo_contractual'] = 'El periodo contractual debe cubrir el mes operativo del pago.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class GateCobroExterno(TimestampedModel):
