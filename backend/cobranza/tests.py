@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -713,6 +714,7 @@ class CobranzaAPITests(APITestCase):
         final_detail = self.client.get(reverse('cobranza-garantia-detail', args=[garantia.data['id']]))
         self.assertEqual(final_detail.data['estado_garantia'], EstadoGarantia.APPLIED)
         self.assertEqual(final_detail.data['monto_aplicado'], '70000.00')
+        self.assertEqual(final_detail.data['fecha_cierre'], '2027-01-10')
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.garantia_contractual.state_changed').exists())
 
     def test_guarantee_deposit_rejects_amount_above_pactado(self):
@@ -737,6 +739,22 @@ class CobranzaAPITests(APITestCase):
 
         with self.assertRaises(ValidationError):
             garantia.full_clean()
+
+    def test_guarantee_full_clean_rejects_closure_before_reception(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-CLOSE-DATE', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual(
+            contrato=contrato,
+            monto_pactado=Decimal('100000.00'),
+            monto_recibido=Decimal('50000.00'),
+            monto_devuelto=Decimal('50000.00'),
+            estado_garantia=EstadoGarantia.RETURNED,
+            fecha_recepcion=date(2026, 1, 5),
+            fecha_cierre=date(2026, 1, 4),
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            garantia.full_clean()
+        self.assertIn('fecha_cierre', error.exception.message_dict)
 
     def test_guarantee_movement_rejects_origin_from_different_guarantee(self):
         contrato_a = self._create_active_contract(codigo='CON-GAR-A', monto_base='100000.00', code='111')
