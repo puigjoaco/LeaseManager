@@ -599,6 +599,120 @@ class PatrimonioAPITests(APITestCase):
         self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.empresa.updated').exists())
         self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.empresa.state_changed').exists())
 
+    def test_socio_deactivation_rejects_active_patrimonial_dependencies(self):
+        socio = self._create_socio('Socio Con Dependencia', '14141414-9')
+        empresa = Empresa.objects.create(
+            razon_social='Empresa Dependiente',
+            rut='99999999-9',
+            estado=EstadoPatrimonial.ACTIVE,
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio,
+            empresa_owner=empresa,
+            porcentaje='100.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+
+        response = self.client.patch(
+            reverse('patrimonio-socio-detail', args=[socio.id]),
+            {'activo': False},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('activo', response.data)
+        socio.refresh_from_db()
+        self.assertTrue(socio.activo)
+
+    def test_empresa_deactivation_rejects_active_property_dependency(self):
+        empresa_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')
+        self.assertEqual(empresa_response.status_code, status.HTTP_201_CREATED)
+        property_response = self.client.post(
+            reverse('patrimonio-propiedad-list'),
+            {
+                'rol_avaluo': 'ROL-DEP-1',
+                'direccion': 'Dependencia 100',
+                'comuna': 'Santiago',
+                'region': 'RM',
+                'tipo_inmueble': TipoInmueble.LOCAL,
+                'codigo_propiedad': 'DEP-EMP',
+                'estado': EstadoPatrimonial.ACTIVE,
+                'owner_tipo': 'empresa',
+                'owner_id': empresa_response.data['id'],
+            },
+            format='json',
+        )
+        self.assertEqual(property_response.status_code, status.HTTP_201_CREATED)
+
+        patch_response = self.client.patch(
+            reverse('patrimonio-empresa-detail', args=[empresa_response.data['id']]),
+            {'estado': EstadoPatrimonial.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(patch_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', patch_response.data)
+        self.assertEqual(Empresa.objects.get(id=empresa_response.data['id']).estado, EstadoPatrimonial.ACTIVE)
+
+    def test_comunidad_deactivation_rejects_active_property_dependency(self):
+        socio_a = self._create_socio('Socio Comunidad A', '14141414-9')
+        socio_b = self._create_socio('Socio Comunidad B', '15151515-7')
+        comunidad_response = self.client.post(
+            reverse('patrimonio-comunidad-list'),
+            self._comunidad_payload(
+                representante_modo=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+                representante_socio_id=socio_a.id,
+                participaciones=[
+                    {
+                        'participante_tipo': 'socio',
+                        'participante_id': socio_a.id,
+                        'porcentaje': '50.00',
+                        'vigente_desde': '2026-01-01',
+                        'activo': True,
+                    },
+                    {
+                        'participante_tipo': 'socio',
+                        'participante_id': socio_b.id,
+                        'porcentaje': '50.00',
+                        'vigente_desde': '2026-01-01',
+                        'activo': True,
+                    },
+                ],
+            ),
+            format='json',
+        )
+        self.assertEqual(comunidad_response.status_code, status.HTTP_201_CREATED)
+        property_response = self.client.post(
+            reverse('patrimonio-propiedad-list'),
+            {
+                'rol_avaluo': 'ROL-DEP-2',
+                'direccion': 'Dependencia 200',
+                'comuna': 'Santiago',
+                'region': 'RM',
+                'tipo_inmueble': TipoInmueble.LOCAL,
+                'codigo_propiedad': 'DEP-COM',
+                'estado': EstadoPatrimonial.ACTIVE,
+                'owner_tipo': 'comunidad',
+                'owner_id': comunidad_response.data['id'],
+            },
+            format='json',
+        )
+        self.assertEqual(property_response.status_code, status.HTTP_201_CREATED)
+
+        patch_response = self.client.patch(
+            reverse('patrimonio-comunidad-detail', args=[comunidad_response.data['id']]),
+            {'estado': EstadoPatrimonial.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(patch_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', patch_response.data)
+        self.assertEqual(
+            ComunidadPatrimonial.objects.get(id=comunidad_response.data['id']).estado,
+            EstadoPatrimonial.ACTIVE,
+        )
+
     def test_designated_representation_can_be_seen_from_model(self):
         socio_participante = self._create_socio('Socio Participante', '14141414-9')
         socio_designado = self._create_socio('Joaquin', '15151515-7')

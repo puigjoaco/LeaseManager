@@ -33,6 +33,16 @@ class TipoInmueble(models.TextChoices):
     OTHER = 'otro', 'Otro'
 
 
+def _currently_effective(queryset, effective_date=None):
+    current_date = effective_date or timezone.localdate()
+    return queryset.filter(
+        activo=True,
+        vigente_desde__lte=current_date,
+    ).filter(
+        Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=current_date),
+    )
+
+
 class Socio(TimestampedModel):
     nombre = models.CharField(max_length=255)
     rut = models.CharField(max_length=16, unique=True, validators=[validate_rut])
@@ -50,6 +60,28 @@ class Socio(TimestampedModel):
 
     def __str__(self):
         return f'{self.nombre} ({self.rut})'
+
+    def inactive_dependency_errors(self):
+        if not self.pk:
+            return []
+
+        errors = []
+        if self.propiedades_directas.filter(estado=EstadoPatrimonial.ACTIVE).exists():
+            errors.append('No se puede desactivar un socio con propiedades activas.')
+        if _currently_effective(self.participaciones_patrimoniales_como_participante).exists():
+            errors.append('No se puede desactivar un socio con participaciones patrimoniales activas vigentes.')
+        if self.representaciones_comunidad.filter(activo=True).filter(
+            Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=timezone.localdate())
+        ).exists():
+            errors.append('No se puede desactivar un socio con representaciones de comunidad activas.')
+        return errors
+
+    def clean(self):
+        super().clean()
+        if not self.activo:
+            errors = self.inactive_dependency_errors()
+            if errors:
+                raise ValidationError({'activo': errors})
 
 
 class Empresa(TimestampedModel):
@@ -75,12 +107,7 @@ class Empresa(TimestampedModel):
         return self.participaciones_vigentes_en(today)
 
     def participaciones_vigentes_en(self, effective_date):
-        return self.participaciones.filter(
-            activo=True,
-            vigente_desde__lte=effective_date,
-        ).filter(
-            Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=effective_date),
-        )
+        return _currently_effective(self.participaciones, effective_date)
 
     def total_participaciones_activas(self):
         total = self.participaciones_activas().aggregate(total=Sum('porcentaje'))['total']
@@ -89,12 +116,27 @@ class Empresa(TimestampedModel):
     def participaciones_completas(self):
         return self.total_participaciones_activas() == Decimal('100.00')
 
+    def inactive_state_dependency_errors(self):
+        if not self.pk:
+            return []
+
+        errors = []
+        if self.propiedades.filter(estado=EstadoPatrimonial.ACTIVE).exists():
+            errors.append('La empresa con propiedades activas debe permanecer activa.')
+        if _currently_effective(self.participaciones_patrimoniales_como_participante).exists():
+            errors.append('La empresa participante de participaciones activas vigentes debe permanecer activa.')
+        return errors
+
     def clean(self):
         super().clean()
         if self.estado == EstadoPatrimonial.ACTIVE and not self.participaciones_completas():
             raise ValidationError(
                 {'estado': 'La empresa activa requiere participaciones activas que sumen exactamente 100.00.'}
             )
+        if self.estado != EstadoPatrimonial.ACTIVE:
+            errors = self.inactive_state_dependency_errors()
+            if errors:
+                raise ValidationError({'estado': errors})
 
 
 class ComunidadPatrimonial(TimestampedModel):
@@ -113,12 +155,7 @@ class ComunidadPatrimonial(TimestampedModel):
         return self.participaciones_vigentes_en(today)
 
     def participaciones_vigentes_en(self, effective_date):
-        return self.participaciones.filter(
-            activo=True,
-            vigente_desde__lte=effective_date,
-        ).filter(
-            Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=effective_date),
-        )
+        return _currently_effective(self.participaciones, effective_date)
 
     def total_participaciones_activas(self):
         total = self.participaciones_activas().aggregate(total=Sum('porcentaje'))['total']
@@ -154,6 +191,15 @@ class ComunidadPatrimonial(TimestampedModel):
             return False
         return self.participaciones_activas().filter(participante_socio=representacion.socio_representante).exists()
 
+    def inactive_state_dependency_errors(self):
+        if not self.pk:
+            return []
+
+        errors = []
+        if self.propiedades.filter(estado=EstadoPatrimonial.ACTIVE).exists():
+            errors.append('La comunidad con propiedades activas debe permanecer activa.')
+        return errors
+
     def clean(self):
         super().clean()
         if self.estado == EstadoPatrimonial.ACTIVE:
@@ -172,6 +218,10 @@ class ComunidadPatrimonial(TimestampedModel):
                 raise ValidationError(
                     {'estado': 'La representacion patrimonial activa debe pertenecer a las participaciones activas.'}
                 )
+        else:
+            errors = self.inactive_state_dependency_errors()
+            if errors:
+                raise ValidationError({'estado': errors})
 
 
 class ModoRepresentacionComunidad(models.TextChoices):

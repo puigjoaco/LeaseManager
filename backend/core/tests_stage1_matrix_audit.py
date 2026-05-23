@@ -49,6 +49,7 @@ from operacion.models import (
 from patrimonio.models import (
     ComunidadPatrimonial,
     Empresa,
+    EstadoPatrimonial,
     ModoRepresentacionComunidad,
     ParticipacionPatrimonial,
     Propiedad,
@@ -355,6 +356,24 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.participacion.validacion_modelo', issue_codes)
         self.assertEqual(
             result['aggregate_classification']['participaciones_patrimoniales']['classification'],
+            'defectuoso',
+        )
+
+    def test_inactive_patrimonial_owner_with_active_property_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        empresa = contrato.mandato_operacion.propietario_empresa_owner
+        empresa.estado = EstadoPatrimonial.INACTIVE
+        empresa.save(update_fields=['estado', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.empresa.validacion_modelo', issue_codes)
+        self.assertIn('stage1.propiedad.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['empresas']['classification'],
             'defectuoso',
         )
 
