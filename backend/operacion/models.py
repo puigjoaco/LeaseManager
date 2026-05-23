@@ -470,10 +470,31 @@ class MandatoOperacion(TimestampedModel):
 
         return self.contratos.filter(estado__in=(EstadoContrato.ACTIVE, EstadoContrato.FUTURE))
 
+    def validate_active_contract_validity_window(self):
+        contracts = self.active_or_future_contract_dependencies()
+        if not contracts.exists():
+            return
+
+        earliest_start = contracts.order_by('fecha_inicio').values_list('fecha_inicio', flat=True).first()
+        latest_end = contracts.order_by('-fecha_fin_vigente').values_list('fecha_fin_vigente', flat=True).first()
+        errors = {}
+        if earliest_start and self.vigencia_desde > earliest_start:
+            errors['vigencia_desde'] = (
+                'La vigencia inicial del mandato no puede quedar despues del inicio de contratos vigentes o futuros.'
+            )
+        if self.vigencia_hasta and latest_end and self.vigencia_hasta < latest_end:
+            errors['vigencia_hasta'] = (
+                'La vigencia final del mandato debe cubrir el fin de contratos vigentes o futuros.'
+            )
+        if errors:
+            raise ValidationError(errors)
+
     def clean(self):
         super().clean()
         if self.vigencia_hasta and self.vigencia_hasta < self.vigencia_desde:
             raise ValidationError({'vigencia_hasta': 'La vigencia final no puede ser anterior a la inicial.'})
+
+        self.validate_active_contract_validity_window()
 
         if sum(
             bool(value)

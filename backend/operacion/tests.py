@@ -484,6 +484,66 @@ class OperacionAPITests(APITestCase):
         mandato = MandatoOperacion.objects.get(pk=mandato_response.data['id'])
         self.assertEqual(mandato.estado, EstadoMandatoOperacion.ACTIVE)
 
+    def test_mandato_validity_shrink_rejects_active_contract_dependency(self):
+        propietario = self._create_socio('Propietario Uno', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo', '88888888-8')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-003E')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-003E')
+        mandato_response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+        )
+        self.assertEqual(mandato_response.status_code, status.HTTP_201_CREATED)
+        self._create_active_contract_for_mandato(mandato_response.data['id'], codigo='CON-OP-003E')
+
+        starts_late_response = self.client.patch(
+            reverse('operacion-mandato-detail', args=[mandato_response.data['id']]),
+            {'vigencia_desde': '2026-02-01'},
+            format='json',
+        )
+        ends_early_response = self.client.patch(
+            reverse('operacion-mandato-detail', args=[mandato_response.data['id']]),
+            {'vigencia_hasta': '2026-11-30'},
+            format='json',
+        )
+
+        self.assertEqual(starts_late_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('vigencia_desde', starts_late_response.data)
+        self.assertEqual(ends_early_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('vigencia_hasta', ends_early_response.data)
+        mandato = MandatoOperacion.objects.get(pk=mandato_response.data['id'])
+        self.assertEqual(str(mandato.vigencia_desde), '2026-01-01')
+        self.assertIsNone(mandato.vigencia_hasta)
+
+    def test_mandato_validity_extension_accepts_active_contract_dependency(self):
+        propietario = self._create_socio('Propietario Uno', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo', '88888888-8')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-003F')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-003F')
+        mandato_response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+        )
+        self.assertEqual(mandato_response.status_code, status.HTTP_201_CREATED)
+        self._create_active_contract_for_mandato(mandato_response.data['id'], codigo='CON-OP-003F')
+
+        response = self.client.patch(
+            reverse('operacion-mandato-detail', args=[mandato_response.data['id']]),
+            {'vigencia_hasta': '2027-12-31'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['vigencia_hasta'], '2027-12-31')
+
     def test_active_mandato_accepts_comunidad_recaudadora(self):
         comunidad = self._create_active_comunidad('Comunidad Recaudadora')
         admin = comunidad.representante_socio
