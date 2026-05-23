@@ -123,11 +123,18 @@ class CodeudorSolidarioWriteSerializer(serializers.Serializer):
     )
 
     def validate_snapshot_identidad(self, value):
-        required_keys = {'nombre', 'rut'}
-        if not required_keys.issubset(set(value.keys())):
-            raise serializers.ValidationError('El snapshot del codeudor debe incluir al menos nombre y rut.')
-        value['rut'] = validate_rut(value['rut'])
-        return value
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('El snapshot del codeudor debe ser un objeto con nombre y rut.')
+
+        nombre = str(value.get('nombre') or '').strip()
+        rut_value = str(value.get('rut') or '').strip()
+        if not nombre or not rut_value:
+            raise serializers.ValidationError('El snapshot del codeudor debe incluir nombre y rut.')
+
+        normalized = dict(value)
+        normalized['nombre'] = nombre
+        normalized['rut'] = validate_rut(rut_value)
+        return normalized
 
 
 class ContratoPropiedadReadSerializer(serializers.ModelSerializer):
