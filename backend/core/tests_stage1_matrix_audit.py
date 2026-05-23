@@ -859,6 +859,15 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertTrue(result['has_required_stage1_data'])
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
+        self.assertEqual(
+            result['aggregate_classification']['contratos_activos_o_futuros']['classification'],
+            'resuelto_confirmado',
+        )
+        self.assertEqual(
+            result['aggregate_classification']['contratos_activos_o_futuros']['blocking_issue_codes'],
+            [],
+        )
+        self.assertEqual(result['aggregate_classification']['contratos']['classification'], 'defectuoso')
         self.assertIn('stage1.contrato.validacion_modelo', issue_codes)
         self.assertIn('stage1.contrato_propiedad.validacion_modelo', issue_codes)
         self.assertIn('stage1.periodo.validacion_modelo', issue_codes)
