@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from contratos.models import Contrato
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from operacion.models import MandatoOperacion
 
@@ -139,6 +140,11 @@ class PoliticaFirmaYNotariaSerializer(serializers.ModelSerializer):
 
 
 class DocumentoEmitidoSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['storage_ref'] = redact_sensitive_reference(data.get('storage_ref'))
+        return data
+
     class Meta:
         model = DocumentoEmitido
         fields = (

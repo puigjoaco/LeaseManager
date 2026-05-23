@@ -159,6 +159,42 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertEqual(issues['documents.document_without_active_policy']['count'], 1)
         self.assertEqual(issues['documents.metadata_missing']['count'], 1)
 
+    def test_sensitive_storage_refs_are_blocking_without_exposing_values(self):
+        create_all_active_policies()
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='sensitive-storage',
+            estado='abierto',
+            owner_operativo='manual:1',
+        )
+        DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum='sensitive-storage',
+            fecha_carga=timezone.now(),
+            origen='generado_sistema',
+            estado='emitido',
+            storage_ref='https://storage.example.test/docs/contract.pdf?token=secret',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.sensitive_storage_ref', issue_codes)
+        self.assertEqual(result['sections']['documents']['sensitive_storage_refs'], 1)
+        rendered = json.dumps(result)
+        self.assertNotIn('storage.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+
     def test_command_writes_json_output_and_fail_on_attention_blocks_close(self):
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'document_readiness.json'
