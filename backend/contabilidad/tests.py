@@ -10,6 +10,7 @@ from rest_framework.test import APITestCase
 from cobranza.models import EstadoPago, GarantiaContractual, PagoMensual
 from conciliacion.models import ConexionBancaria, MovimientoBancarioImportado
 from core.models import Role, Scope, UserScopeAssignment
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
@@ -23,7 +24,9 @@ from .models import (
     EventoContable,
     LibroDiario,
     LibroMayor,
+    MovimientoAsiento,
     ObligacionTributariaMensual,
+    TipoMovimientoAsiento,
 )
 from .services import DEFAULT_REGIME_CODE, ensure_default_regime
 
@@ -277,6 +280,143 @@ class ContabilidadAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_manual_event_rejects_sensitive_payload_on_write(self):
+        empresa = self._create_active_empresa(nombre='PayloadRejectCo', rut='75757575-5')
+
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'sensitive-write',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {'access_token': 'opaque-value'},
+                'idempotency_key': 'sensitive-write',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('payload_resumen', response.data)
+
+    def test_accounting_apis_redact_inherited_sensitive_payloads_and_refs(self):
+        empresa = self._create_active_empresa(nombre='RedactionLedgerCo', rut='76767676-6')
+        accounts = self._setup_contabilidad(empresa)
+        event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='manual',
+            entidad_origen_id='redaction-1',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100000.00',
+            payload_resumen={
+                'callback': 'https://ledger.example.test/event?token=secret',
+                'safe_ref': 'ledger-controlled-ref',
+            },
+            idempotency_key='redaction-event-1',
+            estado_contable='contabilizado',
+        )
+        asiento = AsientoContable.objects.create(
+            evento_contable=event,
+            fecha_contable='2026-01-10',
+            periodo_contable='2026-01',
+            estado='contabilizado',
+            debe_total='100000.00',
+            haber_total='100000.00',
+            moneda_funcional='CLP',
+        )
+        MovimientoAsiento.objects.create(
+            asiento_contable=asiento,
+            cuenta_contable=accounts['bancos'],
+            tipo_movimiento=TipoMovimientoAsiento.DEBIT,
+            monto='100000.00',
+            glosa='Centro heredado sensible',
+            centro_resultado_ref='https://ledger.example.test/center?token=secret',
+        )
+        ObligacionTributariaMensual.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            obligacion_tipo='PPM',
+            base_imponible='100000.00',
+            monto_calculado='10000.00',
+            estado_preparacion='preparado',
+            detalle_calculo={
+                'callback': 'https://tax.example.test/calc?token=secret',
+                'safe_ref': 'tax-controlled-ref',
+            },
+        )
+        LibroDiario.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            storage_ref='https://storage.example.test/diario.pdf?token=secret',
+            resumen={'authorization': 'Bearer inherited-ledger-value', 'safe_ref': 'diario-controlled-ref'},
+        )
+        LibroMayor.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            storage_ref='https://storage.example.test/mayor.pdf?token=secret',
+            resumen={'callback': 'https://storage.example.test/mayor?token=secret'},
+        )
+        BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            storage_ref='https://storage.example.test/balance.pdf?token=secret',
+            resumen={'cuadrado': True, 'api_key': 'secret-api-key-value'},
+        )
+        CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='aprobado',
+            resumen_obligaciones={'callback': 'https://close.example.test/summary?token=secret'},
+        )
+
+        responses = {
+            'eventos': self.client.get(reverse('contabilidad-evento-list')),
+            'asientos': self.client.get(reverse('contabilidad-asiento-list')),
+            'obligaciones': self.client.get(reverse('contabilidad-obligacion-list')),
+            'diario': self.client.get(reverse('contabilidad-libro-diario-list')),
+            'mayor': self.client.get(reverse('contabilidad-libro-mayor-list')),
+            'balance': self.client.get(reverse('contabilidad-balance-list')),
+            'cierres': self.client.get(reverse('contabilidad-cierre-list')),
+        }
+
+        for response in responses.values():
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(responses['eventos'].data[0]['payload_resumen']['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(responses['eventos'].data[0]['payload_resumen']['safe_ref'], 'ledger-controlled-ref')
+        self.assertEqual(
+            responses['asientos'].data[0]['movimientos'][0]['centro_resultado_ref'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            responses['obligaciones'].data[0]['detalle_calculo']['callback'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(responses['diario'].data[0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(responses['diario'].data[0]['resumen']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(responses['diario'].data[0]['resumen']['safe_ref'], 'diario-controlled-ref')
+        self.assertEqual(responses['mayor'].data[0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(responses['mayor'].data[0]['resumen']['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(responses['balance'].data[0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(responses['balance'].data[0]['resumen']['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            responses['cierres'].data[0]['resumen_obligaciones']['callback'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        rendered = ''.join(str(response.data) for response in responses.values())
+        self.assertNotIn('ledger.example.test', rendered)
+        self.assertNotIn('storage.example.test', rendered)
+        self.assertNotIn('secret-api-key-value', rendered)
 
     def test_create_and_patch_configuracion_fiscal_with_tasa_ppm_vigente(self):
         empresa = self._create_active_empresa(nombre='FiscalCo', rut='78787878-7')

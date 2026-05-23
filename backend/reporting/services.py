@@ -8,6 +8,7 @@ from audit.scope_filters import scope_manual_resolution_queryset
 from canales.models import MensajeSaliente
 from cobranza.models import DistribucionCobroMensual, EstadoCuentaArrendatario, PagoMensual
 from conciliacion.models import IngresoDesconocido
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 from contabilidad.models import (
     AsientoContable,
@@ -796,20 +797,20 @@ def build_period_books_summary(empresa_id, periodo, access: ScopeAccess | None =
         'libro_diario': {
             'id': libro_diario.id if libro_diario else None,
             'estado_snapshot': libro_diario.estado_snapshot if libro_diario else None,
-            'storage_ref': libro_diario.storage_ref if libro_diario else '',
-            'resumen': libro_diario.resumen if libro_diario else {},
+            'storage_ref': redact_sensitive_reference(libro_diario.storage_ref) if libro_diario else '',
+            'resumen': redact_sensitive_payload(libro_diario.resumen) if libro_diario else {},
         },
         'libro_mayor': {
             'id': libro_mayor.id if libro_mayor else None,
             'estado_snapshot': libro_mayor.estado_snapshot if libro_mayor else None,
-            'storage_ref': libro_mayor.storage_ref if libro_mayor else '',
-            'resumen': libro_mayor.resumen if libro_mayor else {},
+            'storage_ref': redact_sensitive_reference(libro_mayor.storage_ref) if libro_mayor else '',
+            'resumen': redact_sensitive_payload(libro_mayor.resumen) if libro_mayor else {},
         },
         'balance_comprobacion': {
             'id': balance.id if balance else None,
             'estado_snapshot': balance.estado_snapshot if balance else None,
-            'storage_ref': balance.storage_ref if balance else '',
-            'resumen': balance.resumen if balance else {},
+            'storage_ref': redact_sensitive_reference(balance.storage_ref) if balance else '',
+            'resumen': redact_sensitive_payload(balance.resumen) if balance else {},
         },
     }
 

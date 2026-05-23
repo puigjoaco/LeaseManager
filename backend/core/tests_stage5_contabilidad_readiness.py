@@ -33,6 +33,7 @@ from contabilidad.models import (
     LibroMayor,
     MatrizReglasContables,
     MovimientoAsiento,
+    ObligacionTributariaMensual,
     ReglaContable,
     TipoMovimientoAsiento,
 )
@@ -410,6 +411,58 @@ class Stage5ContabilidadReadinessTests(TestCase):
 
         self.assertFalse(result['ready_for_stage5_contabilidad'])
         self.assertIn('stage5.stage3_evidence_ref_missing', {issue['code'] for issue in result['issues']})
+
+    def test_sensitive_ledger_payloads_and_snapshot_refs_block_readiness(self):
+        empresa = self._create_valid_local_matrix()
+        EventoContable.objects.filter(empresa=empresa).update(
+            payload_resumen={'callback': 'https://ledger.example.test/event?token=secret'}
+        )
+        MovimientoAsiento.objects.update(centro_resultado_ref='https://ledger.example.test/center?token=secret')
+        ObligacionTributariaMensual.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            obligacion_tipo='PPM',
+            base_imponible='100000.00',
+            monto_calculado='10000.00',
+            estado_preparacion='preparado',
+            detalle_calculo={'callback': 'https://tax.example.test/calc?token=secret'},
+        )
+        LibroDiario.objects.update(
+            storage_ref='https://storage.example.test/diario.pdf?token=secret',
+            resumen={'callback': 'https://storage.example.test/diario?token=secret'},
+        )
+        LibroMayor.objects.update(
+            storage_ref='https://storage.example.test/mayor.pdf?token=secret',
+            resumen={'authorization': 'Bearer inherited-ledger-value'},
+        )
+        BalanceComprobacion.objects.update(
+            storage_ref='https://storage.example.test/balance.pdf?token=secret',
+            resumen={'total_debe': '100000.00', 'total_haber': '100000.00', 'cuadrado': True, 'api_key': 'secret'},
+        )
+        CierreMensualContable.objects.update(
+            resumen_obligaciones={'callback': 'https://close.example.test/summary?token=secret'}
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.events_sensitive_payload', issue_codes)
+        self.assertIn('stage5.asiento_movement_sensitive_reference', issue_codes)
+        self.assertIn('stage5.tax_obligations_sensitive_payload', issue_codes)
+        self.assertIn('stage5.ledger_snapshot_sensitive_reference', issue_codes)
+        self.assertIn('stage5.close_sensitive_payload', issue_codes)
+        self.assertEqual(result['sections']['ledger']['events_sensitive_payloads'], 1)
+        self.assertEqual(result['sections']['ledger']['movement_sensitive_refs'], 2)
+        self.assertGreaterEqual(result['sections']['ledger']['ledger_snapshot_sensitive_references'], 3)
+        self.assertEqual(result['sections']['monthly_close']['obligations_sensitive_payloads'], 1)
+        self.assertEqual(result['sections']['monthly_close']['close_sensitive_payloads'], 1)
+        rendered = json.dumps(result)
+        self.assertNotIn('ledger.example.test', rendered)
+        self.assertNotIn('storage.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+        self.assertNotIn('inherited-ledger-value', rendered)
 
     def test_command_writes_json_and_rejects_versionable_repo_output(self):
         with TemporaryDirectory() as temp_dir:

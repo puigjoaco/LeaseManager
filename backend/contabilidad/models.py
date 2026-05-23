@@ -6,6 +6,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from patrimonio.models import Empresa
 
 
@@ -61,6 +62,21 @@ class NaturalezaCuenta(models.TextChoices):
 class TipoMovimientoAsiento(models.TextChoices):
     DEBIT = 'debe', 'Debe'
     CREDIT = 'haber', 'Haber'
+
+
+def has_text(value):
+    return bool(str(value or '').strip())
+
+
+def _add_non_sensitive_reference_error(errors, instance, field_name):
+    value = getattr(instance, field_name, '')
+    if has_text(value) and not is_non_sensitive_reference(value):
+        errors[field_name] = f'{field_name} debe ser una referencia no sensible, no una URL, token o credencial.'
+
+
+def _add_non_sensitive_payload_error(errors, field_name, value):
+    if value and contains_sensitive_reference(value, include_sensitive_keys=True):
+        errors[field_name] = f'{field_name} no debe contener URLs, tokens, credenciales ni correos.'
 
 
 class RegimenTributarioEmpresa(TimestampedModel):
@@ -243,6 +259,13 @@ class EventoContable(TimestampedModel):
     def __str__(self):
         return self.idempotency_key
 
+    def clean(self):
+        super().clean()
+        errors = {}
+        _add_non_sensitive_payload_error(errors, 'payload_resumen', self.payload_resumen)
+        if errors:
+            raise ValidationError(errors)
+
 
 class AsientoContable(TimestampedModel):
     evento_contable = models.OneToOneField(
@@ -296,6 +319,13 @@ class MovimientoAsiento(TimestampedModel):
     def __str__(self):
         return f'{self.asiento_contable_id} - {self.tipo_movimiento} {self.monto}'
 
+    def clean(self):
+        super().clean()
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'centro_resultado_ref')
+        if errors:
+            raise ValidationError(errors)
+
 
 class PoliticaReversoContable(TimestampedModel):
     empresa = models.ForeignKey(
@@ -348,8 +378,25 @@ class ObligacionTributariaMensual(TimestampedModel):
     def __str__(self):
         return f'{self.empresa_id} {self.anio}-{self.mes} {self.obligacion_tipo}'
 
+    def clean(self):
+        super().clean()
+        errors = {}
+        _add_non_sensitive_payload_error(errors, 'detalle_calculo', self.detalle_calculo)
+        if errors:
+            raise ValidationError(errors)
 
-class LibroDiario(TimestampedModel):
+
+class LedgerSnapshotValidationMixin:
+    def clean(self):
+        super().clean()
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'storage_ref')
+        _add_non_sensitive_payload_error(errors, 'resumen', self.resumen)
+        if errors:
+            raise ValidationError(errors)
+
+
+class LibroDiario(LedgerSnapshotValidationMixin, TimestampedModel):
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.CASCADE,
@@ -367,7 +414,7 @@ class LibroDiario(TimestampedModel):
         ]
 
 
-class LibroMayor(TimestampedModel):
+class LibroMayor(LedgerSnapshotValidationMixin, TimestampedModel):
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.CASCADE,
@@ -385,7 +432,7 @@ class LibroMayor(TimestampedModel):
         ]
 
 
-class BalanceComprobacion(TimestampedModel):
+class BalanceComprobacion(LedgerSnapshotValidationMixin, TimestampedModel):
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.CASCADE,
@@ -424,3 +471,10 @@ class CierreMensualContable(TimestampedModel):
 
     def __str__(self):
         return f'{self.empresa_id} {self.anio}-{self.mes}'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        _add_non_sensitive_payload_error(errors, 'resumen_obligaciones', self.resumen_obligaciones)
+        if errors:
+            raise ValidationError(errors)

@@ -47,11 +47,28 @@ def redact_sensitive_payload(value, *, _sensitive_key=False):
     return value
 
 
-def contains_sensitive_reference(value):
+def contains_sensitive_reference(value, *, include_sensitive_keys=False, _sensitive_key=False):
     if isinstance(value, str):
-        return bool(SENSITIVE_REFERENCE_PATTERN.search(value))
+        return _sensitive_key or bool(SENSITIVE_REFERENCE_PATTERN.search(value))
     if isinstance(value, dict):
-        return any(contains_sensitive_reference(item) for item in value.values())
+        return any(
+            contains_sensitive_reference(
+                item,
+                include_sensitive_keys=include_sensitive_keys,
+                _sensitive_key=_sensitive_key
+                or bool(include_sensitive_keys and isinstance(key, str) and SENSITIVE_REFERENCE_PATTERN.search(key)),
+            )
+            for key, item in value.items()
+        )
     if isinstance(value, (list, tuple, set)):
-        return any(contains_sensitive_reference(item) for item in value)
+        return any(
+            contains_sensitive_reference(
+                item,
+                include_sensitive_keys=include_sensitive_keys,
+                _sensitive_key=_sensitive_key,
+            )
+            for item in value
+        )
+    if _sensitive_key and value is not None:
+        return True
     return False
