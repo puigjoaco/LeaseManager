@@ -55,8 +55,9 @@ contra datos reales o snapshot controlado.
   una pareja propiedad principal + vinculada.
 - Validacion de que la pareja propiedad principal + vinculada comparta el
   `CodigoConciliacionEfectivo` de la propiedad principal.
-- Validacion de codeudores solidarios: snapshot con nombre/RUT valido, sin
-  duplicados activos y maximo 3 activos por contrato.
+- Validacion de codeudores solidarios: snapshot con nombre/RUT valido desde la
+  API anidada y el auditor, sin duplicados activos y maximo 3 activos por
+  contrato.
 - Validacion de garantias: montos/estado coherentes y saldos recibidos,
   devueltos o aplicados conciliados contra `HistorialGarantia`.
 - Validacion de ajustes contractuales existentes: contrato, moneda, rango de

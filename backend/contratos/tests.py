@@ -214,6 +214,21 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(len(response.data['codeudores_solidarios_detail']), 1)
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
 
+    def test_create_contract_rejects_nested_codebtor_without_identity_name(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-CB', owner_rut='11111116-2')
+        arrendatario = self._create_arrendatario(rut='22222226-5')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-CB')
+        payload['codeudores_solidarios'][0]['snapshot_identidad'] = {
+            'nombre': ' ',
+            'rut': '22222222-2',
+        }
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('codeudores_solidarios', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-CB').exists())
+
     def test_contract_rejects_period_gaps_inside_current_validity(self):
         mandato = self._create_active_mandato(codigo='MAND-101-GAP', owner_rut='11111112-K')
         arrendatario = self._create_arrendatario(rut='22222222-2')
