@@ -44,8 +44,8 @@ condicionados sin envios reales accidentales.
   Transbank ni marca pago confirmado sin revalidar el gate.
 - APIs y snapshots de Canales/Cobranza redactan refs sensibles ya persistidas
   antes de devolver gates, mensajes salientes o intentos WebPay al backoffice;
-  esto cubre `evidencia_ref`, `external_ref` y `return_url_ref` heredados sin
-  abrir integraciones externas.
+  esto cubre `evidencia_ref`, `external_ref`, `return_url_ref` y
+  `provider_payload` heredados sin abrir integraciones externas.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   identidades/asignaciones de canal, gates Email/WhatsApp/WebPay, mensajes
   enviados/preparados e intentos WebPay, incluyendo deteccion de

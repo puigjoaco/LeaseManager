@@ -26,6 +26,27 @@ def redact_sensitive_reference(value):
     return normalized
 
 
+def redact_sensitive_payload(value, *, _sensitive_key=False):
+    if isinstance(value, str):
+        if _sensitive_key or SENSITIVE_REFERENCE_PATTERN.search(value):
+            return REDACTED_SENSITIVE_REFERENCE
+        return value
+    if isinstance(value, dict):
+        return {
+            key: redact_sensitive_payload(
+                item,
+                _sensitive_key=_sensitive_key
+                or bool(isinstance(key, str) and SENSITIVE_REFERENCE_PATTERN.search(key)),
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple, set)):
+        return [redact_sensitive_payload(item, _sensitive_key=_sensitive_key) for item in value]
+    if _sensitive_key and value is not None:
+        return REDACTED_SENSITIVE_REFERENCE
+    return value
+
+
 def contains_sensitive_reference(value):
     if isinstance(value, str):
         return bool(SENSITIVE_REFERENCE_PATTERN.search(value))
