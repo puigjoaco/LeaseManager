@@ -281,6 +281,12 @@ class CanalesAPITests(APITestCase):
             estado=EstadoMensajeSaliente.SENT,
             external_ref='https://provider.example.test/token/secret',
             usuario=self.user,
+            provider_payload={
+                'provider_message_id': 'MSG-SAFE-001',
+                'callback': 'https://provider.example.test/token/secret',
+                'headers': {'authorization': 'Bearer inherited-channel-value'},
+                'attempts': [{'response_ref': 'controlled-response-1'}],
+            },
         )
 
         gates_response = self.client.get(reverse('canales-gate-list'))
@@ -294,6 +300,11 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(messages_response.data[0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['gates'][0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['mensajes'][0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+        payload = messages_response.data[0]['provider_payload']
+        self.assertEqual(payload['provider_message_id'], 'MSG-SAFE-001')
+        self.assertEqual(payload['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(payload['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(payload['attempts'][0]['response_ref'], 'controlled-response-1')
 
         for response in (gates_response, messages_response, snapshot_response):
             body = response.content.decode()

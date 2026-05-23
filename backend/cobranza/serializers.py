@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from contratos.models import Contrato
 
@@ -70,6 +70,7 @@ def _scoped_historial_queryset(user):
 
 
 class RedactReferenceFieldsMixin:
+    redacted_payload_fields = ()
     redacted_reference_fields = ()
 
     def to_representation(self, instance):
@@ -77,6 +78,9 @@ class RedactReferenceFieldsMixin:
         for field_name in self.redacted_reference_fields:
             if field_name in data:
                 data[field_name] = redact_sensitive_reference(data[field_name])
+        for field_name in self.redacted_payload_fields:
+            if field_name in data:
+                data[field_name] = redact_sensitive_payload(data[field_name])
         return data
 
 
@@ -257,6 +261,7 @@ class GateCobroExternoSerializer(RedactReferenceFieldsMixin, serializers.ModelSe
 
 
 class IntentoPagoWebPaySerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_payload_fields = ('provider_payload',)
     redacted_reference_fields = ('return_url_ref', 'external_ref')
 
     class Meta:

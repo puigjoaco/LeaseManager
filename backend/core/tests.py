@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase
 
 from .models import PlatformSetting, Role, Scope, UserScopeAssignment
 from .permissions import get_effective_role_codes
+from .reference_validation import REDACTED_SENSITIVE_REFERENCE, redact_sensitive_payload
 
 
 class PlatformBootstrapAPITests(APITestCase):
@@ -112,3 +113,28 @@ class EffectiveRoleUtilityTests(TestCase):
         UserScopeAssignment.objects.create(user=user, role=reviewer_role, scope=None, is_primary=True)
 
         self.assertEqual(get_effective_role_codes(user), {'Socio', 'RevisorFiscalExterno'})
+
+
+class ReferenceValidationTests(TestCase):
+    def test_redact_sensitive_payload_recurses_values_and_sensitive_keys(self):
+        payload = {
+            'safe_ref': 'controlled-reference',
+            'callback': 'https://provider.example.test/token/value',
+            'access_token': 'opaque-value',
+            'nested': [
+                {'api_key': 'opaque-key'},
+                {'result_ref': 'controlled-result'},
+            ],
+            'count': 2,
+            'empty': None,
+        }
+
+        redacted = redact_sensitive_payload(payload)
+
+        self.assertEqual(redacted['safe_ref'], 'controlled-reference')
+        self.assertEqual(redacted['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(redacted['access_token'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(redacted['nested'][0]['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(redacted['nested'][1]['result_ref'], 'controlled-result')
+        self.assertEqual(redacted['count'], 2)
+        self.assertIsNone(redacted['empty'])

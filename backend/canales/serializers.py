@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from contratos.models import Arrendatario, Contrato
 from documentos.scope import scope_documento_queryset
@@ -30,6 +30,7 @@ def _request_user(serializer):
 
 
 class RedactReferenceFieldsMixin:
+    redacted_payload_fields = ()
     redacted_reference_fields = ()
 
     def to_representation(self, instance):
@@ -37,6 +38,9 @@ class RedactReferenceFieldsMixin:
         for field_name in self.redacted_reference_fields:
             if field_name in data:
                 data[field_name] = redact_sensitive_reference(data[field_name])
+        for field_name in self.redacted_payload_fields:
+            if field_name in data:
+                data[field_name] = redact_sensitive_payload(data[field_name])
         return data
 
 
@@ -69,6 +73,7 @@ class CanalMensajeriaSerializer(RedactReferenceFieldsMixin, serializers.ModelSer
 
 
 class MensajeSalienteSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_payload_fields = ('provider_payload',)
     redacted_reference_fields = ('external_ref',)
 
     class Meta:

@@ -485,6 +485,12 @@ class CobranzaAPITests(APITestCase):
             external_ref='https://transbank.example.test/token/secret',
             fecha_pago_webpay='2026-01-06',
             usuario=self.user,
+            provider_payload={
+                'transaction_status': 'AUTHORIZED',
+                'callback': 'https://front.example.test/webpay?token=secret',
+                'headers': {'authorization': 'Bearer inherited-webpay-value'},
+                'events': [{'result_ref': 'controlled-result-1'}],
+            },
         )
 
         gates_response = self.client.get(reverse('cobranza-webpay-gate-list'))
@@ -499,6 +505,11 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(intents_response.data[0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['gates_cobro'][0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['intentos_webpay'][0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+        payload = intents_response.data[0]['provider_payload']
+        self.assertEqual(payload['transaction_status'], 'AUTHORIZED')
+        self.assertEqual(payload['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(payload['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(payload['events'][0]['result_ref'], 'controlled-result-1')
 
         for response in (gates_response, intents_response, snapshot_response):
             body = response.content.decode()
