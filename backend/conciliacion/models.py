@@ -6,6 +6,7 @@ from django.db import models
 from django.db.models import Q
 
 from cobranza.models import CodigoCobroResidual, PagoMensual
+from core.reference_validation import is_non_sensitive_reference
 from operacion.models import CuentaRecaudadora
 
 
@@ -49,6 +50,12 @@ class OrigenImportacionMovimiento(models.TextChoices):
 
 def has_text(value):
     return bool(str(value or '').strip())
+
+
+def _add_non_sensitive_reference_error(errors, instance, field_name, message):
+    value = getattr(instance, field_name, '')
+    if has_text(value) and not is_non_sensitive_reference(value):
+        errors[field_name] = message
 
 
 class ConexionBancaria(TimestampedModel):
@@ -105,31 +112,43 @@ class ConexionBancaria(TimestampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
+        for field_name in [
+            'credencial_ref',
+            'evidencia_gate_ref',
+            'prueba_conectividad_ref',
+            'prueba_movimientos_ref',
+            'prueba_saldos_ref',
+        ]:
+            _add_non_sensitive_reference_error(
+                errors,
+                self,
+                field_name,
+                f'{field_name} debe ser una referencia no sensible, no una URL, token o credencial.',
+            )
+
         operational = (
             self.estado_conexion == EstadoConexionBancaria.ACTIVE
             or self.primaria_movimientos
             or self.primaria_saldos
             or self.primaria_conectividad
         )
-        if not operational:
-            return
-
-        errors = {}
-        if self.estado_conexion != EstadoConexionBancaria.ACTIVE:
-            errors['estado_conexion'] = 'Una conexion bancaria primaria debe estar activa.'
-        if not has_text(self.credencial_ref):
-            errors['credencial_ref'] = 'Una conexion bancaria operativa requiere credencial_ref trazable.'
-        if not has_text(self.evidencia_gate_ref):
-            errors['evidencia_gate_ref'] = 'Una conexion bancaria operativa requiere evidencia_gate_ref.'
-        if not has_text(self.prueba_conectividad_ref):
-            errors['prueba_conectividad_ref'] = 'Una conexion bancaria operativa requiere prueba_conectividad_ref.'
-        if self.primaria_movimientos and not has_text(self.prueba_movimientos_ref):
-            errors['prueba_movimientos_ref'] = 'Banca.Movimientos primaria requiere prueba_movimientos_ref.'
-        if self.primaria_saldos:
-            if not has_text(self.prueba_movimientos_ref):
-                errors['prueba_movimientos_ref'] = 'Banca.Saldos primaria requiere base Banca.Movimientos validada.'
-            if not has_text(self.prueba_saldos_ref):
-                errors['prueba_saldos_ref'] = 'Banca.Saldos primaria requiere prueba_saldos_ref.'
+        if operational:
+            if self.estado_conexion != EstadoConexionBancaria.ACTIVE:
+                errors['estado_conexion'] = 'Una conexion bancaria primaria debe estar activa.'
+            if not has_text(self.credencial_ref):
+                errors['credencial_ref'] = 'Una conexion bancaria operativa requiere credencial_ref trazable.'
+            if not has_text(self.evidencia_gate_ref):
+                errors['evidencia_gate_ref'] = 'Una conexion bancaria operativa requiere evidencia_gate_ref.'
+            if not has_text(self.prueba_conectividad_ref):
+                errors['prueba_conectividad_ref'] = 'Una conexion bancaria operativa requiere prueba_conectividad_ref.'
+            if self.primaria_movimientos and not has_text(self.prueba_movimientos_ref):
+                errors['prueba_movimientos_ref'] = 'Banca.Movimientos primaria requiere prueba_movimientos_ref.'
+            if self.primaria_saldos:
+                if not has_text(self.prueba_movimientos_ref):
+                    errors['prueba_movimientos_ref'] = 'Banca.Saldos primaria requiere base Banca.Movimientos validada.'
+                if not has_text(self.prueba_saldos_ref):
+                    errors['prueba_saldos_ref'] = 'Banca.Saldos primaria requiere prueba_saldos_ref.'
 
         if errors:
             raise ValidationError(errors)
@@ -194,23 +213,40 @@ class MovimientoBancarioImportado(TimestampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
+        _add_non_sensitive_reference_error(
+            errors,
+            self,
+            'evidencia_importacion_ref',
+            'evidencia_importacion_ref debe ser una referencia no sensible, no una URL, token o credencial.',
+        )
+        _add_non_sensitive_reference_error(
+            errors,
+            self,
+            'transaction_id_banco',
+            'transaction_id_banco debe ser una referencia no sensible, no una URL, token o credencial.',
+        )
+
         if self.origen_importacion == OrigenImportacionMovimiento.MANUAL_CONTROLLED:
             if not has_text(self.evidencia_importacion_ref):
-                raise ValidationError(
-                    {'evidencia_importacion_ref': 'La carga manual bancaria requiere evidencia_importacion_ref.'}
-                )
+                errors['evidencia_importacion_ref'] = 'La carga manual bancaria requiere evidencia_importacion_ref.'
+            if errors:
+                raise ValidationError(errors)
             return
 
         if self.origen_importacion == OrigenImportacionMovimiento.PROVIDER_SYNC:
             if not has_text(self.transaction_id_banco):
-                raise ValidationError({'transaction_id_banco': 'Provider sync requiere transaction_id_banco trazable.'})
+                errors['transaction_id_banco'] = 'Provider sync requiere transaction_id_banco trazable.'
             try:
                 conexion = self.conexion_bancaria
             except ConexionBancaria.DoesNotExist:
                 conexion = None
             reason = bank_provider_sync_blocking_reason(conexion)
             if reason:
-                raise ValidationError({'conexion_bancaria': reason})
+                errors['conexion_bancaria'] = reason
+
+        if errors:
+            raise ValidationError(errors)
 
 
 def bank_provider_sync_blocking_reason(conexion):
@@ -220,14 +256,14 @@ def bank_provider_sync_blocking_reason(conexion):
         return 'Banca.Movimientos requiere conexion bancaria activa.'
     if not conexion.primaria_movimientos:
         return 'Banca.Movimientos requiere conexion primaria_movimientos.'
-    if not has_text(conexion.credencial_ref):
-        return 'Banca.Movimientos requiere credencial_ref trazable.'
-    if not has_text(conexion.evidencia_gate_ref):
-        return 'Banca.Movimientos requiere evidencia_gate_ref.'
-    if not has_text(conexion.prueba_conectividad_ref):
-        return 'Banca.Movimientos requiere prueba_conectividad_ref.'
-    if not has_text(conexion.prueba_movimientos_ref):
-        return 'Banca.Movimientos requiere prueba_movimientos_ref.'
+    if not is_non_sensitive_reference(conexion.credencial_ref):
+        return 'Banca.Movimientos requiere credencial_ref trazable no sensible.'
+    if not is_non_sensitive_reference(conexion.evidencia_gate_ref):
+        return 'Banca.Movimientos requiere evidencia_gate_ref no sensible.'
+    if not is_non_sensitive_reference(conexion.prueba_conectividad_ref):
+        return 'Banca.Movimientos requiere prueba_conectividad_ref no sensible.'
+    if not is_non_sensitive_reference(conexion.prueba_movimientos_ref):
+        return 'Banca.Movimientos requiere prueba_movimientos_ref no sensible.'
     return ''
 
 

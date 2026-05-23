@@ -20,13 +20,15 @@ sistema igual a saldo banco.
 - Modo no productivo por defecto.
 - Conexion bancaria operativa/primaria solo con `credencial_ref`,
   `evidencia_gate_ref`, `prueba_conectividad_ref` y prueba de movimientos o
-  saldos segun capacidad marcada.
+  saldos segun capacidad marcada, todas como referencias no sensibles.
 - Movimiento importado por `provider_sync` solo contra conexion activa,
-  primaria de movimientos, readiness trazable y `transaction_id_banco`; la
-  carga manual controlada exige `evidencia_importacion_ref`.
+  primaria de movimientos, readiness trazable y `transaction_id_banco` no
+  sensible; la carga manual controlada exige `evidencia_importacion_ref` no
+  sensible.
 - `audit_stage3_conciliacion_readiness` consolida readiness local de
   conexiones, movimientos, ingresos desconocidos, senales de saldo y
-  referencias finales sin conectar bancos ni leer secretos.
+  referencias finales sin conectar bancos ni leer secretos; tambien detecta
+  refs sensibles en conexiones bancarias y movimientos existentes.
 - `audit_stage3_conciliacion_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 3.

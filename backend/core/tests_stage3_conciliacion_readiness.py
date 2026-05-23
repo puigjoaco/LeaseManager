@@ -360,6 +360,57 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.bank_proof_ref_missing', {issue['code'] for issue in result['issues']})
 
+    def test_sensitive_bank_connection_refs_are_blocking(self):
+        cuenta, _ = self._create_payment_matrix(codigo='ST3-CONN-SENSITIVE')
+        ConexionBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            provider_key='banco_stage3_sensitive',
+            credencial_ref='https://bank.example.test/token/secret',
+            evidencia_gate_ref='bank-gate-stage3',
+            prueba_conectividad_ref='connectivity-stage3',
+            prueba_movimientos_ref='movements-stage3',
+            estado_conexion=EstadoConexionBancaria.ACTIVE,
+            primaria_movimientos=True,
+        )
+
+        result = collect_stage3_conciliacion_readiness(
+            stage2_evidence_ref='stage2-readiness-controlled-v1',
+            bank_proof_ref='bank-proof-controlled-v1',
+            balance_square_ref='balance-square-controlled-v1',
+            responsible_ref='stage3-responsibles-v1',
+            source_label='stage3-controlled-v1',
+            authorization_ref='stage3-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.bank_connection.sensitive_reference', issue_codes)
+        self.assertEqual(result['sections']['bank_connections']['sensitive_references'], 1)
+
+    def test_sensitive_movement_refs_are_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-MOV-SENSITIVE')
+        conexion = self._create_ready_connection(cuenta)
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=payment.monto_calculado_clp,
+            descripcion_origen='Pago conciliado con evidencia sensible',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='https://bank.example.test/import?token=secret',
+            saldo_reportado=Decimal('1000000.00'),
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+            pago_mensual=payment,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.sensitive_reference', issue_codes)
+        self.assertEqual(result['sections']['movements']['sensitive_reference'], 1)
+
     def test_command_writes_json_and_rejects_versionable_repo_output(self):
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'stage3_readiness.json'

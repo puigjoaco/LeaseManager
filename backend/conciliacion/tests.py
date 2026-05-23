@@ -232,6 +232,27 @@ class ConciliacionAPITests(APITestCase):
         self.assertIn('prueba_conectividad_ref', response.data)
         self.assertIn('prueba_movimientos_ref', response.data)
 
+    def test_active_bank_connection_rejects_sensitive_references(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BANK-SENSITIVE')
+
+        response = self.client.post(
+            reverse('conciliacion-conexion-list'),
+            {
+                'cuenta_recaudadora': cuenta.id,
+                'provider_key': 'banco_de_chile',
+                'credencial_ref': 'https://bank.example.test/token/secret',
+                'evidencia_gate_ref': 'bank-gate-controlled',
+                'prueba_conectividad_ref': 'connectivity-controlled',
+                'prueba_movimientos_ref': 'movements-controlled',
+                'estado_conexion': 'activa',
+                'primaria_movimientos': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('credencial_ref', response.data)
+
     def test_manual_bank_movement_requires_import_evidence(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-MANUAL-GATE')
         conexion = self._create_connection(cuenta)
@@ -239,6 +260,22 @@ class ConciliacionAPITests(APITestCase):
         response = self.client.post(
             reverse('conciliacion-movimiento-list'),
             self._movement_payload(conexion, evidencia_importacion_ref=''),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_importacion_ref', response.data)
+
+    def test_manual_bank_movement_rejects_sensitive_import_evidence(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-MANUAL-SENSITIVE')
+        conexion = self._create_connection(cuenta)
+
+        response = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                evidencia_importacion_ref='https://bank.example.test/import?token=secret',
+            ),
             format='json',
         )
 
@@ -267,6 +304,24 @@ class ConciliacionAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('conexion_bancaria', response.data)
+
+    def test_provider_sync_rejects_sensitive_transaction_id(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-PROVIDER-SENSITIVE')
+        conexion = self._create_connection(cuenta)
+
+        response = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                origen_importacion='provider_sync',
+                evidencia_importacion_ref='',
+                transaction_id_banco='https://bank.example.test/tx?token=secret',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('transaction_id_banco', response.data)
 
     def test_provider_sync_with_ready_connection_can_match_payment(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-PROVIDER-OK', amount='100111.00')
