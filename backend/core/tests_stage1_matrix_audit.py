@@ -794,8 +794,13 @@ class Stage1MatrixAuditTests(TestCase):
 
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.mandato.validacion_modelo', issue_codes)
         self.assertIn('stage1.contrato.mandato_no_vigente_al_inicio', issue_codes)
         self.assertIn('stage1.contrato.mandato_no_cubre_fin', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['mandatos']['classification'],
+            'defectuoso',
+        )
 
     def test_codebtor_without_identity_snapshot_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

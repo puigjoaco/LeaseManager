@@ -46,7 +46,9 @@ contra datos reales o snapshot controlado.
   suspenderse o inactivarse si dejan contratos vigentes/futuros, mandatos o
   canales activos sin cobertura operativa.
 - Validacion de que cada contrato vigente o futuro este cubierto por la
-  vigencia del `MandatoOperacion` que define propiedad, cuenta y facturacion.
+  vigencia del `MandatoOperacion` que define propiedad, cuenta y facturacion;
+  un mandato con contratos vigentes/futuros no puede recortar su vigencia fuera
+  del rango contractual ya dependiente.
 - Validacion de que cada propiedad principal o vinculada de contratos vigentes
   o futuros este activa.
 - Validacion de que cada contrato vigente o futuro cubra una sola propiedad o
