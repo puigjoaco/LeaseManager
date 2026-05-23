@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from cobranza.models import PagoMensual
+from core.reference_validation import redact_sensitive_payload
 from core.scope_access import scope_queryset_for_user
 from patrimonio.models import Empresa, ModoRepresentacionComunidad, Socio
 from patrimonio.validators import validate_rut
@@ -28,6 +29,11 @@ class AuditEventSerializer(serializers.ModelSerializer):
             return obj.actor_user.display_name or obj.actor_user.username
         return obj.actor_identifier or 'Sistema'
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['metadata'] = redact_sensitive_payload(data.get('metadata') or {})
+        return data
+
 
 class ManualResolutionSerializer(serializers.ModelSerializer):
     requested_by_display = serializers.SerializerMethodField()
@@ -47,6 +53,11 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
         if obj.resolved_by_id:
             return obj.resolved_by.display_name or obj.resolved_by.username
         return ''
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['metadata'] = redact_sensitive_payload(data.get('metadata') or {})
+        return data
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

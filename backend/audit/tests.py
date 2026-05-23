@@ -10,6 +10,7 @@ from cobranza.models import PagoMensual
 from conciliacion.models import ConexionBancaria, MovimientoBancarioImportado
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from core.models import Role, Scope, UserScopeAssignment
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import ComunidadPatrimonial, Empresa, ModoRepresentacionComunidad, Propiedad, Socio, TipoInmueble
 
@@ -50,6 +51,77 @@ class AuditAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['scope_reference'], 'prop-1')
+
+    def test_manual_resolution_apis_redact_sensitive_metadata(self):
+        resolution = ManualResolution.objects.create(
+            category='migration.propiedad.owner_manual_required',
+            scope_type='legacy_propiedad',
+            scope_reference='prop-redact',
+            summary='Metadata heredada',
+            metadata={
+                'safe_ref': 'controlled-reference',
+                'callback_url': 'https://provider.example.test/token/value',
+                'access_token': 'opaque-token-value',
+                'nested': {
+                    'authorization': 'Bearer inherited-value',
+                    'result_ref': 'controlled-result',
+                },
+            },
+        )
+
+        list_response = self.client.get(reverse('manual-resolution-list'))
+        detail_response = self.client.get(reverse('manual-resolution-detail', args=[resolution.pk]))
+        snapshot_response = self.client.get(reverse('audit-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        for metadata in (
+            list_response.data[0]['metadata'],
+            detail_response.data['metadata'],
+            snapshot_response.data['manual_resolutions'][0]['metadata'],
+        ):
+            self.assertEqual(metadata['safe_ref'], 'controlled-reference')
+            self.assertEqual(metadata['callback_url'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(metadata['access_token'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(metadata['nested']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(metadata['nested']['result_ref'], 'controlled-result')
+
+        for response in (list_response, detail_response, snapshot_response):
+            body = response.content.decode()
+            self.assertNotIn('provider.example.test', body)
+            self.assertNotIn('opaque-token-value', body)
+            self.assertNotIn('Bearer inherited-value', body)
+
+    def test_audit_event_api_redacts_sensitive_metadata(self):
+        admin = get_user_model().objects.create_user(
+            username='audit-admin',
+            password='secret123',
+            default_role_code='AdministradorGlobal',
+        )
+        self.client.force_authenticate(admin)
+        AuditEvent.objects.create(
+            event_type='audit.metadata.test',
+            entity_type='empresa',
+            entity_id='1',
+            summary='Evento con metadata heredada',
+            metadata={
+                'safe_ref': 'controlled-event',
+                'callback_url': 'https://audit.example.test/token/value',
+                'api_key': 'opaque-key-value',
+            },
+        )
+
+        response = self.client.get(reverse('audit-events'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        metadata = response.data[0]['metadata']
+        self.assertEqual(metadata['safe_ref'], 'controlled-event')
+        self.assertEqual(metadata['callback_url'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(metadata['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        body = response.content.decode()
+        self.assertNotIn('audit.example.test', body)
+        self.assertNotIn('opaque-key-value', body)
 
     def test_unknown_income_resolution_cannot_be_marked_resolved_via_generic_patch(self):
         resolution = ManualResolution.objects.create(

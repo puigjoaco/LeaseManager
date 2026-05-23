@@ -14,6 +14,7 @@ from core.permissions import (
     ROLE_REVIEWER,
     get_effective_role_codes,
 )
+from core.reference_validation import redact_sensitive_payload
 from patrimonio.models import Propiedad
 from .models import AuditEvent, ManualResolution
 from .scope_filters import scope_manual_resolution_queryset
@@ -124,7 +125,7 @@ class AuditSnapshotView(APIView):
                         'requested_by_display': item.requested_by.display_name or item.requested_by.username if item.requested_by_id else '',
                         'resolved_by': item.resolved_by_id,
                         'resolved_by_display': item.resolved_by.display_name or item.resolved_by.username if item.resolved_by_id else '',
-                        'metadata': item.metadata,
+                        'metadata': redact_sensitive_payload(item.metadata or {}),
                         'created_at': item.created_at,
                         'resolved_at': item.resolved_at,
                     }
