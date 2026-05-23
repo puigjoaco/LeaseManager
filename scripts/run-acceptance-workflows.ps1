@@ -71,6 +71,7 @@ $stage5ReadinessScript = Join-Path $PSScriptRoot 'run-stage5-readiness-gate.ps1'
 $stage5DocumentsReadinessScript = Join-Path $PSScriptRoot 'run-stage5-documents-readiness-gate.ps1'
 $stage6ReadinessScript = Join-Path $PSScriptRoot 'run-stage6-readiness-gate.ps1'
 $stage7ReadinessScript = Join-Path $PSScriptRoot 'run-stage7-readiness-gate.ps1'
+$complianceDataReadinessScript = Join-Path $PSScriptRoot 'run-compliance-data-readiness-gate.ps1'
 $restoreRehearsalScript = Join-Path $PSScriptRoot 'run-postgres-restore-rehearsal.ps1'
 $repoHygieneScript = Join-Path $PSScriptRoot 'assert-repo-hygiene.ps1'
 
@@ -106,6 +107,7 @@ $testTargets = @(
     'core.tests_stage5_contabilidad_readiness.Stage5ContabilidadReadinessTests',
     'core.tests_stage6_renta_anual_readiness.Stage6RentaAnualReadinessTests',
     'core.tests_stage7_reporting_readiness.Stage7ReportingReadinessTests',
+    'core.tests_compliance_data_readiness.ComplianceDataReadinessTests',
     'health.tests.HealthEndpointTests',
     'patrimonio.tests.PatrimonioAPITests',
     'patrimonio.tests.PatrimonioMigrationSafetyTests',
@@ -294,6 +296,22 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7Readiness.reporting.source_kind_authorized_for_close -eq $false) 'Reporting local no debe quedar autorizado para cierre productivo.'
         Assert-Condition ($stage7IssueCodes -contains 'stage7.reporting_not_ready') 'El guard Etapa 7 debe bloquear cierre cuando Reporting sigue parcial.'
 
+        Step "Compliance data readiness guard"
+        Assert-Condition (Test-Path $complianceDataReadinessScript) "No existe el guard de readiness Compliance en $complianceDataReadinessScript"
+        $complianceDataOutputPath = Join-Path $repoRoot 'local-evidence\compliance\acceptance\compliance_data_readiness_acceptance.json'
+        $complianceDataOutput = & $complianceDataReadinessScript -PythonExe $pythonExe -OutputPath $complianceDataOutputPath | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-compliance-data-readiness-gate fallo.'
+        if ($complianceDataOutput.Trim()) {
+            Write-Host $complianceDataOutput
+        }
+        $complianceDataReadiness = Get-Content -LiteralPath $complianceDataOutputPath -Raw | ConvertFrom-Json
+        $complianceDataIssueCodes = @($complianceDataReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($complianceDataReadiness.source_kind -eq 'local') 'El guard Compliance local debe declarar source_kind=local.'
+        Assert-Condition ($complianceDataReadiness.source_kind_authorized_for_close -eq $false) 'El guard Compliance local no puede quedar autorizado para cierre.'
+        Assert-Condition ($complianceDataReadiness.ready_for_compliance_data -eq $false) 'El guard Compliance local no puede cerrar DatosPersonalesChile2026.'
+        Assert-Condition ($complianceDataReadiness.classification -eq 'parcial') 'El guard Compliance local debe quedar parcial.'
+        Assert-Condition ($complianceDataIssueCodes -contains 'compliance.source_kind_not_authorized') 'El guard Compliance local debe reportar source_kind_not_authorized.'
+
         Step "Stage 7 explicit evidence authorization guard"
         $stage7AcceptanceDir = Split-Path -Parent $stage7OutputPath
         New-Item -ItemType Directory -Force -Path $stage7AcceptanceDir | Out-Null
@@ -371,6 +389,7 @@ if (-not $OnlySmoke) {
             DatabaseUrl = $BackendTestDb
             SkipMigrations = $true
         }
+        Assert-ReadinessOutputGuard $complianceDataReadinessScript 'Compliance data readiness gate' 'compliance-data-readiness-should-not-be-versioned.json'
 
         Step "Restore rehearsal output guard"
         Assert-Condition (Test-Path $restoreRehearsalScript) "No existe el rehearsal de restore en $restoreRehearsalScript"

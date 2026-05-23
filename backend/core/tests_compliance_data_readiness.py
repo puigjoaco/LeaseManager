@@ -1,0 +1,263 @@
+import json
+from datetime import date, timedelta
+from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import TestCase
+from django.utils import timezone
+
+from audit.models import AuditEvent
+from compliance.models import (
+    CategoriaDato,
+    EstadoExportacionSensible,
+    EstadoRegistro,
+    ExportacionSensible,
+    PoliticaRetencionDatos,
+)
+from compliance.services import prepare_sensitive_export
+from core.compliance_data_readiness import collect_compliance_data_readiness
+
+
+class ComplianceDataReadinessTests(TestCase):
+    def _create_policies(self):
+        for category in CategoriaDato:
+            PoliticaRetencionDatos.objects.create(
+                categoria_dato=category.value,
+                evento_inicio='cierre-operacional',
+                plazo_minimo_anos=6,
+                permite_borrado_logico=True,
+                permite_purga_fisica=False,
+                requiere_hold=category in {CategoriaDato.TAX, CategoriaDato.DOCUMENT},
+                estado=EstadoRegistro.ACTIVE,
+            )
+
+    def _create_user(self):
+        return get_user_model().objects.create_user(
+            username='compliance-admin',
+            email='compliance-admin@example.test',
+            password='test-pass',
+        )
+
+    def _create_prepared_audit_event(self, export, user=None):
+        AuditEvent.objects.create(
+            event_type='compliance.exportacion_sensible.prepared',
+            entity_type='exportacion_sensible',
+            entity_id=str(export.pk),
+            summary='Exportacion sensible preparada y cifrada',
+            actor_user=user,
+            metadata={'export_kind': export.export_kind, 'scope_resumen': {'periodo_ref': 'periodo-controlado-v1'}},
+        )
+
+    def _create_valid_export(self):
+        user = self._create_user()
+        export = prepare_sensitive_export(
+            categoria_dato=CategoriaDato.FINANCIAL,
+            export_kind='financiero_mensual',
+            scope_resumen={'anio': 2026, 'mes': 5},
+            motivo='control-compliance-v1',
+            payload={'ok': True, 'periodo': '2026-05'},
+            created_by=user,
+        )
+        self._create_prepared_audit_event(export, user=user)
+        return export
+
+    def _create_raw_export(self, **overrides):
+        user = overrides.pop('created_by', None)
+        if user is None:
+            user = self._create_user()
+        defaults = {
+            'categoria_dato': CategoriaDato.FINANCIAL,
+            'export_kind': 'financiero_mensual',
+            'scope_resumen': {'periodo_ref': 'periodo-controlado-v1'},
+            'motivo': 'control-compliance-v1',
+            'encrypted_payload': 'encrypted-payload-placeholder',
+            'payload_hash': 'a' * 64,
+            'encrypted_ref': 'export-ref-controlado-v1',
+            'expires_at': timezone.now() + timedelta(days=1),
+            'hold_activo': False,
+            'estado': EstadoExportacionSensible.PREPARED,
+            'created_by': user,
+        }
+        defaults.update(overrides)
+        return ExportacionSensible.objects.create(**defaults)
+
+    def _collect_with_final_refs(self, **overrides):
+        params = {
+            'source_kind': 'snapshot_controlado',
+            'source_label': 'compliance-controlled-v1',
+            'authorization_ref': 'compliance-authorization-v1',
+            'policy_approval_ref': 'compliance-policy-approved-v1',
+            'responsible_ref': 'compliance-responsibles-v1',
+            'controls_evidence_ref': 'compliance-controls-v1',
+            'archived_evidence_ref': 'compliance-archive-v1',
+            'legal_review_ref': 'compliance-legal-review-v1',
+        }
+        params.update(overrides)
+        return collect_compliance_data_readiness(**params)
+
+    def test_empty_database_reports_partial_without_sensitive_values(self):
+        result = collect_compliance_data_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('compliance.source_kind_not_authorized', issue_codes)
+        self.assertIn('compliance.retention_policy_missing', issue_codes)
+        self.assertIn('compliance.policy_approval_ref_missing', issue_codes)
+        self.assertIn('retention_policies', result['sections'])
+        self.assertNotIn('://', json.dumps(result))
+
+    def test_valid_authorized_controls_and_refs_can_pass_readiness(self):
+        self._create_policies()
+        self._create_valid_export()
+
+        result = self._collect_with_final_refs()
+
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertTrue(result['ready_for_compliance_data'])
+        self.assertTrue(result['source_kind_authorized_for_close'])
+        self.assertEqual(result['issues'], [])
+
+    def test_valid_local_controls_prepare_but_do_not_close_readiness(self):
+        self._create_policies()
+        self._create_valid_export()
+
+        result = self._collect_with_final_refs(
+            source_kind='local',
+            source_label='compliance-local-v1',
+            authorization_ref='',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertFalse(result['source_kind_authorized_for_close'])
+        self.assertIn('compliance.source_kind_not_authorized', issue_codes)
+
+    def test_authorized_source_requires_source_trace_refs(self):
+        self._create_policies()
+        self._create_valid_export()
+
+        result = self._collect_with_final_refs(source_label='', authorization_ref='')
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.source_label_missing', issue_codes)
+        self.assertIn('compliance.authorization_ref_missing', issue_codes)
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+
+    def test_sensitive_final_refs_do_not_close_readiness(self):
+        self._create_policies()
+        self._create_valid_export()
+
+        result = self._collect_with_final_refs(policy_approval_ref='https://example.test/policy?token=secret')
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.policy_approval_ref_missing', {issue['code'] for issue in result['issues']})
+        self.assertNotIn('example.test', json.dumps(result))
+
+    def test_retention_hold_and_purge_controls_are_blocking(self):
+        self._create_policies()
+        PoliticaRetencionDatos.objects.filter(categoria_dato=CategoriaDato.TAX).update(requiere_hold=False)
+        PoliticaRetencionDatos.objects.filter(categoria_dato=CategoriaDato.SECRET).update(permite_purga_fisica=True)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.retention_hold_missing', issue_codes)
+        self.assertIn('compliance.retention_physical_purge_enabled', issue_codes)
+
+    def test_sensitive_export_metadata_is_blocking_without_exposing_values(self):
+        self._create_policies()
+        export = self._create_raw_export(scope_resumen={'callback': 'https://files.example.test/export?token=secret'})
+        self._create_prepared_audit_event(export, user=export.created_by)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_sensitive_visible_metadata', issue_codes)
+        self.assertNotIn('files.example.test', json.dumps(result))
+
+    def test_expired_prepared_export_without_hold_is_blocking(self):
+        self._create_policies()
+        export = self._create_raw_export(expires_at=timezone.now() - timedelta(days=1))
+        self._create_prepared_audit_event(export, user=export.created_by)
+
+        result = self._collect_with_final_refs()
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_prepared_expired_without_hold', {issue['code'] for issue in result['issues']})
+
+    def test_secret_category_export_is_blocking(self):
+        self._create_policies()
+        export = self._create_raw_export(categoria_dato=CategoriaDato.SECRET)
+        self._create_prepared_audit_event(export, user=export.created_by)
+
+        result = self._collect_with_final_refs()
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_secret_category', {issue['code'] for issue in result['issues']})
+
+    def test_missing_prepared_audit_event_is_blocking(self):
+        self._create_policies()
+        self._create_raw_export()
+
+        result = self._collect_with_final_refs()
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_prepared_audit_event_missing', {issue['code'] for issue in result['issues']})
+
+    def test_sensitive_audit_metadata_is_blocking_without_exposing_values(self):
+        self._create_policies()
+        export = self._create_raw_export()
+        AuditEvent.objects.create(
+            event_type='compliance.exportacion_sensible.prepared',
+            entity_type='exportacion_sensible',
+            entity_id=str(export.pk),
+            summary='Exportacion sensible preparada y cifrada',
+            actor_user=export.created_by,
+            metadata={'download_url': 'https://audit.example.test/export?token=secret'},
+        )
+
+        result = self._collect_with_final_refs()
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.audit_sensitive_metadata', {issue['code'] for issue in result['issues']})
+        self.assertNotIn('audit.example.test', json.dumps(result))
+
+    def test_deadline_requires_suspension_if_not_ready(self):
+        result = collect_compliance_data_readiness(as_of_date=date(2026, 12, 1))
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.production_suspension_required', {issue['code'] for issue in result['issues']})
+        self.assertTrue(result['sections']['deadline']['after_deadline'])
+
+    def test_command_writes_json_and_rejects_versionable_repo_output(self):
+        with TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / 'compliance_readiness.json'
+            call_command('audit_compliance_data_readiness', output=str(output_path), stdout=StringIO())
+            result = json.loads(output_path.read_text(encoding='utf-8'))
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertIn('retention_policies', result['sections'])
+
+        blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'compliance-readiness-should-not-be-versioned.json'
+        with self.assertRaisesMessage(CommandError, 'local-evidence'):
+            call_command(
+                'audit_compliance_data_readiness',
+                output=str(blocked_output),
+                stdout=StringIO(),
+            )
+        self.assertFalse(blocked_output.exists())
+
+        with self.assertRaises(CommandError):
+            call_command('audit_compliance_data_readiness', fail_on_attention=True, stdout=StringIO())
