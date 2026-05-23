@@ -460,6 +460,16 @@ class MandatoOperacion(TimestampedModel):
             socio_id=self.propiedad.socio_owner_id,
         )
 
+    def active_or_future_contract_dependencies(self):
+        if not self.pk:
+            from contratos.models import Contrato
+
+            return Contrato.objects.none()
+
+        from contratos.models import EstadoContrato
+
+        return self.contratos.filter(estado__in=(EstadoContrato.ACTIVE, EstadoContrato.FUTURE))
+
     def clean(self):
         super().clean()
         if self.vigencia_hasta and self.vigencia_hasta < self.vigencia_desde:
@@ -495,6 +505,14 @@ class MandatoOperacion(TimestampedModel):
             raise ValidationError({'entidad_facturadora': 'No se puede autorizar facturacion sin entidad facturadora.'})
 
         if self.estado != EstadoMandatoOperacion.ACTIVE:
+            if self.active_or_future_contract_dependencies().exists():
+                raise ValidationError(
+                    {
+                        'estado': (
+                            'No se puede inactivar un mandato operativo con contratos vigentes o futuros.'
+                        )
+                    }
+                )
             return
 
         if self.propiedad.estado != 'activa':
@@ -608,12 +626,44 @@ class AsignacionCanalOperacion(TimestampedModel):
     def __str__(self):
         return f'{self.mandato_operacion_id} - {self.canal} - {self.prioridad}'
 
+    def active_or_future_contract_dependencies(self):
+        if not self.pk or not self.mandato_operacion_id:
+            from contratos.models import Contrato
+
+            return Contrato.objects.none()
+
+        from contratos.models import EstadoContrato
+
+        return self.mandato_operacion.contratos.filter(
+            estado__in=(EstadoContrato.ACTIVE, EstadoContrato.FUTURE),
+        )
+
+    def has_other_active_channel_for_mandate(self):
+        if not self.mandato_operacion_id:
+            return False
+        return self.mandato_operacion.asignaciones_canal.filter(
+            estado=EstadoAsignacionCanal.ACTIVE,
+            identidad_envio__estado=EstadoIdentidadEnvio.ACTIVE,
+        ).exclude(pk=self.pk).exists()
+
     def clean(self):
         super().clean()
         if self.identidad_envio.canal != self.canal:
             raise ValidationError({'identidad_envio': 'La identidad debe pertenecer al mismo canal de la asignacion.'})
 
         if self.estado != EstadoAsignacionCanal.ACTIVE:
+            if (
+                self.active_or_future_contract_dependencies().exists()
+                and not self.has_other_active_channel_for_mandate()
+            ):
+                raise ValidationError(
+                    {
+                        'estado': (
+                            'No se puede inactivar la unica asignacion de canal activa de un mandato con contratos '
+                            'vigentes o futuros.'
+                        )
+                    }
+                )
             return
 
         if self.mandato_operacion.estado != EstadoMandatoOperacion.ACTIVE:

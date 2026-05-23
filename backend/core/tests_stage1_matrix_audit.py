@@ -40,6 +40,7 @@ from operacion.models import (
     AsignacionCanalOperacion,
     CanalOperacion,
     CuentaRecaudadora,
+    EstadoAsignacionCanal,
     EstadoCuentaRecaudadora,
     EstadoIdentidadEnvio,
     EstadoMandatoOperacion,
@@ -358,6 +359,47 @@ class Stage1MatrixAuditTests(TestCase):
             result['aggregate_classification']['identidades_envio_activas']['classification'],
             'defectuoso',
         )
+        self.assertEqual(
+            result['aggregate_classification']['asignaciones_canal_activas']['classification'],
+            'defectuoso',
+        )
+
+    def test_inactive_mandate_with_active_contract_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        mandato = contrato.mandato_operacion
+        mandato.estado = EstadoMandatoOperacion.INACTIVE
+        mandato.save(update_fields=['estado', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.mandato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.contrato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.contrato.mandato_no_activo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['mandatos']['classification'],
+            'defectuoso',
+        )
+        self.assertEqual(
+            result['aggregate_classification']['contratos_activos_o_futuros']['classification'],
+            'defectuoso',
+        )
+
+    def test_inactive_only_assignment_with_active_contract_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        asignacion = contrato.mandato_operacion.asignaciones_canal.get()
+        asignacion.estado = EstadoAsignacionCanal.INACTIVE
+        asignacion.save(update_fields=['estado', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.asignacion_canal.validacion_modelo', issue_codes)
+        self.assertIn('stage1.contrato.canal_operativo_faltante', issue_codes)
         self.assertEqual(
             result['aggregate_classification']['asignaciones_canal_activas']['classification'],
             'defectuoso',
