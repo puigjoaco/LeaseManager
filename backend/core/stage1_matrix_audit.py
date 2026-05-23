@@ -158,13 +158,13 @@ AGGREGATE_DEFINITIONS = (
         'key': 'contratos',
         'canonical_entity': 'Contrato',
         'entities': {'Contrato'},
-        'code_prefixes': ('stage1.contrato.', 'stage1.contrato_futuro.'),
+        'code_prefixes': ('stage1.contrato.', 'stage1.contrato_futuro.', 'stage1.aviso_termino.'),
     },
     {
         'key': 'contratos_activos_o_futuros',
         'canonical_entity': 'Contrato',
         'entities': {'Contrato'},
-        'code_prefixes': ('stage1.contrato.', 'stage1.contrato_futuro.'),
+        'code_prefixes': ('stage1.contrato.', 'stage1.contrato_futuro.', 'stage1.aviso_termino.'),
     },
     {
         'key': 'contrato_propiedades',
@@ -756,17 +756,6 @@ def _audit_contract_periods(issues: list[dict[str, Any]], contrato: Contrato) ->
             break
 
     for period in periods:
-        try:
-            period.full_clean()
-        except ValidationError as error:
-            for message in _validation_messages(error):
-                _issue(
-                    issues,
-                    code='stage1.periodo.validacion_modelo',
-                    entity='PeriodoContractual',
-                    entity_id=period.pk,
-                    message=message,
-                )
         if period.moneda_base == MonedaBaseContrato.CLP and period.monto_base < Decimal('1000.00'):
             _issue(
                 issues,
@@ -1116,6 +1105,36 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         code='stage1.distribucion_cobro.validacion_modelo',
         entity='DistribucionCobroMensual',
     )
+    _audit_model_validation(
+        issues,
+        queryset=Contrato.objects.select_related('arrendatario', 'mandato_operacion'),
+        code='stage1.contrato.validacion_modelo',
+        entity='Contrato',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=ContratoPropiedad.objects.select_related('contrato', 'propiedad'),
+        code='stage1.contrato_propiedad.validacion_modelo',
+        entity='ContratoPropiedad',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=PeriodoContractual.objects.select_related('contrato'),
+        code='stage1.periodo.validacion_modelo',
+        entity='PeriodoContractual',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=AvisoTermino.objects.select_related('contrato'),
+        code='stage1.aviso_termino.validacion_modelo',
+        entity='AvisoTermino',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=GarantiaContractual.objects.select_related('contrato'),
+        code='stage1.garantia.validacion_modelo',
+        entity='GarantiaContractual',
+    )
     _audit_payment_distribution_consistency(issues)
 
     duplicate_any_role = (
@@ -1184,17 +1203,6 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         'mandato_operacion__propiedad',
     )
     for contrato in contracts:
-        try:
-            contrato.full_clean()
-        except ValidationError as error:
-            for message in _validation_messages(error):
-                _issue(
-                    issues,
-                    code='stage1.contrato.validacion_modelo',
-                    entity='Contrato',
-                    entity_id=contrato.pk,
-                    message=message,
-                )
         if contrato.fecha_inicio.day != 1:
             _issue(
                 issues,
@@ -1255,18 +1263,6 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         _audit_contract_tenant_readiness(issues, contrato)
 
         links = list(contrato.contrato_propiedades.select_related('propiedad'))
-        for link in links:
-            try:
-                link.full_clean()
-            except ValidationError as error:
-                for message in _validation_messages(error):
-                    _issue(
-                        issues,
-                        code='stage1.contrato_propiedad.validacion_modelo',
-                        entity='ContratoPropiedad',
-                        entity_id=link.pk,
-                        message=message,
-                    )
 
         primary_links = [link for link in links if link.rol_en_contrato == RolContratoPropiedad.PRIMARY]
         primary_property_id = None
@@ -1318,17 +1314,6 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                 message='Contrato vigente o futuro sin GarantiaContractual registrada.',
             )
         else:
-            try:
-                garantia.full_clean()
-            except ValidationError as error:
-                for message in _validation_messages(error):
-                    _issue(
-                        issues,
-                        code='stage1.garantia.validacion_modelo',
-                        entity='GarantiaContractual',
-                        entity_id=garantia.pk,
-                        message=message,
-                    )
             _audit_guarantee_history_consistency(issues, garantia)
 
 
