@@ -1,3 +1,5 @@
+import json
+
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -676,6 +678,71 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(len(response.data['procesos_renta']), 1)
         self.assertEqual(len(response.data['ddjj_preparadas']), 1)
         self.assertEqual(len(response.data['f22_preparados']), 1)
+
+    def test_annual_tax_summary_redacts_inherited_sensitive_refs_and_payloads(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALREDACT')
+        self._activate_fiscal_config(empresa)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={
+                'fiscal_year': 2026,
+                'obligaciones': [{'mes': 1}],
+                'callback': 'https://sii.example.test/process?token=secret',
+            },
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref='cert-ddjj-redact',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            paquete_ref='https://sii.example.test/ddjj?token=secret',
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'api_key': 'secret-api-key-value'},
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='F22Preparacion',
+                certificado_ref='cert-f22-redact',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            borrador_ref='https://sii.example.test/f22?token=secret',
+            resumen_f22={'base': '100.00', 'access_token': 'secret-token-value'},
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data['procesos_renta'][0]['resumen_anual']['callback'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(response.data['ddjj_preparadas'][0]['paquete_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            response.data['ddjj_preparadas'][0]['resumen_paquete']['api_key'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(response.data['f22_preparados'][0]['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            response.data['f22_preparados'][0]['resumen_f22']['access_token'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        serialized_response = json.dumps(response.data)
+        self.assertNotIn('sii.example.test', serialized_response)
+        self.assertNotIn('secret', serialized_response)
 
     def test_annual_tax_summary_blocks_without_active_fiscal_config(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALFISCAL')

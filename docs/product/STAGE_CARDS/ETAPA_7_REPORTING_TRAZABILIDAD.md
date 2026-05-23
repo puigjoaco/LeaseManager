@@ -25,6 +25,8 @@ documentos o procesos tributarios trazables.
   trazable. Estados aprobados, observados, rectificados o presentados requieren
   referencia externa trazable. Cada empresa incluida debe tener
   `ConfiguracionFiscalEmpresa` activa propia.
+- El resumen tributario anual redacta `paquete_ref`, `borrador_ref` y payloads
+  anuales sensibles heredados antes de exponerlos al backoffice.
 - Si falta alguno de esos origenes, la API responde con bloqueo de
   trazabilidad y no entrega el reporte como valido.
 - `audit_stage7_reporting_readiness` consolida readiness local de resumen
