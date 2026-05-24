@@ -16,6 +16,9 @@ from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, Pol
 from .readiness import collect_document_readiness
 
 
+VALID_SHA256 = 'a' * 64
+
+
 def create_all_active_policies():
     for tipo_documental in TipoDocumental.values:
         defaults = {
@@ -144,7 +147,7 @@ class DocumentReadinessAuditTests(TestCase):
             expediente=expediente,
             tipo_documental=TipoDocumental.TAX_SUPPORT,
             version_plantilla='',
-            checksum='missing-policy',
+            checksum=VALID_SHA256,
             fecha_carga=timezone.now(),
             origen='generado_sistema',
             estado='emitido',
@@ -157,9 +160,45 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertEqual(result['sections']['documents']['non_pdf_storage_refs'], 1)
         self.assertEqual(result['sections']['documents']['without_active_policy'], 1)
         self.assertEqual(result['sections']['documents']['missing_metadata'], 1)
+        self.assertEqual(result['sections']['documents']['invalid_checksums'], 1)
         self.assertEqual(issues['documents.non_pdf_storage_ref']['count'], 1)
         self.assertEqual(issues['documents.document_without_active_policy']['count'], 1)
         self.assertEqual(issues['documents.metadata_missing']['count'], 1)
+        self.assertEqual(issues['documents.invalid_checksum']['count'], 1)
+
+    def test_invalid_checksum_is_blocking_without_exposing_values(self):
+        create_all_active_policies()
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='invalid-checksum',
+            estado='abierto',
+            owner_operativo='manual:checksum',
+        )
+        DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum='checksum-operativo-sin-digest',
+            fecha_carga=timezone.now(),
+            origen='generado_sistema',
+            estado='emitido',
+            storage_ref='storage/docs/contract.pdf',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.invalid_checksum', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['documents']['invalid_checksums'], 1)
+        rendered = json.dumps(result)
+        self.assertNotIn('checksum-operativo-sin-digest', rendered)
 
     def test_sensitive_storage_refs_are_blocking_without_exposing_values(self):
         create_all_active_policies()
@@ -173,7 +212,7 @@ class DocumentReadinessAuditTests(TestCase):
             expediente=expediente,
             tipo_documental=TipoDocumental.MAIN_CONTRACT,
             version_plantilla='v1',
-            checksum='sensitive-storage',
+            checksum=VALID_SHA256,
             fecha_carga=timezone.now(),
             origen='generado_sistema',
             estado='emitido',
@@ -209,7 +248,7 @@ class DocumentReadinessAuditTests(TestCase):
             expediente=expediente,
             tipo_documental=TipoDocumental.MAIN_CONTRACT,
             version_plantilla='v1',
-            checksum='formalized-no-audit',
+            checksum=VALID_SHA256,
             fecha_carga=timezone.now(),
             origen='generado_sistema',
             estado=EstadoDocumento.FORMALIZED,

@@ -1,8 +1,13 @@
+import re
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
 from core.reference_validation import is_non_sensitive_reference
+
+
+DOCUMENT_CHECKSUM_PATTERN = re.compile(r'^(?:sha256:)?[0-9a-f]{64}$', re.IGNORECASE)
 
 
 class TimestampedModel(models.Model):
@@ -57,6 +62,11 @@ class ModoFirmaPermitido(models.TextChoices):
 def is_pdf_storage_ref(value):
     normalized = str(value or '').strip().lower().split('?', 1)[0].split('#', 1)[0]
     return normalized.endswith('.pdf')
+
+
+def is_valid_pdf_checksum(value):
+    normalized = str(value or '').strip()
+    return bool(DOCUMENT_CHECKSUM_PATTERN.fullmatch(normalized))
 
 
 class ExpedienteDocumental(TimestampedModel):
@@ -149,6 +159,10 @@ class DocumentoEmitido(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if self.checksum and not is_valid_pdf_checksum(self.checksum):
+            raise ValidationError(
+                {'checksum': 'checksum debe ser SHA-256 hexadecimal de 64 caracteres, opcionalmente prefijado con sha256:.'}
+            )
         if self.storage_ref and not is_pdf_storage_ref(self.storage_ref):
             raise ValidationError({'storage_ref': 'El documento canonico debe referenciar un PDF.'})
         if self.storage_ref and not is_non_sensitive_reference(self.storage_ref):

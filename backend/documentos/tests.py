@@ -14,6 +14,10 @@ from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Soci
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria
 
 
+VALID_SHA256 = 'a' * 64
+VALID_SHA256_ALT = 'b' * 64
+
+
 class DocumentosAPITests(APITestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -58,7 +62,7 @@ class DocumentosAPITests(APITestCase):
             'expediente': expediente_id,
             'tipo_documental': 'contrato_principal',
             'version_plantilla': 'v1',
-            'checksum': 'abc123',
+            'checksum': VALID_SHA256,
             'fecha_carga': '2026-03-18T10:00:00-03:00',
             'origen': 'generado_sistema',
             'estado': 'emitido',
@@ -187,7 +191,7 @@ class DocumentosAPITests(APITestCase):
                 'expediente': expediente['id'],
                 'tipo_documental': 'contrato_principal',
                 'version_plantilla': 'v1',
-                'checksum': 'docx-ref',
+                'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
                 'origen': 'generado_sistema',
                 'estado': 'emitido',
@@ -204,6 +208,33 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('storage_ref', response.data)
 
+    def test_document_checksum_must_be_sha256(self):
+        expediente = self._create_expediente(entidad_id='checksum-guard')
+        self._create_politica()
+
+        response = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v1',
+                'checksum': 'checksum-operativo-sin-digest',
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'emitido',
+                'storage_ref': 'storage/contracts/contrato-1.pdf',
+                'firma_arrendador_registrada': False,
+                'firma_arrendatario_registrada': False,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('checksum', response.data)
+
     def test_document_storage_ref_must_be_non_sensitive_pdf_reference(self):
         expediente = self._create_expediente(entidad_id='pdf-sensitive-guard')
         self._create_politica()
@@ -214,7 +245,7 @@ class DocumentosAPITests(APITestCase):
                 'expediente': expediente['id'],
                 'tipo_documental': 'contrato_principal',
                 'version_plantilla': 'v1',
-                'checksum': 'sensitive-pdf-ref',
+                'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
                 'origen': 'generado_sistema',
                 'estado': 'emitido',
@@ -238,7 +269,7 @@ class DocumentosAPITests(APITestCase):
             expediente_id=expediente['id'],
             tipo_documental='contrato_principal',
             version_plantilla='v1',
-            checksum='inherited-sensitive-pdf',
+            checksum=VALID_SHA256,
             fecha_carga=timezone.now(),
             usuario=self.user,
             origen='generado_sistema',
@@ -298,7 +329,7 @@ class DocumentosAPITests(APITestCase):
                 'expediente': expediente['id'],
                 'tipo_documental': 'contrato_principal',
                 'version_plantilla': 'v1',
-                'checksum': 'direct-formalized-create',
+                'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
                 'origen': 'generado_sistema',
                 'estado': 'formalizado',
@@ -360,7 +391,7 @@ class DocumentosAPITests(APITestCase):
             expediente['id'],
             tipo_documental='comprobante_notarial',
             version_plantilla='notary-v1',
-            checksum='notary-draft',
+            checksum=VALID_SHA256,
             storage_ref='storage/contracts/notary-draft.pdf',
             estado='borrador',
         )
@@ -389,7 +420,7 @@ class DocumentosAPITests(APITestCase):
             expediente['id'],
             tipo_documental='comprobante_notarial',
             version_plantilla='notary-v1',
-            checksum='notary123',
+            checksum=VALID_SHA256,
             storage_ref='storage/contracts/notary.pdf',
         )
         documento = self._create_documento(
@@ -428,7 +459,7 @@ class DocumentosAPITests(APITestCase):
 
         response = self.client.patch(
             reverse('documentos-documento-detail', args=[documento['id']]),
-            {'checksum': 'tampered-after-formalization'},
+            {'checksum': VALID_SHA256_ALT},
             format='json',
         )
 
@@ -474,7 +505,7 @@ class DocumentosAPITests(APITestCase):
             expediente_b['id'],
             tipo_documental='comprobante_notarial',
             version_plantilla='notary-v1',
-            checksum='notary-other-exp',
+            checksum=VALID_SHA256,
             storage_ref='storage/contracts/notary-other.pdf',
         )
         documento = self._create_documento(
@@ -633,7 +664,7 @@ class DocumentosScopeAPITests(APITestCase):
                 'expediente': self.expediente_a.data['id'],
                 'tipo_documental': 'contrato_principal',
                 'version_plantilla': 'v1',
-                'checksum': 'doc-a',
+                'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
                 'origen': 'generado_sistema',
                 'estado': 'emitido',
@@ -748,7 +779,7 @@ class DocumentosScopeAPITests(APITestCase):
                 'expediente': self.expediente_b.data['id'],
                 'tipo_documental': 'contrato_principal',
                 'version_plantilla': 'v1',
-                'checksum': 'doc-b',
+                'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
                 'origen': 'generado_sistema',
                 'estado': 'emitido',

@@ -33,6 +33,9 @@ from sii.models import (
 )
 
 
+VALID_DOCUMENT_SHA256 = 'd' * 64
+
+
 class Stage6RentaAnualReadinessTests(TestCase):
     def _create_socio(self, nombre, rut, activo=True):
         return Socio.objects.create(nombre=nombre, rut=rut, activo=activo)
@@ -141,7 +144,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
             expediente=expediente,
             tipo_documental=TipoDocumental.TAX_SUPPORT,
             version_plantilla='stage6-v1',
-            checksum='checksum-stage6-controlled',
+            checksum=VALID_DOCUMENT_SHA256,
             fecha_carga=timezone.now(),
             origen=OrigenDocumento.GENERATED,
             estado=EstadoDocumento.ISSUED,
