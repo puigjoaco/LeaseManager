@@ -793,6 +793,41 @@ class SiiAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['estado_preparacion'], 'pendiente_datos')
 
+    def test_update_f29_status_rechecks_gate_for_prepared_state(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
+        self.client.post(
+            reverse('sii-capacidad-list'),
+            {
+                'empresa': empresa.id,
+                'capacidad_key': 'F29Preparacion',
+                **self._sii_readiness_fields('f29'),
+                'ambiente': 'certificacion',
+                'estado_gate': 'abierto',
+                'ultimo_resultado': {},
+            },
+            format='json',
+        )
+        self._create_monthly_close_and_obligation(empresa, estado_preparacion='pendiente_datos')
+        generated = self.client.post(
+            reverse('sii-f29-generate'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        CapacidadTributariaSII.objects.filter(empresa=empresa, capacidad_key='F29Preparacion').update(
+            estado_gate='condicionado'
+        )
+
+        update = self.client.post(
+            reverse('sii-f29-status', args=[generated.data['id']]),
+            {'estado_preparacion': 'preparado'},
+            format='json',
+        )
+
+        self.assertEqual(update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('gate', update.data['detail'])
+
     def test_update_f29_status_manually(self):
         empresa, _ = self._setup_paid_payment()
         self._activate_fiscal_config(empresa)
@@ -1026,6 +1061,43 @@ class SiiAPITests(APITestCase):
         self.assertEqual(process.borrador_f22_ref, 'f22-2027')
         self.assertEqual(ddjj.estado_preparacion, 'aprobado_para_presentacion')
         self.assertEqual(f22.estado_preparacion, 'aprobado_para_presentacion')
+
+    def test_annual_status_rechecks_gate_for_prepared_state(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+
+        CapacidadTributariaSII.objects.filter(empresa=empresa, capacidad_key='DDJJPreparacion').update(
+            estado_gate='condicionado'
+        )
+        ddjj_status = self.client.post(
+            reverse('sii-ddjj-status', args=[generated.data['ddjj_preparacion']['id']]),
+            {'estado_preparacion': 'preparado'},
+            format='json',
+        )
+        self.assertEqual(ddjj_status.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('gate', ddjj_status.data['detail'])
+
+        CapacidadTributariaSII.objects.filter(empresa=empresa, capacidad_key='DDJJPreparacion').update(
+            estado_gate='abierto'
+        )
+        CapacidadTributariaSII.objects.filter(empresa=empresa, capacidad_key='F22Preparacion').update(
+            estado_gate='condicionado'
+        )
+        f22_status = self.client.post(
+            reverse('sii-f22-status', args=[generated.data['f22_preparacion']['id']]),
+            {'estado_preparacion': 'preparado'},
+            format='json',
+        )
+        self.assertEqual(f22_status.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('gate', f22_status.data['detail'])
 
     def test_annual_status_rejects_final_presentation_boundary(self):
         empresa, _ = self._setup_paid_payment()
