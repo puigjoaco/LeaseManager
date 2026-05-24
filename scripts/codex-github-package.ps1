@@ -41,9 +41,18 @@ function Invoke-External([string]$file, [string[]]$arguments) {
 }
 
 function Get-ExternalOutput([string]$file, [string[]]$arguments, [switch]$AllowFailure) {
-    $output = & $file @arguments 2>$null
-    if ((-not $AllowFailure) -and $LASTEXITCODE -ne 0) {
-        throw "$file fallo con codigo $LASTEXITCODE."
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = & $file @arguments 2>$null
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ((-not $AllowFailure) -and $exitCode -ne 0) {
+        throw "$file fallo con codigo $exitCode."
     }
     return ($output | Out-String).Trim()
 }
