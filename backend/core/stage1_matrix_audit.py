@@ -25,9 +25,11 @@ from contratos.models import (
     Arrendatario,
     AvisoTermino,
     CodeudorSolidario,
+    ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
     EstadoContactoArrendatario,
+    EstadoContactoPago,
     EstadoAvisoTermino,
     EstadoCodeudorSolidario,
     EstadoContrato,
@@ -146,8 +148,8 @@ AGGREGATE_DEFINITIONS = (
     {
         'key': 'arrendatarios',
         'canonical_entity': 'Arrendatario',
-        'entities': {'Arrendatario'},
-        'code_prefixes': ('stage1.arrendatario.',),
+        'entities': {'Arrendatario', 'ContactoPagoArrendatario'},
+        'code_prefixes': ('stage1.arrendatario.', 'stage1.contacto_pago.'),
     },
     {
         'key': 'codeudores_solidarios',
@@ -538,6 +540,10 @@ def _build_summary() -> dict[str, int]:
             estado=EstadoAsignacionCanal.ACTIVE
         ).count(),
         'arrendatarios': Arrendatario.objects.count(),
+        'contactos_pago_arrendatario': ContactoPagoArrendatario.objects.count(),
+        'contactos_pago_activos': ContactoPagoArrendatario.objects.filter(
+            estado=EstadoContactoPago.ACTIVE,
+        ).count(),
         'codeudores_solidarios': CodeudorSolidario.objects.count(),
         'codeudores_solidarios_activos': CodeudorSolidario.objects.filter(
             estado=EstadoCodeudorSolidario.ACTIVE
@@ -938,6 +944,15 @@ def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Con
             message='Contrato vigente o futuro requiere domicilio de notificaciones del arrendatario.',
         )
 
+    if not tenant.contactos_pago.filter(estado=EstadoContactoPago.ACTIVE).exists():
+        _issue(
+            issues,
+            code='stage1.arrendatario.contacto_pago_estructurado_faltante',
+            entity='Arrendatario',
+            entity_id=tenant.pk,
+            message='Contrato vigente o futuro requiere al menos un contacto de pago activo estructurado.',
+        )
+
     if tenant.tipo_arrendatario == TipoArrendatario.COMPANY:
         representative_snapshot = contrato.snapshot_representante_legal or {}
         if not representative_snapshot:
@@ -1229,6 +1244,12 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         queryset=Arrendatario.objects.all(),
         code='stage1.arrendatario.validacion_modelo',
         entity='Arrendatario',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=ContactoPagoArrendatario.objects.select_related('arrendatario'),
+        code='stage1.contacto_pago.validacion_modelo',
+        entity='ContactoPagoArrendatario',
     )
     _audit_model_validation(
         issues,

@@ -9,11 +9,20 @@ from core.reference_validation import redact_sensitive_reference
 from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_queryset_for_access
 from operacion.models import MandatoOperacion
 
-from .models import Arrendatario, AvisoTermino, CodeudorSolidario, Contrato, ContratoPropiedad, PeriodoContractual
+from .models import (
+    Arrendatario,
+    AvisoTermino,
+    CodeudorSolidario,
+    ContactoPagoArrendatario,
+    Contrato,
+    ContratoPropiedad,
+    PeriodoContractual,
+)
 from .serializers import (
     ArrendatarioSerializer,
     AvisoTerminoSerializer,
     CodeudorSolidarioReadSerializer,
+    ContactoPagoArrendatarioSerializer,
     ContratoPropiedadReadSerializer,
     ContratoSerializer,
     PeriodoContractualReadSerializer,
@@ -64,7 +73,7 @@ class ContractsSnapshotView(APIView):
     def get(self, request):
         access = get_scope_access(request.user)
         arrendatarios = scope_queryset_for_access(
-            Arrendatario.objects.all().order_by('nombre_razon_social', 'id'),
+            Arrendatario.objects.prefetch_related('contactos_pago').order_by('nombre_razon_social', 'id'),
             access,
             property_paths=('contratos__mandato_operacion__propiedad_id',),
         )
@@ -114,6 +123,21 @@ class ContractsSnapshotView(APIView):
                             item.whatsapp_opt_in_evidencia_ref
                         ),
                         'whatsapp_bloqueado': item.whatsapp_bloqueado,
+                        'contactos_pago': [
+                            {
+                                'id': contact.id,
+                                'nombre': contact.nombre,
+                                'rol_operativo': contact.rol_operativo,
+                                'email': contact.email or '',
+                                'telefono': contact.telefono or '',
+                                'evidencia_autorizacion_ref': redact_sensitive_reference(
+                                    contact.evidencia_autorizacion_ref
+                                ),
+                                'es_principal': contact.es_principal,
+                                'estado': contact.estado,
+                            }
+                            for contact in item.contactos_pago.all()
+                        ],
                     }
                     for item in arrendatarios
                 ],
@@ -211,6 +235,32 @@ class ArrendatarioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generi
     property_scope_paths = ('contratos__mandato_operacion__propiedad_id',)
     audit_entity_type = 'arrendatario'
     audit_entity_label = 'arrendatario'
+
+
+class ContactoPagoArrendatarioListCreateView(
+    ScopedQuerysetMixin,
+    AuditCreateUpdateMixin,
+    generics.ListCreateAPIView,
+):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = ContactoPagoArrendatarioSerializer
+    queryset = ContactoPagoArrendatario.objects.select_related('arrendatario').all()
+    property_scope_paths = ('arrendatario__contratos__mandato_operacion__propiedad_id',)
+    audit_entity_type = 'contacto_pago_arrendatario'
+    audit_entity_label = 'contacto de pago'
+
+
+class ContactoPagoArrendatarioDetailView(
+    ScopedQuerysetMixin,
+    AuditCreateUpdateMixin,
+    generics.RetrieveUpdateAPIView,
+):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = ContactoPagoArrendatarioSerializer
+    queryset = ContactoPagoArrendatario.objects.select_related('arrendatario').all()
+    property_scope_paths = ('arrendatario__contratos__mandato_operacion__propiedad_id',)
+    audit_entity_type = 'contacto_pago_arrendatario'
+    audit_entity_label = 'contacto de pago'
 
 
 class ContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):

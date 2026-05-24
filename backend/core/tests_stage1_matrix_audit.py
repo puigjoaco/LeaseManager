@@ -25,6 +25,7 @@ from contratos.models import (
     Arrendatario,
     AvisoTermino,
     CodeudorSolidario,
+    ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
     EstadoContactoArrendatario,
@@ -169,6 +170,15 @@ class Stage1MatrixAuditTests(TestCase):
             telefono='999',
             domicilio_notificaciones='Domicilio Controlado 123',
             estado_contacto=EstadoContactoArrendatario.ACTIVE,
+        )
+        ContactoPagoArrendatario.objects.create(
+            arrendatario=arrendatario,
+            nombre='Contacto Pago Controlado',
+            rol_operativo='pago_arriendo',
+            email='pagos-controlados@example.com',
+            evidencia_autorizacion_ref='contacto-pago-controlado-v1',
+            es_principal=True,
+            estado='activo',
         )
         contrato = Contrato.objects.create(
             codigo_contrato='CON-CTRL-001',
@@ -1050,6 +1060,31 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.arrendatario.contacto_no_activo', issue_codes)
         self.assertIn('stage1.arrendatario.contacto_operativo_faltante', issue_codes)
         self.assertIn('stage1.arrendatario.domicilio_notificaciones_faltante', issue_codes)
+
+    def test_active_contract_without_structured_payment_contact_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.arrendatario.contactos_pago.all().delete()
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.arrendatario.contacto_pago_estructurado_faltante', issue_codes)
+
+    def test_invalid_structured_payment_contact_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contacto = contrato.arrendatario.contactos_pago.get()
+        contacto.email = ''
+        contacto.telefono = ''
+        contacto.save(update_fields=['email', 'telefono', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contacto_pago.validacion_modelo', issue_codes)
 
     def test_active_contract_without_operational_channel_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

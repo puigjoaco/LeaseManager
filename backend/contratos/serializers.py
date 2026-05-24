@@ -17,6 +17,7 @@ from .models import (
     Arrendatario,
     AvisoTermino,
     CodeudorSolidario,
+    ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
     EstadoAvisoTermino,
@@ -119,6 +120,51 @@ class ArrendatarioSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, Arrendatario)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
+class ContactoPagoArrendatarioSerializer(serializers.ModelSerializer):
+    arrendatario_display = serializers.CharField(source='arrendatario.nombre_razon_social', read_only=True)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['evidencia_autorizacion_ref'] = redact_sensitive_reference(
+            data.get('evidencia_autorizacion_ref')
+        )
+        return data
+
+    class Meta:
+        model = ContactoPagoArrendatario
+        fields = (
+            'id',
+            'arrendatario',
+            'arrendatario_display',
+            'nombre',
+            'rol_operativo',
+            'email',
+            'telefono',
+            'evidencia_autorizacion_ref',
+            'es_principal',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'arrendatario_display', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['arrendatario'].queryset = _scoped_arrendatario_queryset(user)
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, ContactoPagoArrendatario)
         for field, value in attrs.items():
             setattr(candidate, field, value)
         try:

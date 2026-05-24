@@ -24,6 +24,7 @@ from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Soci
 from .models import (
     Arrendatario,
     AvisoTermino,
+    ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
     EstadoAvisoTermino,
@@ -177,6 +178,7 @@ class ContratosAPITests(APITestCase):
         client = self.client_class()
         urls = [
             reverse('contratos-arrendatario-list'),
+            reverse('contratos-contacto-pago-list'),
             reverse('contratos-contrato-list'),
             reverse('contratos-aviso-list'),
             reverse('contratos-contrato-propiedad-list'),
@@ -312,6 +314,75 @@ class ContratosAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('whatsapp_opt_in', response.data)
+
+    def test_create_payment_contact_requires_structured_contact_method(self):
+        arrendatario = self._create_arrendatario(rut='12345670-K')
+        payload = {
+            'arrendatario': arrendatario.id,
+            'nombre': 'Contacto Pago',
+            'rol_operativo': 'contacto_pago',
+            'email': '',
+            'telefono': '',
+            'evidencia_autorizacion_ref': 'contact-payment-ref-v1',
+            'es_principal': True,
+            'estado': 'activo',
+        }
+
+        response = self.client.post(reverse('contratos-contacto-pago-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', response.data)
+
+    def test_create_payment_contact_structured_succeeds_and_audits(self):
+        arrendatario = self._create_arrendatario(rut='12345671-8')
+        payload = {
+            'arrendatario': arrendatario.id,
+            'nombre': 'Contacto Pago Principal',
+            'rol_operativo': 'pago_arriendo',
+            'email': 'pagos@example.com',
+            'telefono': '+56912345678',
+            'evidencia_autorizacion_ref': 'contact-payment-controlled-v1',
+            'es_principal': True,
+            'estado': 'activo',
+        }
+
+        response = self.client.post(reverse('contratos-contacto-pago-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['arrendatario'], arrendatario.id)
+        self.assertEqual(response.data['nombre'], 'Contacto Pago Principal')
+        self.assertTrue(
+            AuditEvent.objects.filter(event_type='contratos.contacto_pago_arrendatario.created').exists()
+        )
+
+    def test_payment_contact_apis_and_snapshot_redact_sensitive_evidence(self):
+        arrendatario = self._create_arrendatario(rut='12345674-2')
+        contact = ContactoPagoArrendatario.objects.create(
+            arrendatario=arrendatario,
+            nombre='Contacto Pago Heredado',
+            rol_operativo='pago_arriendo',
+            email='pagos-heredado@example.com',
+            evidencia_autorizacion_ref='https://payments.example.test/evidence?token=secret',
+            es_principal=True,
+            estado='activo',
+        )
+
+        list_response = self.client.get(reverse('contratos-contacto-pago-list'))
+        detail_response = self.client.get(reverse('contratos-contacto-pago-detail', args=[contact.id]))
+        snapshot_response = self.client.get(reverse('contratos-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['evidencia_autorizacion_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['evidencia_autorizacion_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            snapshot_response.data['arrendatarios'][0]['contactos_pago'][0]['evidencia_autorizacion_ref'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
+        self.assertNotIn('payments.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
 
     def test_create_active_contract_with_nested_children_succeeds(self):
         mandato = self._create_active_mandato(codigo='MAND-101', owner_rut='11111111-1')

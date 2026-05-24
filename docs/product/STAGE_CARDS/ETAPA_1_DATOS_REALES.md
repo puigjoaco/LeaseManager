@@ -9,7 +9,8 @@ contra datos reales o snapshot controlado.
 
 - Socios, empresas, comunidades y participaciones.
 - Propiedades, cuentas recaudadoras y mandatos.
-- Arrendatarios, contratos, periodos, garantias y propiedades por contrato.
+- Arrendatarios, contactos de pago, contratos, periodos, garantias y
+  propiedades por contrato.
 - Codeudores solidarios cuando existan, con snapshot de identidad trazable.
 - Matriz contrato-propiedad-cuenta-facturacion.
 
@@ -63,6 +64,10 @@ contra datos reales o snapshot controlado.
 - Validacion de contratos con arrendatario empresa: API/modelo exigen snapshot
   de representante legal con nombre y RUT valido normalizado, y el auditor
   detecta faltantes, incompletos o RUT invalido en datos heredados.
+- Contactos de pago estructurados: los arrendatarios pueden registrar contactos
+  de pago activos con nombre, rol operativo, email o telefono y evidencia
+  opcional no sensible; el auditor Etapa 1 bloquea contratos vigentes/futuros
+  cuyo arrendatario no tenga al menos un contacto de pago activo estructurado.
 - Validacion de telefonos para mensajeria: si un arrendatario usa WhatsApp
   operativo, el telefono debe estar en formato internacional; numeros locales
   o ambiguos quedan bloqueados para Canales.

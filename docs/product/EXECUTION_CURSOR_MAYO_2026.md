@@ -23,18 +23,18 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 2 - WhatsApp y telefonos operativos |
-| Fuente exacta | PR #177 `Guard WhatsApp phone format`, merge `c09708e`, desde `01_Set_Vigente/PRD_CANONICO.md` linea 400 |
-| Brecha activa | Cerrada localmente: WhatsApp exige telefono operativo en formato internacional y readiness Etapa 2 reporta `stage2.whatsapp.phone_invalid` para datos heredados ambiguos. |
-| Motivo de prioridad | Evita que reanudaciones intenten cerrar de nuevo el PR #177 o reabrir el worktree ya eliminado. |
-| Worktree | Ninguno activo para este paquete; usar solo `D:/Proyectos/LeaseManager` hasta abrir el siguiente `codex/...`. |
-| Rama | `main` sincronizada; no hay rama `codex/whatsapp-phone-format` activa. |
-| Estado | PR #177 integrado en `main`, CI acceptance verde, worktree/rama tactica eliminados. |
-| Gate esperado | No hay gate pendiente para este paquete; el siguiente frente debe seleccionarse desde `main` limpio con una brecha local segura y validacion proporcional. |
-| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 2 sin fuente `snapshot_controlado` o `real_autorizado`. |
+| Frente activo | Etapa 1 - Contactos de pago estructurados |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` linea 401 |
+| Brecha activa | Contactos de pago deben modelarse como informacion estructurada, no como notas informales ni solo email/telefono plano del arrendatario. |
+| Motivo de prioridad | Es una regla local de Contratos/Etapa 1, no requiere secretos, `.env`, DB historica, snapshot ni integracion externa. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-payment-contact-structure` |
+| Rama | `codex/stage1-payment-contact-structure` |
+| Estado | Implementado y validado localmente; pendiente cierre operativo con PR, CI, merge a `main` y limpieza de worktree/rama. |
+| Gate esperado | Tests focales de API/modelo/auditor, suite impactada de Contratos y Etapa 1, `manage.py check`, `makemigrations --check --dry-run`, readiness local Etapa 1, build frontend si aplica, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 1 sin fuente `snapshot_controlado` o `real_autorizado`. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete local seguro por orden de arquitectura y trazabilidad, abrir nuevo worktree `codex/...` y avanzar sin reabrir metatareas cerradas. |
+| Siguiente accion | Cerrar el PR del paquete Contactos de pago estructurados, esperar CI, mergear a `main`, limpiar worktree/rama y dejar el cursor sin paquete tactico abierto. |
 
 ## Actualizacion
 
