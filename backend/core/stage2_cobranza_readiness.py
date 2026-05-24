@@ -27,6 +27,7 @@ from cobranza.models import (
     RepactacionDeuda,
 )
 from cobranza.services import build_account_state_summary
+from contratos.models import Arrendatario
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from operacion.models import (
     AsignacionCanalOperacion,
@@ -81,6 +82,8 @@ def _whatsapp_contact_static_issue(message: MensajeSaliente) -> str:
         return 'WhatsApp requiere opt-in operativo.'
     if not tenant.whatsapp_opt_in_evidencia_ref.strip():
         return 'WhatsApp requiere evidencia de opt-in.'
+    if not _non_sensitive_reference(tenant.whatsapp_opt_in_evidencia_ref):
+        return 'WhatsApp requiere evidencia de opt-in no sensible.'
     if not whatsapp_gate_has_approved_template(message.canal_mensajeria):
         return 'WhatsApp requiere template aprobado en el gate.'
     return ''
@@ -212,6 +215,14 @@ def collect_stage2_cobranza_readiness(
         estado=EstadoAsignacionCanal.ACTIVE,
         identidad_envio__estado=EstadoIdentidadEnvio.ACTIVE,
         mandato_operacion__estado=EstadoMandatoOperacion.ACTIVE,
+    )
+    whatsapp_opt_in_tenants = Arrendatario.objects.filter(whatsapp_opt_in=True)
+    invalid_whatsapp_opt_in_tenants = _count_invalid(whatsapp_opt_in_tenants)
+    whatsapp_opt_in_sensitive_refs = sum(
+        1
+        for tenant in whatsapp_opt_in_tenants
+        if tenant.whatsapp_opt_in_evidencia_ref.strip()
+        and not _non_sensitive_reference(tenant.whatsapp_opt_in_evidencia_ref)
     )
 
     channel_gates = CanalMensajeria.objects.all()
@@ -419,6 +430,22 @@ def collect_stage2_cobranza_readiness(
                 count=whatsapp_open_without_template,
             )
         )
+    if invalid_whatsapp_opt_in_tenants:
+        issues.append(
+            _issue(
+                'stage2.whatsapp.opt_in_invalid',
+                'Existen opt-in WhatsApp que no pasan validacion de dominio.',
+                count=invalid_whatsapp_opt_in_tenants,
+            )
+        )
+    if whatsapp_opt_in_sensitive_refs:
+        issues.append(
+            _issue(
+                'stage2.whatsapp.opt_in_evidence_sensitive',
+                'Existen opt-in WhatsApp con evidencia_ref sensible.',
+                count=whatsapp_opt_in_sensitive_refs,
+            )
+        )
     if whatsapp_open_gates.count() > 0 and whatsapp_active_identities.count() <= 0:
         issues.append(
             _issue(
@@ -596,6 +623,9 @@ def collect_stage2_cobranza_readiness(
                 'identities_by_state': _count_by(identities, 'estado'),
                 'email_active_identities': email_active_identities.count(),
                 'whatsapp_active_identities': whatsapp_active_identities.count(),
+                'whatsapp_opt_in_tenants': whatsapp_opt_in_tenants.count(),
+                'invalid_whatsapp_opt_in_tenants': invalid_whatsapp_opt_in_tenants,
+                'whatsapp_opt_in_sensitive_refs': whatsapp_opt_in_sensitive_refs,
                 'invalid_identities': invalid_identities,
                 'assignments_total': channel_assignments.count(),
                 'assignments_by_channel': _count_by(channel_assignments, 'canal'),

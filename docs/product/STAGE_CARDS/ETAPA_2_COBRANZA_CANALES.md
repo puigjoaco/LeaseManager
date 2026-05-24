@@ -46,7 +46,9 @@ condicionados sin envios reales accidentales.
   aprobado registrado en el gate sin refs sensibles, ventana `08:00-21:00
   America/Santiago`, identidad activa y contacto no bloqueado. Si el gate
   WhatsApp queda abierto, el readiness exige identidad y asignacion WhatsApp
-  activas.
+  activas. La evidencia de opt-in debe ser una referencia trazable no sensible;
+  APIs y snapshots deben redactar evidencia sensible heredada y readiness debe
+  bloquearla sin imprimir el valor.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
   `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y
   `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`

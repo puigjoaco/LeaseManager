@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_queryset_for_access
 from operacion.models import MandatoOperacion
 
@@ -105,7 +106,9 @@ class ContractsSnapshotView(APIView):
                         'domicilio_notificaciones': item.domicilio_notificaciones or '',
                         'estado_contacto': item.estado_contacto,
                         'whatsapp_opt_in': item.whatsapp_opt_in,
-                        'whatsapp_opt_in_evidencia_ref': item.whatsapp_opt_in_evidencia_ref,
+                        'whatsapp_opt_in_evidencia_ref': redact_sensitive_reference(
+                            item.whatsapp_opt_in_evidencia_ref
+                        ),
                         'whatsapp_bloqueado': item.whatsapp_bloqueado,
                     }
                     for item in arrendatarios

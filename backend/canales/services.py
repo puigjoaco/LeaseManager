@@ -117,6 +117,8 @@ def whatsapp_blocking_reason(arrendatario, canal_mensajeria):
         return 'WhatsApp requiere opt-in operativo del arrendatario.'
     if not arrendatario.whatsapp_opt_in_evidencia_ref.strip():
         return 'WhatsApp requiere evidencia trazable del opt-in.'
+    if not is_non_sensitive_reference(arrendatario.whatsapp_opt_in_evidencia_ref):
+        return 'WhatsApp requiere evidencia de opt-in no sensible.'
     if not whatsapp_gate_has_approved_template(canal_mensajeria):
         return 'WhatsApp requiere template aprobado registrado en el gate del canal.'
     if not is_within_whatsapp_window():

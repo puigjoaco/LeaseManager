@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
@@ -194,6 +195,56 @@ class ContratosAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('whatsapp_opt_in_evidencia_ref', response.data)
+
+    def test_create_arrendatario_rejects_sensitive_whatsapp_opt_in_evidence(self):
+        payload = {
+            'tipo_arrendatario': 'persona_natural',
+            'nombre_razon_social': 'Arrendatario WhatsApp Sensible',
+            'rut': '33.333.333-3',
+            'email': 'wasensitive@example.com',
+            'telefono': '+56912345678',
+            'domicilio_notificaciones': 'Direccion WA',
+            'estado_contacto': 'activo',
+            'whatsapp_opt_in': True,
+            'whatsapp_opt_in_evidencia_ref': 'https://wa.example.test/optin?token=secret',
+            'whatsapp_bloqueado': False,
+        }
+
+        response = self.client.post(reverse('contratos-arrendatario-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('whatsapp_opt_in_evidencia_ref', response.data)
+
+    def test_arrendatario_apis_redact_inherited_sensitive_whatsapp_opt_in_evidence(self):
+        tenant = Arrendatario.objects.create(
+            tipo_arrendatario='persona_natural',
+            nombre_razon_social='Arrendatario Opt In Heredado',
+            rut='55.555.555-5',
+            email='optin-inherited@example.com',
+            telefono='+56912345678',
+            domicilio_notificaciones='Direccion Opt In',
+            estado_contacto='activo',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='https://wa.example.test/optin?token=secret',
+            whatsapp_bloqueado=False,
+        )
+
+        list_response = self.client.get(reverse('contratos-arrendatario-list'))
+        detail_response = self.client.get(reverse('contratos-arrendatario-detail', args=[tenant.id]))
+        snapshot_response = self.client.get(reverse('contratos-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['whatsapp_opt_in_evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['whatsapp_opt_in_evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            snapshot_response.data['arrendatarios'][0]['whatsapp_opt_in_evidencia_ref'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
+        self.assertNotIn('wa.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
 
     def test_create_arrendatario_rejects_opt_in_when_whatsapp_blocked(self):
         payload = {

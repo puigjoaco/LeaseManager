@@ -497,6 +497,24 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.channel_gate_sensitive_reference', issue_codes)
         self.assertNotIn('mail.example.test', json.dumps(result))
 
+    def test_whatsapp_opt_in_with_sensitive_evidence_ref_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        Arrendatario.objects.filter(pk=fixture['tenant'].pk).update(
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='https://wa.example.test/optin?token=secret',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.opt_in_evidence_sensitive', issue_codes)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_opt_in_sensitive_refs'], 1)
+        self.assertNotIn('wa.example.test', json.dumps(result))
+        self.assertNotIn('token=secret', json.dumps(result))
+
     def test_webpay_gate_with_sensitive_reference_is_blocking(self):
         self._create_payment_matrix()
         self._create_valid_email_gate()
