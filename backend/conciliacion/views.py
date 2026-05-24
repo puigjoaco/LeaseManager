@@ -14,8 +14,13 @@ from core.scope_access import (
 )
 from operacion.models import CuentaRecaudadora
 
-from .models import ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
-from .serializers import ConexionBancariaSerializer, IngresoDesconocidoSerializer, MovimientoBancarioImportadoSerializer
+from .models import CuadraturaBancaria, ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
+from .serializers import (
+    CuadraturaBancariaSerializer,
+    ConexionBancariaSerializer,
+    IngresoDesconocidoSerializer,
+    MovimientoBancarioImportadoSerializer,
+)
 from .services import reconcile_exact_movement
 
 
@@ -90,6 +95,11 @@ class ConciliacionSnapshotView(APIView):
             access,
             bank_account_paths=('cuenta_recaudadora_id',),
         )
+        cuadraturas = scope_queryset_for_access(
+            CuadraturaBancaria.objects.select_related('cuenta_recaudadora').order_by('-periodo_economico', '-id'),
+            access,
+            bank_account_paths=('cuenta_recaudadora_id',),
+        )
 
         return Response(
             {
@@ -135,6 +145,22 @@ class ConciliacionSnapshotView(APIView):
                         'sugerencia_asistida': item.sugerencia_asistida,
                     }
                     for item in ingresos
+                ],
+                'cuadraturas_bancarias': [
+                    {
+                        'id': item.id,
+                        'cuenta_recaudadora': item.cuenta_recaudadora_id,
+                        'periodo_economico': item.periodo_economico,
+                        'fecha_cuadratura': item.fecha_cuadratura,
+                        'saldo_sistema_clp': item.saldo_sistema_clp,
+                        'saldo_banco_clp': item.saldo_banco_clp,
+                        'diferencia_clp': item.diferencia_clp,
+                        'estado': item.estado,
+                        'evidencia_cuadratura_ref': redact_sensitive_reference(item.evidencia_cuadratura_ref),
+                        'responsable_ref': redact_sensitive_reference(item.responsable_ref),
+                        'rationale': item.rationale,
+                    }
+                    for item in cuadraturas
                 ],
             }
         )
@@ -236,3 +262,21 @@ class IngresoDesconocidoDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView
     serializer_class = IngresoDesconocidoSerializer
     queryset = IngresoDesconocido.objects.select_related('movimiento_bancario', 'cuenta_recaudadora').all()
     bank_account_scope_paths = ('cuenta_recaudadora_id',)
+
+
+class CuadraturaBancariaListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = CuadraturaBancariaSerializer
+    queryset = CuadraturaBancaria.objects.select_related('cuenta_recaudadora').all()
+    bank_account_scope_paths = ('cuenta_recaudadora_id',)
+    audit_entity_type = 'cuadratura_bancaria'
+    audit_entity_label = 'cuadratura bancaria'
+
+
+class CuadraturaBancariaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = CuadraturaBancariaSerializer
+    queryset = CuadraturaBancaria.objects.select_related('cuenta_recaudadora').all()
+    bank_account_scope_paths = ('cuenta_recaudadora_id',)
+    audit_entity_type = 'cuadratura_bancaria'
+    audit_entity_label = 'cuadratura bancaria'

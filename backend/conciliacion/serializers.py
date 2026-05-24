@@ -4,7 +4,7 @@ from rest_framework import serializers
 from core.reference_validation import redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 
-from .models import ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
+from .models import CuadraturaBancaria, ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
 
 
 def raise_drf_validation_error(error):
@@ -167,3 +167,43 @@ class IngresoDesconocidoSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = fields
+
+
+class CuadraturaBancariaSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('evidencia_cuadratura_ref', 'responsable_ref')
+
+    class Meta:
+        model = CuadraturaBancaria
+        fields = (
+            'id',
+            'cuenta_recaudadora',
+            'periodo_economico',
+            'fecha_cuadratura',
+            'saldo_sistema_clp',
+            'saldo_banco_clp',
+            'diferencia_clp',
+            'estado',
+            'evidencia_cuadratura_ref',
+            'responsable_ref',
+            'rationale',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'diferencia_clp', 'created_at', 'updated_at')
+        validators = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['cuenta_recaudadora'].queryset = _scoped_cuenta_queryset(user)
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, CuadraturaBancaria)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs

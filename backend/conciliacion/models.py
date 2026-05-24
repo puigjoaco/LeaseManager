@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -56,9 +57,18 @@ class EstadoIngresoDesconocido(models.TextChoices):
     DISMISSED = 'descartado', 'Descartado'
 
 
+class EstadoCuadraturaBancaria(models.TextChoices):
+    SQUARED = 'cuadrada', 'Cuadrada'
+    OPEN_DIFFERENCE = 'diferencia_abierta', 'Diferencia abierta'
+    EXPLAINED_DIFFERENCE = 'diferencia_explicada', 'Diferencia explicada'
+
+
 class OrigenImportacionMovimiento(models.TextChoices):
     MANUAL_CONTROLLED = 'manual_controlada', 'Manual controlada'
     PROVIDER_SYNC = 'provider_sync', 'Provider sync'
+
+
+ECONOMIC_PERIOD_RE = re.compile(r'^\d{4}-(0[1-9]|1[0-2])$')
 
 
 def has_text(value):
@@ -420,6 +430,73 @@ class MovimientoBancarioImportado(TimestampedModel):
 
         if errors:
             raise ValidationError(errors)
+
+
+class CuadraturaBancaria(TimestampedModel):
+    cuenta_recaudadora = models.ForeignKey(
+        CuentaRecaudadora,
+        on_delete=models.PROTECT,
+        related_name='cuadraturas_bancarias',
+    )
+    periodo_economico = models.CharField(max_length=7)
+    fecha_cuadratura = models.DateField()
+    saldo_sistema_clp = models.DecimalField(max_digits=14, decimal_places=2)
+    saldo_banco_clp = models.DecimalField(max_digits=14, decimal_places=2)
+    diferencia_clp = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'))
+    estado = models.CharField(
+        max_length=24,
+        choices=EstadoCuadraturaBancaria.choices,
+        default=EstadoCuadraturaBancaria.SQUARED,
+    )
+    evidencia_cuadratura_ref = models.CharField(max_length=255)
+    responsable_ref = models.CharField(max_length=255)
+    rationale = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-periodo_economico', '-fecha_cuadratura', '-id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cuenta_recaudadora', 'periodo_economico'],
+                name='uniq_cuadratura_bancaria_por_cuenta_periodo',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Cuadratura {self.cuenta_recaudadora_id} {self.periodo_economico}'
+
+    def _calculated_difference(self):
+        return Decimal(str(self.saldo_banco_clp or '0.00')) - Decimal(str(self.saldo_sistema_clp or '0.00'))
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        self.diferencia_clp = self._calculated_difference()
+
+        if not ECONOMIC_PERIOD_RE.fullmatch(str(self.periodo_economico or '').strip()):
+            errors['periodo_economico'] = 'periodo_economico debe usar formato YYYY-MM.'
+
+        if not is_non_sensitive_reference(self.evidencia_cuadratura_ref):
+            errors['evidencia_cuadratura_ref'] = (
+                'evidencia_cuadratura_ref debe ser una referencia no sensible, no una URL, token o credencial.'
+            )
+        if not is_non_sensitive_reference(self.responsable_ref):
+            errors['responsable_ref'] = 'responsable_ref debe ser una referencia no sensible.'
+
+        if self.diferencia_clp == Decimal('0.00'):
+            if self.estado != EstadoCuadraturaBancaria.SQUARED:
+                errors['estado'] = 'Una cuadratura sin diferencia debe quedar en estado cuadrada.'
+        else:
+            if self.estado == EstadoCuadraturaBancaria.SQUARED:
+                errors['estado'] = 'Una cuadratura con diferencia no puede quedar marcada como cuadrada.'
+            if not has_text(self.rationale):
+                errors['rationale'] = 'Una diferencia banco/sistema requiere motivo o explicacion auditable.'
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.diferencia_clp = self._calculated_difference()
+        super().save(*args, **kwargs)
 
 
 def bank_provider_sync_blocking_reason(conexion):
