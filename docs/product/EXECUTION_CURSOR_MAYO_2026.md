@@ -23,18 +23,18 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1/2 - Garantias contractuales |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` reglas de garantias parciales en Cobranza |
-| Brecha activa | Una garantia recibida parcialmente debe quedar visible como incompleta hasta regularizarse o aceptarse formalmente con referencia trazable no sensible. |
-| Motivo de prioridad | Es una regla local de Contratos/Cobranza, no requiere secretos, `.env`, DB historica, snapshot ni integracion externa. |
-| Worktree | `D:/Proyectos/LeaseManager-guarantee-partial-acceptance` |
-| Rama | `codex/guarantee-partial-acceptance` |
-| Estado | Implementado y validado localmente; pendiente cierre operativo con PR, CI, merge a `main` y limpieza de worktree/rama. |
-| Gate esperado | Migracion Django, tests focales de garantias y auditor Etapa 1, `manage.py check`, `makemigrations --check --dry-run`, readiness local Etapa 1, build frontend, acceptance proporcional o completa, higiene repo y `git diff --check`. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 1/2 - Garantias contractuales |
+| Fuente exacta | PR #175 `Guard partial guarantee acceptance`, merge `bfa360d`, desde reglas de garantias parciales en Cobranza del PRD canonico |
+| Brecha activa | Cerrada localmente: una garantia recibida parcialmente queda visible como incompleta hasta regularizarse o aceptarse formalmente con referencia trazable no sensible. |
+| Motivo de prioridad | Evita que reanudaciones intenten cerrar de nuevo el PR #175 o reabrir el worktree ya eliminado. |
+| Worktree | Ninguno activo para este paquete; usar solo `D:/Proyectos/LeaseManager` hasta abrir el siguiente `codex/...`. |
+| Rama | `main` sincronizada; no hay rama `codex/guarantee-partial-acceptance` activa. |
+| Estado | PR #175 integrado en `main`, CI acceptance verde, worktree/rama tactica eliminados. |
+| Gate esperado | No hay gate pendiente para este paquete; el siguiente frente debe seleccionarse desde `main` limpio con una brecha local segura y validacion proporcional. |
 | Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 1/2 sin fuente `snapshot_controlado` o `real_autorizado`. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Cerrar el PR de `codex/guarantee-partial-acceptance`; despues de merge y limpieza, seleccionar desde `main` el siguiente paquete local seguro por orden de arquitectura y trazabilidad. |
+| Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete local seguro por orden de arquitectura y trazabilidad, abrir nuevo worktree `codex/...` y avanzar sin reabrir metatareas cerradas. |
 
 ## Actualizacion
 
