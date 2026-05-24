@@ -111,6 +111,7 @@ def _collect_financial_report_issues(events, asientos) -> dict[str, int]:
     invalid_asientos = 0
     unbalanced_asientos = 0
     posted_without_hash = 0
+    posted_with_stale_hash = 0
     asientos_without_movements = 0
     for asiento in asientos:
         if asiento.estado != EstadoAsientoContable.POSTED:
@@ -119,6 +120,12 @@ def _collect_financial_report_issues(events, asientos) -> dict[str, int]:
             unbalanced_asientos += 1
         if asiento.estado == EstadoAsientoContable.POSTED and not has_text(asiento.hash_integridad):
             posted_without_hash += 1
+        if (
+            asiento.estado == EstadoAsientoContable.POSTED
+            and has_text(asiento.hash_integridad)
+            and not asiento.hash_integridad_matches()
+        ):
+            posted_with_stale_hash += 1
         if not asiento.movimientos.exists():
             asientos_without_movements += 1
 
@@ -128,6 +135,8 @@ def _collect_financial_report_issues(events, asientos) -> dict[str, int]:
         counts['asiento_unbalanced'] = unbalanced_asientos
     if posted_without_hash:
         counts['asiento_hash_missing'] = posted_without_hash
+    if posted_with_stale_hash:
+        counts['asiento_hash_mismatch'] = posted_with_stale_hash
     if asientos_without_movements:
         counts['asiento_movements_missing'] = asientos_without_movements
 
@@ -400,6 +409,11 @@ def collect_stage7_reporting_readiness(
             'asiento_hash_missing',
             'stage7.reporting.accounting_entry_hash_missing',
             'Existen asientos posteados sin hash de integridad.',
+        ),
+        (
+            'asiento_hash_mismatch',
+            'stage7.reporting.accounting_entry_hash_mismatch',
+            'Existen asientos posteados con hash de integridad desactualizado.',
         ),
         (
             'asiento_movements_missing',

@@ -361,6 +361,19 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertIn('stage7.reporting.accounting_entry_movements_missing', issue_codes)
         self.assertEqual(empresa.estado, 'activa')
 
+    def test_accounting_entry_with_stale_hash_is_blocking(self):
+        self._create_valid_local_matrix()
+        asiento = AsientoContable.objects.get()
+        asiento.fecha_contable = date(2026, 1, 11)
+        asiento.save(update_fields=['fecha_contable', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_reporting'])
+        self.assertIn('stage7.reporting.accounting_entry_hash_mismatch', issue_codes)
+        self.assertEqual(result['sections']['financial_monthly']['asiento_hash_mismatch'], 1)
+
     def test_book_snapshot_gaps_are_blocking(self):
         empresa = self._create_valid_local_matrix()
         LibroMayor.objects.all().delete()

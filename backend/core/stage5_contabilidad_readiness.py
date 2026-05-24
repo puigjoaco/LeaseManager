@@ -25,6 +25,7 @@ from contabilidad.models import (
     ObligacionTributariaMensual,
     PoliticaReversoContable,
     ReglaContable,
+    has_text,
 )
 from contabilidad.services import (
     MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
@@ -160,7 +161,18 @@ def collect_stage5_contabilidad_readiness(
     asientos = list(asientos_qs)
     unbalanced_asientos = sum(1 for asiento in asientos if asiento.debe_total != asiento.haber_total)
     asiento_period_mismatches = sum(1 for asiento in asientos if not asiento_period_matches_accounting_date(asiento))
-    posted_asientos_without_hash = asientos_qs.filter(estado=EstadoAsientoContable.POSTED, hash_integridad='').count()
+    posted_asientos_without_hash = sum(
+        1
+        for asiento in asientos
+        if asiento.estado == EstadoAsientoContable.POSTED and not has_text(asiento.hash_integridad)
+    )
+    posted_asientos_with_stale_hash = sum(
+        1
+        for asiento in asientos
+        if asiento.estado == EstadoAsientoContable.POSTED
+        and has_text(asiento.hash_integridad)
+        and not asiento.hash_integridad_matches()
+    )
     asientos_without_movements = sum(1 for asiento in asientos if not asiento.movimientos.exists())
     movement_totals_mismatch = 0
     movement_company_mismatch = 0
@@ -360,6 +372,14 @@ def collect_stage5_contabilidad_readiness(
                 count=posted_asientos_without_hash,
             )
         )
+    if posted_asientos_with_stale_hash:
+        issues.append(
+            _issue(
+                'stage5.asiento_hash_mismatch',
+                'Existen asientos contabilizados con hash de integridad desactualizado.',
+                count=posted_asientos_with_stale_hash,
+            )
+        )
     if asientos_without_movements:
         issues.append(
             _issue(
@@ -541,6 +561,7 @@ def collect_stage5_contabilidad_readiness(
                 'unbalanced_asientos': unbalanced_asientos,
                 'asiento_period_mismatches': asiento_period_mismatches,
                 'posted_asientos_without_hash': posted_asientos_without_hash,
+                'posted_asientos_with_stale_hash': posted_asientos_with_stale_hash,
                 'asientos_without_movements': asientos_without_movements,
                 'movement_company_mismatch': movement_company_mismatch,
                 'movement_totals_mismatch': movement_totals_mismatch,

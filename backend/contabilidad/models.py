@@ -296,12 +296,23 @@ class AsientoContable(TimestampedModel):
             expected_period = str(self.fecha_contable)[:7]
             if self.periodo_contable != expected_period:
                 errors['periodo_contable'] = 'periodo_contable debe coincidir con fecha_contable.'
+        if self.estado == EstadoAsientoContable.POSTED:
+            if not has_text(self.hash_integridad):
+                errors['hash_integridad'] = 'El asiento contabilizado requiere hash de integridad.'
+            elif not self.hash_integridad_matches():
+                errors['hash_integridad'] = 'hash_integridad no corresponde al contenido actual del asiento.'
         if errors:
             raise ValidationError(errors)
 
-    def set_hash_integridad(self):
+    def expected_hash_integridad(self):
         base = f'{self.evento_contable_id}|{self.fecha_contable}|{self.debe_total}|{self.haber_total}|{self.moneda_funcional}'
-        self.hash_integridad = hashlib.sha256(base.encode('utf-8')).hexdigest()
+        return hashlib.sha256(base.encode('utf-8')).hexdigest()
+
+    def hash_integridad_matches(self):
+        return has_text(self.hash_integridad) and self.hash_integridad == self.expected_hash_integridad()
+
+    def set_hash_integridad(self):
+        self.hash_integridad = self.expected_hash_integridad()
 
 
 class MovimientoAsiento(TimestampedModel):
