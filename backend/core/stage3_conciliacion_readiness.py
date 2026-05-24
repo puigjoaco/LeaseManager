@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from audit.models import ManualResolution
 from conciliacion.models import (
+    CategoriaMovimiento,
     ConexionBancaria,
     EstadoConciliacionMovimiento,
     EstadoConexionBancaria,
@@ -36,6 +37,14 @@ MOVEMENT_REFERENCE_FIELDS = ('evidencia_importacion_ref', 'transaction_id_banco'
 STAGE3_MANUAL_RESOLUTION_CATEGORIES = (
     'conciliacion.ingreso_desconocido',
     'conciliacion.movimiento_cargo',
+)
+CHARGE_MANUAL_CLASSIFICATION_REQUIRED_METADATA_FIELDS = (
+    'categoria_movimiento',
+    'entidad_afectada_tipo',
+    'entidad_afectada_id',
+    'periodo_economico',
+    'criterio_reparto',
+    'evidencia_clasificacion_ref',
 )
 
 
@@ -172,6 +181,23 @@ def _collect_manual_resolution_issues(resolutions) -> dict[str, int]:
     for resolution in resolutions:
         if resolution.status == ManualResolution.Status.RESOLVED and not has_text(resolution.rationale):
             counts['resolved_without_rationale'] += 1
+        if (
+            resolution.status == ManualResolution.Status.RESOLVED
+            and resolution.category == 'conciliacion.movimiento_cargo'
+        ):
+            metadata = resolution.metadata if isinstance(resolution.metadata, dict) else {}
+            missing_context = any(
+                not has_text(metadata.get(field_name))
+                for field_name in CHARGE_MANUAL_CLASSIFICATION_REQUIRED_METADATA_FIELDS
+            )
+            if metadata.get('categoria_movimiento') != CategoriaMovimiento.BANK_COMMISSION:
+                missing_context = True
+            if metadata.get('entidad_afectada_tipo') != 'empresa':
+                missing_context = True
+            if missing_context:
+                counts['charge_classification_context_missing'] += 1
+            elif not _non_sensitive_reference(metadata.get('evidencia_clasificacion_ref')):
+                counts['charge_classification_evidence_sensitive'] += 1
     return dict(sorted(counts.items()))
 
 
@@ -414,6 +440,22 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.manual_resolution.rationale_missing',
                 'Existen resoluciones manuales de conciliacion cerradas sin motivo auditable.',
                 count=manual_resolution_issues['resolved_without_rationale'],
+            )
+        )
+    if manual_resolution_issues.get('charge_classification_context_missing'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.charge_classification_context_missing',
+                'Existen cargos bancarios resueltos manualmente sin categoria, entidad, periodo, criterio o evidencia trazable.',
+                count=manual_resolution_issues['charge_classification_context_missing'],
+            )
+        )
+    if manual_resolution_issues.get('charge_classification_evidence_sensitive'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.charge_classification_evidence_sensitive',
+                'Existen cargos bancarios resueltos con evidencia de clasificacion sensible.',
+                count=manual_resolution_issues['charge_classification_evidence_sensitive'],
             )
         )
 

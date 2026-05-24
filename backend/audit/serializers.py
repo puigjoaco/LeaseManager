@@ -1,7 +1,8 @@
 from rest_framework import serializers
 
 from cobranza.models import PagoMensual
-from core.reference_validation import redact_sensitive_payload
+from conciliacion.models import CategoriaMovimiento
+from core.reference_validation import is_non_sensitive_reference, redact_sensitive_payload
 from core.scope_access import scope_queryset_for_user
 from patrimonio.models import Empresa, ModoRepresentacionComunidad, Socio
 from patrimonio.validators import validate_rut
@@ -152,6 +153,52 @@ class ResolveUnknownIncomeSerializer(serializers.Serializer):
 
 
 class ResolveChargeMovementSerializer(serializers.Serializer):
+    categoria_movimiento = serializers.ChoiceField(
+        choices=((CategoriaMovimiento.BANK_COMMISSION, 'Comision bancaria'),),
+        error_messages={
+            'required': 'La clasificacion manual requiere CategoriaMovimiento.',
+            'invalid_choice': 'La categoria de movimiento indicada aun no tiene flujo de cierre seguro.',
+        },
+    )
+    entidad_afectada_tipo = serializers.ChoiceField(
+        choices=(('empresa', 'Empresa'),),
+        error_messages={
+            'required': 'La clasificacion manual requiere entidad afectada.',
+            'invalid_choice': 'La entidad afectada indicada no es soportada para este cierre.',
+        },
+    )
+    entidad_afectada_id = serializers.IntegerField(
+        min_value=1,
+        error_messages={'required': 'La clasificacion manual requiere entidad afectada.'},
+    )
+    periodo_economico = serializers.RegexField(
+        regex=r'^\d{4}-(0[1-9]|1[0-2])$',
+        required=True,
+        error_messages={
+            'required': 'La clasificacion manual requiere periodo economico.',
+            'invalid': 'periodo_economico debe usar formato YYYY-MM.',
+        },
+    )
+    criterio_reparto = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=255,
+        error_messages={
+            'required': 'La clasificacion manual requiere criterio de reparto.',
+            'blank': 'La clasificacion manual requiere criterio de reparto.',
+        },
+    )
+    evidencia_clasificacion_ref = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=255,
+        error_messages={
+            'required': 'La clasificacion manual requiere evidencia no sensible.',
+            'blank': 'La clasificacion manual requiere evidencia no sensible.',
+        },
+    )
     rationale = serializers.CharField(
         required=True,
         allow_blank=False,
@@ -161,3 +208,10 @@ class ResolveChargeMovementSerializer(serializers.Serializer):
             'blank': 'La resolucion manual requiere un motivo auditable.',
         },
     )
+
+    def validate_evidencia_clasificacion_ref(self, value):
+        if not is_non_sensitive_reference(value):
+            raise serializers.ValidationError(
+                'evidencia_clasificacion_ref debe ser una referencia no sensible, no una URL, token o credencial.'
+            )
+        return value

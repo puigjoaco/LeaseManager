@@ -186,6 +186,18 @@ class Stage3ConciliacionReadinessTests(TestCase):
             pago_mensual=payment,
         )
 
+    def _create_reconciled_charge_movement(self, conexion):
+        return MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 9),
+            tipo_movimiento=TipoMovimientoBancario.DEBIT,
+            monto=Decimal('10000.00'),
+            descripcion_origen='Cargo bancario clasificado Stage3',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3-charge',
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+        )
+
     def test_empty_database_reports_partial_without_sensitive_values(self):
         result = collect_stage3_conciliacion_readiness()
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -408,6 +420,57 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.manual_resolution.rationale_missing', issue_codes)
         self.assertEqual(result['sections']['manual_resolutions']['resolved_without_rationale'], 1)
+
+    def test_resolved_charge_manual_resolution_without_classification_context_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-CHARGE-CONTEXT')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        charge = self._create_reconciled_charge_movement(conexion)
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(charge.pk),
+            summary='Cargo historico sin contexto',
+            rationale='Clasificado historicamente.',
+            metadata={'resolved_with': 'charge_manual_classification'},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.charge_classification_context_missing', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['charge_classification_context_missing'], 1)
+
+    def test_resolved_charge_manual_resolution_with_sensitive_evidence_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-CHARGE-SENSITIVE')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        charge = self._create_reconciled_charge_movement(conexion)
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(charge.pk),
+            summary='Cargo con evidencia sensible',
+            rationale='Clasificado con evidencia heredada.',
+            metadata={
+                'categoria_movimiento': 'comision_bancaria',
+                'entidad_afectada_tipo': 'empresa',
+                'entidad_afectada_id': cuenta.empresa_owner_id,
+                'periodo_economico': '2026-01',
+                'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
+                'evidencia_clasificacion_ref': 'https://bank.example.test/fee?token=secret',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.charge_classification_evidence_sensitive', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['charge_classification_evidence_sensitive'], 1)
 
     def test_sensitive_final_refs_do_not_close_readiness(self):
         cuenta, payment = self._create_payment_matrix()
