@@ -23,15 +23,15 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 - Bloqueo definitivo y rehabilitacion manual de WhatsApp. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 119-122 y `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`. |
-| Brecha activa | En implementacion: el booleano `Arrendatario.whatsapp_bloqueado` existia, pero faltaba traza formal de bloqueo definitivo con motivo/evidencia/fecha/evento/alerta administrativa y rehabilitacion manual sin borrar la traza. |
-| Motivo de prioridad | Cierra una regla local de PRD para Canales sin abrir WhatsApp, Email real, WebPay, secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-whatsapp-block-rehab`. |
-| Rama | `codex/stage2-whatsapp-block-rehab`. |
-| Estado | Codigo, tests focales y docs en progreso; pendiente suite impactada, gates, acceptance, PR/CI/merge y limpieza. |
-| Gate esperado | `scripts/run-stage2-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_stage2_cobranza=false`, sin usar proveedores externos. |
-| Estado al cerrar paquete | Esperado `implementado_sin_evidencia`; no cierra Etapa 2 sin fuente `snapshot_controlado` o `real_autorizado`, pruebas Email/WebPay y responsables no sensibles. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 2 - Bloqueo definitivo y rehabilitacion manual de WhatsApp. |
+| Fuente exacta | PR #191 `Trace WhatsApp contact block rehabilitation`, merge `612c1df`, desde `01_Set_Vigente/PRD_CANONICO.md` lineas 119-122 y `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`. |
+| Brecha activa | Cerrada localmente: `Arrendatario` conserva motivo/evidencia/fecha de bloqueo y referencia de rehabilitacion; API crea eventos y alerta administrativa; readiness Etapa 2 detecta bloqueos heredados sin traza/evento/alerta o con referencias sensibles. |
+| Motivo de prioridad | El paquete ya fue integrado sin abrir WhatsApp, Email real, WebPay, secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
+| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
+| Rama | `main` sincronizada; sin rama tactica activa. |
+| Estado | PR #191 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
+| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 2 sin fuente `snapshot_controlado` o `real_autorizado`, pruebas Email/WebPay y responsables no sensibles. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
 | Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
