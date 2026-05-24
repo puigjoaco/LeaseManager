@@ -319,6 +319,8 @@ class MovimientoBancarioImportado(TimestampedModel):
             return
 
         if target_count == 0:
+            if self._has_internal_transfer_pair():
+                return
             _append_error(
                 errors,
                 'pago_mensual',
@@ -393,6 +395,14 @@ class MovimientoBancarioImportado(TimestampedModel):
                 'codigo_cobro_residual',
                 'El codigo residual pagado debe quedar con saldo_actual cero.',
             )
+
+    def _has_internal_transfer_pair(self):
+        if not self.pk:
+            return False
+        return (
+            self.transferencias_intercuenta_origen.exists()
+            or self.transferencias_intercuenta_destino.exists()
+        )
 
     def clean(self):
         super().clean()
@@ -496,6 +506,155 @@ class CuadraturaBancaria(TimestampedModel):
 
     def save(self, *args, **kwargs):
         self.diferencia_clp = self._calculated_difference()
+        super().save(*args, **kwargs)
+
+
+def _movement_account(movement):
+    try:
+        return movement.conexion_bancaria.cuenta_recaudadora
+    except (ConexionBancaria.DoesNotExist, AttributeError):
+        return None
+
+
+def _movement_period(movement):
+    movement_date = _coerce_date(getattr(movement, 'fecha_movimiento', None))
+    if movement_date is None:
+        return ''
+    return f'{movement_date.year:04d}-{movement_date.month:02d}'
+
+
+class TransferenciaIntercuenta(TimestampedModel):
+    movimiento_origen = models.ForeignKey(
+        MovimientoBancarioImportado,
+        on_delete=models.PROTECT,
+        related_name='transferencias_intercuenta_origen',
+    )
+    movimiento_destino = models.ForeignKey(
+        MovimientoBancarioImportado,
+        on_delete=models.PROTECT,
+        related_name='transferencias_intercuenta_destino',
+    )
+    periodo_economico = models.CharField(max_length=7)
+    entidad_origen_tipo = models.CharField(max_length=16, blank=True)
+    entidad_origen_id = models.PositiveIntegerField(null=True, blank=True)
+    entidad_destino_tipo = models.CharField(max_length=16, blank=True)
+    entidad_destino_id = models.PositiveIntegerField(null=True, blank=True)
+    criterio_conciliacion = models.CharField(max_length=255)
+    evidencia_transferencia_ref = models.CharField(max_length=255)
+    responsable_ref = models.CharField(max_length=255)
+    rationale = models.TextField()
+
+    class Meta:
+        ordering = ['-periodo_economico', '-id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['movimiento_origen'],
+                name='uniq_transferencia_intercuenta_origen',
+            ),
+            models.UniqueConstraint(
+                fields=['movimiento_destino'],
+                name='uniq_transferencia_intercuenta_destino',
+            ),
+            models.UniqueConstraint(
+                fields=['movimiento_origen', 'movimiento_destino'],
+                name='uniq_transferencia_intercuenta_par_movimientos',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Transferencia intercuenta {self.movimiento_origen_id}->{self.movimiento_destino_id}'
+
+    def _populate_entity_snapshots(self):
+        origin_account = _movement_account(getattr(self, 'movimiento_origen', None))
+        destination_account = _movement_account(getattr(self, 'movimiento_destino', None))
+        if origin_account is not None:
+            self.entidad_origen_tipo = origin_account.owner_tipo or ''
+            self.entidad_origen_id = origin_account.owner_id
+        if destination_account is not None:
+            self.entidad_destino_tipo = destination_account.owner_tipo or ''
+            self.entidad_destino_id = destination_account.owner_id
+
+    def clean(self):
+        super().clean()
+        self._populate_entity_snapshots()
+        errors = {}
+
+        if not ECONOMIC_PERIOD_RE.fullmatch(str(self.periodo_economico or '').strip()):
+            errors['periodo_economico'] = 'periodo_economico debe usar formato YYYY-MM.'
+        if not has_text(self.criterio_conciliacion):
+            errors['criterio_conciliacion'] = 'La transferencia interna requiere criterio de conciliacion.'
+        if not is_non_sensitive_reference(self.evidencia_transferencia_ref):
+            errors['evidencia_transferencia_ref'] = (
+                'evidencia_transferencia_ref debe ser una referencia no sensible.'
+            )
+        if not is_non_sensitive_reference(self.responsable_ref):
+            errors['responsable_ref'] = 'responsable_ref debe ser una referencia no sensible.'
+        if not has_text(self.rationale):
+            errors['rationale'] = 'La transferencia interna requiere motivo auditable.'
+
+        try:
+            origin = self.movimiento_origen
+        except MovimientoBancarioImportado.DoesNotExist:
+            origin = None
+        try:
+            destination = self.movimiento_destino
+        except MovimientoBancarioImportado.DoesNotExist:
+            destination = None
+
+        if origin is None or destination is None:
+            if origin is None:
+                errors['movimiento_origen'] = 'La transferencia requiere movimiento origen.'
+            if destination is None:
+                errors['movimiento_destino'] = 'La transferencia requiere movimiento destino.'
+            if errors:
+                raise ValidationError(errors)
+
+        if origin.pk and destination.pk and origin.pk == destination.pk:
+            errors['movimiento_destino'] = 'La transferencia requiere movimientos distintos.'
+
+        if origin.tipo_movimiento != TipoMovimientoBancario.DEBIT:
+            errors['movimiento_origen'] = 'El movimiento origen de transferencia debe ser cargo.'
+        if destination.tipo_movimiento != TipoMovimientoBancario.CREDIT:
+            errors['movimiento_destino'] = 'El movimiento destino de transferencia debe ser abono.'
+
+        origin_account = _movement_account(origin)
+        destination_account = _movement_account(destination)
+        if origin_account is not None and destination_account is not None:
+            if origin_account.pk == destination_account.pk:
+                errors['movimiento_destino'] = 'La transferencia interna requiere cuentas recaudadoras distintas.'
+
+        if Decimal(str(origin.monto)) != Decimal(str(destination.monto)):
+            errors['movimiento_destino'] = 'El cargo y el abono de transferencia deben tener el mismo monto.'
+
+        if _movement_period(origin) != self.periodo_economico:
+            errors['periodo_economico'] = 'El periodo economico debe coincidir con el mes del movimiento origen.'
+        if _movement_period(destination) != self.periodo_economico:
+            errors['movimiento_destino'] = 'El movimiento destino debe pertenecer al mismo periodo economico.'
+
+        if origin.pago_mensual_id or origin.codigo_cobro_residual_id:
+            errors['movimiento_origen'] = 'El movimiento origen de transferencia no puede tener target de cobro.'
+        if destination.pago_mensual_id or destination.codigo_cobro_residual_id:
+            errors['movimiento_destino'] = 'El movimiento destino de transferencia no puede tener target de cobro.'
+
+        allowed_origin_states = {
+            EstadoConciliacionMovimiento.MANUAL_REQUIRED,
+            EstadoConciliacionMovimiento.EXACT_MATCH,
+        }
+        allowed_destination_states = {
+            EstadoConciliacionMovimiento.PENDING,
+            EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+            EstadoConciliacionMovimiento.EXACT_MATCH,
+        }
+        if origin.estado_conciliacion not in allowed_origin_states:
+            errors['movimiento_origen'] = 'El cargo origen debe estar pendiente de clasificacion o ya conciliado.'
+        if destination.estado_conciliacion not in allowed_destination_states:
+            errors['movimiento_destino'] = 'El abono destino debe estar pendiente, desconocido o conciliado por transferencia.'
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self._populate_entity_snapshots()
         super().save(*args, **kwargs)
 
 

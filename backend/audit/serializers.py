@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from cobranza.models import PagoMensual
-from conciliacion.models import CategoriaMovimiento
+from conciliacion.models import CategoriaMovimiento, MovimientoBancarioImportado
 from core.reference_validation import is_non_sensitive_reference, redact_sensitive_payload
 from core.scope_access import scope_queryset_for_user
 from patrimonio.models import Empresa, ModoRepresentacionComunidad, Socio
@@ -249,4 +249,87 @@ class ResolveChargeMovementSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 'evidencia_clasificacion_ref debe ser una referencia no sensible, no una URL, token o credencial.'
             )
+        return value
+
+
+class ResolveInternalTransferSerializer(serializers.Serializer):
+    movimiento_destino_id = serializers.IntegerField(
+        min_value=1,
+        error_messages={'required': 'La transferencia interna requiere movimiento destino.'},
+    )
+    periodo_economico = serializers.RegexField(
+        regex=r'^\d{4}-(0[1-9]|1[0-2])$',
+        required=True,
+        error_messages={
+            'required': 'La transferencia interna requiere periodo economico.',
+            'invalid': 'periodo_economico debe usar formato YYYY-MM.',
+        },
+    )
+    criterio_conciliacion = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=255,
+        error_messages={
+            'required': 'La transferencia interna requiere criterio de conciliacion.',
+            'blank': 'La transferencia interna requiere criterio de conciliacion.',
+        },
+    )
+    evidencia_transferencia_ref = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=255,
+        error_messages={
+            'required': 'La transferencia interna requiere evidencia no sensible.',
+            'blank': 'La transferencia interna requiere evidencia no sensible.',
+        },
+    )
+    responsable_ref = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=255,
+        error_messages={
+            'required': 'La transferencia interna requiere responsable_ref no sensible.',
+            'blank': 'La transferencia interna requiere responsable_ref no sensible.',
+        },
+    )
+    rationale = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        error_messages={
+            'required': 'La resolucion manual requiere un motivo auditable.',
+            'blank': 'La resolucion manual requiere un motivo auditable.',
+        },
+    )
+
+    def validate_movimiento_destino_id(self, value):
+        user = self.context['request'].user
+        try:
+            movement = MovimientoBancarioImportado.objects.select_related('conexion_bancaria').get(pk=value)
+        except MovimientoBancarioImportado.DoesNotExist as error:
+            raise serializers.ValidationError('El movimiento destino indicado no existe.') from error
+
+        if not scope_queryset_for_user(
+            MovimientoBancarioImportado.objects.filter(pk=value),
+            user,
+            bank_account_paths=('conexion_bancaria__cuenta_recaudadora_id',),
+        ).exists():
+            raise serializers.ValidationError('El movimiento destino queda fuera del scope asignado.')
+
+        self.context['movimiento_destino'] = movement
+        return value
+
+    def validate_evidencia_transferencia_ref(self, value):
+        if not is_non_sensitive_reference(value):
+            raise serializers.ValidationError(
+                'evidencia_transferencia_ref debe ser una referencia no sensible, no una URL, token o credencial.'
+            )
+        return value
+
+    def validate_responsable_ref(self, value):
+        if not is_non_sensitive_reference(value):
+            raise serializers.ValidationError('responsable_ref debe ser una referencia no sensible.')
         return value

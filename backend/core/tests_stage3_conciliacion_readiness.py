@@ -35,6 +35,7 @@ from conciliacion.models import (
     MovimientoBancarioImportado,
     OrigenImportacionMovimiento,
     TipoMovimientoBancario,
+    TransferenciaIntercuenta,
 )
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
@@ -164,6 +165,18 @@ class Stage3ConciliacionReadinessTests(TestCase):
             primaria_saldos=True,
         )
 
+    def _create_secondary_account(self, cuenta, suffix='DST'):
+        return CuentaRecaudadora.objects.create(
+            empresa_owner=cuenta.empresa_owner,
+            institucion='Banco Stage3',
+            numero_cuenta=f'ACC-{suffix}',
+            tipo_cuenta='corriente',
+            titular_nombre=cuenta.empresa_owner.razon_social,
+            titular_rut=cuenta.empresa_owner.rut,
+            moneda_operativa='CLP',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
     def _collect_with_final_refs(self):
         return collect_stage3_conciliacion_readiness(
             stage2_evidence_ref='stage2-readiness-controlled-v1',
@@ -215,6 +228,41 @@ class Stage3ConciliacionReadinessTests(TestCase):
             responsable_ref='stage3-balance-owner',
         )
 
+    def _create_internal_transfer_pair(self, cuenta_origen, conexion_origen, suffix='OK'):
+        cuenta_destino = self._create_secondary_account(cuenta_origen, suffix=suffix)
+        conexion_destino = self._create_ready_connection(cuenta_destino)
+        movimiento_origen = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion_origen,
+            fecha_movimiento=date(2026, 1, 10),
+            tipo_movimiento=TipoMovimientoBancario.DEBIT,
+            monto=Decimal('50000.00'),
+            descripcion_origen='Transferencia interna enviada',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-transfer-origin',
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+        )
+        movimiento_destino = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion_destino,
+            fecha_movimiento=date(2026, 1, 10),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=Decimal('50000.00'),
+            descripcion_origen='Transferencia interna recibida',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-transfer-destination',
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+        )
+        transfer = TransferenciaIntercuenta.objects.create(
+            movimiento_origen=movimiento_origen,
+            movimiento_destino=movimiento_destino,
+            periodo_economico='2026-01',
+            criterio_conciliacion='Par cargo/abono exacto entre cuentas recaudadoras.',
+            evidencia_transferencia_ref='internal-transfer-controlled-2026-01',
+            responsable_ref='stage3-transfer-owner',
+            rationale='Transferencia interna validada por cartola controlada.',
+        )
+        self._create_square_balance(cuenta_destino)
+        return transfer, movimiento_origen, movimiento_destino
+
     def test_empty_database_reports_partial_without_sensitive_values(self):
         result = collect_stage3_conciliacion_readiness()
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -241,6 +289,110 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertTrue(result['ready_for_stage3_conciliacion'])
         self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_internal_transfer_pair_can_pass_readiness(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        self._create_square_balance(cuenta)
+        transfer, movimiento_origen, movimiento_destino = self._create_internal_transfer_pair(cuenta, conexion)
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento_origen.pk),
+            summary='Transferencia interna registrada',
+            rationale='Transferencia interna validada por cartola controlada.',
+            metadata={
+                'categoria_movimiento': 'transferencia_interna',
+                'resolved_with': 'internal_transfer',
+                'transferencia_intercuenta_id': transfer.pk,
+                'movimiento_origen_id': movimiento_origen.pk,
+                'movimiento_destino_id': movimiento_destino.pk,
+                'entidad_origen_tipo': transfer.entidad_origen_tipo,
+                'entidad_origen_id': transfer.entidad_origen_id,
+                'entidad_destino_tipo': transfer.entidad_destino_tipo,
+                'entidad_destino_id': transfer.entidad_destino_id,
+                'periodo_economico': '2026-01',
+                'criterio_conciliacion': 'Par cargo/abono exacto entre cuentas recaudadoras.',
+                'evidencia_transferencia_ref': 'internal-transfer-controlled-2026-01',
+                'responsable_ref': 'stage3-transfer-owner',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertTrue(result['ready_for_stage3_conciliacion'])
+        self.assertEqual(result['sections']['internal_transfers']['total'], 1)
+        self.assertEqual(result['issues'], [])
+
+    def test_internal_transfer_sensitive_reference_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER-SENSITIVE')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        self._create_square_balance(cuenta)
+        transfer, movimiento_origen, movimiento_destino = self._create_internal_transfer_pair(
+            cuenta,
+            conexion,
+            suffix='SENSITIVE',
+        )
+        TransferenciaIntercuenta.objects.filter(pk=transfer.pk).update(
+            evidencia_transferencia_ref='https://bank.example.test/transfer?token=secret'
+        )
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento_origen.pk),
+            summary='Transferencia interna con evidencia sensible',
+            rationale='Transferencia interna registrada con metadata heredada.',
+            metadata={
+                'categoria_movimiento': 'transferencia_interna',
+                'resolved_with': 'internal_transfer',
+                'transferencia_intercuenta_id': transfer.pk,
+                'movimiento_origen_id': movimiento_origen.pk,
+                'movimiento_destino_id': movimiento_destino.pk,
+                'entidad_origen_tipo': transfer.entidad_origen_tipo,
+                'entidad_origen_id': transfer.entidad_origen_id,
+                'entidad_destino_tipo': transfer.entidad_destino_tipo,
+                'entidad_destino_id': transfer.entidad_destino_id,
+                'periodo_economico': '2026-01',
+                'criterio_conciliacion': 'Par cargo/abono exacto entre cuentas recaudadoras.',
+                'evidencia_transferencia_ref': 'https://bank.example.test/transfer?token=secret',
+                'responsable_ref': 'stage3-transfer-owner',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.internal_transfer.sensitive_reference', issue_codes)
+        self.assertIn('stage3.manual_resolution.internal_transfer_evidence_sensitive', issue_codes)
+        self.assertEqual(result['sections']['internal_transfers']['sensitive_reference'], 1)
+
+    def test_resolved_internal_transfer_without_context_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER-CONTEXT')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_charge_movement(conexion)
+        self._create_reconciled_movement(conexion, payment)
+        self._create_square_balance(cuenta)
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Transferencia interna sin contexto',
+            rationale='Clasificada historicamente.',
+            metadata={'categoria_movimiento': 'transferencia_interna'},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.internal_transfer_context_missing', issue_codes)
 
     def test_superseded_manual_resolution_with_trace_can_pass_readiness(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-SUPERSEDED-OK')

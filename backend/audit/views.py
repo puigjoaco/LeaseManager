@@ -21,12 +21,17 @@ from .scope_filters import scope_manual_resolution_queryset
 from .serializers import (
     AuditEventSerializer,
     ResolveChargeMovementSerializer,
+    ResolveInternalTransferSerializer,
     ManualResolutionSerializer,
     ResolveMigrationPropertyOwnerSerializer,
     ResolveUnknownIncomeSerializer,
 )
 from .services import resolve_migration_property_owner_manual_resolution
-from conciliacion.services import resolve_charge_movement_manual_resolution, resolve_unknown_income_manual_resolution
+from conciliacion.services import (
+    resolve_charge_movement_manual_resolution,
+    resolve_internal_transfer_manual_resolution,
+    resolve_unknown_income_manual_resolution,
+)
 
 
 def _scoped_manual_resolution_queryset(queryset, user):
@@ -265,6 +270,43 @@ class ResolveChargeMovementView(APIView):
                 'movimiento_bancario_id': result['movimiento'].pk,
                 'evento_contable_id': result['event'].pk,
                 'empresa_id': result['empresa'].pk,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ResolveInternalTransferView(APIView):
+    permission_classes = [AuditResolutionPermission]
+
+    def post(self, request, pk):
+        resolution = generics.get_object_or_404(_manual_resolution_queryset_for_user(request.user), pk=pk)
+        serializer = ResolveInternalTransferSerializer(
+            data=request.data,
+            context={'request': request, 'resolution': resolution},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            result = resolve_internal_transfer_manual_resolution(
+                resolution=resolution,
+                movimiento_destino=serializer.context['movimiento_destino'],
+                periodo_economico=serializer.validated_data['periodo_economico'],
+                criterio_conciliacion=serializer.validated_data['criterio_conciliacion'],
+                evidencia_transferencia_ref=serializer.validated_data['evidencia_transferencia_ref'],
+                responsable_ref=serializer.validated_data['responsable_ref'],
+                rationale=serializer.validated_data.get('rationale', ''),
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                'resolution_id': str(result['resolution'].pk),
+                'transferencia_intercuenta_id': result['transferencia'].pk,
+                'movimiento_origen_id': result['movimiento_origen'].pk,
+                'movimiento_destino_id': result['movimiento_destino'].pk,
             },
             status=status.HTTP_200_OK,
         )

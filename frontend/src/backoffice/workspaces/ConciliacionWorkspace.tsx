@@ -9,6 +9,7 @@ type ConexionBancariaItem = { id: number; cuenta_recaudadora: number; provider_k
 type MovimientoBancarioItem = { id: number; fecha_movimiento: string; tipo_movimiento: string; monto: string; descripcion_origen: string; referencia: string; origen_importacion: string; evidencia_importacion_ref: string; estado_conciliacion: string }
 type IngresoDesconocidoItem = { id: number; cuenta_recaudadora: number; fecha_movimiento: string; monto: string; descripcion_origen: string; estado: string; sugerencia_asistida: { payment_candidate_ids?: number[] } }
 type CuadraturaBancariaItem = { id: number; cuenta_recaudadora: number; periodo_economico: string; fecha_cuadratura: string; saldo_sistema_clp: string; saldo_banco_clp: string; diferencia_clp: string; estado: string; evidencia_cuadratura_ref: string; responsable_ref: string; rationale: string }
+type TransferenciaIntercuentaItem = { id: number; movimiento_origen: number; movimiento_destino: number; periodo_economico: string; entidad_origen_tipo: string; entidad_origen_id: number | null; entidad_destino_tipo: string; entidad_destino_id: number | null; criterio_conciliacion: string; evidencia_transferencia_ref: string; responsable_ref: string; rationale: string }
 
 type ConexionDraft = {
   cuenta_recaudadora: string
@@ -68,6 +69,7 @@ export function ConciliacionWorkspace({
   filteredMovimientos,
   filteredIngresos,
   filteredCuadraturas,
+  filteredTransferencias,
   cuentas,
   conexionesBancarias,
   cuentaById,
@@ -90,6 +92,7 @@ export function ConciliacionWorkspace({
   filteredMovimientos: MovimientoBancarioItem[]
   filteredIngresos: IngresoDesconocidoItem[]
   filteredCuadraturas: CuadraturaBancariaItem[]
+  filteredTransferencias: TransferenciaIntercuentaItem[]
   cuentas: CuentaItem[]
   conexionesBancarias: ConexionBancariaItem[]
   cuentaById: ReadonlyMap<number, CuentaItem>
@@ -210,6 +213,14 @@ export function ConciliacionWorkspace({
         { label: 'Diferencia', render: (row) => row.diferencia_clp },
         { label: 'Evidencia', render: (row) => row.evidencia_cuadratura_ref || 'Sin evidencia' },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+      ]} />
+      <TableBlock title="Transferencias intercuenta" subtitle="Par cargo/abono trazado entre cuentas recaudadoras." rows={filteredTransferencias} empty="No hay transferencias intercuenta para este filtro." isLoading={isLoading} loadingLabel="Cargando conciliación..." columns={[
+        { label: 'Periodo', render: (row) => row.periodo_economico },
+        { label: 'Origen', render: (row) => `${row.movimiento_origen} · ${row.entidad_origen_tipo}${row.entidad_origen_id ? ` ${row.entidad_origen_id}` : ''}` },
+        { label: 'Destino', render: (row) => `${row.movimiento_destino} · ${row.entidad_destino_tipo}${row.entidad_destino_id ? ` ${row.entidad_destino_id}` : ''}` },
+        { label: 'Criterio', render: (row) => row.criterio_conciliacion },
+        { label: 'Evidencia', render: (row) => row.evidencia_transferencia_ref || 'Sin evidencia' },
+        { label: 'Responsable', render: (row) => row.responsable_ref || 'Sin responsable' },
       ]} />
       <TableBlock title="Ingresos desconocidos" subtitle="Abonos sin match exacto que requieren revisión." rows={filteredIngresos} empty="No hay ingresos desconocidos para este filtro." isLoading={isLoading} loadingLabel="Cargando conciliación..." columns={[
         { label: 'Fecha', render: (row) => row.fecha_movimiento },

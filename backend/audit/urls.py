@@ -6,6 +6,7 @@ from .views import (
     ManualResolutionDetailView,
     ManualResolutionListCreateView,
     ResolveChargeMovementView,
+    ResolveInternalTransferView,
     ResolveMigrationPropertyOwnerView,
     ResolveUnknownIncomeView,
 )
@@ -28,6 +29,11 @@ urlpatterns = [
         'manual-resolutions/<uuid:pk>/resolve-charge-movement/',
         ResolveChargeMovementView.as_view(),
         name='manual-resolution-resolve-charge-movement',
+    ),
+    path(
+        'manual-resolutions/<uuid:pk>/resolve-internal-transfer/',
+        ResolveInternalTransferView.as_view(),
+        name='manual-resolution-resolve-internal-transfer',
     ),
     path(
         'manual-resolutions/<uuid:pk>/',

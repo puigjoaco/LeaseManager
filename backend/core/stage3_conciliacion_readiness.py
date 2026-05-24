@@ -23,6 +23,7 @@ from conciliacion.models import (
     MovimientoBancarioImportado,
     OrigenImportacionMovimiento,
     TipoMovimientoBancario,
+    TransferenciaIntercuenta,
     bank_provider_sync_blocking_reason,
     has_text,
 )
@@ -39,6 +40,7 @@ CONNECTION_REFERENCE_FIELDS = (
 )
 MOVEMENT_REFERENCE_FIELDS = ('evidencia_importacion_ref', 'transaction_id_banco')
 BALANCE_SQUARE_REFERENCE_FIELDS = ('evidencia_cuadratura_ref', 'responsable_ref')
+TRANSFER_REFERENCE_FIELDS = ('evidencia_transferencia_ref', 'responsable_ref')
 STAGE3_MANUAL_RESOLUTION_CATEGORIES = (
     'conciliacion.ingreso_desconocido',
     'conciliacion.movimiento_cargo',
@@ -50,6 +52,19 @@ CHARGE_MANUAL_CLASSIFICATION_REQUIRED_METADATA_FIELDS = (
     'periodo_economico',
     'criterio_reparto',
     'evidencia_clasificacion_ref',
+)
+INTERNAL_TRANSFER_REQUIRED_METADATA_FIELDS = (
+    'transferencia_intercuenta_id',
+    'movimiento_origen_id',
+    'movimiento_destino_id',
+    'entidad_origen_tipo',
+    'entidad_origen_id',
+    'entidad_destino_tipo',
+    'entidad_destino_id',
+    'periodo_economico',
+    'criterio_conciliacion',
+    'evidencia_transferencia_ref',
+    'responsable_ref',
 )
 UNKNOWN_INCOME_MANUAL_RESOLUTION_REQUIRED_METADATA_FIELDS = (
     'resolved_payment_id',
@@ -153,6 +168,42 @@ def _charge_classification_target_matches(resolution: ManualResolution, metadata
     return True
 
 
+def _internal_transfer_target_matches(resolution: ManualResolution, metadata: dict[str, Any]) -> bool:
+    movement = _get_resolution_movement(resolution)
+    if movement is None:
+        return False
+    transfer_id = _metadata_int(metadata, 'transferencia_intercuenta_id')
+    if transfer_id is None:
+        return False
+    try:
+        transfer = TransferenciaIntercuenta.objects.select_related(
+            'movimiento_origen__conexion_bancaria__cuenta_recaudadora',
+            'movimiento_destino__conexion_bancaria__cuenta_recaudadora',
+        ).get(pk=transfer_id)
+    except TransferenciaIntercuenta.DoesNotExist:
+        return False
+
+    if transfer.movimiento_origen_id != movement.pk:
+        return False
+    if _metadata_int(metadata, 'movimiento_origen_id') != transfer.movimiento_origen_id:
+        return False
+    if _metadata_int(metadata, 'movimiento_destino_id') != transfer.movimiento_destino_id:
+        return False
+    if metadata.get('entidad_origen_tipo') != transfer.entidad_origen_tipo:
+        return False
+    if _metadata_int(metadata, 'entidad_origen_id') != transfer.entidad_origen_id:
+        return False
+    if metadata.get('entidad_destino_tipo') != transfer.entidad_destino_tipo:
+        return False
+    if _metadata_int(metadata, 'entidad_destino_id') != transfer.entidad_destino_id:
+        return False
+    try:
+        transfer.full_clean()
+    except ValidationError:
+        return False
+    return True
+
+
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
     return {
         'code': code,
@@ -200,9 +251,10 @@ def _balance_connection_ready(connection: ConexionBancaria) -> bool:
     return True
 
 
-def _collect_movement_issues(movements) -> dict[str, int]:
+def _collect_movement_issues(movements, *, internal_transfer_destination_ids=None) -> dict[str, int]:
     counts = Counter()
     transaction_keys = Counter()
+    internal_transfer_destination_ids = internal_transfer_destination_ids or set()
     for movement in movements:
         try:
             movement.full_clean()
@@ -230,12 +282,27 @@ def _collect_movement_issues(movements) -> dict[str, int]:
             and movement.estado_conciliacion == EstadoConciliacionMovimiento.EXACT_MATCH
             and not movement.pago_mensual_id
             and not movement.codigo_cobro_residual_id
+            and movement.pk not in internal_transfer_destination_ids
         ):
             counts['credit_exact_match_without_target'] += 1
 
     duplicate_transaction_rows = sum(count for count in transaction_keys.values() if count > 1)
     if duplicate_transaction_rows:
         counts['transaction_id_duplicate'] = duplicate_transaction_rows
+
+    return dict(sorted(counts.items()))
+
+
+def _collect_internal_transfer_issues(transfers) -> dict[str, int]:
+    counts = Counter()
+    for transfer in transfers:
+        try:
+            transfer.full_clean()
+        except ValidationError:
+            counts['invalid_model'] += 1
+
+        if _has_sensitive_reference(transfer, TRANSFER_REFERENCE_FIELDS):
+            counts['sensitive_reference'] += 1
 
     return dict(sorted(counts.items()))
 
@@ -339,23 +406,40 @@ def _collect_manual_resolution_issues(resolutions) -> dict[str, int]:
             and resolution.category == 'conciliacion.movimiento_cargo'
         ):
             metadata = resolution.metadata if isinstance(resolution.metadata, dict) else {}
-            missing_context = any(
-                not has_text(metadata.get(field_name))
-                for field_name in CHARGE_MANUAL_CLASSIFICATION_REQUIRED_METADATA_FIELDS
-            )
-            if metadata.get('categoria_movimiento') != CategoriaMovimiento.BANK_COMMISSION:
-                missing_context = True
-            if metadata.get('entidad_afectada_tipo') != 'empresa':
-                missing_context = True
-            if missing_context:
-                counts['charge_classification_context_missing'] += 1
+            if metadata.get('categoria_movimiento') == CategoriaMovimiento.BANK_COMMISSION:
+                missing_context = any(
+                    not has_text(metadata.get(field_name))
+                    for field_name in CHARGE_MANUAL_CLASSIFICATION_REQUIRED_METADATA_FIELDS
+                )
+                if metadata.get('entidad_afectada_tipo') != 'empresa':
+                    missing_context = True
+                if missing_context:
+                    counts['charge_classification_context_missing'] += 1
+                else:
+                    if not _valid_economic_period(metadata.get('periodo_economico')):
+                        counts['charge_classification_period_invalid'] += 1
+                    elif not _charge_classification_target_matches(resolution, metadata):
+                        counts['charge_classification_target_mismatch'] += 1
+                    if not _non_sensitive_reference(metadata.get('evidencia_clasificacion_ref')):
+                        counts['charge_classification_evidence_sensitive'] += 1
+            elif metadata.get('categoria_movimiento') == CategoriaMovimiento.INTERNAL_TRANSFER:
+                missing_context = any(
+                    not has_text(metadata.get(field_name))
+                    for field_name in INTERNAL_TRANSFER_REQUIRED_METADATA_FIELDS
+                )
+                if missing_context:
+                    counts['internal_transfer_context_missing'] += 1
+                else:
+                    if not _valid_economic_period(metadata.get('periodo_economico')):
+                        counts['internal_transfer_period_invalid'] += 1
+                    elif not _internal_transfer_target_matches(resolution, metadata):
+                        counts['internal_transfer_target_mismatch'] += 1
+                    if not _non_sensitive_reference(metadata.get('evidencia_transferencia_ref')):
+                        counts['internal_transfer_evidence_sensitive'] += 1
+                    if not _non_sensitive_reference(metadata.get('responsable_ref')):
+                        counts['internal_transfer_evidence_sensitive'] += 1
             else:
-                if not _valid_economic_period(metadata.get('periodo_economico')):
-                    counts['charge_classification_period_invalid'] += 1
-                elif not _charge_classification_target_matches(resolution, metadata):
-                    counts['charge_classification_target_mismatch'] += 1
-                if not _non_sensitive_reference(metadata.get('evidencia_clasificacion_ref')):
-                    counts['charge_classification_evidence_sensitive'] += 1
+                counts['charge_classification_context_missing'] += 1
     return dict(sorted(counts.items()))
 
 
@@ -395,7 +479,16 @@ def collect_stage3_conciliacion_readiness(
         'pago_mensual',
         'codigo_cobro_residual',
     ).all()
-    movement_issues = _collect_movement_issues(movements)
+    internal_transfers = TransferenciaIntercuenta.objects.select_related(
+        'movimiento_origen__conexion_bancaria__cuenta_recaudadora',
+        'movimiento_destino__conexion_bancaria__cuenta_recaudadora',
+    ).all()
+    internal_transfer_issues = _collect_internal_transfer_issues(internal_transfers)
+    internal_transfer_destination_ids = set(internal_transfers.values_list('movimiento_destino_id', flat=True))
+    movement_issues = _collect_movement_issues(
+        movements,
+        internal_transfer_destination_ids=internal_transfer_destination_ids,
+    )
     reported_balance_issues = _collect_reported_balance_issues(movements)
     balance_squares = CuadraturaBancaria.objects.select_related('cuenta_recaudadora').all()
     balance_square_issues = _collect_balance_square_issues(balance_squares)
@@ -633,6 +726,22 @@ def collect_stage3_conciliacion_readiness(
                 count=balance_square_issues['not_squared'],
             )
         )
+    if internal_transfer_issues.get('invalid_model'):
+        issues.append(
+            _issue(
+                'stage3.internal_transfer.invalid_model',
+                'Existen transferencias internas que no pasan validacion de dominio.',
+                count=internal_transfer_issues['invalid_model'],
+            )
+        )
+    if internal_transfer_issues.get('sensitive_reference'):
+        issues.append(
+            _issue(
+                'stage3.internal_transfer.sensitive_reference',
+                'Existen transferencias internas con evidencia o responsable sensible.',
+                count=internal_transfer_issues['sensitive_reference'],
+            )
+        )
     if manual_resolution_issues.get('resolved_without_rationale'):
         issues.append(
             _issue(
@@ -713,6 +822,38 @@ def collect_stage3_conciliacion_readiness(
                 count=manual_resolution_issues['charge_classification_target_mismatch'],
             )
         )
+    if manual_resolution_issues.get('internal_transfer_context_missing'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.internal_transfer_context_missing',
+                'Existen transferencias internas resueltas sin par de movimientos, entidades, periodo, criterio o evidencia trazable.',
+                count=manual_resolution_issues['internal_transfer_context_missing'],
+            )
+        )
+    if manual_resolution_issues.get('internal_transfer_evidence_sensitive'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.internal_transfer_evidence_sensitive',
+                'Existen transferencias internas resueltas con evidencia o responsable sensible.',
+                count=manual_resolution_issues['internal_transfer_evidence_sensitive'],
+            )
+        )
+    if manual_resolution_issues.get('internal_transfer_period_invalid'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.internal_transfer_period_invalid',
+                'Existen transferencias internas resueltas con periodo economico invalido.',
+                count=manual_resolution_issues['internal_transfer_period_invalid'],
+            )
+        )
+    if manual_resolution_issues.get('internal_transfer_target_mismatch'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.internal_transfer_target_mismatch',
+                'Existen transferencias internas resueltas cuya traza no coincide con el par cargo/abono registrado.',
+                count=manual_resolution_issues['internal_transfer_target_mismatch'],
+            )
+        )
 
     for key, code, message in [
         (
@@ -783,6 +924,11 @@ def collect_stage3_conciliacion_readiness(
                 'total': balance_squares.count(),
                 'by_status': _count_by(balance_squares, 'estado'),
                 **balance_square_issues,
+            },
+            'internal_transfers': {
+                'total': internal_transfers.count(),
+                'by_period': _count_by(internal_transfers, 'periodo_economico'),
+                **internal_transfer_issues,
             },
             'manual_resolutions': {
                 'total': manual_resolutions.count(),

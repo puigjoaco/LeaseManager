@@ -4,7 +4,13 @@ from rest_framework import serializers
 from core.reference_validation import redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 
-from .models import CuadraturaBancaria, ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
+from .models import (
+    CuadraturaBancaria,
+    ConexionBancaria,
+    IngresoDesconocido,
+    MovimientoBancarioImportado,
+    TransferenciaIntercuenta,
+)
 
 
 def raise_drf_validation_error(error):
@@ -200,6 +206,49 @@ class CuadraturaBancariaSerializer(RedactReferenceFieldsMixin, serializers.Model
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, CuadraturaBancaria)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
+class TransferenciaIntercuentaSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('evidencia_transferencia_ref', 'responsable_ref')
+
+    class Meta:
+        model = TransferenciaIntercuenta
+        fields = (
+            'id',
+            'movimiento_origen',
+            'movimiento_destino',
+            'periodo_economico',
+            'entidad_origen_tipo',
+            'entidad_origen_id',
+            'entidad_destino_tipo',
+            'entidad_destino_id',
+            'criterio_conciliacion',
+            'evidencia_transferencia_ref',
+            'responsable_ref',
+            'rationale',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = (
+            'id',
+            'entidad_origen_tipo',
+            'entidad_origen_id',
+            'entidad_destino_tipo',
+            'entidad_destino_id',
+            'created_at',
+            'updated_at',
+        )
+        validators = []
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, TransferenciaIntercuenta)
         for field, value in attrs.items():
             setattr(candidate, field, value)
         try:
