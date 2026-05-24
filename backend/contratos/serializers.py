@@ -429,6 +429,11 @@ class ContratoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'periodos_contractuales': 'Los periodos deben numerarse secuencialmente desde 1.'})
 
         sorted_periods = sorted(periodos, key=lambda item: (item['fecha_inicio'], item['numero_periodo']))
+        for expected_number, period in enumerate(sorted_periods, start=1):
+            if period['numero_periodo'] != expected_number:
+                raise serializers.ValidationError(
+                    {'periodos_contractuales': 'Los periodos deben numerarse en orden cronologico desde 1.'}
+                )
         for index in range(1, len(sorted_periods)):
             if sorted_periods[index]['fecha_inicio'] <= sorted_periods[index - 1]['fecha_fin']:
                 raise serializers.ValidationError(

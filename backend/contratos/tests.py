@@ -271,6 +271,37 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('periodos_contractuales', response.data)
 
+    def test_contract_rejects_period_numbers_outside_chronological_order(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-PER-NUM', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-PER-NUM')
+        payload['periodos_contractuales'] = [
+            {
+                'numero_periodo': 2,
+                'fecha_inicio': '2026-01-01',
+                'fecha_fin': '2026-06-30',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'inicial',
+                'origen_periodo': 'manual',
+            },
+            {
+                'numero_periodo': 1,
+                'fecha_inicio': '2026-07-01',
+                'fecha_fin': '2026-12-31',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'renovacion',
+                'origen_periodo': 'manual',
+            },
+        ]
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('periodos_contractuales', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-PER-NUM').exists())
+
     def test_active_contract_rejects_non_month_boundary_dates(self):
         mandato = self._create_active_mandato(codigo='MAND-101-DATES', owner_rut='11111113-8')
         arrendatario = self._create_arrendatario(rut='22222223-0')
@@ -375,6 +406,43 @@ class ContratosAPITests(APITestCase):
         with self.assertRaises(ValidationError) as end_error:
             ends_after.full_clean()
         self.assertIn('fecha_fin', end_error.exception.message_dict)
+
+    def test_period_full_clean_rejects_number_outside_chronological_order(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-PER-NUM-MODEL', owner_rut='11111117-0')
+        arrendatario = self._create_arrendatario(rut='22222227-3')
+        contrato = Contrato.objects.create(
+            codigo_contrato='CTR-101-PER-NUM-MODEL',
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            dia_pago_mensual=5,
+            estado=EstadoContrato.ACTIVE,
+        )
+        later_period = PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=1,
+            fecha_inicio=date(2026, 7, 1),
+            fecha_fin=date(2026, 12, 31),
+            monto_base=Decimal('100000.00'),
+            moneda_base='CLP',
+            tipo_periodo='renovacion',
+            origen_periodo='test',
+        )
+        PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=2,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin=date(2026, 6, 30),
+            monto_base=Decimal('100000.00'),
+            moneda_base='CLP',
+            tipo_periodo='inicial',
+            origen_periodo='test',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            later_period.full_clean()
+        self.assertIn('numero_periodo', error.exception.message_dict)
 
     def test_create_contract_with_principal_and_linked_property_succeeds(self):
         mandato = self._create_active_mandato(codigo='MAND-102', owner_rut='33333333-3')
