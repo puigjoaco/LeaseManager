@@ -340,6 +340,19 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertEqual(result['sections']['ledger']['movement_totals_mismatch'], 1)
         self.assertEqual(result['sections']['ledger']['movement_company_mismatch'], 1)
 
+    def test_asiento_period_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        asiento = AsientoContable.objects.get()
+        asiento.periodo_contable = '2026-02'
+        asiento.save(update_fields=['periodo_contable', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.asiento_period_mismatch', issue_codes)
+        self.assertEqual(result['sections']['ledger']['asiento_period_mismatches'], 1)
+
     def test_approved_close_without_snapshots_or_square_balance_is_blocking(self):
         empresa = self._create_valid_local_matrix()
         LibroMayor.objects.all().delete()
