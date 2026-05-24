@@ -7,7 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import is_non_sensitive_reference, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from operacion.models import IdentidadDeEnvio, MandatoOperacion
 from patrimonio.models import Propiedad
@@ -88,6 +88,12 @@ class ArrendatarioSerializer(serializers.ModelSerializer):
         data['whatsapp_opt_in_evidencia_ref'] = redact_sensitive_reference(
             data.get('whatsapp_opt_in_evidencia_ref')
         )
+        data['whatsapp_bloqueo_evidencia_ref'] = redact_sensitive_reference(
+            data.get('whatsapp_bloqueo_evidencia_ref')
+        )
+        data['whatsapp_rehabilitacion_ref'] = redact_sensitive_reference(
+            data.get('whatsapp_rehabilitacion_ref')
+        )
         return data
 
     class Meta:
@@ -107,10 +113,15 @@ class ArrendatarioSerializer(serializers.ModelSerializer):
             'whatsapp_opt_in',
             'whatsapp_opt_in_evidencia_ref',
             'whatsapp_bloqueado',
+            'whatsapp_bloqueo_motivo',
+            'whatsapp_bloqueo_evidencia_ref',
+            'whatsapp_bloqueado_at',
+            'whatsapp_rehabilitacion_ref',
+            'whatsapp_rehabilitado_at',
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'whatsapp_bloqueado_at', 'whatsapp_rehabilitado_at', 'created_at', 'updated_at')
 
     def validate_rut(self, value):
         normalized = validate_rut(value)
@@ -130,6 +141,25 @@ class ArrendatarioSerializer(serializers.ModelSerializer):
         except DjangoValidationError as error:
             raise_drf_validation_error(error)
         return attrs
+
+
+class ArrendatarioWhatsappBlockSerializer(serializers.Serializer):
+    motivo = serializers.CharField(max_length=500, trim_whitespace=True)
+    evidencia_ref = serializers.CharField(max_length=255, trim_whitespace=True)
+
+    def validate_evidencia_ref(self, value):
+        if not is_non_sensitive_reference(value):
+            raise serializers.ValidationError('La evidencia de bloqueo WhatsApp debe ser no sensible.')
+        return value
+
+
+class ArrendatarioWhatsappRehabilitateSerializer(serializers.Serializer):
+    rehabilitacion_ref = serializers.CharField(max_length=255, trim_whitespace=True)
+
+    def validate_rehabilitacion_ref(self, value):
+        if not is_non_sensitive_reference(value):
+            raise serializers.ValidationError('La rehabilitacion manual de WhatsApp debe usar referencia no sensible.')
+        return value
 
 
 class ContactoPagoArrendatarioSerializer(serializers.ModelSerializer):

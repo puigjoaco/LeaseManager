@@ -22,6 +22,9 @@ codigo_efectivo_validator = RegexValidator(
 )
 RETROACTIVE_MANUAL_NOTIFICATION_CUTOFF_DAY = 5
 INTERNATIONAL_PHONE_RE = re.compile(r'^\+[1-9]\d{7,14}$')
+WHATSAPP_BLOCK_ALERT_CATEGORY = 'canales.whatsapp.bloqueo_definitivo'
+WHATSAPP_BLOCK_EVENT_TYPE = 'contratos.arrendatario.whatsapp_blocked'
+WHATSAPP_REHABILITATION_EVENT_TYPE = 'contratos.arrendatario.whatsapp_rehabilitated'
 
 
 def is_international_phone_number(value):
@@ -133,6 +136,11 @@ class Arrendatario(TimestampedModel):
     whatsapp_opt_in = models.BooleanField(default=False)
     whatsapp_opt_in_evidencia_ref = models.CharField(max_length=255, blank=True)
     whatsapp_bloqueado = models.BooleanField(default=False)
+    whatsapp_bloqueo_motivo = models.TextField(blank=True)
+    whatsapp_bloqueo_evidencia_ref = models.CharField(max_length=255, blank=True)
+    whatsapp_bloqueado_at = models.DateTimeField(null=True, blank=True)
+    whatsapp_rehabilitacion_ref = models.CharField(max_length=255, blank=True)
+    whatsapp_rehabilitado_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['nombre_razon_social']
@@ -142,16 +150,49 @@ class Arrendatario(TimestampedModel):
 
     def save(self, *args, **kwargs):
         self.rut = normalize_rut(self.rut)
+        if self.whatsapp_bloqueado and self.whatsapp_bloqueado_at is None:
+            self.whatsapp_bloqueado_at = timezone.now()
         super().save(*args, **kwargs)
 
     def clean(self):
         super().clean()
         self.nacionalidad = (self.nacionalidad or '').strip()
         self.profesion = (self.profesion or '').strip()
+        if self.whatsapp_bloqueado:
+            if self.whatsapp_opt_in:
+                raise ValidationError({'whatsapp_opt_in': 'No puede existir opt-in activo si WhatsApp esta bloqueado.'})
+            if not self.whatsapp_bloqueo_motivo.strip():
+                raise ValidationError(
+                    {'whatsapp_bloqueo_motivo': 'El bloqueo definitivo de WhatsApp requiere motivo trazable.'}
+                )
+            if not self.whatsapp_bloqueo_evidencia_ref.strip():
+                raise ValidationError(
+                    {
+                        'whatsapp_bloqueo_evidencia_ref': (
+                            'El bloqueo definitivo de WhatsApp requiere evidencia no sensible.'
+                        )
+                    }
+                )
+            if not is_non_sensitive_reference(self.whatsapp_bloqueo_evidencia_ref):
+                raise ValidationError(
+                    {
+                        'whatsapp_bloqueo_evidencia_ref': (
+                            'La evidencia de bloqueo WhatsApp debe ser una referencia no sensible.'
+                        )
+                    }
+                )
+        if self.whatsapp_rehabilitacion_ref.strip() and not is_non_sensitive_reference(
+            self.whatsapp_rehabilitacion_ref
+        ):
+            raise ValidationError(
+                {
+                    'whatsapp_rehabilitacion_ref': (
+                        'La rehabilitacion manual de WhatsApp debe usar una referencia no sensible.'
+                    )
+                }
+            )
         if not self.whatsapp_opt_in:
             return
-        if self.whatsapp_bloqueado:
-            raise ValidationError({'whatsapp_opt_in': 'No puede existir opt-in activo si WhatsApp esta bloqueado.'})
         if not self.telefono:
             raise ValidationError({'telefono': 'El opt-in de WhatsApp requiere telefono operativo.'})
         if not is_international_phone_number(self.telefono):
@@ -174,6 +215,24 @@ class Arrendatario(TimestampedModel):
                     )
                 }
             )
+
+    def block_whatsapp(self, *, motivo: str, evidencia_ref: str):
+        self.whatsapp_bloqueado = True
+        self.whatsapp_opt_in = False
+        self.whatsapp_bloqueo_motivo = str(motivo or '').strip()
+        self.whatsapp_bloqueo_evidencia_ref = str(evidencia_ref or '').strip()
+        self.whatsapp_bloqueado_at = timezone.now()
+        self.whatsapp_rehabilitacion_ref = ''
+        self.whatsapp_rehabilitado_at = None
+        self.full_clean()
+
+    def rehabilitate_whatsapp(self, *, rehabilitacion_ref: str):
+        if not self.whatsapp_bloqueado:
+            raise ValidationError({'whatsapp_bloqueado': 'El contacto no tiene WhatsApp bloqueado.'})
+        self.whatsapp_bloqueado = False
+        self.whatsapp_rehabilitacion_ref = str(rehabilitacion_ref or '').strip()
+        self.whatsapp_rehabilitado_at = timezone.now()
+        self.full_clean()
 
 
 class ContactoPagoArrendatario(TimestampedModel):

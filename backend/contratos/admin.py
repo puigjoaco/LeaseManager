@@ -13,7 +13,15 @@ from .models import (
 
 @admin.register(Arrendatario)
 class ArrendatarioAdmin(admin.ModelAdmin):
-    list_display = ('nombre_razon_social', 'rut', 'tipo_arrendatario', 'estado_contacto', 'whatsapp_bloqueado')
+    list_display = (
+        'nombre_razon_social',
+        'rut',
+        'tipo_arrendatario',
+        'estado_contacto',
+        'whatsapp_bloqueado',
+        'whatsapp_bloqueado_at',
+        'whatsapp_rehabilitado_at',
+    )
     list_filter = ('tipo_arrendatario', 'estado_contacto', 'whatsapp_bloqueado')
     search_fields = ('nombre_razon_social', 'rut', 'email')
 

@@ -532,6 +532,11 @@ type Arrendatario = {
   whatsapp_opt_in: boolean
   whatsapp_opt_in_evidencia_ref: string
   whatsapp_bloqueado: boolean
+  whatsapp_bloqueo_motivo: string
+  whatsapp_bloqueo_evidencia_ref: string
+  whatsapp_bloqueado_at: string | null
+  whatsapp_rehabilitacion_ref: string
+  whatsapp_rehabilitado_at: string | null
 }
 type Comunidad = {
   id: number
@@ -1425,6 +1430,9 @@ function App() {
     whatsapp_opt_in: false,
     whatsapp_opt_in_evidencia_ref: '',
     whatsapp_bloqueado: false,
+    whatsapp_bloqueo_motivo: '',
+    whatsapp_bloqueo_evidencia_ref: '',
+    whatsapp_rehabilitacion_ref: '',
   })
   const [contratoDraft, setContratoDraft] = useState({
     codigo_contrato: '',
@@ -2001,6 +2009,9 @@ function App() {
       whatsapp_opt_in: false,
       whatsapp_opt_in_evidencia_ref: '',
       whatsapp_bloqueado: false,
+      whatsapp_bloqueo_motivo: '',
+      whatsapp_bloqueo_evidencia_ref: '',
+      whatsapp_rehabilitacion_ref: '',
     })
     setContratoDraft({
       codigo_contrato: '',
@@ -3311,6 +3322,9 @@ function App() {
         whatsapp_opt_in: false,
         whatsapp_opt_in_evidencia_ref: '',
         whatsapp_bloqueado: false,
+        whatsapp_bloqueo_motivo: '',
+        whatsapp_bloqueo_evidencia_ref: '',
+        whatsapp_rehabilitacion_ref: '',
       })
       setEditingArrendatarioId(null)
     }
@@ -3578,6 +3592,9 @@ function App() {
       whatsapp_opt_in: row.whatsapp_opt_in,
       whatsapp_opt_in_evidencia_ref: row.whatsapp_opt_in_evidencia_ref,
       whatsapp_bloqueado: row.whatsapp_bloqueado,
+      whatsapp_bloqueo_motivo: row.whatsapp_bloqueo_motivo,
+      whatsapp_bloqueo_evidencia_ref: row.whatsapp_bloqueo_evidencia_ref,
+      whatsapp_rehabilitacion_ref: row.whatsapp_rehabilitacion_ref,
     })
     navigateWithContext('contratos', row.nombre_razon_social, `Editando arrendatario: ${row.nombre_razon_social}`)
   }
@@ -3598,6 +3615,9 @@ function App() {
       whatsapp_opt_in: false,
       whatsapp_opt_in_evidencia_ref: '',
       whatsapp_bloqueado: false,
+      whatsapp_bloqueo_motivo: '',
+      whatsapp_bloqueo_evidencia_ref: '',
+      whatsapp_rehabilitacion_ref: '',
     })
     clearContextNavigation()
   }
