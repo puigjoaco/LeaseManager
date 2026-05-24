@@ -583,6 +583,12 @@ class HistorialGarantia(TimestampedModel):
             raise ValidationError(
                 {'movimiento_origen': 'El movimiento origen debe pertenecer a la misma garantia contractual.'}
             )
+        movement_date = _coerce_date(self.fecha)
+        origin_date = _coerce_date(self.movimiento_origen.fecha) if self.movimiento_origen_id else None
+        if movement_date and origin_date and movement_date < origin_date:
+            raise ValidationError(
+                {'fecha': 'La fecha del movimiento derivado no puede ser anterior al movimiento origen.'}
+            )
 
 
 class RepactacionDeuda(TimestampedModel):

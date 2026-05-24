@@ -63,7 +63,8 @@ contra datos reales o snapshot controlado.
   del mes antes de calcular cobranza.
 - Validacion de garantias: montos/estado coherentes, fechas de recepcion y
   cierre consistentes, y saldos recibidos, devueltos o aplicados conciliados
-  contra `HistorialGarantia`.
+  contra `HistorialGarantia`, incluyendo cronologia de movimientos derivados
+  contra su movimiento origen.
 - Validacion de ajustes contractuales existentes: contrato, moneda, rango de
   meses normalizado al primer dia del mes dentro de la vigencia contractual y
   justificacion deben ser coherentes antes de usarlos en cobranza.

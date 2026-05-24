@@ -861,6 +861,33 @@ class CobranzaAPITests(APITestCase):
         self.assertIn('movimiento_origen', response.data)
         self.assertEqual(garantia_b.historial_movimientos.count(), 1)
 
+    def test_guarantee_movement_rejects_derived_date_before_origin(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-ORIGIN-DATE', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='50000.00')
+
+        deposito = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {'tipo_movimiento': 'deposito', 'monto_clp': '50000.00', 'fecha': '2026-01-10'},
+            format='json',
+        )
+        self.assertEqual(deposito.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {
+                'tipo_movimiento': 'devolucion_parcial',
+                'monto_clp': '10000.00',
+                'fecha': '2026-01-09',
+                'movimiento_origen': deposito.data['id'],
+                'justificacion': 'Fecha derivada invalida',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('anterior', response.data['detail'])
+        self.assertEqual(garantia.historial_movimientos.count(), 1)
+
     def test_adjustment_rejects_invalid_month_range(self):
         contrato = self._create_active_contract(codigo='CON-AJUSTE', monto_base='100000.00', code='111')
         response = self.client.post(

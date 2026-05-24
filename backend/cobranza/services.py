@@ -263,6 +263,8 @@ def apply_guarantee_movement(*, garantia, tipo_movimiento, monto_clp, fecha, jus
     amount = Decimal(monto_clp)
     if amount <= 0:
         raise ValueError('El monto del movimiento de garantia debe ser mayor que cero.')
+    if movimiento_origen and fecha < movimiento_origen.fecha:
+        raise ValueError('La fecha del movimiento derivado no puede ser anterior al movimiento origen.')
 
     if tipo_movimiento == TipoMovimientoGarantia.DEPOSIT:
         if garantia.monto_recibido + amount > garantia.monto_pactado:
