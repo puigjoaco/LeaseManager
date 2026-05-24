@@ -123,7 +123,15 @@ class ResolveMigrationPropertyOwnerSerializer(serializers.Serializer):
 
 class ResolveUnknownIncomeSerializer(serializers.Serializer):
     pago_mensual_id = serializers.IntegerField()
-    rationale = serializers.CharField(required=False, allow_blank=True)
+    rationale = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        error_messages={
+            'required': 'La resolucion manual requiere un motivo auditable.',
+            'blank': 'La resolucion manual requiere un motivo auditable.',
+        },
+    )
 
     def validate_pago_mensual_id(self, value):
         user = self.context['request'].user
@@ -144,4 +152,12 @@ class ResolveUnknownIncomeSerializer(serializers.Serializer):
 
 
 class ResolveChargeMovementSerializer(serializers.Serializer):
-    rationale = serializers.CharField(required=False, allow_blank=True)
+    rationale = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        error_messages={
+            'required': 'La resolucion manual requiere un motivo auditable.',
+            'blank': 'La resolucion manual requiere un motivo auditable.',
+        },
+    )

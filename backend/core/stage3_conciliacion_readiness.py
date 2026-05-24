@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import F, Q
 from django.utils import timezone
 
+from audit.models import ManualResolution
 from conciliacion.models import (
     ConexionBancaria,
     EstadoConciliacionMovimiento,
@@ -32,6 +33,10 @@ CONNECTION_REFERENCE_FIELDS = (
     'prueba_saldos_ref',
 )
 MOVEMENT_REFERENCE_FIELDS = ('evidencia_importacion_ref', 'transaction_id_banco')
+STAGE3_MANUAL_RESOLUTION_CATEGORIES = (
+    'conciliacion.ingreso_desconocido',
+    'conciliacion.movimiento_cargo',
+)
 
 
 def _non_sensitive_reference(value: str) -> bool:
@@ -162,6 +167,14 @@ def _collect_reported_balance_issues(movements) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _collect_manual_resolution_issues(resolutions) -> dict[str, int]:
+    counts = Counter()
+    for resolution in resolutions:
+        if resolution.status == ManualResolution.Status.RESOLVED and not has_text(resolution.rationale):
+            counts['resolved_without_rationale'] += 1
+    return dict(sorted(counts.items()))
+
+
 def collect_stage3_conciliacion_readiness(
     *,
     stage2_evidence_ref: str = '',
@@ -214,6 +227,11 @@ def collect_stage3_conciliacion_readiness(
     invalid_unknown_income = _count_invalid(unknown_income)
     open_unknown_income = unknown_income.filter(estado=EstadoIngresoDesconocido.OPEN).count()
     balance_signal_available = ready_primary_balances > 0 or movements_with_reported_balance > 0
+    manual_resolutions = ManualResolution.objects.filter(
+        category__in=STAGE3_MANUAL_RESOLUTION_CATEGORIES,
+        scope_type='movimiento_bancario',
+    )
+    manual_resolution_issues = _collect_manual_resolution_issues(manual_resolutions)
 
     final_evidence = {
         'stage2_evidence_ref': _non_sensitive_reference(stage2_evidence_ref),
@@ -390,6 +408,14 @@ def collect_stage3_conciliacion_readiness(
                 count=reported_balance_issues['reported_balance_continuity_mismatch'],
             )
         )
+    if manual_resolution_issues.get('resolved_without_rationale'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.rationale_missing',
+                'Existen resoluciones manuales de conciliacion cerradas sin motivo auditable.',
+                count=manual_resolution_issues['resolved_without_rationale'],
+            )
+        )
 
     for key, code, message in [
         (
@@ -455,6 +481,12 @@ def collect_stage3_conciliacion_readiness(
                 'by_state': _count_by(unknown_income, 'estado'),
                 'open': open_unknown_income,
                 'invalid_model': invalid_unknown_income,
+            },
+            'manual_resolutions': {
+                'total': manual_resolutions.count(),
+                'by_category': _count_by(manual_resolutions, 'category'),
+                'by_status': _count_by(manual_resolutions, 'status'),
+                **manual_resolution_issues,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,

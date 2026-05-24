@@ -695,6 +695,43 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(resolution.status, 'resolved')
         self.assertEqual(resolution.metadata['resolved_event_id'], event.pk)
 
+    def test_manual_resolution_charge_requires_rationale(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CARGO-REASON')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                fecha_movimiento='2026-01-09',
+                tipo_movimiento='cargo',
+                monto='50000.00',
+                descripcion_origen='Cargo bancario sin motivo',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.movimiento_cargo',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-charge-movement', args=[resolution.pk]),
+            {'rationale': '   '},
+            format='json',
+        )
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('rationale', resolve.data)
+
+        movimiento.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
+        self.assertEqual(resolution.status, 'open')
+        self.assertEqual(resolution.rationale, '')
+
     def test_retry_match_rejects_already_reconciled_movement(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-LOCKED', amount='100111.00')
         conexion = self._create_connection(cuenta)
@@ -806,6 +843,44 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(resolution.status, 'resolved')
         self.assertEqual(resolution.rationale, 'Regularizado manualmente contra el pago correcto.')
         self.assertEqual(resolution.metadata['resolved_payment_id'], pago.pk)
+
+    def test_manual_resolution_unknown_income_requires_rationale(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-REASON', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                monto='777777.00',
+                descripcion_origen='Abono sin motivo de regularizacion',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
+            {
+                'pago_mensual_id': pago.pk,
+                'rationale': '',
+            },
+            format='json',
+        )
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('rationale', resolve.data)
+
+        movimiento.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        self.assertEqual(resolution.status, 'open')
+        self.assertEqual(resolution.rationale, '')
 
     def test_manual_resolution_adds_unknown_income_to_existing_partial_payment(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-PARTIAL', amount='777777.00')
