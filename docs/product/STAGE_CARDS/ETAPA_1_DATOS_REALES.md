@@ -50,6 +50,11 @@ contra datos reales o snapshot controlado.
   vigencia del `MandatoOperacion` que define propiedad, cuenta y facturacion;
   un mandato con contratos vigentes/futuros no puede recortar su vigencia fuera
   del rango contractual ya dependiente.
+- Autoridad operativa de mandato: un `MandatoOperacion` activo que autoriza
+  comunicacion o facturacion de documentos debe conservar nombre, RUT valido
+  normalizado y evidencia trazable no sensible de su representante/autoridad;
+  API, snapshot, backoffice y auditor Etapa 1 detectan faltantes, RUT invalido
+  o referencias sensibles.
 - Validacion de que cada propiedad principal o vinculada de contratos vigentes
   o futuros este activa.
 - Servicios y gastos comunes estructurados: `ServicioPropiedad` registra tipo

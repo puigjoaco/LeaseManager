@@ -129,6 +129,9 @@ class Stage4SiiReadinessTests(TestCase):
             autoriza_recaudacion=True,
             autoriza_facturacion=True,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde=date(2026, 1, 1),
         )

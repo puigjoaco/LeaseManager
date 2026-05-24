@@ -1437,6 +1437,9 @@ class MigrationPipelineTests(TestCase):
             autoriza_recaudacion=True,
             autoriza_facturacion=True,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             vigencia_desde='2026-01-01',
             estado='activa',
         )
@@ -2036,6 +2039,9 @@ class MigrationPipelineTests(TestCase):
             tipo_relacion_operativa='mandato_externo',
             autoriza_recaudacion=True,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             estado='activa',
             vigencia_desde='2026-01-01',
         )

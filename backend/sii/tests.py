@@ -86,6 +86,9 @@ class SiiAPITests(APITestCase):
             autoriza_recaudacion=True,
             autoriza_facturacion=with_facturadora,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde='2026-01-01',
         )
