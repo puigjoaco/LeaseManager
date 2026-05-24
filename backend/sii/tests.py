@@ -1,6 +1,7 @@
 import json
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
@@ -262,6 +263,97 @@ class SiiAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_tax_artifacts_reject_wrong_sii_capability_kind(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
+        wrong_f29_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F29Preparacion',
+            **self._sii_readiness_fields('wrong-f29'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        wrong_dte_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DTEEmision',
+            **self._sii_readiness_fields('wrong-dte'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        distribution = pago.distribuciones_cobro.get()
+        dte = DTEEmitido(
+            empresa=empresa,
+            capacidad_tributaria=wrong_f29_capability,
+            contrato=pago.contrato,
+            pago_mensual=pago,
+            distribucion_cobro_mensual=distribution,
+            arrendatario=pago.contrato.arrendatario,
+            tipo_dte='34',
+            monto_neto_clp=distribution.monto_facturable_clp,
+            fecha_emision='2026-01-08',
+        )
+        with self.assertRaisesMessage(ValidationError, 'DTEEmision'):
+            dte.full_clean()
+
+        close, _ = self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        f29 = F29PreparacionMensual(
+            empresa=empresa,
+            capacidad_tributaria=wrong_dte_capability,
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion='preparado',
+            resumen_formulario={'obligaciones': [{'tipo': 'PPM'}]},
+        )
+        with self.assertRaisesMessage(ValidationError, 'F29Preparacion'):
+            f29.full_clean()
+
+        ddjj_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DDJJPreparacion',
+            **self._sii_readiness_fields('ddjj'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        f22_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F22Preparacion',
+            **self._sii_readiness_fields('f22'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'source': 'controlled'},
+        )
+        ddjj = DDJJPreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_paquete={'source': 'controlled'},
+        )
+        with self.assertRaisesMessage(ValidationError, 'DDJJPreparacion'):
+            ddjj.full_clean()
+
+        f22 = F22PreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_f22={'source': 'controlled'},
+        )
+        with self.assertRaisesMessage(ValidationError, 'F22Preparacion'):
+            f22.full_clean()
 
     def test_open_sii_capability_requires_readiness_references(self):
         empresa = self._create_active_empresa()
