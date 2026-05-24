@@ -93,6 +93,7 @@ class ContractsSnapshotView(APIView):
                 'mandato_operacion__propiedad',
                 'arrendatario',
                 'identidad_envio_override',
+                'politica_documental',
             ).prefetch_related(
                 'contrato_propiedades__propiedad',
                 'periodos_contractuales',
@@ -177,6 +178,17 @@ class ContractsSnapshotView(APIView):
                         'identidad_envio_override_display': (
                             item.identidad_envio_override.remitente_visible
                             if item.identidad_envio_override_id
+                            else None
+                        ),
+                        'politica_documental': item.politica_documental_id,
+                        'politica_documental_tipo': (
+                            item.politica_documental.tipo_documental
+                            if item.politica_documental_id
+                            else None
+                        ),
+                        'politica_documental_estado': (
+                            item.politica_documental.estado
+                            if item.politica_documental_id
                             else None
                         ),
                         'tiene_tramos': item.tiene_tramos,
@@ -266,7 +278,12 @@ class ContactoPagoArrendatarioDetailView(
 class ContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ContratoSerializer
-    queryset = Contrato.objects.select_related('mandato_operacion', 'arrendatario', 'identidad_envio_override').prefetch_related(
+    queryset = Contrato.objects.select_related(
+        'mandato_operacion',
+        'arrendatario',
+        'identidad_envio_override',
+        'politica_documental',
+    ).prefetch_related(
         'contrato_propiedades__propiedad',
         'periodos_contractuales',
         'codeudores_solidarios',
@@ -303,7 +320,12 @@ class ContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generi
 class ContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ContratoSerializer
-    queryset = Contrato.objects.select_related('mandato_operacion', 'arrendatario', 'identidad_envio_override').prefetch_related(
+    queryset = Contrato.objects.select_related(
+        'mandato_operacion',
+        'arrendatario',
+        'identidad_envio_override',
+        'politica_documental',
+    ).prefetch_related(
         'contrato_propiedades__propiedad',
         'periodos_contractuales',
         'codeudores_solidarios',

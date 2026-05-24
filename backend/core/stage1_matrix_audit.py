@@ -21,6 +21,7 @@ from cobranza.models import (
     ValorUFDiario,
 )
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
+from documentos.models import EstadoPoliticaFirma, TipoDocumental
 from contratos.models import (
     Arrendatario,
     AvisoTermino,
@@ -1005,6 +1006,36 @@ def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Con
                 )
 
 
+def _audit_contract_document_policy(issues: list[dict[str, Any]], contrato: Contrato) -> None:
+    if not contrato.politica_documental_id:
+        _issue(
+            issues,
+            code='stage1.contrato.politica_documental_faltante',
+            entity='Contrato',
+            entity_id=contrato.pk,
+            message='Contrato vigente o futuro requiere politica documental activa de contrato principal.',
+        )
+        return
+
+    if contrato.politica_documental.tipo_documental != TipoDocumental.MAIN_CONTRACT:
+        _issue(
+            issues,
+            code='stage1.contrato.politica_documental_tipo_invalido',
+            entity='Contrato',
+            entity_id=contrato.pk,
+            message='Contrato vigente o futuro tiene politica documental de tipo distinto a contrato principal.',
+        )
+
+    if contrato.politica_documental.estado != EstadoPoliticaFirma.ACTIVE:
+        _issue(
+            issues,
+            code='stage1.contrato.politica_documental_no_activa',
+            entity='Contrato',
+            entity_id=contrato.pk,
+            message='Contrato vigente o futuro tiene politica documental inactiva.',
+        )
+
+
 def _audit_contract_identity_override(issues: list[dict[str, Any]], contrato: Contrato) -> None:
     if not contrato.identidad_envio_override_id:
         return
@@ -1411,6 +1442,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         'mandato_operacion__propietario_socio_owner',
         'mandato_operacion__propiedad',
         'identidad_envio_override',
+        'politica_documental',
     )
     for contrato in contracts:
         if contrato.fecha_inicio.day != 1:
@@ -1480,6 +1512,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                 severity='warning',
             )
 
+        _audit_contract_document_policy(issues, contrato)
         _audit_contract_tenant_readiness(issues, contrato)
         _audit_contract_identity_override(issues, contrato)
 

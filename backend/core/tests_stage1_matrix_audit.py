@@ -21,6 +21,7 @@ from cobranza.models import (
     ValorUFDiario,
 )
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
+from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from contratos.models import (
     Arrendatario,
     AvisoTermino,
@@ -65,6 +66,16 @@ from patrimonio.models import (
 
 
 class Stage1MatrixAuditTests(TestCase):
+    def _create_main_contract_policy(self):
+        policy, _ = PoliticaFirmaYNotaria.objects.get_or_create(
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            defaults={
+                'requiere_firma_arrendador': True,
+                'requiere_firma_arrendatario': True,
+            },
+        )
+        return policy
+
     def _create_valid_stage1_matrix(self):
         socio_1 = Socio.objects.create(nombre='Socio Controlado Uno', rut='11111111-1', activo=True)
         socio_2 = Socio.objects.create(nombre='Socio Controlado Dos', rut='22222222-2', activo=True)
@@ -190,6 +201,7 @@ class Stage1MatrixAuditTests(TestCase):
             fecha_fin_vigente=date(2026, 12, 31),
             dia_pago_mensual=5,
             estado=EstadoContrato.ACTIVE,
+            politica_documental=self._create_main_contract_policy(),
         )
         ContratoPropiedad.objects.create(
             contrato=contrato,
@@ -220,6 +232,7 @@ class Stage1MatrixAuditTests(TestCase):
             fecha_fin_vigente=date(2027, 12, 31),
             dia_pago_mensual=5,
             estado=EstadoContrato.FUTURE,
+            politica_documental=contrato.politica_documental,
         )
         ContratoPropiedad.objects.create(
             contrato=future_contract,
@@ -1487,6 +1500,43 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.contrato.periodos_faltantes', issue_codes)
         self.assertIn('stage1.contrato.garantia_faltante', issue_codes)
 
+    def test_active_contract_without_document_policy_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.politica_documental = None
+        contrato.save(update_fields=['politica_documental', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.politica_documental_faltante', issue_codes)
+
+    def test_active_contract_with_non_main_document_policy_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        addendum_policy = PoliticaFirmaYNotaria.objects.create(tipo_documental=TipoDocumental.ADDENDUM)
+        contrato.politica_documental = addendum_policy
+        contrato.save(update_fields=['politica_documental', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.politica_documental_tipo_invalido', issue_codes)
+
+    def test_active_contract_with_inactive_document_policy_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.politica_documental.estado = EstadoPoliticaFirma.INACTIVE
+        contrato.politica_documental.save(update_fields=['estado', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.politica_documental_no_activa', issue_codes)
+
     def test_contract_property_linked_without_primary_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         link = contrato.contrato_propiedades.get(rol_en_contrato=RolContratoPropiedad.PRIMARY)
@@ -1786,6 +1836,7 @@ class Stage1MatrixAuditTests(TestCase):
             fecha_fin_vigente=date(2026, 12, 31),
             dia_pago_mensual=5,
             estado=EstadoContrato.ACTIVE,
+            politica_documental=contrato.politica_documental,
         )
         ContratoPropiedad.objects.create(
             contrato=second_contract,
@@ -1903,6 +1954,7 @@ class Stage1MatrixAuditTests(TestCase):
             fecha_fin_vigente=date(2026, 12, 31),
             dia_pago_mensual=5,
             estado=EstadoContrato.ACTIVE,
+            politica_documental=contrato.politica_documental,
         )
         ContratoPropiedad.objects.create(
             contrato=second_contract,
@@ -1972,6 +2024,7 @@ class Stage1MatrixAuditTests(TestCase):
             fecha_fin_vigente=date(2026, 12, 31),
             dia_pago_mensual=5,
             estado=EstadoContrato.ACTIVE,
+            politica_documental=contrato.politica_documental,
         )
         ContratoPropiedad.objects.create(
             contrato=second_contract,

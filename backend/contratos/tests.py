@@ -11,6 +11,7 @@ from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
+from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from operacion.models import (
     CuentaRecaudadora,
     EstadoCuentaRecaudadora,
@@ -39,6 +40,20 @@ class ContratosAPITests(APITestCase):
         user_model = get_user_model()
         self.user = user_model.objects.create_user(username='contracts', password='secret123')
         self.client.force_authenticate(self.user)
+        self.contract_policy = self._create_document_policy()
+
+    def _create_document_policy(
+        self,
+        *,
+        tipo_documental=TipoDocumental.MAIN_CONTRACT,
+        estado=EstadoPoliticaFirma.ACTIVE,
+    ):
+        return PoliticaFirmaYNotaria.objects.create(
+            tipo_documental=tipo_documental,
+            requiere_firma_arrendador=tipo_documental == TipoDocumental.MAIN_CONTRACT,
+            requiere_firma_arrendatario=tipo_documental == TipoDocumental.MAIN_CONTRACT,
+            estado=estado,
+        )
 
     def _create_socio(self, nombre, rut, activo=True):
         return Socio.objects.create(nombre=nombre, rut=rut, activo=activo)
@@ -145,6 +160,7 @@ class ContratosAPITests(APITestCase):
             'estado': EstadoContrato.ACTIVE,
             'tiene_tramos': False,
             'tiene_gastos_comunes': False,
+            'politica_documental': self.contract_policy.id,
             'snapshot_representante_legal': {'nombre': 'Rep Legal'},
             'contrato_propiedades': [
                 {
@@ -395,6 +411,59 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(len(response.data['periodos_contractuales_detail']), 1)
         self.assertEqual(len(response.data['codeudores_solidarios_detail']), 1)
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
+
+    def test_create_active_contract_requires_document_policy(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-POL-MISS', owner_rut='11111114-6')
+        arrendatario = self._create_arrendatario(rut='12345675-0')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-POL-MISS')
+        payload.pop('politica_documental')
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('politica_documental', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-POL-MISS').exists())
+
+    def test_create_active_contract_rejects_non_main_document_policy(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-POL-TYPE', owner_rut='11111113-8')
+        arrendatario = self._create_arrendatario(rut='12345676-9')
+        addendum_policy = self._create_document_policy(tipo_documental=TipoDocumental.ADDENDUM)
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-POL-TYPE')
+        payload['politica_documental'] = addendum_policy.id
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('politica_documental', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-POL-TYPE').exists())
+
+    def test_create_active_contract_rejects_inactive_document_policy(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-POL-INACT', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='12345677-7')
+        self.contract_policy.estado = EstadoPoliticaFirma.INACTIVE
+        self.contract_policy.save(update_fields=['estado', 'updated_at'])
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-POL-INACT')
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('politica_documental', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-POL-INACT').exists())
+
+    def test_contract_snapshot_exposes_document_policy(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-POL-SNAP', owner_rut='11111110-3')
+        arrendatario = self._create_arrendatario(rut='12345674-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-POL-SNAP')
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        snapshot_response = self.client.get(reverse('contratos-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        contract_snapshot = snapshot_response.data['contratos'][0]
+        self.assertEqual(contract_snapshot['politica_documental'], self.contract_policy.id)
+        self.assertEqual(contract_snapshot['politica_documental_tipo'], TipoDocumental.MAIN_CONTRACT)
+        self.assertEqual(contract_snapshot['politica_documental_estado'], EstadoPoliticaFirma.ACTIVE)
 
     def test_create_retroactive_contract_after_cutoff_records_manual_notification_alert(self):
         mandato = self._create_active_mandato(codigo='MAND-101-RETRO', owner_rut='11111119-7')
@@ -696,6 +765,7 @@ class ContratosAPITests(APITestCase):
             fecha_fin_vigente=date(2026, 12, 31),
             dia_pago_mensual=5,
             estado=EstadoContrato.ACTIVE,
+            politica_documental=self.contract_policy,
         )
         later_period = PeriodoContractual.objects.create(
             contrato=contrato,
@@ -927,6 +997,7 @@ class ContratosAPITests(APITestCase):
             fecha_fin_vigente=date(2026, 12, 31),
             dia_pago_mensual=5,
             estado=EstadoContrato.ACTIVE,
+            politica_documental=self.contract_policy,
         )
         linked_only = ContratoPropiedad(
             contrato=contrato,

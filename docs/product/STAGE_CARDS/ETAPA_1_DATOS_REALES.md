@@ -80,6 +80,10 @@ contra datos reales o snapshot controlado.
   activo y pertenecer a la entidad facturadora o al administrador operativo
   autorizado por el mandato; Canales lo usa antes de la asignacion del mandato
   cuando coincide con el canal solicitado.
+- Politica documental contractual: cada contrato vigente o futuro debe
+  referenciar una `PoliticaFirmaYNotaria` activa de tipo
+  `contrato_principal`; API, snapshot y auditor Etapa 1 detectan politicas
+  faltantes, inactivas o de tipo documental incorrecto.
 - Validacion de periodos contractuales existentes: cada tramo debe quedar
   dentro de la vigencia del contrato, iniciar el dia 1, cerrar el ultimo dia
   del mes y respetar numeracion cronologica antes de calcular cobranza.

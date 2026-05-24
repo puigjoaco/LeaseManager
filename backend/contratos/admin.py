@@ -27,8 +27,16 @@ class ContactoPagoArrendatarioAdmin(admin.ModelAdmin):
 
 @admin.register(Contrato)
 class ContratoAdmin(admin.ModelAdmin):
-    list_display = ('codigo_contrato', 'arrendatario', 'mandato_operacion', 'estado', 'fecha_inicio', 'fecha_fin_vigente')
-    list_filter = ('estado', 'tiene_tramos', 'tiene_gastos_comunes')
+    list_display = (
+        'codigo_contrato',
+        'arrendatario',
+        'mandato_operacion',
+        'estado',
+        'politica_documental',
+        'fecha_inicio',
+        'fecha_fin_vigente',
+    )
+    list_filter = ('estado', 'politica_documental', 'tiene_tramos', 'tiene_gastos_comunes')
     search_fields = ('codigo_contrato', 'arrendatario__nombre_razon_social')
 
 
