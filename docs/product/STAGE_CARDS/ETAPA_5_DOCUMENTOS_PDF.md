@@ -35,6 +35,8 @@ firma y notaria trazables.
   por tipo documental, metadata PDF, evidencia controlada, responsables y
   faltantes antes de declarar cierre.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
+  documentos emitidos sin `usuario` responsable registrado.
+- Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   checksums heredados no canonicos, sin exponer el valor.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   `storage_ref` sensible heredado, sin exponer el valor.
