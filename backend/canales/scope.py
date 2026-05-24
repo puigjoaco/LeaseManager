@@ -6,7 +6,7 @@ from core.scope_access import scope_queryset_for_user
 from documentos.scope import scope_documento_queryset
 from documentos.models import DocumentoEmitido
 
-from .models import MensajeSaliente
+from .models import MensajeSaliente, NotificacionCobranzaProgramada
 
 
 def scope_mensaje_queryset(queryset: QuerySet[MensajeSaliente], user):
@@ -21,4 +21,13 @@ def scope_mensaje_queryset(queryset: QuerySet[MensajeSaliente], user):
         return contract_scoped.distinct()
     return queryset.filter(
         Q(pk__in=contract_scoped.values('pk')) | Q(documento_emitido_id__in=visible_document_ids)
+    ).distinct()
+
+
+def scope_notificacion_cobranza_queryset(queryset: QuerySet[NotificacionCobranzaProgramada], user):
+    return scope_queryset_for_user(
+        queryset,
+        user,
+        property_paths=('pago_mensual__contrato__mandato_operacion__propiedad_id',),
+        bank_account_paths=('pago_mensual__contrato__mandato_operacion__cuenta_recaudadora_id',),
     ).distinct()

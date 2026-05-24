@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -11,6 +11,7 @@ from audit.models import ManualResolution
 from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
+from cobranza.models import PagoMensual
 from documentos.models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental
 from operacion.models import (
     AsignacionCanalOperacion,
@@ -29,7 +30,9 @@ from .models import (
     EstadoGateCanal,
     EstadoMensajeSaliente,
     MensajeSaliente,
+    NotificacionCobranzaProgramada,
 )
+from .services import materialize_payment_notification_schedule
 
 
 VALID_DOCUMENT_SHA256 = 'c' * 64
@@ -200,6 +203,20 @@ class CanalesAPITests(APITestCase):
             prioridad=1,
         )
         return identity
+
+    def _create_payment_for_contract(self, contrato, *, mes=1, anio=2026):
+        period = contrato.periodos_contractuales.get(numero_periodo=1)
+        return PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=period,
+            mes=mes,
+            anio=anio,
+            monto_facturable_clp='100000.00',
+            monto_calculado_clp='100111.00',
+            monto_pagado_clp='0.00',
+            fecha_vencimiento=date(anio, mes, contrato.dia_pago_mensual),
+            codigo_conciliacion_efectivo='111',
+        )
 
     def _create_policy(self, **overrides):
         payload = {
@@ -384,6 +401,58 @@ class CanalesAPITests(APITestCase):
 
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_materialize_payment_notification_schedule_is_idempotent_and_visible_in_snapshot(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-SCH')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payment = self._create_payment_for_contract(contrato)
+        configuration = ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
+
+        first = materialize_payment_notification_schedule(payment)
+        second = materialize_payment_notification_schedule(payment)
+
+        self.assertEqual(first['created_count'], 7)
+        self.assertEqual(second['created_count'], 0)
+        self.assertEqual(NotificacionCobranzaProgramada.objects.count(), 7)
+        self.assertEqual(
+            list(
+                NotificacionCobranzaProgramada.objects.order_by('dia_notificacion').values_list(
+                    'dia_notificacion',
+                    'fecha_programada',
+                )
+            ),
+            [
+                (1, date(2026, 1, 1)),
+                (3, date(2026, 1, 3)),
+                (5, date(2026, 1, 5)),
+                (10, date(2026, 1, 10)),
+                (15, date(2026, 1, 15)),
+                (20, date(2026, 1, 20)),
+                (25, date(2026, 1, 25)),
+            ],
+        )
+        self.assertTrue(
+            NotificacionCobranzaProgramada.objects.filter(
+                pago_mensual=payment,
+                configuracion=configuration,
+                estado='programada',
+            ).exists()
+        )
+
+        list_response = self.client.get(reverse('canales-notificacion-cobranza-list'))
+        snapshot_response = self.client.get(reverse('canales-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 7)
+        self.assertEqual(len(snapshot_response.data['notificaciones_cobranza']), 7)
+        self.assertEqual(snapshot_response.data['notificaciones_cobranza'][0]['canal'], 'email')
+        self.assertEqual(snapshot_response.data['notificaciones_cobranza'][0]['pago_mensual'], payment.id)
 
     def test_channel_apis_redact_inherited_sensitive_references(self):
         _, contrato = self._create_contract_context(codigo='CH-API-REDACT')

@@ -10,6 +10,8 @@ from .views import (
     MensajeRegistrarEnvioView,
     MensajeSalienteDetailView,
     MensajeSalienteListView,
+    NotificacionCobranzaProgramadaDetailView,
+    NotificacionCobranzaProgramadaListView,
 )
 
 urlpatterns = [
@@ -28,6 +30,16 @@ urlpatterns = [
     ),
     path('mensajes/', MensajeSalienteListView.as_view(), name='canales-mensaje-list'),
     path('mensajes/<int:pk>/', MensajeSalienteDetailView.as_view(), name='canales-mensaje-detail'),
+    path(
+        'notificaciones-cobranza/',
+        NotificacionCobranzaProgramadaListView.as_view(),
+        name='canales-notificacion-cobranza-list',
+    ),
+    path(
+        'notificaciones-cobranza/<int:pk>/',
+        NotificacionCobranzaProgramadaDetailView.as_view(),
+        name='canales-notificacion-cobranza-detail',
+    ),
     path('mensajes/preparar/', MensajePrepararView.as_view(), name='canales-mensaje-preparar'),
     path('mensajes/<int:pk>/registrar-envio/', MensajeRegistrarEnvioView.as_view(), name='canales-mensaje-enviar'),
 ]

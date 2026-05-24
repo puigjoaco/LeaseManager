@@ -1,8 +1,11 @@
+from datetime import date
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
+from cobranza.models import PagoMensual
 from contratos.models import Arrendatario, Contrato
 from documentos.models import DocumentoEmitido
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
@@ -73,6 +76,12 @@ class EstadoMensajeSaliente(models.TextChoices):
     BLOCKED = 'bloqueado', 'Bloqueado'
     SENT = 'enviado', 'Enviado'
     FAILED = 'fallido', 'Fallido'
+
+
+class EstadoNotificacionCobranza(models.TextChoices):
+    SCHEDULED = 'programada', 'Programada'
+    PREPARED = 'preparada', 'Preparada'
+    SKIPPED = 'omitida', 'Omitida'
 
 
 class CanalMensajeria(TimestampedModel):
@@ -279,4 +288,90 @@ class MensajeSaliente(TimestampedModel):
             raise ValidationError(
                 {'external_ref': 'external_ref debe ser una referencia no sensible, no una URL, token o credencial.'}
             )
+
+
+class NotificacionCobranzaProgramada(TimestampedModel):
+    pago_mensual = models.ForeignKey(
+        PagoMensual,
+        on_delete=models.CASCADE,
+        related_name='notificaciones_cobranza',
+    )
+    configuracion = models.ForeignKey(
+        ConfiguracionNotificacionContrato,
+        on_delete=models.CASCADE,
+        related_name='notificaciones_programadas',
+    )
+    canal = models.CharField(max_length=16, choices=CanalOperacion.choices)
+    dia_notificacion = models.PositiveSmallIntegerField()
+    fecha_programada = models.DateField()
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoNotificacionCobranza.choices,
+        default=EstadoNotificacionCobranza.SCHEDULED,
+    )
+    mensaje_saliente = models.ForeignKey(
+        MensajeSaliente,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='notificaciones_cobranza',
+    )
+    motivo_estado = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['fecha_programada', 'pago_mensual_id', 'canal', 'dia_notificacion']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['pago_mensual', 'canal', 'dia_notificacion'],
+                name='uniq_notificacion_cobranza_por_pago_canal_dia',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.pago_mensual_id} - {self.canal} - {self.fecha_programada}'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.configuracion_id:
+            if self.canal != self.configuracion.canal:
+                errors['canal'] = 'El canal debe coincidir con la configuracion de notificacion.'
+            if self.pago_mensual_id and self.configuracion.contrato_id != self.pago_mensual.contrato_id:
+                errors['configuracion'] = (
+                    'La configuracion debe pertenecer al contrato del pago mensual.'
+                )
+            if self.dia_notificacion not in (self.configuracion.dias_notificacion or []):
+                errors['dia_notificacion'] = (
+                    'El dia programado debe existir en la cadencia configurada.'
+                )
+        if self.pago_mensual_id:
+            try:
+                expected_date = date(
+                    int(self.pago_mensual.anio),
+                    int(self.pago_mensual.mes),
+                    int(self.dia_notificacion),
+                )
+            except (TypeError, ValueError):
+                expected_date = None
+            if expected_date and self.fecha_programada != expected_date:
+                errors['fecha_programada'] = (
+                    'La fecha programada debe corresponder al dia de cadencia dentro del mes operativo.'
+                )
+        if self.estado == EstadoNotificacionCobranza.PREPARED and not self.mensaje_saliente_id:
+            errors['mensaje_saliente'] = 'Una notificacion preparada requiere mensaje saliente asociado.'
+        if self.mensaje_saliente_id:
+            if self.mensaje_saliente.canal != self.canal:
+                errors['mensaje_saliente'] = 'El mensaje asociado debe usar el mismo canal.'
+            if (
+                self.pago_mensual_id
+                and self.mensaje_saliente.contrato_id
+                and self.mensaje_saliente.contrato_id != self.pago_mensual.contrato_id
+            ):
+                errors['mensaje_saliente'] = 'El mensaje asociado debe pertenecer al mismo contrato.'
+            if self.estado == EstadoNotificacionCobranza.PREPARED and (
+                self.mensaje_saliente.estado not in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.BLOCKED}
+            ):
+                errors['estado'] = 'Una notificacion preparada requiere mensaje preparado o bloqueado.'
+        if errors:
+            raise ValidationError(errors)
 

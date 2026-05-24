@@ -11,14 +11,15 @@ from documentos.scope import scope_documento_queryset
 from documentos.models import DocumentoEmitido
 from operacion.models import IdentidadDeEnvio
 
-from .models import CanalMensajeria, ConfiguracionNotificacionContrato, MensajeSaliente
-from .scope import scope_mensaje_queryset
+from .models import CanalMensajeria, ConfiguracionNotificacionContrato, MensajeSaliente, NotificacionCobranzaProgramada
+from .scope import scope_mensaje_queryset, scope_notificacion_cobranza_queryset
 from .serializers import (
     CanalMensajeriaSerializer,
     ConfiguracionNotificacionContratoSerializer,
     MensajePrepararSerializer,
     MensajeRegistrarEnvioSerializer,
     MensajeSalienteSerializer,
+    NotificacionCobranzaProgramadaSerializer,
 )
 from .services import mark_message_as_sent, prepare_message
 
@@ -134,6 +135,28 @@ class ChannelsSnapshotView(APIView):
                         request.user,
                         property_paths=('contrato__mandato_operacion__propiedad_id',),
                         bank_account_paths=('contrato__mandato_operacion__cuenta_recaudadora_id',),
+                    )
+                ],
+                'notificaciones_cobranza': [
+                    {
+                        'id': item.id,
+                        'pago_mensual': item.pago_mensual_id,
+                        'contrato': item.pago_mensual.contrato_id,
+                        'configuracion': item.configuracion_id,
+                        'canal': item.canal,
+                        'dia_notificacion': item.dia_notificacion,
+                        'fecha_programada': item.fecha_programada,
+                        'estado': item.estado,
+                        'mensaje_saliente': item.mensaje_saliente_id,
+                        'motivo_estado': item.motivo_estado,
+                    }
+                    for item in scope_notificacion_cobranza_queryset(
+                        NotificacionCobranzaProgramada.objects.select_related(
+                            'pago_mensual',
+                            'pago_mensual__contrato',
+                            'configuracion',
+                        ).order_by('fecha_programada', 'id'),
+                        request.user,
                     )
                 ],
                 'identidades': [
@@ -255,6 +278,34 @@ class MensajeSalienteDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return scope_mensaje_queryset(super().get_queryset(), self.request.user)
+
+
+class NotificacionCobranzaProgramadaListView(generics.ListAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = NotificacionCobranzaProgramadaSerializer
+    queryset = NotificacionCobranzaProgramada.objects.select_related(
+        'pago_mensual',
+        'pago_mensual__contrato',
+        'configuracion',
+        'mensaje_saliente',
+    ).all()
+
+    def get_queryset(self):
+        return scope_notificacion_cobranza_queryset(super().get_queryset(), self.request.user)
+
+
+class NotificacionCobranzaProgramadaDetailView(generics.RetrieveAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = NotificacionCobranzaProgramadaSerializer
+    queryset = NotificacionCobranzaProgramada.objects.select_related(
+        'pago_mensual',
+        'pago_mensual__contrato',
+        'configuracion',
+        'mensaje_saliente',
+    ).all()
+
+    def get_queryset(self):
+        return scope_notificacion_cobranza_queryset(super().get_queryset(), self.request.user)
 
 
 class MensajePrepararView(APIView):

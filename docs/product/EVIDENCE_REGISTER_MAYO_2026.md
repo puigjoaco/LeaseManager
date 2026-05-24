@@ -7,6 +7,7 @@ registrar nuevas pruebas.
 
 | Fecha | Evidencia | Alcance | Resultado | Referencia |
 | --- | --- | --- | --- | --- |
+| 2026-05-24 | Etapa 2 materializa recordatorios locales de cobranza desde cadencias activas. | Cobranza, canales, readiness Etapa 2, backoffice | Local OK; `PagoMensual` pendiente/atrasado programa recordatorios por pago/canal/dia sin enviar proveedores, snapshot/API los exponen y readiness bloquea pagos cobrables sin programacion. No cierra Etapa 2 sin fuente autorizada, Email/WebPay controlados y responsables no sensibles. | Focal 5 tests OK; suite impactada `canales cobranza core.tests_stage2_cobranza_readiness` 120 tests OK; gate Etapa 2 local OK como `classification=parcial`; acceptance local 647 tests OK; `manage.py check`; `makemigrations --check --dry-run`; `npm ci`; `npm run build`; higiene repo. |
 | 2026-05-20 | Root limpio reemplazado y savegame preservado. | Estructura de repo | Confirmado | `docs/RESULTADO_REEMPLAZO_ROOT_MAYO_2026.md` |
 | 2026-05-20 | Baseline de release documentado. | CI, root, savegames, limpieza | Confirmado | `docs/RELEASE_GATE_BASELINE_MAYO_2026.md` |
 | 2026-05-20 | PR #5 removio artefactos historicos activos. | Limpieza de repo | Confirmado por merge | `https://github.com/puigjoaco/LeaseManager/pull/5` |

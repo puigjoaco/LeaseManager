@@ -46,6 +46,12 @@ condicionados sin envios reales accidentales.
   mandato, el snapshot redacta evidencia heredada sensible y readiness bloquea
   contratos vigentes/futuros con canal habilitado sin cadencia activa o con
   configuraciones invalidas.
+- Los pagos mensuales pendientes o atrasados con cadencia activa deben
+  materializar recordatorios programados por pago/canal/dia. La generacion de
+  `PagoMensual` crea la programacion local de forma idempotente, el snapshot de
+  Canales la expone al backoffice y readiness bloquea pagos cobrables sin
+  recordatorios programados o con programacion heredada invalida. Esta
+  programacion no envia Email, WhatsApp ni proveedores externos.
 - Mensajes salientes con `DocumentoEmitido` cuya politica documental exige
   firma o notaria solo pueden prepararse o marcarse enviados si el documento
   ya esta `formalizado`.
