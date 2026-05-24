@@ -26,6 +26,9 @@ from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Soci
 from .models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
 
 
+VALID_DOCUMENT_SHA256 = 'c' * 64
+
+
 class CanalesAPITests(APITestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -283,7 +286,7 @@ class CanalesAPITests(APITestCase):
             expediente=expediente,
             tipo_documental='contrato_principal',
             version_plantilla='v1',
-            checksum='channel-snapshot-storage',
+            checksum=VALID_DOCUMENT_SHA256,
             fecha_carga=datetime(2026, 3, 18, 10, 0, tzinfo=ZoneInfo('America/Santiago')),
             usuario=self.user,
             origen='generado_sistema',
@@ -946,7 +949,7 @@ class CanalesAPITests(APITestCase):
                 'expediente': expediente.data['id'],
                 'tipo_documental': 'contrato_principal',
                 'version_plantilla': 'v1',
-                'checksum': 'doc-send-1',
+                'checksum': VALID_DOCUMENT_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
                 'origen': 'generado_sistema',
                 'estado': 'emitido',
@@ -1039,7 +1042,7 @@ class CanalesAPITests(APITestCase):
                 'expediente': expediente.data['id'],
                 'tipo_documental': 'contrato_principal',
                 'version_plantilla': 'v1',
-                'checksum': 'doc-mismatch',
+                'checksum': VALID_DOCUMENT_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
                 'origen': 'generado_sistema',
                 'estado': 'emitido',
@@ -1144,7 +1147,7 @@ class CanalesScopeAPITests(APITestCase):
             expediente=expediente_a,
             tipo_documental='contrato_principal',
             version_plantilla='v1',
-            checksum='scope-a',
+            checksum=VALID_DOCUMENT_SHA256,
             fecha_carga='2026-03-18T10:00:00-03:00',
             usuario=self.user,
             origen='generado_sistema',

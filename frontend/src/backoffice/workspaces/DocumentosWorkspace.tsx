@@ -78,6 +78,10 @@ function isPdfStorageRef(value: string) {
   return value.trim().toLowerCase().split('?', 1)[0].split('#', 1)[0].endsWith('.pdf')
 }
 
+function isDocumentChecksum(value: string) {
+  return /^(sha256:)?[0-9a-f]{64}$/i.test(value.trim())
+}
+
 export function DocumentosWorkspace({
   canEditDocumentos,
   editingExpedienteId,
@@ -212,7 +216,7 @@ export function DocumentosWorkspace({
                 <option value="evidencia_resolucion_manual">Evidencia de resolución manual</option>
               </select>
               <input placeholder="Versión plantilla" value={documentoDraft.version_plantilla} onChange={(event) => setDocumentoDraft((current) => ({ ...current, version_plantilla: event.target.value }))} />
-              <input placeholder="Checksum" value={documentoDraft.checksum} onChange={(event) => setDocumentoDraft((current) => ({ ...current, checksum: event.target.value }))} />
+              <input placeholder="Checksum SHA-256" value={documentoDraft.checksum} onChange={(event) => setDocumentoDraft((current) => ({ ...current, checksum: event.target.value }))} />
               <input type="datetime-local" value={documentoDraft.fecha_carga} onChange={(event) => setDocumentoDraft((current) => ({ ...current, fecha_carga: event.target.value }))} />
               <select value={documentoDraft.origen} onChange={(event) => setDocumentoDraft((current) => ({ ...current, origen: event.target.value }))}>
                 <option value="generado_sistema">Generado por sistema</option>
@@ -225,7 +229,7 @@ export function DocumentosWorkspace({
                 <option value="cancelado">Cancelado</option>
               </select>
               <input placeholder="Storage ref PDF" value={documentoDraft.storage_ref} onChange={(event) => setDocumentoDraft((current) => ({ ...current, storage_ref: event.target.value }))} />
-              <button type="submit" className="button-primary" disabled={isSubmitting || !documentoDraft.expediente || !documentoDraft.checksum || !isPdfStorageRef(documentoDraft.storage_ref)}>Guardar documento</button>
+              <button type="submit" className="button-primary" disabled={isSubmitting || !documentoDraft.expediente || !isDocumentChecksum(documentoDraft.checksum) || !isPdfStorageRef(documentoDraft.storage_ref)}>Guardar documento</button>
             </form>
           </section>
 

@@ -17,7 +17,8 @@ firma y notaria trazables.
 - `storage_ref` debe referenciar PDF canonico con una referencia no sensible:
   no URL, token, credencial, correo ni secreto.
 - Documento emitido debe conservar `version_plantilla`, `checksum`, `usuario`,
-  `fecha_carga`, `origen` y expediente.
+  `fecha_carga`, `origen` y expediente; `checksum` debe ser un digest
+  SHA-256 canonico, no una etiqueta libre.
 - APIs y snapshot documental deben redactar `storage_ref` sensible heredado
   antes de exponer documentos al backoffice.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
@@ -33,6 +34,8 @@ firma y notaria trazables.
 - Auditoria local `audit_document_readiness` debe consolidar politicas activas
   por tipo documental, metadata PDF, evidencia controlada, responsables y
   faltantes antes de declarar cierre.
+- Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
+  checksums heredados no canonicos, sin exponer el valor.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   `storage_ref` sensible heredado, sin exponer el valor.
 - `audit_document_readiness` solo puede cerrar con `--source-kind`

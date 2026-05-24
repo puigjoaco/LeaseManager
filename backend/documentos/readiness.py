@@ -13,6 +13,7 @@ from .models import (
     PoliticaFirmaYNotaria,
     TipoDocumental,
     is_pdf_storage_ref,
+    is_valid_pdf_checksum,
 )
 
 
@@ -95,6 +96,7 @@ def collect_document_readiness(
     non_pdf_documents = 0
     sensitive_storage_refs = 0
     documents_missing_metadata = 0
+    invalid_checksum_documents = 0
     invalid_formalized_documents = 0
     notary_required_policies = set(
         active_policies.filter(requiere_notaria=True).values_list('tipo_documental', flat=True)
@@ -107,6 +109,8 @@ def collect_document_readiness(
             non_pdf_documents += 1
         if _sensitive_reference(document.storage_ref):
             sensitive_storage_refs += 1
+        if str(document.checksum or '').strip() and not is_valid_pdf_checksum(document.checksum):
+            invalid_checksum_documents += 1
         if _document_missing_metadata(document):
             documents_missing_metadata += 1
         if document.estado == EstadoDocumento.FORMALIZED:
@@ -201,6 +205,14 @@ def collect_document_readiness(
                 count=documents_missing_metadata,
             )
         )
+    if invalid_checksum_documents:
+        issues.append(
+            _issue(
+                'documents.invalid_checksum',
+                'Existen documentos cuyo checksum no es un SHA-256 canonico.',
+                count=invalid_checksum_documents,
+            )
+        )
     if invalid_formalized_documents:
         issues.append(
             _issue(
@@ -275,6 +287,7 @@ def collect_document_readiness(
                 'non_pdf_storage_refs': non_pdf_documents,
                 'sensitive_storage_refs': sensitive_storage_refs,
                 'missing_metadata': documents_missing_metadata,
+                'invalid_checksums': invalid_checksum_documents,
                 'invalid_formalized_documents': invalid_formalized_documents,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,
                 'formalized_without_formalization_audit': formalized_without_formalization_audit,
