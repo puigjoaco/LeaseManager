@@ -87,11 +87,15 @@ def _balance_connection_ready(connection: ConexionBancaria) -> bool:
 
 def _collect_movement_issues(movements) -> dict[str, int]:
     counts = Counter()
+    transaction_keys = Counter()
     for movement in movements:
         try:
             movement.full_clean()
         except ValidationError:
             counts['invalid_model'] += 1
+
+        if has_text(movement.transaction_id_banco):
+            transaction_keys[(movement.conexion_bancaria_id, movement.transaction_id_banco)] += 1
 
         if _has_sensitive_reference(movement, MOVEMENT_REFERENCE_FIELDS):
             counts['sensitive_reference'] += 1
@@ -113,6 +117,10 @@ def _collect_movement_issues(movements) -> dict[str, int]:
             and not movement.codigo_cobro_residual_id
         ):
             counts['credit_exact_match_without_target'] += 1
+
+    duplicate_transaction_rows = sum(count for count in transaction_keys.values() if count > 1)
+    if duplicate_transaction_rows:
+        counts['transaction_id_duplicate'] = duplicate_transaction_rows
 
     return dict(sorted(counts.items()))
 
@@ -309,6 +317,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.movement.provider_sync_transaction_missing',
                 'Existen movimientos provider_sync sin transaction_id_banco trazable.',
                 count=movement_issues['provider_sync_transaction_missing'],
+            )
+        )
+    if movement_issues.get('transaction_id_duplicate'):
+        issues.append(
+            _issue(
+                'stage3.movement.transaction_id_duplicate',
+                'Existen movimientos bancarios con transaction_id_banco duplicado dentro de una misma conexion.',
+                count=movement_issues['transaction_id_duplicate'],
             )
         )
     if movement_issues.get('provider_sync_connection_not_ready'):

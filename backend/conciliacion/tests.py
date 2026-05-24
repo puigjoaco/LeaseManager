@@ -538,6 +538,35 @@ class ConciliacionAPITests(APITestCase):
 
         self.assertIn('pago_mensual', error.exception.message_dict)
 
+    def test_bank_movement_full_clean_rejects_duplicate_transaction_id_per_connection(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-DUP-TX-MODEL')
+        conexion = self._create_connection(cuenta)
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='100111.00',
+            descripcion_origen='Pago con tx original',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            transaction_id_banco='tx-model-dup-001',
+        )
+        duplicate = MovimientoBancarioImportado(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-09',
+            tipo_movimiento='abono',
+            monto='100112.00',
+            descripcion_origen='Pago con tx duplicado',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            transaction_id_banco='tx-model-dup-001',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            duplicate.full_clean()
+
+        self.assertIn('transaction_id_banco', error.exception.message_dict)
+
     def test_rejects_duplicate_transaction_id_banco_per_connection(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-DUP-TX')
         conexion = self._create_connection(cuenta)
