@@ -243,6 +243,21 @@ class ContratoPropiedad(TimestampedModel):
             raise ValidationError(
                 {'contrato': 'Un contrato vigente o futuro solo puede cubrir una propiedad o una pareja principal + vinculada.'}
             )
+        primary_count = same_contract_links.filter(rol_en_contrato=RolContratoPropiedad.PRIMARY).count()
+        linked_count = same_contract_links.filter(rol_en_contrato=RolContratoPropiedad.LINKED).count()
+        if self.rol_en_contrato == RolContratoPropiedad.PRIMARY:
+            primary_count += 1
+        if self.rol_en_contrato == RolContratoPropiedad.LINKED:
+            linked_count += 1
+        total_links = same_contract_links.count() + 1
+        if primary_count != 1:
+            raise ValidationError(
+                {'rol_en_contrato': 'Un contrato vigente o futuro debe tener exactamente una propiedad principal.'}
+            )
+        if total_links == 2 and linked_count != 1:
+            raise ValidationError(
+                {'rol_en_contrato': 'Una pareja de propiedades requiere una propiedad principal y una vinculada.'}
+            )
 
         if self.rol_en_contrato == RolContratoPropiedad.PRIMARY:
             mismatched_contract_codes = same_contract_links.exclude(

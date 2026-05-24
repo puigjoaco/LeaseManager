@@ -51,6 +51,8 @@ contra datos reales o snapshot controlado.
   del rango contractual ya dependiente.
 - Validacion de que cada propiedad principal o vinculada de contratos vigentes
   o futuros este activa.
+- Validacion de roles contrato-propiedad: exactamente una propiedad principal
+  y, si hay pareja, una propiedad vinculada.
 - Validacion de que cada contrato vigente o futuro cubra una sola propiedad o
   una pareja propiedad principal + vinculada.
 - Validacion de que la pareja propiedad principal + vinculada comparta el

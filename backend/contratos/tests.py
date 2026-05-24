@@ -543,6 +543,57 @@ class ContratosAPITests(APITestCase):
         with self.assertRaises(ValidationError):
             linked.full_clean()
 
+    def test_contract_property_full_clean_rejects_duplicate_primary_role(self):
+        mandato = self._create_active_mandato(codigo='MAND-DUP-PRIMARY', owner_rut='11111111-1')
+        arrendatario = self._create_arrendatario(rut='12345678-5')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-DUP-PRIMARY')
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        other_property = Propiedad.objects.create(
+            direccion='Av Duplicate Primary',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='DUP-PRIMARY',
+            estado='activa',
+            socio_owner=mandato.propietario_socio_owner,
+        )
+        duplicate_primary = ContratoPropiedad(
+            contrato=Contrato.objects.get(pk=response.data['id']),
+            propiedad=other_property,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='123',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            duplicate_primary.full_clean()
+        self.assertIn('rol_en_contrato', error.exception.message_dict)
+
+    def test_contract_property_full_clean_rejects_linked_role_without_primary(self):
+        mandato = self._create_active_mandato(codigo='MAND-LINK-ONLY', owner_rut='11111111-1')
+        arrendatario = self._create_arrendatario(rut='12345678-5')
+        contrato = Contrato.objects.create(
+            codigo_contrato='CTR-LINK-ONLY',
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            dia_pago_mensual=5,
+            estado=EstadoContrato.ACTIVE,
+        )
+        linked_only = ContratoPropiedad(
+            contrato=contrato,
+            propiedad=mandato.propiedad,
+            rol_en_contrato=RolContratoPropiedad.LINKED,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='123',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            linked_only.full_clean()
+        self.assertIn('rol_en_contrato', error.exception.message_dict)
+
     def test_contract_property_full_clean_rejects_more_than_principal_and_linked_pair(self):
         mandato = self._create_active_mandato(codigo='MAND-LINK-LIMIT', owner_rut='77777781-5')
         linked_a = Propiedad.objects.create(
