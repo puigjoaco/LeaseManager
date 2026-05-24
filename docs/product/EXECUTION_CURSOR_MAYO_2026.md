@@ -23,18 +23,18 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 - Contactos de pago estructurados |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` linea 401 |
-| Brecha activa | Contactos de pago deben modelarse como informacion estructurada, no como notas informales ni solo email/telefono plano del arrendatario. |
-| Motivo de prioridad | Es una regla local de Contratos/Etapa 1, no requiere secretos, `.env`, DB historica, snapshot ni integracion externa. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-payment-contact-structure` |
-| Rama | `codex/stage1-payment-contact-structure` |
-| Estado | Implementado y validado localmente; pendiente cierre operativo con PR, CI, merge a `main` y limpieza de worktree/rama. |
-| Gate esperado | Tests focales de API/modelo/auditor, suite impactada de Contratos y Etapa 1, `manage.py check`, `makemigrations --check --dry-run`, readiness local Etapa 1, build frontend si aplica, higiene repo y `git diff --check`. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 1 - Contactos de pago estructurados. |
+| Fuente exacta | PR #179 `Structure payment contacts`, merge `25385cc`, desde `01_Set_Vigente/PRD_CANONICO.md` linea 401. |
+| Brecha activa | Cerrada localmente: `ContactoPagoArrendatario` modela contactos de pago estructurados; API, snapshot y auditor Etapa 1 quedan cubiertos. |
+| Motivo de prioridad | El paquete ya fue integrado sin usar secretos, `.env`, DB historica, snapshot ni integracion externa. |
+| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
+| Rama | `main` sincronizada; sin rama tactica activa. |
+| Estado | PR #179 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
+| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
 | Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 1 sin fuente `snapshot_controlado` o `real_autorizado`. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Cerrar el PR del paquete Contactos de pago estructurados, esperar CI, mergear a `main`, limpiar worktree/rama y dejar el cursor sin paquete tactico abierto. |
+| Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
 
 ## Actualizacion
 
