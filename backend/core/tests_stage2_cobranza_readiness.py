@@ -479,6 +479,30 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.webpay_intent.sensitive_return_url_ref', issue_codes)
         self.assertNotIn('front.example.test', json.dumps(result))
 
+    def test_webpay_intent_with_sensitive_provider_payload_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        webpay_gate = self._create_valid_webpay_gate()
+        IntentoPagoWebPay.objects.create(
+            pago_mensual=fixture['payment'],
+            gate_cobro=webpay_gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=fixture['payment'].monto_calculado_clp,
+            buy_order='LM-PM-STAGE2-PAYLOAD',
+            session_id='LM-WP-STAGE2-PAYLOAD',
+            return_url_ref='webpay-return-controlled-v1',
+            estado=EstadoIntentoPagoWebPay.PREPARED,
+            provider_payload={'token': 'secret-token', 'status_ref': 'webpay-status-v1'},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.webpay_intent.sensitive_provider_payload', issue_codes)
+        self.assertEqual(result['sections']['webpay']['sensitive_provider_payload'], 1)
+        self.assertNotIn('secret-token', json.dumps(result))
+
     def test_channel_gate_with_sensitive_reference_is_blocking(self):
         self._create_payment_matrix()
         email_gate = self._create_valid_email_gate()

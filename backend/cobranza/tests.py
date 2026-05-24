@@ -534,6 +534,29 @@ class CobranzaAPITests(APITestCase):
             sensitive_restriction_gate.full_clean()
         self.assertIn('restricciones_operativas', restriction_error.exception.message_dict)
 
+    def test_webpay_intent_full_clean_rejects_sensitive_provider_payload(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-PAYLOAD-SECRET')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-gate-evidence-controlled',
+        )
+        intent = IntentoPagoWebPay(
+            pago_mensual=payment,
+            gate_cobro=gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=payment.monto_calculado_clp,
+            buy_order='BUY-PAYLOAD-SECRET',
+            session_id='SESSION-PAYLOAD-SECRET',
+            return_url_ref='webpay-return-controlled-v1',
+            estado=EstadoIntentoPagoWebPay.PREPARED,
+            provider_payload={'token': 'secret-token', 'status_ref': 'webpay-status-v1'},
+        )
+
+        with self.assertRaises(ValidationError) as payload_error:
+            intent.full_clean()
+        self.assertIn('provider_payload', payload_error.exception.message_dict)
+
     def test_webpay_apis_redact_inherited_sensitive_references(self):
         self.user.default_role_code = 'AdministradorGlobal'
         self.user.save(update_fields=['default_role_code'])

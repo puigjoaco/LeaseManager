@@ -337,6 +337,14 @@ class IntentoPagoWebPay(TimestampedModel):
             raise ValidationError({'gate_cobro': 'El gate de cobro debe pertenecer al mismo provider_key.'})
         if self.gate_cobro.capacidad_key != CapacidadCobroExterno.WEBPAY_INTENT:
             raise ValidationError({'gate_cobro': 'El gate debe corresponder a WebPay.IntentoPago.'})
+        if contains_sensitive_reference(self.provider_payload, include_sensitive_keys=True):
+            raise ValidationError(
+                {
+                    'provider_payload': (
+                        'provider_payload no debe contener URLs, tokens, credenciales ni correos.'
+                    )
+                }
+            )
         if self.estado in {EstadoIntentoPagoWebPay.PREPARED, EstadoIntentoPagoWebPay.CONFIRMED_MANUAL}:
             if self.gate_cobro.estado_gate != EstadoGateCobroExterno.OPEN:
                 raise ValidationError({'estado': 'WebPay solo puede prepararse o confirmarse con gate abierto.'})
