@@ -989,6 +989,54 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(duplicate_resolution.metadata['superseded_by'], 'conciliacion.manual_resolution')
         self.assertEqual(duplicate_resolution.metadata['superseded_by_resolution_id'], str(resolution.pk))
 
+    def test_manual_resolution_unknown_income_requires_matching_economic_period(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-PERIOD', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                monto='777777.00',
+                descripcion_origen='Abono con periodo economico inconsistente',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        pago.monto_calculado_clp = '777777.00'
+        pago.save(update_fields=['monto_calculado_clp'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
+            self._unknown_income_resolution_payload(
+                pago,
+                periodo_economico='2026-02',
+                rationale='Intento con periodo economico incorrecto.',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            resolve.data['detail'],
+            'El periodo economico debe coincidir con el mes y anio del pago mensual seleccionado.',
+        )
+
+        movimiento.refresh_from_db()
+        pago.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        self.assertIsNone(movimiento.pago_mensual_id)
+        self.assertEqual(pago.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(str(pago.monto_pagado_clp), '0.00')
+        self.assertEqual(resolution.status, ManualResolution.Status.OPEN)
+
     def test_manual_resolution_unknown_income_requires_rationale(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-REASON', amount='100111.00')
         conexion = self._create_connection(cuenta)

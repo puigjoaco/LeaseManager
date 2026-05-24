@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections import Counter
 from decimal import Decimal
 from typing import Any
@@ -9,6 +10,7 @@ from django.db.models import F, Q
 from django.utils import timezone
 
 from audit.models import ManualResolution
+from cobranza.models import PagoMensual
 from conciliacion.models import (
     CategoriaMovimiento,
     ConexionBancaria,
@@ -61,10 +63,91 @@ ALLOWED_MANUAL_RESOLUTION_SUPERSEDERS = {
     'conciliacion.exact_match',
     'conciliacion.manual_resolution',
 }
+ECONOMIC_PERIOD_RE = re.compile(r'^\d{4}-(0[1-9]|1[0-2])$')
 
 
 def _non_sensitive_reference(value: str) -> bool:
     return is_non_sensitive_reference(value)
+
+
+def _valid_economic_period(value) -> bool:
+    return ECONOMIC_PERIOD_RE.fullmatch(str(value or '').strip()) is not None
+
+
+def _metadata_int(metadata: dict[str, Any], key: str) -> int | None:
+    try:
+        return int(str(metadata.get(key) or '').strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _expected_payment_period(payment: PagoMensual) -> str:
+    return f'{payment.anio:04d}-{payment.mes:02d}'
+
+
+def _get_resolution_movement(resolution: ManualResolution) -> MovimientoBancarioImportado | None:
+    try:
+        movement_id = int(str(resolution.scope_reference or '').strip())
+    except (TypeError, ValueError):
+        return None
+    try:
+        return MovimientoBancarioImportado.objects.select_related(
+            'conexion_bancaria__cuenta_recaudadora',
+            'pago_mensual',
+        ).get(pk=movement_id)
+    except MovimientoBancarioImportado.DoesNotExist:
+        return None
+
+
+def _unknown_income_target_matches(resolution: ManualResolution, metadata: dict[str, Any]) -> bool:
+    payment_id = _metadata_int(metadata, 'resolved_payment_id')
+    contract_id = _metadata_int(metadata, 'resolved_contract_id')
+    if payment_id is None or contract_id is None:
+        return False
+    try:
+        payment = PagoMensual.objects.select_related('contrato__mandato_operacion').get(pk=payment_id)
+    except PagoMensual.DoesNotExist:
+        return False
+
+    if payment.contrato_id != contract_id:
+        return False
+    if str(metadata.get('periodo_economico') or '').strip() != _expected_payment_period(payment):
+        return False
+
+    movement = _get_resolution_movement(resolution)
+    if movement is None:
+        return False
+    if movement.tipo_movimiento != TipoMovimientoBancario.CREDIT:
+        return False
+    if movement.estado_conciliacion != EstadoConciliacionMovimiento.EXACT_MATCH:
+        return False
+    if movement.pago_mensual_id != payment.pk:
+        return False
+    return (
+        payment.contrato.mandato_operacion.cuenta_recaudadora_id
+        == movement.conexion_bancaria.cuenta_recaudadora_id
+    )
+
+
+def _charge_classification_target_matches(resolution: ManualResolution, metadata: dict[str, Any]) -> bool:
+    movement = _get_resolution_movement(resolution)
+    if movement is None:
+        return False
+    if movement.tipo_movimiento != TipoMovimientoBancario.DEBIT:
+        return False
+    if movement.estado_conciliacion != EstadoConciliacionMovimiento.EXACT_MATCH:
+        return False
+
+    empresa_id = movement.conexion_bancaria.cuenta_recaudadora.empresa_owner_id
+    if empresa_id is None:
+        return False
+    if _metadata_int(metadata, 'entidad_afectada_id') != empresa_id:
+        return False
+
+    resolved_empresa_id = _metadata_int(metadata, 'resolved_empresa_id')
+    if resolved_empresa_id is not None and resolved_empresa_id != empresa_id:
+        return False
+    return True
 
 
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
@@ -221,8 +304,13 @@ def _collect_manual_resolution_issues(resolutions) -> dict[str, int]:
                 missing_context = True
             if missing_context:
                 counts['unknown_income_resolution_context_missing'] += 1
-            elif not _non_sensitive_reference(metadata.get('evidencia_regularizacion_ref')):
-                counts['unknown_income_resolution_evidence_sensitive'] += 1
+            else:
+                if not _valid_economic_period(metadata.get('periodo_economico')):
+                    counts['unknown_income_resolution_period_invalid'] += 1
+                elif not _unknown_income_target_matches(resolution, metadata):
+                    counts['unknown_income_resolution_target_mismatch'] += 1
+                if not _non_sensitive_reference(metadata.get('evidencia_regularizacion_ref')):
+                    counts['unknown_income_resolution_evidence_sensitive'] += 1
         if (
             resolution.status == ManualResolution.Status.RESOLVED
             and resolution.category == 'conciliacion.movimiento_cargo'
@@ -238,8 +326,13 @@ def _collect_manual_resolution_issues(resolutions) -> dict[str, int]:
                 missing_context = True
             if missing_context:
                 counts['charge_classification_context_missing'] += 1
-            elif not _non_sensitive_reference(metadata.get('evidencia_clasificacion_ref')):
-                counts['charge_classification_evidence_sensitive'] += 1
+            else:
+                if not _valid_economic_period(metadata.get('periodo_economico')):
+                    counts['charge_classification_period_invalid'] += 1
+                elif not _charge_classification_target_matches(resolution, metadata):
+                    counts['charge_classification_target_mismatch'] += 1
+                if not _non_sensitive_reference(metadata.get('evidencia_clasificacion_ref')):
+                    counts['charge_classification_evidence_sensitive'] += 1
     return dict(sorted(counts.items()))
 
 
@@ -508,6 +601,22 @@ def collect_stage3_conciliacion_readiness(
                 count=manual_resolution_issues['unknown_income_resolution_evidence_sensitive'],
             )
         )
+    if manual_resolution_issues.get('unknown_income_resolution_period_invalid'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.unknown_income_resolution_period_invalid',
+                'Existen ingresos desconocidos resueltos con periodo economico invalido.',
+                count=manual_resolution_issues['unknown_income_resolution_period_invalid'],
+            )
+        )
+    if manual_resolution_issues.get('unknown_income_resolution_target_mismatch'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.unknown_income_resolution_target_mismatch',
+                'Existen ingresos desconocidos resueltos cuya traza no coincide con el pago mensual target.',
+                count=manual_resolution_issues['unknown_income_resolution_target_mismatch'],
+            )
+        )
     if manual_resolution_issues.get('charge_classification_context_missing'):
         issues.append(
             _issue(
@@ -522,6 +631,22 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.manual_resolution.charge_classification_evidence_sensitive',
                 'Existen cargos bancarios resueltos con evidencia de clasificacion sensible.',
                 count=manual_resolution_issues['charge_classification_evidence_sensitive'],
+            )
+        )
+    if manual_resolution_issues.get('charge_classification_period_invalid'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.charge_classification_period_invalid',
+                'Existen cargos bancarios resueltos con periodo economico invalido.',
+                count=manual_resolution_issues['charge_classification_period_invalid'],
+            )
+        )
+    if manual_resolution_issues.get('charge_classification_target_mismatch'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.charge_classification_target_mismatch',
+                'Existen cargos bancarios resueltos cuya traza no coincide con la entidad afectada.',
+                count=manual_resolution_issues['charge_classification_target_mismatch'],
             )
         )
 

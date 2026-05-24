@@ -1,3 +1,5 @@
+import re
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -20,6 +22,7 @@ RETRIABLE_EXACT_MATCH_STATES = {
     EstadoConciliacionMovimiento.PENDING,
     EstadoConciliacionMovimiento.UNKNOWN_INCOME,
 }
+ECONOMIC_PERIOD_RE = re.compile(r'^\d{4}-(0[1-9]|1[0-2])$')
 
 
 def require_manual_resolution_rationale(rationale):
@@ -27,6 +30,13 @@ def require_manual_resolution_rationale(rationale):
     if not clean_rationale:
         raise ValueError('La resolucion manual requiere un motivo auditable.')
     return clean_rationale
+
+
+def require_economic_period(periodo_economico):
+    clean_period = str(periodo_economico or '').strip()
+    if not ECONOMIC_PERIOD_RE.fullmatch(clean_period):
+        raise ValueError('periodo_economico debe usar formato YYYY-MM.')
+    return clean_period
 
 
 def get_open_manual_resolution(movimiento, category):
@@ -289,11 +299,11 @@ def resolve_unknown_income_manual_resolution(
     if resolution.status == ManualResolution.Status.RESOLVED:
         raise ValueError('La resolucion ya fue marcada como resuelta.')
     rationale = require_manual_resolution_rationale(rationale)
-    periodo_economico = str(periodo_economico or '').strip()
+    periodo_economico = require_economic_period(periodo_economico)
     criterio_aplicado = str(criterio_aplicado or '').strip()
     evidencia_regularizacion_ref = str(evidencia_regularizacion_ref or '').strip()
-    if not periodo_economico or not criterio_aplicado:
-        raise ValueError('La regularizacion manual requiere periodo economico y criterio aplicado.')
+    if not criterio_aplicado:
+        raise ValueError('La regularizacion manual requiere criterio aplicado.')
     if not is_non_sensitive_reference(evidencia_regularizacion_ref):
         raise ValueError('La regularizacion manual requiere evidencia no sensible.')
 
@@ -305,6 +315,9 @@ def resolve_unknown_income_manual_resolution(
 
     if payment.contrato.mandato_operacion.cuenta_recaudadora_id != movimiento.conexion_bancaria.cuenta_recaudadora_id:
         raise ValueError('El pago seleccionado no pertenece a la misma cuenta recaudadora del movimiento.')
+    expected_period = f'{payment.anio:04d}-{payment.mes:02d}'
+    if periodo_economico != expected_period:
+        raise ValueError('El periodo economico debe coincidir con el mes y anio del pago mensual seleccionado.')
     if payment.estado_pago not in {EstadoPago.PENDING, EstadoPago.OVERDUE}:
         raise ValueError('Solo se puede regularizar manualmente un pago pendiente o atrasado.')
     pending_amount = payment.monto_calculado_clp - payment.monto_pagado_clp
@@ -420,7 +433,7 @@ def resolve_charge_movement_manual_resolution(
     rationale = require_manual_resolution_rationale(rationale)
     categoria_movimiento = str(categoria_movimiento or '').strip()
     entidad_afectada_tipo = str(entidad_afectada_tipo or '').strip()
-    periodo_economico = str(periodo_economico or '').strip()
+    periodo_economico = require_economic_period(periodo_economico)
     criterio_reparto = str(criterio_reparto or '').strip()
     evidencia_clasificacion_ref = str(evidencia_clasificacion_ref or '').strip()
 
@@ -446,8 +459,8 @@ def resolve_charge_movement_manual_resolution(
         raise ValueError('La clasificacion manual requiere entidad afectada.') from error
     if entidad_afectada_id != empresa.pk:
         raise ValueError('La entidad afectada debe coincidir con la empresa duena de la cuenta recaudadora.')
-    if not periodo_economico or not criterio_reparto:
-        raise ValueError('La clasificacion manual requiere periodo economico y criterio de reparto.')
+    if not criterio_reparto:
+        raise ValueError('La clasificacion manual requiere criterio de reparto.')
     if not is_non_sensitive_reference(evidencia_clasificacion_ref):
         raise ValueError('La clasificacion manual requiere evidencia no sensible.')
 
