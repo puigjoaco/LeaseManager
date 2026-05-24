@@ -140,6 +140,23 @@ class AuditAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_unknown_income_resolution_cannot_be_marked_superseded_via_generic_patch(self):
+        resolution = ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            scope_type='movimiento_bancario',
+            scope_reference='123',
+            summary='Ingreso desconocido',
+            status='open',
+        )
+
+        response = self.client.patch(
+            reverse('manual-resolution-detail', args=[resolution.pk]),
+            {'status': 'superseded', 'rationale': 'Cerrar directo'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_charge_resolution_cannot_be_marked_resolved_via_generic_patch(self):
         resolution = ManualResolution.objects.create(
             category='conciliacion.movimiento_cargo',

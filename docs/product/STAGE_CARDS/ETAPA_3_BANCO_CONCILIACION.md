@@ -46,6 +46,10 @@ sistema igual a saldo banco.
   `evidencia_clasificacion_ref` no sensible y motivo auditable; la API y el
   servicio no permiten nuevos cierres sin ese contexto, y la readiness bloquea
   resoluciones heredadas resueltas sin ese contexto o con evidencia sensible.
+- Resoluciones manuales abiertas que quedan obsoletas por match exacto o por
+  otra resolucion manual no se marcan como resueltas manualmente: se cierran
+  como `superseded` con motivo, metadata de origen/target y evento de
+  auditoria; la readiness bloquea supersesiones sin traza suficiente.
 - Las respuestas API y snapshot de Conciliacion redactan refs bancarias
   sensibles ya persistidas antes de exponerlas al backoffice.
 - `audit_stage3_conciliacion_readiness` solo puede cerrar con `--source-kind`

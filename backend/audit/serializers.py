@@ -65,8 +65,8 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
         if (
             self.instance
             and self.instance.category in SPECIALIZED_MANUAL_RESOLUTION_CATEGORIES
-            and attrs.get('status') == ManualResolution.Status.RESOLVED
-            and self.instance.status != ManualResolution.Status.RESOLVED
+            and attrs.get('status') in {ManualResolution.Status.RESOLVED, ManualResolution.Status.SUPERSEDED}
+            and self.instance.status != attrs.get('status')
         ):
             raise serializers.ValidationError(
                 {'status': 'Use la resolución especializada correspondiente para cerrar este caso.'}

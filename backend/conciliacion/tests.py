@@ -8,7 +8,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from audit.models import ManualResolution
+from audit.models import AuditEvent, ManualResolution
 from contabilidad.models import AsientoContable, ConfiguracionFiscalEmpresa, CuentaContable, EventoContable, MatrizReglasContables, ReglaContable
 from contabilidad.services import ensure_default_regime
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
@@ -892,6 +892,10 @@ class ConciliacionAPITests(APITestCase):
 
         movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento.pk),
+        )
 
         pago = PagoMensual.objects.get(contrato=contrato, mes=1, anio=2026)
         pago.monto_calculado_clp = '777777.00'
@@ -905,10 +909,24 @@ class ConciliacionAPITests(APITestCase):
 
         movimiento.refresh_from_db()
         pago.refresh_from_db()
+        resolution.refresh_from_db()
         ingreso = IngresoDesconocido.objects.get(movimiento_bancario=movimiento)
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
         self.assertEqual(pago.estado_pago, EstadoPago.PAID)
         self.assertEqual(ingreso.estado, 'resuelto')
+        self.assertEqual(resolution.status, ManualResolution.Status.SUPERSEDED)
+        self.assertEqual(resolution.rationale, 'Supersedida porque el movimiento obtuvo match exacto con pago mensual trazable.')
+        self.assertEqual(resolution.metadata['superseded_by'], 'conciliacion.exact_match')
+        self.assertEqual(resolution.metadata['superseded_match_type'], 'payment')
+        self.assertEqual(resolution.metadata['pago_mensual_id'], pago.pk)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='audit.manual_resolution.superseded',
+                entity_type='manual_resolution',
+                entity_id=str(resolution.pk),
+                metadata__superseded_by='conciliacion.exact_match',
+            ).exists()
+        )
 
     def test_manual_resolution_can_regularize_unknown_income_to_selected_payment(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL', amount='100111.00')
@@ -932,6 +950,12 @@ class ConciliacionAPITests(APITestCase):
             category='conciliacion.ingreso_desconocido',
             scope_reference=str(movimiento.pk),
         )
+        duplicate_resolution = ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Revision duplicada del mismo ingreso desconocido.',
+        )
 
         resolve = self.client.post(
             reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
@@ -947,6 +971,7 @@ class ConciliacionAPITests(APITestCase):
         movimiento.refresh_from_db()
         pago.refresh_from_db()
         resolution.refresh_from_db()
+        duplicate_resolution.refresh_from_db()
         ingreso = IngresoDesconocido.objects.get(movimiento_bancario=movimiento)
 
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
@@ -960,6 +985,9 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(resolution.metadata['periodo_economico'], '2026-01')
         self.assertEqual(resolution.metadata['criterio_aplicado'], 'Saldo pendiente exacto validado contra movimiento bancario.')
         self.assertEqual(resolution.metadata['evidencia_regularizacion_ref'], 'unknown-income-payment-match-2026-01')
+        self.assertEqual(duplicate_resolution.status, ManualResolution.Status.SUPERSEDED)
+        self.assertEqual(duplicate_resolution.metadata['superseded_by'], 'conciliacion.manual_resolution')
+        self.assertEqual(duplicate_resolution.metadata['superseded_by_resolution_id'], str(resolution.pk))
 
     def test_manual_resolution_unknown_income_requires_rationale(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-REASON', amount='100111.00')

@@ -223,6 +223,34 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
 
+    def test_superseded_manual_resolution_with_trace_can_pass_readiness(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-SUPERSEDED-OK')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            status=ManualResolution.Status.SUPERSEDED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Ingreso supersedido por match exacto posterior',
+            rationale='Supersedida por match exacto trazable.',
+            metadata={
+                'superseded_by': 'conciliacion.exact_match',
+                'superseded_match_type': 'payment',
+                'movimiento_id': movimiento.pk,
+                'pago_mensual_id': payment.pk,
+            },
+        )
+
+        result = self._collect_with_final_refs()
+
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertTrue(result['ready_for_stage3_conciliacion'])
+        self.assertNotIn(
+            'stage3.manual_resolution.superseded_trace_missing',
+            {issue['code'] for issue in result['issues']},
+        )
+
     def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
         cuenta, payment = self._create_payment_matrix()
         conexion = self._create_ready_connection(cuenta)
@@ -420,6 +448,26 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.manual_resolution.rationale_missing', issue_codes)
         self.assertEqual(result['sections']['manual_resolutions']['resolved_without_rationale'], 1)
+
+    def test_superseded_manual_resolution_without_trace_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-SUPERSEDED-TRACE')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            status=ManualResolution.Status.SUPERSEDED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Ingreso supersedido sin traza',
+            metadata={'superseded_by': 'legacy'},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.superseded_trace_missing', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['superseded_without_trace'], 1)
 
     def test_resolved_unknown_income_without_resolution_context_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-UNKNOWN-CONTEXT')
