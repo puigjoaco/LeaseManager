@@ -328,8 +328,12 @@ class DistribucionCobroMensualSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class GarantiaContractualSerializer(serializers.ModelSerializer):
+class GarantiaContractualSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
     saldo_vigente = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    brecha_garantia_clp = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    garantia_incompleta = serializers.BooleanField(read_only=True)
+    garantia_parcial_aceptada = serializers.BooleanField(read_only=True)
+    redacted_reference_fields = ('aceptacion_parcial_ref',)
 
     class Meta:
         model = GarantiaContractual
@@ -341,6 +345,10 @@ class GarantiaContractualSerializer(serializers.ModelSerializer):
             'monto_devuelto',
             'monto_aplicado',
             'saldo_vigente',
+            'brecha_garantia_clp',
+            'garantia_incompleta',
+            'garantia_parcial_aceptada',
+            'aceptacion_parcial_ref',
             'estado_garantia',
             'fecha_recepcion',
             'fecha_cierre',
@@ -353,6 +361,9 @@ class GarantiaContractualSerializer(serializers.ModelSerializer):
             'monto_devuelto',
             'monto_aplicado',
             'saldo_vigente',
+            'brecha_garantia_clp',
+            'garantia_incompleta',
+            'garantia_parcial_aceptada',
             'estado_garantia',
             'fecha_recepcion',
             'fecha_cierre',

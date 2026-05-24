@@ -29,6 +29,10 @@ condicionados sin envios reales accidentales.
   repactaciones activas y codigos residuales activos; la readiness debe
   bloquear snapshots con arrendatarios cobrables sin estado o con resumen
   operativo desactualizado.
+- Garantias contractuales recibidas parcialmente deben quedar visibles como
+  incompletas hasta regularizarse o contar con aceptacion formal mediante
+  referencia no sensible; APIs y backoffice exponen brecha, estado de
+  incompletitud y aceptacion parcial.
 - Envio externo cerrado por defecto.
 - Prueba aislada de correos/WebPay con referencias no sensibles.
 - Evidencia de auditoria por operacion critica.

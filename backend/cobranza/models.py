@@ -507,6 +507,7 @@ class GarantiaContractual(TimestampedModel):
     estado_garantia = models.CharField(max_length=32, choices=EstadoGarantia.choices, default=EstadoGarantia.PENDING)
     fecha_recepcion = models.DateField(null=True, blank=True)
     fecha_cierre = models.DateField(null=True, blank=True)
+    aceptacion_parcial_ref = models.CharField(max_length=255, blank=True)
 
     class Meta:
         ordering = ['contrato_id']
@@ -518,10 +519,40 @@ class GarantiaContractual(TimestampedModel):
     def saldo_vigente(self):
         return self.monto_recibido - self.monto_devuelto - self.monto_aplicado
 
+    @property
+    def brecha_garantia_clp(self):
+        return max(self.monto_pactado - self.monto_recibido, Decimal('0.00'))
+
+    @property
+    def requiere_aceptacion_parcial(self):
+        return (
+            self.monto_pactado > Decimal('0.00')
+            and self.monto_recibido > Decimal('0.00')
+            and self.brecha_garantia_clp > Decimal('0.00')
+            and self.saldo_vigente > Decimal('0.00')
+        )
+
+    @property
+    def garantia_parcial_aceptada(self):
+        return self.requiere_aceptacion_parcial and bool(self.aceptacion_parcial_ref.strip())
+
+    @property
+    def garantia_incompleta(self):
+        return self.requiere_aceptacion_parcial and not self.garantia_parcial_aceptada
+
     def clean(self):
         super().clean()
         if self.monto_recibido < 0 or self.monto_devuelto < 0 or self.monto_aplicado < 0:
             raise ValidationError('Los montos de garantia no pueden ser negativos.')
+
+        if self.aceptacion_parcial_ref.strip() and not is_non_sensitive_reference(self.aceptacion_parcial_ref):
+            raise ValidationError(
+                {
+                    'aceptacion_parcial_ref': (
+                        'La aceptacion formal de garantia parcial debe ser una referencia no sensible.'
+                    )
+                }
+            )
 
         if self.monto_recibido > self.monto_pactado:
             raise ValidationError({'monto_recibido': 'La garantia recibida no puede exceder el monto pactado.'})

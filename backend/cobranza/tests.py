@@ -835,6 +835,56 @@ class CobranzaAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_partial_guarantee_exposes_incomplete_until_formal_acceptance(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-PARTIAL', monto_base='100000.00', code='111')
+        garantia = self.client.post(
+            reverse('cobranza-garantia-list'),
+            {'contrato': contrato.id, 'monto_pactado': '100000.00'},
+            format='json',
+        )
+        self.assertEqual(garantia.status_code, status.HTTP_201_CREATED)
+
+        deposit = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.data['id']]),
+            {'tipo_movimiento': 'deposito', 'monto_clp': '50000.00', 'fecha': '2026-01-01'},
+            format='json',
+        )
+        self.assertEqual(deposit.status_code, status.HTTP_201_CREATED)
+
+        incomplete = self.client.get(reverse('cobranza-garantia-detail', args=[garantia.data['id']]))
+        self.assertEqual(incomplete.status_code, status.HTTP_200_OK)
+        self.assertEqual(incomplete.data['brecha_garantia_clp'], '50000.00')
+        self.assertTrue(incomplete.data['garantia_incompleta'])
+        self.assertFalse(incomplete.data['garantia_parcial_aceptada'])
+
+        accepted = self.client.patch(
+            reverse('cobranza-garantia-detail', args=[garantia.data['id']]),
+            {'aceptacion_parcial_ref': 'partial-guarantee-acceptance-2026-01'},
+            format='json',
+        )
+        self.assertEqual(accepted.status_code, status.HTTP_200_OK)
+        self.assertFalse(accepted.data['garantia_incompleta'])
+        self.assertTrue(accepted.data['garantia_parcial_aceptada'])
+
+    def test_partial_guarantee_acceptance_rejects_sensitive_reference(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-PARTIAL-SENS', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(
+            contrato=contrato,
+            monto_pactado='100000.00',
+            monto_recibido='50000.00',
+            fecha_recepcion=date(2026, 1, 1),
+            estado_garantia=EstadoGarantia.HELD,
+        )
+
+        response = self.client.patch(
+            reverse('cobranza-garantia-detail', args=[garantia.id]),
+            {'aceptacion_parcial_ref': 'https://example.test/approval?token=secret'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('aceptacion_parcial_ref', response.data)
+
     def test_guarantee_full_clean_rejects_inconsistent_state_and_amounts(self):
         contrato = self._create_active_contract(codigo='CON-GAR-STATE', monto_base='100000.00', code='111')
         garantia = GarantiaContractual(

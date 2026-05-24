@@ -1602,6 +1602,36 @@ class Stage1MatrixAuditTests(TestCase):
         garantia.monto_recibido = Decimal('50000.00')
         garantia.fecha_recepcion = date(2026, 1, 5)
         garantia.estado_garantia = EstadoGarantia.HELD
+        garantia.aceptacion_parcial_ref = 'partial-guarantee-acceptance-controlled'
+        garantia.save(
+            update_fields=[
+                'monto_pactado',
+                'monto_recibido',
+                'fecha_recepcion',
+                'estado_garantia',
+                'aceptacion_parcial_ref',
+                'updated_at',
+            ]
+        )
+        HistorialGarantia.objects.create(
+            garantia_contractual=garantia,
+            tipo_movimiento=TipoMovimientoGarantia.DEPOSIT,
+            monto_clp=Decimal('50000.00'),
+            fecha=date(2026, 1, 5),
+        )
+
+        result = self._collect_controlled_snapshot()
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+
+    def test_partial_received_guarantee_without_acceptance_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        garantia = contrato.garantia_contractual
+        garantia.monto_pactado = Decimal('100000.00')
+        garantia.monto_recibido = Decimal('50000.00')
+        garantia.fecha_recepcion = date(2026, 1, 5)
+        garantia.estado_garantia = EstadoGarantia.HELD
         garantia.save(
             update_fields=[
                 'monto_pactado',
@@ -1619,9 +1649,12 @@ class Stage1MatrixAuditTests(TestCase):
         )
 
         result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
 
-        self.assertTrue(result['ready_for_stage1_close'])
-        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.garantia.parcial_sin_aceptacion', issue_codes)
+        self.assertEqual(result['aggregate_classification']['garantias_contractuales']['classification'], 'defectuoso')
 
     def test_closed_guarantee_before_reception_date_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
