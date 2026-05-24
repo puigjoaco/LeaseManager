@@ -23,15 +23,15 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 - Traza de fallback para WhatsApp bloqueado/fallido. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 119-122 y `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`: WhatsApp opera solo con opt-in/template/ventana, y una falla no debe dejar sin canal base o alerta critica. |
-| Brecha activa | En implementacion local: Canales debe registrar fallback Email/alerta critica cuando WhatsApp queda bloqueado, y readiness Etapa 2 debe detectar mensajes heredados bloqueados o fallidos sin esa traza. |
-| Motivo de prioridad | Cierra una brecha local de Canales sin abrir WhatsApp, Email real, WebPay, secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-whatsapp-fallback-trace`. |
-| Rama | `codex/stage2-whatsapp-fallback-trace`. |
-| Estado | Implementacion y validacion local en curso. |
-| Gate esperado | Readiness local Etapa 2 como diagnostico parcial; no ejecutar proveedores ni fuente evidencial sin autorizacion actual. |
-| Estado al cerrar paquete | Pendiente; esperado `implementado_sin_evidencia` si PR/CI/merge quedan verdes. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 2 - Traza de fallback para WhatsApp bloqueado/fallido. |
+| Fuente exacta | PR #189 `Trace Stage 2 WhatsApp fallback`, merge `9c1390d`, desde `01_Set_Vigente/PRD_CANONICO.md` lineas 119-122 y `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`. |
+| Brecha activa | Cerrada localmente: Canales registra fallback Email/alerta critica cuando WhatsApp queda bloqueado, y readiness Etapa 2 detecta mensajes heredados bloqueados o fallidos sin esa traza. |
+| Motivo de prioridad | El paquete ya fue integrado sin abrir WhatsApp, Email real, WebPay, secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
+| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
+| Rama | `main` sincronizada; sin rama tactica activa. |
+| Estado | PR #189 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
+| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 2 sin fuente `snapshot_controlado` o `real_autorizado`, pruebas Email/WebPay y responsables no sensibles. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
 | Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
