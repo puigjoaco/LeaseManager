@@ -289,8 +289,15 @@ class AsientoContable(TimestampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
         if self.debe_total != self.haber_total:
-            raise ValidationError('El asiento contable debe cuadrar debe = haber.')
+            errors['__all__'] = 'El asiento contable debe cuadrar debe = haber.'
+        if self.fecha_contable and self.periodo_contable:
+            expected_period = str(self.fecha_contable)[:7]
+            if self.periodo_contable != expected_period:
+                errors['periodo_contable'] = 'periodo_contable debe coincidir con fecha_contable.'
+        if errors:
+            raise ValidationError(errors)
 
     def set_hash_integridad(self):
         base = f'{self.evento_contable_id}|{self.fecha_contable}|{self.debe_total}|{self.haber_total}|{self.moneda_funcional}'

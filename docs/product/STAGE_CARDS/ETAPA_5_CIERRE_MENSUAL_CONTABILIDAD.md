@@ -21,6 +21,8 @@ contables desde hechos conciliados.
   `ingreso_desconocido` o `manual_requerida`.
 - Reglas contables vigentes.
 - Asientos balanceados.
+- Asientos del periodo con `periodo_contable` consistente con
+  `fecha_contable`.
 - Movimientos de asiento obligatorios, con sumas debe/haber iguales a los
   totales del asiento y cuentas contables de la misma empresa del evento.
 - Eventos, movimientos, obligaciones, libros, balances y cierres no pueden

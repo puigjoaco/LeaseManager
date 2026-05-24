@@ -335,6 +335,12 @@ def summarize_asiento_movement_integrity(asiento):
     }
 
 
+def asiento_period_matches_accounting_date(asiento):
+    if not asiento.fecha_contable or not asiento.periodo_contable:
+        return False
+    return asiento.periodo_contable == str(asiento.fecha_contable)[:7]
+
+
 def build_ledger_snapshots(empresa, anio, mes):
     period = f'{anio:04d}-{mes:02d}'
     asientos = get_company_period_asientos(empresa, anio, mes).prefetch_related('movimientos__cuenta_contable')
@@ -527,6 +533,8 @@ def assert_company_period_accounting_ready(empresa, anio, mes):
     if asientos.filter(debe_total__isnull=True).exists():
         raise ValueError('Existen asientos incompletos en el periodo.')
     for asiento in asientos:
+        if not asiento_period_matches_accounting_date(asiento):
+            raise ValueError('Existen asientos cuyo periodo_contable no coincide con fecha_contable.')
         if asiento.debe_total != asiento.haber_total:
             raise ValueError('Existen asientos descuadrados en el periodo.')
         movement_integrity = summarize_asiento_movement_integrity(asiento)

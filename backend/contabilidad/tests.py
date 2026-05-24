@@ -573,6 +573,35 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(asiento.debe_total, asiento.haber_total)
         self.assertEqual(asiento.movimientos.count(), 2)
 
+    def test_asiento_full_clean_rejects_period_mismatch(self):
+        empresa = self._create_active_empresa(nombre='PeriodCleanCo', rut='90909090-9')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'period-clean-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'period-clean-1',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        asiento = AsientoContable.objects.get(evento_contable_id=response.data['id'])
+        asiento.periodo_contable = '2026-02'
+
+        with self.assertRaises(ValidationError) as error:
+            asiento.full_clean()
+
+        self.assertIn('periodo_contable', error.exception.message_dict)
+
     def test_historical_event_stays_in_review_when_only_future_rule_exists(self):
         empresa = self._create_active_empresa(nombre='FutureRuleCo', rut='97979797-9')
         accounts = self._setup_contabilidad(empresa)
@@ -796,6 +825,41 @@ class ContabilidadAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('movimientos del asiento no cuadran', response.data['detail'])
+        self.assertFalse(CierreMensualContable.objects.filter(empresa=empresa, anio=2026, mes=1).exists())
+
+    def test_prepare_monthly_close_rejects_asiento_period_mismatch(self):
+        empresa = self._create_active_empresa(nombre='MovementPeriodCo', rut='46464646-5')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        event_response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'period-mismatch-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'period-mismatch-1',
+            },
+            format='json',
+        )
+        self.assertEqual(event_response.status_code, status.HTTP_201_CREATED)
+
+        asiento = AsientoContable.objects.get(evento_contable_id=event_response.data['id'])
+        asiento.periodo_contable = '2026-02'
+        asiento.save(update_fields=['periodo_contable', 'updated_at'])
+
+        response = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('periodo_contable', response.data['detail'])
         self.assertFalse(CierreMensualContable.objects.filter(empresa=empresa, anio=2026, mes=1).exists())
 
     def test_prepare_monthly_close_rejects_cross_company_movement_account(self):

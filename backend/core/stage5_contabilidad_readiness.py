@@ -26,6 +26,7 @@ from contabilidad.models import (
     ReglaContable,
 )
 from contabilidad.services import (
+    asiento_period_matches_accounting_date,
     get_company_period_events,
     get_company_period_unresolved_bank_movements,
     summarize_asiento_movement_integrity,
@@ -155,6 +156,7 @@ def collect_stage5_contabilidad_readiness(
     )
     asientos = list(asientos_qs)
     unbalanced_asientos = sum(1 for asiento in asientos if asiento.debe_total != asiento.haber_total)
+    asiento_period_mismatches = sum(1 for asiento in asientos if not asiento_period_matches_accounting_date(asiento))
     posted_asientos_without_hash = asientos_qs.filter(estado=EstadoAsientoContable.POSTED, hash_integridad='').count()
     asientos_without_movements = sum(1 for asiento in asientos if not asiento.movimientos.exists())
     movement_totals_mismatch = 0
@@ -328,6 +330,14 @@ def collect_stage5_contabilidad_readiness(
                 'stage5.asiento_unbalanced',
                 'Existen asientos contables descuadrados.',
                 count=unbalanced_asientos,
+            )
+        )
+    if asiento_period_mismatches:
+        issues.append(
+            _issue(
+                'stage5.asiento_period_mismatch',
+                'Existen asientos cuyo periodo_contable no coincide con fecha_contable.',
+                count=asiento_period_mismatches,
             )
         )
     if posted_asientos_without_hash:
@@ -509,6 +519,7 @@ def collect_stage5_contabilidad_readiness(
                 'asientos_total': asientos_qs.count(),
                 'asientos_by_state': _count_by(asientos_qs, 'estado'),
                 'unbalanced_asientos': unbalanced_asientos,
+                'asiento_period_mismatches': asiento_period_mismatches,
                 'posted_asientos_without_hash': posted_asientos_without_hash,
                 'asientos_without_movements': asientos_without_movements,
                 'movement_company_mismatch': movement_company_mismatch,
