@@ -296,6 +296,9 @@ class MandatoOperacionSerializer(serializers.ModelSerializer):
             'autoriza_recaudacion',
             'autoriza_facturacion',
             'autoriza_comunicacion',
+            'autoridad_operativa_nombre',
+            'autoridad_operativa_rut',
+            'autoridad_operativa_evidencia_ref',
             'vigencia_desde',
             'vigencia_hasta',
             'estado',
@@ -322,6 +325,9 @@ class MandatoOperacionSerializer(serializers.ModelSerializer):
         data['administrador_operativo_id'] = instance.administrador_operativo_id
         data['recaudador_tipo'] = instance.recaudador_tipo
         data['recaudador_id'] = instance.recaudador_id
+        data['autoridad_operativa_evidencia_ref'] = redact_sensitive_reference(
+            data.get('autoridad_operativa_evidencia_ref')
+        )
         return data
 
     def __init__(self, *args, **kwargs):

@@ -27,6 +27,9 @@ type MandatoItem = {
   autoriza_recaudacion: boolean
   autoriza_facturacion: boolean
   autoriza_comunicacion: boolean
+  autoridad_operativa_nombre: string
+  autoridad_operativa_rut: string
+  autoridad_operativa_evidencia_ref: string
   vigencia_desde: string
   vigencia_hasta: string | null
   estado: string
@@ -34,7 +37,7 @@ type MandatoItem = {
 type PropiedadOption = { id: number; codigo_propiedad: string; direccion: string }
 
 type CuentaDraft = { institucion: string; numero_cuenta: string; tipo_cuenta: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; estado_operativo: string; owner_tipo: string; owner_id: string }
-type MandatoDraft = { propiedad_id: string; propietario_tipo: string; propietario_id: string; administrador_operativo_tipo: string; administrador_operativo_id: string; recaudador_tipo: string; recaudador_id: string; entidad_facturadora_id: string; cuenta_recaudadora_id: string; tipo_relacion_operativa: string; autoriza_recaudacion: boolean; autoriza_facturacion: boolean; autoriza_comunicacion: boolean; vigencia_desde: string; vigencia_hasta: string; estado: string }
+type MandatoDraft = { propiedad_id: string; propietario_tipo: string; propietario_id: string; administrador_operativo_tipo: string; administrador_operativo_id: string; recaudador_tipo: string; recaudador_id: string; entidad_facturadora_id: string; cuenta_recaudadora_id: string; tipo_relacion_operativa: string; autoriza_recaudacion: boolean; autoriza_facturacion: boolean; autoriza_comunicacion: boolean; autoridad_operativa_nombre: string; autoridad_operativa_rut: string; autoridad_operativa_evidencia_ref: string; vigencia_desde: string; vigencia_hasta: string; estado: string }
 
 export function OperacionWorkspace({
   canEditOperacion,
@@ -142,6 +145,9 @@ export function OperacionWorkspace({
               {cuentas.map((item) => <option key={item.id} value={item.id}>{item.numero_cuenta} · {item.owner_display}</option>)}
             </select>
             <input placeholder="Tipo relación operativa" value={mandatoDraft.tipo_relacion_operativa} onChange={(event) => setMandatoDraft((current) => ({ ...current, tipo_relacion_operativa: event.target.value }))} />
+            <input placeholder="Autoridad operativa" value={mandatoDraft.autoridad_operativa_nombre} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoridad_operativa_nombre: event.target.value }))} />
+            <input placeholder="RUT autoridad" value={mandatoDraft.autoridad_operativa_rut} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoridad_operativa_rut: event.target.value }))} />
+            <input placeholder="Evidencia autoridad" value={mandatoDraft.autoridad_operativa_evidencia_ref} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoridad_operativa_evidencia_ref: event.target.value }))} />
             <input type="date" value={mandatoDraft.vigencia_desde} onChange={(event) => setMandatoDraft((current) => ({ ...current, vigencia_desde: event.target.value }))} />
             <select value={mandatoDraft.estado} onChange={(event) => setMandatoDraft((current) => ({ ...current, estado: event.target.value }))}><option value="activa">Activa</option><option value="inactiva">Inactiva</option><option value="borrador">Borrador</option></select>
             <label className="checkbox-row"><input type="checkbox" checked={mandatoDraft.autoriza_recaudacion} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoriza_recaudacion: event.target.checked }))} />Autoriza recaudación</label>
@@ -174,6 +180,7 @@ export function OperacionWorkspace({
         { label: 'Propiedad', render: (row) => row.propiedad_codigo },
         { label: 'Propietario', render: (row) => row.propietario_display },
         { label: 'Administrador', render: (row) => row.administrador_operativo_display },
+        { label: 'Autoridad', render: (row) => row.autoridad_operativa_nombre || 'Sin autoridad' },
         { label: 'Recaudador', render: (row) => row.recaudador_display },
         { label: 'Facturadora', render: (row) => row.entidad_facturadora_display || 'Sin facturadora' },
         { label: 'Cuenta', render: (row) => row.cuenta_recaudadora_display },

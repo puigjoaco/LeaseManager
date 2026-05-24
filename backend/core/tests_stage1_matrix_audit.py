@@ -158,6 +158,9 @@ class Stage1MatrixAuditTests(TestCase):
             autoriza_recaudacion=True,
             autoriza_facturacion=True,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo Controlado',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde=date(2026, 1, 1),
         )
@@ -410,6 +413,35 @@ class Stage1MatrixAuditTests(TestCase):
         )
         self.assertEqual(
             result['aggregate_classification']['contratos_activos_o_futuros']['classification'],
+            'defectuoso',
+        )
+
+    def test_active_mandate_missing_operational_authority_is_explicitly_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        mandato = contrato.mandato_operacion
+        mandato.autoridad_operativa_nombre = ''
+        mandato.autoridad_operativa_rut = ''
+        mandato.autoridad_operativa_evidencia_ref = ''
+        mandato.save(
+            update_fields=[
+                'autoridad_operativa_nombre',
+                'autoridad_operativa_rut',
+                'autoridad_operativa_evidencia_ref',
+                'updated_at',
+            ]
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.mandato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.mandato.autoridad_operativa_nombre_faltante', issue_codes)
+        self.assertIn('stage1.mandato.autoridad_operativa_rut_faltante', issue_codes)
+        self.assertIn('stage1.mandato.autoridad_operativa_evidencia_faltante', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['mandatos']['classification'],
             'defectuoso',
         )
 
@@ -997,6 +1029,9 @@ class Stage1MatrixAuditTests(TestCase):
             autoriza_recaudacion=True,
             autoriza_facturacion=True,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde=date(2026, 1, 1),
         )
@@ -1039,6 +1074,9 @@ class Stage1MatrixAuditTests(TestCase):
             autoriza_recaudacion=True,
             autoriza_facturacion=False,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde=date(2026, 1, 1),
         )
@@ -1659,6 +1697,9 @@ class Stage1MatrixAuditTests(TestCase):
             autoriza_recaudacion=True,
             autoriza_facturacion=True,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde=date(2026, 1, 1),
         )
@@ -1705,6 +1746,9 @@ class Stage1MatrixAuditTests(TestCase):
                 autoriza_recaudacion=True,
                 autoriza_facturacion=True,
                 autoriza_comunicacion=True,
+                autoridad_operativa_nombre='Representante Operativo',
+                autoridad_operativa_rut='12345678-5',
+                autoridad_operativa_evidencia_ref='mandate-authority-act-001',
                 estado=EstadoMandatoOperacion.ACTIVE,
                 vigencia_desde=date(2026, 1, 1),
             )
@@ -1876,6 +1920,9 @@ class Stage1MatrixAuditTests(TestCase):
             autoriza_recaudacion=True,
             autoriza_facturacion=True,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde=date(2026, 1, 1),
         )
@@ -1994,6 +2041,9 @@ class Stage1MatrixAuditTests(TestCase):
             autoriza_recaudacion=True,
             autoriza_facturacion=True,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde=date(2026, 1, 1),
         )
@@ -2064,6 +2114,9 @@ class Stage1MatrixAuditTests(TestCase):
             autoriza_recaudacion=True,
             autoriza_facturacion=True,
             autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde=date(2026, 1, 1),
         )

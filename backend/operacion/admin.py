@@ -24,12 +24,20 @@ class MandatoOperacionAdmin(admin.ModelAdmin):
         'propietario_tipo',
         'administrador_operativo_tipo',
         'recaudador_tipo',
+        'autoridad_operativa_nombre',
         'cuenta_recaudadora',
         'estado',
         'vigencia_desde',
     )
     list_filter = ('estado', 'tipo_relacion_operativa')
-    search_fields = ('propiedad__codigo_propiedad', 'propiedad__direccion', 'tipo_relacion_operativa')
+    search_fields = (
+        'propiedad__codigo_propiedad',
+        'propiedad__direccion',
+        'tipo_relacion_operativa',
+        'autoridad_operativa_nombre',
+        'autoridad_operativa_rut',
+        'autoridad_operativa_evidencia_ref',
+    )
 
 
 @admin.register(AsignacionCanalOperacion)

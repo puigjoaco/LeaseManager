@@ -353,6 +353,9 @@ class MandatoOperacion(TimestampedModel):
     autoriza_recaudacion = models.BooleanField(default=False)
     autoriza_facturacion = models.BooleanField(default=False)
     autoriza_comunicacion = models.BooleanField(default=False)
+    autoridad_operativa_nombre = models.CharField(max_length=255, blank=True)
+    autoridad_operativa_rut = models.CharField(max_length=16, blank=True, validators=[validate_rut])
+    autoridad_operativa_evidencia_ref = models.CharField(max_length=255, blank=True)
     vigencia_desde = models.DateField(default=timezone.localdate)
     vigencia_hasta = models.DateField(null=True, blank=True)
     estado = models.CharField(max_length=16, choices=EstadoMandatoOperacion.choices, default=EstadoMandatoOperacion.DRAFT)
@@ -470,6 +473,39 @@ class MandatoOperacion(TimestampedModel):
 
         return self.contratos.filter(estado__in=(EstadoContrato.ACTIVE, EstadoContrato.FUTURE))
 
+    def requires_operational_authority(self):
+        return (
+            self.estado == EstadoMandatoOperacion.ACTIVE
+            and (self.autoriza_comunicacion or self.autoriza_facturacion)
+        )
+
+    def validate_operational_authority(self):
+        if self.autoridad_operativa_rut:
+            self.autoridad_operativa_rut = normalize_rut(self.autoridad_operativa_rut)
+
+        if not self.requires_operational_authority():
+            return
+
+        errors = {}
+        if not self.autoridad_operativa_nombre.strip():
+            errors['autoridad_operativa_nombre'] = (
+                'El mandato activo que comunica o factura documentos requiere autoridad operativa vigente.'
+            )
+        if not self.autoridad_operativa_rut:
+            errors['autoridad_operativa_rut'] = (
+                'El mandato activo que comunica o factura documentos requiere RUT de autoridad operativa.'
+            )
+        if not self.autoridad_operativa_evidencia_ref.strip():
+            errors['autoridad_operativa_evidencia_ref'] = (
+                'El mandato activo que comunica o factura documentos requiere evidencia trazable no sensible.'
+            )
+        elif not is_non_sensitive_reference(self.autoridad_operativa_evidencia_ref):
+            errors['autoridad_operativa_evidencia_ref'] = (
+                'La evidencia de autoridad operativa debe ser una referencia trazable no sensible.'
+            )
+        if errors:
+            raise ValidationError(errors)
+
     def validate_active_contract_validity_window(self):
         contracts = self.active_or_future_contract_dependencies()
         if not contracts.exists():
@@ -494,6 +530,7 @@ class MandatoOperacion(TimestampedModel):
         if self.vigencia_hasta and self.vigencia_hasta < self.vigencia_desde:
             raise ValidationError({'vigencia_hasta': 'La vigencia final no puede ser anterior a la inicial.'})
 
+        self.validate_operational_authority()
         self.validate_active_contract_validity_window()
 
         if sum(
@@ -618,6 +655,11 @@ class MandatoOperacion(TimestampedModel):
                 raise ValidationError(
                     {'entidad_facturadora': 'El boundary actual no soporta automatizacion con multiples empresas participantes activas en una comunidad.'}
                 )
+
+    def save(self, *args, **kwargs):
+        if self.autoridad_operativa_rut:
+            self.autoridad_operativa_rut = normalize_rut(self.autoridad_operativa_rut)
+        super().save(*args, **kwargs)
 
 
 class AsignacionCanalOperacion(TimestampedModel):

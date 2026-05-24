@@ -194,6 +194,9 @@ class OperacionAPITests(APITestCase):
             'autoriza_recaudacion': True,
             'autoriza_facturacion': bool(facturadora_id),
             'autoriza_comunicacion': True,
+            'autoridad_operativa_nombre': 'Representante Operativo',
+            'autoridad_operativa_rut': '12.345.678-5',
+            'autoridad_operativa_evidencia_ref': 'mandate-authority-act-001',
             'vigencia_desde': '2026-01-01',
             'estado': EstadoMandatoOperacion.ACTIVE,
         }
@@ -368,7 +371,73 @@ class OperacionAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['administrador_operativo_tipo'], 'empresa')
+        self.assertEqual(response.data['autoridad_operativa_rut'], '12345678-5')
         self.assertTrue(AuditEvent.objects.filter(event_type='operacion.mandato_operacion.created').exists())
+
+    def test_active_mandato_requires_operational_authority_when_communicating(self):
+        propietario = self._create_socio('Propietario Autoridad', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo Autoridad', '88888888-8')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-001A')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-001A')
+
+        response = self.client.post(
+            reverse('operacion-mandato-list'),
+            {
+                'propiedad_id': propiedad.id,
+                'propietario_tipo': 'socio',
+                'propietario_id': propietario.id,
+                'administrador_operativo_tipo': 'empresa',
+                'administrador_operativo_id': admin_company.id,
+                'recaudador_tipo': 'empresa',
+                'recaudador_id': admin_company.id,
+                'cuenta_recaudadora_id': cuenta.id,
+                'tipo_relacion_operativa': 'mandato_externo',
+                'autoriza_recaudacion': True,
+                'autoriza_facturacion': False,
+                'autoriza_comunicacion': True,
+                'vigencia_desde': '2026-01-01',
+                'estado': EstadoMandatoOperacion.ACTIVE,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('autoridad_operativa_nombre', response.data)
+        self.assertIn('autoridad_operativa_rut', response.data)
+        self.assertIn('autoridad_operativa_evidencia_ref', response.data)
+
+    def test_active_mandato_rejects_sensitive_operational_authority_evidence(self):
+        propietario = self._create_socio('Propietario Evidencia', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo Evidencia', '88888888-8')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-001S')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-001S')
+
+        response = self.client.post(
+            reverse('operacion-mandato-list'),
+            {
+                'propiedad_id': propiedad.id,
+                'propietario_tipo': 'socio',
+                'propietario_id': propietario.id,
+                'administrador_operativo_tipo': 'empresa',
+                'administrador_operativo_id': admin_company.id,
+                'recaudador_tipo': 'empresa',
+                'recaudador_id': admin_company.id,
+                'cuenta_recaudadora_id': cuenta.id,
+                'tipo_relacion_operativa': 'mandato_externo',
+                'autoriza_recaudacion': True,
+                'autoriza_facturacion': False,
+                'autoriza_comunicacion': True,
+                'autoridad_operativa_nombre': 'Representante Operativo',
+                'autoridad_operativa_rut': '12345678-5',
+                'autoridad_operativa_evidencia_ref': 'https://drive.example.test/token/secret',
+                'vigencia_desde': '2026-01-01',
+                'estado': EstadoMandatoOperacion.ACTIVE,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('autoridad_operativa_evidencia_ref', response.data)
 
     def test_active_mandato_rejects_facturadora_without_active_fiscal_config(self):
         propietario = self._create_socio('Propietario Uno', '77777777-7')

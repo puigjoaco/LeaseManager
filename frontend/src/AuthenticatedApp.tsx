@@ -596,6 +596,9 @@ type Mandato = {
   autoriza_recaudacion: boolean
   autoriza_facturacion: boolean
   autoriza_comunicacion: boolean
+  autoridad_operativa_nombre: string
+  autoridad_operativa_rut: string
+  autoridad_operativa_evidencia_ref: string
   vigencia_desde: string
   vigencia_hasta: string | null
   estado: string
@@ -1401,6 +1404,9 @@ function App() {
     autoriza_recaudacion: true,
     autoriza_facturacion: true,
     autoriza_comunicacion: true,
+    autoridad_operativa_nombre: '',
+    autoridad_operativa_rut: '',
+    autoridad_operativa_evidencia_ref: '',
     vigencia_desde: todayIso(),
     vigencia_hasta: '',
     estado: 'activa',
@@ -1974,6 +1980,9 @@ function App() {
       autoriza_recaudacion: true,
       autoriza_facturacion: true,
       autoriza_comunicacion: true,
+      autoridad_operativa_nombre: '',
+      autoridad_operativa_rut: '',
+      autoridad_operativa_evidencia_ref: '',
       vigencia_desde: todayIso(),
       vigencia_hasta: '',
       estado: 'activa',
@@ -3266,6 +3275,9 @@ function App() {
         autoriza_recaudacion: true,
         autoriza_facturacion: true,
         autoriza_comunicacion: true,
+        autoridad_operativa_nombre: '',
+        autoridad_operativa_rut: '',
+        autoridad_operativa_evidencia_ref: '',
         vigencia_desde: todayIso(),
         vigencia_hasta: '',
         estado: 'activa',
@@ -3514,6 +3526,9 @@ function App() {
       autoriza_recaudacion: row.autoriza_recaudacion,
       autoriza_facturacion: row.autoriza_facturacion,
       autoriza_comunicacion: row.autoriza_comunicacion,
+      autoridad_operativa_nombre: row.autoridad_operativa_nombre,
+      autoridad_operativa_rut: row.autoridad_operativa_rut,
+      autoridad_operativa_evidencia_ref: row.autoridad_operativa_evidencia_ref,
       vigencia_desde: row.vigencia_desde,
       vigencia_hasta: row.vigencia_hasta || '',
       estado: row.estado,
@@ -3537,6 +3552,9 @@ function App() {
       autoriza_recaudacion: true,
       autoriza_facturacion: true,
       autoriza_comunicacion: true,
+      autoridad_operativa_nombre: '',
+      autoridad_operativa_rut: '',
+      autoridad_operativa_evidencia_ref: '',
       vigencia_desde: todayIso(),
       vigencia_hasta: '',
       estado: 'activa',

@@ -11,6 +11,7 @@ from typing import Any
 from django.core.exceptions import ValidationError
 from django.db.models import Count
 
+from core.reference_validation import is_non_sensitive_reference
 from cobranza.models import (
     AjusteContrato,
     DistribucionCobroMensual,
@@ -59,6 +60,7 @@ from patrimonio.models import (
     Socio,
     TipoServicioPropiedad,
 )
+from patrimonio.validators import validate_rut
 
 
 EVIDENCE_GRADE_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
@@ -727,6 +729,53 @@ def _audit_operacion(issues: list[dict[str, Any]]) -> None:
                     entity='MandatoOperacion',
                     entity_id=mandato.pk,
                     message='Entidad facturadora sin ConfiguracionFiscalEmpresa activa.',
+                )
+
+        if mandato.requires_operational_authority():
+            if not mandato.autoridad_operativa_nombre.strip():
+                _issue(
+                    issues,
+                    code='stage1.mandato.autoridad_operativa_nombre_faltante',
+                    entity='MandatoOperacion',
+                    entity_id=mandato.pk,
+                    message='Mandato activo que comunica o factura documentos no tiene autoridad operativa vigente.',
+                )
+
+            if not mandato.autoridad_operativa_rut:
+                _issue(
+                    issues,
+                    code='stage1.mandato.autoridad_operativa_rut_faltante',
+                    entity='MandatoOperacion',
+                    entity_id=mandato.pk,
+                    message='Mandato activo que comunica o factura documentos no tiene RUT de autoridad operativa.',
+                )
+            else:
+                try:
+                    validate_rut(mandato.autoridad_operativa_rut)
+                except ValidationError:
+                    _issue(
+                        issues,
+                        code='stage1.mandato.autoridad_operativa_rut_invalido',
+                        entity='MandatoOperacion',
+                        entity_id=mandato.pk,
+                        message='Mandato activo que comunica o factura documentos tiene RUT de autoridad operativa invalido.',
+                    )
+
+            if not mandato.autoridad_operativa_evidencia_ref.strip():
+                _issue(
+                    issues,
+                    code='stage1.mandato.autoridad_operativa_evidencia_faltante',
+                    entity='MandatoOperacion',
+                    entity_id=mandato.pk,
+                    message='Mandato activo que comunica o factura documentos no tiene evidencia trazable de autoridad.',
+                )
+            elif not is_non_sensitive_reference(mandato.autoridad_operativa_evidencia_ref):
+                _issue(
+                    issues,
+                    code='stage1.mandato.autoridad_operativa_evidencia_sensible',
+                    entity='MandatoOperacion',
+                    entity_id=mandato.pk,
+                    message='Mandato activo que comunica o factura documentos expone una evidencia sensible.',
                 )
 
     _audit_model_validation(

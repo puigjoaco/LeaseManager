@@ -1,5 +1,6 @@
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_queryset_for_access
 from rest_framework import generics
 from rest_framework.response import Response
@@ -231,6 +232,11 @@ class OperationSnapshotView(APIView):
                         'autoriza_recaudacion': mandato.autoriza_recaudacion,
                         'autoriza_facturacion': mandato.autoriza_facturacion,
                         'autoriza_comunicacion': mandato.autoriza_comunicacion,
+                        'autoridad_operativa_nombre': mandato.autoridad_operativa_nombre,
+                        'autoridad_operativa_rut': mandato.autoridad_operativa_rut,
+                        'autoridad_operativa_evidencia_ref': redact_sensitive_reference(
+                            mandato.autoridad_operativa_evidencia_ref
+                        ),
                         'vigencia_desde': mandato.vigencia_desde,
                         'vigencia_hasta': mandato.vigencia_hasta,
                         'estado': mandato.estado,
