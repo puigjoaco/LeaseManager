@@ -23,18 +23,18 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 - Programacion local de recordatorios de cobranza desde cadencias activas. |
-| Fuente exacta | PRD canonico linea 306: enviar cobros y recordatorios por canales habilitados; continuidad del paquete PR #193 de cadencias de notificacion. |
-| Brecha activa | En implementacion: `PagoMensual` pendiente/atrasado debe materializar recordatorios locales por pago/canal/dia, exponerlos en API/snapshot/backoffice y bloquear readiness si faltan o son invalidos. |
-| Motivo de prioridad | La cadencia ya existe, pero sin programacion trazable los recordatorios quedan como configuracion inerte. Este paquete prepara el ciclo sin abrir Email, WhatsApp, WebPay, secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-notification-schedule`. |
-| Rama | `codex/stage2-notification-schedule`. |
-| Estado | En curso; pruebas focales iniciales OK con SQLite local controlado. |
-| Gate esperado | Local/parcial: no cierra Etapa 2 sin fuente autorizada, prueba Email/WebPay y responsables no sensibles. |
-| Estado al cerrar paquete | Pendiente. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 2 - Programacion local de recordatorios de cobranza desde cadencias activas. |
+| Fuente exacta | PR #195 `Guard Stage 2 notification schedule readiness`, merge `d36d5c7`, desde `01_Set_Vigente/PRD_CANONICO.md` linea 306 y continuidad de PR #193. |
+| Brecha activa | Cerrada localmente: `PagoMensual` pendiente/atrasado materializa recordatorios por pago/canal/dia, Canales los expone en API/snapshot/backoffice y readiness Etapa 2 bloquea pagos cobrables sin programacion o con programacion invalida. |
+| Motivo de prioridad | La cadencia ya no queda como configuracion inerte; existe programacion trazable local sin abrir Email, WhatsApp, WebPay, secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
+| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
+| Rama | `main` sincronizada; sin rama tactica activa. |
+| Estado | PR #195 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
+| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 2 sin fuente `snapshot_controlado` o `real_autorizado`, pruebas Email/WebPay y responsables no sensibles. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Completar implementacion, ejecutar validaciones proporcionales, actualizar evidencia y cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
 
 ## Actualizacion
 
