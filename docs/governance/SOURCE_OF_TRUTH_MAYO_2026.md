@@ -15,6 +15,7 @@ vigente.
 | `08_Auditoria_Stack/ADR_STACK_FINAL.md` | vigente aceptado | Stack final del v1. |
 | `docs/architecture/ARQUITECTURA_MAESTRA_LEASEMANAGER.md` | vigente derivado | Sintesis navegable de producto, dominios, dependencias, gates y cierre. No reemplaza al PRD ni a los ADR. |
 | `docs/product/PLAN_EJECUCION_TRAZABLE_CIERRE_MAYO_2026.md` | vigente operativo | Plan de avance por etapas, evidencias y bloqueos. |
+| `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | vigente operativo | Cursor del frente activo. Ordena reanudaciones y worktrees, pero no define producto ni reemplaza fuentes rectoras. |
 | `docs/product/STAGE_CARDS/` | vigente operativo | Fichas ejecutables por etapa. |
 | `docs/product/PRD_CANONICO_MAYO_2026_CANDIDATO.md` | historico de promocion | Trazabilidad del archivo candidato ya promovido. No es fuente paralela. |
 | `05_Contexto_Historico/PRD_CANONICO_MARZO_2026_HISTORICO.md` | historico | PRD rector anterior, reemplazado el 2026-05-20. |
@@ -36,16 +37,20 @@ Reglas:
 
 ## Reglas de conflicto
 
-1. Ningun documento historico, savegame, rama experimental o conversacion
-   prevalece sobre el set vigente.
+1. Ningun documento historico, savegame, rama experimental, conversacion,
+   summary compactado, `goal_context` u objetivo persistente prevalece sobre el
+   set vigente.
 2. Ninguna herramienta operativa forma parte de la arquitectura del producto.
    Las herramientas ejecutan, validan o documentan; no definen dominio.
-3. Si una regla fiscal, bancaria, contable o legal no esta respaldada por fuente
+3. Un `goal_context`, objetivo persistente o mensaje de continuidad no autoriza
+   leer secretos, `.env`, datos reales, DBs historicas, backfills, deploys ni
+   integraciones externas.
+4. Si una regla fiscal, bancaria, contable o legal no esta respaldada por fuente
    verificable, queda bloqueada hasta validacion con SII, banco, normativa
    vigente o experto responsable.
-4. Lo que ya esta correctamente implementado no se rehace. Se valida, se
+5. Lo que ya esta correctamente implementado no se rehace. Se valida, se
    documenta y se conserva.
-5. Lo incompleto, inconsistente, duplicado, desactualizado, inseguro o mal
+6. Lo incompleto, inconsistente, duplicado, desactualizado, inseguro o mal
    integrado se corrige de forma acotada y trazable.
 
 ## Estados canonicos de avance

@@ -8,7 +8,7 @@ impide declarar cierre del frente afectado cuando falta evidencia.
 | ID | Bloqueo | Tipo | Impacto | Desbloqueo requerido | Estado |
 | --- | --- | --- | --- | --- | --- |
 | BLK-001 | PRD Mayo 2026 debia promoverse como rector formal. | requiere_decision_usuario | Podia existir ambiguedad entre PRD vigente y candidato. | Promovido a `01_Set_Vigente/PRD_CANONICO.md`; PRD marzo archivado. | cerrado |
-| BLK-002 | Falta validacion de datos reales o snapshot controlado para matriz contrato-propiedad-cuenta-facturacion. | bloqueado_dato_real | Etapa 1 no puede cerrarse. No impide preparacion segura ni correcciones que no usen datos/secretos no autorizados. El gate local `audit_stage1_matrix` ya existe, pero aun falta ejecutarlo contra snapshot controlado o DB real autorizada con refs trazables. | Entregar o autorizar `DATABASE_URL` de snapshot/control de datos y ejecutar `scripts/run-stage1-snapshot-gate.ps1` con `SourceKind snapshot_controlado` o `real_autorizado`, `SourceLabel`, `AuthorizationRef` y `ResponsibleRef` no sensibles; el wrapper aplica internamente `--require-data` y `--fail-on-violations`. | abierto |
+| BLK-002 | Falta validacion de datos reales o snapshot controlado para matriz contrato-propiedad-cuenta-facturacion. | bloqueado_dato_real | Etapa 1 no puede cerrarse. No impide preparacion segura ni correcciones que no usen datos/secretos no autorizados. El gate local `audit_stage1_matrix` ya existe, pero aun falta ejecutarlo contra snapshot controlado o DB real autorizada con refs trazables. | Ruta opt-in de desbloqueo: solo si el usuario pide cerrar/desbloquear `BLK-002`, usar `scripts/run-stage1-snapshot-gate.ps1` contra fuente `snapshot_controlado` o `real_autorizado`, con `SourceLabel`, `AuthorizationRef` y `ResponsibleRef` no sensibles; el wrapper aplica internamente `--require-data` y `--fail-on-violations`. | abierto |
 | BLK-003 | Integraciones externas no estan abiertas por defecto. | bloqueado_externo | Email, WebPay, banco, UF, SII y storage no pueden declararse productivos. Email/WebPay quedan cubiertos por el gate Etapa 2 local con fuente autorizada y refs trazables para cierre; banco/Conciliacion quedan cubiertos por el gate Etapa 3 con fuente autorizada y refs trazables; SII queda cubierto por el gate Etapa 4 con fuente autorizada y refs trazables, pero no hay prueba productiva/sandbox autorizada. | Permisos, credenciales seguras, entorno aislado, pruebas y rollback. | abierto |
 | BLK-004 | Reglas tributarias finales requieren validacion oficial o experta. | bloqueado_externo | SII, DTE, F29/F21, renta anual y certificados no pueden cerrarse por suposicion. Renta anual queda cubierta por el gate Etapa 6 con fuente autorizada y refs trazables, pero no hay validacion oficial/experta ni certificados controlados autorizados para cierre. | Validacion contra SII, normativa vigente o experto responsable. | abierto |
 | BLK-005 | Politica final de firma/notaria y documentos operables debe cerrarse. | requiere_decision_usuario | Documentos y contratos no pueden cerrar totalmente. El flujo local ya exige PDF canonico y comprobante notarial emitido/formalizado/archivado antes de formalizar; el gate documental exige fuente autorizada, refs trazables y prueba PDF controlada para cierre. | Definir politica final, responsables, evidencia y prueba PDF controlada. | abierto |
@@ -92,8 +92,7 @@ Fuentes candidatas externas detectadas:
   y migracion legacy. Clasificacion: `parcial`; pueden orientar un preflight
   read-only, pero el modelo canonico Django/PostgreSQL del root limpio manda.
 
-Proxima accion concreta: el usuario debe autorizar una de estas rutas de
-desbloqueo:
+Rutas disponibles solo si el usuario pide explicitamente desbloquear `BLK-002`:
 
 1. Ingresar un `DATABASE_URL` seguro para `snapshot_controlado` y ejecutar
    `scripts/run-stage1-snapshot-gate.ps1 -SourceKind snapshot_controlado` con
@@ -108,10 +107,12 @@ desbloqueo:
    preflight, transformacion trazada, backup/rollback si aplica y sin declarar
    cierre hasta que pase el gate.
 
-Regla anti-bucle: si ninguna ruta fue autorizada y el estado no cambio, no se
-debe repetir indefinidamente la misma solicitud. El frente sigue sin cierre,
-pero el trabajo debe cambiar a preparacion segura, integracion, documentacion
-de una nueva brecha real o una unica pregunta concreta.
+Regla anti-bucle: si ninguna ruta fue autorizada en el turno actual y el estado
+no cambio, no se debe repetir la solicitud de `.env`, `DATABASE_URL`, DB
+historica ni snapshot. El frente sigue sin cierre evidencial, pero la siguiente
+accion valida es continuar desde el cursor operativo con preparacion segura,
+integracion, documentacion de una nueva brecha real o una unica pregunta
+concreta si no queda trabajo local seguro.
 
 ## Regla de uso
 

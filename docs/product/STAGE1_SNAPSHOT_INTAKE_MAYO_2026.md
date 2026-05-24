@@ -1,9 +1,29 @@
 # Intake controlado de snapshot - Etapa 1
 
-Este procedimiento desbloquea `BLK-002` sin exponer secretos ni declarar cierre
-por evidencia local. Solo sirve para validar la matriz
-contrato-propiedad-cuenta-facturacion contra `snapshot_controlado` o
-`real_autorizado`.
+Este procedimiento es una ruta opt-in: se usa solo cuando el usuario pide
+explicitamente desbloquear `BLK-002` o entrega una fuente autorizada. No forma
+parte de la reanudacion normal del proyecto y no debe disparar solicitudes
+repetidas de `.env`, `DATABASE_URL`, DBs historicas ni snapshots.
+
+Sirve para validar la matriz contrato-propiedad-cuenta-facturacion contra
+`snapshot_controlado` o `real_autorizado` sin exponer secretos ni declarar
+cierre por evidencia local.
+
+## Ruta por defecto sin autorizacion
+
+Cuando no existe fuente autorizada en el turno actual, no se solicita de nuevo.
+Se continua desde `docs/product/EXECUTION_CURSOR_MAYO_2026.md` y, si corresponde
+diagnosticar Etapa 1 localmente, se ejecuta:
+
+```powershell
+cd "D:/Proyectos/LeaseManager"
+.\scripts\run-stage1-local-readiness.ps1
+```
+
+Este comando crea una SQLite vacia bajo `local-evidence/` y ejecuta el auditor
+con `source_kind=local`, sin `--require-data` y sin `--fail-on-violations`. El
+resultado esperado es `classification=implementado_sin_evidencia`,
+`evidence_grade=false` y `ready_for_stage1_close=false`.
 
 ## Entradas obligatorias
 
@@ -67,20 +87,6 @@ Si se ejecuta desde un worktree sin `backend/.venv`, agregar `-PythonExe` con
 la ruta al Python autorizado del root limpio.
 
 ## Verificacion local sin fuente autorizada
-
-Cuando no existe `DATABASE_URL` autorizado, no se debe repetir la misma
-solicitud de desbloqueo. Para avanzar en preparacion segura, ejecutar el
-readiness local:
-
-```powershell
-cd "D:/Proyectos/LeaseManager"
-.\scripts\run-stage1-local-readiness.ps1
-```
-
-Este comando crea una SQLite vacia bajo `local-evidence/` y ejecuta el auditor
-con `source_kind=local`, sin `--require-data` y sin `--fail-on-violations`. El
-resultado esperado es `classification=implementado_sin_evidencia`,
-`evidence_grade=false` y `ready_for_stage1_close=false`.
 
 El acceptance deterministico ejecuta este readiness local para comprobar que la
 preparacion segura no solicita secretos ni simula una fuente controlada. El
