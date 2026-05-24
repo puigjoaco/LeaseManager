@@ -35,6 +35,9 @@ condicionados sin envios reales accidentales.
 - Registro manual de envio solo con `external_ref` trazable no sensible y
   revalidacion del gate abierto, identidad activa, destinatario y mandato
   operativo activo.
+- Mensajes salientes con `DocumentoEmitido` cuya politica documental exige
+  firma o notaria solo pueden prepararse o marcarse enviados si el documento
+  ya esta `formalizado`.
 - Email cerrado/condicionado por defecto: un gate `Email.Salida` abierto
   requiere `evidencia_ref`, referencia de prueba aislada/envio y referencia
   OAuth/credencial validada, todas no sensibles; preparar o registrar envio

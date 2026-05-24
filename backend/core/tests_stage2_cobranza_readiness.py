@@ -9,6 +9,7 @@ from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
+from django.utils import timezone
 
 from canales.models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
 from cobranza.models import (
@@ -34,6 +35,13 @@ from contratos.models import (
     TipoArrendatario,
 )
 from core.stage2_cobranza_readiness import collect_stage2_cobranza_readiness
+from documentos.models import (
+    DocumentoEmitido,
+    EstadoDocumento,
+    ExpedienteDocumental,
+    PoliticaFirmaYNotaria,
+    TipoDocumental,
+)
 from operacion.models import (
     AsignacionCanalOperacion,
     CanalOperacion,
@@ -432,6 +440,57 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.message.sent_with_sensitive_external_ref', issue_codes)
         self.assertNotIn('provider.example.test', json.dumps(result))
+
+    def test_prepared_message_with_unformalized_required_document_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        PoliticaFirmaYNotaria.objects.create(
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            requiere_firma_arrendador=True,
+            requiere_firma_arrendatario=True,
+            requiere_codeudor=False,
+            requiere_notaria=False,
+            modo_firma_permitido='firma_simple',
+            estado='activa',
+        )
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='contrato',
+            entidad_id=str(fixture['contract'].id),
+            estado='abierto',
+            owner_operativo=f"mandato:{fixture['mandato'].id}",
+        )
+        document = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum='d' * 64,
+            fecha_carga=timezone.now(),
+            origen='generado_sistema',
+            estado=EstadoDocumento.ISSUED,
+            storage_ref='storage/docs/stage2-unformalized.pdf',
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+        MensajeSaliente.objects.create(
+            canal=CanalOperacion.EMAIL,
+            canal_mensajeria=email_gate,
+            identidad_envio=fixture['identity'],
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            documento_emitido=document,
+            destinatario=fixture['tenant'].email,
+            asunto='Documento sin formalizar',
+            cuerpo='No debe estar preparado para envio.',
+            estado=EstadoMensajeSaliente.PREPARED,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.message.document_not_formalized', issue_codes)
+        self.assertEqual(result['sections']['messages']['document_not_formalized'], 1)
 
     def test_confirmed_webpay_with_sensitive_external_ref_is_blocking(self):
         fixture = self._create_payment_matrix()

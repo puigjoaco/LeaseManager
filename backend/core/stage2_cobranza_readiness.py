@@ -13,6 +13,7 @@ from canales.models import (
     MensajeSaliente,
 )
 from canales.services import (
+    document_delivery_blocking_reason,
     email_readiness_blocking_reason,
     whatsapp_gate_has_approved_template,
 )
@@ -121,6 +122,9 @@ def _collect_message_issues(messages) -> dict[str, int]:
                 counts['sent_with_sensitive_external_ref'] += 1
         if _message_operational_issue(message):
             counts['prepared_or_sent_not_ready'] += 1
+        if message.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}:
+            if document_delivery_blocking_reason(message.documento_emitido):
+                counts['document_not_formalized'] += 1
     return dict(sorted(counts.items()))
 
 
@@ -492,6 +496,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.message.prepared_or_sent_not_ready',
                 'Existen mensajes preparados/enviados sin gate, identidad, destinatario o mandato operativo valido.',
                 count=message_issues['prepared_or_sent_not_ready'],
+            )
+        )
+    if message_issues.get('document_not_formalized'):
+        issues.append(
+            _issue(
+                'stage2.message.document_not_formalized',
+                'Existen mensajes preparados/enviados con documentos que requieren formalizacion previa.',
+                count=message_issues['document_not_formalized'],
             )
         )
     if valid_webpay_open_gates <= 0:

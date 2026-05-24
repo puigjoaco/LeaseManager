@@ -4,6 +4,7 @@ from django.utils import timezone
 from audit.models import ManualResolution
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from contratos.models import Arrendatario, Contrato
+from documentos.models import EstadoDocumento
 from operacion.models import AsignacionCanalOperacion, CanalOperacion, EstadoIdentidadEnvio, EstadoMandatoOperacion
 
 from .models import (
@@ -138,6 +139,23 @@ def email_readiness_blocking_reason(canal_mensajeria):
     return ''
 
 
+def document_delivery_blocking_reason(documento_emitido):
+    if not documento_emitido:
+        return ''
+    policy = documento_emitido.get_active_policy()
+    if not policy:
+        return ''
+    requires_formalization = (
+        policy.requiere_firma_arrendador
+        or policy.requiere_firma_arrendatario
+        or policy.requiere_codeudor
+        or policy.requiere_notaria
+    )
+    if requires_formalization and documento_emitido.estado != EstadoDocumento.FORMALIZED:
+        return 'El documento requiere formalizacion antes de enviarse por canales.'
+    return ''
+
+
 @transaction.atomic
 def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None, documento_emitido=None, explicit_identity=None, asunto='', cuerpo='', usuario=None):
     arrendatario = resolve_arrendatario(contrato=contrato, arrendatario=arrendatario, documento_emitido=documento_emitido)
@@ -167,6 +185,8 @@ def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None
     elif canal == CanalOperacion.WHATSAPP and (
         reason := whatsapp_blocking_reason(arrendatario, canal_mensajeria)
     ):
+        blocking_reason = reason
+    elif reason := document_delivery_blocking_reason(documento_emitido):
         blocking_reason = reason
     elif not destinatario:
         blocking_reason = f'No existe un destinatario valido para el canal {canal}.'
@@ -214,6 +234,8 @@ def mark_message_as_sent(message, external_ref=''):
         reason := whatsapp_blocking_reason(message.arrendatario, message.canal_mensajeria)
     ):
         raise ValueError(f'No se puede registrar envio manual de WhatsApp: {reason}')
+    if reason := document_delivery_blocking_reason(message.documento_emitido):
+        raise ValueError(f'No se puede registrar envio manual: {reason}')
 
     message.estado = EstadoMensajeSaliente.SENT
     message.external_ref = external_ref

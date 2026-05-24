@@ -13,7 +13,7 @@ from documentos.models import DocumentoEmitido
 from operacion.models import IdentidadDeEnvio
 
 from .models import CanalMensajeria, MensajeSaliente
-from .services import resolve_document_contract
+from .services import document_delivery_blocking_reason, resolve_document_contract
 
 
 def raise_drf_validation_error(error):
@@ -184,6 +184,8 @@ class MensajePrepararSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {'arrendatario': 'El arrendatario debe coincidir con el contrato del documento emitido.'}
             )
+        if reason := document_delivery_blocking_reason(candidate.documento_emitido):
+            raise serializers.ValidationError({'documento_emitido': reason})
         if candidate.contrato and candidate.arrendatario and candidate.contrato.arrendatario_id != candidate.arrendatario.id:
             raise serializers.ValidationError(
                 {'arrendatario': 'El arrendatario debe coincidir con el contrato informado.'}
