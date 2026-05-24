@@ -1,5 +1,6 @@
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission, ROLE_ADMIN, get_effective_role_codes
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import get_scope_access
 from rest_framework.permissions import SAFE_METHODS
 from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_queryset_for_access
@@ -8,12 +9,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
 
-from .models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio
+from .models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, ServicioPropiedad, Socio
 from .serializers import (
     ComunidadPatrimonialSerializer,
     EmpresaSerializer,
     ParticipacionPatrimonialReadSerializer,
     PropiedadSerializer,
+    ServicioPropiedadSerializer,
     SocioSerializer,
 )
 
@@ -96,7 +98,9 @@ class PatrimonioSnapshotView(APIView):
             property_paths=('propiedades__id',),
         )
         propiedades = scope_queryset_for_access(
-            Propiedad.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner').order_by('codigo_propiedad', 'id'),
+            Propiedad.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner')
+            .prefetch_related('servicios')
+            .order_by('codigo_propiedad', 'id'),
             access,
             property_paths=('id',),
         )
@@ -168,6 +172,18 @@ class PatrimonioSnapshotView(APIView):
                             else item.comunidad_owner.nombre if item.comunidad_owner_id
                             else item.socio_owner.nombre
                         ),
+                        'servicios': [
+                            {
+                                'id': service.id,
+                                'tipo_servicio': service.tipo_servicio,
+                                'proveedor_nombre': service.proveedor_nombre,
+                                'numero_cliente': service.numero_cliente,
+                                'administrador_nombre': service.administrador_nombre,
+                                'evidencia_ref': redact_sensitive_reference(service.evidencia_ref),
+                                'activo': service.activo,
+                            }
+                            for service in item.servicios.all()
+                        ],
                         'estado': item.estado,
                     }
                     for item in propiedades
@@ -264,6 +280,24 @@ class PropiedadDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.
     property_scope_paths = ('id',)
     audit_entity_type = 'propiedad'
     audit_entity_label = 'propiedad'
+
+
+class ServicioPropiedadListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = ServicioPropiedadSerializer
+    queryset = ServicioPropiedad.objects.select_related('propiedad').all()
+    property_scope_paths = ('propiedad_id',)
+    audit_entity_type = 'servicio_propiedad'
+    audit_entity_label = 'servicio de propiedad'
+
+
+class ServicioPropiedadDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = ServicioPropiedadSerializer
+    queryset = ServicioPropiedad.objects.select_related('propiedad').all()
+    property_scope_paths = ('propiedad_id',)
+    audit_entity_type = 'servicio_propiedad'
+    audit_entity_label = 'servicio de propiedad'
 
 
 class ParticipacionListView(ScopedQuerysetMixin, generics.ListAPIView):

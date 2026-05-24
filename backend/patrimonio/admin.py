@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, RepresentacionComunidad, Socio
+from .models import (
+    ComunidadPatrimonial,
+    Empresa,
+    ParticipacionPatrimonial,
+    Propiedad,
+    RepresentacionComunidad,
+    ServicioPropiedad,
+    Socio,
+)
 
 
 @admin.register(Socio)
@@ -49,3 +57,10 @@ class PropiedadAdmin(admin.ModelAdmin):
     list_display = ('codigo_propiedad', 'direccion', 'comuna', 'tipo_inmueble', 'estado', 'owner_tipo')
     list_filter = ('estado', 'tipo_inmueble')
     search_fields = ('codigo_propiedad', 'direccion', 'comuna')
+
+
+@admin.register(ServicioPropiedad)
+class ServicioPropiedadAdmin(admin.ModelAdmin):
+    list_display = ('propiedad', 'tipo_servicio', 'proveedor_nombre', 'numero_cliente', 'activo')
+    list_filter = ('tipo_servicio', 'activo')
+    search_fields = ('propiedad__codigo_propiedad', 'proveedor_nombre', 'numero_cliente', 'administrador_nombre')

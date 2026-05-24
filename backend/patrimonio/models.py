@@ -6,6 +6,8 @@ from django.db import models
 from django.db.models import Q, Sum
 from django.utils import timezone
 
+from core.reference_validation import is_non_sensitive_reference
+
 from .validators import normalize_rut, validate_rut
 
 
@@ -30,6 +32,16 @@ class TipoInmueble(models.TextChoices):
     OFFICE = 'oficina', 'Oficina'
     STORAGE = 'bodega', 'Bodega'
     PARKING = 'estacionamiento', 'Estacionamiento'
+    OTHER = 'otro', 'Otro'
+
+
+class TipoServicioPropiedad(models.TextChoices):
+    COMMON_EXPENSES = 'gasto_comun', 'Gasto comun'
+    ELECTRICITY = 'electricidad', 'Electricidad'
+    WATER = 'agua', 'Agua'
+    GAS = 'gas', 'Gas'
+    INTERNET = 'internet', 'Internet'
+    MAINTENANCE = 'mantencion', 'Mantencion'
     OTHER = 'otro', 'Otro'
 
 
@@ -501,3 +513,48 @@ class Propiedad(TimestampedModel):
                 )
         elif self.socio_owner_id and not self.socio_owner.activo:
             raise ValidationError({'estado': 'La propiedad activa requiere un socio activo.'})
+
+
+class ServicioPropiedad(TimestampedModel):
+    propiedad = models.ForeignKey(
+        Propiedad,
+        on_delete=models.CASCADE,
+        related_name='servicios',
+    )
+    tipo_servicio = models.CharField(max_length=32, choices=TipoServicioPropiedad.choices)
+    proveedor_nombre = models.CharField(max_length=255, blank=True)
+    numero_cliente = models.CharField(max_length=80, blank=True)
+    administrador_nombre = models.CharField(max_length=255, blank=True)
+    evidencia_ref = models.CharField(max_length=255, blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['propiedad_id', 'tipo_servicio', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['propiedad'],
+                condition=Q(activo=True, tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES),
+                name='uniq_gasto_comun_activo_por_propiedad',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.propiedad.codigo_propiedad} - {self.tipo_servicio}'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.activo:
+            if not (self.proveedor_nombre or '').strip():
+                errors['proveedor_nombre'] = 'El servicio activo requiere proveedor o administracion.'
+            if not (self.numero_cliente or '').strip():
+                errors['numero_cliente'] = 'El servicio activo requiere numero de cliente estructurado.'
+            if (
+                self.tipo_servicio == TipoServicioPropiedad.COMMON_EXPENSES
+                and not (self.administrador_nombre or '').strip()
+            ):
+                errors['administrador_nombre'] = 'El gasto comun activo requiere administracion de comunidad.'
+        if (self.evidencia_ref or '').strip() and not is_non_sensitive_reference(self.evidencia_ref):
+            errors['evidencia_ref'] = 'La evidencia del servicio debe ser una referencia no sensible.'
+        if errors:
+            raise ValidationError(errors)

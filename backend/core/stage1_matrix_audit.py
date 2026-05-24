@@ -54,7 +54,9 @@ from patrimonio.models import (
     ParticipacionPatrimonial,
     Propiedad,
     RepresentacionComunidad,
+    ServicioPropiedad,
     Socio,
+    TipoServicioPropiedad,
 )
 
 
@@ -118,8 +120,8 @@ AGGREGATE_DEFINITIONS = (
     {
         'key': 'propiedades',
         'canonical_entity': 'Propiedad',
-        'entities': {'Propiedad'},
-        'code_prefixes': ('stage1.propiedad.',),
+        'entities': {'Propiedad', 'ServicioPropiedad'},
+        'code_prefixes': ('stage1.propiedad.', 'stage1.servicio_propiedad.'),
     },
     {
         'key': 'cuentas_recaudadoras',
@@ -533,6 +535,8 @@ def _build_summary() -> dict[str, int]:
         'participaciones_patrimoniales': ParticipacionPatrimonial.objects.count(),
         'representaciones_comunidad': RepresentacionComunidad.objects.count(),
         'propiedades': Propiedad.objects.count(),
+        'servicios_propiedad': ServicioPropiedad.objects.count(),
+        'servicios_propiedad_activos': ServicioPropiedad.objects.filter(activo=True).count(),
         'cuentas_recaudadoras': CuentaRecaudadora.objects.count(),
         'mandatos': MandatoOperacion.objects.count(),
         'identidades_envio_activas': IdentidadDeEnvio.objects.filter(estado=EstadoIdentidadEnvio.ACTIVE).count(),
@@ -606,6 +610,12 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
         queryset=Propiedad.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner'),
         code='stage1.propiedad.validacion_modelo',
         entity='Propiedad',
+    )
+    _audit_model_validation(
+        issues,
+        queryset=ServicioPropiedad.objects.select_related('propiedad'),
+        code='stage1.servicio_propiedad.validacion_modelo',
+        entity='ServicioPropiedad',
     )
 
     for empresa in Empresa.objects.filter(estado='activa'):
@@ -1495,6 +1505,23 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                     entity_id=contrato.pk,
                     message='La propiedad principal del contrato no coincide con la propiedad del mandato operativo.',
                 )
+            if contrato.tiene_gastos_comunes:
+                has_structured_common_expense = ServicioPropiedad.objects.filter(
+                    propiedad_id=primary_property_id,
+                    tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+                    activo=True,
+                ).exists()
+                if not has_structured_common_expense:
+                    _issue(
+                        issues,
+                        code='stage1.propiedad.gasto_comun_estructurado_faltante',
+                        entity='Propiedad',
+                        entity_id=primary_property_id,
+                        message=(
+                            'Contrato vigente o futuro con gastos comunes requiere servicio de gasto comun '
+                            'activo y estructurado para la propiedad principal.'
+                        ),
+                    )
 
         _audit_future_contract_closure_evidence(
             issues,

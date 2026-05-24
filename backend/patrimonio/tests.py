@@ -21,8 +21,10 @@ from .models import (
     ParticipacionPatrimonial,
     Propiedad,
     RepresentacionComunidad,
+    ServicioPropiedad,
     Socio,
     TipoInmueble,
+    TipoServicioPropiedad,
 )
 from .validators import normalize_rut, validate_rut
 
@@ -56,6 +58,31 @@ class PropiedadModelConstraintTests(TestCase):
         with self.assertRaises(ValidationError):
             propiedad.full_clean()
 
+    def test_common_expense_service_requires_structured_administration_data(self):
+        socio = Socio.objects.create(nombre='Socio Servicio', rut='11111111-1')
+        propiedad = Propiedad.objects.create(
+            direccion='Av Comunidad 123',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.APARTMENT,
+            codigo_propiedad='SERV-001',
+            estado=EstadoPatrimonial.ACTIVE,
+            socio_owner=socio,
+        )
+        service = ServicioPropiedad(
+            propiedad=propiedad,
+            tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+            proveedor_nombre='Administracion Edificio',
+            numero_cliente='',
+            administrador_nombre='',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            service.full_clean()
+
+        self.assertIn('numero_cliente', error.exception.message_dict)
+        self.assertIn('administrador_nombre', error.exception.message_dict)
+
 
 class PatrimonioAPITests(APITestCase):
     def setUp(self):
@@ -65,6 +92,18 @@ class PatrimonioAPITests(APITestCase):
 
     def _create_socio(self, nombre, rut, activo=True):
         return Socio.objects.create(nombre=nombre, rut=rut, activo=activo)
+
+    def _create_socio_property(self):
+        socio = self._create_socio('Socio Propiedad Servicio', '18181818-1')
+        return Propiedad.objects.create(
+            direccion='Av Servicio 100',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.APARTMENT,
+            codigo_propiedad='SRV-001',
+            estado=EstadoPatrimonial.ACTIVE,
+            socio_owner=socio,
+        )
 
     def _empresa_payload(self, estado=EstadoPatrimonial.ACTIVE, participaciones=None):
         if participaciones is None:
@@ -113,6 +152,7 @@ class PatrimonioAPITests(APITestCase):
             reverse('patrimonio-empresa-list'),
             reverse('patrimonio-comunidad-list'),
             reverse('patrimonio-propiedad-list'),
+            reverse('patrimonio-servicio-propiedad-list'),
             reverse('patrimonio-participacion-list'),
         ]
 
@@ -128,6 +168,64 @@ class PatrimonioAPITests(APITestCase):
         self.assertIn('empresas', response.data)
         self.assertIn('comunidades', response.data)
         self.assertIn('propiedades', response.data)
+
+    def test_create_property_service_requires_structured_number(self):
+        propiedad = self._create_socio_property()
+
+        response = self.client.post(
+            reverse('patrimonio-servicio-propiedad-list'),
+            {
+                'propiedad': propiedad.id,
+                'tipo_servicio': TipoServicioPropiedad.COMMON_EXPENSES,
+                'proveedor_nombre': 'Administracion Edificio',
+                'numero_cliente': '',
+                'administrador_nombre': 'Administracion Edificio',
+                'activo': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('numero_cliente', response.data)
+
+    def test_create_property_service_structured_succeeds_and_audits(self):
+        propiedad = self._create_socio_property()
+
+        response = self.client.post(
+            reverse('patrimonio-servicio-propiedad-list'),
+            {
+                'propiedad': propiedad.id,
+                'tipo_servicio': TipoServicioPropiedad.COMMON_EXPENSES,
+                'proveedor_nombre': 'Administracion Edificio',
+                'numero_cliente': 'GC-100',
+                'administrador_nombre': 'Administracion Edificio',
+                'evidencia_ref': 'gasto-comun-propiedad-001',
+                'activo': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['numero_cliente'], 'GC-100')
+        self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.servicio_propiedad.created').exists())
+
+    def test_snapshot_redacts_sensitive_property_service_evidence(self):
+        propiedad = self._create_socio_property()
+        ServicioPropiedad.objects.create(
+            propiedad=propiedad,
+            tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+            proveedor_nombre='Administracion Edificio',
+            numero_cliente='GC-100',
+            administrador_nombre='Administracion Edificio',
+            evidencia_ref='postgres://user:secret@example.test/db',
+            activo=True,
+        )
+
+        response = self.client.get(reverse('patrimonio-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        services = response.data['propiedades'][0]['servicios']
+        self.assertEqual(services[0]['evidencia_ref'], '<redacted-sensitive-reference>')
 
     def test_create_socio_normalizes_rut_and_rejects_duplicate(self):
         payload = {

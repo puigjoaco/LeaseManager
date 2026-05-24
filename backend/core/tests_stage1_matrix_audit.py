@@ -57,8 +57,10 @@ from patrimonio.models import (
     ParticipacionPatrimonial,
     Propiedad,
     RepresentacionComunidad,
+    ServicioPropiedad,
     Socio,
     TipoInmueble,
+    TipoServicioPropiedad,
 )
 
 
@@ -1085,6 +1087,36 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.contacto_pago.validacion_modelo', issue_codes)
+
+    def test_common_expense_contract_without_structured_property_service_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.tiene_gastos_comunes = True
+        contrato.save(update_fields=['tiene_gastos_comunes', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.propiedad.gasto_comun_estructurado_faltante', issue_codes)
+
+    def test_invalid_structured_property_service_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        ServicioPropiedad.objects.create(
+            propiedad=contrato.mandato_operacion.propiedad,
+            tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+            proveedor_nombre='Administracion Edificio',
+            numero_cliente='',
+            administrador_nombre='Administracion Edificio',
+            activo=True,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.servicio_propiedad.validacion_modelo', issue_codes)
 
     def test_active_contract_without_operational_channel_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

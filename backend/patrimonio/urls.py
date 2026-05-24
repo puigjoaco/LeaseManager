@@ -10,6 +10,8 @@ from .views import (
     ParticipacionListView,
     PropiedadDetailView,
     PropiedadListCreateView,
+    ServicioPropiedadDetailView,
+    ServicioPropiedadListCreateView,
     SocioDetailView,
     SocioListCreateView,
 )
@@ -24,6 +26,12 @@ urlpatterns = [
     path('comunidades/<int:pk>/', ComunidadDetailView.as_view(), name='patrimonio-comunidad-detail'),
     path('propiedades/', PropiedadListCreateView.as_view(), name='patrimonio-propiedad-list'),
     path('propiedades/<int:pk>/', PropiedadDetailView.as_view(), name='patrimonio-propiedad-detail'),
+    path('servicios-propiedad/', ServicioPropiedadListCreateView.as_view(), name='patrimonio-servicio-propiedad-list'),
+    path(
+        'servicios-propiedad/<int:pk>/',
+        ServicioPropiedadDetailView.as_view(),
+        name='patrimonio-servicio-propiedad-detail',
+    ),
     path('participaciones/', ParticipacionListView.as_view(), name='patrimonio-participacion-list'),
     path('participaciones/<int:pk>/', ParticipacionDetailView.as_view(), name='patrimonio-participacion-detail'),
 ]
