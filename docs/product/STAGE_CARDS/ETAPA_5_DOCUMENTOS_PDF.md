@@ -24,6 +24,8 @@ firma y notaria trazables.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
   desde el endpoint dedicado `formalizar/`, no desde create/update generico,
   para conservar la auditoria especifica del acto de formalizacion.
+- Solo documentos en estado `emitido` pueden entrar al endpoint `formalizar/`;
+  los borradores deben emitirse antes de cualquier acto de firma/notaria.
 - Un documento ya formalizado queda inmutable frente al endpoint generico y no
   puede re-formalizarse; correcciones posteriores requieren nueva version o un
   flujo auditado dedicado.

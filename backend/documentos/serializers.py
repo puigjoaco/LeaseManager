@@ -265,6 +265,10 @@ class DocumentoFormalizarSerializer(serializers.Serializer):
             raise DjangoValidationError(
                 {'estado': 'No se puede formalizar un documento archivado o cancelado.'}
             )
+        if instance.estado == EstadoDocumento.DRAFT:
+            raise DjangoValidationError(
+                {'estado': 'Un documento en borrador debe emitirse antes de formalizarse.'}
+            )
         if instance.estado == EstadoDocumento.FORMALIZED:
             raise DjangoValidationError(
                 {'estado': 'El documento ya esta formalizado; no se re-formaliza ni muta desde este endpoint.'}
