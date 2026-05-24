@@ -608,6 +608,9 @@ type Contrato = {
   fecha_inicio: string
   fecha_fin_vigente: string
   fecha_entrega: string | null
+  fecha_registro_operativo: string | null
+  requiere_notificacion_manual_retroactiva: boolean
+  alerta_notificacion_manual_retroactiva: string
   dia_pago_mensual: number
   plazo_notificacion_termino_dias: number
   dias_prealerta_admin: number

@@ -88,6 +88,11 @@ contra datos reales o snapshot controlado.
   propiedad principal del contrato.
 - Validacion de que pagos mensuales existentes en estado pagado efectivo tengan
   monto pagado mayor que cero y fecha trazable de deposito, WebPay o deteccion.
+- Contratos retroactivos registrados despues del dia 5 del mes operativo
+  generan alerta de posible notificacion manual, y Cobranza bloquea la
+  reconstruccion automatica de cobros vencidos antes del registro operativo.
+  El auditor Etapa 1 reporta la alerta como advertencia y marca como defecto
+  pagos existentes que reconstruyan esos cobros pasados.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
   del mes operativo.

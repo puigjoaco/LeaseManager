@@ -1125,6 +1125,46 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.pago_mensual.distribucion_devengo_inconsistente', issue_codes)
 
+    def test_retroactive_contract_manual_notification_is_warning_only(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.fecha_registro_operativo = date(2026, 1, 10)
+        contrato.save(update_fields=['fecha_registro_operativo', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertEqual(result['issue_counts'].get('warning'), 1)
+        self.assertIn('stage1.contrato.notificacion_manual_retroactiva', issue_codes)
+
+    def test_existing_payment_for_retroactive_past_billing_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.fecha_registro_operativo = date(2026, 2, 10)
+        contrato.save(update_fields=['fecha_registro_operativo', 'updated_at'])
+        payment = self._create_payment_for(contrato)
+        DistribucionCobroMensual.objects.create(
+            pago_mensual=payment,
+            beneficiario_empresa_owner=contrato.mandato_operacion.entidad_facturadora,
+            porcentaje_snapshot=Decimal('100.00'),
+            monto_devengado_clp=Decimal('250000.00'),
+            monto_conciliado_clp=Decimal('0.00'),
+            monto_facturable_clp=Decimal('250000.00'),
+            requiere_dte=True,
+            origen_atribucion='snapshot_pago',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.pago_mensual.cobro_pasado_retroactivo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['pagos_mensuales']['classification'],
+            'defectuoso',
+        )
+
     def test_distribution_marked_for_dte_must_match_billing_entity(self):
         contrato = self._create_valid_stage1_matrix()
         payment = self._create_payment_for(contrato)

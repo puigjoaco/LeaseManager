@@ -1,4 +1,5 @@
 import calendar
+from datetime import date
 from decimal import Decimal
 
 from django.conf import settings
@@ -17,6 +18,7 @@ codigo_efectivo_validator = RegexValidator(
     regex=r'^\d{3}$',
     message='El codigo de conciliacion efectivo debe tener exactamente 3 digitos.',
 )
+RETROACTIVE_MANUAL_NOTIFICATION_CUTOFF_DAY = 5
 
 
 class TimestampedModel(models.Model):
@@ -159,6 +161,7 @@ class Contrato(TimestampedModel):
     fecha_inicio = models.DateField()
     fecha_fin_vigente = models.DateField()
     fecha_entrega = models.DateField(null=True, blank=True)
+    fecha_registro_operativo = models.DateField(null=True, blank=True)
     dia_pago_mensual = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)],
     )
@@ -185,6 +188,48 @@ class Contrato(TimestampedModel):
     def principal_property_id(self):
         principal = self.contrato_propiedades.filter(rol_en_contrato=RolContratoPropiedad.PRIMARY).first()
         return principal.propiedad_id if principal else None
+
+    def registration_date_for_retroactive_alert(self):
+        if self.fecha_registro_operativo:
+            return self.fecha_registro_operativo
+        if self.created_at:
+            return timezone.localtime(self.created_at).date()
+        return None
+
+    def retroactive_manual_notification_cutoff_date(self):
+        if not self.fecha_inicio:
+            return None
+        return date(
+            self.fecha_inicio.year,
+            self.fecha_inicio.month,
+            RETROACTIVE_MANUAL_NOTIFICATION_CUTOFF_DAY,
+        )
+
+    def requires_retroactive_manual_notification(self):
+        registration_date = self.registration_date_for_retroactive_alert()
+        cutoff_date = self.retroactive_manual_notification_cutoff_date()
+        if not registration_date or not cutoff_date:
+            return False
+        return self.fecha_inicio <= registration_date and registration_date > cutoff_date
+
+    def retroactive_manual_notification_alert(self):
+        if not self.requires_retroactive_manual_notification():
+            return ''
+        registration_date = self.registration_date_for_retroactive_alert()
+        return (
+            'Contrato retroactivo registrado despues del dia 5 del mes operativo; '
+            f'revisar posible notificacion manual antes de cobrar. Registro: {registration_date.isoformat()}.'
+        )
+
+    def blocks_automatic_past_billing(self, anio, mes):
+        registration_date = self.fecha_registro_operativo
+        if not registration_date or not self.fecha_inicio or self.fecha_inicio > registration_date:
+            return False
+        try:
+            due_date = date(int(anio), int(mes), int(self.dia_pago_mensual))
+        except (TypeError, ValueError):
+            return False
+        return due_date < registration_date
 
     def validate_identity_override(self):
         if not self.identidad_envio_override_id or not self.mandato_operacion_id:

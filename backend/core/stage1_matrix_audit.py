@@ -1099,6 +1099,18 @@ def _audit_payment_distribution_consistency(issues: list[dict[str, Any]]) -> Non
                     message=message,
                 )
 
+        if payment.contrato.blocks_automatic_past_billing(payment.anio, payment.mes):
+            _issue(
+                issues,
+                code='stage1.pago_mensual.cobro_pasado_retroactivo',
+                entity='PagoMensual',
+                entity_id=payment.pk,
+                message=(
+                    'Pago mensual existente corresponde a un cobro pasado generado para un '
+                    'contrato retroactivo despues de su fecha de registro operativo.'
+                ),
+            )
+
         primary_effective_code = (
             payment.contrato.contrato_propiedades.filter(rol_en_contrato=RolContratoPropiedad.PRIMARY)
             .values_list('codigo_conciliacion_efectivo_snapshot', flat=True)
@@ -1413,6 +1425,16 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
                 entity='Contrato',
                 entity_id=contrato.pk,
                 message='Contrato vigente o futuro requiere al menos un canal operativo activo en su mandato.',
+            )
+
+        if contrato.requires_retroactive_manual_notification():
+            _issue(
+                issues,
+                code='stage1.contrato.notificacion_manual_retroactiva',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message=contrato.retroactive_manual_notification_alert(),
+                severity='warning',
             )
 
         _audit_contract_tenant_readiness(issues, contrato)

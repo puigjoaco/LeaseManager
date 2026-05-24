@@ -423,6 +423,21 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(second.status_code, status.HTTP_200_OK)
         self.assertEqual(PagoMensual.objects.filter(contrato=contrato, anio=2026, mes=1).count(), 1)
 
+    def test_generate_payment_rejects_automatic_past_billing_for_retroactive_contract(self):
+        contrato = self._create_active_contract(codigo='CON-RETRO', monto_base='100000.00', code='111')
+        contrato.fecha_registro_operativo = date(2026, 2, 10)
+        contrato.save(update_fields=['fecha_registro_operativo', 'updated_at'])
+
+        response = self.client.post(
+            reverse('cobranza-pago-generate'),
+            {'contrato_id': contrato.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Contrato retroactivo', response.data['detail'])
+        self.assertFalse(PagoMensual.objects.filter(contrato=contrato, anio=2026, mes=1).exists())
+
     def test_payment_update_rejects_manual_paid_transition_without_reconciliation_artifact(self):
         contrato = self._create_active_contract(codigo='CON-LATE', monto_base='100000.00', code='111')
         generate = self.client.post(
