@@ -367,6 +367,15 @@ class PeriodoContractual(TimestampedModel):
             errors['fecha_inicio'] = 'El periodo no puede iniciar antes de la vigencia del contrato.'
         if self.fecha_fin > self.contrato.fecha_fin_vigente:
             errors['fecha_fin'] = 'El periodo no puede terminar despues de la vigencia del contrato.'
+        earlier_periods = PeriodoContractual.objects.filter(
+            contrato_id=self.contrato_id,
+            fecha_inicio__lt=self.fecha_inicio,
+        ).exclude(pk=self.pk)
+        expected_number = earlier_periods.count() + 1
+        if self.numero_periodo != expected_number:
+            errors['numero_periodo'] = (
+                'El numero de periodo debe coincidir con el orden cronologico dentro del contrato.'
+            )
         if errors:
             raise ValidationError(errors)
 
