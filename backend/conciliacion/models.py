@@ -230,6 +230,23 @@ class MovimientoBancarioImportado(TimestampedModel):
     def __str__(self):
         return f'{self.fecha_movimiento} - {self.monto}'
 
+    def _validate_bank_transaction_identity(self, errors):
+        if not has_text(self.transaction_id_banco) or not self.conexion_bancaria_id:
+            return
+
+        duplicates = MovimientoBancarioImportado.objects.filter(
+            conexion_bancaria_id=self.conexion_bancaria_id,
+            transaction_id_banco=self.transaction_id_banco,
+        )
+        if self.pk:
+            duplicates = duplicates.exclude(pk=self.pk)
+        if duplicates.exists():
+            _append_error(
+                errors,
+                'transaction_id_banco',
+                'transaction_id_banco debe ser unico por conexion bancaria.',
+            )
+
     def _validate_reconciliation_snapshot(self, errors):
         has_payment_target = bool(self.pago_mensual_id)
         has_residual_target = bool(self.codigo_cobro_residual_id)
@@ -356,6 +373,7 @@ class MovimientoBancarioImportado(TimestampedModel):
             'transaction_id_banco debe ser una referencia no sensible, no una URL, token o credencial.',
         )
 
+        self._validate_bank_transaction_identity(errors)
         self._validate_reconciliation_snapshot(errors)
 
         if self.origen_importacion == OrigenImportacionMovimiento.MANUAL_CONTROLLED:

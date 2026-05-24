@@ -273,6 +273,30 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.movement.provider_sync_transaction_missing', issue_codes)
         self.assertIn('stage3.movement.provider_sync_connection_not_ready', issue_codes)
 
+    def test_duplicate_transaction_id_banco_is_blocking(self):
+        cuenta, _ = self._create_payment_matrix(codigo='ST3-DUP-TX')
+        conexion = self._create_ready_connection(cuenta)
+        for day in [8, 9]:
+            MovimientoBancarioImportado.objects.create(
+                conexion_bancaria=conexion,
+                fecha_movimiento=date(2026, 1, day),
+                tipo_movimiento=TipoMovimientoBancario.CREDIT,
+                monto=Decimal('12345.00'),
+                descripcion_origen=f'Movimiento duplicado {day}',
+                origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+                evidencia_importacion_ref='manual-import-stage3',
+                transaction_id_banco='bank-tx-duplicated-001',
+            )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.invalid_model', issue_codes)
+        self.assertIn('stage3.movement.transaction_id_duplicate', issue_codes)
+        self.assertEqual(result['sections']['movements']['invalid_model'], 2)
+        self.assertEqual(result['sections']['movements']['transaction_id_duplicate'], 2)
+
     def test_manual_import_without_evidence_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-MANUAL')
         conexion = self._create_ready_connection(cuenta)
