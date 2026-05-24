@@ -139,6 +139,7 @@ def reconcile_exact_movement(movimiento):
             movimiento.codigo_cobro_residual = residual
             movimiento.pago_mensual = None
             movimiento.estado_conciliacion = EstadoConciliacionMovimiento.EXACT_MATCH
+            movimiento.full_clean()
             movimiento.save(
                 update_fields=['codigo_cobro_residual', 'pago_mensual', 'estado_conciliacion', 'updated_at']
             )
@@ -174,6 +175,7 @@ def reconcile_exact_movement(movimiento):
         movimiento.pago_mensual = payment
         movimiento.codigo_cobro_residual = None
         movimiento.estado_conciliacion = EstadoConciliacionMovimiento.EXACT_MATCH
+        movimiento.full_clean()
         movimiento.save(
             update_fields=['pago_mensual', 'codigo_cobro_residual', 'estado_conciliacion', 'updated_at']
         )
@@ -234,6 +236,7 @@ def resolve_unknown_income_manual_resolution(*, resolution, payment, rationale='
     movimiento.pago_mensual = payment
     movimiento.codigo_cobro_residual = None
     movimiento.estado_conciliacion = EstadoConciliacionMovimiento.EXACT_MATCH
+    movimiento.full_clean()
     movimiento.save(update_fields=['pago_mensual', 'codigo_cobro_residual', 'estado_conciliacion', 'updated_at'])
 
     resolve_unknown_income_if_present(movimiento)
@@ -320,6 +323,7 @@ def resolve_charge_movement_manual_resolution(*, resolution, rationale='', actor
 
     movimiento.notas_admin = rationale
     movimiento.estado_conciliacion = EstadoConciliacionMovimiento.EXACT_MATCH
+    movimiento.full_clean()
     movimiento.save(update_fields=['notas_admin', 'estado_conciliacion', 'updated_at'])
 
     resolved_at = timezone.now()

@@ -4,8 +4,9 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.utils.dateparse import parse_date
 
-from cobranza.models import CodigoCobroResidual, PagoMensual
+from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
 from core.reference_validation import is_non_sensitive_reference
 from operacion.models import CuentaRecaudadora
 
@@ -56,6 +57,24 @@ def _add_non_sensitive_reference_error(errors, instance, field_name, message):
     value = getattr(instance, field_name, '')
     if has_text(value) and not is_non_sensitive_reference(value):
         errors[field_name] = message
+
+
+def _append_error(errors, field_name, message):
+    current = errors.get(field_name)
+    if current is None:
+        errors[field_name] = message
+    elif isinstance(current, list):
+        current.append(message)
+    else:
+        errors[field_name] = [current, message]
+
+
+def _coerce_date(value):
+    if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
+        return value
+    if isinstance(value, str):
+        return parse_date(value)
+    return None
 
 
 class ConexionBancaria(TimestampedModel):
@@ -211,6 +230,116 @@ class MovimientoBancarioImportado(TimestampedModel):
     def __str__(self):
         return f'{self.fecha_movimiento} - {self.monto}'
 
+    def _validate_reconciliation_snapshot(self, errors):
+        has_payment_target = bool(self.pago_mensual_id)
+        has_residual_target = bool(self.codigo_cobro_residual_id)
+        target_count = int(has_payment_target) + int(has_residual_target)
+
+        if target_count > 1:
+            _append_error(
+                errors,
+                'pago_mensual',
+                'Un movimiento bancario solo puede apuntar a un pago mensual o a un codigo residual.',
+            )
+            return
+
+        if self.estado_conciliacion != EstadoConciliacionMovimiento.EXACT_MATCH:
+            if target_count:
+                _append_error(
+                    errors,
+                    'estado_conciliacion',
+                    'Solo un movimiento conciliado exacto puede conservar target conciliado.',
+                )
+            return
+
+        if self.tipo_movimiento == TipoMovimientoBancario.DEBIT:
+            if target_count:
+                _append_error(
+                    errors,
+                    'estado_conciliacion',
+                    'Un cargo conciliado exacto no puede apuntar a pagos mensuales ni codigos residuales.',
+                )
+            return
+
+        if self.tipo_movimiento != TipoMovimientoBancario.CREDIT:
+            return
+
+        if target_count == 0:
+            _append_error(
+                errors,
+                'pago_mensual',
+                'Un abono conciliado exacto requiere pago mensual o codigo residual trazable.',
+            )
+            return
+
+        try:
+            conexion = self.conexion_bancaria
+        except ConexionBancaria.DoesNotExist:
+            conexion = None
+        connection_account_id = conexion.cuenta_recaudadora_id if conexion is not None else None
+        movement_amount = Decimal(str(self.monto))
+        movement_date = _coerce_date(self.fecha_movimiento)
+
+        if has_payment_target:
+            try:
+                payment = self.pago_mensual
+            except PagoMensual.DoesNotExist:
+                payment = None
+            if payment is None:
+                return
+
+            payment_account_id = payment.contrato.mandato_operacion.cuenta_recaudadora_id
+            if connection_account_id is not None and payment_account_id != connection_account_id:
+                _append_error(
+                    errors,
+                    'pago_mensual',
+                    'El pago conciliado debe pertenecer a la misma cuenta recaudadora del movimiento.',
+                )
+            if payment.estado_pago != EstadoPago.PAID:
+                _append_error(errors, 'pago_mensual', 'El pago mensual target debe estar pagado.')
+            if Decimal(str(payment.monto_pagado_clp)) < movement_amount:
+                _append_error(
+                    errors,
+                    'pago_mensual',
+                    'El monto del movimiento no puede exceder el monto pagado del pago mensual.',
+                )
+            if Decimal(str(payment.monto_calculado_clp)) < movement_amount:
+                _append_error(
+                    errors,
+                    'pago_mensual',
+                    'El monto del movimiento no puede exceder el monto calculado del pago mensual.',
+                )
+            if _coerce_date(payment.fecha_deposito_banco) != movement_date:
+                _append_error(
+                    errors,
+                    'pago_mensual',
+                    'La fecha de deposito del pago debe coincidir con la fecha del movimiento bancario.',
+                )
+            return
+
+        try:
+            residual = self.codigo_cobro_residual
+        except CodigoCobroResidual.DoesNotExist:
+            residual = None
+        if residual is None:
+            return
+
+        residual_account_id = residual.contrato_origen.mandato_operacion.cuenta_recaudadora_id
+        if connection_account_id is not None and residual_account_id != connection_account_id:
+            _append_error(
+                errors,
+                'codigo_cobro_residual',
+                'El codigo residual debe pertenecer a la misma cuenta recaudadora del movimiento.',
+            )
+        if residual.estado != EstadoCobroResidual.PAID:
+            _append_error(errors, 'codigo_cobro_residual', 'El codigo residual target debe estar pagado.')
+        if Decimal(str(residual.saldo_actual)) != Decimal('0.00'):
+            _append_error(
+                errors,
+                'codigo_cobro_residual',
+                'El codigo residual pagado debe quedar con saldo_actual cero.',
+            )
+
     def clean(self):
         super().clean()
         errors = {}
@@ -227,12 +356,11 @@ class MovimientoBancarioImportado(TimestampedModel):
             'transaction_id_banco debe ser una referencia no sensible, no una URL, token o credencial.',
         )
 
+        self._validate_reconciliation_snapshot(errors)
+
         if self.origen_importacion == OrigenImportacionMovimiento.MANUAL_CONTROLLED:
             if not has_text(self.evidencia_importacion_ref):
                 errors['evidencia_importacion_ref'] = 'La carga manual bancaria requiere evidencia_importacion_ref.'
-            if errors:
-                raise ValidationError(errors)
-            return
 
         if self.origen_importacion == OrigenImportacionMovimiento.PROVIDER_SYNC:
             if not has_text(self.transaction_id_banco):

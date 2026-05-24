@@ -25,6 +25,9 @@ sistema igual a saldo banco.
   primaria de movimientos, readiness trazable y `transaction_id_banco` no
   sensible; la carga manual controlada exige `evidencia_importacion_ref` no
   sensible.
+- Movimientos conciliados exactos existentes deben conservar coherencia con su
+  target: abonos apuntan a pago mensual pagado o codigo residual pagado de la
+  misma cuenta recaudadora; movimientos no conciliados no conservan target.
 - `audit_stage3_conciliacion_readiness` consolida readiness local de
   conexiones, movimientos, ingresos desconocidos, senales de saldo y
   referencias finales sin conectar bancos ni leer secretos; tambien detecta
