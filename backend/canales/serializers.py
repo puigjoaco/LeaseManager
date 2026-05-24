@@ -12,7 +12,7 @@ from documentos.scope import scope_documento_queryset
 from documentos.models import DocumentoEmitido
 from operacion.models import IdentidadDeEnvio
 
-from .models import CanalMensajeria, MensajeSaliente
+from .models import CanalMensajeria, ConfiguracionNotificacionContrato, MensajeSaliente
 from .services import document_delivery_blocking_reason, resolve_document_contract
 
 
@@ -78,6 +78,47 @@ class CanalMensajeriaSerializer(RedactReferenceFieldsMixin, serializers.ModelSer
             candidate.full_clean()
         except DjangoValidationError as error:
             raise_drf_validation_error(error)
+        return attrs
+
+
+class ConfiguracionNotificacionContratoSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('evidencia_configuracion_ref',)
+
+    class Meta:
+        model = ConfiguracionNotificacionContrato
+        fields = (
+            'id',
+            'contrato',
+            'canal',
+            'dias_notificacion',
+            'activa',
+            'evidencia_configuracion_ref',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['contrato'].queryset = scope_queryset_for_user(
+            Contrato.objects.all(),
+            user,
+            property_paths=('mandato_operacion__propiedad_id',),
+            bank_account_paths=('mandato_operacion__cuenta_recaudadora_id',),
+        )
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, ConfiguracionNotificacionContrato)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        attrs['dias_notificacion'] = candidate.dias_notificacion
         return attrs
 
 

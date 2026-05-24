@@ -9,6 +9,7 @@ from django.utils import timezone
 from audit.models import AuditEvent, ManualResolution
 from canales.models import (
     CanalMensajeria,
+    ConfiguracionNotificacionContrato,
     EstadoGateCanal,
     EstadoMensajeSaliente,
     MensajeSaliente,
@@ -32,6 +33,8 @@ from cobranza.models import (
 from cobranza.services import build_account_state_summary
 from contratos.models import (
     Arrendatario,
+    Contrato,
+    EstadoContrato,
     WHATSAPP_BLOCK_ALERT_CATEGORY,
     WHATSAPP_BLOCK_EVENT_TYPE,
     is_international_phone_number,
@@ -233,6 +236,20 @@ def _collect_message_issues(messages) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _collect_notification_config_issues(configs) -> dict[str, int]:
+    counts = Counter()
+    for config in configs:
+        try:
+            config.full_clean()
+        except ValidationError:
+            counts['invalid_model'] += 1
+        if config.evidencia_configuracion_ref.strip() and not _non_sensitive_reference(
+            config.evidencia_configuracion_ref
+        ):
+            counts['sensitive_reference'] += 1
+    return dict(sorted(counts.items()))
+
+
 def _gate_contains_sensitive_reference(gate) -> bool:
     return (
         bool(gate.evidencia_ref.strip() and not _non_sensitive_reference(gate.evidencia_ref))
@@ -357,6 +374,31 @@ def collect_stage2_cobranza_readiness(
         1 for gate in whatsapp_open_gates if not whatsapp_gate_has_approved_template(gate)
     )
     sensitive_channel_gate_refs = sum(1 for gate in channel_gates if _gate_contains_sensitive_reference(gate))
+
+    active_contracts = Contrato.objects.select_related('mandato_operacion').filter(
+        estado__in=(EstadoContrato.ACTIVE, EstadoContrato.FUTURE),
+    )
+    active_assignment_pairs = set(
+        channel_assignments.filter(
+            estado=EstadoAsignacionCanal.ACTIVE,
+            identidad_envio__estado=EstadoIdentidadEnvio.ACTIVE,
+            mandato_operacion__estado=EstadoMandatoOperacion.ACTIVE,
+        ).values_list('mandato_operacion_id', 'canal')
+    )
+    required_notification_pairs = {
+        (contract.id, canal)
+        for contract in active_contracts
+        for mandato_id, canal in active_assignment_pairs
+        if mandato_id == contract.mandato_operacion_id
+    }
+    notification_configs = ConfiguracionNotificacionContrato.objects.select_related(
+        'contrato',
+        'contrato__mandato_operacion',
+    )
+    active_notification_configs = notification_configs.filter(activa=True)
+    active_notification_pairs = set(active_notification_configs.values_list('contrato_id', 'canal'))
+    notification_config_issues = _collect_notification_config_issues(notification_configs)
+    notification_configs_missing_for_enabled_channel = len(required_notification_pairs - active_notification_pairs)
 
     messages = MensajeSaliente.objects.select_related(
         'canal_mensajeria',
@@ -544,6 +586,30 @@ def collect_stage2_cobranza_readiness(
                 'stage2.channel_gate_sensitive_reference',
                 'Existen gates de canales con evidencia_ref o restricciones_operativas sensibles.',
                 count=sensitive_channel_gate_refs,
+            )
+        )
+    if notification_configs_missing_for_enabled_channel:
+        issues.append(
+            _issue(
+                'stage2.notification_config.missing_for_enabled_channel',
+                'Existen contratos vigentes/futuros con canal habilitado sin cadencia de notificaciones activa.',
+                count=notification_configs_missing_for_enabled_channel,
+            )
+        )
+    if notification_config_issues.get('invalid_model'):
+        issues.append(
+            _issue(
+                'stage2.notification_config.invalid_model',
+                'Existen configuraciones de notificacion por contrato/canal que no pasan validacion de dominio.',
+                count=notification_config_issues['invalid_model'],
+            )
+        )
+    if notification_config_issues.get('sensitive_reference'):
+        issues.append(
+            _issue(
+                'stage2.notification_config.sensitive_reference',
+                'Existen configuraciones de notificacion con evidencia_configuracion_ref sensible.',
+                count=notification_config_issues['sensitive_reference'],
             )
         )
     if whatsapp_open_without_template:
@@ -812,6 +878,14 @@ def collect_stage2_cobranza_readiness(
                 'invalid_channel_gates': invalid_channel_gates,
                 'sensitive_channel_gate_refs': sensitive_channel_gate_refs,
                 'whatsapp_open_without_template': whatsapp_open_without_template,
+            },
+            'notification_configs': {
+                'total': notification_configs.count(),
+                'active': active_notification_configs.count(),
+                'base_suggested_days': [1, 3, 5, 10, 15, 20, 25],
+                'required_enabled_contract_channels': len(required_notification_pairs),
+                'missing_for_enabled_channel': notification_configs_missing_for_enabled_channel,
+                **notification_config_issues,
             },
             'channel_identities': {
                 'identities_total': identities.count(),

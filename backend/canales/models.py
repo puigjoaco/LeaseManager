@@ -6,11 +6,45 @@ from django.db.models import Q
 from contratos.models import Arrendatario, Contrato
 from documentos.models import DocumentoEmitido
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
-from operacion.models import CanalOperacion, IdentidadDeEnvio
+from operacion.models import (
+    AsignacionCanalOperacion,
+    CanalOperacion,
+    EstadoAsignacionCanal,
+    EstadoIdentidadEnvio,
+    EstadoMandatoOperacion,
+    IdentidadDeEnvio,
+)
 
 
 EMAIL_READINESS_REF_KEYS = ('prueba_aislada_ref', 'prueba_envio_ref')
 EMAIL_CREDENTIAL_REF_KEYS = ('oauth_validado_ref', 'credencial_validada_ref')
+NOTIFICATION_BASE_SUGGESTED_DAYS = (1, 3, 5, 10, 15, 20, 25)
+
+
+def normalize_notification_days(value):
+    if value in (None, ''):
+        return []
+    if not isinstance(value, (list, tuple)):
+        raise ValueError('dias_notificacion debe ser una lista de dias.')
+
+    normalized = []
+    seen = set()
+    for raw_day in value:
+        if isinstance(raw_day, bool):
+            raise ValueError('dias_notificacion debe contener enteros entre 1 y 31.')
+        if isinstance(raw_day, int):
+            day = raw_day
+        elif isinstance(raw_day, str) and raw_day.strip().isdigit():
+            day = int(raw_day.strip())
+        else:
+            raise ValueError('dias_notificacion debe contener enteros entre 1 y 31.')
+        if day < 1 or day > 31:
+            raise ValueError('dias_notificacion debe contener enteros entre 1 y 31.')
+        if day in seen:
+            raise ValueError('dias_notificacion no debe contener dias duplicados.')
+        seen.add(day)
+        normalized.append(day)
+    return sorted(normalized)
 
 
 def has_non_sensitive_operational_ref(restrictions, keys):
@@ -85,6 +119,83 @@ class CanalMensajeria(TimestampedModel):
                         )
                     }
                 )
+
+
+class ConfiguracionNotificacionContrato(TimestampedModel):
+    contrato = models.ForeignKey(
+        Contrato,
+        on_delete=models.CASCADE,
+        related_name='configuraciones_notificacion',
+    )
+    canal = models.CharField(max_length=16, choices=CanalOperacion.choices)
+    dias_notificacion = models.JSONField(default=list, blank=True)
+    activa = models.BooleanField(default=True)
+    evidencia_configuracion_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['contrato_id', 'canal', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['contrato', 'canal'],
+                condition=Q(activa=True),
+                name='uniq_config_notificacion_activa_por_contrato_canal',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.contrato_id} - {self.canal} - {self.dias_notificacion}'
+
+    @property
+    def uses_base_suggested_days(self):
+        return tuple(self.dias_notificacion or []) == NOTIFICATION_BASE_SUGGESTED_DAYS
+
+    def has_enabled_channel_assignment(self):
+        if not self.contrato_id:
+            return False
+        return AsignacionCanalOperacion.objects.filter(
+            mandato_operacion=self.contrato.mandato_operacion,
+            canal=self.canal,
+            estado=EstadoAsignacionCanal.ACTIVE,
+            identidad_envio__estado=EstadoIdentidadEnvio.ACTIVE,
+            mandato_operacion__estado=EstadoMandatoOperacion.ACTIVE,
+        ).exists()
+
+    def clean(self):
+        super().clean()
+        try:
+            self.dias_notificacion = normalize_notification_days(self.dias_notificacion)
+        except ValueError as error:
+            raise ValidationError({'dias_notificacion': str(error)})
+
+        if self.activa and not self.dias_notificacion:
+            raise ValidationError({'dias_notificacion': 'La configuracion activa requiere al menos un dia.'})
+
+        if (
+            self.evidencia_configuracion_ref.strip()
+            and not is_non_sensitive_reference(self.evidencia_configuracion_ref)
+        ):
+            raise ValidationError(
+                {'evidencia_configuracion_ref': 'evidencia_configuracion_ref debe ser una referencia no sensible.'}
+            )
+
+        if self.activa and tuple(self.dias_notificacion) != NOTIFICATION_BASE_SUGGESTED_DAYS:
+            if not self.evidencia_configuracion_ref.strip():
+                raise ValidationError(
+                    {
+                        'evidencia_configuracion_ref': (
+                            'Una cadencia distinta de la base 1/3/5/10/15/20/25 requiere referencia no sensible.'
+                        )
+                    }
+                )
+
+        if self.activa and self.contrato_id and not self.has_enabled_channel_assignment():
+            raise ValidationError(
+                {'canal': 'La configuracion activa requiere canal habilitado en el mandato del contrato.'}
+            )
+
+    def save(self, *args, **kwargs):
+        self.dias_notificacion = normalize_notification_days(self.dias_notificacion)
+        super().save(*args, **kwargs)
 
 
 class MensajeSaliente(TimestampedModel):

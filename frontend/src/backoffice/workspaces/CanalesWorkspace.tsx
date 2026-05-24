@@ -25,6 +25,15 @@ type MensajeSalienteItem = {
   external_ref: string
 }
 
+type ConfiguracionNotificacionItem = {
+  id: number
+  contrato: number
+  canal: string
+  dias_notificacion: number[]
+  activa: boolean
+  evidencia_configuracion_ref: string
+}
+
 type IdentidadItem = {
   id: number
   canal: string
@@ -73,6 +82,14 @@ type MensajeEnvioDraft = {
   external_ref: string
 }
 
+type ConfiguracionNotificacionDraft = {
+  contrato: string
+  canal: string
+  dias_notificacion_text: string
+  activa: boolean
+  evidencia_configuracion_ref: string
+}
+
 export function CanalesWorkspace({
   canEditCanales,
   gateCanalDraft,
@@ -84,6 +101,9 @@ export function CanalesWorkspace({
   mensajeEnvioDraft,
   setMensajeEnvioDraft,
   handleRegistrarEnvioMensaje,
+  configuracionNotificacionDraft,
+  setConfiguracionNotificacionDraft,
+  handleCreateConfiguracionNotificacion,
   gatesCanales,
   identidades,
   contratos,
@@ -91,6 +111,7 @@ export function CanalesWorkspace({
   documentosEmitidos,
   mensajesSalientes,
   filteredGatesCanales,
+  filteredConfiguracionesNotificacion,
   filteredMensajesSalientes,
   isSubmitting,
   isLoading,
@@ -107,6 +128,9 @@ export function CanalesWorkspace({
   mensajeEnvioDraft: MensajeEnvioDraft
   setMensajeEnvioDraft: Dispatch<SetStateAction<MensajeEnvioDraft>>
   handleRegistrarEnvioMensaje: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  configuracionNotificacionDraft: ConfiguracionNotificacionDraft
+  setConfiguracionNotificacionDraft: Dispatch<SetStateAction<ConfiguracionNotificacionDraft>>
+  handleCreateConfiguracionNotificacion: (event: FormEvent<HTMLFormElement>) => Promise<void>
   gatesCanales: CanalMensajeriaItem[]
   identidades: IdentidadItem[]
   contratos: ContratoItem[]
@@ -114,6 +138,7 @@ export function CanalesWorkspace({
   documentosEmitidos: DocumentoEmitidoItem[]
   mensajesSalientes: MensajeSalienteItem[]
   filteredGatesCanales: CanalMensajeriaItem[]
+  filteredConfiguracionesNotificacion: ConfiguracionNotificacionItem[]
   filteredMensajesSalientes: MensajeSalienteItem[]
   isSubmitting: boolean
   isLoading: boolean
@@ -204,6 +229,26 @@ export function CanalesWorkspace({
               <button type="submit" className="button-primary" disabled={isSubmitting || !mensajeEnvioDraft.mensajeId}>Registrar envío</button>
             </form>
           </section>
+
+          <section className="panel">
+            <div className="section-heading"><div><h2>Cadencia de notificaciones</h2><p>Días por contrato y canal habilitado.</p></div></div>
+            <form className="entity-form" onSubmit={handleCreateConfiguracionNotificacion}>
+              <select value={configuracionNotificacionDraft.contrato} onChange={(event) => setConfiguracionNotificacionDraft((current) => ({ ...current, contrato: event.target.value }))}>
+                <option value="">Selecciona contrato</option>
+                {contratos.map((item) => (
+                  <option key={item.id} value={item.id}>{item.codigo_contrato}</option>
+                ))}
+              </select>
+              <select value={configuracionNotificacionDraft.canal} onChange={(event) => setConfiguracionNotificacionDraft((current) => ({ ...current, canal: event.target.value }))}>
+                <option value="email">Email</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+              <input placeholder="Días 1,3,5,10,15,20,25" value={configuracionNotificacionDraft.dias_notificacion_text} onChange={(event) => setConfiguracionNotificacionDraft((current) => ({ ...current, dias_notificacion_text: event.target.value }))} />
+              <input placeholder="Evidencia ref" value={configuracionNotificacionDraft.evidencia_configuracion_ref} onChange={(event) => setConfiguracionNotificacionDraft((current) => ({ ...current, evidencia_configuracion_ref: event.target.value }))} />
+              <label className="inline-checkbox"><input type="checkbox" checked={configuracionNotificacionDraft.activa} onChange={(event) => setConfiguracionNotificacionDraft((current) => ({ ...current, activa: event.target.checked }))} /> Activa</label>
+              <button type="submit" className="button-primary" disabled={isSubmitting || !configuracionNotificacionDraft.contrato}>Guardar cadencia</button>
+            </form>
+          </section>
         </section>
       ) : null}
 
@@ -212,6 +257,14 @@ export function CanalesWorkspace({
         { label: 'Provider', render: (row) => row.provider_key },
         { label: 'Estado', render: (row) => <Badge label={row.estado_gate} tone={toneFor(row.estado_gate)} /> },
         { label: 'Evidencia', render: (row) => row.evidencia_ref || 'Sin evidencia' },
+      ]} />
+
+      <TableBlock title="Cadencias de notificación" subtitle="Configuración local por contrato y canal habilitado." rows={filteredConfiguracionesNotificacion} empty="No hay cadencias configuradas." isLoading={isLoading} loadingLabel="Cargando canales..." columns={[
+        { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
+        { label: 'Canal', render: (row) => row.canal },
+        { label: 'Días', render: (row) => row.dias_notificacion.join(', ') || 'Sin días' },
+        { label: 'Estado', render: (row) => <Badge label={row.activa ? 'activa' : 'inactiva'} tone={row.activa ? 'positive' : 'neutral'} /> },
+        { label: 'Evidencia', render: (row) => row.evidencia_configuracion_ref || 'Base sugerida' },
       ]} />
 
       <TableBlock title="Mensajes salientes" subtitle="Preparados, bloqueados o enviados manualmente." rows={filteredMensajesSalientes} empty="No hay mensajes salientes para este filtro." isLoading={isLoading} loadingLabel="Cargando canales..." columns={[
