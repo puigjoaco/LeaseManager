@@ -35,6 +35,7 @@ from contabilidad.services import (
     get_company_period_unresolved_bank_movements,
     summarize_asiento_movement_integrity,
 )
+from conciliacion.models import TransferenciaIntercuenta
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 
@@ -96,6 +97,28 @@ def _count_rules_without_active_matrix(rules) -> int:
     return count
 
 
+def _count_internal_transfer_accounting_event_gaps(transfers) -> int:
+    missing = 0
+    for transfer in transfers:
+        origin_account = transfer.movimiento_origen.conexion_bancaria.cuenta_recaudadora
+        destination_account = transfer.movimiento_destino.conexion_bancaria.cuenta_recaudadora
+        expected_specs = []
+        if origin_account.empresa_owner_id:
+            expected_specs.append(('TransferenciaIntercuentaSalida', origin_account.empresa_owner_id))
+        if destination_account.empresa_owner_id:
+            expected_specs.append(('TransferenciaIntercuentaEntrada', destination_account.empresa_owner_id))
+
+        for event_type, company_id in expected_specs:
+            if not EventoContable.objects.filter(
+                empresa_id=company_id,
+                evento_tipo=event_type,
+                entidad_origen_tipo='transferencia_intercuenta',
+                entidad_origen_id=str(transfer.pk),
+            ).exists():
+                missing += 1
+    return missing
+
+
 def _ledger_close_issues(closes) -> dict[str, int]:
     counts = Counter()
     for close in closes:
@@ -148,6 +171,11 @@ def collect_stage5_contabilidad_readiness(
     invalid_rules = _count_invalid(active_rules)
     invalid_matrices = _count_invalid(active_matrices)
     rules_without_active_matrix = _count_rules_without_active_matrix(active_rules)
+    internal_transfers = TransferenciaIntercuenta.objects.select_related(
+        'movimiento_origen__conexion_bancaria__cuenta_recaudadora',
+        'movimiento_destino__conexion_bancaria__cuenta_recaudadora',
+    )
+    internal_transfer_accounting_event_gaps = _count_internal_transfer_accounting_event_gaps(internal_transfers)
 
     events = EventoContable.objects.select_related('empresa')
     posted_events = events.filter(estado_contable=EstadoEventoContable.POSTED)
@@ -318,6 +346,14 @@ def collect_stage5_contabilidad_readiness(
                 'stage5.rules_without_matrix',
                 'Existen reglas contables activas sin linea de matriz activa.',
                 count=rules_without_active_matrix,
+            )
+        )
+    if internal_transfer_accounting_event_gaps:
+        issues.append(
+            _issue(
+                'stage5.internal_transfer_accounting_event_missing',
+                'Existen transferencias intercuenta de empresas sin evento contable de salida o entrada.',
+                count=internal_transfer_accounting_event_gaps,
             )
         )
     if events.count() == 0:
@@ -569,6 +605,10 @@ def collect_stage5_contabilidad_readiness(
                 'movimientos_asiento_total': MovimientoAsiento.objects.count(),
                 'movimientos_by_type': _count_by(MovimientoAsiento.objects.all(), 'tipo_movimiento'),
                 'ledger_snapshot_sensitive_references': ledger_snapshot_sensitive_references,
+            },
+            'internal_transfers': {
+                'total': internal_transfers.count(),
+                'accounting_event_gaps': internal_transfer_accounting_event_gaps,
             },
             'monthly_close': {
                 'closes_total': closes.count(),

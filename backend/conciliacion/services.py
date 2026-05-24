@@ -618,6 +618,10 @@ def resolve_internal_transfer_manual_resolution(
     transfer.full_clean()
     transfer.save()
 
+    from contabilidad.services import create_internal_transfer_events
+
+    accounting_events = create_internal_transfer_events(transfer)
+
     movimiento_origen.notas_admin = rationale
     movimiento_origen.estado_conciliacion = EstadoConciliacionMovimiento.EXACT_MATCH
     movimiento_origen.full_clean()
@@ -641,6 +645,8 @@ def resolve_internal_transfer_manual_resolution(
         'criterio_reparto': criterio_conciliacion,
         'evidencia_transferencia_ref': evidencia_transferencia_ref,
         'responsable_ref': responsable_ref,
+        'evento_contable_ids': [event.pk for event in accounting_events],
+        'empresa_evento_ids': [event.empresa_id for event in accounting_events if event.empresa_id],
     }
 
     supersede_manual_resolutions_for_movement(
@@ -701,6 +707,7 @@ def resolve_internal_transfer_manual_resolution(
     return {
         'resolution': resolution,
         'transferencia': transfer,
+        'eventos_contables': accounting_events,
         'movimiento_origen': movimiento_origen,
         'movimiento_destino': movimiento_destino,
     }
