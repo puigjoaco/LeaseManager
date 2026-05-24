@@ -23,18 +23,18 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 1/2 - Garantias contractuales |
-| Fuente exacta | PR #175 `Guard partial guarantee acceptance`, merge `bfa360d`, desde reglas de garantias parciales en Cobranza del PRD canonico |
-| Brecha activa | Cerrada localmente: una garantia recibida parcialmente queda visible como incompleta hasta regularizarse o aceptarse formalmente con referencia trazable no sensible. |
-| Motivo de prioridad | Evita que reanudaciones intenten cerrar de nuevo el PR #175 o reabrir el worktree ya eliminado. |
-| Worktree | Ninguno activo para este paquete; usar solo `D:/Proyectos/LeaseManager` hasta abrir el siguiente `codex/...`. |
-| Rama | `main` sincronizada; no hay rama `codex/guarantee-partial-acceptance` activa. |
-| Estado | PR #175 integrado en `main`, CI acceptance verde, worktree/rama tactica eliminados. |
-| Gate esperado | No hay gate pendiente para este paquete; el siguiente frente debe seleccionarse desde `main` limpio con una brecha local segura y validacion proporcional. |
-| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 1/2 sin fuente `snapshot_controlado` o `real_autorizado`. |
+| Frente activo | Etapa 2 - WhatsApp y telefonos operativos |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` linea 400 |
+| Brecha activa | Los telefonos operativos usados para mensajeria deben estar en formato internacional; WhatsApp no debe preparar ni enviar mensajes con telefono local o ambiguo. |
+| Motivo de prioridad | Es una regla local de Canales/Cobranza, no requiere secretos, `.env`, DB historica, snapshot ni integracion externa. |
+| Worktree | `D:/Proyectos/LeaseManager-whatsapp-phone-format` |
+| Rama | `codex/whatsapp-phone-format` |
+| Estado | Implementado y validado localmente; pendiente cierre operativo con PR, CI, merge a `main` y limpieza de worktree/rama. |
+| Gate esperado | Tests focales de Arrendatario/Canales/readiness Etapa 2, `manage.py check`, `makemigrations --check --dry-run`, readiness local Etapa 2, build frontend, acceptance proporcional o completa, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 2 sin fuente `snapshot_controlado` o `real_autorizado`. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete local seguro por orden de arquitectura y trazabilidad, abrir nuevo worktree `codex/...` y avanzar sin reabrir metatareas cerradas. |
+| Siguiente accion | Cerrar el PR del paquete WhatsApp phone format, esperar CI, mergear a `main`, limpiar worktree/rama y dejar el cursor sin paquete tactico abierto. |
 
 ## Actualizacion
 

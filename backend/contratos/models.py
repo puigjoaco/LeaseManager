@@ -1,4 +1,5 @@
 import calendar
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -19,6 +20,11 @@ codigo_efectivo_validator = RegexValidator(
     message='El codigo de conciliacion efectivo debe tener exactamente 3 digitos.',
 )
 RETROACTIVE_MANUAL_NOTIFICATION_CUTOFF_DAY = 5
+INTERNATIONAL_PHONE_RE = re.compile(r'^\+[1-9]\d{7,14}$')
+
+
+def is_international_phone_number(value):
+    return bool(INTERNATIONAL_PHONE_RE.fullmatch(str(value or '').strip()))
 
 
 class TimestampedModel(models.Model):
@@ -128,6 +134,10 @@ class Arrendatario(TimestampedModel):
             raise ValidationError({'whatsapp_opt_in': 'No puede existir opt-in activo si WhatsApp esta bloqueado.'})
         if not self.telefono:
             raise ValidationError({'telefono': 'El opt-in de WhatsApp requiere telefono operativo.'})
+        if not is_international_phone_number(self.telefono):
+            raise ValidationError(
+                {'telefono': 'El opt-in de WhatsApp requiere telefono en formato internacional + y digitos.'}
+            )
         if not self.whatsapp_opt_in_evidencia_ref.strip():
             raise ValidationError(
                 {
