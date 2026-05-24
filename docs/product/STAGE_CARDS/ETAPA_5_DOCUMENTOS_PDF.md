@@ -23,6 +23,11 @@ firma y notaria trazables.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
   desde el endpoint dedicado `formalizar/`, no desde create/update generico,
   para conservar la auditoria especifica del acto de formalizacion.
+- Un documento ya formalizado queda inmutable frente al endpoint generico y no
+  puede re-formalizarse; correcciones posteriores requieren nueva version o un
+  flujo auditado dedicado.
+- Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
+  documentos formalizados sin evento `documentos.documento_emitido.formalized`.
 - Si la politica exige notaria, el comprobante notarial debe pertenecer al
   mismo expediente y estar emitido, formalizado o archivado.
 - Auditoria local `audit_document_readiness` debe consolidar politicas activas

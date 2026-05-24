@@ -10,7 +10,9 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
-from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria, TipoDocumental
+from audit.models import AuditEvent
+
+from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria, TipoDocumental
 from .readiness import collect_document_readiness
 
 
@@ -194,6 +196,59 @@ class DocumentReadinessAuditTests(TestCase):
         rendered = json.dumps(result)
         self.assertNotIn('storage.example.test', rendered)
         self.assertNotIn('token=secret', rendered)
+
+    def test_formalized_document_without_formalization_audit_is_blocking(self):
+        create_all_active_policies()
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='formalized-no-audit',
+            estado='abierto',
+            owner_operativo='manual:formalized',
+        )
+        document = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum='formalized-no-audit',
+            fecha_carga=timezone.now(),
+            origen='generado_sistema',
+            estado=EstadoDocumento.FORMALIZED,
+            storage_ref='storage/docs/formalized-no-audit.pdf',
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.formalization_audit_missing', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['documents']['formalized_without_formalization_audit'], 1)
+
+        AuditEvent.objects.create(
+            event_type='documentos.documento_emitido.formalized',
+            entity_type='documento_emitido',
+            entity_id=str(document.pk),
+            summary='Documento formalizado',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
+        self.assertTrue(result['ready_for_stage5_documents'])
+        self.assertNotIn('documents.formalization_audit_missing', {issue['code'] for issue in result['issues']})
 
     def test_command_writes_json_output_and_fail_on_attention_blocks_close(self):
         with TemporaryDirectory() as temp_dir:

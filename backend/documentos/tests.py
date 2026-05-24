@@ -410,6 +410,62 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(formalize.data['estado'], EstadoDocumento.FORMALIZED)
         self.assertTrue(AuditEvent.objects.filter(event_type='documentos.documento_emitido.formalized').exists())
 
+    def test_formalized_document_cannot_be_mutated_from_generic_endpoint(self):
+        expediente = self._create_expediente(entidad_id='4D')
+        self._create_politica()
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {},
+            format='json',
+        )
+        self.assertEqual(formalize.status_code, status.HTTP_200_OK)
+
+        response = self.client.patch(
+            reverse('documentos-documento-detail', args=[documento['id']]),
+            {'checksum': 'tampered-after-formalization'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        stored = DocumentoEmitido.objects.get(pk=documento['id'])
+        self.assertEqual(stored.checksum, documento['checksum'])
+        self.assertEqual(stored.estado, EstadoDocumento.FORMALIZED)
+
+    def test_formalized_document_cannot_be_formalized_again(self):
+        expediente = self._create_expediente(entidad_id='4E')
+        self._create_politica()
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+
+        first = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {},
+            format='json',
+        )
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+
+        second = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {'firma_arrendador_registrada': False},
+            format='json',
+        )
+
+        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', second.data)
+        stored = DocumentoEmitido.objects.get(pk=documento['id'])
+        self.assertTrue(stored.firma_arrendador_registrada)
+        self.assertEqual(stored.estado, EstadoDocumento.FORMALIZED)
+
     def test_document_cannot_be_formalized_with_notary_receipt_from_other_expediente(self):
         expediente_a = self._create_expediente(entidad_id='4A')
         expediente_b = self._create_expediente(entidad_id='4B')
