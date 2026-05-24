@@ -375,6 +375,37 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(response.data['identidad_envio'], identidad.id)
         self.assertEqual(response.data['destinatario'], contrato.arrendatario.email)
 
+    def test_prepare_email_message_uses_contract_identity_override_before_mandate_assignment(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-CONTRACT-OVERRIDE')
+        gate = self._create_gate(canal='email')
+        identity_default = self._create_identity(empresa, canal='email', direccion='contract-default@example.com')
+        identity_override = self._create_identity(empresa, canal='email', direccion='contract-override@example.com')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identity_default,
+            prioridad=1,
+            estado='activa',
+        )
+        contrato.identidad_envio_override = identity_override
+        contrato.save(update_fields=['identidad_envio_override', 'updated_at'])
+
+        response = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'asunto': 'Cobro mensual',
+                'cuerpo': 'Su pago esta listo.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoMensajeSaliente.PREPARED)
+        self.assertEqual(response.data['identidad_envio'], identity_override.id)
+
     def test_prepare_message_blocks_when_gate_is_suspended(self):
         empresa, contrato = self._create_contract_context(codigo='CH-WA')
         gate = self._create_gate(canal='whatsapp', estado_gate='suspendido')

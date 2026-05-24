@@ -10,7 +10,14 @@ from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
-from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
+from operacion.models import (
+    CuentaRecaudadora,
+    EstadoCuentaRecaudadora,
+    EstadoIdentidadEnvio,
+    EstadoMandatoOperacion,
+    IdentidadDeEnvio,
+    MandatoOperacion,
+)
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
 from .models import (
@@ -99,6 +106,16 @@ class ContratosAPITests(APITestCase):
             telefono='999',
             domicilio_notificaciones='Notificaciones 123',
             estado_contacto='activo',
+        )
+
+    def _create_active_identity(self, empresa, *, direccion='contrato-override@example.com'):
+        return IdentidadDeEnvio.objects.create(
+            empresa_owner=empresa,
+            canal='email',
+            remitente_visible=empresa.razon_social,
+            direccion_o_numero=direccion,
+            credencial_ref='cred-contrato-override',
+            estado=EstadoIdentidadEnvio.ACTIVE,
         )
 
     def _create_company_arrendatario(self, rut='22222222-2'):
@@ -287,6 +304,52 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(len(response.data['periodos_contractuales_detail']), 1)
         self.assertEqual(len(response.data['codeudores_solidarios_detail']), 1)
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
+
+    def test_create_contract_accepts_authorized_identity_override(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-ID-OK', owner_rut='11111115-4')
+        arrendatario = self._create_arrendatario(rut='12345679-3')
+        identidad = self._create_active_identity(mandato.administrador_empresa_owner)
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-ID-OK')
+        payload['identidad_envio_override'] = identidad.id
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['identidad_envio_override'], identidad.id)
+        self.assertEqual(response.data['identidad_envio_override_display'], identidad.remitente_visible)
+        self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
+
+    def test_create_contract_rejects_unauthorized_identity_override_owner(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-ID-BAD', owner_rut='11111116-2')
+        arrendatario = self._create_arrendatario(rut='12345670-K')
+        unrelated = self._create_active_empresa('Override No Autorizada', '99999999-9')
+        identidad = self._create_active_identity(unrelated, direccion='override-bad@example.com')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-ID-BAD')
+        payload['identidad_envio_override'] = identidad.id
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('identidad_envio_override', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-ID-BAD').exists())
+
+    def test_create_contract_rejects_inactive_identity_override(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-ID-INACTIVE', owner_rut='11111117-0')
+        arrendatario = self._create_arrendatario(rut='12345671-8')
+        identidad = self._create_active_identity(
+            mandato.administrador_empresa_owner,
+            direccion='override-inactive@example.com',
+        )
+        identidad.estado = EstadoIdentidadEnvio.SUSPENDED
+        identidad.save(update_fields=['estado', 'updated_at'])
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-ID-INACTIVE')
+        payload['identidad_envio_override'] = identidad.id
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('identidad_envio_override', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-ID-INACTIVE').exists())
 
     def test_create_company_contract_requires_representative_snapshot(self):
         mandato = self._create_active_mandato(codigo='MAND-101-REP-MISS', owner_rut='11111116-2')

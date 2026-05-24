@@ -63,6 +63,10 @@ contra datos reales o snapshot controlado.
 - Validacion de contratos con arrendatario empresa: API/modelo exigen snapshot
   de representante legal con nombre y RUT valido normalizado, y el auditor
   detecta faltantes, incompletos o RUT invalido en datos heredados.
+- Override explicito de `IdentidadDeEnvio` por contrato: si existe, debe estar
+  activo y pertenecer a la entidad facturadora o al administrador operativo
+  autorizado por el mandato; Canales lo usa antes de la asignacion del mandato
+  cuando coincide con el canal solicitado.
 - Validacion de periodos contractuales existentes: cada tramo debe quedar
   dentro de la vigencia del contrato, iniciar el dia 1, cerrar el ultimo dia
   del mes y respetar numeracion cronologica antes de calcular cobranza.

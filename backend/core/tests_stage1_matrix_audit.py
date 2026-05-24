@@ -465,6 +465,113 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_contract_identity_override_with_unrelated_owner_is_explicitly_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        socio = Socio.objects.get(rut='11111111-1')
+        unrelated_company = Empresa.objects.create(
+            razon_social='Empresa Override No Autorizada SpA',
+            rut='99999999-9',
+            estado='activa',
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio,
+            empresa_owner=unrelated_company,
+            porcentaje='100.00',
+            vigente_desde=date(2026, 1, 1),
+            activo=True,
+        )
+        identidad = IdentidadDeEnvio.objects.create(
+            empresa_owner=unrelated_company,
+            canal=CanalOperacion.EMAIL,
+            remitente_visible='Override No Autorizado',
+            direccion_o_numero='override-no-autorizado@example.com',
+            credencial_ref='cred-ref-override-no-autorizado',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+        contrato.identidad_envio_override = identidad
+        contrato.save(update_fields=['identidad_envio_override', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.contrato.identidad_override_owner_no_autorizado', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['contratos_activos_o_futuros']['classification'],
+            'defectuoso',
+        )
+
+    def test_contract_identity_override_without_communication_authorization_is_explicitly_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        mandato = contrato.mandato_operacion
+        admin_socio = Socio.objects.get(rut='11111111-1')
+        mandato.administrador_empresa_owner = None
+        mandato.administrador_socio_owner = admin_socio
+        mandato.autoriza_comunicacion = False
+        mandato.save(
+            update_fields=[
+                'administrador_empresa_owner',
+                'administrador_socio_owner',
+                'autoriza_comunicacion',
+                'updated_at',
+            ]
+        )
+        identidad = IdentidadDeEnvio.objects.create(
+            socio_owner=admin_socio,
+            canal=CanalOperacion.EMAIL,
+            remitente_visible='Override Admin Socio',
+            direccion_o_numero='override-admin-socio@example.com',
+            credencial_ref='cred-ref-override-admin-socio',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+        contrato.identidad_envio_override = identidad
+        contrato.save(update_fields=['identidad_envio_override', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.mandato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.contrato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.contrato.identidad_override_comunicacion_no_autorizada', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['mandatos']['classification'],
+            'defectuoso',
+        )
+        self.assertEqual(
+            result['aggregate_classification']['contratos_activos_o_futuros']['classification'],
+            'defectuoso',
+        )
+
+    def test_contract_identity_override_inactive_identity_is_explicitly_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        empresa = contrato.mandato_operacion.administrador_empresa_owner
+        identidad = IdentidadDeEnvio.objects.create(
+            empresa_owner=empresa,
+            canal=CanalOperacion.EMAIL,
+            remitente_visible='Override Inactivo',
+            direccion_o_numero='override-inactivo@example.com',
+            credencial_ref='cred-ref-override-inactivo',
+            estado=EstadoIdentidadEnvio.SUSPENDED,
+        )
+        contrato.identidad_envio_override = identidad
+        contrato.save(update_fields=['identidad_envio_override', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.contrato.identidad_override_no_activa', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['contratos_activos_o_futuros']['classification'],
+            'defectuoso',
+        )
+
     def test_active_company_future_only_participations_are_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         empresa = contrato.mandato_operacion.propietario_empresa_owner

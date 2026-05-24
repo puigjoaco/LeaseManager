@@ -80,7 +80,11 @@ class ContractsSnapshotView(APIView):
             bank_account_paths=('cuenta_recaudadora_id',),
         )
         contratos = scope_queryset_for_access(
-            Contrato.objects.select_related('mandato_operacion__propiedad', 'arrendatario').prefetch_related(
+            Contrato.objects.select_related(
+                'mandato_operacion__propiedad',
+                'arrendatario',
+                'identidad_envio_override',
+            ).prefetch_related(
                 'contrato_propiedades__propiedad',
                 'periodos_contractuales',
             ).order_by('codigo_contrato', 'id'),
@@ -138,6 +142,12 @@ class ContractsSnapshotView(APIView):
                         'plazo_notificacion_termino_dias': item.plazo_notificacion_termino_dias,
                         'dias_prealerta_admin': item.dias_prealerta_admin,
                         'estado': item.estado,
+                        'identidad_envio_override': item.identidad_envio_override_id,
+                        'identidad_envio_override_display': (
+                            item.identidad_envio_override.remitente_visible
+                            if item.identidad_envio_override_id
+                            else None
+                        ),
                         'tiene_tramos': item.tiene_tramos,
                         'tiene_gastos_comunes': item.tiene_gastos_comunes,
                         'contrato_propiedades_detail': [
@@ -199,7 +209,7 @@ class ArrendatarioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generi
 class ContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ContratoSerializer
-    queryset = Contrato.objects.select_related('mandato_operacion', 'arrendatario').prefetch_related(
+    queryset = Contrato.objects.select_related('mandato_operacion', 'arrendatario', 'identidad_envio_override').prefetch_related(
         'contrato_propiedades__propiedad',
         'periodos_contractuales',
         'codeudores_solidarios',
@@ -212,7 +222,7 @@ class ContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generi
 class ContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = ContratoSerializer
-    queryset = Contrato.objects.select_related('mandato_operacion', 'arrendatario').prefetch_related(
+    queryset = Contrato.objects.select_related('mandato_operacion', 'arrendatario', 'identidad_envio_override').prefetch_related(
         'contrato_propiedades__propiedad',
         'periodos_contractuales',
         'codeudores_solidarios',

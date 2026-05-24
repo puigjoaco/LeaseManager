@@ -980,6 +980,51 @@ def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Con
                 )
 
 
+def _audit_contract_identity_override(issues: list[dict[str, Any]], contrato: Contrato) -> None:
+    if not contrato.identidad_envio_override_id:
+        return
+
+    identity = contrato.identidad_envio_override
+    mandato = contrato.mandato_operacion
+    identity_owner = (identity.owner_tipo, identity.owner_id)
+    admin_tuple = mandato.administrador_tuple()
+    facturadora_tuple = mandato.facturadora_tuple()
+    propietario_tuple = mandato.propietario_tuple()
+
+    if identity.estado != EstadoIdentidadEnvio.ACTIVE:
+        _issue(
+            issues,
+            code='stage1.contrato.identidad_override_no_activa',
+            entity='Contrato',
+            entity_id=contrato.pk,
+            message='Contrato vigente o futuro tiene identidad de envio override no activa.',
+        )
+
+    if identity_owner not in {admin_tuple, facturadora_tuple}:
+        _issue(
+            issues,
+            code='stage1.contrato.identidad_override_owner_no_autorizado',
+            entity='Contrato',
+            entity_id=contrato.pk,
+            message=(
+                'Contrato vigente o futuro usa una identidad override que no pertenece a la entidad '
+                'facturadora ni al administrador operativo del mandato.'
+            ),
+        )
+
+    if identity_owner != propietario_tuple and not mandato.autoriza_comunicacion:
+        _issue(
+            issues,
+            code='stage1.contrato.identidad_override_comunicacion_no_autorizada',
+            entity='Contrato',
+            entity_id=contrato.pk,
+            message=(
+                'Contrato vigente o futuro usa identidad override de un actor distinto al propietario sin '
+                'autorizacion de comunicacion en el mandato.'
+            ),
+        )
+
+
 def _audit_guarantee_history_consistency(
     issues: list[dict[str, Any]],
     garantia: GarantiaContractual,
@@ -1200,7 +1245,17 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
     )
     _audit_model_validation(
         issues,
-        queryset=Contrato.objects.select_related('arrendatario', 'mandato_operacion'),
+        queryset=Contrato.objects.select_related(
+            'arrendatario',
+            'mandato_operacion',
+            'mandato_operacion__entidad_facturadora',
+            'mandato_operacion__administrador_empresa_owner',
+            'mandato_operacion__administrador_socio_owner',
+            'mandato_operacion__propietario_empresa_owner',
+            'mandato_operacion__propietario_comunidad_owner',
+            'mandato_operacion__propietario_socio_owner',
+            'identidad_envio_override',
+        ),
         code='stage1.contrato.validacion_modelo',
         entity='Contrato',
     )
@@ -1293,7 +1348,14 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
     contracts = Contrato.objects.filter(estado__in=ACTIVE_CONTRACT_STATES).select_related(
         'arrendatario',
         'mandato_operacion',
+        'mandato_operacion__entidad_facturadora',
+        'mandato_operacion__administrador_empresa_owner',
+        'mandato_operacion__administrador_socio_owner',
+        'mandato_operacion__propietario_empresa_owner',
+        'mandato_operacion__propietario_comunidad_owner',
+        'mandato_operacion__propietario_socio_owner',
         'mandato_operacion__propiedad',
+        'identidad_envio_override',
     )
     for contrato in contracts:
         if contrato.fecha_inicio.day != 1:
@@ -1354,6 +1416,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
             )
 
         _audit_contract_tenant_readiness(issues, contrato)
+        _audit_contract_identity_override(issues, contrato)
 
         links = list(contrato.contrato_propiedades.select_related('propiedad'))
 
