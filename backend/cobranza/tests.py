@@ -1042,6 +1042,35 @@ class CobranzaAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_repactacion_full_clean_rejects_inconsistent_state_balance(self):
+        contrato = self._create_active_contract(codigo='CON-REP-STATE', monto_base='100000.00', code='111')
+        active_without_balance = RepactacionDeuda(
+            arrendatario=contrato.arrendatario,
+            contrato_origen=contrato,
+            deuda_total_original='30000.00',
+            cantidad_cuotas=3,
+            monto_cuota='10000.00',
+            saldo_pendiente='0.00',
+            estado='activa',
+        )
+        completed_with_balance = RepactacionDeuda(
+            arrendatario=contrato.arrendatario,
+            contrato_origen=contrato,
+            deuda_total_original='30000.00',
+            cantidad_cuotas=3,
+            monto_cuota='10000.00',
+            saldo_pendiente='10000.00',
+            estado='cumplida',
+        )
+
+        with self.assertRaises(ValidationError) as active_error:
+            active_without_balance.full_clean()
+        with self.assertRaises(ValidationError) as completed_error:
+            completed_with_balance.full_clean()
+
+        self.assertIn('saldo_pendiente', active_error.exception.message_dict)
+        self.assertIn('saldo_pendiente', completed_error.exception.message_dict)
+
     def test_rebuild_account_state_summarizes_open_payments_repactations_and_residuals(self):
         contrato = self._create_active_contract(codigo='CON-STATE-ALL', monto_base='100000.00', code='111')
         generate = self.client.post(

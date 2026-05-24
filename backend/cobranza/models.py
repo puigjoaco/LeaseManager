@@ -620,8 +620,14 @@ class RepactacionDeuda(TimestampedModel):
         super().clean()
         if self.contrato_origen.arrendatario_id != self.arrendatario_id:
             raise ValidationError({'arrendatario': 'La repactacion debe pertenecer al mismo arrendatario del contrato origen.'})
-        if self.saldo_pendiente > self.deuda_total_original:
+        saldo_pendiente = Decimal(str(self.saldo_pendiente))
+        deuda_total_original = Decimal(str(self.deuda_total_original))
+        if saldo_pendiente > deuda_total_original:
             raise ValidationError({'saldo_pendiente': 'El saldo pendiente no puede exceder la deuda total original.'})
+        if self.estado == EstadoRepactacion.ACTIVE and saldo_pendiente <= 0:
+            raise ValidationError({'saldo_pendiente': 'Una repactacion activa requiere saldo pendiente mayor que cero.'})
+        if self.estado == EstadoRepactacion.COMPLETED and saldo_pendiente != 0:
+            raise ValidationError({'saldo_pendiente': 'Una repactacion cumplida debe quedar con saldo pendiente cero.'})
 
 
 class CodigoCobroResidual(TimestampedModel):

@@ -18,6 +18,7 @@ from cobranza.models import (
     GateCobroExterno,
     IntentoPagoWebPay,
     PagoMensual,
+    RepactacionDeuda,
 )
 from contratos.models import (
     Arrendatario,
@@ -226,6 +227,29 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertEqual(result['sections']['residual_codes']['total'], 1)
         self.assertEqual(result['sections']['residual_codes']['active'], 1)
         self.assertEqual(result['sections']['residual_codes']['invalid_model'], 1)
+
+    def test_repayment_with_inconsistent_state_balance_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        RepactacionDeuda.objects.create(
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            deuda_total_original=Decimal('30000.00'),
+            cantidad_cuotas=3,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('0.00'),
+            estado='activa',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.repayment.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['repayments']['total'], 1)
+        self.assertEqual(result['sections']['repayments']['active'], 1)
+        self.assertEqual(result['sections']['repayments']['invalid_model'], 1)
 
     def test_valid_local_matrix_and_refs_prepare_but_do_not_close_readiness(self):
         self._create_payment_matrix()
