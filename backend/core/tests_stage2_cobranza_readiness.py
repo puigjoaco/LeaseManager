@@ -12,6 +12,7 @@ from django.test import TestCase
 
 from canales.models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
 from cobranza.models import (
+    CodigoCobroResidual,
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
     GateCobroExterno,
@@ -203,6 +204,28 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertTrue(result['ready_for_stage2_cobranza'])
         self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_residual_code_with_non_canonical_reference_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        CodigoCobroResidual.objects.create(
+            referencia_visible='BAD-00001',
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            saldo_actual=Decimal('25000.00'),
+            estado='activa',
+            fecha_activacion=date(2027, 1, 10),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.residual_code.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['residual_codes']['total'], 1)
+        self.assertEqual(result['sections']['residual_codes']['active'], 1)
+        self.assertEqual(result['sections']['residual_codes']['invalid_model'], 1)
 
     def test_valid_local_matrix_and_refs_prepare_but_do_not_close_readiness(self):
         self._create_payment_matrix()

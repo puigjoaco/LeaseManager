@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -16,6 +17,7 @@ codigo_efectivo_validator = RegexValidator(
     regex=r'^\d{3}$',
     message='El codigo de conciliacion efectivo debe tener exactamente 3 digitos.',
 )
+RESIDUAL_REFERENCE_RE = re.compile(r'^CCR-[A-HJ-NP-Z2-9]{6}$')
 
 
 class TimestampedModel(models.Model):
@@ -646,6 +648,14 @@ class CodigoCobroResidual(TimestampedModel):
 
     def clean(self):
         super().clean()
+        if not RESIDUAL_REFERENCE_RE.fullmatch((self.referencia_visible or '').strip()):
+            raise ValidationError(
+                {
+                    'referencia_visible': (
+                        'El codigo residual debe usar formato CCR-XXXXXX con caracteres mayusculos no ambiguos.'
+                    )
+                }
+            )
         if self.contrato_origen.arrendatario_id != self.arrendatario_id:
             raise ValidationError({'arrendatario': 'El cobro residual debe pertenecer al mismo arrendatario del contrato origen.'})
         if self.estado == EstadoCobroResidual.ACTIVE and self.saldo_actual <= 0:

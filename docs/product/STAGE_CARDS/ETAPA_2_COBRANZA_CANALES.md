@@ -19,6 +19,9 @@ condicionados sin envios reales accidentales.
 - Fuente de cierre `snapshot_controlado` o `real_autorizado`, con
   `SourceLabel` y `AuthorizationRef` no sensibles; auditorias `local`,
   `fixture` o `demo` solo preparan y diagnostican.
+- Codigos residuales existentes deben usar formato canonico `CCR-XXXXXX` con
+  caracteres mayusculos no ambiguos; la readiness debe bloquear snapshots que
+  conserven referencias fuera de formato.
 - Envio externo cerrado por defecto.
 - Prueba aislada de correos/WebPay con referencias no sensibles.
 - Evidencia de auditoria por operacion critica.

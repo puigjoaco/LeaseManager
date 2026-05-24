@@ -17,6 +17,7 @@ from canales.services import (
     whatsapp_gate_has_approved_template,
 )
 from cobranza.models import (
+    CodigoCobroResidual,
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
     GateCobroExterno,
@@ -212,6 +213,8 @@ def collect_stage2_cobranza_readiness(
     invalid_webpay_intents = webpay_intent_issues.get('invalid_model', 0)
 
     payments_total = PagoMensual.objects.count()
+    residual_codes = CodigoCobroResidual.objects.select_related('arrendatario', 'contrato_origen')
+    invalid_residual_codes = _count_invalid(residual_codes)
     final_evidence = {
         'stage1_evidence_ref': _non_sensitive_reference(stage1_evidence_ref),
         'email_proof_ref': _non_sensitive_reference(email_proof_ref),
@@ -252,6 +255,14 @@ def collect_stage2_cobranza_readiness(
             _issue(
                 'stage2.payments_missing',
                 'No existen pagos mensuales locales para validar cobranza activa.',
+            )
+        )
+    if invalid_residual_codes:
+        issues.append(
+            _issue(
+                'stage2.residual_code.invalid_model',
+                'Existen codigos de cobro residual que no pasan validacion de dominio.',
+                count=invalid_residual_codes,
             )
         )
     if valid_email_open_gates <= 0:
@@ -458,6 +469,12 @@ def collect_stage2_cobranza_readiness(
         'sections': {
             'payments': {
                 'total': payments_total,
+            },
+            'residual_codes': {
+                'total': residual_codes.count(),
+                'active': residual_codes.filter(estado='activa').count(),
+                'by_state': _count_by(residual_codes, 'estado'),
+                'invalid_model': invalid_residual_codes,
             },
             'channels': {
                 'gates_total': channel_gates.count(),

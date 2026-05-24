@@ -1000,6 +1000,21 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertRegex(response.data['referencia_visible'], r'^CCR-[A-Z2-9]{6}$')
 
+    def test_residual_code_full_clean_rejects_non_canonical_reference(self):
+        contrato = self._create_active_contract(codigo='CON-RES-FMT', monto_base='100000.00', code='111')
+        residual = CodigoCobroResidual(
+            referencia_visible='BAD-00001',
+            arrendatario=contrato.arrendatario,
+            contrato_origen=contrato,
+            saldo_actual='25000.00',
+            estado='activa',
+            fecha_activacion='2027-01-10',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            residual.full_clean()
+        self.assertIn('referencia_visible', error.exception.message_dict)
+
     def test_repactacion_rejects_contract_arrendatario_mismatch(self):
         contrato = self._create_active_contract(codigo='CON-REP', monto_base='100000.00', code='111')
         other_tenant = Arrendatario.objects.create(
