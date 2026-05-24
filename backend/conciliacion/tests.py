@@ -16,7 +16,7 @@ from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoC
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .models import ConexionBancaria, EstadoConciliacionMovimiento, IngresoDesconocido, MovimientoBancarioImportado
+from .models import CuadraturaBancaria, ConexionBancaria, EstadoConciliacionMovimiento, IngresoDesconocido, MovimientoBancarioImportado
 
 
 class ConciliacionAPITests(APITestCase):
@@ -235,10 +235,84 @@ class ConciliacionAPITests(APITestCase):
             reverse('conciliacion-conexion-list'),
             reverse('conciliacion-movimiento-list'),
             reverse('conciliacion-ingreso-list'),
+            reverse('conciliacion-cuadratura-list'),
         ]
         for url in urls:
             response = client.get(url)
             self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_can_create_square_balance_record(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BALANCE-SQUARE')
+
+        response = self.client.post(
+            reverse('conciliacion-cuadratura-list'),
+            {
+                'cuenta_recaudadora': cuenta.pk,
+                'periodo_economico': '2026-01',
+                'fecha_cuadratura': '2026-01-31',
+                'saldo_sistema_clp': '1000000.00',
+                'saldo_banco_clp': '1000000.00',
+                'estado': 'cuadrada',
+                'evidencia_cuadratura_ref': 'balance-square-controlled-2026-01',
+                'responsable_ref': 'stage3-balance-owner',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['diferencia_clp'], '0.00')
+        self.assertTrue(
+            CuadraturaBancaria.objects.filter(
+                cuenta_recaudadora=cuenta,
+                periodo_economico='2026-01',
+                diferencia_clp='0.00',
+                estado='cuadrada',
+            ).exists()
+        )
+
+    def test_balance_square_rejects_nonzero_difference_as_squared(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BALANCE-DIFF')
+
+        response = self.client.post(
+            reverse('conciliacion-cuadratura-list'),
+            {
+                'cuenta_recaudadora': cuenta.pk,
+                'periodo_economico': '2026-01',
+                'fecha_cuadratura': '2026-01-31',
+                'saldo_sistema_clp': '1000000.00',
+                'saldo_banco_clp': '999990.00',
+                'estado': 'cuadrada',
+                'evidencia_cuadratura_ref': 'balance-square-controlled-2026-01',
+                'responsable_ref': 'stage3-balance-owner',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        self.assertFalse(CuadraturaBancaria.objects.filter(cuenta_recaudadora=cuenta).exists())
+
+    def test_balance_square_rejects_sensitive_evidence(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BALANCE-SENSITIVE')
+
+        response = self.client.post(
+            reverse('conciliacion-cuadratura-list'),
+            {
+                'cuenta_recaudadora': cuenta.pk,
+                'periodo_economico': '2026-01',
+                'fecha_cuadratura': '2026-01-31',
+                'saldo_sistema_clp': '1000000.00',
+                'saldo_banco_clp': '1000000.00',
+                'estado': 'cuadrada',
+                'evidencia_cuadratura_ref': 'https://bank.example.test/balance?token=secret',
+                'responsable_ref': 'stage3-balance-owner',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_cuadratura_ref', response.data)
+        self.assertFalse(CuadraturaBancaria.objects.filter(cuenta_recaudadora=cuenta).exists())
 
     def test_active_bank_connection_requires_readiness_references(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BANK-GATE')
@@ -321,6 +395,30 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         rendered = json.dumps(response.data)
         self.assertEqual(response.data['conexiones'][0]['credencial_ref'], '<redacted-sensitive-reference>')
+        self.assertNotIn('bank.example.test', rendered)
+        self.assertNotIn('secret', rendered)
+
+    def test_conciliacion_snapshot_redacts_existing_sensitive_balance_square_refs(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-SNAPSHOT-BALANCE-REDACT')
+        CuadraturaBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            periodo_economico='2026-01',
+            fecha_cuadratura='2026-01-31',
+            saldo_sistema_clp='1000000.00',
+            saldo_banco_clp='1000000.00',
+            estado='cuadrada',
+            evidencia_cuadratura_ref='https://bank.example.test/balance?token=secret',
+            responsable_ref='stage3-balance-owner',
+        )
+
+        response = self.client.get(reverse('conciliacion-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rendered = json.dumps(response.data, default=str)
+        self.assertEqual(
+            response.data['cuadraturas_bancarias'][0]['evidencia_cuadratura_ref'],
+            '<redacted-sensitive-reference>',
+        )
         self.assertNotIn('bank.example.test', rendered)
         self.assertNotIn('secret', rendered)
 

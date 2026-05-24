@@ -2,10 +2,10 @@ export type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
 export function toneFor(value: string): Tone {
   const normalized = String(value || '').trim().toLowerCase()
-  if (['ok', 'up', 'activa', 'activo', 'abierto', 'prepared', 'preparado', 'pagado', 'contabilizado', 'emitido', 'formalizado', 'sent', 'enviado', 'resolved', 'aceptado', 'approved', 'aprobado'].includes(normalized)) {
+  if (['ok', 'up', 'activa', 'activo', 'abierto', 'prepared', 'preparado', 'pagado', 'contabilizado', 'emitido', 'formalizado', 'sent', 'enviado', 'resolved', 'aceptado', 'approved', 'aprobado', 'cuadrada'].includes(normalized)) {
     return 'positive'
   }
-  if (['warning', 'pendiente', 'pendiente_revision', 'pendiente_revision_contable', 'pendiente_datos', 'condicionado', 'borrador', 'draft', 'in_review', 'futuro'].includes(normalized)) {
+  if (['warning', 'pendiente', 'pendiente_revision', 'pendiente_revision_contable', 'pendiente_datos', 'condicionado', 'borrador', 'draft', 'in_review', 'futuro', 'diferencia_abierta', 'diferencia_explicada'].includes(normalized)) {
     return 'warning'
   }
   if (['danger', 'down', 'blocked', 'bloqueado', 'cerrado', 'suspendido', 'atrasado', 'fallido', 'cancelado', 'rejected', 'forbidden', 'inactivo', 'archivado', 'unreachable'].includes(normalized)) {

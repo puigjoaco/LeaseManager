@@ -770,6 +770,20 @@ type IngresoDesconocido = {
   sugerencia_asistida: { payment_candidate_ids?: number[] }
 }
 
+type CuadraturaBancaria = {
+  id: number
+  cuenta_recaudadora: number
+  periodo_economico: string
+  fecha_cuadratura: string
+  saldo_sistema_clp: string
+  saldo_banco_clp: string
+  diferencia_clp: string
+  estado: string
+  evidencia_cuadratura_ref: string
+  responsable_ref: string
+  rationale: string
+}
+
 type RegimenTributario = {
   id: number
   codigo_regimen: string
@@ -1043,6 +1057,7 @@ type ConciliacionSnapshot = {
   conexiones: ConexionBancaria[]
   movimientos: MovimientoBancario[]
   ingresos_desconocidos: IngresoDesconocido[]
+  cuadraturas_bancarias: CuadraturaBancaria[]
 }
 
 type SiiSnapshot = {
@@ -1278,6 +1293,7 @@ function App() {
   const [conexionesBancarias, setConexionesBancarias] = useState<ConexionBancaria[]>([])
   const [movimientosBancarios, setMovimientosBancarios] = useState<MovimientoBancario[]>([])
   const [ingresosDesconocidos, setIngresosDesconocidos] = useState<IngresoDesconocido[]>([])
+  const [cuadraturasBancarias, setCuadraturasBancarias] = useState<CuadraturaBancaria[]>([])
   const [regimenesTributarios, setRegimenesTributarios] = useState<RegimenTributario[]>(initialControlSnapshot?.regimenesTributarios || [])
   const [configuracionesFiscales, setConfiguracionesFiscales] = useState<ConfiguracionFiscal[]>(initialControlSnapshot?.configuracionesFiscales || [])
   const [cuentasContables, setCuentasContables] = useState<CuentaContable[]>(initialControlSnapshot?.cuentasContables || [])
@@ -1529,6 +1545,17 @@ function App() {
     referencia: '',
     transaction_id_banco: '',
     notas_admin: '',
+  })
+  const [cuadraturaDraft, setCuadraturaDraft] = useState({
+    cuenta_recaudadora: '',
+    periodo_economico: '2026-01',
+    fecha_cuadratura: todayIso(),
+    saldo_sistema_clp: '',
+    saldo_banco_clp: '',
+    estado: 'cuadrada',
+    evidencia_cuadratura_ref: '',
+    responsable_ref: '',
+    rationale: '',
   })
   const [configFiscalDraft, setConfigFiscalDraft] = useState({
     empresa: '',
@@ -1844,6 +1871,7 @@ function App() {
     setConexionesBancarias([])
     setMovimientosBancarios([])
     setIngresosDesconocidos([])
+    setCuadraturasBancarias([])
     setRegimenesTributarios([])
     setConfiguracionesFiscales([])
     setCuentasContables([])
@@ -2536,6 +2564,7 @@ function App() {
         setConexionesBancarias(conciliacionSnapshotPayload.conexiones)
         setMovimientosBancarios(conciliacionSnapshotPayload.movimientos)
         setIngresosDesconocidos(conciliacionSnapshotPayload.ingresos_desconocidos)
+        setCuadraturasBancarias(conciliacionSnapshotPayload.cuadraturas_bancarias)
         setIsConciliacionSnapshotLoaded(true)
       }
       if (siiSnapshotPayload) {
@@ -2663,6 +2692,7 @@ function App() {
         const loadConexiones = false
         const loadMovimientos = false
         const loadIngresos = false
+        const loadCuadraturas = false
         const loadAuditEvents = false
         const loadManualResolutions = false
 
@@ -2732,6 +2762,7 @@ function App() {
             requestIf<ConexionBancaria[]>(loadConexiones, '/api/v1/conciliacion/conexiones-bancarias/', conexionesBancarias),
             requestIf<MovimientoBancario[]>(loadMovimientos, '/api/v1/conciliacion/movimientos/', movimientosBancarios),
             requestIf<IngresoDesconocido[]>(loadIngresos, '/api/v1/conciliacion/ingresos-desconocidos/', ingresosDesconocidos),
+            requestIf<CuadraturaBancaria[]>(loadCuadraturas, '/api/v1/conciliacion/cuadraturas-bancarias/', cuadraturasBancarias),
             requestIf<AuditEventItem[]>(loadAuditEvents, '/api/v1/audit/events/', auditEvents),
             requestIf<ManualResolutionItem[]>(loadManualResolutions, '/api/v1/audit/manual-resolutions/', manualResolutions),
           ])
@@ -2759,8 +2790,9 @@ function App() {
           const conexionesPayload = resolvedValue<ConexionBancaria[]>(14, conexionesBancarias)
           const movimientosPayload = resolvedValue<MovimientoBancario[]>(15, movimientosBancarios)
           const ingresosPayload = resolvedValue<IngresoDesconocido[]>(16, ingresosDesconocidos)
-          const auditEventsPayload = resolvedValue<AuditEventItem[]>(17, auditEvents)
-          const manualResolutionsPayload = resolvedValue<ManualResolutionItem[]>(18, manualResolutions)
+          const cuadraturasPayload = resolvedValue<CuadraturaBancaria[]>(17, cuadraturasBancarias)
+          const auditEventsPayload = resolvedValue<AuditEventItem[]>(18, auditEvents)
+          const manualResolutionsPayload = resolvedValue<ManualResolutionItem[]>(19, manualResolutions)
 
           setArrendatarios(arrendatariosPayload)
           setContratos(contratosPayload)
@@ -2779,6 +2811,7 @@ function App() {
           setConexionesBancarias(conexionesPayload)
           setMovimientosBancarios(movimientosPayload)
           setIngresosDesconocidos(ingresosPayload)
+          setCuadraturasBancarias(cuadraturasPayload)
           setAuditEvents(auditEventsPayload)
           setManualResolutions(manualResolutionsPayload)
           setWorkspaceLastLoadedAt(new Date().toISOString())
@@ -3712,6 +3745,28 @@ function App() {
         referencia: '',
         transaction_id_banco: '',
         notas_admin: '',
+      })
+    }
+  }
+
+  async function handleCreateCuadratura(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditConciliacion) return
+    const ok = await submitCreate('/api/v1/conciliacion/cuadraturas-bancarias/', {
+      ...cuadraturaDraft,
+      cuenta_recaudadora: Number(cuadraturaDraft.cuenta_recaudadora),
+    }, 'Cuadratura bancaria registrada correctamente.')
+    if (ok) {
+      setCuadraturaDraft({
+        cuenta_recaudadora: '',
+        periodo_economico: '2026-01',
+        fecha_cuadratura: todayIso(),
+        saldo_sistema_clp: '',
+        saldo_banco_clp: '',
+        estado: 'cuadrada',
+        evidencia_cuadratura_ref: '',
+        responsable_ref: '',
+        rationale: '',
       })
     }
   }
@@ -4724,6 +4779,24 @@ function App() {
       ),
     [ingresosDesconocidos, normalizedSearch],
   )
+  const filteredCuadraturas = useMemo(
+    () =>
+      cuadraturasBancarias.filter((item) =>
+        matches(normalizedSearch, [
+          item.periodo_economico,
+          item.fecha_cuadratura,
+          item.saldo_sistema_clp,
+          item.saldo_banco_clp,
+          item.diferencia_clp,
+          item.estado,
+          item.evidencia_cuadratura_ref,
+          item.responsable_ref,
+          item.rationale,
+          item.cuenta_recaudadora,
+        ]),
+      ),
+    [cuadraturasBancarias, normalizedSearch],
+  )
   const filteredRegimenes = useMemo(
     () => regimenesTributarios.filter((item) => matches(normalizedSearch, [item.codigo_regimen, item.descripcion, item.estado])),
     [regimenesTributarios, normalizedSearch],
@@ -5245,9 +5318,13 @@ function App() {
           movimientoDraft={movimientoDraft}
           setMovimientoDraft={setMovimientoDraft}
           handleCreateMovimiento={handleCreateMovimiento}
+          cuadraturaDraft={cuadraturaDraft}
+          setCuadraturaDraft={setCuadraturaDraft}
+          handleCreateCuadratura={handleCreateCuadratura}
           filteredConexiones={filteredConexiones}
           filteredMovimientos={filteredMovimientos}
           filteredIngresos={filteredIngresos}
+          filteredCuadraturas={filteredCuadraturas}
           cuentas={cuentas}
           conexionesBancarias={conexionesBancarias}
           cuentaById={cuentaById}

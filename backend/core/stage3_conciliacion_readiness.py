@@ -14,6 +14,8 @@ from cobranza.models import PagoMensual
 from conciliacion.models import (
     CategoriaMovimiento,
     ConexionBancaria,
+    CuadraturaBancaria,
+    EstadoCuadraturaBancaria,
     EstadoConciliacionMovimiento,
     EstadoConexionBancaria,
     EstadoIngresoDesconocido,
@@ -36,6 +38,7 @@ CONNECTION_REFERENCE_FIELDS = (
     'prueba_saldos_ref',
 )
 MOVEMENT_REFERENCE_FIELDS = ('evidencia_importacion_ref', 'transaction_id_banco')
+BALANCE_SQUARE_REFERENCE_FIELDS = ('evidencia_cuadratura_ref', 'responsable_ref')
 STAGE3_MANUAL_RESOLUTION_CATEGORIES = (
     'conciliacion.ingreso_desconocido',
     'conciliacion.movimiento_cargo',
@@ -274,6 +277,26 @@ def _collect_reported_balance_issues(movements) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _collect_balance_square_issues(balance_squares) -> dict[str, int]:
+    counts = Counter()
+    for balance_square in balance_squares:
+        try:
+            balance_square.full_clean()
+        except ValidationError:
+            counts['invalid_model'] += 1
+
+        if _has_sensitive_reference(balance_square, BALANCE_SQUARE_REFERENCE_FIELDS):
+            counts['sensitive_reference'] += 1
+
+        if Decimal(str(balance_square.diferencia_clp)) != Decimal('0.00'):
+            counts['nonzero_difference'] += 1
+
+        if balance_square.estado != EstadoCuadraturaBancaria.SQUARED:
+            counts['not_squared'] += 1
+
+    return dict(sorted(counts.items()))
+
+
 def _collect_manual_resolution_issues(resolutions) -> dict[str, int]:
     counts = Counter()
     for resolution in resolutions:
@@ -374,6 +397,8 @@ def collect_stage3_conciliacion_readiness(
     ).all()
     movement_issues = _collect_movement_issues(movements)
     reported_balance_issues = _collect_reported_balance_issues(movements)
+    balance_squares = CuadraturaBancaria.objects.select_related('cuenta_recaudadora').all()
+    balance_square_issues = _collect_balance_square_issues(balance_squares)
     unresolved_movements = movements.filter(
         estado_conciliacion__in=[
             EstadoConciliacionMovimiento.PENDING,
@@ -569,6 +594,45 @@ def collect_stage3_conciliacion_readiness(
                 count=reported_balance_issues['reported_balance_continuity_mismatch'],
             )
         )
+    if balance_squares.count() == 0:
+        issues.append(
+            _issue(
+                'stage3.balance_square_record_missing',
+                'No existe registro local de cuadratura sistema/banco por cuenta y periodo.',
+            )
+        )
+    if balance_square_issues.get('invalid_model'):
+        issues.append(
+            _issue(
+                'stage3.balance_square.invalid_model',
+                'Existen registros de cuadratura banco/sistema invalidos.',
+                count=balance_square_issues['invalid_model'],
+            )
+        )
+    if balance_square_issues.get('sensitive_reference'):
+        issues.append(
+            _issue(
+                'stage3.balance_square.sensitive_reference',
+                'Existen cuadraturas banco/sistema con referencias sensibles.',
+                count=balance_square_issues['sensitive_reference'],
+            )
+        )
+    if balance_square_issues.get('nonzero_difference'):
+        issues.append(
+            _issue(
+                'stage3.balance_square.nonzero_difference',
+                'Existen cuadraturas banco/sistema con diferencia distinta de cero.',
+                count=balance_square_issues['nonzero_difference'],
+            )
+        )
+    if balance_square_issues.get('not_squared'):
+        issues.append(
+            _issue(
+                'stage3.balance_square.not_squared',
+                'Existen cuadraturas banco/sistema que no estan en estado cuadrada.',
+                count=balance_square_issues['not_squared'],
+            )
+        )
     if manual_resolution_issues.get('resolved_without_rationale'):
         issues.append(
             _issue(
@@ -714,6 +778,11 @@ def collect_stage3_conciliacion_readiness(
                 'by_state': _count_by(unknown_income, 'estado'),
                 'open': open_unknown_income,
                 'invalid_model': invalid_unknown_income,
+            },
+            'balance_squares': {
+                'total': balance_squares.count(),
+                'by_status': _count_by(balance_squares, 'estado'),
+                **balance_square_issues,
             },
             'manual_resolutions': {
                 'total': manual_resolutions.count(),

@@ -2,6 +2,8 @@ from django.urls import path
 
 from .views import (
     ConciliacionSnapshotView,
+    CuadraturaBancariaDetailView,
+    CuadraturaBancariaListCreateView,
     ConexionBancariaDetailView,
     ConexionBancariaListCreateView,
     IngresoDesconocidoDetailView,
@@ -20,4 +22,6 @@ urlpatterns = [
     path('movimientos/<int:pk>/match-exacto/', MovimientoBancarioRetryMatchView.as_view(), name='conciliacion-movimiento-match'),
     path('ingresos-desconocidos/', IngresoDesconocidoListView.as_view(), name='conciliacion-ingreso-list'),
     path('ingresos-desconocidos/<int:pk>/', IngresoDesconocidoDetailView.as_view(), name='conciliacion-ingreso-detail'),
+    path('cuadraturas-bancarias/', CuadraturaBancariaListCreateView.as_view(), name='conciliacion-cuadratura-list'),
+    path('cuadraturas-bancarias/<int:pk>/', CuadraturaBancariaDetailView.as_view(), name='conciliacion-cuadratura-detail'),
 ]
