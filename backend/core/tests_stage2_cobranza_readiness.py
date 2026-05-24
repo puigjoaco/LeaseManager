@@ -11,7 +11,9 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
+from audit.models import ManualResolution
 from canales.models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
+from canales.services import WHATSAPP_FALLBACK_REQUIRED_CATEGORY
 from cobranza.models import (
     CodigoCobroResidual,
     EstadoCuentaArrendatario,
@@ -494,6 +496,71 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.message.document_not_formalized', issue_codes)
         self.assertEqual(result['sections']['messages']['document_not_formalized'], 1)
+
+    def test_blocked_whatsapp_without_fallback_trace_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        whatsapp_gate = CanalMensajeria.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            provider_key='twilio',
+            estado_gate=EstadoGateCanal.CONDITIONED,
+            evidencia_ref='whatsapp-gate-v1',
+        )
+        MensajeSaliente.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            canal_mensajeria=whatsapp_gate,
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario='',
+            asunto='Aviso WhatsApp',
+            cuerpo='Cobranza controlada',
+            estado=EstadoMensajeSaliente.BLOCKED,
+            motivo_bloqueo='WhatsApp bloqueado en snapshot heredado.',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.fallback_trace_missing', issue_codes)
+        self.assertEqual(result['sections']['messages']['without_fallback_trace'], 1)
+
+    def test_blocked_whatsapp_with_fallback_resolution_is_traced(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        whatsapp_gate = CanalMensajeria.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            provider_key='twilio',
+            estado_gate=EstadoGateCanal.CONDITIONED,
+            evidencia_ref='whatsapp-gate-v1',
+        )
+        message = MensajeSaliente.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            canal_mensajeria=whatsapp_gate,
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario='',
+            asunto='Aviso WhatsApp',
+            cuerpo='Cobranza controlada',
+            estado=EstadoMensajeSaliente.BLOCKED,
+            motivo_bloqueo='WhatsApp bloqueado con fallback trazado.',
+        )
+        ManualResolution.objects.create(
+            category=WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
+            scope_type='canales',
+            scope_reference=str(message.pk),
+            summary='Fallback Email requerido',
+            metadata={'fallback_canal_base': 'email', 'contrato_id': fixture['contract'].id},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage2_cobranza'])
+        self.assertNotIn('stage2.whatsapp.fallback_trace_missing', issue_codes)
+        self.assertNotIn('without_fallback_trace', result['sections']['messages'])
 
     def test_confirmed_webpay_with_sensitive_external_ref_is_blocking(self):
         fixture = self._create_payment_matrix()

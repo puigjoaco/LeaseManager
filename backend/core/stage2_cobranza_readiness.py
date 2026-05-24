@@ -6,6 +6,7 @@ from typing import Any
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from audit.models import ManualResolution
 from canales.models import (
     CanalMensajeria,
     EstadoGateCanal,
@@ -13,6 +14,7 @@ from canales.models import (
     MensajeSaliente,
 )
 from canales.services import (
+    WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
     document_delivery_blocking_reason,
     email_readiness_blocking_reason,
     whatsapp_gate_has_approved_template,
@@ -108,6 +110,64 @@ def _message_operational_issue(message: MensajeSaliente) -> str:
     if message.canal == CanalOperacion.WHATSAPP:
         return _whatsapp_contact_static_issue(message)
     return ''
+
+
+def _message_context_matches(left: MensajeSaliente, right: MensajeSaliente) -> bool:
+    if left.documento_emitido_id and left.documento_emitido_id == right.documento_emitido_id:
+        return True
+    if left.contrato_id and left.contrato_id == right.contrato_id:
+        return True
+    if left.arrendatario_id and left.arrendatario_id == right.arrendatario_id:
+        return True
+    return False
+
+
+def _fallback_resolution_matches(message: MensajeSaliente, resolution: ManualResolution) -> bool:
+    metadata = resolution.metadata if isinstance(resolution.metadata, dict) else {}
+    if resolution.scope_reference == str(message.pk):
+        return True
+    for key, value in [
+        ('documento_emitido_id', message.documento_emitido_id),
+        ('contrato_id', message.contrato_id),
+        ('arrendatario_id', message.arrendatario_id),
+    ]:
+        if value and str(metadata.get(key, '')) == str(value):
+            return True
+    return False
+
+
+def _collect_whatsapp_fallback_issues(messages) -> dict[str, int]:
+    counts = Counter()
+    message_list = list(messages)
+    email_fallbacks = [
+        message
+        for message in message_list
+        if message.canal == CanalOperacion.EMAIL
+        and message.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}
+    ]
+    fallback_resolutions = list(
+        ManualResolution.objects.filter(
+            category=WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
+            status__in=[
+                ManualResolution.Status.OPEN,
+                ManualResolution.Status.IN_REVIEW,
+                ManualResolution.Status.RESOLVED,
+            ],
+        )
+    )
+
+    for message in message_list:
+        if message.canal != CanalOperacion.WHATSAPP:
+            continue
+        if message.estado not in {EstadoMensajeSaliente.BLOCKED, EstadoMensajeSaliente.FAILED}:
+            continue
+        if any(_message_context_matches(message, fallback) for fallback in email_fallbacks):
+            continue
+        if any(_fallback_resolution_matches(message, resolution) for resolution in fallback_resolutions):
+            continue
+        counts['without_fallback_trace'] += 1
+
+    return dict(sorted(counts.items()))
 
 
 def _collect_message_issues(messages) -> dict[str, int]:
@@ -257,6 +317,7 @@ def collect_stage2_cobranza_readiness(
         'documento_emitido',
     )
     message_issues = _collect_message_issues(messages)
+    whatsapp_fallback_issues = _collect_whatsapp_fallback_issues(messages)
 
     webpay_gates = GateCobroExterno.objects.all()
     webpay_open_gates = webpay_gates.filter(estado_gate=EstadoGateCobroExterno.OPEN)
@@ -521,6 +582,14 @@ def collect_stage2_cobranza_readiness(
                 count=message_issues['document_not_formalized'],
             )
         )
+    if whatsapp_fallback_issues.get('without_fallback_trace'):
+        issues.append(
+            _issue(
+                'stage2.whatsapp.fallback_trace_missing',
+                'Existen mensajes WhatsApp bloqueados/fallidos sin Email alternativo ni alerta critica trazable.',
+                count=whatsapp_fallback_issues['without_fallback_trace'],
+            )
+        )
     if valid_webpay_open_gates <= 0:
         issues.append(
             _issue(
@@ -677,6 +746,7 @@ def collect_stage2_cobranza_readiness(
                 'by_channel': _count_by(messages, 'canal'),
                 'by_state': _count_by(messages, 'estado'),
                 **message_issues,
+                **whatsapp_fallback_issues,
             },
             'webpay': {
                 'gates_total': webpay_gates.count(),

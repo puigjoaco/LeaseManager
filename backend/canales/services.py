@@ -20,6 +20,7 @@ from .models import (
 
 WHATSAPP_WINDOW_START_HOUR = 8
 WHATSAPP_WINDOW_END_HOUR = 21
+WHATSAPP_FALLBACK_REQUIRED_CATEGORY = 'canales.whatsapp.fallback_requerido'
 
 
 def ensure_manual_resolution(category, message, payload=None):
@@ -37,6 +38,22 @@ def ensure_manual_resolution(category, message, payload=None):
         scope_reference=payload.get('scope_reference', '') if payload else '',
         summary=message,
         metadata=payload or {},
+    )
+
+
+def ensure_whatsapp_fallback_resolution(message, blocking_reason):
+    return ensure_manual_resolution(
+        WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
+        'WhatsApp bloqueado requiere fallback por Email o alerta critica trazable.',
+        payload={
+            'scope_reference': str(message.pk),
+            'canal': CanalOperacion.WHATSAPP,
+            'fallback_canal_base': CanalOperacion.EMAIL,
+            'blocking_reason': blocking_reason,
+            'contrato_id': message.contrato_id,
+            'arrendatario_id': message.arrendatario_id,
+            'documento_emitido_id': message.documento_emitido_id,
+        },
     )
 
 
@@ -211,6 +228,8 @@ def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None
             blocking_reason,
             payload={'scope_reference': str(message.pk), 'canal': canal},
         )
+        if canal == CanalOperacion.WHATSAPP:
+            ensure_whatsapp_fallback_resolution(message, blocking_reason)
         return message
 
     message.estado = EstadoMensajeSaliente.PREPARED

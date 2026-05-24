@@ -23,15 +23,15 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 1 - Autoridad operativa trazable de `MandatoOperacion`. |
-| Fuente exacta | PR #187 `Require mandate operational authority`, merge `e6aaba8`, desde `01_Set_Vigente/PRD_CANONICO.md` linea 409. |
-| Brecha activa | Cerrada localmente: `MandatoOperacion` activo que autoriza comunicacion o facturacion exige nombre, RUT valido normalizado y evidencia no sensible de autoridad operativa; API, snapshot, backoffice y auditor Etapa 1 quedan cubiertos. |
-| Motivo de prioridad | El paquete ya fue integrado sin usar secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
-| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
-| Rama | `main` sincronizada; sin rama tactica activa. |
-| Estado | PR #187 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
-| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
-| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 1 sin fuente `snapshot_controlado` o `real_autorizado`. |
+| Frente activo | Etapa 2 - Traza de fallback para WhatsApp bloqueado/fallido. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 119-122 y `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`: WhatsApp opera solo con opt-in/template/ventana, y una falla no debe dejar sin canal base o alerta critica. |
+| Brecha activa | En implementacion local: Canales debe registrar fallback Email/alerta critica cuando WhatsApp queda bloqueado, y readiness Etapa 2 debe detectar mensajes heredados bloqueados o fallidos sin esa traza. |
+| Motivo de prioridad | Cierra una brecha local de Canales sin abrir WhatsApp, Email real, WebPay, secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-whatsapp-fallback-trace`. |
+| Rama | `codex/stage2-whatsapp-fallback-trace`. |
+| Estado | Implementacion y validacion local en curso. |
+| Gate esperado | Readiness local Etapa 2 como diagnostico parcial; no ejecutar proveedores ni fuente evidencial sin autorizacion actual. |
+| Estado al cerrar paquete | Pendiente; esperado `implementado_sin_evidencia` si PR/CI/merge quedan verdes. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
 | Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |

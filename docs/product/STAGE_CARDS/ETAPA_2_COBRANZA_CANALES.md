@@ -57,7 +57,9 @@ condicionados sin envios reales accidentales.
   referencia trazable no sensible; APIs y snapshots deben redactar evidencia
   sensible heredada y readiness debe bloquearla sin imprimir el valor. La
   readiness tambien debe bloquear opt-ins heredados con telefono local o
-  ambiguo.
+  ambiguo. Todo mensaje WhatsApp bloqueado o fallido debe quedar con Email
+  alternativo preparado/enviado o con alerta critica/fallback trazable; la
+  readiness bloquea snapshots heredados sin esa traza.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
   `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y
   `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`
