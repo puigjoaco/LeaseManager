@@ -35,6 +35,7 @@ from contratos.models import (
     PeriodoContractual,
     RolContratoPropiedad,
     TipoArrendatario,
+    normalize_representante_legal_snapshot,
 )
 from operacion.models import (
     AsignacionCanalOperacion,
@@ -904,6 +905,14 @@ def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Con
                 entity_id=contrato.pk,
                 message='Contrato con arrendatario empresa requiere snapshot de representante legal.',
             )
+        elif not isinstance(representative_snapshot, dict):
+            _issue(
+                issues,
+                code='stage1.contrato.representante_legal_snapshot_incompleto',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message='Snapshot de representante legal debe incluir al menos nombre y RUT.',
+            )
         elif not (
             (representative_snapshot.get('nombre') or '').strip()
             and (representative_snapshot.get('rut') or '').strip()
@@ -915,6 +924,17 @@ def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Con
                 entity_id=contrato.pk,
                 message='Snapshot de representante legal debe incluir al menos nombre y RUT.',
             )
+        else:
+            try:
+                normalize_representante_legal_snapshot(representative_snapshot)
+            except ValidationError:
+                _issue(
+                    issues,
+                    code='stage1.contrato.representante_legal_snapshot_rut_invalido',
+                    entity='Contrato',
+                    entity_id=contrato.pk,
+                    message='Snapshot de representante legal debe incluir un RUT valido.',
+                )
 
 
 def _audit_guarantee_history_consistency(

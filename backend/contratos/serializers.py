@@ -357,6 +357,8 @@ class ContratoSerializer(serializers.ModelSerializer):
             candidate.full_clean()
         except DjangoValidationError as error:
             raise_drf_validation_error(error)
+        if 'snapshot_representante_legal' in attrs:
+            attrs['snapshot_representante_legal'] = candidate.snapshot_representante_legal
 
         return attrs
 

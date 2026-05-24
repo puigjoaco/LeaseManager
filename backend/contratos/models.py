@@ -68,6 +68,30 @@ class MonedaBaseContrato(models.TextChoices):
     UF = 'UF', 'UF'
 
 
+def normalize_representante_legal_snapshot(snapshot):
+    if not isinstance(snapshot, dict):
+        raise ValidationError(
+            {'snapshot_representante_legal': 'El snapshot de representante legal debe ser un objeto con nombre y RUT.'}
+        )
+
+    nombre = str(snapshot.get('nombre') or '').strip()
+    rut_value = str(snapshot.get('rut') or '').strip()
+    if not nombre or not rut_value:
+        raise ValidationError(
+            {'snapshot_representante_legal': 'El snapshot de representante legal debe incluir nombre y RUT.'}
+        )
+
+    try:
+        normalized_rut = validate_rut(rut_value)
+    except ValidationError as error:
+        raise ValidationError({'snapshot_representante_legal': error.messages}) from error
+
+    normalized = dict(snapshot)
+    normalized['nombre'] = nombre
+    normalized['rut'] = normalized_rut
+    return normalized
+
+
 class Arrendatario(TimestampedModel):
     tipo_arrendatario = models.CharField(max_length=20, choices=TipoArrendatario.choices)
     nombre_razon_social = models.CharField(max_length=255)
@@ -193,6 +217,10 @@ class Contrato(TimestampedModel):
                 mandato_errors.append('El mandato operativo debe cubrir la fecha fin vigente del contrato.')
             if mandato_errors:
                 raise ValidationError({'mandato_operacion': mandato_errors})
+            if self.arrendatario_id and self.arrendatario.tipo_arrendatario == TipoArrendatario.COMPANY:
+                self.snapshot_representante_legal = normalize_representante_legal_snapshot(
+                    self.snapshot_representante_legal
+                )
 
 
 class ContratoPropiedad(TimestampedModel):

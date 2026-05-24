@@ -1041,6 +1041,24 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.contrato.representante_legal_snapshot_faltante', issue_codes)
 
+    def test_company_tenant_with_invalid_representative_snapshot_rut_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        arrendatario = contrato.arrendatario
+        arrendatario.tipo_arrendatario = TipoArrendatario.COMPANY
+        arrendatario.save(update_fields=['tipo_arrendatario', 'updated_at'])
+        contrato.snapshot_representante_legal = {
+            'nombre': 'Representante Legal Controlado',
+            'rut': '12.345.678-9',
+        }
+        contrato.save(update_fields=['snapshot_representante_legal', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.representante_legal_snapshot_rut_invalido', issue_codes)
+
     def test_future_contract_without_notice_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         self._create_future_contract_for(contrato)

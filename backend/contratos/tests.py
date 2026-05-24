@@ -101,6 +101,17 @@ class ContratosAPITests(APITestCase):
             estado_contacto='activo',
         )
 
+    def _create_company_arrendatario(self, rut='22222222-2'):
+        return Arrendatario.objects.create(
+            tipo_arrendatario='empresa',
+            nombre_razon_social='Arrendatario Empresa SpA',
+            rut=rut,
+            email='tenant-company@example.com',
+            telefono='999',
+            domicilio_notificaciones='Notificaciones Empresa 123',
+            estado_contacto='activo',
+        )
+
     def _base_contract_payload(self, mandato, arrendatario, codigo='CTR-001'):
         return {
             'codigo_contrato': codigo,
@@ -275,6 +286,49 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(len(response.data['contrato_propiedades_detail']), 1)
         self.assertEqual(len(response.data['periodos_contractuales_detail']), 1)
         self.assertEqual(len(response.data['codeudores_solidarios_detail']), 1)
+        self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
+
+    def test_create_company_contract_requires_representative_snapshot(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REP-MISS', owner_rut='11111116-2')
+        arrendatario = self._create_company_arrendatario(rut='22222226-5')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REP-MISS')
+        payload['snapshot_representante_legal'] = {}
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('snapshot_representante_legal', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-REP-MISS').exists())
+
+    def test_create_company_contract_rejects_invalid_representative_rut(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REP-RUT', owner_rut='11111117-0')
+        arrendatario = self._create_company_arrendatario(rut='22222227-3')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REP-RUT')
+        payload['snapshot_representante_legal'] = {
+            'nombre': 'Representante Legal',
+            'rut': '12.345.678-9',
+        }
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('snapshot_representante_legal', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-REP-RUT').exists())
+
+    def test_create_company_contract_normalizes_representative_snapshot(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REP-OK', owner_rut='11111118-9')
+        arrendatario = self._create_company_arrendatario(rut='22222228-1')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REP-OK')
+        payload['snapshot_representante_legal'] = {
+            'nombre': ' Representante Legal ',
+            'rut': '12.345.678-5',
+        }
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['snapshot_representante_legal']['nombre'], 'Representante Legal')
+        self.assertEqual(response.data['snapshot_representante_legal']['rut'], '12345678-5')
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
 
     def test_create_contract_rejects_nested_codebtor_without_identity_name(self):
