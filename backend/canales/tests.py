@@ -439,6 +439,12 @@ class CanalesAPITests(APITestCase):
                 scope_reference=str(response.data['id']),
             ).exists()
         )
+        fallback = ManualResolution.objects.get(
+            category='canales.whatsapp.fallback_requerido',
+            scope_reference=str(response.data['id']),
+        )
+        self.assertEqual(fallback.metadata['fallback_canal_base'], 'email')
+        self.assertEqual(fallback.metadata['canal'], 'whatsapp')
 
     def test_prepare_message_blocks_when_gate_is_only_conditioned(self):
         empresa, contrato = self._create_contract_context(codigo='CH-COND')
