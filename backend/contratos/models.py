@@ -46,6 +46,11 @@ class EstadoContactoArrendatario(models.TextChoices):
     INACTIVE = 'inactivo', 'Inactivo'
 
 
+class EstadoContactoPago(models.TextChoices):
+    ACTIVE = 'activo', 'Activo'
+    INACTIVE = 'inactivo', 'Inactivo'
+
+
 class EstadoContrato(models.TextChoices):
     PENDING = 'pendiente_activacion', 'Pendiente activacion'
     FUTURE = 'futuro', 'Futuro'
@@ -151,6 +156,58 @@ class Arrendatario(TimestampedModel):
                 {
                     'whatsapp_opt_in_evidencia_ref': (
                         'La evidencia de opt-in WhatsApp debe ser una referencia no sensible.'
+                    )
+                }
+            )
+
+
+class ContactoPagoArrendatario(TimestampedModel):
+    arrendatario = models.ForeignKey(
+        Arrendatario,
+        on_delete=models.CASCADE,
+        related_name='contactos_pago',
+    )
+    nombre = models.CharField(max_length=255)
+    rol_operativo = models.CharField(max_length=64, default='contacto_pago')
+    email = models.EmailField(blank=True)
+    telefono = models.CharField(max_length=50, blank=True)
+    evidencia_autorizacion_ref = models.CharField(max_length=255, blank=True)
+    es_principal = models.BooleanField(default=False)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoContactoPago.choices,
+        default=EstadoContactoPago.ACTIVE,
+    )
+
+    class Meta:
+        ordering = ['arrendatario_id', '-es_principal', 'nombre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['arrendatario'],
+                condition=Q(es_principal=True, estado=EstadoContactoPago.ACTIVE),
+                name='uniq_contacto_pago_principal_activo_por_arrendatario',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.arrendatario.nombre_razon_social} - {self.nombre}'
+
+    def clean(self):
+        super().clean()
+        if self.estado == EstadoContactoPago.ACTIVE:
+            if not self.nombre.strip():
+                raise ValidationError({'nombre': 'El contacto de pago activo requiere nombre.'})
+            if not ((self.email or '').strip() or (self.telefono or '').strip()):
+                raise ValidationError(
+                    {'email': 'El contacto de pago activo requiere email o telefono estructurado.'}
+                )
+        if self.evidencia_autorizacion_ref.strip() and not is_non_sensitive_reference(
+            self.evidencia_autorizacion_ref
+        ):
+            raise ValidationError(
+                {
+                    'evidencia_autorizacion_ref': (
+                        'La evidencia del contacto de pago debe ser una referencia no sensible.'
                     )
                 }
             )

@@ -4,6 +4,7 @@ from .models import (
     Arrendatario,
     AvisoTermino,
     CodeudorSolidario,
+    ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
     PeriodoContractual,
@@ -15,6 +16,13 @@ class ArrendatarioAdmin(admin.ModelAdmin):
     list_display = ('nombre_razon_social', 'rut', 'tipo_arrendatario', 'estado_contacto', 'whatsapp_bloqueado')
     list_filter = ('tipo_arrendatario', 'estado_contacto', 'whatsapp_bloqueado')
     search_fields = ('nombre_razon_social', 'rut', 'email')
+
+
+@admin.register(ContactoPagoArrendatario)
+class ContactoPagoArrendatarioAdmin(admin.ModelAdmin):
+    list_display = ('arrendatario', 'nombre', 'rol_operativo', 'estado', 'es_principal')
+    list_filter = ('estado', 'es_principal')
+    search_fields = ('arrendatario__nombre_razon_social', 'nombre', 'email', 'telefono')
 
 
 @admin.register(Contrato)
