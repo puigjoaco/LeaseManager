@@ -23,6 +23,9 @@ contables desde hechos conciliados.
 - Asientos balanceados.
 - Asientos del periodo con `periodo_contable` consistente con
   `fecha_contable`.
+- Un cierre mensual aprobado solo se reabre con `PoliticaReversoContable`
+  activa para `reapertura_cierre_mensual`, que permita reapertura y exija
+  aprobacion.
 - Movimientos de asiento obligatorios, con sumas debe/haber iguales a los
   totales del asiento y cuentas contables de la misma empresa del evento.
 - Eventos, movimientos, obligaciones, libros, balances y cierres no pueden

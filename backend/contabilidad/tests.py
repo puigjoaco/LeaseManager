@@ -26,9 +26,10 @@ from .models import (
     LibroMayor,
     MovimientoAsiento,
     ObligacionTributariaMensual,
+    PoliticaReversoContable,
     TipoMovimientoAsiento,
 )
-from .services import DEFAULT_REGIME_CODE, ensure_default_regime
+from .services import DEFAULT_REGIME_CODE, MONTHLY_CLOSE_REOPEN_POLICY_TYPE, ensure_default_regime
 
 
 class ContabilidadAPITests(APITestCase):
@@ -122,6 +123,18 @@ class ContabilidadAPITests(APITestCase):
             es_control_obligatoria=True,
         )
         return {'bancos': bancos, 'cxc': cxc, 'garantias': garantias}
+
+    def _allow_monthly_close_reopen(self, empresa):
+        return PoliticaReversoContable.objects.create(
+            empresa=empresa,
+            tipo_ajuste=MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
+            usa_reverso=True,
+            usa_asiento_complementario=True,
+            permite_reapertura=True,
+            aprobacion_requerida=True,
+            ventana_operativa='periodo-siguiente-controlado',
+            estado='activa',
+        )
 
     def _create_rule_matrix(
         self,
@@ -1092,6 +1105,7 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(libro_mayor.estado_snapshot, 'aprobado')
         self.assertEqual(balance.estado_snapshot, 'aprobado')
 
+        self._allow_monthly_close_reopen(empresa)
         reopen = self.client.post(
             reverse('contabilidad-cierre-reopen', args=[close.id]),
             format='json',
@@ -1145,12 +1159,79 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(approve.status_code, status.HTTP_200_OK)
         self.assertEqual(approve.data['estado'], 'aprobado')
 
+        self._allow_monthly_close_reopen(empresa)
         reopen = self.client.post(
             reverse('contabilidad-cierre-reopen', args=[prepare.data['id']]),
             format='json',
         )
         self.assertEqual(reopen.status_code, status.HTTP_200_OK)
         self.assertEqual(reopen.data['estado'], 'reabierto')
+
+    def test_reopen_monthly_close_requires_active_reopen_policy(self):
+        empresa = self._create_active_empresa(nombre='ReopenPolicyCo', rut='56565656-7')
+        accounts = self._setup_contabilidad(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        config.tasa_ppm_vigente = '10.00'
+        config.save(update_fields=['tasa_ppm_vigente'])
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'close-reopen-policy-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'close-reopen-policy-1',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        prepare = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        approve = self.client.post(
+            reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
+            format='json',
+        )
+        self.assertEqual(approve.status_code, status.HTTP_200_OK)
+
+        PoliticaReversoContable.objects.create(
+            empresa=empresa,
+            tipo_ajuste=MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
+            usa_reverso=True,
+            usa_asiento_complementario=True,
+            permite_reapertura=True,
+            aprobacion_requerida=False,
+            ventana_operativa='periodo-siguiente-controlado',
+            estado='activa',
+        )
+
+        denied = self.client.post(
+            reverse('contabilidad-cierre-reopen', args=[prepare.data['id']]),
+            format='json',
+        )
+        self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('politica activa', str(denied.data['detail']))
+        close = CierreMensualContable.objects.get(pk=prepare.data['id'])
+        self.assertEqual(close.estado, 'aprobado')
+
+        PoliticaReversoContable.objects.filter(empresa=empresa).delete()
+        self._allow_monthly_close_reopen(empresa)
+        reopened = self.client.post(
+            reverse('contabilidad-cierre-reopen', args=[prepare.data['id']]),
+            format='json',
+        )
+        self.assertEqual(reopened.status_code, status.HTTP_200_OK)
+        self.assertEqual(reopened.data['estado'], 'reabierto')
 
     def test_approve_monthly_close_revalidates_bank_movements(self):
         empresa = self._create_active_empresa(nombre='ApproveBankGateCo', rut='56565656-6')

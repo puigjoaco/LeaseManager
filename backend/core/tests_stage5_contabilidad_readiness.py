@@ -34,10 +34,11 @@ from contabilidad.models import (
     MatrizReglasContables,
     MovimientoAsiento,
     ObligacionTributariaMensual,
+    PoliticaReversoContable,
     ReglaContable,
     TipoMovimientoAsiento,
 )
-from contabilidad.services import ensure_default_regime
+from contabilidad.services import MONTHLY_CLOSE_REOPEN_POLICY_TYPE, ensure_default_regime
 from core.stage5_contabilidad_readiness import collect_stage5_contabilidad_readiness
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
@@ -157,6 +158,18 @@ class Stage5ContabilidadReadinessTests(TestCase):
         )
         return event, asiento
 
+    def _allow_monthly_close_reopen(self, empresa):
+        return PoliticaReversoContable.objects.create(
+            empresa=empresa,
+            tipo_ajuste=MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
+            usa_reverso=True,
+            usa_asiento_complementario=True,
+            permite_reapertura=True,
+            aprobacion_requerida=True,
+            ventana_operativa='periodo-siguiente-controlado',
+            estado='activa',
+        )
+
     def _create_approved_close_snapshots(self, empresa):
         now = timezone.now()
         LibroDiario.objects.create(
@@ -202,6 +215,7 @@ class Stage5ContabilidadReadinessTests(TestCase):
         debit, credit = self._setup_contabilidad(empresa)
         self._create_posted_event_and_asiento(empresa, debit, credit)
         self._create_approved_close_snapshots(empresa)
+        self._allow_monthly_close_reopen(empresa)
         return empresa
 
     def _collect_with_final_refs(self):
@@ -352,6 +366,22 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage5_contabilidad'])
         self.assertIn('stage5.asiento_period_mismatch', issue_codes)
         self.assertEqual(result['sections']['ledger']['asiento_period_mismatches'], 1)
+
+    def test_approved_close_without_reopen_policy_is_blocking(self):
+        empresa = self._create_valid_local_matrix()
+        PoliticaReversoContable.objects.filter(empresa=empresa).update(aprobacion_requerida=False)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.close_reopen_policy_missing', issue_codes)
+        self.assertEqual(result['sections']['monthly_close']['monthly_close_reopen_policies_active'], 0)
+        self.assertEqual(result['sections']['monthly_close']['approved_closes_without_reopen_policy'], 1)
+
+        PoliticaReversoContable.objects.filter(empresa=empresa).delete()
+        result = self._collect_with_final_refs()
+        self.assertIn('stage5.close_reopen_policy_missing', {issue['code'] for issue in result['issues']})
 
     def test_approved_close_without_snapshots_or_square_balance_is_blocking(self):
         empresa = self._create_valid_local_matrix()
