@@ -603,6 +603,8 @@ type Contrato = {
   codigo_contrato: string
   mandato_operacion: number
   arrendatario: number
+  identidad_envio_override: number | null
+  identidad_envio_override_display: string | null
   fecha_inicio: string
   fecha_fin_vigente: string
   fecha_entrega: string | null
@@ -1403,6 +1405,7 @@ function App() {
     codigo_contrato: '',
     mandato_operacion: '',
     arrendatario: '',
+    identidad_envio_override: '',
     fecha_inicio: todayIso(),
     fecha_fin_vigente: todayIso(),
     fecha_entrega: todayIso(),
@@ -1968,6 +1971,7 @@ function App() {
       codigo_contrato: '',
       mandato_operacion: '',
       arrendatario: '',
+      identidad_envio_override: '',
       fecha_inicio: todayIso(),
       fecha_fin_vigente: todayIso(),
       fecha_entrega: todayIso(),
@@ -3284,6 +3288,7 @@ function App() {
         codigo_contrato: contratoDraft.codigo_contrato,
         mandato_operacion: Number(contratoDraft.mandato_operacion),
         arrendatario: Number(contratoDraft.arrendatario),
+        identidad_envio_override: contratoDraft.identidad_envio_override ? Number(contratoDraft.identidad_envio_override) : null,
         fecha_inicio: contratoDraft.fecha_inicio,
         fecha_fin_vigente: contratoDraft.fecha_fin_vigente,
         fecha_entrega: contratoDraft.fecha_entrega || null,
@@ -3322,6 +3327,7 @@ function App() {
         codigo_contrato: '',
         mandato_operacion: '',
         arrendatario: '',
+        identidad_envio_override: '',
         fecha_inicio: todayIso(),
         fecha_fin_vigente: todayIso(),
         fecha_entrega: todayIso(),
@@ -3547,6 +3553,7 @@ function App() {
       codigo_contrato: row.codigo_contrato,
       mandato_operacion: String(row.mandato_operacion),
       arrendatario: String(row.arrendatario),
+      identidad_envio_override: row.identidad_envio_override ? String(row.identidad_envio_override) : '',
       fecha_inicio: row.fecha_inicio,
       fecha_fin_vigente: row.fecha_fin_vigente,
       fecha_entrega: row.fecha_entrega || '',
@@ -3570,6 +3577,7 @@ function App() {
       codigo_contrato: '',
       mandato_operacion: '',
       arrendatario: '',
+      identidad_envio_override: '',
       fecha_inicio: todayIso(),
       fecha_fin_vigente: todayIso(),
       fecha_entrega: todayIso(),
@@ -5185,6 +5193,7 @@ function App() {
           setAvisoDraft={setAvisoDraft}
           handleCreateAviso={handleCreateAviso}
           mandatos={mandatos}
+          identidades={identidades}
           arrendatarios={arrendatarios}
           contratos={contratos}
           filteredArrendatarios={filteredArrendatarios}

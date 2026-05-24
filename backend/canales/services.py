@@ -66,6 +66,12 @@ def resolve_identity(canal, contrato=None, explicit_identity=None):
         return explicit_identity
     if not contrato:
         return None
+    if (
+        contrato.identidad_envio_override_id
+        and contrato.identidad_envio_override.estado == EstadoIdentidadEnvio.ACTIVE
+        and contrato.identidad_envio_override.canal == canal
+    ):
+        return contrato.identidad_envio_override
     assignment = (
         AsignacionCanalOperacion.objects.filter(
             mandato_operacion=contrato.mandato_operacion,

@@ -9,7 +9,7 @@ from rest_framework import serializers
 
 from core.reference_validation import redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
-from operacion.models import MandatoOperacion
+from operacion.models import IdentidadDeEnvio, MandatoOperacion
 from patrimonio.models import Propiedad
 from patrimonio.validators import validate_rut
 
@@ -58,6 +58,18 @@ def _scoped_arrendatario_queryset(user):
         Arrendatario.objects.all(),
         user,
         property_paths=('contratos__mandato_operacion__propiedad_id',),
+    )
+
+
+def _scoped_identidad_queryset(user):
+    return scope_queryset_for_user(
+        IdentidadDeEnvio.objects.all(),
+        user,
+        company_paths=('empresa_owner_id',),
+        property_paths=(
+            'asignaciones_operacion__mandato_operacion__propiedad_id',
+            'contratos_override__mandato_operacion__propiedad_id',
+        ),
     )
 
 
@@ -228,6 +240,10 @@ class ContratoSerializer(serializers.ModelSerializer):
     contrato_propiedades = ContratoPropiedadWriteSerializer(many=True, write_only=True, required=False)
     periodos_contractuales = PeriodoContractualWriteSerializer(many=True, write_only=True, required=False)
     codeudores_solidarios = CodeudorSolidarioWriteSerializer(many=True, write_only=True, required=False)
+    identidad_envio_override_display = serializers.CharField(
+        source='identidad_envio_override.remitente_visible',
+        read_only=True,
+    )
     contrato_propiedades_detail = serializers.SerializerMethodField(read_only=True)
     periodos_contractuales_detail = serializers.SerializerMethodField(read_only=True)
     codeudores_solidarios_detail = serializers.SerializerMethodField(read_only=True)
@@ -246,6 +262,8 @@ class ContratoSerializer(serializers.ModelSerializer):
             'plazo_notificacion_termino_dias',
             'dias_prealerta_admin',
             'estado',
+            'identidad_envio_override',
+            'identidad_envio_override_display',
             'tiene_tramos',
             'tiene_gastos_comunes',
             'snapshot_representante_legal',
@@ -260,6 +278,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             'id',
+            'identidad_envio_override_display',
             'contrato_propiedades_detail',
             'periodos_contractuales_detail',
             'codeudores_solidarios_detail',
@@ -283,6 +302,7 @@ class ContratoSerializer(serializers.ModelSerializer):
             return
         self.fields['mandato_operacion'].queryset = _scoped_mandato_queryset(user)
         self.fields['arrendatario'].queryset = _scoped_arrendatario_queryset(user)
+        self.fields['identidad_envio_override'].queryset = _scoped_identidad_queryset(user)
 
     def _get_nested_payload(self, attrs, attr_name, queryset):
         if attr_name in attrs:

@@ -5,11 +5,12 @@ import { Badge, TableBlock } from '../shared'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type ArrendatarioItem = { id: number; nombre_razon_social: string; rut: string; tipo_arrendatario: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean }
 type MandatoItem = { id: number; propiedad_codigo: string; propietario_display: string }
-type ContratoItem = { id: number; codigo_contrato: string; mandato_operacion: number; arrendatario: number; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string | null; dia_pago_mensual: number; plazo_notificacion_termino_dias: number; dias_prealerta_admin: number; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; contrato_propiedades_detail: Array<{ propiedad: number; propiedad_codigo: string; propiedad_direccion: string; rol_en_contrato: string }>; periodos_contractuales_detail: Array<{ numero_periodo: number; fecha_inicio: string; fecha_fin: string; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string }>; codeudores_solidarios_detail: Array<{ id: number; snapshot_identidad: { nombre?: string; rut?: string }; fecha_inclusion: string; estado: string }> }
+type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; estado: string }
+type ContratoItem = { id: number; codigo_contrato: string; mandato_operacion: number; arrendatario: number; identidad_envio_override: number | null; identidad_envio_override_display: string | null; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string | null; dia_pago_mensual: number; plazo_notificacion_termino_dias: number; dias_prealerta_admin: number; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; contrato_propiedades_detail: Array<{ propiedad: number; propiedad_codigo: string; propiedad_direccion: string; rol_en_contrato: string }>; periodos_contractuales_detail: Array<{ numero_periodo: number; fecha_inicio: string; fecha_fin: string; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string }>; codeudores_solidarios_detail: Array<{ id: number; snapshot_identidad: { nombre?: string; rut?: string }; fecha_inclusion: string; estado: string }> }
 type AvisoItem = { id: number; contrato: number; fecha_efectiva: string; causal: string; estado: string }
 
 type ArrendatarioDraft = { tipo_arrendatario: string; nombre_razon_social: string; rut: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean }
-type ContratoDraft = { codigo_contrato: string; mandato_operacion: string; arrendatario: string; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string; dia_pago_mensual: string; plazo_notificacion_termino_dias: string; dias_prealerta_admin: string; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string }
+type ContratoDraft = { codigo_contrato: string; mandato_operacion: string; arrendatario: string; identidad_envio_override: string; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string; dia_pago_mensual: string; plazo_notificacion_termino_dias: string; dias_prealerta_admin: string; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string }
 type AvisoDraft = { contrato: string; fecha_efectiva: string; causal: string; estado: string }
 
 export function ContratosWorkspace({
@@ -28,6 +29,7 @@ export function ContratosWorkspace({
   setAvisoDraft,
   handleCreateAviso,
   mandatos,
+  identidades,
   arrendatarios,
   contratos,
   filteredArrendatarios,
@@ -60,6 +62,7 @@ export function ContratosWorkspace({
   setAvisoDraft: Dispatch<SetStateAction<AvisoDraft>>
   handleCreateAviso: (event: FormEvent<HTMLFormElement>) => Promise<void>
   mandatos: MandatoItem[]
+  identidades: IdentidadItem[]
   arrendatarios: ArrendatarioItem[]
   contratos: ContratoItem[]
   filteredArrendatarios: ArrendatarioItem[]
@@ -113,6 +116,10 @@ export function ContratosWorkspace({
               <option value="">Selecciona arrendatario</option>
               {arrendatarios.map((item) => <option key={item.id} value={item.id}>{item.nombre_razon_social}</option>)}
             </select>
+            <select value={contratoDraft.identidad_envio_override} onChange={(event) => setContratoDraft((current) => ({ ...current, identidad_envio_override: event.target.value }))}>
+              <option value="">Identidad por mandato</option>
+              {identidades.filter((item) => item.estado === 'activa').map((item) => <option key={item.id} value={item.id}>{item.canal} · {item.remitente_visible}</option>)}
+            </select>
             <input type="date" value={contratoDraft.fecha_inicio} onChange={(event) => setContratoDraft((current) => ({ ...current, fecha_inicio: event.target.value }))} />
             <input type="date" value={contratoDraft.fecha_fin_vigente} onChange={(event) => setContratoDraft((current) => ({ ...current, fecha_fin_vigente: event.target.value }))} />
             <input type="date" value={contratoDraft.fecha_entrega} onChange={(event) => setContratoDraft((current) => ({ ...current, fecha_entrega: event.target.value }))} />
@@ -160,6 +167,7 @@ export function ContratosWorkspace({
         { label: 'Código', render: (row) => row.codigo_contrato },
         { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
         { label: 'Mandato', render: (row) => mandatoById.get(row.mandato_operacion)?.propiedad_codigo || row.mandato_operacion },
+        { label: 'Identidad', render: (row) => row.identidad_envio_override_display || 'Mandato' },
         { label: 'Propiedad', render: (row) => row.contrato_propiedades_detail[0] ? `${row.contrato_propiedades_detail[0].propiedad_codigo} · ${row.contrato_propiedades_detail[0].propiedad_direccion}` : 'Sin propiedad' },
         { label: 'Periodo', render: (row) => `${row.fecha_inicio} → ${row.fecha_fin_vigente}` },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },

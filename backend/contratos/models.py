@@ -9,7 +9,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from core.reference_validation import is_non_sensitive_reference
-from operacion.models import MandatoOperacion
+from operacion.models import EstadoIdentidadEnvio, IdentidadDeEnvio, MandatoOperacion
 from patrimonio.validators import normalize_rut, validate_rut
 
 
@@ -165,6 +165,13 @@ class Contrato(TimestampedModel):
     plazo_notificacion_termino_dias = models.PositiveSmallIntegerField(default=60)
     dias_prealerta_admin = models.PositiveSmallIntegerField(default=90)
     estado = models.CharField(max_length=32, choices=EstadoContrato.choices, default=EstadoContrato.PENDING)
+    identidad_envio_override = models.ForeignKey(
+        IdentidadDeEnvio,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='contratos_override',
+    )
     tiene_tramos = models.BooleanField(default=False)
     tiene_gastos_comunes = models.BooleanField(default=False)
     snapshot_representante_legal = models.JSONField(default=dict, blank=True)
@@ -179,10 +186,46 @@ class Contrato(TimestampedModel):
         principal = self.contrato_propiedades.filter(rol_en_contrato=RolContratoPropiedad.PRIMARY).first()
         return principal.propiedad_id if principal else None
 
+    def validate_identity_override(self):
+        if not self.identidad_envio_override_id or not self.mandato_operacion_id:
+            return
+
+        if self.identidad_envio_override.estado != EstadoIdentidadEnvio.ACTIVE:
+            raise ValidationError(
+                {'identidad_envio_override': 'La identidad override del contrato debe estar activa.'}
+            )
+
+        identity_owner = (self.identidad_envio_override.owner_tipo, self.identidad_envio_override.owner_id)
+        admin_tuple = self.mandato_operacion.administrador_tuple()
+        facturadora_tuple = self.mandato_operacion.facturadora_tuple()
+        propietario_tuple = self.mandato_operacion.propietario_tuple()
+
+        if identity_owner not in {admin_tuple, facturadora_tuple}:
+            raise ValidationError(
+                {
+                    'identidad_envio_override': (
+                        'La identidad override debe pertenecer a la entidad facturadora o al administrador '
+                        'operativo del mandato.'
+                    )
+                }
+            )
+
+        if identity_owner != propietario_tuple and not self.mandato_operacion.autoriza_comunicacion:
+            raise ValidationError(
+                {
+                    'mandato_operacion': (
+                        'El mandato debe autorizar comunicacion para usar una identidad override de un actor '
+                        'distinto al propietario.'
+                    )
+                }
+            )
+
     def clean(self):
         super().clean()
         if self.fecha_fin_vigente < self.fecha_inicio:
             raise ValidationError({'fecha_fin_vigente': 'La fecha fin vigente no puede ser anterior al inicio.'})
+
+        self.validate_identity_override()
 
         if self.fecha_entrega and self.fecha_entrega < self.fecha_inicio:
             raise ValidationError({'fecha_entrega': 'La fecha de entrega no puede ser anterior al inicio.'})
