@@ -19,6 +19,7 @@ from .models import (
     EstadoCierreMensual,
     EstadoEventoContable,
     EstadoPreparacionTributaria,
+    EstadoRegistro,
     EventoContable,
     LibroDiario,
     LibroMayor,
@@ -33,6 +34,7 @@ from .models import (
 
 
 DEFAULT_REGIME_CODE = 'EmpresaContabilidadCompletaV1'
+MONTHLY_CLOSE_REOPEN_POLICY_TYPE = 'reapertura_cierre_mensual'
 
 
 def period_date_bounds(anio, mes):
@@ -603,10 +605,28 @@ def approve_monthly_close(close):
     return close
 
 
+def get_active_monthly_close_reopen_policy(empresa):
+    return PoliticaReversoContable.objects.filter(
+        empresa=empresa,
+        tipo_ajuste=MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
+        estado=EstadoRegistro.ACTIVE,
+        permite_reapertura=True,
+        aprobacion_requerida=True,
+    ).first()
+
+
+def assert_monthly_close_reopen_allowed(close):
+    if not get_active_monthly_close_reopen_policy(close.empresa):
+        raise ValueError(
+            'Reapertura de cierre mensual requiere politica activa que permita reapertura y exija aprobacion.'
+        )
+
+
 @transaction.atomic
 def reopen_monthly_close(close):
     if close.estado != EstadoCierreMensual.APPROVED:
         raise ValueError('Solo se puede reabrir un cierre mensual aprobado.')
+    assert_monthly_close_reopen_allowed(close)
     update_ledger_snapshot_state(close.empresa, close.anio, close.mes, EstadoCierreMensual.REOPENED)
     close.estado = EstadoCierreMensual.REOPENED
     close.save(update_fields=['estado', 'updated_at'])

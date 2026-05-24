@@ -23,10 +23,13 @@ from contabilidad.models import (
     MatrizReglasContables,
     MovimientoAsiento,
     ObligacionTributariaMensual,
+    PoliticaReversoContable,
     ReglaContable,
 )
 from contabilidad.services import (
+    MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
     asiento_period_matches_accounting_date,
+    get_active_monthly_close_reopen_policy,
     get_company_period_events,
     get_company_period_unresolved_bank_movements,
     summarize_asiento_movement_integrity,
@@ -202,6 +205,15 @@ def collect_stage5_contabilidad_readiness(
     )
     close_sensitive_payloads = _count_sensitive_payloads(closes, 'resumen_obligaciones')
     close_issues = _ledger_close_issues(prepared_or_approved_closes)
+    monthly_close_reopen_policies = PoliticaReversoContable.objects.filter(
+        tipo_ajuste=MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
+        estado=EstadoRegistro.ACTIVE,
+        permite_reapertura=True,
+        aprobacion_requerida=True,
+    )
+    approved_closes_without_reopen_policy = sum(
+        1 for close in approved_closes if not get_active_monthly_close_reopen_policy(close.empresa)
+    )
 
     final_evidence = {
         'stage3_evidence_ref': _non_sensitive_reference(stage3_evidence_ref),
@@ -419,6 +431,14 @@ def collect_stage5_contabilidad_readiness(
                 'Etapa 5 requiere al menos un cierre mensual aprobado para evidencia local de ledger.',
             )
         )
+    if approved_closes_without_reopen_policy:
+        issues.append(
+            _issue(
+                'stage5.close_reopen_policy_missing',
+                'Existen cierres aprobados sin politica activa que permita reapertura controlada y exija aprobacion.',
+                count=approved_closes_without_reopen_policy,
+            )
+        )
 
     for key, code, message in [
         (
@@ -533,6 +553,8 @@ def collect_stage5_contabilidad_readiness(
                 'closes_total': closes.count(),
                 'closes_by_state': _count_by(closes, 'estado'),
                 'approved_closes': approved_closes.count(),
+                'monthly_close_reopen_policies_active': monthly_close_reopen_policies.count(),
+                'approved_closes_without_reopen_policy': approved_closes_without_reopen_policy,
                 'close_sensitive_payloads': close_sensitive_payloads,
                 'obligations_total': obligations.count(),
                 'obligations_by_state': _count_by(obligations, 'estado_preparacion'),
