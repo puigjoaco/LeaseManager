@@ -26,6 +26,7 @@ from cobranza.models import (
     EstadoCuentaArrendatario,
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
+    EstadoPago,
     GateCobroExterno,
     IntentoPagoWebPay,
     PagoMensual,
@@ -65,6 +66,8 @@ from patrimonio.models import Empresa, Propiedad, Socio, TipoInmueble
 
 
 class Stage2CobranzaReadinessTests(TestCase):
+    READINESS_REFERENCE_DATE = date(2026, 1, 4)
+
     def _create_payment_matrix(self):
         socio = Socio.objects.create(nombre='Socio Stage2', rut='11111111-1', activo=True)
         empresa = Empresa.objects.create(razon_social='Empresa Stage2 SpA', rut='88888888-8', estado='activa')
@@ -209,10 +212,11 @@ class Stage2CobranzaReadinessTests(TestCase):
             email_proof_ref='email-proof-controlled-v1',
             webpay_proof_ref='webpay-proof-controlled-v1',
             responsible_ref='stage2-responsibles-v1',
+            reference_date=self.READINESS_REFERENCE_DATE,
         )
 
     def test_empty_database_reports_partial_without_sensitive_values(self):
-        result = collect_stage2_cobranza_readiness()
+        result = collect_stage2_cobranza_readiness(reference_date=self.READINESS_REFERENCE_DATE)
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertEqual(result['classification'], 'parcial')
@@ -331,6 +335,53 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.account_state.stale_summary', issue_codes)
         self.assertEqual(result['sections']['account_states']['stale_summary'], 1)
 
+    def test_pending_past_due_payment_is_blocking(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+
+        result = collect_stage2_cobranza_readiness(
+            source_kind='snapshot_controlado',
+            source_label='stage2-controlled-v1',
+            authorization_ref='stage2-authorization-v1',
+            stage1_evidence_ref='stage1-snapshot-controlled-v1',
+            email_proof_ref='email-proof-controlled-v1',
+            webpay_proof_ref='webpay-proof-controlled-v1',
+            responsible_ref='stage2-responsibles-v1',
+            reference_date=date(2026, 1, 10),
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.pending_past_due', issue_codes)
+        self.assertEqual(result['sections']['payments']['pending_past_due'], 1)
+        self.assertEqual(result['sections']['payments']['reference_date'], '2026-01-10')
+
+    def test_overdue_payment_with_stale_days_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        fixture['payment'].estado_pago = EstadoPago.OVERDUE
+        fixture['payment'].dias_mora = 1
+        fixture['payment'].save(update_fields=['estado_pago', 'dias_mora', 'updated_at'])
+        rebuild_account_state(fixture['tenant'])
+
+        result = collect_stage2_cobranza_readiness(
+            source_kind='snapshot_controlado',
+            source_label='stage2-controlled-v1',
+            authorization_ref='stage2-authorization-v1',
+            stage1_evidence_ref='stage1-snapshot-controlled-v1',
+            email_proof_ref='email-proof-controlled-v1',
+            webpay_proof_ref='webpay-proof-controlled-v1',
+            responsible_ref='stage2-responsibles-v1',
+            reference_date=date(2026, 1, 10),
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.overdue_days_stale', issue_codes)
+        self.assertEqual(result['sections']['payments']['overdue_days_stale'], 1)
+
     def test_residual_code_with_non_canonical_reference_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()
@@ -387,6 +438,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             email_proof_ref='email-proof-controlled-v1',
             webpay_proof_ref='webpay-proof-controlled-v1',
             responsible_ref='stage2-responsibles-v1',
+            reference_date=self.READINESS_REFERENCE_DATE,
         )
         issue_codes = {issue['code'] for issue in result['issues']}
 
@@ -406,6 +458,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             email_proof_ref='email-proof-controlled-v1',
             webpay_proof_ref='webpay-proof-controlled-v1',
             responsible_ref='stage2-responsibles-v1',
+            reference_date=self.READINESS_REFERENCE_DATE,
         )
         issue_codes = {issue['code'] for issue in result['issues']}
 
@@ -456,7 +509,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             estado_gate=EstadoGateCanal.OPEN,
         )
 
-        result = collect_stage2_cobranza_readiness()
+        result = collect_stage2_cobranza_readiness(reference_date=self.READINESS_REFERENCE_DATE)
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage2_cobranza'])
@@ -471,7 +524,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             evidencia_ref='whatsapp-gate-v1',
         )
 
-        result = collect_stage2_cobranza_readiness()
+        result = collect_stage2_cobranza_readiness(reference_date=self.READINESS_REFERENCE_DATE)
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_stage2_cobranza'])
@@ -866,6 +919,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             email_proof_ref='email-proof-controlled-v1',
             webpay_proof_ref='webpay-proof-controlled-v1',
             responsible_ref='stage2-responsibles-v1',
+            reference_date=self.READINESS_REFERENCE_DATE,
         )
 
         self.assertFalse(result['ready_for_stage2_cobranza'])

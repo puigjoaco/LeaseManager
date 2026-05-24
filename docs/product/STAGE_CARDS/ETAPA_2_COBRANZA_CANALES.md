@@ -52,6 +52,11 @@ condicionados sin envios reales accidentales.
   Canales la expone al backoffice y readiness bloquea pagos cobrables sin
   recordatorios programados o con programacion heredada invalida. Esta
   programacion no envia Email, WhatsApp ni proveedores externos.
+- Los pagos mensuales abiertos vencidos deben refrescarse contra una fecha de
+  corte operativa: un pago `pendiente` vencido pasa a `atrasado`, `dias_mora`
+  se recalcula, y el estado de cuenta del arrendatario queda sincronizado. La
+  readiness bloquea pagos pendientes ya vencidos o pagos atrasados con
+  `dias_mora` desactualizado para la fecha de corte auditada.
 - Mensajes salientes con `DocumentoEmitido` cuya politica documental exige
   firma o notaria solo pueden prepararse o marcarse enviados si el documento
   ya esta `formalizado`.
@@ -93,8 +98,8 @@ condicionados sin envios reales accidentales.
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,
   incluyendo deteccion de
   refs sensibles en gates, `external_ref`, `return_url_ref` o
-  `provider_payload` sensible, sin enviar mensajes ni conectar proveedores
-  externos. Para cierre debe ejecutarse
+  `provider_payload` sensible, pagos pendientes vencidos y mora desactualizada,
+  sin enviar mensajes ni conectar proveedores externos. Para cierre debe ejecutarse
   con `--source-kind
   snapshot_controlado` o `--source-kind real_autorizado`; la fuente local no
   puede marcar `ready_for_stage2_cobranza=true`.

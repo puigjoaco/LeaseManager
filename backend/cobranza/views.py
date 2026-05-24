@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.db.models import Prefetch
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -39,6 +40,7 @@ from .serializers import (
     HistorialGarantiaReadSerializer,
     IntentoPagoWebPaySerializer,
     PagoMensualGenerateSerializer,
+    PagoMensualRefreshMoraSerializer,
     PagoMensualSerializer,
     DistribucionCobroMensualSerializer,
     RepactacionDeudaSerializer,
@@ -52,6 +54,7 @@ from .services import (
     confirm_webpay_intent_manually,
     prepare_webpay_intent,
     rebuild_account_state,
+    refresh_overdue_payments,
     sync_payment_distribution,
     sync_payment_state,
 )
@@ -201,7 +204,9 @@ class CobranzaSnapshotView(APIView):
                         'monto_facturable_clp': item.monto_facturable_clp,
                         'monto_calculado_clp': item.monto_calculado_clp,
                         'monto_pagado_clp': item.monto_pagado_clp,
+                        'fecha_vencimiento': item.fecha_vencimiento,
                         'estado_pago': item.estado_pago,
+                        'dias_mora': item.dias_mora,
                         'fecha_pago_webpay': item.fecha_pago_webpay,
                     }
                     for item in pagos
@@ -446,6 +451,36 @@ class PagoMensualGenerateView(APIView):
                 )
 
         return Response(PagoMensualSerializer(payment).data, status=status.HTTP_201_CREATED)
+
+
+class PagoMensualRefreshMoraView(APIView):
+    permission_classes = [OperationalModulePermission]
+
+    def post(self, request):
+        serializer = PagoMensualRefreshMoraSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reference_date = serializer.validated_data.get('fecha_corte') or timezone.localdate()
+        queryset = scope_queryset_for_user(
+            PagoMensual.objects.select_related('contrato', 'contrato__arrendatario'),
+            request.user,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+            bank_account_paths=('contrato__mandato_operacion__cuenta_recaudadora_id',),
+        )
+        result = refresh_overdue_payments(
+            queryset=queryset,
+            reference_date=reference_date,
+            access=get_scope_access(request.user),
+        )
+        create_audit_event(
+            event_type='cobranza.pago_mensual.overdue_refreshed',
+            entity_type='pago_mensual',
+            entity_id='bulk',
+            summary='Mora de pagos vencidos refrescada',
+            actor_user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            metadata=result,
+        )
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class GateCobroExternoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):

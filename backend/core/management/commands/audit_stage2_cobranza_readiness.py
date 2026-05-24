@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from pathlib import Path
 
 from django.conf import settings
@@ -55,6 +56,11 @@ class Command(BaseCommand):
         parser.add_argument('--webpay-proof-ref', default='', help='Referencia no sensible a prueba controlada WebPay.')
         parser.add_argument('--responsible-ref', default='', help='Referencia no sensible a responsables del frente.')
         parser.add_argument(
+            '--reference-date',
+            default='',
+            help='Fecha de corte YYYY-MM-DD para auditar mora de pagos abiertos vencidos.',
+        )
+        parser.add_argument(
             '--fail-on-attention',
             action='store_true',
             help='Sale con error si readiness Etapa 2 no queda lista para cierre.',
@@ -67,6 +73,9 @@ class Command(BaseCommand):
             _validate_output_path(output_path)
 
         try:
+            reference_date = None
+            if options['reference_date']:
+                reference_date = date.fromisoformat(options['reference_date'])
             result = collect_stage2_cobranza_readiness(
                 source_kind=options['source_kind'],
                 stage1_evidence_ref=options['stage1_evidence_ref'],
@@ -75,7 +84,10 @@ class Command(BaseCommand):
                 responsible_ref=options['responsible_ref'],
                 source_label=options['source_label'],
                 authorization_ref=options['authorization_ref'],
+                reference_date=reference_date,
             )
+        except ValueError as error:
+            raise CommandError('--reference-date debe usar formato YYYY-MM-DD.') from error
         except (OperationalError, ProgrammingError) as error:
             raise CommandError(
                 'No se pudo auditar readiness Etapa 2 porque la base configurada no esta migrada o no es accesible.'

@@ -1576,6 +1576,9 @@ function App() {
     anio: '2026',
     mes: '4',
   })
+  const [moraDraft, setMoraDraft] = useState({
+    fecha_corte: todayIso(),
+  })
   const [garantiaDraft, setGarantiaDraft] = useState({
     contrato: '',
     monto_pactado: '',
@@ -3774,6 +3777,14 @@ function App() {
     }
   }
 
+  async function handleRefreshMora(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCobranza) return
+    await submitCreate('/api/v1/cobranza/pagos-mensuales/refrescar-mora/', {
+      fecha_corte: moraDraft.fecha_corte || undefined,
+    }, 'Mora de pagos vencidos refrescada correctamente.')
+  }
+
   async function handleCreateGarantia(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditCobranza) return
@@ -5475,6 +5486,9 @@ function App() {
           pagoDraft={pagoDraft}
           setPagoDraft={setPagoDraft}
           handleGeneratePago={handleGeneratePago}
+          moraDraft={moraDraft}
+          setMoraDraft={setMoraDraft}
+          handleRefreshMora={handleRefreshMora}
           garantiaDraft={garantiaDraft}
           setGarantiaDraft={setGarantiaDraft}
           handleCreateGarantia={handleCreateGarantia}

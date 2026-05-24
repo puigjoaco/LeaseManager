@@ -14,6 +14,8 @@ param(
 
     [string]$ResponsibleRef = '',
 
+    [string]$ReferenceDate = '',
+
     [string]$DatabaseUrl = '',
 
     [string]$OutputPath = '',
@@ -120,6 +122,18 @@ if ($isAuthorizedSourceKind) {
     Assert-Condition (Test-NonSensitiveReference $WebPayProofRef) 'WebPayProofRef es obligatorio para cierre Etapa 2 y debe ser no sensible.'
     Assert-Condition (Test-NonSensitiveReference $ResponsibleRef) 'ResponsibleRef es obligatorio para cierre Etapa 2 y debe ser no sensible.'
 }
+if (-not [string]::IsNullOrWhiteSpace($ReferenceDate)) {
+    $parsedReferenceDate = [datetime]::MinValue
+    Assert-Condition (
+        [datetime]::TryParseExact(
+            $ReferenceDate.Trim(),
+            'yyyy-MM-dd',
+            [System.Globalization.CultureInfo]::InvariantCulture,
+            [System.Globalization.DateTimeStyles]::None,
+            [ref]$parsedReferenceDate
+        )
+    ) 'ReferenceDate debe usar formato YYYY-MM-DD.'
+}
 if (Test-PathInsideDirectory $resolvedOutput $repoRoot) {
     Assert-Condition (Test-PathInsideDirectory $resolvedOutput $localEvidenceRoot) 'Si el output queda dentro del repo, debe estar bajo local-evidence/ para no versionar auditorias.'
 }
@@ -173,6 +187,9 @@ try {
     }
     if ($RequireReady) {
         $auditArgs += '--fail-on-attention'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ReferenceDate)) {
+        $auditArgs += @('--reference-date', $ReferenceDate.Trim())
     }
 
     & $pythonExe @auditArgs

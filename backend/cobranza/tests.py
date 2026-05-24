@@ -42,7 +42,7 @@ from .models import (
     RepactacionDeuda,
     ValorUFDiario,
 )
-from .services import sync_payment_distribution
+from .services import rebuild_account_state, sync_payment_distribution
 
 
 class CobranzaAPITests(APITestCase):
@@ -182,6 +182,29 @@ class CobranzaAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         return PagoMensual.objects.get(pk=response.data['id'])
+
+    def test_refresh_mora_marks_pending_payment_overdue_and_updates_account_state(self):
+        payment = self._generate_monthly_payment(codigo='CON-MORA-REFRESH')
+        rebuild_account_state(payment.contrato.arrendatario)
+
+        response = self.client.post(
+            reverse('cobranza-pago-refresh-mora'),
+            {'fecha_corte': '2026-01-10'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['reference_date'], '2026-01-10')
+        self.assertEqual(response.data['updated_count'], 1)
+        self.assertEqual(response.data['tenant_count'], 1)
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.OVERDUE)
+        self.assertEqual(payment.dias_mora, 5)
+        account_state = payment.contrato.arrendatario.estado_cuenta
+        account_state.refresh_from_db()
+        self.assertEqual(account_state.resumen_operativo['pagos_abiertos'], 1)
+        self.assertEqual(account_state.resumen_operativo['pagos_atrasados'], 1)
+        self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.overdue_refreshed').exists())
 
     def _create_contract_for_company_and_arrendatario(self, *, empresa, arrendatario, codigo='CON-SHARED', owner_kind='empresa', comunidad=None):
         propietario_socio = None
