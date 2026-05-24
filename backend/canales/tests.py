@@ -23,7 +23,13 @@ from operacion.models import (
 )
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
+from .models import (
+    CanalMensajeria,
+    ConfiguracionNotificacionContrato,
+    EstadoGateCanal,
+    EstadoMensajeSaliente,
+    MensajeSaliente,
+)
 
 
 VALID_DOCUMENT_SHA256 = 'c' * 64
@@ -185,6 +191,16 @@ class CanalesAPITests(APITestCase):
             estado=EstadoIdentidadEnvio.ACTIVE,
         )
 
+    def _enable_channel_for_contract(self, empresa, contrato, canal='email'):
+        identity = self._create_identity(empresa, canal=canal)
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal=canal,
+            identidad_envio=identity,
+            prioridad=1,
+        )
+        return identity
+
     def _create_policy(self, **overrides):
         payload = {
             'tipo_documental': 'contrato_principal',
@@ -204,6 +220,7 @@ class CanalesAPITests(APITestCase):
         client = self.client_class()
         urls = [
             reverse('canales-gate-list'),
+            reverse('canales-notificacion-contrato-list'),
             reverse('canales-mensaje-list'),
             reverse('canales-mensaje-preparar'),
         ]
@@ -264,6 +281,109 @@ class CanalesAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('restricciones_operativas', response.data)
+
+    def test_notification_config_requires_enabled_channel_and_normalizes_days(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-001')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+
+        response = self.client.post(
+            reverse('canales-notificacion-contrato-list'),
+            {
+                'contrato': contrato.pk,
+                'canal': 'email',
+                'dias_notificacion': [5, '1', 3],
+                'activa': True,
+                'evidencia_configuracion_ref': 'notification-cadence-custom-001',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['dias_notificacion'], [1, 3, 5])
+
+    def test_notification_config_rejects_channel_without_active_assignment(self):
+        _, contrato = self._create_contract_context(codigo='NTF-002')
+
+        response = self.client.post(
+            reverse('canales-notificacion-contrato-list'),
+            {
+                'contrato': contrato.pk,
+                'canal': 'email',
+                'dias_notificacion': [1, 3, 5, 10, 15, 20, 25],
+                'activa': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('canal', response.data)
+
+    def test_notification_config_non_base_days_require_non_sensitive_evidence(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-003')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+
+        missing_evidence = self.client.post(
+            reverse('canales-notificacion-contrato-list'),
+            {
+                'contrato': contrato.pk,
+                'canal': 'email',
+                'dias_notificacion': [1, 4, 8],
+                'activa': True,
+            },
+            format='json',
+        )
+        sensitive_evidence = self.client.post(
+            reverse('canales-notificacion-contrato-list'),
+            {
+                'contrato': contrato.pk,
+                'canal': 'email',
+                'dias_notificacion': [1, 4, 8],
+                'activa': True,
+                'evidencia_configuracion_ref': 'https://evidence.example.test/token/secret',
+            },
+            format='json',
+        )
+
+        self.assertEqual(missing_evidence.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(sensitive_evidence.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_configuracion_ref', missing_evidence.data)
+        self.assertIn('evidencia_configuracion_ref', sensitive_evidence.data)
+
+    def test_notification_config_snapshot_redacts_legacy_sensitive_evidence(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-004')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+            evidencia_configuracion_ref='https://evidence.example.test/token/secret',
+        )
+
+        response = self.client.get(reverse('canales-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data['configuraciones_notificacion'][0]['evidencia_configuracion_ref'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertNotIn('evidence.example.test', str(response.data))
+
+    def test_notification_config_blocks_duplicate_active_channel_per_contract(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-005')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payload = {
+            'contrato': contrato.pk,
+            'canal': 'email',
+            'dias_notificacion': [1, 3, 5, 10, 15, 20, 25],
+            'activa': True,
+        }
+
+        first = self.client.post(reverse('canales-notificacion-contrato-list'), payload, format='json')
+        duplicate = self.client.post(reverse('canales-notificacion-contrato-list'), payload, format='json')
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_channel_apis_redact_inherited_sensitive_references(self):
         _, contrato = self._create_contract_context(codigo='CH-API-REDACT')

@@ -39,6 +39,13 @@ condicionados sin envios reales accidentales.
 - Registro manual de envio solo con `external_ref` trazable no sensible y
   revalidacion del gate abierto, identidad activa, destinatario y mandato
   operativo activo.
+- Las notificaciones por cobranza se configuran por contrato y canal
+  habilitado mediante cadencias activas de dias. La base sugerida es
+  `1/3/5/10/15/20/25`; una cadencia distinta requiere referencia no sensible,
+  la API no permite cadencias activas sin asignacion de canal vigente en el
+  mandato, el snapshot redacta evidencia heredada sensible y readiness bloquea
+  contratos vigentes/futuros con canal habilitado sin cadencia activa o con
+  configuraciones invalidas.
 - Mensajes salientes con `DocumentoEmitido` cuya politica documental exige
   firma o notaria solo pueden prepararse o marcarse enviados si el documento
   ya esta `formalizado`.

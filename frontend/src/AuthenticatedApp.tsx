@@ -985,6 +985,15 @@ type MensajeSalienteItem = {
   enviado_at: string | null
 }
 
+type ConfiguracionNotificacionItem = {
+  id: number
+  contrato: number
+  canal: string
+  dias_notificacion: number[]
+  activa: boolean
+  evidencia_configuracion_ref: string
+}
+
 type AuditEventItem = {
   id: number
   actor_user: number | null
@@ -1061,6 +1070,7 @@ type DocumentsSnapshot = {
 type ChannelsSnapshot = {
   gates: CanalMensajeriaItem[]
   mensajes: MensajeSalienteItem[]
+  configuraciones_notificacion: ConfiguracionNotificacionItem[]
   identidades: { id: number; canal: string; remitente_visible: string; direccion_o_numero: string }[]
   contratos: { id: number; codigo_contrato: string }[]
   arrendatarios: { id: number; nombre_razon_social: string }[]
@@ -1309,6 +1319,7 @@ function App() {
   const [documentosEmitidos, setDocumentosEmitidos] = useState<DocumentoEmitidoItem[]>([])
   const [gatesCanales, setGatesCanales] = useState<CanalMensajeriaItem[]>([])
   const [mensajesSalientes, setMensajesSalientes] = useState<MensajeSalienteItem[]>([])
+  const [configuracionesNotificacion, setConfiguracionesNotificacion] = useState<ConfiguracionNotificacionItem[]>([])
   const [avisos, setAvisos] = useState<AvisoTermino[]>([])
   const [valoresUf, setValoresUf] = useState<ValorUF[]>([])
   const [ajustes, setAjustes] = useState<AjusteContrato[]>([])
@@ -1516,6 +1527,13 @@ function App() {
   const [mensajeEnvioDraft, setMensajeEnvioDraft] = useState({
     mensajeId: '',
     external_ref: '',
+  })
+  const [configuracionNotificacionDraft, setConfiguracionNotificacionDraft] = useState({
+    contrato: '',
+    canal: 'email',
+    dias_notificacion_text: '1,3,5,10,15,20,25',
+    activa: true,
+    evidencia_configuracion_ref: '',
   })
   const [avisoDraft, setAvisoDraft] = useState({
     contrato: '',
@@ -1901,6 +1919,7 @@ function App() {
     setDocumentosEmitidos([])
     setGatesCanales([])
     setMensajesSalientes([])
+    setConfiguracionesNotificacion([])
     setAvisos([])
     setValoresUf([])
     setAjustes([])
@@ -2596,6 +2615,7 @@ function App() {
       if (channelsSnapshotPayload) {
         setGatesCanales(channelsSnapshotPayload.gates)
         setMensajesSalientes(channelsSnapshotPayload.mensajes)
+        setConfiguracionesNotificacion(channelsSnapshotPayload.configuraciones_notificacion)
         setIdentidades(channelsSnapshotPayload.identidades as Identidad[])
         setContratos(channelsSnapshotPayload.contratos as Contrato[])
         setArrendatarios(channelsSnapshotPayload.arrendatarios as Arrendatario[])
@@ -4435,6 +4455,42 @@ function App() {
     if (!success) return
   }
 
+  async function handleCreateConfiguracionNotificacion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCanales) return
+    const diasNotificacion = configuracionNotificacionDraft.dias_notificacion_text
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => Number(item))
+    if (!diasNotificacion.length || diasNotificacion.some((item) => !Number.isInteger(item))) {
+      setFormError('Los días de notificación deben ser enteros separados por coma.')
+      return
+    }
+    const success = await submitMutation(
+      '/api/v1/canales/notificaciones-contrato/',
+      'POST',
+      {
+        contrato: Number(configuracionNotificacionDraft.contrato),
+        canal: configuracionNotificacionDraft.canal,
+        dias_notificacion: diasNotificacion,
+        activa: configuracionNotificacionDraft.activa,
+        evidencia_configuracion_ref: configuracionNotificacionDraft.evidencia_configuracion_ref,
+      },
+      'Cadencia de notificaciones creada correctamente.',
+      'canales',
+    )
+    if (success) {
+      setConfiguracionNotificacionDraft({
+        contrato: '',
+        canal: 'email',
+        dias_notificacion_text: '1,3,5,10,15,20,25',
+        activa: true,
+        evidencia_configuracion_ref: '',
+      })
+    }
+  }
+
   async function handlePrepareMensaje(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditCanales) return
@@ -4762,6 +4818,18 @@ function App() {
         matches(normalizedSearch, [item.canal, item.provider_key, item.estado_gate, item.evidencia_ref]),
       ),
     [gatesCanales, normalizedSearch],
+  )
+  const filteredConfiguracionesNotificacion = useMemo(
+    () =>
+      configuracionesNotificacion.filter((item) =>
+        matches(normalizedSearch, [
+          item.canal,
+          item.dias_notificacion.join(','),
+          item.evidencia_configuracion_ref,
+          item.contrato,
+        ]),
+      ),
+    [configuracionesNotificacion, normalizedSearch],
   )
   const filteredMensajesSalientes = useMemo(
     () =>
@@ -5344,6 +5412,9 @@ function App() {
           mensajeEnvioDraft={mensajeEnvioDraft}
           setMensajeEnvioDraft={setMensajeEnvioDraft}
           handleRegistrarEnvioMensaje={handleRegistrarEnvioMensaje}
+          configuracionNotificacionDraft={configuracionNotificacionDraft}
+          setConfiguracionNotificacionDraft={setConfiguracionNotificacionDraft}
+          handleCreateConfiguracionNotificacion={handleCreateConfiguracionNotificacion}
           gatesCanales={gatesCanales}
           identidades={identidades}
           contratos={contratos}
@@ -5351,6 +5422,7 @@ function App() {
           documentosEmitidos={documentosEmitidos}
           mensajesSalientes={mensajesSalientes}
           filteredGatesCanales={filteredGatesCanales}
+          filteredConfiguracionesNotificacion={filteredConfiguracionesNotificacion}
           filteredMensajesSalientes={filteredMensajesSalientes}
           isSubmitting={isSubmitting}
           isLoading={isChannelsSnapshotLoading}

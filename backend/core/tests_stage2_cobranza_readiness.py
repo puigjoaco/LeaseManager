@@ -12,7 +12,13 @@ from django.test import TestCase
 from django.utils import timezone
 
 from audit.models import AuditEvent, ManualResolution
-from canales.models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
+from canales.models import (
+    CanalMensajeria,
+    ConfiguracionNotificacionContrato,
+    EstadoGateCanal,
+    EstadoMensajeSaliente,
+    MensajeSaliente,
+)
 from canales.services import WHATSAPP_FALLBACK_REQUIRED_CATEGORY
 from cobranza.models import (
     CodigoCobroResidual,
@@ -156,6 +162,12 @@ class Stage2CobranzaReadinessTests(TestCase):
             codigo_conciliacion_efectivo='001',
         )
         account_state = rebuild_account_state(tenant)
+        notification_config = ConfiguracionNotificacionContrato.objects.create(
+            contrato=contract,
+            canal=CanalOperacion.EMAIL,
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
         return {
             'socio': socio,
             'empresa': empresa,
@@ -165,6 +177,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             'contract': contract,
             'payment': payment,
             'account_state': account_state,
+            'notification_config': notification_config,
         }
 
     def _create_valid_email_gate(self):
@@ -222,6 +235,36 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertTrue(result['ready_for_stage2_cobranza'])
         self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_missing_notification_config_for_enabled_channel_is_blocking(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        ConfiguracionNotificacionContrato.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.notification_config.missing_for_enabled_channel', issue_codes)
+        self.assertEqual(result['sections']['notification_configs']['required_enabled_contract_channels'], 1)
+        self.assertEqual(result['sections']['notification_configs']['missing_for_enabled_channel'], 1)
+
+    def test_invalid_notification_config_is_blocking_without_leaking_sensitive_refs(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        fixture['notification_config'].evidencia_configuracion_ref = 'https://evidence.example.test/token/secret'
+        fixture['notification_config'].save(update_fields=['evidencia_configuracion_ref', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.notification_config.invalid_model', issue_codes)
+        self.assertIn('stage2.notification_config.sensitive_reference', issue_codes)
+        self.assertEqual(result['sections']['notification_configs']['sensitive_reference'], 1)
+        self.assertNotIn('evidence.example.test', json.dumps(result))
 
     def test_missing_account_state_for_active_billing_tenant_is_blocking(self):
         self._create_payment_matrix()

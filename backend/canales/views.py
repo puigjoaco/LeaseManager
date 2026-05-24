@@ -11,10 +11,11 @@ from documentos.scope import scope_documento_queryset
 from documentos.models import DocumentoEmitido
 from operacion.models import IdentidadDeEnvio
 
-from .models import CanalMensajeria, MensajeSaliente
+from .models import CanalMensajeria, ConfiguracionNotificacionContrato, MensajeSaliente
 from .scope import scope_mensaje_queryset
 from .serializers import (
     CanalMensajeriaSerializer,
+    ConfiguracionNotificacionContratoSerializer,
     MensajePrepararSerializer,
     MensajeRegistrarEnvioSerializer,
     MensajeSalienteSerializer,
@@ -46,6 +47,8 @@ class AuditCreateUpdateMixin:
             return instance.estado_gate
         if hasattr(instance, 'estado'):
             return instance.estado
+        if hasattr(instance, 'activa'):
+            return instance.activa
         return None
 
     def _create_audit_event(self, *, instance, action, summary=''):
@@ -111,6 +114,28 @@ class ChannelsSnapshotView(APIView):
                     }
                     for item in scope_mensaje_queryset(MensajeSaliente.objects.all().order_by('-id'), request.user)
                 ],
+                'configuraciones_notificacion': [
+                    {
+                        'id': item.id,
+                        'contrato': item.contrato_id,
+                        'canal': item.canal,
+                        'dias_notificacion': item.dias_notificacion,
+                        'activa': item.activa,
+                        'evidencia_configuracion_ref': redact_sensitive_reference(
+                            item.evidencia_configuracion_ref
+                        ),
+                    }
+                    for item in scope_queryset_for_user(
+                        ConfiguracionNotificacionContrato.objects.select_related('contrato').order_by(
+                            'contrato__codigo_contrato',
+                            'canal',
+                            'id',
+                        ),
+                        request.user,
+                        property_paths=('contrato__mandato_operacion__propiedad_id',),
+                        bank_account_paths=('contrato__mandato_operacion__cuenta_recaudadora_id',),
+                    )
+                ],
                 'identidades': [
                     {
                         'id': item.id,
@@ -160,6 +185,44 @@ class CanalMensajeriaDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateA
     queryset = CanalMensajeria.objects.all()
     audit_entity_type = 'canal_mensajeria'
     audit_entity_label = 'canal de mensajeria'
+
+
+class ConfiguracionNotificacionContratoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [AdminOnlyPermission]
+    serializer_class = ConfiguracionNotificacionContratoSerializer
+    queryset = ConfiguracionNotificacionContrato.objects.select_related('contrato').all()
+    audit_entity_type = 'configuracion_notificacion_contrato'
+    audit_entity_label = 'configuracion de notificacion de contrato'
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), 'request': self.request}
+
+    def get_queryset(self):
+        return scope_queryset_for_user(
+            super().get_queryset(),
+            self.request.user,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+            bank_account_paths=('contrato__mandato_operacion__cuenta_recaudadora_id',),
+        )
+
+
+class ConfiguracionNotificacionContratoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [AdminOnlyPermission]
+    serializer_class = ConfiguracionNotificacionContratoSerializer
+    queryset = ConfiguracionNotificacionContrato.objects.select_related('contrato').all()
+    audit_entity_type = 'configuracion_notificacion_contrato'
+    audit_entity_label = 'configuracion de notificacion de contrato'
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), 'request': self.request}
+
+    def get_queryset(self):
+        return scope_queryset_for_user(
+            super().get_queryset(),
+            self.request.user,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+            bank_account_paths=('contrato__mandato_operacion__cuenta_recaudadora_id',),
+        )
 
 
 class MensajeSalienteListView(generics.ListAPIView):
