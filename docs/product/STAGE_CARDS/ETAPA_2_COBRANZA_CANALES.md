@@ -25,6 +25,10 @@ condicionados sin envios reales accidentales.
 - Codigos residuales existentes deben usar formato canonico `CCR-XXXXXX` con
   caracteres mayusculos no ambiguos; la readiness debe bloquear snapshots que
   conserven referencias fuera de formato.
+- Estados de cuenta existentes deben estar recalculados contra pagos abiertos,
+  repactaciones activas y codigos residuales activos; la readiness debe
+  bloquear snapshots con arrendatarios cobrables sin estado o con resumen
+  operativo desactualizado.
 - Envio externo cerrado por defecto.
 - Prueba aislada de correos/WebPay con referencias no sensibles.
 - Evidencia de auditoria por operacion critica.
@@ -54,8 +58,9 @@ condicionados sin envios reales accidentales.
   `return_url_ref`, `provider_payload` y `storage_ref` documental expuesto por
   snapshot de Canales, sin abrir integraciones externas.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
-  identidades/asignaciones de canal, gates Email/WhatsApp/WebPay, mensajes
-  enviados/preparados e intentos WebPay, incluyendo deteccion de
+  estados de cuenta, identidades/asignaciones de canal, gates
+  Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,
+  incluyendo deteccion de
   refs sensibles en gates, `external_ref` o `return_url_ref` sensible, sin
   enviar mensajes ni conectar proveedores externos. Para cierre debe ejecutarse
   con `--source-kind

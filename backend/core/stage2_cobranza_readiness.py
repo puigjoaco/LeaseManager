@@ -18,6 +18,7 @@ from canales.services import (
 )
 from cobranza.models import (
     CodigoCobroResidual,
+    EstadoCuentaArrendatario,
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
     GateCobroExterno,
@@ -25,6 +26,7 @@ from cobranza.models import (
     PagoMensual,
     RepactacionDeuda,
 )
+from cobranza.services import build_account_state_summary
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from operacion.models import (
     AsignacionCanalOperacion,
@@ -143,6 +145,34 @@ def _collect_webpay_intent_issues(intents) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _collect_account_state_issues(account_states, required_tenant_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    existing_tenant_ids: set[int] = set()
+    for state in account_states:
+        existing_tenant_ids.add(state.arrendatario_id)
+        try:
+            state.full_clean()
+        except ValidationError:
+            counts['invalid_model'] += 1
+
+        summary = state.resumen_operativo
+        if not isinstance(summary, dict):
+            counts['invalid_summary_shape'] += 1
+            continue
+
+        expected = build_account_state_summary(state.arrendatario)
+        missing_keys = set(expected) - set(summary)
+        if missing_keys:
+            counts['missing_summary_keys'] += 1
+            continue
+
+        if any(str(summary.get(key)) != str(expected_value) for key, expected_value in expected.items()):
+            counts['stale_summary'] += 1
+
+    counts['missing_for_active_tenant'] = len(required_tenant_ids - existing_tenant_ids)
+    return dict(sorted(counts.items()))
+
+
 def collect_stage2_cobranza_readiness(
     *,
     stage1_evidence_ref: str = '',
@@ -213,11 +243,23 @@ def collect_stage2_cobranza_readiness(
     webpay_intent_issues = _collect_webpay_intent_issues(webpay_intents)
     invalid_webpay_intents = webpay_intent_issues.get('invalid_model', 0)
 
-    payments_total = PagoMensual.objects.count()
+    payments = PagoMensual.objects.select_related('contrato__arrendatario')
+    payments_total = payments.count()
     repayments = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen')
     invalid_repayments = _count_invalid(repayments)
     residual_codes = CodigoCobroResidual.objects.select_related('arrendatario', 'contrato_origen')
     invalid_residual_codes = _count_invalid(residual_codes)
+    account_state_required_tenant_ids = {
+        tenant_id
+        for tenant_id in [
+            *payments.values_list('contrato__arrendatario_id', flat=True),
+            *repayments.values_list('arrendatario_id', flat=True),
+            *residual_codes.values_list('arrendatario_id', flat=True),
+        ]
+        if tenant_id
+    }
+    account_states = EstadoCuentaArrendatario.objects.select_related('arrendatario')
+    account_state_issues = _collect_account_state_issues(account_states, account_state_required_tenant_ids)
     final_evidence = {
         'stage1_evidence_ref': _non_sensitive_reference(stage1_evidence_ref),
         'email_proof_ref': _non_sensitive_reference(email_proof_ref),
@@ -274,6 +316,46 @@ def collect_stage2_cobranza_readiness(
                 'stage2.residual_code.invalid_model',
                 'Existen codigos de cobro residual que no pasan validacion de dominio.',
                 count=invalid_residual_codes,
+            )
+        )
+    if account_state_issues.get('missing_for_active_tenant'):
+        issues.append(
+            _issue(
+                'stage2.account_state.missing',
+                'Existen arrendatarios con cobranza activa sin estado de cuenta recalculado.',
+                count=account_state_issues['missing_for_active_tenant'],
+            )
+        )
+    if account_state_issues.get('stale_summary'):
+        issues.append(
+            _issue(
+                'stage2.account_state.stale_summary',
+                'Existen estados de cuenta cuyo resumen no coincide con pagos, repactaciones y codigos residuales.',
+                count=account_state_issues['stale_summary'],
+            )
+        )
+    if account_state_issues.get('missing_summary_keys'):
+        issues.append(
+            _issue(
+                'stage2.account_state.missing_summary_keys',
+                'Existen estados de cuenta con resumen operativo incompleto.',
+                count=account_state_issues['missing_summary_keys'],
+            )
+        )
+    if account_state_issues.get('invalid_summary_shape'):
+        issues.append(
+            _issue(
+                'stage2.account_state.invalid_summary_shape',
+                'Existen estados de cuenta con resumen operativo no estructurado.',
+                count=account_state_issues['invalid_summary_shape'],
+            )
+        )
+    if account_state_issues.get('invalid_model'):
+        issues.append(
+            _issue(
+                'stage2.account_state.invalid_model',
+                'Existen estados de cuenta que no pasan validacion de dominio.',
+                count=account_state_issues['invalid_model'],
             )
         )
     if valid_email_open_gates <= 0:
@@ -480,6 +562,11 @@ def collect_stage2_cobranza_readiness(
         'sections': {
             'payments': {
                 'total': payments_total,
+            },
+            'account_states': {
+                'total': account_states.count(),
+                'required_tenants': len(account_state_required_tenant_ids),
+                **account_state_issues,
             },
             'repayments': {
                 'total': repayments.count(),
