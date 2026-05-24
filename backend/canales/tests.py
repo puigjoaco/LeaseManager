@@ -918,6 +918,69 @@ class CanalesAPITests(APITestCase):
         self.assertIn('prueba aislada', response.data['detail'].lower())
         self.assertEqual(MensajeSaliente.objects.get(pk=prepared.data['id']).estado, EstadoMensajeSaliente.PREPARED)
 
+    def test_prepare_message_rejects_document_requiring_formalization(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-DOCUNFORM')
+        gate = self._create_gate(canal='email')
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        self._create_policy()
+
+        expediente = self.client.post(
+            reverse('documentos-expediente-list'),
+            {
+                'entidad_tipo': 'contrato',
+                'entidad_id': str(contrato.id),
+                'estado': 'abierto',
+                'owner_operativo': f'mandato:{contrato.mandato_operacion.id}',
+            },
+            format='json',
+        )
+        self.assertEqual(expediente.status_code, status.HTTP_201_CREATED)
+
+        documento = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente.data['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v1',
+                'checksum': VALID_DOCUMENT_SHA256,
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'emitido',
+                'storage_ref': 'storage/docs/unformalized-contract.pdf',
+                'firma_arrendador_registrada': True,
+                'firma_arrendatario_registrada': True,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+            },
+            format='json',
+        )
+        self.assertEqual(documento.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'documento_emitido': documento.data['id'],
+                'asunto': 'Contrato sin formalizar',
+                'cuerpo': 'No debe salir por canales.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('documento_emitido', response.data)
+        self.assertFalse(MensajeSaliente.objects.exists())
+
     def test_formalized_document_can_be_prepared_and_sent_via_channel_workflow(self):
         empresa, contrato = self._create_contract_context(codigo='CH-DOCSEND')
         gate = self._create_gate(canal='email')
