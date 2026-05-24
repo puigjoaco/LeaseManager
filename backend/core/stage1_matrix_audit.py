@@ -964,6 +964,33 @@ def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Con
             message='Contrato vigente o futuro requiere al menos un contacto de pago activo estructurado.',
         )
 
+    if tenant.tipo_arrendatario == TipoArrendatario.NATURAL and contrato.politica_documental_id:
+        policy = contrato.politica_documental
+        if policy.requiere_nacionalidad_arrendatario and not (tenant.nacionalidad or '').strip():
+            _issue(
+                issues,
+                code='stage1.arrendatario.nacionalidad_documental_faltante',
+                entity='Arrendatario',
+                entity_id=tenant.pk,
+                message='La politica documental del contrato exige nacionalidad del arrendatario persona natural.',
+            )
+        if policy.requiere_estado_civil_arrendatario and not tenant.estado_civil:
+            _issue(
+                issues,
+                code='stage1.arrendatario.estado_civil_documental_faltante',
+                entity='Arrendatario',
+                entity_id=tenant.pk,
+                message='La politica documental del contrato exige estado civil del arrendatario persona natural.',
+            )
+        if policy.requiere_profesion_arrendatario and not (tenant.profesion or '').strip():
+            _issue(
+                issues,
+                code='stage1.arrendatario.profesion_documental_faltante',
+                entity='Arrendatario',
+                entity_id=tenant.pk,
+                message='La politica documental del contrato exige profesion del arrendatario persona natural.',
+            )
+
     if tenant.tipo_arrendatario == TipoArrendatario.COMPANY:
         representative_snapshot = contrato.snapshot_representante_legal or {}
         if not representative_snapshot:

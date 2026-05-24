@@ -19,7 +19,22 @@ class DocumentoEmitidoAdmin(admin.ModelAdmin):
 
 @admin.register(PoliticaFirmaYNotaria)
 class PoliticaFirmaYNotariaAdmin(admin.ModelAdmin):
-    list_display = ('tipo_documental', 'modo_firma_permitido', 'requiere_notaria', 'estado')
-    list_filter = ('estado', 'requiere_notaria', 'modo_firma_permitido')
+    list_display = (
+        'tipo_documental',
+        'modo_firma_permitido',
+        'requiere_notaria',
+        'requiere_nacionalidad_arrendatario',
+        'requiere_estado_civil_arrendatario',
+        'requiere_profesion_arrendatario',
+        'estado',
+    )
+    list_filter = (
+        'estado',
+        'requiere_notaria',
+        'requiere_nacionalidad_arrendatario',
+        'requiere_estado_civil_arrendatario',
+        'requiere_profesion_arrendatario',
+        'modo_firma_permitido',
+    )
     search_fields = ('tipo_documental',)
 

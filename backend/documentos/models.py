@@ -93,6 +93,9 @@ class PoliticaFirmaYNotaria(TimestampedModel):
     requiere_firma_arrendador = models.BooleanField(default=False)
     requiere_firma_arrendatario = models.BooleanField(default=False)
     requiere_codeudor = models.BooleanField(default=False)
+    requiere_nacionalidad_arrendatario = models.BooleanField(default=False)
+    requiere_estado_civil_arrendatario = models.BooleanField(default=False)
+    requiere_profesion_arrendatario = models.BooleanField(default=False)
     requiere_notaria = models.BooleanField(default=False)
     modo_firma_permitido = models.CharField(
         max_length=32,
@@ -114,6 +117,16 @@ class PoliticaFirmaYNotaria(TimestampedModel):
                 raise ValidationError(
                     'El ContratoPrincipal requiere firma de arrendador y arrendatario.'
                 )
+            return
+
+        if (
+            self.requiere_nacionalidad_arrendatario
+            or self.requiere_estado_civil_arrendatario
+            or self.requiere_profesion_arrendatario
+        ):
+            raise ValidationError(
+                'Los requisitos documentales del arrendatario persona natural solo aplican al contrato principal.'
+            )
 
 
 class DocumentoEmitido(TimestampedModel):

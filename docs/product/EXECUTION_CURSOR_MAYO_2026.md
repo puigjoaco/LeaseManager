@@ -23,14 +23,14 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 1 - Politica documental contractual. |
-| Fuente exacta | PR #183 `Require contract document policy`, merge `25df08a`, desde `01_Set_Vigente/PRD_CANONICO.md` linea 410. |
-| Brecha activa | Cerrada localmente: `Contrato.politica_documental` referencia `PoliticaFirmaYNotaria` activa de tipo `contrato_principal`; API, snapshot, backoffice y auditor Etapa 1 quedan cubiertos. |
-| Motivo de prioridad | El paquete ya fue integrado sin usar secretos, `.env`, DB historica, snapshot ni integracion externa. |
-| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
-| Rama | `main` sincronizada; sin rama tactica activa. |
-| Estado | PR #183 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
-| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
+| Frente activo | Etapa 1 - Perfil documental de arrendatario persona natural. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` linea 398: persona natural requiere nacionalidad, estado civil y profesion cuando el documento lo requiera. |
+| Brecha activa | `PoliticaFirmaYNotaria` no puede declarar que un contrato principal exige perfil documental de persona natural, y `Contrato`/API/auditor Etapa 1 no validan nacionalidad, estado civil ni profesion del arrendatario persona natural. |
+| Motivo de prioridad | Brecha local de Contratos/Documentos trazable al PRD; no requiere `.env`, secretos, DB historica, datos reales, backfills, deploys ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-natural-tenant-document-profile`. |
+| Rama | `codex/stage1-natural-tenant-document-profile`. |
+| Estado | Validado localmente; listo para PR/CI/merge. |
+| Gate esperado | Completado local: focales de Contratos/Documentos/auditor, suite impactada `contratos documentos core.tests_stage1_matrix_audit`, `manage.py check`, `makemigrations --check --dry-run`, readiness local Etapa 1, `npm ci`, `npm run build`, acceptance local, higiene y `git diff --check`. |
 | Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 1 sin fuente `snapshot_controlado` o `real_autorizado`. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |

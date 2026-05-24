@@ -47,12 +47,17 @@ class ContratosAPITests(APITestCase):
         *,
         tipo_documental=TipoDocumental.MAIN_CONTRACT,
         estado=EstadoPoliticaFirma.ACTIVE,
+        **overrides,
     ):
+        payload = {
+            'tipo_documental': tipo_documental,
+            'requiere_firma_arrendador': tipo_documental == TipoDocumental.MAIN_CONTRACT,
+            'requiere_firma_arrendatario': tipo_documental == TipoDocumental.MAIN_CONTRACT,
+            'estado': estado,
+        }
+        payload.update(overrides)
         return PoliticaFirmaYNotaria.objects.create(
-            tipo_documental=tipo_documental,
-            requiere_firma_arrendador=tipo_documental == TipoDocumental.MAIN_CONTRACT,
-            requiere_firma_arrendatario=tipo_documental == TipoDocumental.MAIN_CONTRACT,
-            estado=estado,
+            **payload,
         )
 
     def _create_socio(self, nombre, rut, activo=True):
@@ -123,6 +128,20 @@ class ContratosAPITests(APITestCase):
             telefono='999',
             domicilio_notificaciones='Notificaciones 123',
             estado_contacto='activo',
+        )
+
+    def _create_document_ready_arrendatario(self, rut='12345671-8'):
+        return Arrendatario.objects.create(
+            tipo_arrendatario='persona_natural',
+            nombre_razon_social='Arrendatario Documental',
+            rut=rut,
+            email='tenant-doc@example.com',
+            telefono='999',
+            domicilio_notificaciones='Notificaciones 456',
+            estado_contacto='activo',
+            nacionalidad='chilena',
+            estado_civil='soltero',
+            profesion='arquitecto',
         )
 
     def _create_active_identity(self, empresa, *, direccion='contrato-override@example.com'):
@@ -449,6 +468,54 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('politica_documental', response.data)
         self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-POL-INACT').exists())
+
+    def test_create_active_natural_contract_requires_document_profile_when_policy_demands_it(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-POL-PROFILE', owner_rut='11111110-3')
+        arrendatario = self._create_arrendatario(rut='12345674-2')
+        self.contract_policy.requiere_nacionalidad_arrendatario = True
+        self.contract_policy.requiere_estado_civil_arrendatario = True
+        self.contract_policy.requiere_profesion_arrendatario = True
+        self.contract_policy.save(
+            update_fields=[
+                'requiere_nacionalidad_arrendatario',
+                'requiere_estado_civil_arrendatario',
+                'requiere_profesion_arrendatario',
+                'updated_at',
+            ]
+        )
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-POL-PROFILE')
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('arrendatario', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-POL-PROFILE').exists())
+
+    def test_create_active_natural_contract_accepts_required_document_profile(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-POL-PROFILE-OK', owner_rut='11111109-K')
+        arrendatario = self._create_document_ready_arrendatario(rut='12345673-4')
+        self.contract_policy.requiere_nacionalidad_arrendatario = True
+        self.contract_policy.requiere_estado_civil_arrendatario = True
+        self.contract_policy.requiere_profesion_arrendatario = True
+        self.contract_policy.save(
+            update_fields=[
+                'requiere_nacionalidad_arrendatario',
+                'requiere_estado_civil_arrendatario',
+                'requiere_profesion_arrendatario',
+                'updated_at',
+            ]
+        )
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-POL-PROFILE-OK')
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        snapshot_response = self.client.get(reverse('contratos-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        tenant_snapshot = snapshot_response.data['arrendatarios'][0]
+        self.assertEqual(tenant_snapshot['nacionalidad'], 'chilena')
+        self.assertEqual(tenant_snapshot['estado_civil'], 'soltero')
+        self.assertEqual(tenant_snapshot['profesion'], 'arquitecto')
 
     def test_contract_snapshot_exposes_document_policy(self):
         mandato = self._create_active_mandato(codigo='MAND-101-POL-SNAP', owner_rut='11111110-3')
