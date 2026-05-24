@@ -548,6 +548,28 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('estado', formalize.data)
 
+    def test_draft_document_cannot_be_formalized(self):
+        expediente = self._create_expediente(entidad_id='4F')
+        self._create_politica()
+        documento = self._create_documento(
+            expediente['id'],
+            estado='borrador',
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {},
+            format='json',
+        )
+
+        self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', formalize.data)
+        stored = DocumentoEmitido.objects.get(pk=documento['id'])
+        self.assertEqual(stored.estado, EstadoDocumento.DRAFT)
+        self.assertFalse(AuditEvent.objects.filter(event_type='documentos.documento_emitido.formalized').exists())
+
     def test_codeudor_signature_is_enforced_by_policy(self):
         expediente = self._create_expediente(entidad_id='5')
         self._create_politica(requiere_codeudor=True)
