@@ -211,6 +211,9 @@ class ResolveUnknownIncomeView(APIView):
             result = resolve_unknown_income_manual_resolution(
                 resolution=resolution,
                 payment=serializer.context['pago_mensual'],
+                periodo_economico=serializer.validated_data['periodo_economico'],
+                criterio_aplicado=serializer.validated_data['criterio_aplicado'],
+                evidencia_regularizacion_ref=serializer.validated_data['evidencia_regularizacion_ref'],
                 rationale=serializer.validated_data.get('rationale', ''),
                 actor_user=request.user,
                 ip_address=request.META.get('REMOTE_ADDR'),

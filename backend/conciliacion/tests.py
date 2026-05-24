@@ -218,6 +218,17 @@ class ConciliacionAPITests(APITestCase):
         payload.update(overrides)
         return payload
 
+    def _unknown_income_resolution_payload(self, pago, **overrides):
+        payload = {
+            'pago_mensual_id': pago.pk,
+            'periodo_economico': f'{pago.anio:04d}-{pago.mes:02d}',
+            'criterio_aplicado': 'Asignacion manual contra saldo pendiente exacto del pago mensual.',
+            'evidencia_regularizacion_ref': 'unknown-income-resolution-2026-01',
+            'rationale': 'Regularizado manualmente contra el pago correcto.',
+        }
+        payload.update(overrides)
+        return payload
+
     def test_auth_is_required_for_conciliacion_endpoints(self):
         client = self.client_class()
         urls = [
@@ -924,10 +935,11 @@ class ConciliacionAPITests(APITestCase):
 
         resolve = self.client.post(
             reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
-            {
-                'pago_mensual_id': pago.pk,
-                'rationale': 'Regularizado manualmente contra el pago correcto.',
-            },
+            self._unknown_income_resolution_payload(
+                pago,
+                criterio_aplicado='Saldo pendiente exacto validado contra movimiento bancario.',
+                evidencia_regularizacion_ref='unknown-income-payment-match-2026-01',
+            ),
             format='json',
         )
         self.assertEqual(resolve.status_code, status.HTTP_200_OK)
@@ -945,6 +957,9 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(resolution.status, 'resolved')
         self.assertEqual(resolution.rationale, 'Regularizado manualmente contra el pago correcto.')
         self.assertEqual(resolution.metadata['resolved_payment_id'], pago.pk)
+        self.assertEqual(resolution.metadata['periodo_economico'], '2026-01')
+        self.assertEqual(resolution.metadata['criterio_aplicado'], 'Saldo pendiente exacto validado contra movimiento bancario.')
+        self.assertEqual(resolution.metadata['evidencia_regularizacion_ref'], 'unknown-income-payment-match-2026-01')
 
     def test_manual_resolution_unknown_income_requires_rationale(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-REASON', amount='100111.00')
@@ -969,10 +984,7 @@ class ConciliacionAPITests(APITestCase):
 
         resolve = self.client.post(
             reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
-            {
-                'pago_mensual_id': pago.pk,
-                'rationale': '',
-            },
+            self._unknown_income_resolution_payload(pago, rationale=''),
             format='json',
         )
         self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
@@ -983,6 +995,88 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
         self.assertEqual(resolution.status, 'open')
         self.assertEqual(resolution.rationale, '')
+
+    def test_manual_resolution_unknown_income_requires_resolution_context(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-CONTEXT', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                monto='777777.00',
+                descripcion_origen='Abono sin contexto de regularizacion',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        pago.monto_calculado_clp = '777777.00'
+        pago.save(update_fields=['monto_calculado_clp'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
+            {
+                'pago_mensual_id': pago.pk,
+                'rationale': 'Regularizacion revisada por administracion.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('periodo_economico', resolve.data)
+        self.assertIn('criterio_aplicado', resolve.data)
+        self.assertIn('evidencia_regularizacion_ref', resolve.data)
+
+        movimiento.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        self.assertEqual(resolution.status, 'open')
+
+    def test_manual_resolution_unknown_income_rejects_sensitive_resolution_evidence(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-SENSITIVE', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                monto='777777.00',
+                descripcion_origen='Abono con evidencia sensible',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        pago.monto_calculado_clp = '777777.00'
+        pago.save(update_fields=['monto_calculado_clp'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
+            self._unknown_income_resolution_payload(
+                pago,
+                evidencia_regularizacion_ref='https://bank.example.test/income?token=secret',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_regularizacion_ref', resolve.data)
+
+        movimiento.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        self.assertEqual(resolution.status, 'open')
 
     def test_manual_resolution_adds_unknown_income_to_existing_partial_payment(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-PARTIAL', amount='777777.00')
@@ -1009,10 +1103,7 @@ class ConciliacionAPITests(APITestCase):
 
         resolve = self.client.post(
             reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
-            {
-                'pago_mensual_id': pago.pk,
-                'rationale': 'Regularizado contra saldo pendiente parcial.',
-            },
+            self._unknown_income_resolution_payload(pago, rationale='Regularizado contra saldo pendiente parcial.'),
             format='json',
         )
         self.assertEqual(resolve.status_code, status.HTTP_200_OK)
@@ -1050,10 +1141,7 @@ class ConciliacionAPITests(APITestCase):
 
         resolve = self.client.post(
             reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
-            {
-                'pago_mensual_id': pago.pk,
-                'rationale': 'Intento invalido por diferencia de monto.',
-            },
+            self._unknown_income_resolution_payload(pago, rationale='Intento invalido por diferencia de monto.'),
             format='json',
         )
         self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
