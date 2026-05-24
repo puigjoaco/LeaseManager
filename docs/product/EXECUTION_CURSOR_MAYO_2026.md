@@ -23,18 +23,18 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 - Politica documental contractual. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` linea 410. |
-| Brecha activa | Un contrato debe registrar politica documental; hoy la politica existe en Documentos, pero Contratos no la referencia ni Etapa 1 la audita. |
-| Motivo de prioridad | Es una regla local de Contratos/Documentos/Etapa 1; no requiere secretos, `.env`, DB historica, snapshot ni integracion externa. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-contract-document-policy` |
-| Rama | `codex/stage1-contract-document-policy` |
-| Estado | Implementado y validado localmente; pendiente cierre operativo con commit, PR, CI, merge y limpieza. |
-| Gate esperado | Tests focales de API/modelo/auditor, suite impactada Contratos/Documentos/Etapa 1, `manage.py check`, `makemigrations --check --dry-run`, readiness local Etapa 1, build frontend si aplica, higiene repo y `git diff --check`. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 1 - Politica documental contractual. |
+| Fuente exacta | PR #183 `Require contract document policy`, merge `25df08a`, desde `01_Set_Vigente/PRD_CANONICO.md` linea 410. |
+| Brecha activa | Cerrada localmente: `Contrato.politica_documental` referencia `PoliticaFirmaYNotaria` activa de tipo `contrato_principal`; API, snapshot, backoffice y auditor Etapa 1 quedan cubiertos. |
+| Motivo de prioridad | El paquete ya fue integrado sin usar secretos, `.env`, DB historica, snapshot ni integracion externa. |
+| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
+| Rama | `main` sincronizada; sin rama tactica activa. |
+| Estado | PR #183 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
+| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
 | Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 1 sin fuente `snapshot_controlado` o `real_autorizado`. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Cerrar el paquete de politica documental contractual con PR/CI/merge/limpieza y luego actualizar cursor desde `main`. |
+| Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
 
 ## Actualizacion
 
