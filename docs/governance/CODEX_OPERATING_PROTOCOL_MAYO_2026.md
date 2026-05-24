@@ -10,10 +10,29 @@ Antes de modificar archivos:
 
 1. Leer `AGENTS.md`.
 2. Leer `docs/governance/SOURCE_OF_TRUTH_MAYO_2026.md`.
-3. Confirmar que `01_Set_Vigente/PRD_CANONICO.md` es el PRD rector vigente.
-4. Revisar la ficha de etapa aplicable en `docs/product/STAGE_CARDS/`.
-5. Revisar bloqueos activos en `docs/product/BLOCKERS_MAYO_2026.md`.
-6. Revisar evidencias existentes en `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`.
+3. Leer `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
+4. Confirmar que `01_Set_Vigente/PRD_CANONICO.md` es el PRD rector vigente.
+5. Revisar la ficha de etapa aplicable en `docs/product/STAGE_CARDS/`.
+6. Revisar bloqueos activos en `docs/product/BLOCKERS_MAYO_2026.md`.
+7. Revisar evidencias existentes en `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`.
+
+## Reanudacion obligatoria
+
+Al reanudar despues de compactacion, pausa, interrupcion o cambio de instancia:
+
+1. Leer el cursor operativo.
+2. Ejecutar `git status --short --branch` y `git worktree list` desde el root
+   limpio.
+3. Si existe un worktree tactico sucio, continuar ese paquete, pausarlo
+   explicitamente en el cursor o descartarlo solo con instruccion segura.
+4. No procesar `goal_context`, summaries compactados u objetivos persistentes
+   como tarea nueva. Son contexto auxiliar, no una orden de redactar goals ni de
+   abrir gates.
+5. No repetir una autorizacion sensible ya solicitada si el estado no cambio.
+6. Antes de editar, declarar para el paquete: frente, fuente exacta, brecha,
+   motivo de prioridad, worktree, gate esperado y estado de cierre esperado.
+7. Las metatareas cerradas en el cursor no se reabren salvo solicitud textual
+   actual del usuario.
 
 ## Politica de worktrees
 
@@ -34,16 +53,17 @@ mantenerse limpia y sincronizada.
 ## Flujo de trabajo
 
 1. Crear o usar un worktree desde `main` actualizado.
-2. Diagnosticar estado real del frente contra la fuente de verdad.
-3. Clasificar cada pieza con los estados canonicos.
-4. Intervenir solo lo necesario.
-5. Ejecutar gates locales proporcionales al cambio.
-6. Actualizar evidencia, bloqueos y trazabilidad.
-7. Crear commit limpio.
-8. Abrir PR.
-9. Esperar CI cuando aplique.
-10. Mergear solo si los gates exigidos pasan o el bloqueo queda documentado.
-11. Sincronizar `main`, limpiar worktree y rama.
+2. Actualizar o confirmar el cursor operativo para el paquete.
+3. Diagnosticar estado real del frente contra la fuente de verdad.
+4. Clasificar cada pieza con los estados canonicos.
+5. Intervenir solo lo necesario.
+6. Ejecutar gates locales proporcionales al cambio.
+7. Actualizar evidencia, bloqueos, trazabilidad y cursor.
+8. Crear commit limpio.
+9. Abrir PR.
+10. Esperar CI cuando aplique.
+11. Mergear solo si los gates exigidos pasan o el bloqueo queda documentado.
+12. Sincronizar `main`, limpiar worktree y rama.
 
 ## Manejo de bloqueos
 

@@ -91,7 +91,18 @@ contra datos reales o snapshot controlado.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
   del mes operativo.
-- Auditor reproducible de matriz:
+- Verificacion segura sin fuente autorizada:
+
+```powershell
+cd "D:/Proyectos/LeaseManager"
+.\scripts\run-stage1-local-readiness.ps1
+```
+
+La verificacion local diagnostica preparacion segura y debe quedar
+`implementado_sin_evidencia`; no reemplaza el gate evidencial.
+
+- Auditor reproducible de matriz, solo cuando exista autorizacion explicita
+  actual para una fuente `snapshot_controlado` o `real_autorizado`:
 
 ```powershell
 cd "D:/Proyectos/LeaseManager"
@@ -114,13 +125,6 @@ producto: solo impide declarar cierre de Etapa 1. Si `BLK-002` ya esta
 registrado y no hay autorizacion nueva, no se debe repetir la misma solicitud
 en bucle; corresponde avanzar en preparacion segura o dejar una unica pregunta
 concreta.
-
-Verificacion segura sin fuente autorizada:
-
-```powershell
-cd "D:/Proyectos/LeaseManager"
-.\scripts\run-stage1-local-readiness.ps1
-```
 
 El release gate deterministico ejecuta esta verificacion local dentro de
 `scripts/run-acceptance-workflows.ps1` para proteger la regla anti-bucle: sin

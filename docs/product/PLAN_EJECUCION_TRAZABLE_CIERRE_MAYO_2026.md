@@ -57,17 +57,38 @@ detenerse con una unica pregunta concreta si no queda trabajo seguro.
 
 ## Metodo de ejecucion
 
-1. Leer fuente de verdad y ficha de etapa.
-2. Mapear documentos, codigo, schema, migraciones, datos, integraciones,
+1. Leer fuente de verdad, cursor operativo y ficha de etapa.
+2. Confirmar `git status --short --branch` y `git worktree list`.
+3. Si existe worktree tactico sucio, terminarlo, pausarlo en el cursor o
+   descartarlo con instruccion segura antes de abrir otro frente.
+4. Mapear documentos, codigo, schema, migraciones, datos, integraciones,
    pruebas, gates y evidencia.
-3. Comparar contra arquitectura y PRD vigente.
-4. Registrar brechas en trazabilidad o bloqueos.
-5. Priorizar por dependencia, riesgo financiero/tributario y seguridad.
-6. Implementar cambios acotados en worktree cuando corresponda.
-7. Ejecutar gates locales.
-8. Actualizar evidencia.
-9. Abrir PR y esperar CI si aplica.
-10. Mergear, limpiar worktree y continuar con la siguiente brecha.
+5. Comparar contra arquitectura y PRD vigente.
+6. Registrar brechas en trazabilidad, bloqueos o cursor.
+7. Priorizar por dependencia, riesgo financiero/tributario y seguridad.
+8. Implementar cambios acotados en worktree cuando corresponda.
+9. Ejecutar gates locales.
+10. Actualizar evidencia, trazabilidad, bloqueos y cursor.
+11. Abrir PR y esperar CI si aplica.
+12. Mergear, limpiar worktree y continuar con la siguiente brecha.
+
+## Seleccion del siguiente paquete
+
+El siguiente paquete no se elige desde un `goal_context` ni desde una
+conversacion historica. Se elige en este orden:
+
+1. Worktree tactico sucio o paquete ya iniciado.
+2. Frente activo registrado en `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
+3. Etapa mas baja del orden de construccion con brecha local explicita,
+   verificable y no dependiente de secretos o datos reales.
+4. Preparacion segura de una etapa posterior solo si el salto queda justificado
+   en el cursor por dependencia, riesgo financiero/tributario, seguridad o
+   desbloqueo tecnico concreto.
+
+Si una etapa solo tiene pendiente evidencia externa, snapshot autorizado,
+credencial, decision de usuario o integracion real, no se debe endurecer por
+inercia. Se registra el bloqueo y se avanza a la siguiente brecha local
+justificada o se deja una unica pregunta concreta.
 
 ## Gates minimos por cierre de frente
 

@@ -10,6 +10,7 @@ evidencia respalda el root limpio.
 - `AGENTS.md`
 - `docs/governance/SOURCE_OF_TRUTH_MAYO_2026.md`
 - `docs/governance/CODEX_OPERATING_PROTOCOL_MAYO_2026.md`
+- `docs/product/EXECUTION_CURSOR_MAYO_2026.md`
 - `docs/RELEASE_GATE_BASELINE_MAYO_2026.md`
 - CI en `main`
 
@@ -17,6 +18,7 @@ evidencia respalda el root limpio.
 
 - Fuente de verdad sin ambiguedad.
 - Worktree policy documentada.
+- Cursor operativo vigente para reanudaciones, worktrees y metatareas cerradas.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.

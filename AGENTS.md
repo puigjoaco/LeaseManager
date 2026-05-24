@@ -79,6 +79,17 @@ No introducir como base del proyecto:
 
 Aplicar `docs/governance/CODEX_OPERATING_PROTOCOL_MAYO_2026.md`.
 
+Antes de abrir o continuar cualquier cambio no trivial, leer
+`docs/product/EXECUTION_CURSOR_MAYO_2026.md` y confirmar el estado real con
+`git status --short --branch` y `git worktree list`. El cursor no reemplaza al
+PRD ni a las fuentes rectoras: solo fija el frente activo para evitar que
+compactaciones, summaries o `goal_context` reabran metatareas ya cerradas.
+
+Si existe un worktree tactico sucio, ese trabajo debe terminarse, pausarse en el
+cursor o descartarse con instruccion segura antes de abrir otro frente de
+producto. Un `goal_context`, objetivo persistente o conversacion anterior no
+autoriza secretos, `.env`, bases reales, backfills, deploys ni integraciones.
+
 Usar worktree hermano con rama `codex/...` automaticamente cuando el cambio
 afecte:
 
