@@ -3,6 +3,8 @@ from django.urls import path
 from .views import (
     ArrendatarioDetailView,
     ArrendatarioListCreateView,
+    ArrendatarioWhatsappBlockView,
+    ArrendatarioWhatsappRehabilitateView,
     AvisoTerminoDetailView,
     AvisoTerminoListCreateView,
     CodeudorSolidarioDetailView,
@@ -22,6 +24,16 @@ urlpatterns = [
     path('snapshot/', ContractsSnapshotView.as_view(), name='contratos-snapshot'),
     path('arrendatarios/', ArrendatarioListCreateView.as_view(), name='contratos-arrendatario-list'),
     path('arrendatarios/<int:pk>/', ArrendatarioDetailView.as_view(), name='contratos-arrendatario-detail'),
+    path(
+        'arrendatarios/<int:pk>/whatsapp-bloquear/',
+        ArrendatarioWhatsappBlockView.as_view(),
+        name='contratos-arrendatario-whatsapp-bloquear',
+    ),
+    path(
+        'arrendatarios/<int:pk>/whatsapp-rehabilitar/',
+        ArrendatarioWhatsappRehabilitateView.as_view(),
+        name='contratos-arrendatario-whatsapp-rehabilitar',
+    ),
     path(
         'contactos-pago/',
         ContactoPagoArrendatarioListCreateView.as_view(),

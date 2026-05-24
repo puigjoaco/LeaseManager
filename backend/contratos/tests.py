@@ -9,7 +9,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from audit.models import AuditEvent
+from audit.models import AuditEvent, ManualResolution
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from operacion.models import (
@@ -315,6 +315,8 @@ class ContratosAPITests(APITestCase):
             whatsapp_opt_in=True,
             whatsapp_opt_in_evidencia_ref='https://wa.example.test/optin?token=secret',
             whatsapp_bloqueado=False,
+            whatsapp_bloqueo_evidencia_ref='https://wa.example.test/block?token=secret',
+            whatsapp_rehabilitacion_ref='https://wa.example.test/rehab?token=secret',
         )
 
         list_response = self.client.get(reverse('contratos-arrendatario-list'))
@@ -328,6 +330,12 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(detail_response.data['whatsapp_opt_in_evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(
             snapshot_response.data['arrendatarios'][0]['whatsapp_opt_in_evidencia_ref'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(list_response.data[0]['whatsapp_bloqueo_evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['whatsapp_rehabilitacion_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            snapshot_response.data['arrendatarios'][0]['whatsapp_bloqueo_evidencia_ref'],
             REDACTED_SENSITIVE_REFERENCE,
         )
         rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
@@ -352,6 +360,177 @@ class ContratosAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('whatsapp_opt_in', response.data)
+
+    def test_block_whatsapp_requires_non_sensitive_evidence(self):
+        arrendatario = self._create_arrendatario(rut='12345676-9')
+
+        response = self.client.post(
+            reverse('contratos-arrendatario-whatsapp-bloquear', args=[arrendatario.id]),
+            {
+                'motivo': 'Rebote definitivo proveedor controlado',
+                'evidencia_ref': 'https://wa.example.test/block?token=secret',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_ref', response.data)
+
+    def test_block_whatsapp_records_trace_event_and_admin_alert(self):
+        arrendatario = self._create_arrendatario(rut='12345677-7')
+        arrendatario.telefono = '+56912345678'
+        arrendatario.whatsapp_opt_in = True
+        arrendatario.whatsapp_opt_in_evidencia_ref = 'optin-before-block'
+        arrendatario.full_clean()
+        arrendatario.save()
+
+        response = self.client.post(
+            reverse('contratos-arrendatario-whatsapp-bloquear', args=[arrendatario.id]),
+            {
+                'motivo': 'Proveedor reporto bloqueo definitivo del contacto.',
+                'evidencia_ref': 'wa-block-controlled-001',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        arrendatario.refresh_from_db()
+        self.assertTrue(arrendatario.whatsapp_bloqueado)
+        self.assertFalse(arrendatario.whatsapp_opt_in)
+        self.assertEqual(arrendatario.whatsapp_bloqueo_motivo, 'Proveedor reporto bloqueo definitivo del contacto.')
+        self.assertEqual(arrendatario.whatsapp_bloqueo_evidencia_ref, 'wa-block-controlled-001')
+        self.assertIsNotNone(arrendatario.whatsapp_bloqueado_at)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='contratos.arrendatario.whatsapp_blocked',
+                entity_type='arrendatario',
+                entity_id=str(arrendatario.id),
+            ).exists()
+        )
+        alert = ManualResolution.objects.get(
+            category='canales.whatsapp.bloqueo_definitivo',
+            scope_type='arrendatario',
+            scope_reference=str(arrendatario.id),
+        )
+        self.assertEqual(alert.status, ManualResolution.Status.OPEN)
+        self.assertEqual(alert.metadata['evidencia_ref'], 'wa-block-controlled-001')
+
+    def test_rehabilitate_whatsapp_clears_block_without_erasing_block_trace(self):
+        arrendatario = self._create_arrendatario(rut='12345680-7')
+        block_response = self.client.post(
+            reverse('contratos-arrendatario-whatsapp-bloquear', args=[arrendatario.id]),
+            {
+                'motivo': 'Bloqueo definitivo controlado.',
+                'evidencia_ref': 'wa-block-controlled-002',
+            },
+            format='json',
+        )
+        self.assertEqual(block_response.status_code, status.HTTP_200_OK, block_response.data)
+        arrendatario.refresh_from_db()
+        self.assertFalse(arrendatario.whatsapp_opt_in)
+
+        response = self.client.post(
+            reverse('contratos-arrendatario-whatsapp-rehabilitar', args=[arrendatario.id]),
+            {'rehabilitacion_ref': 'wa-rehab-controlled-001'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        arrendatario.refresh_from_db()
+        self.assertFalse(arrendatario.whatsapp_bloqueado)
+        self.assertEqual(arrendatario.whatsapp_bloqueo_evidencia_ref, 'wa-block-controlled-002')
+        self.assertEqual(arrendatario.whatsapp_rehabilitacion_ref, 'wa-rehab-controlled-001')
+        self.assertIsNotNone(arrendatario.whatsapp_rehabilitado_at)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='contratos.arrendatario.whatsapp_rehabilitated',
+                entity_type='arrendatario',
+                entity_id=str(arrendatario.id),
+            ).exists()
+        )
+        alert = ManualResolution.objects.get(
+            category='canales.whatsapp.bloqueo_definitivo',
+            scope_type='arrendatario',
+            scope_reference=str(arrendatario.id),
+        )
+        self.assertEqual(alert.status, ManualResolution.Status.RESOLVED)
+        self.assertEqual(alert.metadata['rehabilitacion_ref'], 'wa-rehab-controlled-001')
+
+    def test_rehabilitate_whatsapp_rejects_sensitive_reference(self):
+        arrendatario = self._create_arrendatario(rut='12345679-3')
+        arrendatario.block_whatsapp(
+            motivo='Bloqueo definitivo controlado.',
+            evidencia_ref='wa-block-controlled-003',
+        )
+        arrendatario.save()
+
+        response = self.client.post(
+            reverse('contratos-arrendatario-whatsapp-rehabilitar', args=[arrendatario.id]),
+            {'rehabilitacion_ref': 'https://wa.example.test/rehab?token=secret'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('rehabilitacion_ref', response.data)
+
+    def test_generic_update_cannot_rehabilitate_whatsapp_without_reference(self):
+        arrendatario = self._create_arrendatario(rut='12345681-5')
+        arrendatario.block_whatsapp(
+            motivo='Bloqueo definitivo controlado.',
+            evidencia_ref='wa-block-controlled-004',
+        )
+        arrendatario.save()
+
+        response = self.client.patch(
+            reverse('contratos-arrendatario-detail', args=[arrendatario.id]),
+            {'whatsapp_bloqueado': False},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('whatsapp_rehabilitacion_ref', response.data)
+
+    def test_generic_update_rehabilitates_whatsapp_with_audit_trace(self):
+        arrendatario = self._create_arrendatario(rut='12345682-3')
+        block_response = self.client.post(
+            reverse('contratos-arrendatario-whatsapp-bloquear', args=[arrendatario.id]),
+            {
+                'motivo': 'Bloqueo definitivo controlado.',
+                'evidencia_ref': 'wa-block-controlled-005',
+            },
+            format='json',
+        )
+        self.assertEqual(block_response.status_code, status.HTTP_200_OK, block_response.data)
+
+        response = self.client.patch(
+            reverse('contratos-arrendatario-detail', args=[arrendatario.id]),
+            {
+                'whatsapp_bloqueado': False,
+                'whatsapp_rehabilitacion_ref': 'wa-rehab-controlled-002',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        arrendatario.refresh_from_db()
+        self.assertFalse(arrendatario.whatsapp_bloqueado)
+        self.assertEqual(arrendatario.whatsapp_rehabilitacion_ref, 'wa-rehab-controlled-002')
+        self.assertIsNotNone(arrendatario.whatsapp_rehabilitado_at)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='contratos.arrendatario.whatsapp_rehabilitated',
+                entity_type='arrendatario',
+                entity_id=str(arrendatario.id),
+            ).exists()
+        )
+        self.assertEqual(
+            ManualResolution.objects.get(
+                category='canales.whatsapp.bloqueo_definitivo',
+                scope_type='arrendatario',
+                scope_reference=str(arrendatario.id),
+            ).status,
+            ManualResolution.Status.RESOLVED,
+        )
 
     def test_create_payment_contact_requires_structured_contact_method(self):
         arrendatario = self._create_arrendatario(rut='12345670-K')

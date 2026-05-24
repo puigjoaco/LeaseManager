@@ -11,7 +11,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
-from audit.models import ManualResolution
+from audit.models import AuditEvent, ManualResolution
 from canales.models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
 from canales.services import WHATSAPP_FALLBACK_REQUIRED_CATEGORY
 from cobranza.models import (
@@ -685,6 +685,83 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.whatsapp.phone_invalid', issue_codes)
         self.assertIn('stage2.whatsapp.opt_in_invalid', issue_codes)
         self.assertEqual(result['sections']['channel_identities']['whatsapp_opt_in_invalid_phone'], 1)
+
+    def test_whatsapp_block_without_trace_event_or_alert_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        Arrendatario.objects.filter(pk=fixture['tenant'].pk).update(
+            whatsapp_bloqueado=True,
+            whatsapp_bloqueo_motivo='',
+            whatsapp_bloqueo_evidencia_ref='',
+            whatsapp_bloqueado_at=None,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.block_trace_missing', issue_codes)
+        self.assertIn('stage2.whatsapp.block_event_missing', issue_codes)
+        self.assertIn('stage2.whatsapp.block_alert_missing', issue_codes)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_blocked_tenants'], 1)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_block_trace_missing'], 1)
+
+    def test_whatsapp_block_with_trace_event_and_alert_is_accepted(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        tenant = fixture['tenant']
+        tenant.block_whatsapp(
+            motivo='Proveedor reporto bloqueo definitivo controlado.',
+            evidencia_ref='wa-block-readiness-001',
+        )
+        tenant.save()
+        AuditEvent.objects.create(
+            event_type='contratos.arrendatario.whatsapp_blocked',
+            entity_type='arrendatario',
+            entity_id=str(tenant.pk),
+            summary='Bloqueo definitivo WhatsApp controlado.',
+            metadata={'evidencia_ref': 'wa-block-readiness-001'},
+        )
+        ManualResolution.objects.create(
+            category='canales.whatsapp.bloqueo_definitivo',
+            scope_type='arrendatario',
+            scope_reference=str(tenant.pk),
+            summary='Bloqueo definitivo WhatsApp requiere seguimiento administrativo.',
+            metadata={'evidencia_ref': 'wa-block-readiness-001'},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertNotIn('stage2.whatsapp.block_trace_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.block_event_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.block_alert_missing', issue_codes)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_blocked_tenants'], 1)
+
+    def test_whatsapp_block_sensitive_evidence_and_rehabilitation_ref_are_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        Arrendatario.objects.filter(pk=fixture['tenant'].pk).update(
+            whatsapp_bloqueado=True,
+            whatsapp_bloqueo_motivo='Bloqueo heredado.',
+            whatsapp_bloqueo_evidencia_ref='https://wa.example.test/block?token=secret',
+            whatsapp_bloqueado_at=timezone.now(),
+            whatsapp_rehabilitacion_ref='https://wa.example.test/rehab?token=secret',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.block_evidence_sensitive', issue_codes)
+        self.assertIn('stage2.whatsapp.rehabilitation_ref_sensitive', issue_codes)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_block_evidence_sensitive'], 1)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_rehabilitation_sensitive_refs'], 1)
+        self.assertNotIn('wa.example.test', json.dumps(result))
+        self.assertNotIn('token=secret', json.dumps(result))
 
     def test_webpay_gate_with_sensitive_reference_is_blocking(self):
         self._create_payment_matrix()
