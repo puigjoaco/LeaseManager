@@ -73,7 +73,9 @@ contra datos reales o snapshot controlado.
 - Validacion de garantias: montos/estado coherentes, fechas de recepcion y
   cierre consistentes, y saldos recibidos, devueltos o aplicados conciliados
   contra `HistorialGarantia`, incluyendo cronologia de movimientos derivados
-  contra su movimiento origen.
+  contra su movimiento origen. Si una garantia fue recibida parcialmente y
+  sigue abierta, debe tener aceptacion formal trazable no sensible o quedar
+  marcada como incompleta.
 - Validacion de ajustes contractuales existentes: contrato, moneda, rango de
   meses normalizado al primer dia del mes dentro de la vigencia contractual y
   justificacion deben ser coherentes antes de usarlos en cobranza.

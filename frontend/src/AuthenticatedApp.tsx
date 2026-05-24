@@ -701,6 +701,10 @@ type Garantia = {
   monto_devuelto: string
   monto_aplicado: string
   saldo_vigente: string
+  brecha_garantia_clp: string
+  garantia_incompleta: boolean
+  garantia_parcial_aceptada: boolean
+  aceptacion_parcial_ref: string
   estado_garantia: string
 }
 

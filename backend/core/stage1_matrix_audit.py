@@ -1029,6 +1029,18 @@ def _audit_guarantee_history_consistency(
     issues: list[dict[str, Any]],
     garantia: GarantiaContractual,
 ) -> None:
+    if garantia.garantia_incompleta:
+        _issue(
+            issues,
+            code='stage1.garantia.parcial_sin_aceptacion',
+            entity='GarantiaContractual',
+            entity_id=garantia.pk,
+            message=(
+                'Garantia recibida parcialmente queda incompleta sin referencia formal '
+                'de aceptacion parcial.'
+            ),
+        )
+
     movements = list(garantia.historial_movimientos.all())
     received_total = sum(
         (movement.monto_clp for movement in movements if movement.tipo_movimiento == TipoMovimientoGarantia.DEPOSIT),

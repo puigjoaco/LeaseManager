@@ -227,6 +227,10 @@ class CobranzaSnapshotView(APIView):
                         'monto_pactado': item.monto_pactado,
                         'monto_recibido': item.monto_recibido,
                         'saldo_vigente': item.saldo_vigente,
+                        'brecha_garantia_clp': item.brecha_garantia_clp,
+                        'garantia_incompleta': item.garantia_incompleta,
+                        'garantia_parcial_aceptada': item.garantia_parcial_aceptada,
+                        'aceptacion_parcial_ref': redact_sensitive_reference(item.aceptacion_parcial_ref),
                         'estado_garantia': item.estado_garantia,
                     }
                     for item in garantias

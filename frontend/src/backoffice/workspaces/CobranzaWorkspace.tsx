@@ -8,7 +8,7 @@ type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type ValorUFItem = { id: number; fecha: string; valor: string; source_key: string }
 type AjusteContratoItem = { id: number; contrato: number; tipo_ajuste: string; monto: string; moneda: string; mes_inicio: string; mes_fin: string; activo: boolean }
 type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_pagado_clp: string; estado_pago: string }
-type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; estado_garantia: string }
+type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; brecha_garantia_clp: string; garantia_incompleta: boolean; garantia_parcial_aceptada: boolean; aceptacion_parcial_ref: string; estado_garantia: string }
 type HistorialGarantiaItem = { id: number; contrato_id: number; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string }
 type EstadoCuentaItem = { id: number; arrendatario: number; score_pago: number | null; resumen_operativo: { pagos_abiertos?: number; pagos_atrasados?: number; saldo_total_clp?: string } }
 type ContratoItem = { id: number; codigo_contrato: string }
@@ -211,6 +211,7 @@ export function CobranzaWorkspace({
         { label: 'Pactado', render: (row) => row.monto_pactado },
         { label: 'Recibido', render: (row) => row.monto_recibido },
         { label: 'Saldo', render: (row) => row.saldo_vigente },
+        { label: 'Cobertura', render: (row) => row.garantia_incompleta ? <Badge label="incompleta" tone="warning" /> : row.garantia_parcial_aceptada ? <Badge label="parcial aceptada" tone="positive" /> : <Badge label="regular" tone="neutral" /> },
         { label: 'Estado', render: (row) => <Badge label={row.estado_garantia} tone={toneFor(row.estado_garantia)} /> },
       ]} />
       <TableBlock title="Historial de garantías" subtitle="Movimientos auditables sobre depósitos, devoluciones y retenciones." rows={filteredHistorialGarantias} empty="No hay movimientos de garantía para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
