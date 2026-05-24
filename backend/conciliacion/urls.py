@@ -11,6 +11,8 @@ from .views import (
     MovimientoBancarioDetailView,
     MovimientoBancarioListCreateView,
     MovimientoBancarioRetryMatchView,
+    TransferenciaIntercuentaDetailView,
+    TransferenciaIntercuentaListView,
 )
 
 urlpatterns = [
@@ -24,4 +26,10 @@ urlpatterns = [
     path('ingresos-desconocidos/<int:pk>/', IngresoDesconocidoDetailView.as_view(), name='conciliacion-ingreso-detail'),
     path('cuadraturas-bancarias/', CuadraturaBancariaListCreateView.as_view(), name='conciliacion-cuadratura-list'),
     path('cuadraturas-bancarias/<int:pk>/', CuadraturaBancariaDetailView.as_view(), name='conciliacion-cuadratura-detail'),
+    path('transferencias-intercuenta/', TransferenciaIntercuentaListView.as_view(), name='conciliacion-transferencia-list'),
+    path(
+        'transferencias-intercuenta/<int:pk>/',
+        TransferenciaIntercuentaDetailView.as_view(),
+        name='conciliacion-transferencia-detail',
+    ),
 ]

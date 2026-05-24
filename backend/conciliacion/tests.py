@@ -16,7 +16,14 @@ from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoC
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .models import CuadraturaBancaria, ConexionBancaria, EstadoConciliacionMovimiento, IngresoDesconocido, MovimientoBancarioImportado
+from .models import (
+    CuadraturaBancaria,
+    ConexionBancaria,
+    EstadoConciliacionMovimiento,
+    IngresoDesconocido,
+    MovimientoBancarioImportado,
+    TransferenciaIntercuenta,
+)
 
 
 class ConciliacionAPITests(APITestCase):
@@ -220,6 +227,36 @@ class ConciliacionAPITests(APITestCase):
         }
         payload.update(overrides)
         return payload
+
+    def _internal_transfer_payload(self, movimiento_destino, **overrides):
+        payload = {
+            'movimiento_destino_id': movimiento_destino.pk,
+            'periodo_economico': '2026-01',
+            'criterio_conciliacion': 'Par cargo/abono exacto entre cuentas recaudadoras.',
+            'evidencia_transferencia_ref': 'internal-transfer-controlled-2026-01',
+            'responsable_ref': 'stage3-transfer-owner',
+            'rationale': 'Transferencia interna validada por cartola controlada.',
+        }
+        payload.update(overrides)
+        return payload
+
+    def _create_secondary_account(self, codigo='REC-DEST'):
+        empresa = self._create_active_empresa(
+            f'Destino {codigo}',
+            '77777777-7',
+            '55555555-5',
+            '66666666-6',
+        )
+        return CuentaRecaudadora.objects.create(
+            empresa_owner=empresa,
+            institucion='Banco Dos',
+            numero_cuenta=f'DST-{codigo}',
+            tipo_cuenta='corriente',
+            titular_nombre=empresa.razon_social,
+            titular_rut=empresa.rut,
+            moneda_operativa='CLP',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
 
     def _unknown_income_resolution_payload(self, pago, **overrides):
         payload = {
@@ -945,6 +982,137 @@ class ConciliacionAPITests(APITestCase):
         resolution.refresh_from_db()
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
         self.assertEqual(resolution.status, 'open')
+
+    def test_manual_resolution_can_register_internal_transfer_pair(self):
+        cuenta_origen, _, _ = self._create_contract_and_payment(codigo='REC-TRANSFER')
+        cuenta_destino = self._create_secondary_account('REC-TRANSFER')
+        conexion_origen = self._create_connection(cuenta_origen, provider='banco_origen_transfer')
+        conexion_destino = self._create_connection(cuenta_destino, provider='banco_destino_transfer')
+
+        create_debit = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion_origen,
+                fecha_movimiento='2026-01-10',
+                tipo_movimiento='cargo',
+                monto='50000.00',
+                descripcion_origen='Transferencia enviada a cuenta destino',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_debit.status_code, status.HTTP_201_CREATED)
+
+        create_credit = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion_destino,
+                fecha_movimiento='2026-01-10',
+                tipo_movimiento='abono',
+                monto='50000.00',
+                descripcion_origen='Transferencia recibida desde cuenta origen',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_credit.status_code, status.HTTP_201_CREATED)
+
+        movimiento_origen = MovimientoBancarioImportado.objects.get(pk=create_debit.data['id'])
+        movimiento_destino = MovimientoBancarioImportado.objects.get(pk=create_credit.data['id'])
+        origin_resolution = ManualResolution.objects.get(
+            category='conciliacion.movimiento_cargo',
+            scope_reference=str(movimiento_origen.pk),
+        )
+        destination_resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento_destino.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-internal-transfer', args=[origin_resolution.pk]),
+            self._internal_transfer_payload(movimiento_destino),
+            format='json',
+        )
+        self.assertEqual(resolve.status_code, status.HTTP_200_OK)
+
+        transferencia = TransferenciaIntercuenta.objects.get(pk=resolve.data['transferencia_intercuenta_id'])
+        movimiento_origen.refresh_from_db()
+        movimiento_destino.refresh_from_db()
+        origin_resolution.refresh_from_db()
+        destination_resolution.refresh_from_db()
+        ingreso = IngresoDesconocido.objects.get(movimiento_bancario=movimiento_destino)
+
+        self.assertEqual(movimiento_origen.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
+        self.assertEqual(movimiento_destino.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
+        self.assertEqual(ingreso.estado, 'resuelto')
+        self.assertEqual(transferencia.movimiento_origen_id, movimiento_origen.pk)
+        self.assertEqual(transferencia.movimiento_destino_id, movimiento_destino.pk)
+        self.assertEqual(transferencia.entidad_origen_tipo, cuenta_origen.owner_tipo)
+        self.assertEqual(transferencia.entidad_origen_id, cuenta_origen.owner_id)
+        self.assertEqual(transferencia.entidad_destino_tipo, cuenta_destino.owner_tipo)
+        self.assertEqual(transferencia.entidad_destino_id, cuenta_destino.owner_id)
+        self.assertEqual(origin_resolution.status, 'resolved')
+        self.assertEqual(origin_resolution.metadata['categoria_movimiento'], 'transferencia_interna')
+        self.assertEqual(origin_resolution.metadata['transferencia_intercuenta_id'], transferencia.pk)
+        self.assertEqual(destination_resolution.status, ManualResolution.Status.SUPERSEDED)
+        self.assertEqual(destination_resolution.metadata['superseded_match_type'], 'internal_transfer')
+
+        snapshot = self.client.get(reverse('conciliacion-snapshot'))
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.data['transferencias_intercuenta'][0]['id'], transferencia.pk)
+
+    def test_manual_resolution_internal_transfer_rejects_sensitive_evidence(self):
+        cuenta_origen, _, _ = self._create_contract_and_payment(codigo='REC-TRANSFER-SENSITIVE')
+        cuenta_destino = self._create_secondary_account('REC-TRANSFER-SENSITIVE')
+        conexion_origen = self._create_connection(cuenta_origen, provider='banco_origen_sensitive')
+        conexion_destino = self._create_connection(cuenta_destino, provider='banco_destino_sensitive')
+        create_debit = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion_origen,
+                fecha_movimiento='2026-01-10',
+                tipo_movimiento='cargo',
+                monto='50000.00',
+                descripcion_origen='Transferencia enviada con evidencia sensible',
+            ),
+            format='json',
+        )
+        create_credit = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion_destino,
+                fecha_movimiento='2026-01-10',
+                tipo_movimiento='abono',
+                monto='50000.00',
+                descripcion_origen='Transferencia recibida con evidencia sensible',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_debit.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_credit.status_code, status.HTTP_201_CREATED)
+        movimiento_origen = MovimientoBancarioImportado.objects.get(pk=create_debit.data['id'])
+        movimiento_destino = MovimientoBancarioImportado.objects.get(pk=create_credit.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.movimiento_cargo',
+            scope_reference=str(movimiento_origen.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-internal-transfer', args=[resolution.pk]),
+            self._internal_transfer_payload(
+                movimiento_destino,
+                evidencia_transferencia_ref='https://bank.example.test/transfer?token=secret',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_transferencia_ref', resolve.data)
+        movimiento_origen.refresh_from_db()
+        movimiento_destino.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento_origen.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
+        self.assertEqual(movimiento_destino.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        self.assertEqual(resolution.status, 'open')
+        self.assertFalse(TransferenciaIntercuenta.objects.exists())
 
     def test_retry_match_rejects_already_reconciled_movement(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-LOCKED', amount='100111.00')

@@ -807,6 +807,21 @@ type CuadraturaBancaria = {
   rationale: string
 }
 
+type TransferenciaIntercuenta = {
+  id: number
+  movimiento_origen: number
+  movimiento_destino: number
+  periodo_economico: string
+  entidad_origen_tipo: string
+  entidad_origen_id: number | null
+  entidad_destino_tipo: string
+  entidad_destino_id: number | null
+  criterio_conciliacion: string
+  evidencia_transferencia_ref: string
+  responsable_ref: string
+  rationale: string
+}
+
 type RegimenTributario = {
   id: number
   codigo_regimen: string
@@ -1108,6 +1123,7 @@ type ConciliacionSnapshot = {
   movimientos: MovimientoBancario[]
   ingresos_desconocidos: IngresoDesconocido[]
   cuadraturas_bancarias: CuadraturaBancaria[]
+  transferencias_intercuenta: TransferenciaIntercuenta[]
 }
 
 type SiiSnapshot = {
@@ -1346,6 +1362,7 @@ function App() {
   const [movimientosBancarios, setMovimientosBancarios] = useState<MovimientoBancario[]>([])
   const [ingresosDesconocidos, setIngresosDesconocidos] = useState<IngresoDesconocido[]>([])
   const [cuadraturasBancarias, setCuadraturasBancarias] = useState<CuadraturaBancaria[]>([])
+  const [transferenciasIntercuenta, setTransferenciasIntercuenta] = useState<TransferenciaIntercuenta[]>([])
   const [regimenesTributarios, setRegimenesTributarios] = useState<RegimenTributario[]>(initialControlSnapshot?.regimenesTributarios || [])
   const [configuracionesFiscales, setConfiguracionesFiscales] = useState<ConfiguracionFiscal[]>(initialControlSnapshot?.configuracionesFiscales || [])
   const [cuentasContables, setCuentasContables] = useState<CuentaContable[]>(initialControlSnapshot?.cuentasContables || [])
@@ -1949,6 +1966,7 @@ function App() {
     setMovimientosBancarios([])
     setIngresosDesconocidos([])
     setCuadraturasBancarias([])
+    setTransferenciasIntercuenta([])
     setRegimenesTributarios([])
     setConfiguracionesFiscales([])
     setCuentasContables([])
@@ -2658,6 +2676,7 @@ function App() {
         setMovimientosBancarios(conciliacionSnapshotPayload.movimientos)
         setIngresosDesconocidos(conciliacionSnapshotPayload.ingresos_desconocidos)
         setCuadraturasBancarias(conciliacionSnapshotPayload.cuadraturas_bancarias)
+        setTransferenciasIntercuenta(conciliacionSnapshotPayload.transferencias_intercuenta)
         setIsConciliacionSnapshotLoaded(true)
       }
       if (siiSnapshotPayload) {
@@ -4996,6 +5015,25 @@ function App() {
       ),
     [cuadraturasBancarias, normalizedSearch],
   )
+  const filteredTransferencias = useMemo(
+    () =>
+      transferenciasIntercuenta.filter((item) =>
+        matches(normalizedSearch, [
+          item.periodo_economico,
+          item.movimiento_origen,
+          item.movimiento_destino,
+          item.entidad_origen_tipo,
+          item.entidad_origen_id,
+          item.entidad_destino_tipo,
+          item.entidad_destino_id,
+          item.criterio_conciliacion,
+          item.evidencia_transferencia_ref,
+          item.responsable_ref,
+          item.rationale,
+        ]),
+      ),
+    [transferenciasIntercuenta, normalizedSearch],
+  )
   const filteredRegimenes = useMemo(
     () => regimenesTributarios.filter((item) => matches(normalizedSearch, [item.codigo_regimen, item.descripcion, item.estado])),
     [regimenesTributarios, normalizedSearch],
@@ -5534,6 +5572,7 @@ function App() {
           filteredMovimientos={filteredMovimientos}
           filteredIngresos={filteredIngresos}
           filteredCuadraturas={filteredCuadraturas}
+          filteredTransferencias={filteredTransferencias}
           cuentas={cuentas}
           conexionesBancarias={conexionesBancarias}
           cuentaById={cuentaById}

@@ -15,6 +15,7 @@ from .models import (
     IngresoDesconocido,
     MovimientoBancarioImportado,
     TipoMovimientoBancario,
+    TransferenciaIntercuenta,
 )
 
 
@@ -547,3 +548,159 @@ def resolve_charge_movement_manual_resolution(
     )
 
     return {'resolution': resolution, 'movimiento': movimiento, 'event': event, 'empresa': empresa}
+
+
+@transaction.atomic
+def resolve_internal_transfer_manual_resolution(
+    *,
+    resolution,
+    movimiento_destino,
+    periodo_economico,
+    criterio_conciliacion,
+    evidencia_transferencia_ref,
+    responsable_ref,
+    rationale='',
+    actor_user=None,
+    ip_address=None,
+):
+    if resolution.category != 'conciliacion.movimiento_cargo':
+        raise ValueError('La resolucion indicada no corresponde a movimiento cargo de conciliacion.')
+    if resolution.status == ManualResolution.Status.RESOLVED:
+        raise ValueError('La resolucion ya fue marcada como resuelta.')
+
+    rationale = require_manual_resolution_rationale(rationale)
+    periodo_economico = require_economic_period(periodo_economico)
+    criterio_conciliacion = str(criterio_conciliacion or '').strip()
+    evidencia_transferencia_ref = str(evidencia_transferencia_ref or '').strip()
+    responsable_ref = str(responsable_ref or '').strip()
+
+    if not criterio_conciliacion:
+        raise ValueError('La transferencia interna requiere criterio de conciliacion.')
+    if not is_non_sensitive_reference(evidencia_transferencia_ref):
+        raise ValueError('La transferencia interna requiere evidencia no sensible.')
+    if not is_non_sensitive_reference(responsable_ref):
+        raise ValueError('La transferencia interna requiere responsable_ref no sensible.')
+
+    movimiento_origen = MovimientoBancarioImportado.objects.select_related(
+        'conexion_bancaria__cuenta_recaudadora',
+    ).get(pk=resolution.scope_reference)
+    movimiento_destino = MovimientoBancarioImportado.objects.select_related(
+        'conexion_bancaria__cuenta_recaudadora',
+    ).get(pk=movimiento_destino.pk)
+
+    if movimiento_origen.tipo_movimiento != TipoMovimientoBancario.DEBIT:
+        raise ValueError('Solo se puede cerrar como transferencia interna un cargo bancario.')
+    if movimiento_origen.estado_conciliacion != EstadoConciliacionMovimiento.MANUAL_REQUIRED:
+        raise ValueError('El movimiento origen no se encuentra pendiente de clasificacion manual.')
+    if movimiento_destino.tipo_movimiento != TipoMovimientoBancario.CREDIT:
+        raise ValueError('El movimiento destino de transferencia debe ser un abono bancario.')
+    if movimiento_destino.estado_conciliacion not in {
+        EstadoConciliacionMovimiento.PENDING,
+        EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+    }:
+        raise ValueError('El movimiento destino debe estar pendiente o como ingreso desconocido.')
+    if movimiento_destino.pago_mensual_id or movimiento_destino.codigo_cobro_residual_id:
+        raise ValueError('El movimiento destino de transferencia no puede tener target de cobro.')
+    if movimiento_origen.conexion_bancaria.cuenta_recaudadora_id == movimiento_destino.conexion_bancaria.cuenta_recaudadora_id:
+        raise ValueError('La transferencia interna requiere cuentas recaudadoras distintas.')
+    if movimiento_origen.monto != movimiento_destino.monto:
+        raise ValueError('El cargo y el abono de transferencia deben tener el mismo monto.')
+
+    transfer = TransferenciaIntercuenta(
+        movimiento_origen=movimiento_origen,
+        movimiento_destino=movimiento_destino,
+        periodo_economico=periodo_economico,
+        criterio_conciliacion=criterio_conciliacion,
+        evidencia_transferencia_ref=evidencia_transferencia_ref,
+        responsable_ref=responsable_ref,
+        rationale=rationale,
+    )
+    transfer.full_clean()
+    transfer.save()
+
+    movimiento_origen.notas_admin = rationale
+    movimiento_origen.estado_conciliacion = EstadoConciliacionMovimiento.EXACT_MATCH
+    movimiento_origen.full_clean()
+    movimiento_origen.save(update_fields=['notas_admin', 'estado_conciliacion', 'updated_at'])
+
+    movimiento_destino.estado_conciliacion = EstadoConciliacionMovimiento.EXACT_MATCH
+    movimiento_destino.full_clean()
+    movimiento_destino.save(update_fields=['estado_conciliacion', 'updated_at'])
+    resolve_unknown_income_if_present(movimiento_destino)
+
+    transfer_metadata = {
+        'transferencia_intercuenta_id': transfer.pk,
+        'movimiento_origen_id': movimiento_origen.pk,
+        'movimiento_destino_id': movimiento_destino.pk,
+        'entidad_origen_tipo': transfer.entidad_origen_tipo,
+        'entidad_origen_id': transfer.entidad_origen_id,
+        'entidad_destino_tipo': transfer.entidad_destino_tipo,
+        'entidad_destino_id': transfer.entidad_destino_id,
+        'periodo_economico': periodo_economico,
+        'criterio_conciliacion': criterio_conciliacion,
+        'criterio_reparto': criterio_conciliacion,
+        'evidencia_transferencia_ref': evidencia_transferencia_ref,
+        'responsable_ref': responsable_ref,
+    }
+
+    supersede_manual_resolutions_for_movement(
+        movimiento_origen,
+        superseded_by='conciliacion.manual_resolution',
+        match_type='internal_transfer',
+        rationale='Supersedida porque otra resolucion manual registro la transferencia interna.',
+        target_metadata={
+            'superseded_by_resolution_id': str(resolution.pk),
+            **transfer_metadata,
+        },
+        exclude_resolution=resolution,
+        actor_user=actor_user,
+        ip_address=ip_address,
+    )
+    supersede_manual_resolutions_for_movement(
+        movimiento_destino,
+        superseded_by='conciliacion.manual_resolution',
+        match_type='internal_transfer',
+        rationale='Supersedida porque el abono destino quedo vinculado a transferencia interna trazada.',
+        target_metadata={
+            'superseded_by_resolution_id': str(resolution.pk),
+            **transfer_metadata,
+        },
+        actor_user=actor_user,
+        ip_address=ip_address,
+    )
+
+    resolved_at = timezone.now()
+    resolution.status = ManualResolution.Status.RESOLVED
+    resolution.resolved_at = resolved_at
+    resolution.resolved_by = actor_user
+    resolution.rationale = rationale
+    resolution.metadata = {
+        **(resolution.metadata or {}),
+        'categoria_movimiento': CategoriaMovimiento.INTERNAL_TRANSFER,
+        'resolved_with': 'internal_transfer',
+        **transfer_metadata,
+    }
+    resolution.save(update_fields=['status', 'resolved_at', 'resolved_by', 'rationale', 'metadata'])
+
+    from audit.services import create_audit_event
+
+    create_audit_event(
+        event_type='audit.manual_resolution.resolved',
+        entity_type='manual_resolution',
+        entity_id=str(resolution.pk),
+        summary='Se registro manualmente una transferencia interna de conciliacion.',
+        actor_user=actor_user,
+        ip_address=ip_address,
+        metadata={
+            'resolution_category': resolution.category,
+            'categoria_movimiento': CategoriaMovimiento.INTERNAL_TRANSFER,
+            **transfer_metadata,
+        },
+    )
+
+    return {
+        'resolution': resolution,
+        'transferencia': transfer,
+        'movimiento_origen': movimiento_origen,
+        'movimiento_destino': movimiento_destino,
+    }

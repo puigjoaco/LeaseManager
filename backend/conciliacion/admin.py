@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import CuadraturaBancaria, ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
+from .models import (
+    CuadraturaBancaria,
+    ConexionBancaria,
+    IngresoDesconocido,
+    MovimientoBancarioImportado,
+    TransferenciaIntercuenta,
+)
 
 
 @admin.register(ConexionBancaria)
@@ -44,4 +50,17 @@ class CuadraturaBancariaAdmin(admin.ModelAdmin):
     )
     list_filter = ('estado', 'periodo_economico')
     search_fields = ('cuenta_recaudadora__numero_cuenta', 'evidencia_cuadratura_ref', 'responsable_ref')
+
+
+@admin.register(TransferenciaIntercuenta)
+class TransferenciaIntercuentaAdmin(admin.ModelAdmin):
+    list_display = (
+        'periodo_economico',
+        'movimiento_origen',
+        'movimiento_destino',
+        'entidad_origen_tipo',
+        'entidad_destino_tipo',
+    )
+    list_filter = ('periodo_economico', 'entidad_origen_tipo', 'entidad_destino_tipo')
+    search_fields = ('evidencia_transferencia_ref', 'responsable_ref', 'criterio_conciliacion')
 

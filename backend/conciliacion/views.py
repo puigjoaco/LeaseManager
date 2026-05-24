@@ -14,12 +14,19 @@ from core.scope_access import (
 )
 from operacion.models import CuentaRecaudadora
 
-from .models import CuadraturaBancaria, ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
+from .models import (
+    CuadraturaBancaria,
+    ConexionBancaria,
+    IngresoDesconocido,
+    MovimientoBancarioImportado,
+    TransferenciaIntercuenta,
+)
 from .serializers import (
     CuadraturaBancariaSerializer,
     ConexionBancariaSerializer,
     IngresoDesconocidoSerializer,
     MovimientoBancarioImportadoSerializer,
+    TransferenciaIntercuentaSerializer,
 )
 from .services import reconcile_exact_movement
 
@@ -100,6 +107,17 @@ class ConciliacionSnapshotView(APIView):
             access,
             bank_account_paths=('cuenta_recaudadora_id',),
         )
+        transferencias = scope_queryset_for_access(
+            TransferenciaIntercuenta.objects.select_related(
+                'movimiento_origen__conexion_bancaria__cuenta_recaudadora',
+                'movimiento_destino__conexion_bancaria__cuenta_recaudadora',
+            ).order_by('-periodo_economico', '-id'),
+            access,
+            bank_account_paths=(
+                'movimiento_origen__conexion_bancaria__cuenta_recaudadora_id',
+                'movimiento_destino__conexion_bancaria__cuenta_recaudadora_id',
+            ),
+        )
 
         return Response(
             {
@@ -161,6 +179,23 @@ class ConciliacionSnapshotView(APIView):
                         'rationale': item.rationale,
                     }
                     for item in cuadraturas
+                ],
+                'transferencias_intercuenta': [
+                    {
+                        'id': item.id,
+                        'movimiento_origen': item.movimiento_origen_id,
+                        'movimiento_destino': item.movimiento_destino_id,
+                        'periodo_economico': item.periodo_economico,
+                        'entidad_origen_tipo': item.entidad_origen_tipo,
+                        'entidad_origen_id': item.entidad_origen_id,
+                        'entidad_destino_tipo': item.entidad_destino_tipo,
+                        'entidad_destino_id': item.entidad_destino_id,
+                        'criterio_conciliacion': item.criterio_conciliacion,
+                        'evidencia_transferencia_ref': redact_sensitive_reference(item.evidencia_transferencia_ref),
+                        'responsable_ref': redact_sensitive_reference(item.responsable_ref),
+                        'rationale': item.rationale,
+                    }
+                    for item in transferencias
                 ],
             }
         )
@@ -280,3 +315,29 @@ class CuadraturaBancariaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, 
     bank_account_scope_paths = ('cuenta_recaudadora_id',)
     audit_entity_type = 'cuadratura_bancaria'
     audit_entity_label = 'cuadratura bancaria'
+
+
+class TransferenciaIntercuentaListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = TransferenciaIntercuentaSerializer
+    queryset = TransferenciaIntercuenta.objects.select_related(
+        'movimiento_origen__conexion_bancaria__cuenta_recaudadora',
+        'movimiento_destino__conexion_bancaria__cuenta_recaudadora',
+    ).all()
+    bank_account_scope_paths = (
+        'movimiento_origen__conexion_bancaria__cuenta_recaudadora_id',
+        'movimiento_destino__conexion_bancaria__cuenta_recaudadora_id',
+    )
+
+
+class TransferenciaIntercuentaDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = TransferenciaIntercuentaSerializer
+    queryset = TransferenciaIntercuenta.objects.select_related(
+        'movimiento_origen__conexion_bancaria__cuenta_recaudadora',
+        'movimiento_destino__conexion_bancaria__cuenta_recaudadora',
+    ).all()
+    bank_account_scope_paths = (
+        'movimiento_origen__conexion_bancaria__cuenta_recaudadora_id',
+        'movimiento_destino__conexion_bancaria__cuenta_recaudadora_id',
+    )

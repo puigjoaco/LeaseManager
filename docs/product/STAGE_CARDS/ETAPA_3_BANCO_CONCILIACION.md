@@ -49,6 +49,13 @@ sistema igual a saldo banco.
   servicio no permiten nuevos cierres sin ese contexto, y la readiness bloquea
   resoluciones heredadas resueltas sin ese contexto, con periodo/target
   inconsistente o con evidencia sensible.
+- Transferencias internas/intercuenta se registran como par cargo/abono en
+  `TransferenciaIntercuenta`, con cuenta origen/destino, owner origen/destino,
+  periodo economico canonico `YYYY-MM`, criterio de conciliacion, evidencia no
+  sensible, responsable y motivo auditable; la API y el servicio no permiten
+  resolver una transferencia si los movimientos no son de cuentas distintas,
+  no tienen monto opuesto equivalente o conservan targets de pago/codigo
+  residual, y la readiness bloquea pares heredados invalidos o refs sensibles.
 - Resoluciones manuales abiertas que quedan obsoletas por match exacto o por
   otra resolucion manual no se marcan como resueltas manualmente: se cierran
   como `superseded` con motivo, metadata de origen/target y evento de
