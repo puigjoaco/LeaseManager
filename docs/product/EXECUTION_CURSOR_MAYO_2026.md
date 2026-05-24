@@ -23,15 +23,15 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 - Cadencias de notificacion por contrato y canal habilitado. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` linea 118 y `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`. |
-| Brecha activa | En implementacion local: configurar dias de notificacion por contrato/canal, base sugerida `1/3/5/10/15/20/25`, sin enviar Email/WhatsApp ni abrir proveedores. |
-| Motivo de prioridad | Cierra una regla PRD local de Cobranza/Canales que no depende de `.env`, datos reales, DB historica, snapshot, backfills, deploys ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-notification-cadence`. |
-| Rama | `codex/stage2-notification-cadence`. |
-| Estado | Paquete tactico abierto; requiere validaciones proporcionales, PR, CI, merge y limpieza. |
-| Gate esperado | `audit_stage2_cobranza_readiness` debe quedar `classification=parcial` en fuente local, detectando cadencias faltantes/invalidas sin cerrar Etapa 2. |
-| Estado al cerrar paquete | Pendiente; debe quedar `implementado_sin_evidencia` y no cerrar Etapa 2 sin fuente `snapshot_controlado` o `real_autorizado`, pruebas Email/WebPay y responsables no sensibles. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 2 - Cadencias de notificacion por contrato y canal habilitado. |
+| Fuente exacta | PR #193 `Guard Stage 2 notification cadence readiness`, merge `6cfd870`, desde `01_Set_Vigente/PRD_CANONICO.md` linea 118 y `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`. |
+| Brecha activa | Cerrada localmente: `ConfiguracionNotificacionContrato` normaliza dias por contrato/canal, exige canal habilitado en el mandato, redaccion de evidencia heredada sensible, API/snapshot/backoffice y readiness Etapa 2 para cadencias faltantes o invalidas. |
+| Motivo de prioridad | El paquete ya fue integrado sin abrir Email, WhatsApp, WebPay, secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
+| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
+| Rama | `main` sincronizada; sin rama tactica activa. |
+| Estado | PR #193 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
+| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 2 sin fuente `snapshot_controlado` o `real_autorizado`, pruebas Email/WebPay y responsables no sensibles. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
 | Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
