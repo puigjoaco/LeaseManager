@@ -54,12 +54,66 @@ def ensure_manual_resolution_for_movement(movimiento, category, summary):
     )
 
 
-def close_manual_resolutions_for_movement(movimiento):
-    ManualResolution.objects.filter(
+def supersede_manual_resolutions_for_movement(
+    movimiento,
+    *,
+    superseded_by,
+    rationale,
+    match_type='',
+    target_metadata=None,
+    exclude_resolution=None,
+    actor_user=None,
+    ip_address=None,
+):
+    resolutions = ManualResolution.objects.filter(
         scope_type='movimiento_bancario',
         scope_reference=str(movimiento.pk),
         status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
-    ).update(status=ManualResolution.Status.RESOLVED, resolved_at=timezone.now())
+    )
+    if exclude_resolution is not None:
+        resolutions = resolutions.exclude(pk=exclude_resolution.pk)
+
+    resolutions = list(resolutions)
+    if not resolutions:
+        return 0
+
+    from audit.services import create_audit_event
+
+    resolved_at = timezone.now()
+    target_metadata = target_metadata or {}
+    for resolution in resolutions:
+        supersede_context = {
+            'superseded_by': superseded_by,
+            'superseded_match_type': match_type,
+            'movimiento_id': movimiento.pk,
+            'conexion_bancaria_id': movimiento.conexion_bancaria_id,
+            'cuenta_recaudadora_id': movimiento.conexion_bancaria.cuenta_recaudadora_id,
+            **target_metadata,
+        }
+        resolution.status = ManualResolution.Status.SUPERSEDED
+        resolution.resolved_at = resolved_at
+        resolution.resolved_by = actor_user
+        resolution.rationale = str(rationale or '').strip()
+        resolution.metadata = {
+            **(resolution.metadata or {}),
+            **supersede_context,
+        }
+        resolution.save(update_fields=['status', 'resolved_at', 'resolved_by', 'rationale', 'metadata'])
+
+        create_audit_event(
+            event_type='audit.manual_resolution.superseded',
+            entity_type='manual_resolution',
+            entity_id=str(resolution.pk),
+            summary='Se cerro una resolucion manual por supersesion auditable de conciliacion.',
+            actor_user=actor_user,
+            actor_identifier='' if actor_user else 'system.conciliacion',
+            ip_address=ip_address,
+            metadata={
+                'resolution_category': resolution.category,
+                **supersede_context,
+            },
+        )
+    return len(resolutions)
 
 
 def resolve_unknown_income_if_present(movimiento):
@@ -153,7 +207,16 @@ def reconcile_exact_movement(movimiento):
                 update_fields=['codigo_cobro_residual', 'pago_mensual', 'estado_conciliacion', 'updated_at']
             )
             resolve_unknown_income_if_present(movimiento)
-            close_manual_resolutions_for_movement(movimiento)
+            supersede_manual_resolutions_for_movement(
+                movimiento,
+                superseded_by='conciliacion.exact_match',
+                match_type='residual_collection',
+                rationale='Supersedida porque el movimiento obtuvo match exacto con codigo residual trazable.',
+                target_metadata={
+                    'codigo_cobro_residual_id': residual.pk,
+                    'contrato_id': residual.contrato_origen_id,
+                },
+            )
             return {'status': 'matched_residual', 'codigo_cobro_residual_id': residual.pk}
 
     payment_matches = list(
@@ -189,7 +252,16 @@ def reconcile_exact_movement(movimiento):
             update_fields=['pago_mensual', 'codigo_cobro_residual', 'estado_conciliacion', 'updated_at']
         )
         resolve_unknown_income_if_present(movimiento)
-        close_manual_resolutions_for_movement(movimiento)
+        supersede_manual_resolutions_for_movement(
+            movimiento,
+            superseded_by='conciliacion.exact_match',
+            match_type='payment',
+            rationale='Supersedida porque el movimiento obtuvo match exacto con pago mensual trazable.',
+            target_metadata={
+                'pago_mensual_id': payment.pk,
+                'contrato_id': payment.contrato_id,
+            },
+        )
         from contabilidad.services import create_payment_reconciled_event
 
         create_payment_reconciled_event(payment, movimiento)
@@ -278,11 +350,20 @@ def resolve_unknown_income_manual_resolution(
     create_payment_reconciled_event(payment, movimiento)
 
     resolved_at = timezone.now()
-    ManualResolution.objects.filter(
-        scope_type='movimiento_bancario',
-        scope_reference=str(movimiento.pk),
-        status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
-    ).exclude(pk=resolution.pk).update(status=ManualResolution.Status.RESOLVED, resolved_at=resolved_at)
+    supersede_manual_resolutions_for_movement(
+        movimiento,
+        superseded_by='conciliacion.manual_resolution',
+        match_type='payment_manual_assignment',
+        rationale='Supersedida porque otra resolucion manual cerro el ingreso desconocido.',
+        target_metadata={
+            'superseded_by_resolution_id': str(resolution.pk),
+            'pago_mensual_id': payment.pk,
+            'contrato_id': payment.contrato_id,
+        },
+        exclude_resolution=resolution,
+        actor_user=actor_user,
+        ip_address=ip_address,
+    )
 
     resolution.status = ManualResolution.Status.RESOLVED
     resolution.resolved_at = resolved_at
@@ -406,11 +487,20 @@ def resolve_charge_movement_manual_resolution(
     movimiento.save(update_fields=['notas_admin', 'estado_conciliacion', 'updated_at'])
 
     resolved_at = timezone.now()
-    ManualResolution.objects.filter(
-        scope_type='movimiento_bancario',
-        scope_reference=str(movimiento.pk),
-        status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
-    ).exclude(pk=resolution.pk).update(status=ManualResolution.Status.RESOLVED, resolved_at=resolved_at)
+    supersede_manual_resolutions_for_movement(
+        movimiento,
+        superseded_by='conciliacion.manual_resolution',
+        match_type='charge_manual_classification',
+        rationale='Supersedida porque otra resolucion manual clasifico el cargo bancario.',
+        target_metadata={
+            'superseded_by_resolution_id': str(resolution.pk),
+            'evento_contable_id': event.pk,
+            'empresa_id': empresa.pk,
+        },
+        exclude_resolution=resolution,
+        actor_user=actor_user,
+        ip_address=ip_address,
+    )
 
     resolution.status = ManualResolution.Status.RESOLVED
     resolution.resolved_at = resolved_at

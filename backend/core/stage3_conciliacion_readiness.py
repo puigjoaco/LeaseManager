@@ -53,6 +53,14 @@ UNKNOWN_INCOME_MANUAL_RESOLUTION_REQUIRED_METADATA_FIELDS = (
     'criterio_aplicado',
     'evidencia_regularizacion_ref',
 )
+SUPERSEDED_MANUAL_RESOLUTION_REQUIRED_METADATA_FIELDS = (
+    'superseded_by',
+    'movimiento_id',
+)
+ALLOWED_MANUAL_RESOLUTION_SUPERSEDERS = {
+    'conciliacion.exact_match',
+    'conciliacion.manual_resolution',
+}
 
 
 def _non_sensitive_reference(value: str) -> bool:
@@ -188,6 +196,18 @@ def _collect_manual_resolution_issues(resolutions) -> dict[str, int]:
     for resolution in resolutions:
         if resolution.status == ManualResolution.Status.RESOLVED and not has_text(resolution.rationale):
             counts['resolved_without_rationale'] += 1
+        if resolution.status == ManualResolution.Status.SUPERSEDED:
+            metadata = resolution.metadata if isinstance(resolution.metadata, dict) else {}
+            missing_trace = any(
+                not has_text(metadata.get(field_name))
+                for field_name in SUPERSEDED_MANUAL_RESOLUTION_REQUIRED_METADATA_FIELDS
+            )
+            if metadata.get('superseded_by') not in ALLOWED_MANUAL_RESOLUTION_SUPERSEDERS:
+                missing_trace = True
+            if not has_text(resolution.rationale):
+                missing_trace = True
+            if missing_trace:
+                counts['superseded_without_trace'] += 1
         if (
             resolution.status == ManualResolution.Status.RESOLVED
             and resolution.category == 'conciliacion.ingreso_desconocido'
@@ -462,6 +482,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.manual_resolution.rationale_missing',
                 'Existen resoluciones manuales de conciliacion cerradas sin motivo auditable.',
                 count=manual_resolution_issues['resolved_without_rationale'],
+            )
+        )
+    if manual_resolution_issues.get('superseded_without_trace'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.superseded_trace_missing',
+                'Existen resoluciones manuales de conciliacion supersedidas sin traza auditable suficiente.',
+                count=manual_resolution_issues['superseded_without_trace'],
             )
         )
     if manual_resolution_issues.get('unknown_income_resolution_context_missing'):

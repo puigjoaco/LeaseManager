@@ -31,6 +31,7 @@ class ManualResolution(models.Model):
         OPEN = 'open', 'Open'
         IN_REVIEW = 'in_review', 'In Review'
         RESOLVED = 'resolved', 'Resolved'
+        SUPERSEDED = 'superseded', 'Superseded'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     category = models.CharField(max_length=120)

@@ -1583,7 +1583,7 @@ class CobranzaRepairMigrationSafetyTests(TransactionTestCase):
     reset_sequences = True
 
     migrate_from = [
-        ('audit', '0002_initial'),
+        ('audit', '0003_manual_resolution_superseded_status'),
         ('patrimonio', '0003_repair_legacy_representacion_modes'),
         ('operacion', '0001_initial'),
         ('contratos', '0001_initial'),
@@ -1591,7 +1591,7 @@ class CobranzaRepairMigrationSafetyTests(TransactionTestCase):
         ('sii', '0004_dte_emitido_distribucion_cobro_mensual'),
     ]
     migrate_to = [
-        ('audit', '0002_initial'),
+        ('audit', '0003_manual_resolution_superseded_status'),
         ('patrimonio', '0003_repair_legacy_representacion_modes'),
         ('operacion', '0001_initial'),
         ('contratos', '0001_initial'),
