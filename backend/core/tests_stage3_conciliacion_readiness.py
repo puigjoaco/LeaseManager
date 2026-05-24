@@ -321,6 +321,26 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.movements_unresolved', issue_codes)
         self.assertIn('stage3.unknown_income_open', issue_codes)
 
+    def test_unknown_income_snapshot_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-UNKNOWN-MISMATCH')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        IngresoDesconocido.objects.create(
+            movimiento_bancario=movimiento,
+            cuenta_recaudadora=cuenta,
+            monto=movimiento.monto + Decimal('1.00'),
+            fecha_movimiento=movimiento.fecha_movimiento,
+            descripcion_origen=movimiento.descripcion_origen,
+            estado=EstadoIngresoDesconocido.RESOLVED,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.unknown_income.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['unknown_income']['invalid_model'], 1)
+
     def test_reported_balance_continuity_mismatch_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-BALANCE')
         conexion = self._create_ready_connection(cuenta)

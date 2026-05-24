@@ -203,6 +203,7 @@ def collect_stage3_conciliacion_readiness(
     movements_with_reported_balance = movements.filter(saldo_reportado__isnull=False).count()
 
     unknown_income = IngresoDesconocido.objects.select_related('movimiento_bancario', 'cuenta_recaudadora').all()
+    invalid_unknown_income = _count_invalid(unknown_income)
     open_unknown_income = unknown_income.filter(estado=EstadoIngresoDesconocido.OPEN).count()
     balance_signal_available = ready_primary_balances > 0 or movements_with_reported_balance > 0
 
@@ -350,6 +351,14 @@ def collect_stage3_conciliacion_readiness(
                 count=open_unknown_income,
             )
         )
+    if invalid_unknown_income:
+        issues.append(
+            _issue(
+                'stage3.unknown_income.invalid_model',
+                'Existen ingresos desconocidos que no coinciden con su movimiento bancario.',
+                count=invalid_unknown_income,
+            )
+        )
     if not balance_signal_available:
         issues.append(
             _issue(
@@ -429,6 +438,7 @@ def collect_stage3_conciliacion_readiness(
                 'total': unknown_income.count(),
                 'by_state': _count_by(unknown_income, 'estado'),
                 'open': open_unknown_income,
+                'invalid_model': invalid_unknown_income,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,
