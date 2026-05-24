@@ -13,6 +13,7 @@ from django.test import TestCase
 from canales.models import CanalMensajeria, EstadoGateCanal, EstadoMensajeSaliente, MensajeSaliente
 from cobranza.models import (
     CodigoCobroResidual,
+    EstadoCuentaArrendatario,
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
     GateCobroExterno,
@@ -20,6 +21,7 @@ from cobranza.models import (
     PagoMensual,
     RepactacionDeuda,
 )
+from cobranza.services import rebuild_account_state
 from contratos.models import (
     Arrendatario,
     Contrato,
@@ -140,6 +142,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             fecha_vencimiento=date(2026, 1, 5),
             codigo_conciliacion_efectivo='001',
         )
+        account_state = rebuild_account_state(tenant)
         return {
             'socio': socio,
             'empresa': empresa,
@@ -148,6 +151,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             'tenant': tenant,
             'contract': contract,
             'payment': payment,
+            'account_state': account_state,
         }
 
     def _create_valid_email_gate(self):
@@ -205,6 +209,37 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertTrue(result['ready_for_stage2_cobranza'])
         self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_missing_account_state_for_active_billing_tenant_is_blocking(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        EstadoCuentaArrendatario.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.account_state.missing', issue_codes)
+        self.assertEqual(result['sections']['account_states']['required_tenants'], 1)
+        self.assertEqual(result['sections']['account_states']['missing_for_active_tenant'], 1)
+
+    def test_stale_account_state_summary_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        stale_summary = dict(fixture['account_state'].resumen_operativo)
+        stale_summary['saldo_total_clp'] = '0.00'
+        EstadoCuentaArrendatario.objects.filter(pk=fixture['account_state'].pk).update(
+            resumen_operativo=stale_summary,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.account_state.stale_summary', issue_codes)
+        self.assertEqual(result['sections']['account_states']['stale_summary'], 1)
 
     def test_residual_code_with_non_canonical_reference_is_blocking(self):
         fixture = self._create_payment_matrix()
