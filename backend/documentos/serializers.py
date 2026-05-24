@@ -11,6 +11,23 @@ from .scope import scope_documento_queryset, scope_expediente_queryset
 from .models import DocumentoEmitido, ExpedienteDocumental, EstadoDocumento, PoliticaFirmaYNotaria
 
 
+FORMALIZED_IMMUTABLE_FIELDS = {
+    'expediente',
+    'tipo_documental',
+    'version_plantilla',
+    'checksum',
+    'fecha_carga',
+    'origen',
+    'estado',
+    'storage_ref',
+    'firma_arrendador_registrada',
+    'firma_arrendatario_registrada',
+    'firma_codeudor_registrada',
+    'recepcion_notarial_registrada',
+    'comprobante_notarial',
+}
+
+
 def raise_drf_validation_error(error):
     if hasattr(error, 'message_dict'):
         raise serializers.ValidationError(error.message_dict)
@@ -51,6 +68,15 @@ def _parse_mandato_id(owner_operativo, *, required=False):
         raise serializers.ValidationError(
             {'owner_operativo': 'El owner_operativo debe usar el formato mandato:<id>.'}
         ) from error
+
+
+def _value_changed(instance, field_name, value):
+    current = getattr(instance, field_name)
+    if hasattr(current, 'pk'):
+        current = current.pk
+    if hasattr(value, 'pk'):
+        value = value.pk
+    return current != value
 
 
 class ExpedienteDocumentalSerializer(serializers.ModelSerializer):
@@ -185,6 +211,21 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'estado': 'La formalizacion debe ejecutarse desde el endpoint formalizar/ para registrar auditoria.'}
             )
+        if self.instance and current_state == EstadoDocumento.FORMALIZED:
+            changed_fields = [
+                field_name
+                for field_name, value in attrs.items()
+                if field_name in FORMALIZED_IMMUTABLE_FIELDS and _value_changed(self.instance, field_name, value)
+            ]
+            if changed_fields:
+                raise serializers.ValidationError(
+                    {
+                        'estado': (
+                            'Un documento formalizado no se modifica desde el endpoint generico; '
+                            'genere un nuevo documento o use un flujo auditado.'
+                        )
+                    }
+                )
 
         candidate = build_validation_candidate(self.instance, DocumentoEmitido)
         for field, value in attrs.items():
@@ -223,6 +264,10 @@ class DocumentoFormalizarSerializer(serializers.Serializer):
         if instance.estado in {EstadoDocumento.ARCHIVED, EstadoDocumento.CANCELED}:
             raise DjangoValidationError(
                 {'estado': 'No se puede formalizar un documento archivado o cancelado.'}
+            )
+        if instance.estado == EstadoDocumento.FORMALIZED:
+            raise DjangoValidationError(
+                {'estado': 'El documento ya esta formalizado; no se re-formaliza ni muta desde este endpoint.'}
             )
         for field, value in validated_data.items():
             setattr(instance, field, value)

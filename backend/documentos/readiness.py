@@ -3,6 +3,7 @@ from collections import Counter
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from audit.models import AuditEvent
 from core.reference_validation import is_non_sensitive_reference
 
 from .models import (
@@ -67,6 +68,14 @@ def _count_by(queryset, field_name):
     return dict(sorted(counter.items()))
 
 
+def _has_formalization_audit(document):
+    return AuditEvent.objects.filter(
+        event_type='documentos.documento_emitido.formalized',
+        entity_type='documento_emitido',
+        entity_id=str(document.pk),
+    ).exists()
+
+
 def collect_document_readiness(
     *,
     final_policy_ref='',
@@ -91,6 +100,7 @@ def collect_document_readiness(
         active_policies.filter(requiere_notaria=True).values_list('tipo_documental', flat=True)
     )
     formalized_without_notary_receipt = 0
+    formalized_without_formalization_audit = 0
 
     for document in documents:
         if not is_pdf_storage_ref(document.storage_ref):
@@ -104,6 +114,8 @@ def collect_document_readiness(
                 document.full_clean()
             except ValidationError:
                 invalid_formalized_documents += 1
+            if not _has_formalization_audit(document):
+                formalized_without_formalization_audit += 1
             if document.tipo_documental in notary_required_policies and not document.comprobante_notarial_id:
                 formalized_without_notary_receipt += 1
 
@@ -205,6 +217,14 @@ def collect_document_readiness(
                 count=formalized_without_notary_receipt,
             )
         )
+    if formalized_without_formalization_audit:
+        issues.append(
+            _issue(
+                'documents.formalization_audit_missing',
+                'Existen documentos formalizados sin evento de auditoria de formalizacion.',
+                count=formalized_without_formalization_audit,
+            )
+        )
 
     for key, code, message in [
         (
@@ -257,6 +277,7 @@ def collect_document_readiness(
                 'missing_metadata': documents_missing_metadata,
                 'invalid_formalized_documents': invalid_formalized_documents,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,
+                'formalized_without_formalization_audit': formalized_without_formalization_audit,
             },
             'final_evidence': checks,
             'source_trace': source_trace,
