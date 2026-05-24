@@ -305,6 +305,7 @@ class ResolveInternalTransferView(APIView):
             {
                 'resolution_id': str(result['resolution'].pk),
                 'transferencia_intercuenta_id': result['transferencia'].pk,
+                'evento_contable_ids': [event.pk for event in result.get('eventos_contables', [])],
                 'movimiento_origen_id': result['movimiento_origen'].pk,
                 'movimiento_destino_id': result['movimiento_destino'].pk,
             },

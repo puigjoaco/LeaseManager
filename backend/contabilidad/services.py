@@ -7,7 +7,12 @@ from django.db.models import Q
 from django.utils import timezone
 
 from cobranza.models import HistorialGarantia, TipoMovimientoGarantia
-from conciliacion.models import EstadoConciliacionMovimiento, EstadoIngresoDesconocido, MovimientoBancarioImportado
+from conciliacion.models import (
+    EstadoConciliacionMovimiento,
+    EstadoIngresoDesconocido,
+    MovimientoBancarioImportado,
+    TransferenciaIntercuenta,
+)
 
 from .models import (
     AsientoContable,
@@ -297,6 +302,77 @@ def create_guarantee_event(historial):
             idempotency_key=f'Garantia:{historial.pk}:{historial.tipo_movimiento}:{empresa.pk}',
         )
         events.append(event)
+    return events
+
+
+def _direct_company_owner_for_bank_account(cuenta_recaudadora):
+    if cuenta_recaudadora is None or not cuenta_recaudadora.empresa_owner_id:
+        return None
+    return cuenta_recaudadora.empresa_owner
+
+
+def _internal_transfer_event_payload(transfer):
+    origin = transfer.movimiento_origen
+    destination = transfer.movimiento_destino
+    origin_account = origin.conexion_bancaria.cuenta_recaudadora
+    destination_account = destination.conexion_bancaria.cuenta_recaudadora
+    return {
+        'transferencia_intercuenta_id': transfer.pk,
+        'movimiento_origen_id': origin.pk,
+        'movimiento_destino_id': destination.pk,
+        'cuenta_origen_id': origin_account.pk,
+        'cuenta_destino_id': destination_account.pk,
+        'entidad_origen_tipo': transfer.entidad_origen_tipo,
+        'entidad_origen_id': transfer.entidad_origen_id,
+        'entidad_destino_tipo': transfer.entidad_destino_tipo,
+        'entidad_destino_id': transfer.entidad_destino_id,
+        'periodo_economico': transfer.periodo_economico,
+        'criterio_conciliacion': transfer.criterio_conciliacion,
+        'evidencia_transferencia_ref': transfer.evidencia_transferencia_ref,
+        'responsable_ref': transfer.responsable_ref,
+    }
+
+
+def create_internal_transfer_events(transfer: TransferenciaIntercuenta):
+    transfer = TransferenciaIntercuenta.objects.select_related(
+        'movimiento_origen__conexion_bancaria__cuenta_recaudadora__empresa_owner',
+        'movimiento_destino__conexion_bancaria__cuenta_recaudadora__empresa_owner',
+    ).get(pk=transfer.pk)
+    payload = _internal_transfer_event_payload(transfer)
+    origin = transfer.movimiento_origen
+    destination = transfer.movimiento_destino
+    origin_company = _direct_company_owner_for_bank_account(origin.conexion_bancaria.cuenta_recaudadora)
+    destination_company = _direct_company_owner_for_bank_account(destination.conexion_bancaria.cuenta_recaudadora)
+
+    events = []
+    if origin_company is not None:
+        event, _ = create_accounting_event(
+            empresa=origin_company,
+            evento_tipo='TransferenciaIntercuentaSalida',
+            entidad_origen_tipo='transferencia_intercuenta',
+            entidad_origen_id=transfer.pk,
+            fecha_operativa=origin.fecha_movimiento,
+            moneda='CLP',
+            monto_base=origin.monto,
+            payload_resumen={**payload, 'direccion_transferencia': 'salida'},
+            idempotency_key=f'TransferenciaIntercuentaSalida:{transfer.pk}:{origin_company.pk}',
+        )
+        events.append(event)
+
+    if destination_company is not None:
+        event, _ = create_accounting_event(
+            empresa=destination_company,
+            evento_tipo='TransferenciaIntercuentaEntrada',
+            entidad_origen_tipo='transferencia_intercuenta',
+            entidad_origen_id=transfer.pk,
+            fecha_operativa=destination.fecha_movimiento,
+            moneda='CLP',
+            monto_base=destination.monto,
+            payload_resumen={**payload, 'direccion_transferencia': 'entrada'},
+            idempotency_key=f'TransferenciaIntercuentaEntrada:{transfer.pk}:{destination_company.pk}',
+        )
+        events.append(event)
+
     return events
 
 

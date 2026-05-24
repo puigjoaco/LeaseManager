@@ -31,6 +31,11 @@ contables desde hechos conciliados.
   aprobacion.
 - Movimientos de asiento obligatorios, con sumas debe/haber iguales a los
   totales del asiento y cuentas contables de la misma empresa del evento.
+- Transferencias intercuenta conciliadas que involucren cuentas recaudadoras
+  con owner empresa deben generar eventos contables idempotentes de salida y/o
+  entrada (`TransferenciaIntercuentaSalida`,
+  `TransferenciaIntercuentaEntrada`) antes de considerar el ledger preparado
+  para cierre.
 - Eventos, movimientos, obligaciones, libros, balances y cierres no pueden
   persistir nuevas URLs, tokens, credenciales, correos ni referencias sensibles
   en payloads, `storage_ref` o `centro_resultado_ref`.

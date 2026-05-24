@@ -18,6 +18,7 @@ from conciliacion.models import (
     MovimientoBancarioImportado,
     OrigenImportacionMovimiento,
     TipoMovimientoBancario,
+    TransferenciaIntercuenta,
 )
 from contabilidad.models import (
     AsientoContable,
@@ -38,7 +39,11 @@ from contabilidad.models import (
     ReglaContable,
     TipoMovimientoAsiento,
 )
-from contabilidad.services import MONTHLY_CLOSE_REOPEN_POLICY_TYPE, ensure_default_regime
+from contabilidad.services import (
+    MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
+    create_internal_transfer_events,
+    ensure_default_regime,
+)
 from core.stage5_contabilidad_readiness import collect_stage5_contabilidad_readiness
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
@@ -117,6 +122,92 @@ class Stage5ContabilidadReadinessTests(TestCase):
             estado='activa',
         )
         return banco, ingresos
+
+    def _create_rule_matrix(self, empresa, event_type, debit_account, credit_account):
+        rule = ReglaContable.objects.create(
+            empresa=empresa,
+            evento_tipo=event_type,
+            plan_cuentas_version='v1',
+            criterio_cargo=debit_account.codigo,
+            criterio_abono=credit_account.codigo,
+            vigencia_desde=date(2026, 1, 1),
+            estado='activa',
+        )
+        MatrizReglasContables.objects.create(
+            regla_contable=rule,
+            cuenta_debe=debit_account,
+            cuenta_haber=credit_account,
+            estado='activa',
+        )
+        return rule
+
+    def _create_company_bank_account(self, empresa, suffix):
+        return CuentaRecaudadora.objects.create(
+            empresa_owner=empresa,
+            institucion='Banco Stage5',
+            numero_cuenta=f'TRF-{empresa.pk}-{suffix}',
+            tipo_cuenta='corriente',
+            titular_nombre=empresa.razon_social,
+            titular_rut=empresa.rut,
+            moneda_operativa='CLP',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+    def _create_internal_transfer_pair(self, origin_empresa, destination_empresa):
+        origin_account = self._create_company_bank_account(origin_empresa, 'origin')
+        destination_account = self._create_company_bank_account(destination_empresa, 'destination')
+        origin_connection = ConexionBancaria.objects.create(
+            cuenta_recaudadora=origin_account,
+            provider_key='stage5-origin-bank',
+            credencial_ref='bank-credential-origin',
+            evidencia_gate_ref='bank-gate-origin',
+            prueba_conectividad_ref='bank-connectivity-origin',
+            prueba_movimientos_ref='bank-movements-origin',
+            estado_conexion=EstadoConexionBancaria.ACTIVE,
+            primaria_movimientos=True,
+        )
+        destination_connection = ConexionBancaria.objects.create(
+            cuenta_recaudadora=destination_account,
+            provider_key='stage5-destination-bank',
+            credencial_ref='bank-credential-destination',
+            evidencia_gate_ref='bank-gate-destination',
+            prueba_conectividad_ref='bank-connectivity-destination',
+            prueba_movimientos_ref='bank-movements-destination',
+            estado_conexion=EstadoConexionBancaria.ACTIVE,
+            primaria_movimientos=True,
+        )
+        origin_movement = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=origin_connection,
+            fecha_movimiento=date(2026, 1, 15),
+            tipo_movimiento=TipoMovimientoBancario.DEBIT,
+            monto=Decimal('250000.00'),
+            descripcion_origen='Transferencia interna enviada',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='bank-import-origin',
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+        )
+        destination_movement = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=destination_connection,
+            fecha_movimiento=date(2026, 1, 15),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=Decimal('250000.00'),
+            descripcion_origen='Transferencia interna recibida',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='bank-import-destination',
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+        )
+        transfer = TransferenciaIntercuenta(
+            movimiento_origen=origin_movement,
+            movimiento_destino=destination_movement,
+            periodo_economico='2026-01',
+            criterio_conciliacion='Transferencia entre cuentas recaudadoras de empresas.',
+            evidencia_transferencia_ref='internal-transfer-evidence-001',
+            responsable_ref='stage5-accounting-owner',
+            rationale='Movimiento intercuenta con par cargo/abono trazado.',
+        )
+        transfer.full_clean()
+        transfer.save()
+        return transfer
 
     def _create_posted_event_and_asiento(self, empresa, debit_account, credit_account, amount=Decimal('100000.00')):
         event = EventoContable.objects.create(
@@ -269,6 +360,57 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage5_contabilidad'])
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('stage5.source_kind_not_authorized', issue_codes)
+
+    def test_company_internal_transfer_without_accounting_events_is_blocking(self):
+        origin_empresa = self._create_active_empresa(nombre='Transfer Origin SpA', rut='72727272-7')
+        origin_debit, origin_credit = self._setup_contabilidad(origin_empresa)
+        self._create_posted_event_and_asiento(origin_empresa, origin_debit, origin_credit)
+        self._create_approved_close_snapshots(origin_empresa)
+        self._allow_monthly_close_reopen(origin_empresa)
+
+        destination_empresa = self._create_active_empresa(nombre='Transfer Destination SpA', rut='73737373-7')
+        destination_debit, destination_credit = self._setup_contabilidad(destination_empresa)
+        self._create_posted_event_and_asiento(destination_empresa, destination_debit, destination_credit)
+        self._create_approved_close_snapshots(destination_empresa)
+        self._allow_monthly_close_reopen(destination_empresa)
+
+        self._create_internal_transfer_pair(origin_empresa, destination_empresa)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage5.internal_transfer_accounting_event_missing', issue_codes)
+        self.assertEqual(result['sections']['internal_transfers']['accounting_event_gaps'], 2)
+
+    def test_company_internal_transfer_accounting_events_clear_readiness_gap(self):
+        origin_empresa = self._create_active_empresa(nombre='Transfer Posted Origin SpA', rut='74747474-7')
+        origin_debit, origin_credit = self._setup_contabilidad(origin_empresa)
+        self._create_rule_matrix(origin_empresa, 'TransferenciaIntercuentaSalida', origin_credit, origin_debit)
+        self._create_posted_event_and_asiento(origin_empresa, origin_debit, origin_credit)
+        self._create_approved_close_snapshots(origin_empresa)
+        self._allow_monthly_close_reopen(origin_empresa)
+
+        destination_empresa = self._create_active_empresa(nombre='Transfer Posted Destination SpA', rut='75757575-7')
+        destination_debit, destination_credit = self._setup_contabilidad(destination_empresa)
+        self._create_rule_matrix(
+            destination_empresa,
+            'TransferenciaIntercuentaEntrada',
+            destination_debit,
+            destination_credit,
+        )
+        self._create_posted_event_and_asiento(destination_empresa, destination_debit, destination_credit)
+        self._create_approved_close_snapshots(destination_empresa)
+        self._allow_monthly_close_reopen(destination_empresa)
+
+        transfer = self._create_internal_transfer_pair(origin_empresa, destination_empresa)
+        events = create_internal_transfer_events(transfer)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(result['sections']['internal_transfers']['accounting_event_gaps'], 0)
+        self.assertNotIn('stage5.internal_transfer_accounting_event_missing', issue_codes)
 
     def test_authorized_source_requires_source_trace_refs(self):
         self._create_valid_local_matrix()

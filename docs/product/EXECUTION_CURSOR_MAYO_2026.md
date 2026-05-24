@@ -23,18 +23,18 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 3 - Transferencias internas/intercuenta trazadas. |
-| Fuente exacta | PR #199 `Guard Stage 3 internal transfer readiness`, merge `f968b5e`, desde `01_Set_Vigente/PRD_CANONICO.md` lineas 191, 294, 387, 429 y 435; `docs/product/ANEXO_MODELO_OPERATIVO_EXCEL_MAYO_2026.md` lineas 95-96, 171, 181 y 197. |
-| Brecha activa | Cerrada localmente: Conciliacion registra un par cargo/abono intercuenta con evidencia, owner origen/destino, responsable, motivo y readiness bloqueante. |
-| Motivo de prioridad | Conciliacion distingue cargo bancario, ingreso desconocido y transferencia real antes de alimentar Contabilidad, sin banco real ni datos externos. |
-| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
-| Rama | `main` sincronizada; sin rama tactica activa. |
-| Estado | PR #199 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
-| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
-| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 3 sin fuente `snapshot_controlado` o `real_autorizado`, prueba bancaria, cuadratura y responsables no sensibles. |
-| Bloqueos relacionados | `BLK-003` no bloquea esta preparacion local; solo impide cierre evidencial o conexion bancaria real. |
+| Frente activo | Etapa 5 - Eventos contables para transferencias intercuenta. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 191, 194, 235, 241-243, 294, 377, 387, 429, 434 y 435; `docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md`. |
+| Brecha activa | `TransferenciaIntercuenta` queda conciliada en Etapa 3, pero no alimenta aun `EventoContable` ni readiness Etapa 5 como hecho contable trazable. |
+| Motivo de prioridad | Es el puente local seguro entre Conciliacion y Contabilidad: una transferencia real no debe quedar solo como movimiento bancario si afecta cuentas de empresas antes de cierre mensual. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-transfer-accounting-events`. |
+| Rama | `codex/stage5-transfer-accounting-events`. |
+| Estado | Implementado y validado localmente; pendiente de PR, CI, merge y limpieza. No usar `.env`, secretos, DB historica, banco real, snapshot, backfills, deploys ni integraciones externas. |
+| Gate esperado | Readiness local Etapa 5 queda `classification=parcial`, `ready_for_stage5_contabilidad=false`; eventos de transferencia quedan preparados localmente pero no cierran Etapa 5 sin Conciliacion cerrada y fuente autorizada. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 5 sin Conciliacion cerrada, fuente `snapshot_controlado` o `real_autorizado`, ledger/reportes controlados y responsable. |
+| Bloqueos relacionados | `BLK-003` y dependencias de cierre contable no bloquean esta preparacion local; solo impiden cierre evidencial. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
+| Siguiente accion | Publicar PR, esperar CI, mergear, limpiar worktree/rama tactica y cerrar el cursor post-merge desde `main` limpio. |
 
 ## Actualizacion
 

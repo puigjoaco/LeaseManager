@@ -8,6 +8,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from audit.models import ManualResolution
 from cobranza.models import EstadoPago, GarantiaContractual, PagoMensual
 from conciliacion.models import ConexionBancaria, MovimientoBancarioImportado
 from core.models import Role, Scope, UserScopeAssignment
@@ -811,6 +812,121 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(event.estado_contable, 'contabilizado')
         self.assertEqual(str(asiento.debe_total), '100000.00')
         self.assertEqual(asiento.movimientos.count(), 2)
+
+    def test_internal_transfer_resolution_auto_generates_accounting_events(self):
+        origin_empresa = self._create_active_empresa(nombre='TransferOriginCo', rut='62626262-6')
+        origin_accounts = self._setup_contabilidad(origin_empresa)
+        self._create_rule_matrix(
+            origin_empresa,
+            'TransferenciaIntercuentaSalida',
+            origin_accounts['cxc'],
+            origin_accounts['bancos'],
+        )
+        origin_account = CuentaRecaudadora.objects.create(
+            empresa_owner=origin_empresa,
+            institucion='Banco Transfer',
+            numero_cuenta='TRF-ORIGIN-001',
+            tipo_cuenta='corriente',
+            titular_nombre=origin_empresa.razon_social,
+            titular_rut=origin_empresa.rut,
+            moneda_operativa='CLP',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+        destination_empresa = self._create_active_empresa(nombre='TransferDestCo', rut='63636363-6')
+        destination_accounts = self._setup_contabilidad(destination_empresa)
+        self._create_rule_matrix(
+            destination_empresa,
+            'TransferenciaIntercuentaEntrada',
+            destination_accounts['bancos'],
+            destination_accounts['cxc'],
+        )
+        destination_account = CuentaRecaudadora.objects.create(
+            empresa_owner=destination_empresa,
+            institucion='Banco Transfer',
+            numero_cuenta='TRF-DEST-001',
+            tipo_cuenta='corriente',
+            titular_nombre=destination_empresa.razon_social,
+            titular_rut=destination_empresa.rut,
+            moneda_operativa='CLP',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+        origin_connection = ConexionBancaria.objects.create(
+            cuenta_recaudadora=origin_account,
+            provider_key='origin-transfer-bank',
+            credencial_ref='cred-transfer-origin',
+            evidencia_gate_ref='gate-transfer-origin',
+            prueba_conectividad_ref='connectivity-transfer-origin',
+            prueba_movimientos_ref='movements-transfer-origin',
+            estado_conexion='activa',
+            primaria_movimientos=True,
+        )
+        destination_connection = ConexionBancaria.objects.create(
+            cuenta_recaudadora=destination_account,
+            provider_key='destination-transfer-bank',
+            credencial_ref='cred-transfer-destination',
+            evidencia_gate_ref='gate-transfer-destination',
+            prueba_conectividad_ref='connectivity-transfer-destination',
+            prueba_movimientos_ref='movements-transfer-destination',
+            estado_conexion='activa',
+            primaria_movimientos=True,
+        )
+        origin_movement = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=origin_connection,
+            fecha_movimiento=date(2026, 1, 20),
+            tipo_movimiento='cargo',
+            monto='150000.00',
+            descripcion_origen='Transferencia intercuenta enviada',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-transfer-origin',
+            estado_conciliacion='manual_requerida',
+        )
+        destination_movement = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=destination_connection,
+            fecha_movimiento=date(2026, 1, 20),
+            tipo_movimiento='abono',
+            monto='150000.00',
+            descripcion_origen='Transferencia intercuenta recibida',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-transfer-destination',
+            estado_conciliacion='pendiente',
+        )
+        resolution = ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            scope_type='movimiento_bancario',
+            scope_reference=str(origin_movement.pk),
+            summary='Transferencia intercuenta requiere resolucion manual.',
+        )
+
+        response = self.client.post(
+            reverse('manual-resolution-resolve-internal-transfer', args=[resolution.pk]),
+            {
+                'movimiento_destino_id': destination_movement.pk,
+                'periodo_economico': '2026-01',
+                'criterio_conciliacion': 'Par cargo/abono entre cuentas recaudadoras de empresas.',
+                'evidencia_transferencia_ref': 'transfer-evidence-controlled-001',
+                'responsable_ref': 'accounting-owner-controlled',
+                'rationale': 'Transferencia intercuenta con trazabilidad contable.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['evento_contable_ids']), 2)
+        events = EventoContable.objects.filter(
+            entidad_origen_tipo='transferencia_intercuenta',
+            entidad_origen_id=str(response.data['transferencia_intercuenta_id']),
+        ).order_by('evento_tipo')
+        self.assertEqual(events.count(), 2)
+        self.assertEqual({event.estado_contable for event in events}, {'contabilizado'})
+        self.assertEqual(
+            set(events.values_list('evento_tipo', flat=True)),
+            {'TransferenciaIntercuentaEntrada', 'TransferenciaIntercuentaSalida'},
+        )
+        self.assertEqual(AsientoContable.objects.filter(evento_contable__in=events).count(), 2)
+        resolution.refresh_from_db()
+        self.assertEqual(sorted(resolution.metadata['evento_contable_ids']), sorted(response.data['evento_contable_ids']))
 
     def test_prepare_monthly_close_fails_when_events_are_pending(self):
         empresa = self._create_active_empresa(nombre='CloseCo', rut='55555555-5')
