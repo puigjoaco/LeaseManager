@@ -41,6 +41,10 @@ TAX_REF_REQUIRED_STATES = {
     EstadoPreparacionTributaria.OBSERVED,
     EstadoPreparacionTributaria.RECTIFIED,
 }
+TAX_GATE_REQUIRED_STATES = {
+    EstadoPreparacionTributaria.PREPARED,
+    *TAX_REF_REQUIRED_STATES,
+}
 
 AUTHORIZED_STAGE4_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 CAPABILITY_REFERENCE_FIELDS = (
@@ -94,6 +98,16 @@ def _capability_has_sensitive_reference(capability) -> bool:
     ) or contains_sensitive_reference(capability.ultimo_resultado or {})
 
 
+def _capability_ready_for_tax_state(capability) -> bool:
+    if not capability or capability.estado_gate != EstadoGateSII.OPEN:
+        return False
+    try:
+        capability.full_clean()
+    except ValidationError:
+        return False
+    return True
+
+
 def _collect_dte_issues(dtes) -> dict[str, int]:
     counts = Counter()
     for dte in dtes:
@@ -104,6 +118,8 @@ def _collect_dte_issues(dtes) -> dict[str, int]:
 
         if dte.estado_dte in DTE_EXTERNAL_STATES and not has_text(dte.sii_track_id):
             counts['external_tracking_missing'] += 1
+        if dte.estado_dte in DTE_EXTERNAL_STATES and not _capability_ready_for_tax_state(dte.capacidad_tributaria):
+            counts['external_capability_not_ready'] += 1
         if has_text(dte.sii_track_id) and not is_non_sensitive_reference(dte.sii_track_id):
             counts['sensitive_tracking_ref'] += 1
         if dte.estado_dte in DTE_FINAL_STATES and not has_text(dte.ultimo_estado_sii):
@@ -122,6 +138,10 @@ def _collect_f29_issues(f29_drafts) -> dict[str, int]:
 
         if draft.estado_preparacion == EstadoPreparacionTributaria.PRESENTED:
             counts['presented_boundary'] += 1
+        if draft.estado_preparacion in TAX_GATE_REQUIRED_STATES and not _capability_ready_for_tax_state(
+            draft.capacidad_tributaria
+        ):
+            counts['capability_not_ready'] += 1
         if draft.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(draft.borrador_ref):
             counts['approved_ref_missing'] += 1
         if has_text(draft.borrador_ref) and not is_non_sensitive_reference(draft.borrador_ref):
@@ -156,6 +176,10 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['ddjj_invalid_model'] += 1
         if ddjj.estado_preparacion == EstadoPreparacionTributaria.PRESENTED:
             counts['ddjj_presented_boundary'] += 1
+        if ddjj.estado_preparacion in TAX_GATE_REQUIRED_STATES and not _capability_ready_for_tax_state(
+            ddjj.capacidad_tributaria
+        ):
+            counts['ddjj_capability_not_ready'] += 1
         if ddjj.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(ddjj.paquete_ref):
             counts['ddjj_ref_missing'] += 1
         if has_text(ddjj.paquete_ref) and not is_non_sensitive_reference(ddjj.paquete_ref):
@@ -168,6 +192,10 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['f22_invalid_model'] += 1
         if f22.estado_preparacion == EstadoPreparacionTributaria.PRESENTED:
             counts['f22_presented_boundary'] += 1
+        if f22.estado_preparacion in TAX_GATE_REQUIRED_STATES and not _capability_ready_for_tax_state(
+            f22.capacidad_tributaria
+        ):
+            counts['f22_capability_not_ready'] += 1
         if f22.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(f22.borrador_ref):
             counts['f22_ref_missing'] += 1
         if has_text(f22.borrador_ref) and not is_non_sensitive_reference(f22.borrador_ref):
@@ -344,6 +372,14 @@ def collect_stage4_sii_readiness(
                 count=dte_issues['external_tracking_missing'],
             )
         )
+    if dte_issues.get('external_capability_not_ready'):
+        issues.append(
+            _issue(
+                'stage4.dte_capability_not_ready',
+                'Existen DTE en estado externo sin capacidad SII abierta y lista.',
+                count=dte_issues['external_capability_not_ready'],
+            )
+        )
     if dte_issues.get('sensitive_tracking_ref'):
         issues.append(
             _issue(
@@ -391,6 +427,14 @@ def collect_stage4_sii_readiness(
                 count=f29_issues['presented_boundary'],
             )
         )
+    if f29_issues.get('capability_not_ready'):
+        issues.append(
+            _issue(
+                'stage4.f29_capability_not_ready',
+                'Existen borradores F29 preparados o aprobados sin capacidad SII abierta y lista.',
+                count=f29_issues['capability_not_ready'],
+            )
+        )
     if f29_issues.get('approved_ref_missing'):
         issues.append(
             _issue(
@@ -428,9 +472,19 @@ def collect_stage4_sii_readiness(
             'DDJJ presentada queda fuera del flujo local sin gate formal.',
         ),
         (
+            'ddjj_capability_not_ready',
+            'stage4.ddjj_capability_not_ready',
+            'Existen DDJJ preparadas o aprobadas sin capacidad SII abierta y lista.',
+        ),
+        (
             'f22_presented_boundary',
             'stage4.f22_presented_boundary',
             'F22 presentado queda fuera del flujo local sin gate formal.',
+        ),
+        (
+            'f22_capability_not_ready',
+            'stage4.f22_capability_not_ready',
+            'Existen F22 preparados o aprobados sin capacidad SII abierta y lista.',
         ),
         (
             'process_summary_missing',

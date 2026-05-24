@@ -30,6 +30,10 @@ TAX_STATUS_REQUIRING_REF = {
     EstadoPreparacionTributaria.OBSERVED,
     EstadoPreparacionTributaria.RECTIFIED,
 }
+TAX_STATUS_REQUIRING_GATE = {
+    EstadoPreparacionTributaria.PREPARED,
+    *TAX_STATUS_REQUIRING_REF,
+}
 
 
 def _first_readiness_error(errors):
@@ -216,8 +220,9 @@ def register_f29_status(draft, *, estado_preparacion, borrador_ref='', observaci
         raise ValueError('SII.F29Presentacion requiere gate propio y no se registra desde preparacion local.')
     input_ref = _ensure_non_sensitive_reference(borrador_ref, 'borrador_ref')
     next_ref = input_ref or draft.borrador_ref
-    if estado_preparacion in TAX_STATUS_REQUIRING_REF:
+    if estado_preparacion in TAX_STATUS_REQUIRING_GATE:
         ensure_sii_capability_ready(draft.capacidad_tributaria, draft.capacidad_tributaria.capacidad_key)
+    if estado_preparacion in TAX_STATUS_REQUIRING_REF:
         if not next_ref:
             raise ValueError('Aprobar u observar F29 requiere borrador_ref trazable.')
         _ensure_non_sensitive_reference(next_ref, 'borrador_ref')
@@ -334,8 +339,9 @@ def register_annual_status(document, *, estado_preparacion, ref_value='', observ
         current_ref = document.borrador_ref
     input_ref = _ensure_non_sensitive_reference(ref_value, 'ref_value')
     next_ref = input_ref or current_ref
-    if estado_preparacion in TAX_STATUS_REQUIRING_REF:
+    if estado_preparacion in TAX_STATUS_REQUIRING_GATE:
         ensure_sii_capability_ready(document.capacidad_tributaria, document.capacidad_tributaria.capacidad_key)
+    if estado_preparacion in TAX_STATUS_REQUIRING_REF:
         if not next_ref:
             raise ValueError('Aprobar u observar preparacion anual requiere referencia trazable.')
         _ensure_non_sensitive_reference(next_ref, 'ref_value')

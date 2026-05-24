@@ -34,6 +34,9 @@ produccion por defecto.
   redactado si existe una referencia sensible heredada.
 - Los borradores DTE/F29/anuales y los cambios de estado externo revalidan el
   gate antes de avanzar.
+- F29, DDJJ y F22 en estado preparado, aprobado, observado o rectificado deben
+  mantener una capacidad SII abierta y lista; el readiness bloquea artefactos
+  heredados avanzados con capacidad condicionada, cerrada o invalida.
 - `F29Presentacion` y `PresentacionAnualFinal` no se registran desde el flujo
   local sin gate propio o reemision formal del set.
 - `audit_stage4_sii_readiness` consolida configuracion fiscal por empresa,
