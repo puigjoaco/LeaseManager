@@ -23,16 +23,16 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 2 - Programacion local de recordatorios de cobranza desde cadencias activas. |
-| Fuente exacta | PR #195 `Guard Stage 2 notification schedule readiness`, merge `d36d5c7`, desde `01_Set_Vigente/PRD_CANONICO.md` linea 306 y continuidad de PR #193. |
-| Brecha activa | Cerrada localmente: `PagoMensual` pendiente/atrasado materializa recordatorios por pago/canal/dia, Canales los expone en API/snapshot/backoffice y readiness Etapa 2 bloquea pagos cobrables sin programacion o con programacion invalida. |
-| Motivo de prioridad | La cadencia ya no queda como configuracion inerte; existe programacion trazable local sin abrir Email, WhatsApp, WebPay, secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
-| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
-| Rama | `main` sincronizada; sin rama tactica activa. |
-| Estado | PR #195 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
-| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
-| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 2 sin fuente `snapshot_controlado` o `real_autorizado`, pruebas Email/WebPay y responsables no sensibles. |
-| Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
+| Frente activo | Etapa 2 - Refresco local de mora para pagos abiertos vencidos. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 29, 229, 416 y 456: cobranza mensual, `PagoMensual` con mora y transicion Pendiente -> Atrasado. |
+| Brecha activa | En curso: pagos `pendiente` con `fecha_vencimiento` pasada deben poder refrescarse como `atrasado`, recalcular `dias_mora`, sincronizar estado de cuenta y quedar bloqueados por readiness si siguen stale. |
+| Motivo de prioridad | La mora no puede depender solo de pago/deteccion posterior; CobranzaActiva necesita una operacion local reproducible antes de Email/WebPay/banco real. No requiere secretos, `.env`, DB historica, snapshot, backfills, deploys ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-overdue-refresh`. |
+| Rama | `codex/stage2-overdue-refresh`. |
+| Estado | Implementacion y pruebas focales en curso. |
+| Gate esperado | Readiness Etapa 2 local debe seguir `classification=parcial`, `ready_for_stage2_cobranza=false`, con deteccion de pendientes vencidos/mora desactualizada y sin cerrar sin fuente autorizada. |
+| Estado al cerrar paquete | Pendiente hasta PR/CI/merge/limpieza. |
+| Bloqueos relacionados | `BLK-002` no bloquea esta preparacion local; solo impide cierres evidenciales que requieran fuente autorizada. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
 | Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
 

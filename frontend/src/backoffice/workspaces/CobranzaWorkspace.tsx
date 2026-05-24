@@ -7,7 +7,7 @@ type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
 type ValorUFItem = { id: number; fecha: string; valor: string; source_key: string }
 type AjusteContratoItem = { id: number; contrato: number; tipo_ajuste: string; monto: string; moneda: string; mes_inicio: string; mes_fin: string; activo: boolean }
-type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_pagado_clp: string; estado_pago: string }
+type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_pagado_clp: string; fecha_vencimiento: string; estado_pago: string; dias_mora: number }
 type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; brecha_garantia_clp: string; garantia_incompleta: boolean; garantia_parcial_aceptada: boolean; aceptacion_parcial_ref: string; estado_garantia: string }
 type HistorialGarantiaItem = { id: number; contrato_id: number; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string }
 type EstadoCuentaItem = { id: number; arrendatario: number; score_pago: number | null; resumen_operativo: { pagos_abiertos?: number; pagos_atrasados?: number; saldo_total_clp?: string } }
@@ -17,6 +17,7 @@ type ArrendatarioItem = { id: number; nombre_razon_social: string }
 type UfDraft = { fecha: string; valor: string; source_key: string }
 type AjusteDraft = { contrato: string; tipo_ajuste: string; monto: string; moneda: string; mes_inicio: string; mes_fin: string; justificacion: string; activo: boolean }
 type PagoDraft = { contrato_id: string; anio: string; mes: string }
+type MoraDraft = { fecha_corte: string }
 type GarantiaDraft = { contrato: string; monto_pactado: string }
 type GarantiaMovimientoDraft = { garantiaId: string; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string }
 type EstadoCuentaDraft = { arrendatario_id: string }
@@ -32,6 +33,9 @@ export function CobranzaWorkspace({
   pagoDraft,
   setPagoDraft,
   handleGeneratePago,
+  moraDraft,
+  setMoraDraft,
+  handleRefreshMora,
   garantiaDraft,
   setGarantiaDraft,
   handleCreateGarantia,
@@ -69,6 +73,9 @@ export function CobranzaWorkspace({
   pagoDraft: PagoDraft
   setPagoDraft: Dispatch<SetStateAction<PagoDraft>>
   handleGeneratePago: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  moraDraft: MoraDraft
+  setMoraDraft: Dispatch<SetStateAction<MoraDraft>>
+  handleRefreshMora: (event: FormEvent<HTMLFormElement>) => Promise<void>
   garantiaDraft: GarantiaDraft
   setGarantiaDraft: Dispatch<SetStateAction<GarantiaDraft>>
   handleCreateGarantia: (event: FormEvent<HTMLFormElement>) => Promise<void>
@@ -145,6 +152,14 @@ export function CobranzaWorkspace({
         </section>
 
         <section className="panel">
+          <div className="section-heading"><div><h2>Refrescar mora</h2><p>Marca pagos vencidos abiertos como atrasados y recalcula estados de cuenta.</p></div></div>
+          <form className="entity-form" onSubmit={handleRefreshMora}>
+            <input type="date" value={moraDraft.fecha_corte} onChange={(event) => setMoraDraft({ fecha_corte: event.target.value })} />
+            <button type="submit" className="button-primary" disabled={isSubmitting || !canEditCobranza || !moraDraft.fecha_corte}>Refrescar mora</button>
+          </form>
+        </section>
+
+        <section className="panel">
           <div className="section-heading"><div><h2>Garantía contractual</h2><p>Alta de garantía y movimientos principales.</p></div></div>
           <form className="entity-form" onSubmit={handleCreateGarantia}>
             <select value={garantiaDraft.contrato} onChange={(event) => setGarantiaDraft((current) => ({ ...current, contrato: event.target.value }))}>
@@ -203,7 +218,9 @@ export function CobranzaWorkspace({
         { label: 'Facturable', render: (row) => row.monto_facturable_clp },
         { label: 'Calculado', render: (row) => row.monto_calculado_clp },
         { label: 'Pagado', render: (row) => row.monto_pagado_clp },
+        { label: 'Vence', render: (row) => row.fecha_vencimiento },
         { label: 'Estado', render: (row) => <Badge label={row.estado_pago} tone={toneFor(row.estado_pago)} /> },
+        { label: 'Mora', render: (row) => count(row.dias_mora) },
         { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => navigateToConciliacion(row)}>Conciliar</button>{canOpenSii ? <button type="button" className="button-ghost inline-action" onClick={() => goToPagoContext(row.id)}>DTE</button> : null}</div> },
       ]} />
       <TableBlock title="Garantías" subtitle="Saldos y estado actual de cada contrato." rows={filteredGarantias} empty="No hay garantías para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[

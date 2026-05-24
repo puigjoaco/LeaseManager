@@ -28,6 +28,7 @@ from cobranza.models import (
     EstadoCuentaArrendatario,
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
+    EstadoPago,
     GateCobroExterno,
     IntentoPagoWebPay,
     PagoMensual,
@@ -310,6 +311,17 @@ def _collect_webpay_intent_issues(intents) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _collect_payment_overdue_issues(payments, reference_date) -> dict[str, int]:
+    counts = Counter()
+    for payment in payments:
+        expected_days_late = max(0, (reference_date - payment.fecha_vencimiento).days)
+        if payment.estado_pago == EstadoPago.PENDING and expected_days_late > 0:
+            counts['pending_past_due'] += 1
+        if payment.estado_pago == EstadoPago.OVERDUE and payment.dias_mora != expected_days_late:
+            counts['overdue_days_stale'] += 1
+    return dict(sorted(counts.items()))
+
+
 def _collect_account_state_issues(account_states, required_tenant_ids: set[int]) -> dict[str, int]:
     counts = Counter()
     existing_tenant_ids: set[int] = set()
@@ -347,7 +359,9 @@ def collect_stage2_cobranza_readiness(
     source_label: str = '',
     authorization_ref: str = '',
     source_kind: str = 'local',
+    reference_date=None,
 ) -> dict[str, Any]:
+    reference_date = reference_date or timezone.localdate()
     identities = IdentidadDeEnvio.objects.select_related('empresa_owner', 'socio_owner')
     channel_assignments = AsignacionCanalOperacion.objects.select_related(
         'mandato_operacion',
@@ -466,6 +480,7 @@ def collect_stage2_cobranza_readiness(
         active_notification_configs,
         notification_schedules,
     )
+    payment_overdue_issues = _collect_payment_overdue_issues(payments, reference_date)
     payments_total = payments.count()
     repayments = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen')
     invalid_repayments = _count_invalid(repayments)
@@ -522,6 +537,22 @@ def collect_stage2_cobranza_readiness(
             _issue(
                 'stage2.payments_missing',
                 'No existen pagos mensuales locales para validar cobranza activa.',
+            )
+        )
+    if payment_overdue_issues.get('pending_past_due'):
+        issues.append(
+            _issue(
+                'stage2.payment.pending_past_due',
+                'Existen pagos pendientes ya vencidos que deben refrescarse como atrasados antes de cerrar cobranza.',
+                count=payment_overdue_issues['pending_past_due'],
+            )
+        )
+    if payment_overdue_issues.get('overdue_days_stale'):
+        issues.append(
+            _issue(
+                'stage2.payment.overdue_days_stale',
+                'Existen pagos atrasados cuyo dias_mora no coincide con la fecha de corte auditada.',
+                count=payment_overdue_issues['overdue_days_stale'],
             )
         )
     if invalid_repayments:
@@ -920,6 +951,9 @@ def collect_stage2_cobranza_readiness(
         'sections': {
             'payments': {
                 'total': payments_total,
+                'by_state': _count_by(payments, 'estado_pago'),
+                'reference_date': reference_date.isoformat(),
+                **payment_overdue_issues,
             },
             'account_states': {
                 'total': account_states.count(),

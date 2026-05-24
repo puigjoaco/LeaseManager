@@ -232,6 +232,10 @@ class PagoMensualGenerateSerializer(serializers.Serializer):
             self.fields['contrato_id'].queryset = _scoped_contrato_queryset(user)
 
 
+class PagoMensualRefreshMoraSerializer(serializers.Serializer):
+    fecha_corte = serializers.DateField(required=False)
+
+
 class GateCobroExternoSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
     redacted_reference_fields = ('evidencia_ref',)
 

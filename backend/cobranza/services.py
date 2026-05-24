@@ -233,14 +233,76 @@ PAYMENT_STATE_TRANSITIONS = {
 
 def calculate_days_late(payment):
     reference_date = payment.fecha_deposito_banco or payment.fecha_pago_webpay or payment.fecha_deteccion_sistema
+    if not reference_date and payment.estado_pago == EstadoPago.OVERDUE:
+        reference_date = timezone.localdate()
     if not reference_date:
         return 0
     return max(0, (reference_date - payment.fecha_vencimiento).days)
 
 
-def sync_payment_state(payment):
+def calculate_open_days_late(payment, reference_date=None):
+    reference_date = reference_date or timezone.localdate()
+    if not payment.fecha_vencimiento:
+        return 0
+    return max(0, (reference_date - payment.fecha_vencimiento).days)
+
+
+def sync_payment_state(payment, reference_date=None):
+    if payment.estado_pago == EstadoPago.OVERDUE and not (
+        payment.fecha_deposito_banco or payment.fecha_pago_webpay or payment.fecha_deteccion_sistema
+    ):
+        payment.dias_mora = calculate_open_days_late(payment, reference_date)
+        return payment
     payment.dias_mora = calculate_days_late(payment)
     return payment
+
+
+def sync_payment_overdue_state(payment, reference_date=None):
+    if payment.estado_pago not in {EstadoPago.PENDING, EstadoPago.OVERDUE}:
+        return sync_payment_state(payment, reference_date)
+
+    days_late = calculate_open_days_late(payment, reference_date)
+    if days_late > 0:
+        payment.estado_pago = EstadoPago.OVERDUE
+        payment.dias_mora = days_late
+    elif payment.estado_pago == EstadoPago.PENDING:
+        payment.dias_mora = 0
+    return payment
+
+
+@transaction.atomic
+def refresh_overdue_payments(*, queryset=None, reference_date=None, access: ScopeAccess | None = None):
+    reference_date = reference_date or timezone.localdate()
+    queryset = queryset or PagoMensual.objects.all()
+    candidates = queryset.select_related('contrato__arrendatario').filter(
+        estado_pago__in=[EstadoPago.PENDING, EstadoPago.OVERDUE],
+        fecha_vencimiento__lt=reference_date,
+    )
+
+    updated_count = 0
+    tenant_ids: set[int] = set()
+    tenants = {}
+    for payment in candidates.select_for_update():
+        previous_state = payment.estado_pago
+        previous_days = payment.dias_mora
+        sync_payment_overdue_state(payment, reference_date)
+        if payment.estado_pago == previous_state and payment.dias_mora == previous_days:
+            continue
+        payment.full_clean()
+        payment.save(update_fields=['estado_pago', 'dias_mora', 'updated_at'])
+        updated_count += 1
+        tenant = payment.contrato.arrendatario
+        tenant_ids.add(tenant.id)
+        tenants[tenant.id] = tenant
+
+    for tenant_id in sorted(tenant_ids):
+        rebuild_account_state(tenants[tenant_id], access=access)
+
+    return {
+        'reference_date': reference_date.isoformat(),
+        'updated_count': updated_count,
+        'tenant_count': len(tenant_ids),
+    }
 
 
 def recalculate_guarantee_state(garantia, fecha_cierre=None):
