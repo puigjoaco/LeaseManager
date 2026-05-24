@@ -240,6 +240,8 @@ class ContratoSerializer(serializers.ModelSerializer):
     contrato_propiedades = ContratoPropiedadWriteSerializer(many=True, write_only=True, required=False)
     periodos_contractuales = PeriodoContractualWriteSerializer(many=True, write_only=True, required=False)
     codeudores_solidarios = CodeudorSolidarioWriteSerializer(many=True, write_only=True, required=False)
+    requiere_notificacion_manual_retroactiva = serializers.SerializerMethodField(read_only=True)
+    alerta_notificacion_manual_retroactiva = serializers.SerializerMethodField(read_only=True)
     identidad_envio_override_display = serializers.CharField(
         source='identidad_envio_override.remitente_visible',
         read_only=True,
@@ -258,6 +260,9 @@ class ContratoSerializer(serializers.ModelSerializer):
             'fecha_inicio',
             'fecha_fin_vigente',
             'fecha_entrega',
+            'fecha_registro_operativo',
+            'requiere_notificacion_manual_retroactiva',
+            'alerta_notificacion_manual_retroactiva',
             'dia_pago_mensual',
             'plazo_notificacion_termino_dias',
             'dias_prealerta_admin',
@@ -278,6 +283,9 @@ class ContratoSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             'id',
+            'fecha_registro_operativo',
+            'requiere_notificacion_manual_retroactiva',
+            'alerta_notificacion_manual_retroactiva',
             'identidad_envio_override_display',
             'contrato_propiedades_detail',
             'periodos_contractuales_detail',
@@ -294,6 +302,12 @@ class ContratoSerializer(serializers.ModelSerializer):
 
     def get_codeudores_solidarios_detail(self, obj):
         return CodeudorSolidarioReadSerializer(obj.codeudores_solidarios.all(), many=True).data
+
+    def get_requiere_notificacion_manual_retroactiva(self, obj):
+        return obj.requires_retroactive_manual_notification()
+
+    def get_alerta_notificacion_manual_retroactiva(self, obj):
+        return obj.retroactive_manual_notification_alert()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -586,6 +600,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         contrato_propiedades = validated_data.pop('contrato_propiedades', [])
         periodos = validated_data.pop('periodos_contractuales', [])
         codeudores = validated_data.pop('codeudores_solidarios', [])
+        validated_data.setdefault('fecha_registro_operativo', timezone.localdate())
         with transaction.atomic():
             contrato = Contrato.objects.create(**validated_data)
             self._sync_children(contrato, contrato_propiedades, periodos, codeudores)

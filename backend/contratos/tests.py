@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -304,6 +305,25 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(len(response.data['periodos_contractuales_detail']), 1)
         self.assertEqual(len(response.data['codeudores_solidarios_detail']), 1)
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
+
+    def test_create_retroactive_contract_after_cutoff_records_manual_notification_alert(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-RETRO', owner_rut='11111119-7')
+        arrendatario = self._create_arrendatario(rut='12345672-6')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-RETRO')
+
+        with patch('contratos.serializers.timezone.localdate', return_value=date(2026, 1, 10)):
+            response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['fecha_registro_operativo'], '2026-01-10')
+        self.assertTrue(response.data['requiere_notificacion_manual_retroactiva'])
+        self.assertIn('notificacion manual', response.data['alerta_notificacion_manual_retroactiva'])
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='contratos.contrato.retroactive_manual_notification_alert',
+                entity_id=str(response.data['id']),
+            ).exists()
+        )
 
     def test_create_contract_accepts_authorized_identity_override(self):
         mandato = self._create_active_mandato(codigo='MAND-101-ID-OK', owner_rut='11111115-4')

@@ -29,12 +29,12 @@ contexto historico en tarea nueva.
 | Motivo de prioridad | Es una regla local del PRD, no requiere secretos, `.env`, DB historica, snapshot ni integracion externa. |
 | Worktree | `D:/Proyectos/LeaseManager-retroactive-contract-alert` |
 | Rama | `codex/retroactive-contract-alert` |
-| Estado | Parcial, sin commit; contiene cambios en `backend/contratos/models.py`, `backend/contratos/serializers.py` y `backend/contratos/views.py`. |
-| Gate esperado | Migracion Django, tests focales de contratos/cobranza/auditor Etapa 1, `manage.py check`, `makemigrations --check --dry-run`, readiness local Etapa 1, build frontend si toca UI, acceptance proporcional o completa, higiene repo y `git diff --check`. |
+| Estado | Implementado y validado localmente; pendiente cierre operativo con PR, CI, merge a `main` y limpieza de worktree/rama. |
+| Gate esperado | Antes de merge: PR con CI verde, `scripts/assert-repo-hygiene.ps1` y `git diff --check`. Al quedar integrado, este frente no debe reabrirse salvo regression concreta. |
 | Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 1 sin fuente `snapshot_controlado` o `real_autorizado`. |
 | Bloqueos relacionados | `BLK-002` solo bloquea cierre evidencial de Etapa 1; no bloquea esta preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Completar o descartar de forma explicita el worktree `codex/retroactive-contract-alert` antes de abrir otro frente de producto. |
+| Siguiente accion | Cerrar el PR de `codex/retroactive-contract-alert`; despues de merge y limpieza, seleccionar desde `main` el siguiente paquete local seguro por orden de arquitectura y trazabilidad. |
 
 ## Actualizacion
 

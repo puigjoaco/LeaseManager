@@ -63,6 +63,13 @@ def apply_effective_code(amount_clp, code):
 
 
 def calculate_monthly_amount(contrato, anio, mes):
+    if contrato.blocks_automatic_past_billing(anio, mes):
+        message = contrato.retroactive_manual_notification_alert()
+        raise ValueError(
+            message
+            or 'Contrato retroactivo no permite reconstruir cobros pasados de forma automatica.'
+        )
+
     period = get_period_for_month(contrato, anio, mes)
     if not period:
         raise ValueError('No existe un periodo contractual vigente para el mes operativo solicitado.')
