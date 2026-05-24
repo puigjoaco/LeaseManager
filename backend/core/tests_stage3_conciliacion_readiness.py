@@ -170,6 +170,8 @@ class Stage3ConciliacionReadinessTests(TestCase):
         )
 
     def _create_reconciled_movement(self, conexion, payment):
+        payment.fecha_deposito_banco = date(2026, 1, 8)
+        payment.save(update_fields=['fecha_deposito_banco', 'updated_at'])
         return MovimientoBancarioImportado.objects.create(
             conexion_bancaria=conexion,
             fecha_movimiento=date(2026, 1, 8),
@@ -340,6 +342,29 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.unknown_income.invalid_model', issue_codes)
         self.assertEqual(result['sections']['unknown_income']['invalid_model'], 1)
+
+    def test_exact_matched_payment_snapshot_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-EXACT-MISMATCH')
+        conexion = self._create_ready_connection(cuenta)
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=payment.monto_calculado_clp + Decimal('1.00'),
+            descripcion_origen='Pago conciliado con snapshot inconsistente',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3',
+            saldo_reportado=Decimal('1000000.00'),
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+            pago_mensual=payment,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['movements']['invalid_model'], 1)
 
     def test_reported_balance_continuity_mismatch_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-BALANCE')

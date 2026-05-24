@@ -514,6 +514,30 @@ class ConciliacionAPITests(APITestCase):
 
         self.assertIn('monto', error.exception.message_dict)
 
+    def test_exact_match_payment_full_clean_rejects_snapshot_mismatch(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-EXACT-MISMATCH')
+        conexion = self._create_connection(cuenta)
+        pago.estado_pago = EstadoPago.PAID
+        pago.monto_pagado_clp = '100111.00'
+        pago.fecha_deposito_banco = '2026-01-08'
+        pago.save(update_fields=['estado_pago', 'monto_pagado_clp', 'fecha_deposito_banco', 'updated_at'])
+        movimiento = MovimientoBancarioImportado(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='100112.00',
+            descripcion_origen='Pago conciliado inconsistente',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+            pago_mensual=pago,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            movimiento.full_clean()
+
+        self.assertIn('pago_mensual', error.exception.message_dict)
+
     def test_rejects_duplicate_transaction_id_banco_per_connection(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-DUP-TX')
         conexion = self._create_connection(cuenta)
