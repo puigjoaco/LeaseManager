@@ -367,6 +367,19 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertIn('stage5.asiento_period_mismatch', issue_codes)
         self.assertEqual(result['sections']['ledger']['asiento_period_mismatches'], 1)
 
+    def test_asiento_stale_hash_is_blocking(self):
+        self._create_valid_local_matrix()
+        asiento = AsientoContable.objects.get()
+        asiento.fecha_contable = date(2026, 1, 11)
+        asiento.save(update_fields=['fecha_contable', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.asiento_hash_mismatch', issue_codes)
+        self.assertEqual(result['sections']['ledger']['posted_asientos_with_stale_hash'], 1)
+
     def test_approved_close_without_reopen_policy_is_blocking(self):
         empresa = self._create_valid_local_matrix()
         PoliticaReversoContable.objects.filter(empresa=empresa).update(aprobacion_requerida=False)

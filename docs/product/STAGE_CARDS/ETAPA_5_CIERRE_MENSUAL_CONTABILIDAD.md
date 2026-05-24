@@ -23,6 +23,9 @@ contables desde hechos conciliados.
 - Asientos balanceados.
 - Asientos del periodo con `periodo_contable` consistente con
   `fecha_contable`.
+- Asientos contabilizados con `hash_integridad` presente y vigente respecto de
+  su contenido actual; el cierre y readiness bloquean hashes heredados
+  desactualizados.
 - Un cierre mensual aprobado solo se reabre con `PoliticaReversoContable`
   activa para `reapertura_cierre_mensual`, que permita reapertura y exija
   aprobacion.

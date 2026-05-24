@@ -16,7 +16,7 @@ documentos o procesos tributarios trazables.
 
 - El resumen financiero mensual requiere cierre mensual aprobado para cada
   empresa incluida, eventos contables con origen y asiento contable posteado y
-  cuadrado.
+  cuadrado, con `hash_integridad` presente y vigente.
 - Los libros por periodo requieren `LibroDiario`, `LibroMayor` y
   `BalanceComprobacion` aprobados, resumen no vacio, balance cuadrado y cierre
   mensual aprobado.

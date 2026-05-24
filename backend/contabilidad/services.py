@@ -30,6 +30,7 @@ from .models import (
     RegimenTributarioEmpresa,
     ReglaContable,
     TipoMovimientoAsiento,
+    has_text,
 )
 
 
@@ -549,6 +550,11 @@ def assert_company_period_accounting_ready(empresa, anio, mes):
             or movement_integrity['credit_total'] != asiento.haber_total
         ):
             raise ValueError('Los movimientos del asiento no cuadran con los totales registrados.')
+        if asiento.estado == EstadoAsientoContable.POSTED:
+            if not has_text(asiento.hash_integridad):
+                raise ValueError('Existen asientos contabilizados sin hash de integridad.')
+            if not asiento.hash_integridad_matches():
+                raise ValueError('Existen asientos con hash de integridad desactualizado.')
 
 
 @transaction.atomic
