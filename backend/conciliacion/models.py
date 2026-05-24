@@ -294,3 +294,42 @@ class IngresoDesconocido(TimestampedModel):
     def __str__(self):
         return f'IngresoDesconocido {self.movimiento_bancario_id}'
 
+    def clean(self):
+        super().clean()
+        errors = {}
+        try:
+            movimiento = self.movimiento_bancario
+        except MovimientoBancarioImportado.DoesNotExist:
+            movimiento = None
+
+        if movimiento is None:
+            return
+
+        if movimiento.tipo_movimiento != TipoMovimientoBancario.CREDIT:
+            errors['movimiento_bancario'] = 'Un ingreso desconocido solo puede originarse en un abono bancario.'
+
+        if self.cuenta_recaudadora_id != movimiento.conexion_bancaria.cuenta_recaudadora_id:
+            errors['cuenta_recaudadora'] = 'La cuenta recaudadora debe coincidir con la conexion del movimiento.'
+
+        if Decimal(str(self.monto)) != Decimal(str(movimiento.monto)):
+            errors['monto'] = 'El monto del ingreso desconocido debe coincidir con el movimiento bancario.'
+        if self.fecha_movimiento != movimiento.fecha_movimiento:
+            errors['fecha_movimiento'] = 'La fecha del ingreso desconocido debe coincidir con el movimiento bancario.'
+        if self.descripcion_origen != movimiento.descripcion_origen:
+            errors['descripcion_origen'] = 'La descripcion debe coincidir con el movimiento bancario.'
+
+        if self.estado == EstadoIngresoDesconocido.OPEN:
+            if movimiento.estado_conciliacion != EstadoConciliacionMovimiento.UNKNOWN_INCOME:
+                errors['estado'] = 'Un ingreso desconocido abierto requiere movimiento en estado ingreso_desconocido.'
+            if movimiento.pago_mensual_id or movimiento.codigo_cobro_residual_id:
+                errors['movimiento_bancario'] = 'Un ingreso desconocido abierto no puede tener target conciliado.'
+
+        if (
+            self.estado == EstadoIngresoDesconocido.RESOLVED
+            and movimiento.estado_conciliacion == EstadoConciliacionMovimiento.UNKNOWN_INCOME
+        ):
+            errors['estado'] = 'Un ingreso desconocido resuelto no puede conservar movimiento en ingreso_desconocido.'
+
+        if errors:
+            raise ValidationError(errors)
+

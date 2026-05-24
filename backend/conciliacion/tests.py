@@ -1,6 +1,7 @@
 import json
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -485,6 +486,33 @@ class ConciliacionAPITests(APITestCase):
                 scope_reference=str(movimiento.pk),
             ).exists()
         )
+
+    def test_unknown_income_full_clean_rejects_snapshot_mismatch(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-UNK-MISMATCH')
+        conexion = self._create_connection(cuenta)
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='100111.00',
+            descripcion_origen='Abono desconocido',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            estado_conciliacion=EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+        )
+        ingreso = IngresoDesconocido(
+            movimiento_bancario=movimiento,
+            cuenta_recaudadora=cuenta,
+            monto='100112.00',
+            fecha_movimiento=movimiento.fecha_movimiento,
+            descripcion_origen=movimiento.descripcion_origen,
+            estado='pendiente_revision',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            ingreso.full_clean()
+
+        self.assertIn('monto', error.exception.message_dict)
 
     def test_rejects_duplicate_transaction_id_banco_per_connection(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-DUP-TX')

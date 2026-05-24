@@ -29,6 +29,10 @@ sistema igual a saldo banco.
   conexiones, movimientos, ingresos desconocidos, senales de saldo y
   referencias finales sin conectar bancos ni leer secretos; tambien detecta
   refs sensibles en conexiones bancarias y movimientos existentes.
+- Ingresos desconocidos existentes deben coincidir con el movimiento bancario
+  que los origina: cuenta recaudadora, monto, fecha, descripcion, tipo abono y
+  estado de conciliacion deben ser coherentes; la readiness debe bloquear
+  snapshots que conserven discrepancias.
 - Las respuestas API y snapshot de Conciliacion redactan refs bancarias
   sensibles ya persistidas antes de exponerlas al backoffice.
 - `audit_stage3_conciliacion_readiness` solo puede cerrar con `--source-kind`
