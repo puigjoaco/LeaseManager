@@ -225,6 +225,25 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('whatsapp_opt_in_evidencia_ref', response.data)
 
+    def test_create_arrendatario_rejects_whatsapp_opt_in_without_international_phone(self):
+        payload = {
+            'tipo_arrendatario': 'persona_natural',
+            'nombre_razon_social': 'Arrendatario WhatsApp Telefono',
+            'rut': '66.666.666-6',
+            'email': 'waphone@example.com',
+            'telefono': '912345678',
+            'domicilio_notificaciones': 'Direccion WA',
+            'estado_contacto': 'activo',
+            'whatsapp_opt_in': True,
+            'whatsapp_opt_in_evidencia_ref': 'optin-phone-controlled',
+            'whatsapp_bloqueado': False,
+        }
+
+        response = self.client.post(reverse('contratos-arrendatario-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('telefono', response.data)
+
     def test_create_arrendatario_rejects_sensitive_whatsapp_opt_in_evidence(self):
         payload = {
             'tipo_arrendatario': 'persona_natural',

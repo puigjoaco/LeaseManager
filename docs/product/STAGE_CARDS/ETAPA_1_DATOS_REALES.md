@@ -63,6 +63,9 @@ contra datos reales o snapshot controlado.
 - Validacion de contratos con arrendatario empresa: API/modelo exigen snapshot
   de representante legal con nombre y RUT valido normalizado, y el auditor
   detecta faltantes, incompletos o RUT invalido en datos heredados.
+- Validacion de telefonos para mensajeria: si un arrendatario usa WhatsApp
+  operativo, el telefono debe estar en formato internacional; numeros locales
+  o ambiguos quedan bloqueados para Canales.
 - Override explicito de `IdentidadDeEnvio` por contrato: si existe, debe estar
   activo y pertenecer a la entidad facturadora o al administrador operativo
   autorizado por el mandato; Canales lo usa antes de la asignacion del mandato

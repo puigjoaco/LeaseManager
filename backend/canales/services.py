@@ -3,7 +3,7 @@ from django.utils import timezone
 
 from audit.models import ManualResolution
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
-from contratos.models import Arrendatario, Contrato
+from contratos.models import Arrendatario, Contrato, is_international_phone_number
 from documentos.models import EstadoDocumento
 from operacion.models import AsignacionCanalOperacion, CanalOperacion, EstadoIdentidadEnvio, EstadoMandatoOperacion
 
@@ -95,6 +95,7 @@ def resolve_recipient(canal, arrendatario):
         arrendatario.whatsapp_bloqueado
         or not arrendatario.whatsapp_opt_in
         or not arrendatario.whatsapp_opt_in_evidencia_ref.strip()
+        or not is_international_phone_number(arrendatario.telefono)
     ):
         return ''
     return arrendatario.telefono or ''
@@ -126,6 +127,8 @@ def whatsapp_blocking_reason(arrendatario, canal_mensajeria):
         return 'WhatsApp requiere evidencia trazable del opt-in.'
     if not is_non_sensitive_reference(arrendatario.whatsapp_opt_in_evidencia_ref):
         return 'WhatsApp requiere evidencia de opt-in no sensible.'
+    if not is_international_phone_number(arrendatario.telefono):
+        return 'WhatsApp requiere telefono operativo en formato internacional.'
     if not whatsapp_gate_has_approved_template(canal_mensajeria):
         return 'WhatsApp requiere template aprobado registrado en el gate del canal.'
     if not is_within_whatsapp_window():
