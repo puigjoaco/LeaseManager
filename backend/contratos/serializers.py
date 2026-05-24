@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from operacion.models import MandatoOperacion
 from patrimonio.models import Propiedad
@@ -69,6 +70,13 @@ def _scoped_contrato_queryset(user):
 
 
 class ArrendatarioSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['whatsapp_opt_in_evidencia_ref'] = redact_sensitive_reference(
+            data.get('whatsapp_opt_in_evidencia_ref')
+        )
+        return data
+
     class Meta:
         model = Arrendatario
         fields = (

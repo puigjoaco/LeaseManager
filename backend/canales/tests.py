@@ -538,6 +538,41 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(response.data['estado'], EstadoMensajeSaliente.BLOCKED)
         self.assertIn('opt-in', response.data['motivo_bloqueo'].lower())
 
+    def test_prepare_whatsapp_message_blocks_sensitive_opt_in_evidence(self):
+        empresa, contrato = self._create_contract_context(
+            codigo='CH-OPTIN-SENSITIVE',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='https://wa.example.test/optin?token=secret',
+        )
+        gate = self._create_gate(canal='whatsapp', restricciones_operativas={'templates_aprobados': True})
+        identidad = self._create_identity(empresa, canal='whatsapp')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='whatsapp',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        with patch(
+            'canales.services.timezone.localtime',
+            return_value=datetime(2026, 5, 21, 10, 0, tzinfo=ZoneInfo('America/Santiago')),
+        ):
+            response = self.client.post(
+                reverse('canales-mensaje-preparar'),
+                {
+                    'canal': 'whatsapp',
+                    'canal_mensajeria': gate['id'],
+                    'contrato': contrato.id,
+                    'cuerpo': 'Recordatorio',
+                },
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoMensajeSaliente.BLOCKED)
+        self.assertIn('opt-in no sensible', response.data['motivo_bloqueo'].lower())
+
     def test_prepare_whatsapp_message_blocks_without_approved_template(self):
         empresa, contrato = self._create_contract_context(
             codigo='CH-NOTEMPLATE',

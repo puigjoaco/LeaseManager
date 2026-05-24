@@ -8,6 +8,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from core.reference_validation import is_non_sensitive_reference
 from operacion.models import MandatoOperacion
 from patrimonio.validators import normalize_rut, validate_rut
 
@@ -106,6 +107,14 @@ class Arrendatario(TimestampedModel):
                 {
                     'whatsapp_opt_in_evidencia_ref': (
                         'El opt-in de WhatsApp requiere referencia de evidencia.'
+                    )
+                }
+            )
+        if not is_non_sensitive_reference(self.whatsapp_opt_in_evidencia_ref):
+            raise ValidationError(
+                {
+                    'whatsapp_opt_in_evidencia_ref': (
+                        'La evidencia de opt-in WhatsApp debe ser una referencia no sensible.'
                     )
                 }
             )
