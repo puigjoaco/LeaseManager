@@ -1167,6 +1167,21 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.contrato.periodos_faltantes', issue_codes)
         self.assertIn('stage1.contrato.garantia_faltante', issue_codes)
 
+    def test_contract_property_linked_without_primary_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        link = contrato.contrato_propiedades.get(rol_en_contrato=RolContratoPropiedad.PRIMARY)
+        link.rol_en_contrato = RolContratoPropiedad.LINKED
+        link.save(update_fields=['rol_en_contrato', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.propiedad_principal_invalida', issue_codes)
+        self.assertIn('stage1.contrato_propiedad.validacion_modelo', issue_codes)
+        self.assertEqual(result['aggregate_classification']['contrato_propiedades']['classification'], 'defectuoso')
+
     def test_active_contract_with_inactive_linked_property_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         principal_link = contrato.contrato_propiedades.get(rol_en_contrato=RolContratoPropiedad.PRIMARY)
