@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
@@ -17,6 +18,14 @@ from .readiness import collect_document_readiness
 
 
 VALID_SHA256 = 'a' * 64
+
+
+def create_user(username='docs-readiness'):
+    return get_user_model().objects.create_user(
+        username=username,
+        password='secret123',
+        default_role_code='AdministradorGlobal',
+    )
 
 
 def create_all_active_policies():
@@ -120,6 +129,7 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertIn('documents.final_policy_ref_missing', {issue['code'] for issue in result['issues']})
 
     def test_document_issues_are_reported_without_reading_storage(self):
+        user = create_user('docs-readiness-issues')
         PoliticaFirmaYNotaria.objects.create(
             tipo_documental=TipoDocumental.MAIN_CONTRACT,
             requiere_firma_arrendador=True,
@@ -139,6 +149,7 @@ class DocumentReadinessAuditTests(TestCase):
             version_plantilla='v1',
             checksum='docx-check',
             fecha_carga=timezone.now(),
+            usuario=user,
             origen='generado_sistema',
             estado='emitido',
             storage_ref='storage/docs/not-pdf.docx',
@@ -149,6 +160,7 @@ class DocumentReadinessAuditTests(TestCase):
             version_plantilla='',
             checksum=VALID_SHA256,
             fecha_carga=timezone.now(),
+            usuario=user,
             origen='generado_sistema',
             estado='emitido',
             storage_ref='storage/docs/tax-support.pdf',
@@ -160,14 +172,48 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertEqual(result['sections']['documents']['non_pdf_storage_refs'], 1)
         self.assertEqual(result['sections']['documents']['without_active_policy'], 1)
         self.assertEqual(result['sections']['documents']['missing_metadata'], 1)
+        self.assertEqual(result['sections']['documents']['missing_user'], 0)
         self.assertEqual(result['sections']['documents']['invalid_checksums'], 1)
         self.assertEqual(issues['documents.non_pdf_storage_ref']['count'], 1)
         self.assertEqual(issues['documents.document_without_active_policy']['count'], 1)
         self.assertEqual(issues['documents.metadata_missing']['count'], 1)
         self.assertEqual(issues['documents.invalid_checksum']['count'], 1)
 
+    def test_document_without_user_is_blocking(self):
+        create_all_active_policies()
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='missing-user',
+            estado='abierto',
+            owner_operativo='manual:missing-user',
+        )
+        DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            origen='generado_sistema',
+            estado='emitido',
+            storage_ref='storage/docs/contract.pdf',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.user_missing', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['documents']['missing_user'], 1)
+
     def test_invalid_checksum_is_blocking_without_exposing_values(self):
         create_all_active_policies()
+        user = create_user('docs-readiness-invalid-checksum')
         expediente = ExpedienteDocumental.objects.create(
             entidad_tipo='manual',
             entidad_id='invalid-checksum',
@@ -180,6 +226,7 @@ class DocumentReadinessAuditTests(TestCase):
             version_plantilla='v1',
             checksum='checksum-operativo-sin-digest',
             fecha_carga=timezone.now(),
+            usuario=user,
             origen='generado_sistema',
             estado='emitido',
             storage_ref='storage/docs/contract.pdf',
@@ -202,6 +249,7 @@ class DocumentReadinessAuditTests(TestCase):
 
     def test_sensitive_storage_refs_are_blocking_without_exposing_values(self):
         create_all_active_policies()
+        user = create_user('docs-readiness-sensitive-storage')
         expediente = ExpedienteDocumental.objects.create(
             entidad_tipo='manual',
             entidad_id='sensitive-storage',
@@ -214,6 +262,7 @@ class DocumentReadinessAuditTests(TestCase):
             version_plantilla='v1',
             checksum=VALID_SHA256,
             fecha_carga=timezone.now(),
+            usuario=user,
             origen='generado_sistema',
             estado='emitido',
             storage_ref='https://storage.example.test/docs/contract.pdf?token=secret',
@@ -238,6 +287,7 @@ class DocumentReadinessAuditTests(TestCase):
 
     def test_formalized_document_without_formalization_audit_is_blocking(self):
         create_all_active_policies()
+        user = create_user('docs-readiness-formalized')
         expediente = ExpedienteDocumental.objects.create(
             entidad_tipo='manual',
             entidad_id='formalized-no-audit',
@@ -250,6 +300,7 @@ class DocumentReadinessAuditTests(TestCase):
             version_plantilla='v1',
             checksum=VALID_SHA256,
             fecha_carga=timezone.now(),
+            usuario=user,
             origen='generado_sistema',
             estado=EstadoDocumento.FORMALIZED,
             storage_ref='storage/docs/formalized-no-audit.pdf',

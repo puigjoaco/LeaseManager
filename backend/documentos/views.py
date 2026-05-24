@@ -104,9 +104,17 @@ class DocumentsSnapshotView(APIView):
                         'expediente': item.expediente_id,
                         'tipo_documental': item.tipo_documental,
                         'version_plantilla': item.version_plantilla,
+                        'checksum': item.checksum,
+                        'fecha_carga': item.fecha_carga,
+                        'usuario': item.usuario_id,
                         'origen': item.origen,
                         'estado': item.estado,
                         'storage_ref': redact_sensitive_reference(item.storage_ref),
+                        'firma_arrendador_registrada': item.firma_arrendador_registrada,
+                        'firma_arrendatario_registrada': item.firma_arrendatario_registrada,
+                        'firma_codeudor_registrada': item.firma_codeudor_registrada,
+                        'recepcion_notarial_registrada': item.recepcion_notarial_registrada,
+                        'comprobante_notarial': item.comprobante_notarial_id,
                     }
                     for item in documentos
                 ],

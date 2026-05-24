@@ -287,6 +287,10 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(list_response.data[0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(detail_response.data['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['documentos_emitidos'][0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['documentos_emitidos'][0]['checksum'], VALID_SHA256)
+        self.assertEqual(snapshot_response.data['documentos_emitidos'][0]['usuario'], self.user.id)
+        self.assertIn('fecha_carga', snapshot_response.data['documentos_emitidos'][0])
+        self.assertIn('comprobante_notarial', snapshot_response.data['documentos_emitidos'][0])
         rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
         self.assertNotIn('storage.example.test', rendered)
         self.assertNotIn('token=secret', rendered)

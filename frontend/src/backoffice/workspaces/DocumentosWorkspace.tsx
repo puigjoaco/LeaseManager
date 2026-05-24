@@ -27,9 +27,17 @@ type DocumentoEmitidoItem = {
   expediente: number
   tipo_documental: string
   version_plantilla: string
+  checksum: string
+  fecha_carga: string
+  usuario: number | null
   origen: string
   estado: string
   storage_ref: string
+  firma_arrendador_registrada: boolean
+  firma_arrendatario_registrada: boolean
+  firma_codeudor_registrada: boolean
+  recepcion_notarial_registrada: boolean
+  comprobante_notarial: number | null
 }
 
 type ExpedienteDraft = {
