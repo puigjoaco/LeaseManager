@@ -19,6 +19,9 @@ condicionados sin envios reales accidentales.
 - Fuente de cierre `snapshot_controlado` o `real_autorizado`, con
   `SourceLabel` y `AuthorizationRef` no sensibles; auditorias `local`,
   `fixture` o `demo` solo preparan y diagnostican.
+- Repactaciones existentes deben mantener coherencia saldo/estado: una
+  repactacion activa conserva saldo pendiente mayor que cero y una cumplida
+  debe quedar sin saldo pendiente.
 - Codigos residuales existentes deben usar formato canonico `CCR-XXXXXX` con
   caracteres mayusculos no ambiguos; la readiness debe bloquear snapshots que
   conserven referencias fuera de formato.

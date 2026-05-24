@@ -23,6 +23,7 @@ from cobranza.models import (
     GateCobroExterno,
     IntentoPagoWebPay,
     PagoMensual,
+    RepactacionDeuda,
 )
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from operacion.models import (
@@ -213,6 +214,8 @@ def collect_stage2_cobranza_readiness(
     invalid_webpay_intents = webpay_intent_issues.get('invalid_model', 0)
 
     payments_total = PagoMensual.objects.count()
+    repayments = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen')
+    invalid_repayments = _count_invalid(repayments)
     residual_codes = CodigoCobroResidual.objects.select_related('arrendatario', 'contrato_origen')
     invalid_residual_codes = _count_invalid(residual_codes)
     final_evidence = {
@@ -255,6 +258,14 @@ def collect_stage2_cobranza_readiness(
             _issue(
                 'stage2.payments_missing',
                 'No existen pagos mensuales locales para validar cobranza activa.',
+            )
+        )
+    if invalid_repayments:
+        issues.append(
+            _issue(
+                'stage2.repayment.invalid_model',
+                'Existen repactaciones de deuda que no pasan validacion de dominio.',
+                count=invalid_repayments,
             )
         )
     if invalid_residual_codes:
@@ -469,6 +480,13 @@ def collect_stage2_cobranza_readiness(
         'sections': {
             'payments': {
                 'total': payments_total,
+            },
+            'repayments': {
+                'total': repayments.count(),
+                'active': repayments.filter(estado='activa').count(),
+                'completed': repayments.filter(estado='cumplida').count(),
+                'by_state': _count_by(repayments, 'estado'),
+                'invalid_model': invalid_repayments,
             },
             'residual_codes': {
                 'total': residual_codes.count(),
