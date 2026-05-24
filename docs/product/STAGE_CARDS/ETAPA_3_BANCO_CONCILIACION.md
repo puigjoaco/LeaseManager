@@ -37,15 +37,18 @@ sistema igual a saldo banco.
   estado de conciliacion deben ser coherentes; la readiness debe bloquear
   snapshots que conserven discrepancias.
 - Ingresos desconocidos resueltos manualmente requieren pago mensual target,
-  contrato, periodo economico, criterio aplicado, `evidencia_regularizacion_ref`
-  no sensible y `rationale`/motivo auditable; la API y el servicio no permiten
-  nuevos cierres sin ese contexto, y la readiness bloquea resoluciones heredadas
-  resueltas sin motivo, sin contexto o con evidencia sensible.
+  contrato, periodo economico canonico `YYYY-MM` alineado al mes/anio del
+  `PagoMensual`, criterio aplicado, `evidencia_regularizacion_ref` no sensible
+  y `rationale`/motivo auditable; la API y el servicio no permiten nuevos
+  cierres sin ese contexto, y la readiness bloquea resoluciones heredadas
+  resueltas sin motivo, sin contexto, con periodo/target inconsistente o con
+  evidencia sensible.
 - Cargos bancarios resueltos manualmente requieren `CategoriaMovimiento`,
-  entidad afectada, periodo economico, criterio de reparto,
+  entidad afectada, periodo economico canonico `YYYY-MM`, criterio de reparto,
   `evidencia_clasificacion_ref` no sensible y motivo auditable; la API y el
   servicio no permiten nuevos cierres sin ese contexto, y la readiness bloquea
-  resoluciones heredadas resueltas sin ese contexto o con evidencia sensible.
+  resoluciones heredadas resueltas sin ese contexto, con periodo/target
+  inconsistente o con evidencia sensible.
 - Resoluciones manuales abiertas que quedan obsoletas por match exacto o por
   otra resolucion manual no se marcan como resueltas manualmente: se cierran
   como `superseded` con motivo, metadata de origen/target y evento de

@@ -518,6 +518,62 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.manual_resolution.unknown_income_resolution_evidence_sensitive', issue_codes)
         self.assertEqual(result['sections']['manual_resolutions']['unknown_income_resolution_evidence_sensitive'], 1)
 
+    def test_resolved_unknown_income_with_invalid_period_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-UNKNOWN-PERIOD')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Ingreso con periodo economico invalido',
+            rationale='Regularizado con metadata heredada.',
+            metadata={
+                'resolved_with': 'payment_manual_assignment',
+                'resolved_payment_id': payment.pk,
+                'resolved_contract_id': payment.contrato_id,
+                'periodo_economico': '2026-13',
+                'criterio_aplicado': 'Saldo exacto contra pago mensual.',
+                'evidencia_regularizacion_ref': 'unknown-income-controlled-ref',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.unknown_income_resolution_period_invalid', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['unknown_income_resolution_period_invalid'], 1)
+
+    def test_resolved_unknown_income_with_target_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-UNKNOWN-TARGET')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Ingreso con target inconsistente',
+            rationale='Regularizado con metadata heredada.',
+            metadata={
+                'resolved_with': 'payment_manual_assignment',
+                'resolved_payment_id': payment.pk,
+                'resolved_contract_id': payment.contrato_id,
+                'periodo_economico': '2026-02',
+                'criterio_aplicado': 'Saldo exacto contra pago mensual.',
+                'evidencia_regularizacion_ref': 'unknown-income-controlled-ref',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.unknown_income_resolution_target_mismatch', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['unknown_income_resolution_target_mismatch'], 1)
+
     def test_resolved_charge_manual_resolution_without_classification_context_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-CHARGE-CONTEXT')
         conexion = self._create_ready_connection(cuenta)
@@ -568,6 +624,64 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.manual_resolution.charge_classification_evidence_sensitive', issue_codes)
         self.assertEqual(result['sections']['manual_resolutions']['charge_classification_evidence_sensitive'], 1)
+
+    def test_resolved_charge_manual_resolution_with_invalid_period_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-CHARGE-PERIOD')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        charge = self._create_reconciled_charge_movement(conexion)
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(charge.pk),
+            summary='Cargo con periodo economico invalido',
+            rationale='Clasificado con metadata heredada.',
+            metadata={
+                'categoria_movimiento': 'comision_bancaria',
+                'entidad_afectada_tipo': 'empresa',
+                'entidad_afectada_id': cuenta.empresa_owner_id,
+                'periodo_economico': '2026-13',
+                'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
+                'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.charge_classification_period_invalid', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['charge_classification_period_invalid'], 1)
+
+    def test_resolved_charge_manual_resolution_with_target_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-CHARGE-TARGET')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        charge = self._create_reconciled_charge_movement(conexion)
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(charge.pk),
+            summary='Cargo con entidad afectada inconsistente',
+            rationale='Clasificado con metadata heredada.',
+            metadata={
+                'categoria_movimiento': 'comision_bancaria',
+                'entidad_afectada_tipo': 'empresa',
+                'entidad_afectada_id': cuenta.empresa_owner_id + 99,
+                'periodo_economico': '2026-01',
+                'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
+                'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.charge_classification_target_mismatch', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['charge_classification_target_mismatch'], 1)
 
     def test_sensitive_final_refs_do_not_close_readiness(self):
         cuenta, payment = self._create_payment_matrix()
