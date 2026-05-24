@@ -406,6 +406,65 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_active_assignment_with_unrelated_identity_owner_is_explicitly_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        asignacion = contrato.mandato_operacion.asignaciones_canal.get()
+        identidad = asignacion.identidad_envio
+        unrelated_socio = Socio.objects.get(rut='11111111-1')
+        identidad.empresa_owner = None
+        identidad.socio_owner = unrelated_socio
+        identidad.save(update_fields=['empresa_owner', 'socio_owner', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.asignacion_canal.validacion_modelo', issue_codes)
+        self.assertIn('stage1.asignacion_canal.identidad_owner_no_autorizado', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['asignaciones_canal_activas']['classification'],
+            'defectuoso',
+        )
+
+    def test_active_assignment_without_communication_authorization_is_explicitly_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        mandato = contrato.mandato_operacion
+        admin_socio = Socio.objects.get(rut='11111111-1')
+        mandato.administrador_empresa_owner = None
+        mandato.administrador_socio_owner = admin_socio
+        mandato.autoriza_comunicacion = False
+        mandato.save(
+            update_fields=[
+                'administrador_empresa_owner',
+                'administrador_socio_owner',
+                'autoriza_comunicacion',
+                'updated_at',
+            ]
+        )
+        asignacion = mandato.asignaciones_canal.get()
+        identidad = asignacion.identidad_envio
+        identidad.empresa_owner = None
+        identidad.socio_owner = admin_socio
+        identidad.save(update_fields=['empresa_owner', 'socio_owner', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.mandato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.asignacion_canal.validacion_modelo', issue_codes)
+        self.assertIn('stage1.asignacion_canal.comunicacion_no_autorizada', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['mandatos']['classification'],
+            'defectuoso',
+        )
+        self.assertEqual(
+            result['aggregate_classification']['asignaciones_canal_activas']['classification'],
+            'defectuoso',
+        )
+
     def test_active_company_future_only_participations_are_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         empresa = contrato.mandato_operacion.propietario_empresa_owner

@@ -729,6 +729,49 @@ def _audit_operacion(issues: list[dict[str, Any]]) -> None:
         entity='AsignacionCanalOperacion',
     )
 
+    for asignacion in AsignacionCanalOperacion.objects.filter(
+        estado=EstadoAsignacionCanal.ACTIVE,
+    ).select_related(
+        'mandato_operacion',
+        'mandato_operacion__entidad_facturadora',
+        'mandato_operacion__administrador_empresa_owner',
+        'mandato_operacion__administrador_socio_owner',
+        'mandato_operacion__propietario_empresa_owner',
+        'mandato_operacion__propietario_comunidad_owner',
+        'mandato_operacion__propietario_socio_owner',
+        'identidad_envio',
+    ):
+        mandato = asignacion.mandato_operacion
+        identity_owner = (asignacion.identidad_envio.owner_tipo, asignacion.identidad_envio.owner_id)
+        admin_tuple = mandato.administrador_tuple()
+        facturadora_tuple = mandato.facturadora_tuple()
+        propietario_tuple = mandato.propietario_tuple()
+        allowed_owners = {admin_tuple, facturadora_tuple}
+
+        if identity_owner not in allowed_owners:
+            _issue(
+                issues,
+                code='stage1.asignacion_canal.identidad_owner_no_autorizado',
+                entity='AsignacionCanalOperacion',
+                entity_id=asignacion.pk,
+                message=(
+                    'Asignacion activa usa una identidad de envio que no pertenece a la entidad facturadora '
+                    'ni al administrador operativo del mandato.'
+                ),
+            )
+
+        if identity_owner != propietario_tuple and not mandato.autoriza_comunicacion:
+            _issue(
+                issues,
+                code='stage1.asignacion_canal.comunicacion_no_autorizada',
+                entity='AsignacionCanalOperacion',
+                entity_id=asignacion.pk,
+                message=(
+                    'Asignacion activa usa identidad de un actor distinto al propietario sin autorizacion '
+                    'de comunicacion en el mandato.'
+                ),
+            )
+
 
 def _audit_facturacion(issues: list[dict[str, Any]]) -> None:
     _audit_model_validation(
