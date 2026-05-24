@@ -52,6 +52,11 @@ contra datos reales o snapshot controlado.
   del rango contractual ya dependiente.
 - Validacion de que cada propiedad principal o vinculada de contratos vigentes
   o futuros este activa.
+- Servicios y gastos comunes estructurados: `ServicioPropiedad` registra tipo
+  de servicio, proveedor/administracion, numero de cliente, evidencia opcional
+  no sensible y estado; el snapshot de Patrimonio expone la lista redactada y
+  el auditor Etapa 1 bloquea contratos vigentes/futuros con gastos comunes si
+  la propiedad principal no tiene un gasto comun activo estructurado.
 - Validacion de roles contrato-propiedad: exactamente una propiedad principal
   y, si hay pareja, una propiedad vinculada.
 - Validacion de que cada contrato vigente o futuro cubra una sola propiedad o

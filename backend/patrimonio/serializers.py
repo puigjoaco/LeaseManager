@@ -1,9 +1,11 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 
 from .models import (
@@ -14,6 +16,7 @@ from .models import (
     ParticipacionPatrimonial,
     Propiedad,
     RepresentacionComunidad,
+    ServicioPropiedad,
     Socio,
 )
 from .validators import validate_rut
@@ -31,6 +34,14 @@ SOCIO_SCOPE_PATHS = (
 def _request_user(serializer):
     request = serializer.context.get('request')
     return getattr(request, 'user', None)
+
+
+def _scoped_propiedad_queryset(serializer):
+    queryset = Propiedad.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner').all()
+    user = _request_user(serializer)
+    if user:
+        return scope_queryset_for_user(queryset, user, property_paths=('id',))
+    return queryset
 
 
 class SocioSerializer(serializers.ModelSerializer):
@@ -587,3 +598,57 @@ class PropiedadSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'codigo_propiedad': 'El codigo_propiedad debe ser unico dentro del owner indicado.'}
             )
+
+
+class ServicioPropiedadSerializer(serializers.ModelSerializer):
+    propiedad = serializers.PrimaryKeyRelatedField(queryset=Propiedad.objects.none())
+    propiedad_display = serializers.CharField(source='propiedad.codigo_propiedad', read_only=True)
+
+    class Meta:
+        model = ServicioPropiedad
+        fields = (
+            'id',
+            'propiedad',
+            'propiedad_display',
+            'tipo_servicio',
+            'proveedor_nombre',
+            'numero_cliente',
+            'administrador_nombre',
+            'evidencia_ref',
+            'activo',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at', 'propiedad_display')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['propiedad'].queryset = _scoped_propiedad_queryset(self)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['evidencia_ref'] = redact_sensitive_reference(data.get('evidencia_ref'))
+        return data
+
+    def validate(self, attrs):
+        field_names = (
+            'propiedad',
+            'tipo_servicio',
+            'proveedor_nombre',
+            'numero_cliente',
+            'administrador_nombre',
+            'evidencia_ref',
+            'activo',
+        )
+        values = {
+            field_name: attrs.get(field_name, getattr(self.instance, field_name, None))
+            for field_name in field_names
+        }
+        candidate = ServicioPropiedad(**values)
+        if self.instance:
+            candidate.pk = self.instance.pk
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(error.message_dict) from error
+        return attrs
