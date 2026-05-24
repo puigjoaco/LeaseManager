@@ -23,8 +23,8 @@ sistema igual a saldo banco.
   saldos segun capacidad marcada, todas como referencias no sensibles.
 - Movimiento importado por `provider_sync` solo contra conexion activa,
   primaria de movimientos, readiness trazable y `transaction_id_banco` no
-  sensible y no duplicado dentro de la misma conexion; la carga manual
-  controlada exige `evidencia_importacion_ref` no sensible.
+  sensible y no duplicado dentro de la misma conexion por modelo y constraint
+  DB; la carga manual controlada exige `evidencia_importacion_ref` no sensible.
 - Movimientos conciliados exactos existentes deben conservar coherencia con su
   target: abonos apuntan a pago mensual pagado o codigo residual pagado de la
   misma cuenta recaudadora; movimientos no conciliados no conservan target.

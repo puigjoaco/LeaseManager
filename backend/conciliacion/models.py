@@ -225,18 +225,33 @@ class MovimientoBancarioImportado(TimestampedModel):
                 ),
                 name='movimiento_exactly_one_match_target',
             ),
+            models.UniqueConstraint(
+                fields=['conexion_bancaria', 'transaction_id_banco'],
+                condition=~Q(transaction_id_banco=''),
+                name='uniq_transaction_id_banco_por_conexion',
+            ),
         ]
 
     def __str__(self):
         return f'{self.fecha_movimiento} - {self.monto}'
 
     def _validate_bank_transaction_identity(self, errors):
-        if not has_text(self.transaction_id_banco) or not self.conexion_bancaria_id:
+        transaction_id = str(self.transaction_id_banco or '').strip()
+        if not transaction_id:
+            return
+
+        try:
+            conexion = self.conexion_bancaria
+        except ConexionBancaria.DoesNotExist:
+            conexion = None
+        connection_id = self.conexion_bancaria_id or getattr(conexion, 'pk', None)
+
+        if not connection_id:
             return
 
         duplicates = MovimientoBancarioImportado.objects.filter(
-            conexion_bancaria_id=self.conexion_bancaria_id,
-            transaction_id_banco=self.transaction_id_banco,
+            conexion_bancaria_id=connection_id,
+            transaction_id_banco=transaction_id,
         )
         if self.pk:
             duplicates = duplicates.exclude(pk=self.pk)
