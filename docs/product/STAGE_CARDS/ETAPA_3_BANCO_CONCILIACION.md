@@ -36,10 +36,11 @@ sistema igual a saldo banco.
   que los origina: cuenta recaudadora, monto, fecha, descripcion, tipo abono y
   estado de conciliacion deben ser coherentes; la readiness debe bloquear
   snapshots que conserven discrepancias.
-- Resoluciones manuales de conciliacion cerradas para ingresos desconocidos
-  requieren `rationale`/motivo auditable; la API y el servicio no permiten
-  nuevos cierres sin motivo, y la readiness bloquea snapshots que conserven
-  resoluciones heredadas resueltas sin motivo.
+- Ingresos desconocidos resueltos manualmente requieren pago mensual target,
+  contrato, periodo economico, criterio aplicado, `evidencia_regularizacion_ref`
+  no sensible y `rationale`/motivo auditable; la API y el servicio no permiten
+  nuevos cierres sin ese contexto, y la readiness bloquea resoluciones heredadas
+  resueltas sin motivo, sin contexto o con evidencia sensible.
 - Cargos bancarios resueltos manualmente requieren `CategoriaMovimiento`,
   entidad afectada, periodo economico, criterio de reparto,
   `evidencia_clasificacion_ref` no sensible y motivo auditable; la API y el

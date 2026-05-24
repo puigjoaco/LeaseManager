@@ -124,6 +124,34 @@ class ResolveMigrationPropertyOwnerSerializer(serializers.Serializer):
 
 class ResolveUnknownIncomeSerializer(serializers.Serializer):
     pago_mensual_id = serializers.IntegerField()
+    periodo_economico = serializers.RegexField(
+        regex=r'^\d{4}-(0[1-9]|1[0-2])$',
+        required=True,
+        error_messages={
+            'required': 'La regularizacion manual requiere periodo economico.',
+            'invalid': 'periodo_economico debe usar formato YYYY-MM.',
+        },
+    )
+    criterio_aplicado = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=255,
+        error_messages={
+            'required': 'La regularizacion manual requiere criterio aplicado.',
+            'blank': 'La regularizacion manual requiere criterio aplicado.',
+        },
+    )
+    evidencia_regularizacion_ref = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=255,
+        error_messages={
+            'required': 'La regularizacion manual requiere evidencia no sensible.',
+            'blank': 'La regularizacion manual requiere evidencia no sensible.',
+        },
+    )
     rationale = serializers.CharField(
         required=True,
         allow_blank=False,
@@ -149,6 +177,13 @@ class ResolveUnknownIncomeSerializer(serializers.Serializer):
             raise serializers.ValidationError('El pago mensual indicado queda fuera del scope asignado.')
 
         self.context['pago_mensual'] = payment
+        return value
+
+    def validate_evidencia_regularizacion_ref(self, value):
+        if not is_non_sensitive_reference(value):
+            raise serializers.ValidationError(
+                'evidencia_regularizacion_ref debe ser una referencia no sensible, no una URL, token o credencial.'
+            )
         return value
 
 

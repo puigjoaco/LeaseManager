@@ -697,6 +697,9 @@ class AuditManualResolutionScopeTests(APITestCase):
             reverse('manual-resolution-resolve-unknown-income', args=[visible_resolution.pk]),
             {
                 'pago_mensual_id': self.context_b['pago'].pk,
+                'periodo_economico': '2026-01',
+                'criterio_aplicado': 'Intento de cruce manual fuera de scope.',
+                'evidencia_regularizacion_ref': 'unknown-income-scope-test',
                 'rationale': 'Intento de cruce fuera de scope.',
             },
             format='json',

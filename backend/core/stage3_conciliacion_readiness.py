@@ -46,6 +46,13 @@ CHARGE_MANUAL_CLASSIFICATION_REQUIRED_METADATA_FIELDS = (
     'criterio_reparto',
     'evidencia_clasificacion_ref',
 )
+UNKNOWN_INCOME_MANUAL_RESOLUTION_REQUIRED_METADATA_FIELDS = (
+    'resolved_payment_id',
+    'resolved_contract_id',
+    'periodo_economico',
+    'criterio_aplicado',
+    'evidencia_regularizacion_ref',
+)
 
 
 def _non_sensitive_reference(value: str) -> bool:
@@ -181,6 +188,21 @@ def _collect_manual_resolution_issues(resolutions) -> dict[str, int]:
     for resolution in resolutions:
         if resolution.status == ManualResolution.Status.RESOLVED and not has_text(resolution.rationale):
             counts['resolved_without_rationale'] += 1
+        if (
+            resolution.status == ManualResolution.Status.RESOLVED
+            and resolution.category == 'conciliacion.ingreso_desconocido'
+        ):
+            metadata = resolution.metadata if isinstance(resolution.metadata, dict) else {}
+            missing_context = any(
+                not has_text(metadata.get(field_name))
+                for field_name in UNKNOWN_INCOME_MANUAL_RESOLUTION_REQUIRED_METADATA_FIELDS
+            )
+            if metadata.get('resolved_with') != 'payment_manual_assignment':
+                missing_context = True
+            if missing_context:
+                counts['unknown_income_resolution_context_missing'] += 1
+            elif not _non_sensitive_reference(metadata.get('evidencia_regularizacion_ref')):
+                counts['unknown_income_resolution_evidence_sensitive'] += 1
         if (
             resolution.status == ManualResolution.Status.RESOLVED
             and resolution.category == 'conciliacion.movimiento_cargo'
@@ -440,6 +462,22 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.manual_resolution.rationale_missing',
                 'Existen resoluciones manuales de conciliacion cerradas sin motivo auditable.',
                 count=manual_resolution_issues['resolved_without_rationale'],
+            )
+        )
+    if manual_resolution_issues.get('unknown_income_resolution_context_missing'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.unknown_income_resolution_context_missing',
+                'Existen ingresos desconocidos resueltos manualmente sin pago, contrato, periodo, criterio o evidencia trazable.',
+                count=manual_resolution_issues['unknown_income_resolution_context_missing'],
+            )
+        )
+    if manual_resolution_issues.get('unknown_income_resolution_evidence_sensitive'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.unknown_income_resolution_evidence_sensitive',
+                'Existen ingresos desconocidos resueltos con evidencia de regularizacion sensible.',
+                count=manual_resolution_issues['unknown_income_resolution_evidence_sensitive'],
             )
         )
     if manual_resolution_issues.get('charge_classification_context_missing'):

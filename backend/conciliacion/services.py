@@ -201,12 +201,29 @@ def reconcile_exact_movement(movimiento):
 
 
 @transaction.atomic
-def resolve_unknown_income_manual_resolution(*, resolution, payment, rationale='', actor_user=None, ip_address=None):
+def resolve_unknown_income_manual_resolution(
+    *,
+    resolution,
+    payment,
+    periodo_economico,
+    criterio_aplicado,
+    evidencia_regularizacion_ref,
+    rationale='',
+    actor_user=None,
+    ip_address=None,
+):
     if resolution.category != 'conciliacion.ingreso_desconocido':
         raise ValueError('La resolucion indicada no corresponde a ingreso desconocido de conciliacion.')
     if resolution.status == ManualResolution.Status.RESOLVED:
         raise ValueError('La resolucion ya fue marcada como resuelta.')
     rationale = require_manual_resolution_rationale(rationale)
+    periodo_economico = str(periodo_economico or '').strip()
+    criterio_aplicado = str(criterio_aplicado or '').strip()
+    evidencia_regularizacion_ref = str(evidencia_regularizacion_ref or '').strip()
+    if not periodo_economico or not criterio_aplicado:
+        raise ValueError('La regularizacion manual requiere periodo economico y criterio aplicado.')
+    if not is_non_sensitive_reference(evidencia_regularizacion_ref):
+        raise ValueError('La regularizacion manual requiere evidencia no sensible.')
 
     movimiento = MovimientoBancarioImportado.objects.select_related('conexion_bancaria').get(pk=resolution.scope_reference)
     if movimiento.tipo_movimiento != TipoMovimientoBancario.CREDIT:
@@ -225,6 +242,12 @@ def resolve_unknown_income_manual_resolution(*, resolution, payment, rationale='
         raise ValueError(
             'El monto del movimiento debe coincidir exactamente con el saldo pendiente del pago seleccionado.'
         )
+
+    resolution_context = {
+        'periodo_economico': periodo_economico,
+        'criterio_aplicado': criterio_aplicado,
+        'evidencia_regularizacion_ref': evidencia_regularizacion_ref,
+    }
 
     payment.monto_pagado_clp = payment.monto_pagado_clp + movimiento.monto
     payment.fecha_deposito_banco = movimiento.fecha_movimiento
@@ -270,6 +293,7 @@ def resolve_unknown_income_manual_resolution(*, resolution, payment, rationale='
         'resolved_payment_id': payment.pk,
         'resolved_contract_id': payment.contrato_id,
         'resolved_with': 'payment_manual_assignment',
+        **resolution_context,
     }
     resolution.save(update_fields=['status', 'resolved_at', 'resolved_by', 'rationale', 'metadata'])
 
@@ -287,6 +311,7 @@ def resolve_unknown_income_manual_resolution(*, resolution, payment, rationale='
             'movimiento_bancario_id': movimiento.pk,
             'pago_mensual_id': payment.pk,
             'contrato_id': payment.contrato_id,
+            **resolution_context,
         },
     )
 
