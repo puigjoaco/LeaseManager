@@ -84,6 +84,10 @@ contra datos reales o snapshot controlado.
   referenciar una `PoliticaFirmaYNotaria` activa de tipo
   `contrato_principal`; API, snapshot y auditor Etapa 1 detectan politicas
   faltantes, inactivas o de tipo documental incorrecto.
+- Perfil documental de arrendatario persona natural: cuando la politica
+  documental contractual lo exige, contratos vigentes/futuros requieren
+  nacionalidad, estado civil y profesion; API, snapshot y auditor Etapa 1
+  detectan datos faltantes en fuentes heredadas o controladas.
 - Validacion de periodos contractuales existentes: cada tramo debe quedar
   dentro de la vigencia del contrato, iniciar el dia 1, cerrar el ultimo dia
   del mes y respetar numeracion cronologica antes de calcular cobranza.

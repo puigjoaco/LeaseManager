@@ -1537,6 +1537,57 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.contrato.politica_documental_no_activa', issue_codes)
 
+    def test_natural_tenant_missing_document_profile_required_by_policy_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.politica_documental.requiere_nacionalidad_arrendatario = True
+        contrato.politica_documental.requiere_estado_civil_arrendatario = True
+        contrato.politica_documental.requiere_profesion_arrendatario = True
+        contrato.politica_documental.save(
+            update_fields=[
+                'requiere_nacionalidad_arrendatario',
+                'requiere_estado_civil_arrendatario',
+                'requiere_profesion_arrendatario',
+                'updated_at',
+            ]
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.arrendatario.nacionalidad_documental_faltante', issue_codes)
+        self.assertIn('stage1.arrendatario.estado_civil_documental_faltante', issue_codes)
+        self.assertIn('stage1.arrendatario.profesion_documental_faltante', issue_codes)
+
+    def test_natural_tenant_document_profile_required_by_policy_can_pass(self):
+        contrato = self._create_valid_stage1_matrix()
+        tenant = contrato.arrendatario
+        tenant.nacionalidad = 'chilena'
+        tenant.estado_civil = 'soltero'
+        tenant.profesion = 'arquitecto'
+        tenant.save(update_fields=['nacionalidad', 'estado_civil', 'profesion', 'updated_at'])
+        contrato.politica_documental.requiere_nacionalidad_arrendatario = True
+        contrato.politica_documental.requiere_estado_civil_arrendatario = True
+        contrato.politica_documental.requiere_profesion_arrendatario = True
+        contrato.politica_documental.save(
+            update_fields=[
+                'requiere_nacionalidad_arrendatario',
+                'requiere_estado_civil_arrendatario',
+                'requiere_profesion_arrendatario',
+                'updated_at',
+            ]
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertNotIn('stage1.arrendatario.nacionalidad_documental_faltante', issue_codes)
+        self.assertNotIn('stage1.arrendatario.estado_civil_documental_faltante', issue_codes)
+        self.assertNotIn('stage1.arrendatario.profesion_documental_faltante', issue_codes)
+
     def test_contract_property_linked_without_primary_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         link = contrato.contrato_propiedades.get(rol_en_contrato=RolContratoPropiedad.PRIMARY)

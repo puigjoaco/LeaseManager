@@ -119,6 +119,9 @@ class ContractsSnapshotView(APIView):
                         'telefono': item.telefono or '',
                         'domicilio_notificaciones': item.domicilio_notificaciones or '',
                         'estado_contacto': item.estado_contacto,
+                        'nacionalidad': item.nacionalidad or '',
+                        'estado_civil': item.estado_civil or '',
+                        'profesion': item.profesion or '',
                         'whatsapp_opt_in': item.whatsapp_opt_in,
                         'whatsapp_opt_in_evidencia_ref': redact_sensitive_reference(
                             item.whatsapp_opt_in_evidencia_ref

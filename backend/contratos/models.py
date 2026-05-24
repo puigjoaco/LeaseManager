@@ -47,6 +47,15 @@ class EstadoContactoArrendatario(models.TextChoices):
     INACTIVE = 'inactivo', 'Inactivo'
 
 
+class EstadoCivilArrendatario(models.TextChoices):
+    SINGLE = 'soltero', 'Soltero'
+    MARRIED = 'casado', 'Casado'
+    DIVORCED = 'divorciado', 'Divorciado'
+    WIDOWED = 'viudo', 'Viudo'
+    CIVIL_UNION = 'conviviente_civil', 'Conviviente civil'
+    OTHER = 'otro', 'Otro'
+
+
 class EstadoContactoPago(models.TextChoices):
     ACTIVE = 'activo', 'Activo'
     INACTIVE = 'inactivo', 'Inactivo'
@@ -118,6 +127,9 @@ class Arrendatario(TimestampedModel):
         choices=EstadoContactoArrendatario.choices,
         default=EstadoContactoArrendatario.PENDING,
     )
+    nacionalidad = models.CharField(max_length=64, blank=True)
+    estado_civil = models.CharField(max_length=32, choices=EstadoCivilArrendatario.choices, blank=True)
+    profesion = models.CharField(max_length=128, blank=True)
     whatsapp_opt_in = models.BooleanField(default=False)
     whatsapp_opt_in_evidencia_ref = models.CharField(max_length=255, blank=True)
     whatsapp_bloqueado = models.BooleanField(default=False)
@@ -134,6 +146,8 @@ class Arrendatario(TimestampedModel):
 
     def clean(self):
         super().clean()
+        self.nacionalidad = (self.nacionalidad or '').strip()
+        self.profesion = (self.profesion or '').strip()
         if not self.whatsapp_opt_in:
             return
         if self.whatsapp_bloqueado:
@@ -340,6 +354,32 @@ class Contrato(TimestampedModel):
                 }
             )
 
+    def validate_natural_tenant_document_profile(self):
+        if not self.politica_documental_id or not self.arrendatario_id:
+            return
+        if self.arrendatario.tipo_arrendatario != TipoArrendatario.NATURAL:
+            return
+
+        missing_fields = []
+        policy = self.politica_documental
+        if policy.requiere_nacionalidad_arrendatario and not (self.arrendatario.nacionalidad or '').strip():
+            missing_fields.append('nacionalidad')
+        if policy.requiere_estado_civil_arrendatario and not self.arrendatario.estado_civil:
+            missing_fields.append('estado civil')
+        if policy.requiere_profesion_arrendatario and not (self.arrendatario.profesion or '').strip():
+            missing_fields.append('profesion')
+
+        if missing_fields:
+            fields = ', '.join(missing_fields)
+            raise ValidationError(
+                {
+                    'arrendatario': (
+                        'La politica documental exige perfil de persona natural completo: '
+                        f'{fields}.'
+                    )
+                }
+            )
+
     def clean(self):
         super().clean()
         if self.fecha_fin_vigente < self.fecha_inicio:
@@ -382,6 +422,7 @@ class Contrato(TimestampedModel):
                 raise ValidationError(
                     {'politica_documental': 'La politica documental del contrato debe estar activa.'}
                 )
+            self.validate_natural_tenant_document_profile()
             if self.mandato_operacion.estado != 'activa':
                 raise ValidationError(
                     {'mandato_operacion': 'Un contrato vigente o futuro requiere un mandato operativo activo.'}

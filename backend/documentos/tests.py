@@ -181,6 +181,38 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(detail.data['usuario'], self.user.id)
         self.assertTrue(AuditEvent.objects.filter(event_type='documentos.documento_emitido.created').exists())
 
+    def test_main_contract_policy_can_require_natural_tenant_document_profile(self):
+        policy = self._create_politica(
+            requiere_nacionalidad_arrendatario=True,
+            requiere_estado_civil_arrendatario=True,
+            requiere_profesion_arrendatario=True,
+        )
+
+        self.assertTrue(policy['requiere_nacionalidad_arrendatario'])
+        self.assertTrue(policy['requiere_estado_civil_arrendatario'])
+        self.assertTrue(policy['requiere_profesion_arrendatario'])
+
+    def test_non_main_policy_rejects_natural_tenant_document_profile_requirements(self):
+        response = self.client.post(
+            reverse('documentos-politica-list'),
+            {
+                'tipo_documental': 'anexo',
+                'requiere_firma_arrendador': False,
+                'requiere_firma_arrendatario': False,
+                'requiere_codeudor': False,
+                'requiere_nacionalidad_arrendatario': True,
+                'requiere_estado_civil_arrendatario': False,
+                'requiere_profesion_arrendatario': False,
+                'requiere_notaria': False,
+                'modo_firma_permitido': 'firma_simple',
+                'estado': 'activa',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(PoliticaFirmaYNotaria.objects.filter(tipo_documental='anexo').exists())
+
     def test_document_storage_ref_must_be_pdf(self):
         expediente = self._create_expediente(entidad_id='pdf-guard')
         self._create_politica()

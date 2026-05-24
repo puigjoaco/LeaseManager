@@ -17,6 +17,9 @@ type PoliticaFirma = {
   requiere_firma_arrendador: boolean
   requiere_firma_arrendatario: boolean
   requiere_codeudor: boolean
+  requiere_nacionalidad_arrendatario: boolean
+  requiere_estado_civil_arrendatario: boolean
+  requiere_profesion_arrendatario: boolean
   requiere_notaria: boolean
   modo_firma_permitido: string
   estado: string
@@ -52,6 +55,9 @@ type PoliticaFirmaDraft = {
   requiere_firma_arrendador: boolean
   requiere_firma_arrendatario: boolean
   requiere_codeudor: boolean
+  requiere_nacionalidad_arrendatario: boolean
+  requiere_estado_civil_arrendatario: boolean
+  requiere_profesion_arrendatario: boolean
   requiere_notaria: boolean
   modo_firma_permitido: string
   estado: string
@@ -200,6 +206,9 @@ export function DocumentosWorkspace({
               <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_firma_arrendador} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_firma_arrendador: event.target.checked }))} />Firma arrendador</label>
               <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_firma_arrendatario} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_firma_arrendatario: event.target.checked }))} />Firma arrendatario</label>
               <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_codeudor} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_codeudor: event.target.checked }))} />Firma codeudor</label>
+              <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_nacionalidad_arrendatario} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_nacionalidad_arrendatario: event.target.checked }))} />Nacionalidad arrendatario</label>
+              <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_estado_civil_arrendatario} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_estado_civil_arrendatario: event.target.checked }))} />Estado civil arrendatario</label>
+              <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_profesion_arrendatario} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_profesion_arrendatario: event.target.checked }))} />Profesión arrendatario</label>
               <label className="checkbox-row"><input type="checkbox" checked={politicaFirmaDraft.requiere_notaria} onChange={(event) => setPoliticaFirmaDraft((current) => ({ ...current, requiere_notaria: event.target.checked }))} />Requiere notaría</label>
               <button type="submit" className="button-primary" disabled={isSubmitting}>Guardar política</button>
             </form>
@@ -278,6 +287,7 @@ export function DocumentosWorkspace({
         { label: 'Modo firma', render: (row) => row.modo_firma_permitido },
         { label: 'Arrendador', render: (row) => row.requiere_firma_arrendador ? 'Sí' : 'No' },
         { label: 'Arrendatario', render: (row) => row.requiere_firma_arrendatario ? 'Sí' : 'No' },
+        { label: 'Perfil PN', render: (row) => row.requiere_nacionalidad_arrendatario || row.requiere_estado_civil_arrendatario || row.requiere_profesion_arrendatario ? 'Sí' : 'No' },
         { label: 'Notaría', render: (row) => row.requiere_notaria ? 'Sí' : 'No' },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />

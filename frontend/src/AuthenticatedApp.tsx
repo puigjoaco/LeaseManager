@@ -526,6 +526,9 @@ type Arrendatario = {
   telefono: string
   domicilio_notificaciones: string
   estado_contacto: string
+  nacionalidad: string
+  estado_civil: string
+  profesion: string
   whatsapp_opt_in: boolean
   whatsapp_opt_in_evidencia_ref: string
   whatsapp_bloqueado: boolean
@@ -920,6 +923,9 @@ type PoliticaFirma = {
   requiere_firma_arrendador: boolean
   requiere_firma_arrendatario: boolean
   requiere_codeudor: boolean
+  requiere_nacionalidad_arrendatario: boolean
+  requiere_estado_civil_arrendatario: boolean
+  requiere_profesion_arrendatario: boolean
   requiere_notaria: boolean
   modo_firma_permitido: string
   estado: string
@@ -1407,6 +1413,9 @@ function App() {
     telefono: '',
     domicilio_notificaciones: '',
     estado_contacto: 'activo',
+    nacionalidad: '',
+    estado_civil: '',
+    profesion: '',
     whatsapp_opt_in: false,
     whatsapp_opt_in_evidencia_ref: '',
     whatsapp_bloqueado: false,
@@ -1442,6 +1451,9 @@ function App() {
     requiere_firma_arrendador: true,
     requiere_firma_arrendatario: true,
     requiere_codeudor: false,
+    requiere_nacionalidad_arrendatario: false,
+    requiere_estado_civil_arrendatario: false,
+    requiere_profesion_arrendatario: false,
     requiere_notaria: false,
     modo_firma_permitido: 'firma_simple',
     estado: 'activa',
@@ -1974,6 +1986,9 @@ function App() {
       telefono: '',
       domicilio_notificaciones: '',
       estado_contacto: 'activo',
+      nacionalidad: '',
+      estado_civil: '',
+      profesion: '',
       whatsapp_opt_in: false,
       whatsapp_opt_in_evidencia_ref: '',
       whatsapp_bloqueado: false,
@@ -2009,6 +2024,9 @@ function App() {
       requiere_firma_arrendador: true,
       requiere_firma_arrendatario: true,
       requiere_codeudor: false,
+      requiere_nacionalidad_arrendatario: false,
+      requiere_estado_civil_arrendatario: false,
+      requiere_profesion_arrendatario: false,
       requiere_notaria: false,
       modo_firma_permitido: 'firma_simple',
       estado: 'activa',
@@ -3275,6 +3293,9 @@ function App() {
         telefono: '',
         domicilio_notificaciones: '',
         estado_contacto: 'activo',
+        nacionalidad: '',
+        estado_civil: '',
+        profesion: '',
         whatsapp_opt_in: false,
         whatsapp_opt_in_evidencia_ref: '',
         whatsapp_bloqueado: false,
@@ -3533,6 +3554,9 @@ function App() {
       telefono: row.telefono,
       domicilio_notificaciones: row.domicilio_notificaciones,
       estado_contacto: row.estado_contacto,
+      nacionalidad: row.nacionalidad,
+      estado_civil: row.estado_civil,
+      profesion: row.profesion,
       whatsapp_opt_in: row.whatsapp_opt_in,
       whatsapp_opt_in_evidencia_ref: row.whatsapp_opt_in_evidencia_ref,
       whatsapp_bloqueado: row.whatsapp_bloqueado,
@@ -3550,6 +3574,9 @@ function App() {
       telefono: '',
       domicilio_notificaciones: '',
       estado_contacto: 'activo',
+      nacionalidad: '',
+      estado_civil: '',
+      profesion: '',
       whatsapp_opt_in: false,
       whatsapp_opt_in_evidencia_ref: '',
       whatsapp_bloqueado: false,
