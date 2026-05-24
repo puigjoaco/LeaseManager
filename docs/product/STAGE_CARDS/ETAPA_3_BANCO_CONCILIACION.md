@@ -36,6 +36,10 @@ sistema igual a saldo banco.
   que los origina: cuenta recaudadora, monto, fecha, descripcion, tipo abono y
   estado de conciliacion deben ser coherentes; la readiness debe bloquear
   snapshots que conserven discrepancias.
+- Resoluciones manuales de conciliacion cerradas para ingresos desconocidos o
+  cargos bancarios requieren `rationale`/motivo auditable; la API y el servicio
+  no permiten nuevos cierres sin motivo, y la readiness bloquea snapshots que
+  conserven resoluciones heredadas resueltas sin motivo.
 - Las respuestas API y snapshot de Conciliacion redactan refs bancarias
   sensibles ya persistidas antes de exponerlas al backoffice.
 - `audit_stage3_conciliacion_readiness` solo puede cerrar con `--source-kind`

@@ -20,6 +20,13 @@ RETRIABLE_EXACT_MATCH_STATES = {
 }
 
 
+def require_manual_resolution_rationale(rationale):
+    clean_rationale = str(rationale or '').strip()
+    if not clean_rationale:
+        raise ValueError('La resolucion manual requiere un motivo auditable.')
+    return clean_rationale
+
+
 def get_open_manual_resolution(movimiento, category):
     return ManualResolution.objects.filter(
         category=category,
@@ -197,6 +204,7 @@ def resolve_unknown_income_manual_resolution(*, resolution, payment, rationale='
         raise ValueError('La resolucion indicada no corresponde a ingreso desconocido de conciliacion.')
     if resolution.status == ManualResolution.Status.RESOLVED:
         raise ValueError('La resolucion ya fue marcada como resuelta.')
+    rationale = require_manual_resolution_rationale(rationale)
 
     movimiento = MovimientoBancarioImportado.objects.select_related('conexion_bancaria').get(pk=resolution.scope_reference)
     if movimiento.tipo_movimiento != TipoMovimientoBancario.CREDIT:
@@ -289,6 +297,7 @@ def resolve_charge_movement_manual_resolution(*, resolution, rationale='', actor
         raise ValueError('La resolucion indicada no corresponde a movimiento cargo de conciliacion.')
     if resolution.status == ManualResolution.Status.RESOLVED:
         raise ValueError('La resolucion ya fue marcada como resuelta.')
+    rationale = require_manual_resolution_rationale(rationale)
 
     movimiento = MovimientoBancarioImportado.objects.select_related(
         'conexion_bancaria__cuenta_recaudadora__empresa_owner',

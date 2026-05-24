@@ -10,6 +10,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
+from audit.models import ManualResolution
 from cobranza.models import EstadoPago, PagoMensual
 from contratos.models import (
     Arrendatario,
@@ -388,6 +389,25 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.balance_reported_continuity_mismatch', issue_codes)
         self.assertEqual(result['sections']['movements']['reported_balance_continuity_checks'], 1)
+
+    def test_resolved_manual_resolution_without_rationale_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-REASON')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Regularizacion historica sin motivo',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.rationale_missing', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['resolved_without_rationale'], 1)
 
     def test_sensitive_final_refs_do_not_close_readiness(self):
         cuenta, payment = self._create_payment_matrix()
