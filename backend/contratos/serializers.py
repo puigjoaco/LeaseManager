@@ -315,6 +315,7 @@ class ContratoSerializer(serializers.ModelSerializer):
             'estado',
             'identidad_envio_override',
             'identidad_envio_override_display',
+            'politica_documental',
             'tiene_tramos',
             'tiene_gastos_comunes',
             'snapshot_representante_legal',

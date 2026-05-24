@@ -11,6 +11,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from core.reference_validation import is_non_sensitive_reference
+from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from operacion.models import EstadoIdentidadEnvio, IdentidadDeEnvio, MandatoOperacion
 from patrimonio.validators import normalize_rut, validate_rut
 
@@ -242,6 +243,13 @@ class Contrato(TimestampedModel):
         on_delete=models.PROTECT,
         related_name='contratos_override',
     )
+    politica_documental = models.ForeignKey(
+        PoliticaFirmaYNotaria,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='contratos',
+    )
     tiene_tramos = models.BooleanField(default=False)
     tiene_gastos_comunes = models.BooleanField(default=False)
     snapshot_representante_legal = models.JSONField(default=dict, blank=True)
@@ -357,6 +365,22 @@ class Contrato(TimestampedModel):
             if self.fecha_fin_vigente.day != last_day:
                 raise ValidationError(
                     {'fecha_fin_vigente': 'Un contrato vigente o futuro debe terminar el ultimo dia del mes.'}
+                )
+            if not self.politica_documental_id:
+                raise ValidationError(
+                    {'politica_documental': 'Un contrato vigente o futuro requiere politica documental.'}
+                )
+            if self.politica_documental.tipo_documental != TipoDocumental.MAIN_CONTRACT:
+                raise ValidationError(
+                    {
+                        'politica_documental': (
+                            'La politica documental del contrato debe ser de tipo contrato principal.'
+                        )
+                    }
+                )
+            if self.politica_documental.estado != EstadoPoliticaFirma.ACTIVE:
+                raise ValidationError(
+                    {'politica_documental': 'La politica documental del contrato debe estar activa.'}
                 )
             if self.mandato_operacion.estado != 'activa':
                 raise ValidationError(
