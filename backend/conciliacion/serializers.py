@@ -132,6 +132,7 @@ class MovimientoBancarioImportadoSerializer(RedactReferenceFieldsMixin, serializ
             'created_at',
             'updated_at',
         )
+        validators = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

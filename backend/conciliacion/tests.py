@@ -2,6 +2,7 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -566,6 +567,33 @@ class ConciliacionAPITests(APITestCase):
             duplicate.full_clean()
 
         self.assertIn('transaction_id_banco', error.exception.message_dict)
+
+    def test_bank_movement_db_rejects_duplicate_transaction_id_per_connection(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-DUP-TX-DB')
+        conexion = self._create_connection(cuenta)
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='100111.00',
+            descripcion_origen='Pago con tx original',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            transaction_id_banco='tx-db-dup-001',
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                MovimientoBancarioImportado.objects.create(
+                    conexion_bancaria=conexion,
+                    fecha_movimiento='2026-01-09',
+                    tipo_movimiento='abono',
+                    monto='100112.00',
+                    descripcion_origen='Pago con tx duplicado',
+                    origen_importacion='manual_controlada',
+                    evidencia_importacion_ref='manual-import-controlled',
+                    transaction_id_banco='tx-db-dup-001',
+                )
 
     def test_rejects_duplicate_transaction_id_banco_per_connection(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-DUP-TX')
