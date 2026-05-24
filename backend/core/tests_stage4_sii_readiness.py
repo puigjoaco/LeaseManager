@@ -405,6 +405,28 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertEqual(result['sections']['dte']['external_capability_not_ready'], 1)
         self.assertEqual(result['sections']['f29']['capability_not_ready'], 1)
 
+    def test_artifacts_with_wrong_sii_capability_kind_are_blocking(self):
+        empresa = self._create_valid_local_matrix()
+        dte_capability = CapacidadTributariaSII.objects.get(
+            empresa=empresa,
+            capacidad_key=CapacidadSII.DTE_EMISION,
+        )
+        f29_capability = CapacidadTributariaSII.objects.get(
+            empresa=empresa,
+            capacidad_key=CapacidadSII.F29_PREPARACION,
+        )
+        DTEEmitido.objects.update(capacidad_tributaria=f29_capability)
+        F29PreparacionMensual.objects.update(capacidad_tributaria=dte_capability)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertIn('stage4.dte_invalid', issue_codes)
+        self.assertIn('stage4.f29_invalid', issue_codes)
+        self.assertEqual(result['sections']['dte']['invalid_model'], 1)
+        self.assertEqual(result['sections']['f29']['invalid_model'], 1)
+
     def test_f29_presented_or_approved_without_ref_is_blocking(self):
         self._create_valid_local_matrix()
         F29PreparacionMensual.objects.update(
@@ -466,6 +488,47 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertIn('stage4.f22_capability_not_ready', issue_codes)
         self.assertEqual(result['sections']['annual']['ddjj_capability_not_ready'], 1)
         self.assertEqual(result['sections']['annual']['f22_capability_not_ready'], 1)
+
+    def test_annual_artifacts_with_wrong_capability_kind_are_blocking(self):
+        empresa = self._create_valid_local_matrix()
+        ddjj_capability = self._open_capability(empresa, CapacidadSII.DDJJ_PREPARACION, 'ddjj')
+        f22_capability = self._open_capability(empresa, CapacidadSII.F22_PREPARACION, 'f22')
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado=EstadoPreparacionTributaria.APPROVED,
+            fecha_preparacion=timezone.now(),
+            resumen_anual={'source': 'stage4-controlled'},
+            paquete_ddjj_ref='ddjj-stage4-controlled',
+            borrador_f22_ref='f22-stage4-controlled',
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            resumen_paquete={'source': 'stage4-controlled'},
+            paquete_ref='ddjj-stage4-controlled',
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            resumen_f22={'source': 'stage4-controlled'},
+            borrador_ref='f22-stage4-controlled',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertIn('stage4.ddjj_invalid', issue_codes)
+        self.assertIn('stage4.f22_invalid', issue_codes)
+        self.assertEqual(result['sections']['annual']['ddjj_invalid_model'], 1)
+        self.assertEqual(result['sections']['annual']['f22_invalid_model'], 1)
 
     def test_production_capability_without_authorization_is_blocking(self):
         empresa = self._create_active_empresa()

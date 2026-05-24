@@ -53,6 +53,24 @@ def _add_non_sensitive_payload_error(errors, field_name, value):
         errors[field_name] = f'{field_name} no debe contener URLs, tokens, credenciales ni correos.'
 
 
+def _add_capability_kind_error(errors, instance, expected_capability, artifact_label):
+    capability = getattr(instance, 'capacidad_tributaria', None)
+    if capability and capability.capacidad_key != expected_capability:
+        message = (
+            f'{artifact_label} requiere capacidad SII {expected_capability}; '
+            f'recibio {capability.capacidad_key}.'
+        )
+        existing = errors.get('capacidad_tributaria')
+        if existing:
+            errors['capacidad_tributaria'] = (
+                [*existing, message]
+                if isinstance(existing, list)
+                else [existing, message]
+            )
+        else:
+            errors['capacidad_tributaria'] = message
+
+
 class EstadoDTE(models.TextChoices):
     DRAFT = 'borrador', 'Borrador'
     SENT_MANUAL = 'enviado_manual_controlado', 'Enviado manual controlado'
@@ -193,6 +211,7 @@ class DTEEmitido(TimestampedModel):
         _add_non_sensitive_reference_error(errors, self, 'sii_track_id')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad SII debe pertenecer a la misma empresa del DTE.'
+        _add_capability_kind_error(errors, self, CapacidadSII.DTE_EMISION, 'DTE')
         if self.pago_mensual.contrato_id != self.contrato_id:
             errors['pago_mensual'] = 'El pago mensual debe pertenecer al mismo contrato del DTE.'
         if self.distribucion_cobro_mensual.pago_mensual_id != self.pago_mensual_id:
@@ -249,6 +268,7 @@ class F29PreparacionMensual(TimestampedModel):
         _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad SII debe pertenecer a la misma empresa del borrador F29.'
+        _add_capability_kind_error(errors, self, CapacidadSII.F29_PREPARACION, 'F29')
         if self.cierre_mensual.empresa_id != self.empresa_id or self.cierre_mensual.anio != self.anio or self.cierre_mensual.mes != self.mes:
             errors['cierre_mensual'] = 'El cierre mensual debe coincidir con la empresa y periodo del F29.'
         if errors:
@@ -328,6 +348,7 @@ class DDJJPreparacionAnual(TimestampedModel):
         _add_non_sensitive_reference_error(errors, self, 'paquete_ref')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad DDJJ debe pertenecer a la misma empresa.'
+        _add_capability_kind_error(errors, self, CapacidadSII.DDJJ_PREPARACION, 'DDJJ')
         if self.proceso_renta_anual.empresa_id != self.empresa_id or self.proceso_renta_anual.anio_tributario != self.anio_tributario:
             errors['proceso_renta_anual'] = 'El proceso anual debe coincidir con la empresa y año tributario de DDJJ.'
         if errors:
@@ -372,6 +393,7 @@ class F22PreparacionAnual(TimestampedModel):
         _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad F22 debe pertenecer a la misma empresa.'
+        _add_capability_kind_error(errors, self, CapacidadSII.F22_PREPARACION, 'F22')
         if self.proceso_renta_anual.empresa_id != self.empresa_id or self.proceso_renta_anual.anio_tributario != self.anio_tributario:
             errors['proceso_renta_anual'] = 'El proceso anual debe coincidir con la empresa y año tributario del F22.'
         if errors:

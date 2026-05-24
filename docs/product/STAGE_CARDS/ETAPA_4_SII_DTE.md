@@ -17,6 +17,11 @@ produccion por defecto.
 - Empresa emisora habilitada.
 - Cada capacidad SII abierta, DTE y F29 debe pertenecer a una empresa con
   `ConfiguracionFiscalEmpresa` activa propia.
+- Cada artefacto tributario debe usar la capacidad SII exacta de su flujo:
+  DTE con `DTEEmision`, F29 con `F29Preparacion`, DDJJ con
+  `DDJJPreparacion` y F22 con `F22Preparacion`; la readiness debe bloquear
+  snapshots heredados con capacidad de otra familia aunque sea de la misma
+  empresa.
 - Comunidades y personas naturales tratadas segun regla validada.
 - Certificado/ambiente aislado autorizado.
 - Regla fiscal respaldada por SII, normativa o experto.
