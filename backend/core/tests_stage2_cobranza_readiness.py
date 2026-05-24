@@ -18,8 +18,9 @@ from canales.models import (
     EstadoGateCanal,
     EstadoMensajeSaliente,
     MensajeSaliente,
+    NotificacionCobranzaProgramada,
 )
-from canales.services import WHATSAPP_FALLBACK_REQUIRED_CATEGORY
+from canales.services import WHATSAPP_FALLBACK_REQUIRED_CATEGORY, materialize_payment_notification_schedule
 from cobranza.models import (
     CodigoCobroResidual,
     EstadoCuentaArrendatario,
@@ -168,6 +169,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
             activa=True,
         )
+        materialize_payment_notification_schedule(payment)
         return {
             'socio': socio,
             'empresa': empresa,
@@ -265,6 +267,38 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.notification_config.sensitive_reference', issue_codes)
         self.assertEqual(result['sections']['notification_configs']['sensitive_reference'], 1)
         self.assertNotIn('evidence.example.test', json.dumps(result))
+
+    def test_missing_notification_schedule_for_collectable_payment_is_blocking(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        NotificacionCobranzaProgramada.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.notification_schedule.missing_for_collectable_payment', issue_codes)
+        self.assertEqual(result['sections']['notification_schedules']['expected_for_collectable_payments'], 7)
+        self.assertEqual(result['sections']['notification_schedules']['missing_for_collectable_payments'], 7)
+
+    def test_invalid_notification_schedule_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        notification = NotificacionCobranzaProgramada.objects.filter(
+            pago_mensual=fixture['payment'],
+            dia_notificacion=1,
+        ).get()
+        notification.fecha_programada = date(2026, 1, 2)
+        notification.save(update_fields=['fecha_programada', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.notification_schedule.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['notification_schedules']['invalid_model'], 1)
 
     def test_missing_account_state_for_active_billing_tenant_is_blocking(self):
         self._create_payment_matrix()

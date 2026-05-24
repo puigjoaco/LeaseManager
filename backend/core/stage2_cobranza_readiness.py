@@ -13,11 +13,14 @@ from canales.models import (
     EstadoGateCanal,
     EstadoMensajeSaliente,
     MensajeSaliente,
+    NotificacionCobranzaProgramada,
 )
 from canales.services import (
+    COLLECTABLE_PAYMENT_STATES,
     WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
     document_delivery_blocking_reason,
     email_readiness_blocking_reason,
+    expected_payment_notification_schedule,
     whatsapp_gate_has_approved_template,
 )
 from cobranza.models import (
@@ -250,6 +253,37 @@ def _collect_notification_config_issues(configs) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _collect_notification_schedule_issues(payments, active_notification_configs, notification_schedules) -> dict[str, int]:
+    counts = Counter()
+    configs_by_contract: dict[int, list[ConfiguracionNotificacionContrato]] = {}
+    for config in active_notification_configs:
+        configs_by_contract.setdefault(config.contrato_id, []).append(config)
+
+    expected_keys = set()
+    for payment in payments:
+        if payment.estado_pago not in COLLECTABLE_PAYMENT_STATES:
+            continue
+        for config in configs_by_contract.get(payment.contrato_id, []):
+            for day, _scheduled_date in expected_payment_notification_schedule(payment, config):
+                expected_keys.add((payment.id, config.canal, day))
+
+    actual_keys = set()
+    for notification in notification_schedules:
+        try:
+            notification.full_clean()
+        except ValidationError:
+            counts['invalid_model'] += 1
+        if notification.pago_mensual.estado_pago not in COLLECTABLE_PAYMENT_STATES:
+            continue
+        actual_keys.add((notification.pago_mensual_id, notification.canal, notification.dia_notificacion))
+        if notification.estado == 'preparada' and not notification.mensaje_saliente_id:
+            counts['prepared_without_message'] += 1
+
+    counts['expected_for_collectable_payments'] = len(expected_keys)
+    counts['missing_for_collectable_payments'] = len(expected_keys - actual_keys)
+    return dict(sorted(counts.items()))
+
+
 def _gate_contains_sensitive_reference(gate) -> bool:
     return (
         bool(gate.evidencia_ref.strip() and not _non_sensitive_reference(gate.evidencia_ref))
@@ -421,6 +455,17 @@ def collect_stage2_cobranza_readiness(
     invalid_webpay_intents = webpay_intent_issues.get('invalid_model', 0)
 
     payments = PagoMensual.objects.select_related('contrato__arrendatario')
+    notification_schedules = NotificacionCobranzaProgramada.objects.select_related(
+        'pago_mensual',
+        'pago_mensual__contrato',
+        'configuracion',
+        'mensaje_saliente',
+    )
+    notification_schedule_issues = _collect_notification_schedule_issues(
+        payments,
+        active_notification_configs,
+        notification_schedules,
+    )
     payments_total = payments.count()
     repayments = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen')
     invalid_repayments = _count_invalid(repayments)
@@ -610,6 +655,30 @@ def collect_stage2_cobranza_readiness(
                 'stage2.notification_config.sensitive_reference',
                 'Existen configuraciones de notificacion con evidencia_configuracion_ref sensible.',
                 count=notification_config_issues['sensitive_reference'],
+            )
+        )
+    if notification_schedule_issues.get('missing_for_collectable_payments'):
+        issues.append(
+            _issue(
+                'stage2.notification_schedule.missing_for_collectable_payment',
+                'Existen pagos pendientes/atrasados sin programacion local de recordatorios segun su cadencia activa.',
+                count=notification_schedule_issues['missing_for_collectable_payments'],
+            )
+        )
+    if notification_schedule_issues.get('invalid_model'):
+        issues.append(
+            _issue(
+                'stage2.notification_schedule.invalid_model',
+                'Existen recordatorios de cobranza programados que no pasan validacion de dominio.',
+                count=notification_schedule_issues['invalid_model'],
+            )
+        )
+    if notification_schedule_issues.get('prepared_without_message'):
+        issues.append(
+            _issue(
+                'stage2.notification_schedule.prepared_without_message',
+                'Existen recordatorios marcados preparados sin mensaje saliente trazable.',
+                count=notification_schedule_issues['prepared_without_message'],
             )
         )
     if whatsapp_open_without_template:
@@ -886,6 +955,11 @@ def collect_stage2_cobranza_readiness(
                 'required_enabled_contract_channels': len(required_notification_pairs),
                 'missing_for_enabled_channel': notification_configs_missing_for_enabled_channel,
                 **notification_config_issues,
+            },
+            'notification_schedules': {
+                'total': notification_schedules.count(),
+                'by_state': _count_by(notification_schedules, 'estado'),
+                **notification_schedule_issues,
             },
             'channel_identities': {
                 'identities_total': identities.count(),

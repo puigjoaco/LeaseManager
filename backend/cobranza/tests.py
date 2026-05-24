@@ -11,10 +11,20 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent, ManualResolution
+from canales.models import ConfiguracionNotificacionContrato, NotificacionCobranzaProgramada
 from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
-from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
+from operacion.models import (
+    AsignacionCanalOperacion,
+    CanalOperacion,
+    CuentaRecaudadora,
+    EstadoCuentaRecaudadora,
+    EstadoIdentidadEnvio,
+    EstadoMandatoOperacion,
+    IdentidadDeEnvio,
+    MandatoOperacion,
+)
 from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
 from .models import (
@@ -290,6 +300,57 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.data['distribuciones_detail'][0]['monto_devengado_clp'], '523456.00')
         self.assertEqual(response.data['distribuciones_detail'][0]['monto_facturable_clp'], '0.00')
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.generated').exists())
+
+    def test_generate_payment_materializes_collection_notification_schedule(self):
+        contrato = self._create_active_contract(codigo='CON-NOTIFY', monto_base='523456.00', code='042')
+        empresa = contrato.mandato_operacion.administrador_empresa_owner
+        identity = IdentidadDeEnvio.objects.create(
+            empresa_owner=empresa,
+            canal=CanalOperacion.EMAIL,
+            remitente_visible='LeaseManager Cobranza',
+            direccion_o_numero='cobranza@example.com',
+            credencial_ref='cred-cobranza-ref',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal=CanalOperacion.EMAIL,
+            identidad_envio=identity,
+            prioridad=1,
+        )
+        ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal=CanalOperacion.EMAIL,
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
+
+        first = self.client.post(
+            reverse('cobranza-pago-generate'),
+            {'contrato_id': contrato.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        second = self.client.post(
+            reverse('cobranza-pago-generate'),
+            {'contrato_id': contrato.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        payment = PagoMensual.objects.get(pk=first.data['id'])
+        self.assertEqual(NotificacionCobranzaProgramada.objects.filter(pago_mensual=payment).count(), 7)
+        self.assertEqual(
+            list(
+                NotificacionCobranzaProgramada.objects.filter(pago_mensual=payment)
+                .order_by('dia_notificacion')
+                .values_list('dia_notificacion', flat=True)
+            ),
+            [1, 3, 5, 10, 15, 20, 25],
+        )
+        self.assertTrue(
+            AuditEvent.objects.filter(event_type='canales.notificacion_cobranza.materialized').exists()
+        )
 
     def test_payment_full_clean_rejects_zero_effective_code(self):
         contrato = self._create_active_contract(codigo='CON-PAY-ZERO', monto_base='100000.00', code='111')

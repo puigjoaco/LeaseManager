@@ -12,7 +12,7 @@ from documentos.scope import scope_documento_queryset
 from documentos.models import DocumentoEmitido
 from operacion.models import IdentidadDeEnvio
 
-from .models import CanalMensajeria, ConfiguracionNotificacionContrato, MensajeSaliente
+from .models import CanalMensajeria, ConfiguracionNotificacionContrato, MensajeSaliente, NotificacionCobranzaProgramada
 from .services import document_delivery_blocking_reason, resolve_document_contract
 
 
@@ -159,6 +159,25 @@ class MensajeSalienteSerializer(RedactReferenceFieldsMixin, serializers.ModelSer
             'created_at',
             'updated_at',
         )
+
+
+class NotificacionCobranzaProgramadaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificacionCobranzaProgramada
+        fields = (
+            'id',
+            'pago_mensual',
+            'configuracion',
+            'canal',
+            'dia_notificacion',
+            'fecha_programada',
+            'estado',
+            'mensaje_saliente',
+            'motivo_estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
 
 
 class MensajePrepararSerializer(serializers.Serializer):

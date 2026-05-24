@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CanalMensajeria, ConfiguracionNotificacionContrato, MensajeSaliente
+from .models import CanalMensajeria, ConfiguracionNotificacionContrato, MensajeSaliente, NotificacionCobranzaProgramada
 
 
 @admin.register(CanalMensajeria)
@@ -22,4 +22,11 @@ class ConfiguracionNotificacionContratoAdmin(admin.ModelAdmin):
     list_display = ('contrato', 'canal', 'dias_notificacion', 'activa')
     list_filter = ('canal', 'activa')
     search_fields = ('contrato__codigo_contrato', 'evidencia_configuracion_ref')
+
+
+@admin.register(NotificacionCobranzaProgramada)
+class NotificacionCobranzaProgramadaAdmin(admin.ModelAdmin):
+    list_display = ('pago_mensual', 'canal', 'dia_notificacion', 'fecha_programada', 'estado')
+    list_filter = ('canal', 'estado')
+    search_fields = ('pago_mensual__contrato__codigo_contrato',)
 

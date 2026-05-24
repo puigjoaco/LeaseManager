@@ -34,6 +34,19 @@ type ConfiguracionNotificacionItem = {
   evidencia_configuracion_ref: string
 }
 
+type NotificacionCobranzaItem = {
+  id: number
+  pago_mensual: number
+  contrato: number
+  configuracion: number
+  canal: string
+  dia_notificacion: number
+  fecha_programada: string
+  estado: string
+  mensaje_saliente: number | null
+  motivo_estado: string
+}
+
 type IdentidadItem = {
   id: number
   canal: string
@@ -112,6 +125,7 @@ export function CanalesWorkspace({
   mensajesSalientes,
   filteredGatesCanales,
   filteredConfiguracionesNotificacion,
+  filteredNotificacionesCobranza,
   filteredMensajesSalientes,
   isSubmitting,
   isLoading,
@@ -139,6 +153,7 @@ export function CanalesWorkspace({
   mensajesSalientes: MensajeSalienteItem[]
   filteredGatesCanales: CanalMensajeriaItem[]
   filteredConfiguracionesNotificacion: ConfiguracionNotificacionItem[]
+  filteredNotificacionesCobranza: NotificacionCobranzaItem[]
   filteredMensajesSalientes: MensajeSalienteItem[]
   isSubmitting: boolean
   isLoading: boolean
@@ -265,6 +280,16 @@ export function CanalesWorkspace({
         { label: 'Días', render: (row) => row.dias_notificacion.join(', ') || 'Sin días' },
         { label: 'Estado', render: (row) => <Badge label={row.activa ? 'activa' : 'inactiva'} tone={row.activa ? 'positive' : 'neutral'} /> },
         { label: 'Evidencia', render: (row) => row.evidencia_configuracion_ref || 'Base sugerida' },
+      ]} />
+
+      <TableBlock title="Recordatorios programados" subtitle="Programación local por pago, sin envío externo." rows={filteredNotificacionesCobranza} empty="No hay recordatorios programados para este filtro." isLoading={isLoading} loadingLabel="Cargando canales..." columns={[
+        { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
+        { label: 'Pago', render: (row) => row.pago_mensual },
+        { label: 'Canal', render: (row) => row.canal },
+        { label: 'Día', render: (row) => row.dia_notificacion },
+        { label: 'Fecha', render: (row) => row.fecha_programada },
+        { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+        { label: 'Mensaje', render: (row) => row.mensaje_saliente || row.motivo_estado || 'Pendiente local' },
       ]} />
 
       <TableBlock title="Mensajes salientes" subtitle="Preparados, bloqueados o enviados manualmente." rows={filteredMensajesSalientes} empty="No hay mensajes salientes para este filtro." isLoading={isLoading} loadingLabel="Cargando canales..." columns={[

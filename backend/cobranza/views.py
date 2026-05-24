@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
+from canales.services import materialize_payment_notification_schedule
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
 from core.reference_validation import redact_sensitive_reference
 from core.scope_access import (
@@ -383,6 +384,22 @@ class PagoMensualGenerateView(APIView):
 
         existing = PagoMensual.objects.filter(contrato=contrato, anio=anio, mes=mes).first()
         if existing:
+            materialized = materialize_payment_notification_schedule(existing)
+            if materialized['created_count']:
+                create_audit_event(
+                    event_type='canales.notificacion_cobranza.materialized',
+                    entity_type='pago_mensual',
+                    entity_id=str(existing.pk),
+                    summary='Notificaciones de cobranza programadas para pago existente',
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    metadata={
+                        'contrato_id': contrato.id,
+                        'anio': anio,
+                        'mes': mes,
+                        'created_count': materialized['created_count'],
+                    },
+                )
             return Response(PagoMensualSerializer(existing).data, status=status.HTTP_200_OK)
 
         try:
@@ -411,6 +428,22 @@ class PagoMensualGenerateView(APIView):
                 ip_address=request.META.get('REMOTE_ADDR'),
                 metadata={'contrato_id': contrato.id, 'anio': anio, 'mes': mes},
             )
+            materialized = materialize_payment_notification_schedule(payment)
+            if materialized['created_count']:
+                create_audit_event(
+                    event_type='canales.notificacion_cobranza.materialized',
+                    entity_type='pago_mensual',
+                    entity_id=str(payment.pk),
+                    summary='Notificaciones de cobranza programadas al generar pago',
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    metadata={
+                        'contrato_id': contrato.id,
+                        'anio': anio,
+                        'mes': mes,
+                        'created_count': materialized['created_count'],
+                    },
+                )
 
         return Response(PagoMensualSerializer(payment).data, status=status.HTTP_201_CREATED)
 

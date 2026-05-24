@@ -994,6 +994,19 @@ type ConfiguracionNotificacionItem = {
   evidencia_configuracion_ref: string
 }
 
+type NotificacionCobranzaItem = {
+  id: number
+  pago_mensual: number
+  contrato: number
+  configuracion: number
+  canal: string
+  dia_notificacion: number
+  fecha_programada: string
+  estado: string
+  mensaje_saliente: number | null
+  motivo_estado: string
+}
+
 type AuditEventItem = {
   id: number
   actor_user: number | null
@@ -1071,6 +1084,7 @@ type ChannelsSnapshot = {
   gates: CanalMensajeriaItem[]
   mensajes: MensajeSalienteItem[]
   configuraciones_notificacion: ConfiguracionNotificacionItem[]
+  notificaciones_cobranza: NotificacionCobranzaItem[]
   identidades: { id: number; canal: string; remitente_visible: string; direccion_o_numero: string }[]
   contratos: { id: number; codigo_contrato: string }[]
   arrendatarios: { id: number; nombre_razon_social: string }[]
@@ -1320,6 +1334,7 @@ function App() {
   const [gatesCanales, setGatesCanales] = useState<CanalMensajeriaItem[]>([])
   const [mensajesSalientes, setMensajesSalientes] = useState<MensajeSalienteItem[]>([])
   const [configuracionesNotificacion, setConfiguracionesNotificacion] = useState<ConfiguracionNotificacionItem[]>([])
+  const [notificacionesCobranza, setNotificacionesCobranza] = useState<NotificacionCobranzaItem[]>([])
   const [avisos, setAvisos] = useState<AvisoTermino[]>([])
   const [valoresUf, setValoresUf] = useState<ValorUF[]>([])
   const [ajustes, setAjustes] = useState<AjusteContrato[]>([])
@@ -2616,6 +2631,7 @@ function App() {
         setGatesCanales(channelsSnapshotPayload.gates)
         setMensajesSalientes(channelsSnapshotPayload.mensajes)
         setConfiguracionesNotificacion(channelsSnapshotPayload.configuraciones_notificacion)
+        setNotificacionesCobranza(channelsSnapshotPayload.notificaciones_cobranza)
         setIdentidades(channelsSnapshotPayload.identidades as Identidad[])
         setContratos(channelsSnapshotPayload.contratos as Contrato[])
         setArrendatarios(channelsSnapshotPayload.arrendatarios as Arrendatario[])
@@ -4831,6 +4847,21 @@ function App() {
       ),
     [configuracionesNotificacion, normalizedSearch],
   )
+  const filteredNotificacionesCobranza = useMemo(
+    () =>
+      notificacionesCobranza.filter((item) =>
+        matches(normalizedSearch, [
+          item.canal,
+          item.dia_notificacion,
+          item.fecha_programada,
+          item.estado,
+          item.motivo_estado,
+          item.contrato,
+          item.pago_mensual,
+        ]),
+      ),
+    [notificacionesCobranza, normalizedSearch],
+  )
   const filteredMensajesSalientes = useMemo(
     () =>
       mensajesSalientes.filter((item) =>
@@ -5423,6 +5454,7 @@ function App() {
           mensajesSalientes={mensajesSalientes}
           filteredGatesCanales={filteredGatesCanales}
           filteredConfiguracionesNotificacion={filteredConfiguracionesNotificacion}
+          filteredNotificacionesCobranza={filteredNotificacionesCobranza}
           filteredMensajesSalientes={filteredMensajesSalientes}
           isSubmitting={isSubmitting}
           isLoading={isChannelsSnapshotLoading}

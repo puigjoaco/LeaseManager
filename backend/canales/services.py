@@ -1,8 +1,12 @@
+from calendar import monthrange
+from datetime import date
+
 from django.db import transaction
 from django.utils import timezone
 
 from audit.models import ManualResolution
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from cobranza.models import EstadoPago
 from contratos.models import Arrendatario, Contrato, is_international_phone_number
 from documentos.models import EstadoDocumento
 from operacion.models import AsignacionCanalOperacion, CanalOperacion, EstadoIdentidadEnvio, EstadoMandatoOperacion
@@ -11,9 +15,12 @@ from .models import (
     EMAIL_CREDENTIAL_REF_KEYS,
     EMAIL_READINESS_REF_KEYS,
     CanalMensajeria,
+    ConfiguracionNotificacionContrato,
     EstadoGateCanal,
     EstadoMensajeSaliente,
+    EstadoNotificacionCobranza,
     MensajeSaliente,
+    NotificacionCobranzaProgramada,
     has_non_sensitive_operational_ref,
 )
 
@@ -21,6 +28,7 @@ from .models import (
 WHATSAPP_WINDOW_START_HOUR = 8
 WHATSAPP_WINDOW_END_HOUR = 21
 WHATSAPP_FALLBACK_REQUIRED_CATEGORY = 'canales.whatsapp.fallback_requerido'
+COLLECTABLE_PAYMENT_STATES = {EstadoPago.PENDING, EstadoPago.OVERDUE}
 
 
 def ensure_manual_resolution(category, message, payload=None):
@@ -180,6 +188,64 @@ def document_delivery_blocking_reason(documento_emitido):
     if requires_formalization and documento_emitido.estado != EstadoDocumento.FORMALIZED:
         return 'El documento requiere formalizacion antes de enviarse por canales.'
     return ''
+
+
+def expected_payment_notification_schedule(payment, configuration):
+    try:
+        last_day = monthrange(int(payment.anio), int(payment.mes))[1]
+    except (TypeError, ValueError):
+        return []
+
+    schedule = []
+    for day in configuration.dias_notificacion or []:
+        if int(day) > last_day:
+            continue
+        schedule.append((int(day), date(int(payment.anio), int(payment.mes), int(day))))
+    return schedule
+
+
+@transaction.atomic
+def materialize_payment_notification_schedule(payment):
+    if payment.estado_pago not in COLLECTABLE_PAYMENT_STATES:
+        return {'rows': [], 'created_count': 0}
+
+    configurations = ConfiguracionNotificacionContrato.objects.filter(
+        contrato=payment.contrato,
+        activa=True,
+    ).order_by('canal', 'id')
+    rows = []
+    created_count = 0
+    for configuration in configurations:
+        for day, scheduled_date in expected_payment_notification_schedule(payment, configuration):
+            notification, created = NotificacionCobranzaProgramada.objects.get_or_create(
+                pago_mensual=payment,
+                canal=configuration.canal,
+                dia_notificacion=day,
+                defaults={
+                    'configuracion': configuration,
+                    'fecha_programada': scheduled_date,
+                    'estado': EstadoNotificacionCobranza.SCHEDULED,
+                },
+            )
+            if not created:
+                updates = []
+                if notification.configuracion_id != configuration.id:
+                    notification.configuracion = configuration
+                    updates.append('configuracion')
+                if notification.fecha_programada != scheduled_date:
+                    notification.fecha_programada = scheduled_date
+                    updates.append('fecha_programada')
+                if notification.estado == EstadoNotificacionCobranza.SKIPPED:
+                    notification.estado = EstadoNotificacionCobranza.SCHEDULED
+                    notification.motivo_estado = ''
+                    updates.extend(['estado', 'motivo_estado'])
+                if updates:
+                    notification.full_clean()
+                    notification.save(update_fields=[*updates, 'updated_at'])
+            else:
+                created_count += 1
+            rows.append(notification)
+    return {'rows': rows, 'created_count': created_count}
 
 
 @transaction.atomic
