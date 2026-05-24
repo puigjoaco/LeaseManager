@@ -205,6 +205,19 @@ class ConciliacionAPITests(APITestCase):
             estado='activa',
         )
 
+    def _charge_classification_payload(self, cuenta, **overrides):
+        payload = {
+            'categoria_movimiento': 'comision_bancaria',
+            'entidad_afectada_tipo': 'empresa',
+            'entidad_afectada_id': cuenta.empresa_owner_id,
+            'periodo_economico': '2026-01',
+            'criterio_reparto': 'Cargo asignado a la empresa duena de la cuenta recaudadora.',
+            'evidencia_clasificacion_ref': 'bank-fee-statement-2026-01',
+            'rationale': 'Comision bancaria del periodo.',
+        }
+        payload.update(overrides)
+        return payload
+
     def test_auth_is_required_for_conciliacion_endpoints(self):
         client = self.client_class()
         urls = [
@@ -675,7 +688,7 @@ class ConciliacionAPITests(APITestCase):
 
         resolve = self.client.post(
             reverse('manual-resolution-resolve-charge-movement', args=[resolution.pk]),
-            {'rationale': 'Comisión bancaria del período.'},
+            self._charge_classification_payload(cuenta, rationale='Comision bancaria del periodo.'),
             format='json',
         )
         self.assertEqual(resolve.status_code, status.HTTP_200_OK)
@@ -686,14 +699,21 @@ class ConciliacionAPITests(APITestCase):
         asiento = AsientoContable.objects.get(evento_contable=event)
 
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
-        self.assertEqual(movimiento.notas_admin, 'Comisión bancaria del período.')
+        self.assertEqual(movimiento.notas_admin, 'Comision bancaria del periodo.')
         self.assertEqual(event.evento_tipo, 'ComisionBancaria')
+        self.assertEqual(event.payload_resumen['categoria_movimiento'], 'comision_bancaria')
+        self.assertEqual(event.payload_resumen['entidad_afectada_tipo'], 'empresa')
+        self.assertEqual(event.payload_resumen['entidad_afectada_id'], cuenta.empresa_owner_id)
+        self.assertEqual(event.payload_resumen['periodo_economico'], '2026-01')
+        self.assertEqual(event.payload_resumen['evidencia_clasificacion_ref'], 'bank-fee-statement-2026-01')
         self.assertEqual(event.estado_contable, 'contabilizado')
         self.assertEqual(str(asiento.debe_total), '50000.00')
         self.assertEqual(str(asiento.haber_total), '50000.00')
         self.assertEqual(asiento.movimientos.count(), 2)
         self.assertEqual(resolution.status, 'resolved')
         self.assertEqual(resolution.metadata['resolved_event_id'], event.pk)
+        self.assertEqual(resolution.metadata['categoria_movimiento'], 'comision_bancaria')
+        self.assertEqual(resolution.metadata['periodo_economico'], '2026-01')
 
     def test_manual_resolution_charge_requires_rationale(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CARGO-REASON')
@@ -720,7 +740,7 @@ class ConciliacionAPITests(APITestCase):
 
         resolve = self.client.post(
             reverse('manual-resolution-resolve-charge-movement', args=[resolution.pk]),
-            {'rationale': '   '},
+            self._charge_classification_payload(cuenta, rationale='   '),
             format='json',
         )
         self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
@@ -731,6 +751,88 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
         self.assertEqual(resolution.status, 'open')
         self.assertEqual(resolution.rationale, '')
+
+    def test_manual_resolution_charge_requires_classification_context(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CARGO-CONTEXT')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                fecha_movimiento='2026-01-09',
+                tipo_movimiento='cargo',
+                monto='50000.00',
+                descripcion_origen='Cargo bancario sin contexto de clasificacion',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.movimiento_cargo',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-charge-movement', args=[resolution.pk]),
+            {'rationale': 'Cargo revisado por administracion.'},
+            format='json',
+        )
+
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('categoria_movimiento', resolve.data)
+        self.assertIn('entidad_afectada_tipo', resolve.data)
+        self.assertIn('entidad_afectada_id', resolve.data)
+        self.assertIn('periodo_economico', resolve.data)
+        self.assertIn('criterio_reparto', resolve.data)
+        self.assertIn('evidencia_clasificacion_ref', resolve.data)
+
+        movimiento.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
+        self.assertEqual(resolution.status, 'open')
+
+    def test_manual_resolution_charge_rejects_sensitive_classification_evidence(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CARGO-SENSITIVE')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                fecha_movimiento='2026-01-09',
+                tipo_movimiento='cargo',
+                monto='50000.00',
+                descripcion_origen='Cargo bancario con evidencia sensible',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.movimiento_cargo',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-charge-movement', args=[resolution.pk]),
+            self._charge_classification_payload(
+                cuenta,
+                evidencia_clasificacion_ref='https://bank.example.test/fee?token=secret',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_clasificacion_ref', resolve.data)
+
+        movimiento.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
+        self.assertEqual(resolution.status, 'open')
 
     def test_retry_match_rejects_already_reconciled_movement(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-LOCKED', amount='100111.00')

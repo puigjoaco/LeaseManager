@@ -234,12 +234,21 @@ class ResolveChargeMovementView(APIView):
 
     def post(self, request, pk):
         resolution = generics.get_object_or_404(_manual_resolution_queryset_for_user(request.user), pk=pk)
-        serializer = ResolveChargeMovementSerializer(data=request.data, context={'request': request})
+        serializer = ResolveChargeMovementSerializer(
+            data=request.data,
+            context={'request': request, 'resolution': resolution},
+        )
         serializer.is_valid(raise_exception=True)
 
         try:
             result = resolve_charge_movement_manual_resolution(
                 resolution=resolution,
+                categoria_movimiento=serializer.validated_data['categoria_movimiento'],
+                entidad_afectada_tipo=serializer.validated_data['entidad_afectada_tipo'],
+                entidad_afectada_id=serializer.validated_data['entidad_afectada_id'],
+                periodo_economico=serializer.validated_data['periodo_economico'],
+                criterio_reparto=serializer.validated_data['criterio_reparto'],
+                evidencia_clasificacion_ref=serializer.validated_data['evidencia_clasificacion_ref'],
                 rationale=serializer.validated_data.get('rationale', ''),
                 actor_user=request.user,
                 ip_address=request.META.get('REMOTE_ADDR'),

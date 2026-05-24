@@ -31,6 +31,18 @@ class TipoMovimientoBancario(models.TextChoices):
     DEBIT = 'cargo', 'Cargo'
 
 
+class CategoriaMovimiento(models.TextChoices):
+    BANK_COMMISSION = 'comision_bancaria', 'Comision bancaria'
+    GUARANTEE = 'garantia', 'Garantia'
+    PPM = 'ppm', 'PPM'
+    INTERNAL_TRANSFER = 'transferencia_interna', 'Transferencia interna'
+    PARTNER_SETTLEMENT = 'liquidacion_socio', 'Liquidacion a socio'
+    REIMBURSEMENT = 'reintegro', 'Reintegro'
+    WRONG_ENTITY_EXPENSE = 'gasto_entidad_equivocada', 'Gasto pagado por entidad equivocada'
+    RESIDUAL_COLLECTION = 'cobranza_residual', 'Cobranza residual'
+    REGULARIZATION = 'regularizacion', 'Regularizacion'
+
+
 class EstadoConciliacionMovimiento(models.TextChoices):
     PENDING = 'pendiente', 'Pendiente'
     EXACT_MATCH = 'conciliado_exacto', 'Conciliado exacto'

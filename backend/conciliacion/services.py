@@ -4,8 +4,10 @@ from django.utils import timezone
 from audit.models import ManualResolution
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
 from cobranza.services import sync_payment_distribution, sync_payment_state
+from core.reference_validation import is_non_sensitive_reference
 
 from .models import (
+    CategoriaMovimiento,
     EstadoConciliacionMovimiento,
     EstadoIngresoDesconocido,
     IngresoDesconocido,
@@ -292,12 +294,29 @@ def resolve_unknown_income_manual_resolution(*, resolution, payment, rationale='
 
 
 @transaction.atomic
-def resolve_charge_movement_manual_resolution(*, resolution, rationale='', actor_user=None, ip_address=None):
+def resolve_charge_movement_manual_resolution(
+    *,
+    resolution,
+    categoria_movimiento,
+    entidad_afectada_tipo,
+    entidad_afectada_id,
+    periodo_economico,
+    criterio_reparto,
+    evidencia_clasificacion_ref,
+    rationale='',
+    actor_user=None,
+    ip_address=None,
+):
     if resolution.category != 'conciliacion.movimiento_cargo':
         raise ValueError('La resolucion indicada no corresponde a movimiento cargo de conciliacion.')
     if resolution.status == ManualResolution.Status.RESOLVED:
         raise ValueError('La resolucion ya fue marcada como resuelta.')
     rationale = require_manual_resolution_rationale(rationale)
+    categoria_movimiento = str(categoria_movimiento or '').strip()
+    entidad_afectada_tipo = str(entidad_afectada_tipo or '').strip()
+    periodo_economico = str(periodo_economico or '').strip()
+    criterio_reparto = str(criterio_reparto or '').strip()
+    evidencia_clasificacion_ref = str(evidencia_clasificacion_ref or '').strip()
 
     movimiento = MovimientoBancarioImportado.objects.select_related(
         'conexion_bancaria__cuenta_recaudadora__empresa_owner',
@@ -311,6 +330,31 @@ def resolve_charge_movement_manual_resolution(*, resolution, rationale='', actor
     empresa = movimiento.conexion_bancaria.cuenta_recaudadora.empresa_owner
     if empresa is None:
         raise ValueError('La cuenta recaudadora del cargo no pertenece a una empresa contable.')
+    if categoria_movimiento != CategoriaMovimiento.BANK_COMMISSION:
+        raise ValueError('La categoria de movimiento indicada aun no tiene flujo de cierre seguro.')
+    if entidad_afectada_tipo != 'empresa':
+        raise ValueError('La entidad afectada indicada no es soportada para este cierre.')
+    try:
+        entidad_afectada_id = int(entidad_afectada_id)
+    except (TypeError, ValueError) as error:
+        raise ValueError('La clasificacion manual requiere entidad afectada.') from error
+    if entidad_afectada_id != empresa.pk:
+        raise ValueError('La entidad afectada debe coincidir con la empresa duena de la cuenta recaudadora.')
+    if not periodo_economico or not criterio_reparto:
+        raise ValueError('La clasificacion manual requiere periodo economico y criterio de reparto.')
+    if not is_non_sensitive_reference(evidencia_clasificacion_ref):
+        raise ValueError('La clasificacion manual requiere evidencia no sensible.')
+
+    classification_context = {
+        'categoria_movimiento': categoria_movimiento,
+        'entidad_afectada_tipo': entidad_afectada_tipo,
+        'entidad_afectada_id': entidad_afectada_id,
+        'cuenta_recaudadora_id': movimiento.conexion_bancaria.cuenta_recaudadora_id,
+        'fecha_movimiento': movimiento.fecha_movimiento.isoformat(),
+        'periodo_economico': periodo_economico,
+        'criterio_reparto': criterio_reparto,
+        'evidencia_clasificacion_ref': evidencia_clasificacion_ref,
+    }
 
     from contabilidad.services import create_accounting_event
 
@@ -326,6 +370,7 @@ def resolve_charge_movement_manual_resolution(*, resolution, rationale='', actor
             'movimiento_bancario_id': movimiento.pk,
             'cuenta_recaudadora_id': movimiento.conexion_bancaria.cuenta_recaudadora_id,
             'descripcion_origen': movimiento.descripcion_origen,
+            **classification_context,
         },
         idempotency_key=f'ComisionBancaria:{movimiento.pk}',
     )
@@ -351,6 +396,7 @@ def resolve_charge_movement_manual_resolution(*, resolution, rationale='', actor
         'resolved_event_id': event.pk,
         'resolved_empresa_id': empresa.pk,
         'resolved_with': 'charge_manual_classification',
+        **classification_context,
     }
     resolution.save(update_fields=['status', 'resolved_at', 'resolved_by', 'rationale', 'metadata'])
 
@@ -368,6 +414,7 @@ def resolve_charge_movement_manual_resolution(*, resolution, rationale='', actor
             'movimiento_bancario_id': movimiento.pk,
             'evento_contable_id': event.pk,
             'empresa_id': empresa.pk,
+            **classification_context,
         },
     )
 
