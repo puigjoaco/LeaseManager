@@ -100,6 +100,8 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
                 and (export.expires_at - export.created_at).total_seconds() > max_expiry_seconds
             ):
                 counts['prepared_expiry_too_long'] += 1
+        if export.estado == EstadoExportacionSensible.EXPIRED and (export.hold_activo or export.expires_at > now):
+            counts['expired_state_inconsistent'] += 1
         if not AuditEvent.objects.filter(
             event_type='compliance.exportacion_sensible.prepared',
             entity_type='exportacion_sensible',
@@ -257,6 +259,11 @@ def collect_compliance_data_readiness(
             'Las exportaciones preparadas sin hold no pueden exceder la ventana maxima de retencion temporal.',
         ),
         (
+            'expired_state_inconsistent',
+            'compliance.export_expired_state_inconsistent',
+            'Las exportaciones expiradas deben tener vencimiento ya cumplido y no estar bajo hold activo.',
+        ),
+        (
             'prepared_audit_event_missing',
             'compliance.export_prepared_audit_event_missing',
             'Toda exportacion sensible requiere evento de auditoria prepared trazable.',
@@ -350,6 +357,7 @@ def collect_compliance_data_readiness(
                 'payload_hash_invalid': export_issues.get('payload_hash_invalid', 0),
                 'prepared_expired_without_hold': export_issues.get('prepared_expired_without_hold', 0),
                 'prepared_expiry_too_long': export_issues.get('prepared_expiry_too_long', 0),
+                'expired_state_inconsistent': export_issues.get('expired_state_inconsistent', 0),
                 'prepared_audit_event_missing': export_issues.get('prepared_audit_event_missing', 0),
             },
             'audit': {

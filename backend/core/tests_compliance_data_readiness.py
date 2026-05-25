@@ -210,6 +210,20 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertFalse(result['ready_for_compliance_data'])
         self.assertIn('compliance.export_prepared_expired_without_hold', {issue['code'] for issue in result['issues']})
 
+    def test_inconsistent_expired_export_state_is_blocking(self):
+        self._create_policies()
+        export = self._create_raw_export(
+            estado=EstadoExportacionSensible.EXPIRED,
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+        self._create_prepared_audit_event(export, user=export.created_by)
+
+        result = self._collect_with_final_refs()
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_expired_state_inconsistent', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['exports']['expired_state_inconsistent'], 1)
+
     def test_secret_category_export_is_blocking(self):
         self._create_policies()
         export = self._create_raw_export(categoria_dato=CategoriaDato.SECRET)
