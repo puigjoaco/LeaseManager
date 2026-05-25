@@ -278,6 +278,62 @@ def sync_payment_overdue_state(payment, reference_date=None):
     return payment
 
 
+def _payment_effective_paid_date(payment):
+    return payment.fecha_deposito_banco or payment.fecha_pago_webpay or payment.fecha_deteccion_sistema
+
+
+def _payment_required_amount_for_score(payment):
+    required = Decimal(str(payment.monto_calculado_clp or Decimal('0.00')))
+    if payment.repactacion_deuda_id:
+        required += Decimal(str(payment.repactacion_deuda.monto_cuota or Decimal('0.00')))
+    return required
+
+
+def _payment_is_evaluated_for_score(payment, reference_date):
+    if payment.estado_pago != EstadoPago.PENDING:
+        return True
+    return bool(payment.fecha_vencimiento and payment.fecha_vencimiento <= reference_date)
+
+
+def _payment_is_on_time_for_score(payment):
+    paid_states = {
+        EstadoPago.PAID,
+        EstadoPago.PAID_VIA_REPAYMENT,
+        EstadoPago.PAID_BY_TERMINATION,
+    }
+    if payment.estado_pago not in paid_states:
+        return False
+    paid_date = _payment_effective_paid_date(payment)
+    if not paid_date or not payment.fecha_vencimiento or paid_date > payment.fecha_vencimiento:
+        return False
+    return Decimal(str(payment.monto_pagado_clp or Decimal('0.00'))) >= _payment_required_amount_for_score(payment)
+
+
+def calculate_payment_score(payments, reference_date=None):
+    reference_date = reference_date or timezone.localdate()
+    evaluated = 0
+    on_time = 0
+    for payment in payments:
+        if not _payment_is_evaluated_for_score(payment, reference_date):
+            continue
+        evaluated += 1
+        if _payment_is_on_time_for_score(payment):
+            on_time += 1
+
+    late_or_unpaid = max(0, evaluated - on_time)
+    score = None
+    if evaluated:
+        score = int(
+            (Decimal(on_time) * Decimal('100') / Decimal(evaluated)).quantize(Decimal('1'))
+        )
+    return {
+        'score_pago_porcentaje': score,
+        'score_meses_evaluados': evaluated,
+        'score_pagos_en_plazo': on_time,
+        'score_pagos_fuera_plazo': late_or_unpaid,
+    }
+
+
 @transaction.atomic
 def refresh_overdue_payments(*, queryset=None, reference_date=None, access: ScopeAccess | None = None):
     reference_date = reference_date or timezone.localdate()
@@ -558,15 +614,16 @@ def confirm_webpay_intent_manually(*, intent, external_ref, fecha_pago_webpay, a
     return intent, payment
 
 
-def build_account_state_summary(arrendatario, access: ScopeAccess | None = None):
+def build_account_state_summary(arrendatario, access: ScopeAccess | None = None, reference_date=None):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    reference_date = reference_date or timezone.localdate()
     open_payment_states = {
         EstadoPago.PENDING,
         EstadoPago.OVERDUE,
         EstadoPago.IN_REPAYMENT,
     }
     payments = scope_queryset_for_access(
-        PagoMensual.objects.filter(contrato__arrendatario=arrendatario),
+        PagoMensual.objects.select_related('repactacion_deuda').filter(contrato__arrendatario=arrendatario),
         access,
         property_paths=('contrato__mandato_operacion__propiedad_id',),
     )
@@ -592,6 +649,7 @@ def build_account_state_summary(arrendatario, access: ScopeAccess | None = None)
     )
     total_repayment_balance = sum(repactacion.saldo_pendiente for repactacion in active_repayments)
     total_residual_balance = sum(code.saldo_actual for code in active_residuals)
+    score = calculate_payment_score(payments, reference_date)
 
     return {
         'pagos_abiertos': pending_payments.count(),
@@ -602,17 +660,19 @@ def build_account_state_summary(arrendatario, access: ScopeAccess | None = None)
         'saldo_repactaciones_clp': str(total_repayment_balance),
         'saldo_residual_clp': str(total_residual_balance),
         'saldo_total_clp': str(total_payment_balance + total_repayment_balance + total_residual_balance),
+        **score,
     }
 
 
-def rebuild_account_state(arrendatario, *, access: ScopeAccess | None = None, persist: bool | None = None):
+def rebuild_account_state(arrendatario, *, access: ScopeAccess | None = None, persist: bool | None = None, reference_date=None):
     access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
     if persist is None:
         persist = not access.restricted
 
-    summary = build_account_state_summary(arrendatario, access)
+    summary = build_account_state_summary(arrendatario, access, reference_date=reference_date)
     state, _ = EstadoCuentaArrendatario.objects.get_or_create(arrendatario=arrendatario)
     state.resumen_operativo = summary
+    state.score_pago = summary['score_pago_porcentaje']
     if persist:
-        state.save(update_fields=['resumen_operativo', 'updated_at'])
+        state.save(update_fields=['resumen_operativo', 'score_pago', 'updated_at'])
     return state

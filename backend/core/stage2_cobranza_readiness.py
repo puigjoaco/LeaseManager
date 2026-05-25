@@ -421,7 +421,7 @@ def _collect_payment_repayment_trace_issues(payments) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
-def _collect_account_state_issues(account_states, required_tenant_ids: set[int]) -> dict[str, int]:
+def _collect_account_state_issues(account_states, required_tenant_ids: set[int], reference_date) -> dict[str, int]:
     counts = Counter()
     existing_tenant_ids: set[int] = set()
     for state in account_states:
@@ -436,7 +436,7 @@ def _collect_account_state_issues(account_states, required_tenant_ids: set[int])
             counts['invalid_summary_shape'] += 1
             continue
 
-        expected = build_account_state_summary(state.arrendatario)
+        expected = build_account_state_summary(state.arrendatario, reference_date=reference_date)
         missing_keys = set(expected) - set(summary)
         if missing_keys:
             counts['missing_summary_keys'] += 1
@@ -444,6 +444,12 @@ def _collect_account_state_issues(account_states, required_tenant_ids: set[int])
 
         if any(str(summary.get(key)) != str(expected_value) for key, expected_value in expected.items()):
             counts['stale_summary'] += 1
+
+        expected_score = expected.get('score_pago_porcentaje')
+        if expected_score is not None and state.score_pago is None:
+            counts['missing_score'] += 1
+        elif state.score_pago != expected_score:
+            counts['stale_score'] += 1
 
     counts['missing_for_active_tenant'] = len(required_tenant_ids - existing_tenant_ids)
     return dict(sorted(counts.items()))
@@ -597,7 +603,7 @@ def collect_stage2_cobranza_readiness(
         if tenant_id
     }
     account_states = EstadoCuentaArrendatario.objects.select_related('arrendatario')
-    account_state_issues = _collect_account_state_issues(account_states, account_state_required_tenant_ids)
+    account_state_issues = _collect_account_state_issues(account_states, account_state_required_tenant_ids, reference_date)
     final_evidence = {
         'stage1_evidence_ref': _non_sensitive_reference(stage1_evidence_ref),
         'email_proof_ref': _non_sensitive_reference(email_proof_ref),
@@ -750,6 +756,22 @@ def collect_stage2_cobranza_readiness(
                 'stage2.account_state.stale_summary',
                 'Existen estados de cuenta cuyo resumen no coincide con pagos, repactaciones y codigos residuales.',
                 count=account_state_issues['stale_summary'],
+            )
+        )
+    if account_state_issues.get('missing_score'):
+        issues.append(
+            _issue(
+                'stage2.account_state.missing_score',
+                'Existen estados de cuenta con pagos evaluables sin score de pago calculado.',
+                count=account_state_issues['missing_score'],
+            )
+        )
+    if account_state_issues.get('stale_score'):
+        issues.append(
+            _issue(
+                'stage2.account_state.stale_score',
+                'Existen estados de cuenta cuyo score de pago no coincide con los pagos operativos.',
+                count=account_state_issues['stale_score'],
             )
         )
     if account_state_issues.get('missing_summary_keys'):

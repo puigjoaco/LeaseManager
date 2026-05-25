@@ -1449,6 +1449,77 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.data['resumen_operativo']['cobranzas_residuales_activas'], 1)
         self.assertEqual(response.data['resumen_operativo']['saldo_total_clp'], '135111.00')
 
+    def test_rebuild_account_state_calculates_payment_score_and_counts(self):
+        contrato = self._create_active_contract(codigo='CON-STATE-SCORE', monto_base='100000.00', code='111')
+        january_response = self.client.post(
+            reverse('cobranza-pago-generate'),
+            {'contrato_id': contrato.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        february_response = self.client.post(
+            reverse('cobranza-pago-generate'),
+            {'contrato_id': contrato.id, 'anio': 2026, 'mes': 2},
+            format='json',
+        )
+        self.assertEqual(january_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(february_response.status_code, status.HTTP_201_CREATED)
+
+        january = PagoMensual.objects.get(pk=january_response.data['id'])
+        february = PagoMensual.objects.get(pk=february_response.data['id'])
+        january.estado_pago = EstadoPago.PAID
+        january.monto_pagado_clp = january.monto_calculado_clp
+        january.fecha_deposito_banco = date(2026, 1, 5)
+        january.save(
+            update_fields=[
+                'estado_pago',
+                'monto_pagado_clp',
+                'fecha_deposito_banco',
+                'updated_at',
+            ]
+        )
+        february.estado_pago = EstadoPago.OVERDUE
+        february.dias_mora = 5
+        february.save(update_fields=['estado_pago', 'dias_mora', 'updated_at'])
+
+        state = rebuild_account_state(contrato.arrendatario, reference_date=date(2026, 2, 10))
+
+        self.assertEqual(state.score_pago, 50)
+        self.assertEqual(state.resumen_operativo['score_pago_porcentaje'], 50)
+        self.assertEqual(state.resumen_operativo['score_meses_evaluados'], 2)
+        self.assertEqual(state.resumen_operativo['score_pagos_en_plazo'], 1)
+        self.assertEqual(state.resumen_operativo['score_pagos_fuera_plazo'], 1)
+
+    def test_payment_score_with_repayment_requires_full_monthly_due(self):
+        payment = self._generate_monthly_payment(codigo='CON-STATE-SCORE-REP')
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=payment.contrato.arrendatario,
+            contrato_origen=payment.contrato,
+            deuda_total_original='30000.00',
+            cantidad_cuotas=3,
+            monto_cuota='10000.00',
+            saldo_pendiente='0.00',
+            estado='cumplida',
+        )
+        payment.estado_pago = EstadoPago.PAID_VIA_REPAYMENT
+        payment.repactacion_deuda = repayment
+        payment.monto_pagado_clp = payment.monto_calculado_clp
+        payment.fecha_deteccion_sistema = payment.fecha_vencimiento
+        payment.save(
+            update_fields=[
+                'estado_pago',
+                'repactacion_deuda',
+                'monto_pagado_clp',
+                'fecha_deteccion_sistema',
+                'updated_at',
+            ]
+        )
+
+        state = rebuild_account_state(payment.contrato.arrendatario, reference_date=date(2026, 1, 6))
+
+        self.assertEqual(state.score_pago, 0)
+        self.assertEqual(state.resumen_operativo['score_meses_evaluados'], 1)
+        self.assertEqual(state.resumen_operativo['score_pagos_en_plazo'], 0)
+
     def test_rebuild_account_state_respects_company_scope(self):
         shared_tenant = Arrendatario.objects.create(
             tipo_arrendatario='persona_natural',

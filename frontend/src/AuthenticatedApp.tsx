@@ -742,6 +742,10 @@ type EstadoCuenta = {
     pagos_atrasados?: number
     repactaciones_activas?: number
     cobranzas_residuales_activas?: number
+    score_pago_porcentaje?: number | null
+    score_meses_evaluados?: number
+    score_pagos_en_plazo?: number
+    score_pagos_fuera_plazo?: number
     saldo_total_clp?: string
   }
   score_pago: number | null

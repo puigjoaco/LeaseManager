@@ -166,7 +166,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             fecha_vencimiento=date(2026, 1, 5),
             codigo_conciliacion_efectivo='001',
         )
-        account_state = rebuild_account_state(tenant)
+        account_state = rebuild_account_state(tenant, reference_date=self.READINESS_REFERENCE_DATE)
         notification_config = ConfiguracionNotificacionContrato.objects.create(
             contrato=contract,
             canal=CanalOperacion.EMAIL,
@@ -403,6 +403,56 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.account_state.stale_summary', issue_codes)
         self.assertEqual(result['sections']['account_states']['stale_summary'], 1)
+
+    def test_account_state_missing_payment_score_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        fixture['payment'].estado_pago = EstadoPago.PAID
+        fixture['payment'].monto_pagado_clp = fixture['payment'].monto_calculado_clp
+        fixture['payment'].fecha_deposito_banco = date(2026, 1, 5)
+        fixture['payment'].save(
+            update_fields=[
+                'estado_pago',
+                'monto_pagado_clp',
+                'fecha_deposito_banco',
+                'updated_at',
+            ]
+        )
+        rebuild_account_state(fixture['tenant'], reference_date=self.READINESS_REFERENCE_DATE)
+        EstadoCuentaArrendatario.objects.filter(pk=fixture['account_state'].pk).update(score_pago=None)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.account_state.missing_score', issue_codes)
+        self.assertEqual(result['sections']['account_states']['missing_score'], 1)
+
+    def test_account_state_stale_payment_score_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        fixture['payment'].estado_pago = EstadoPago.PAID
+        fixture['payment'].monto_pagado_clp = fixture['payment'].monto_calculado_clp
+        fixture['payment'].fecha_deposito_banco = date(2026, 1, 5)
+        fixture['payment'].save(
+            update_fields=[
+                'estado_pago',
+                'monto_pagado_clp',
+                'fecha_deposito_banco',
+                'updated_at',
+            ]
+        )
+        rebuild_account_state(fixture['tenant'], reference_date=self.READINESS_REFERENCE_DATE)
+        EstadoCuentaArrendatario.objects.filter(pk=fixture['account_state'].pk).update(score_pago=0)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.account_state.stale_score', issue_codes)
+        self.assertEqual(result['sections']['account_states']['stale_score'], 1)
 
     def test_pending_past_due_payment_is_blocking(self):
         self._create_payment_matrix()
