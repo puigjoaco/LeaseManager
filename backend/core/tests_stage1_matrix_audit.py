@@ -1029,6 +1029,35 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_renewal_period_changed_base_without_policy_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.tiene_tramos = True
+        contrato.save(update_fields=['tiene_tramos', 'updated_at'])
+        first_period = contrato.periodos_contractuales.get(numero_periodo=1)
+        first_period.fecha_fin = date(2026, 6, 30)
+        first_period.save(update_fields=['fecha_fin', 'updated_at'])
+        PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=2,
+            fecha_inicio=date(2026, 7, 1),
+            fecha_fin=date(2026, 12, 31),
+            monto_base=Decimal('260000.00'),
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='renovacion',
+            origen_periodo='renovacion_automatica',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.periodo.renovacion_base_sin_politica', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['periodos_contractuales']['classification'],
+            'defectuoso',
+        )
+
     def test_uf_payment_without_monthly_uf_value_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         periodo = contrato.periodos_contractuales.get(numero_periodo=1)

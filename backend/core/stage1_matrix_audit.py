@@ -40,6 +40,7 @@ from contratos.models import (
     EstadoContrato,
     MonedaBaseContrato,
     PeriodoContractual,
+    RENEWAL_PERIOD_KIND,
     RolContratoPropiedad,
     TipoArrendatario,
     normalize_representante_legal_snapshot,
@@ -1003,6 +1004,31 @@ def _audit_contract_periods(issues: list[dict[str, Any]], contrato: Contrato) ->
                 entity_id=period.pk,
                 message='Periodo UF debe tener monto positivo y UF exacta disponible al calcular cobro.',
             )
+
+    if contrato.tiene_tramos:
+        for previous, current in zip(periods, periods[1:]):
+            base_changed = (
+                current.moneda_base != previous.moneda_base
+                or Decimal(current.monto_base) != Decimal(previous.monto_base)
+            )
+            if (
+                str(current.tipo_periodo or '').strip().lower() == RENEWAL_PERIOD_KIND
+                and base_changed
+                and (
+                    not current.has_renewal_base_policy()
+                    or not is_non_sensitive_reference(current.politica_base_renovacion_ref)
+                )
+            ):
+                _issue(
+                    issues,
+                    code='stage1.periodo.renovacion_base_sin_politica',
+                    entity='PeriodoContractual',
+                    entity_id=current.pk,
+                    message=(
+                        'Renovacion contractual con base distinta al ultimo tramo vigente '
+                        'requiere politica documentada no sensible.'
+                    ),
+                )
 
 
 def _audit_future_contract_closure_evidence(

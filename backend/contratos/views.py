@@ -336,6 +336,10 @@ class ContractsSnapshotView(APIView):
                                 'moneda_base': periodo.moneda_base,
                                 'tipo_periodo': periodo.tipo_periodo,
                                 'origen_periodo': periodo.origen_periodo,
+                                'politica_base_renovacion_ref': redact_sensitive_reference(
+                                    periodo.politica_base_renovacion_ref
+                                ),
+                                'politica_base_renovacion_motivo': periodo.politica_base_renovacion_motivo,
                             }
                             for periodo in item.periodos_contractuales.all()
                         ],

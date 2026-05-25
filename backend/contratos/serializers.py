@@ -25,6 +25,7 @@ from .models import (
     EstadoContrato,
     MonedaBaseContrato,
     PeriodoContractual,
+    RENEWAL_PERIOD_KIND,
     RolContratoPropiedad,
 )
 
@@ -286,6 +287,8 @@ class PeriodoContractualReadSerializer(serializers.ModelSerializer):
             'moneda_base',
             'tipo_periodo',
             'origen_periodo',
+            'politica_base_renovacion_ref',
+            'politica_base_renovacion_motivo',
             'created_at',
             'updated_at',
         )
@@ -299,6 +302,8 @@ class PeriodoContractualWriteSerializer(serializers.Serializer):
     moneda_base = serializers.ChoiceField(choices=PeriodoContractual._meta.get_field('moneda_base').choices)
     tipo_periodo = serializers.CharField(max_length=64)
     origen_periodo = serializers.CharField(max_length=64)
+    politica_base_renovacion_ref = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    politica_base_renovacion_motivo = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, attrs):
         if attrs['fecha_fin'] < attrs['fecha_inicio']:
@@ -309,6 +314,26 @@ class PeriodoContractualWriteSerializer(serializers.Serializer):
             raise serializers.ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
         if attrs['moneda_base'] == MonedaBaseContrato.UF and attrs['monto_base'] <= Decimal('0.00'):
             raise serializers.ValidationError({'monto_base': 'Un periodo UF debe tener monto positivo.'})
+        attrs['politica_base_renovacion_ref'] = str(attrs.get('politica_base_renovacion_ref') or '').strip()
+        attrs['politica_base_renovacion_motivo'] = str(attrs.get('politica_base_renovacion_motivo') or '').strip()
+        if bool(attrs['politica_base_renovacion_ref']) != bool(attrs['politica_base_renovacion_motivo']):
+            raise serializers.ValidationError(
+                {
+                    'politica_base_renovacion_ref': (
+                        'La politica de base de renovacion requiere referencia y motivo trazable.'
+                    )
+                }
+            )
+        if attrs['politica_base_renovacion_ref'] and not is_non_sensitive_reference(
+            attrs['politica_base_renovacion_ref']
+        ):
+            raise serializers.ValidationError(
+                {
+                    'politica_base_renovacion_ref': (
+                        'La politica de base de renovacion debe usar una referencia no sensible.'
+                    )
+                }
+            )
         return attrs
 
 
@@ -433,6 +458,8 @@ class ContratoSerializer(serializers.ModelSerializer):
                 'moneda_base',
                 'tipo_periodo',
                 'origen_periodo',
+                'politica_base_renovacion_ref',
+                'politica_base_renovacion_motivo',
             ) if self.instance else [],
         )
         codeudores = self._get_nested_payload(
@@ -457,12 +484,14 @@ class ContratoSerializer(serializers.ModelSerializer):
         estado = attrs.get('estado', getattr(self.instance, 'estado', EstadoContrato.PENDING))
         fecha_inicio = attrs.get('fecha_inicio', getattr(self.instance, 'fecha_inicio', None))
         fecha_fin_vigente = attrs.get('fecha_fin_vigente', getattr(self.instance, 'fecha_fin_vigente', None))
+        tiene_tramos = attrs.get('tiene_tramos', getattr(self.instance, 'tiene_tramos', False))
         self._validate_contract_properties(contrato_propiedades, mandato, estado)
         self._validate_periods(
             periodos,
             fecha_inicio,
             fecha_fin_vigente,
             estado=estado,
+            tiene_tramos=tiene_tramos,
         )
         self._validate_codeudores(codeudores)
         self._validate_overlap(contrato_propiedades, estado)
@@ -557,6 +586,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         fecha_fin_vigente,
         *,
         estado=None,
+        tiene_tramos=False,
     ):
         if not periodos:
             raise serializers.ValidationError({'periodos_contractuales': 'Debe enviar al menos un periodo contractual.'})
@@ -597,6 +627,26 @@ class ContratoSerializer(serializers.ModelSerializer):
             if sorted_periods[index]['fecha_inicio'] != expected_start:
                 raise serializers.ValidationError(
                     {'periodos_contractuales': 'Los periodos contractuales deben cubrir la vigencia sin huecos.'}
+                )
+            if (
+                tiene_tramos
+                and str(sorted_periods[index]['tipo_periodo']).strip().lower() == RENEWAL_PERIOD_KIND
+                and (
+                    sorted_periods[index]['moneda_base'] != sorted_periods[index - 1]['moneda_base']
+                    or Decimal(sorted_periods[index]['monto_base']) != Decimal(sorted_periods[index - 1]['monto_base'])
+                )
+                and not (
+                    str(sorted_periods[index].get('politica_base_renovacion_ref') or '').strip()
+                    and str(sorted_periods[index].get('politica_base_renovacion_motivo') or '').strip()
+                )
+            ):
+                raise serializers.ValidationError(
+                    {
+                        'periodos_contractuales': (
+                            'Una renovacion con base distinta al ultimo tramo vigente requiere '
+                            'politica documentada con referencia no sensible y motivo trazable.'
+                        )
+                    }
                 )
 
         if fecha_inicio and sorted_periods[0]['fecha_inicio'] != fecha_inicio:
@@ -767,6 +817,8 @@ class ContratoSerializer(serializers.ModelSerializer):
                         moneda_base=item['moneda_base'],
                         tipo_periodo=item['tipo_periodo'],
                         origen_periodo=item['origen_periodo'],
+                        politica_base_renovacion_ref=item.get('politica_base_renovacion_ref', ''),
+                        politica_base_renovacion_motivo=item.get('politica_base_renovacion_motivo', ''),
                     )
                     for item in periodos
                 ]
