@@ -287,6 +287,19 @@ def _property_identity(propiedad: Propiedad) -> str:
     return f'id={propiedad.pk}, codigo={propiedad.codigo_propiedad}, owner={propiedad.owner_tipo}:{propiedad.owner_id}'
 
 
+def _date_windows_overlap(
+    first_start: date,
+    first_end: date | None,
+    second_start: date,
+    second_end: date | None,
+) -> bool:
+    if first_end is not None and second_start > first_end:
+        return False
+    if second_end is not None and first_start > second_end:
+        return False
+    return True
+
+
 def _audit_model_validation(
     issues: list[dict[str, Any]],
     *,
@@ -528,6 +541,39 @@ def _audit_property_identity_uniqueness(issues: list[dict[str, Any]], active_pro
             )
 
 
+def _audit_community_representation_window_overlaps(issues: list[dict[str, Any]]) -> None:
+    representations_by_community: dict[int, list[RepresentacionComunidad]] = defaultdict(list)
+    reported_communities: set[int] = set()
+    representations = RepresentacionComunidad.objects.filter(activo=True).order_by(
+        'comunidad_id',
+        'vigente_desde',
+        'id',
+    )
+    for representation in representations:
+        community_representations = representations_by_community[representation.comunidad_id]
+        if representation.comunidad_id not in reported_communities:
+            for previous in community_representations:
+                if _date_windows_overlap(
+                    previous.vigente_desde,
+                    previous.vigente_hasta,
+                    representation.vigente_desde,
+                    representation.vigente_hasta,
+                ):
+                    _issue(
+                        issues,
+                        code='stage1.comunidad.representacion_solapada',
+                        entity='ComunidadPatrimonial',
+                        entity_id=representation.comunidad_id,
+                        message=(
+                            'Comunidad con representaciones activas en ventanas efectivas solapadas; '
+                            'debe existir solo una representacion vigente por fecha.'
+                        ),
+                    )
+                    reported_communities.add(representation.comunidad_id)
+                    break
+        community_representations.append(representation)
+
+
 def _build_summary() -> dict[str, int]:
     socios_count = Socio.objects.count()
     empresas_count = Empresa.objects.count()
@@ -622,6 +668,7 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
         code='stage1.servicio_propiedad.validacion_modelo',
         entity='ServicioPropiedad',
     )
+    _audit_community_representation_window_overlaps(issues)
 
     for empresa in Empresa.objects.filter(estado='activa'):
         total = empresa.total_participaciones_activas()

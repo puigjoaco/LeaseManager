@@ -37,6 +37,10 @@ contra datos reales o snapshot controlado.
   representaciones activas con `vigente_desde` ya alcanzado y sin
   `vigente_hasta` vencido; representaciones futuras no sustituyen la
   representacion vigente.
+- Planificacion de representaciones de comunidad: pueden coexistir
+  representaciones activas historicas, actuales o futuras solo si sus ventanas
+  efectivas no se solapan; el dominio y el auditor bloquean cualquier snapshot
+  con mas de una representacion vigente para la misma fecha.
 - Validacion de participantes patrimoniales activos: una participacion activa
   solo puede apuntar a un socio activo o a una empresa participante activa con
   participaciones completas.

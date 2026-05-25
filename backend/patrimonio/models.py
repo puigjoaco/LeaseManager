@@ -55,6 +55,13 @@ def _currently_effective(queryset, effective_date=None):
     )
 
 
+def _overlapping_effective_windows(queryset, start_date, end_date=None):
+    overlaps = queryset
+    if end_date:
+        overlaps = overlaps.filter(vigente_desde__lte=end_date)
+    return overlaps.filter(Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=start_date))
+
+
 def _participation_key(participacion):
     if participacion.participante_socio_id:
         return ('socio', participacion.participante_socio_id)
@@ -287,13 +294,6 @@ class RepresentacionComunidad(TimestampedModel):
 
     class Meta:
         ordering = ['comunidad_id', '-vigente_desde', '-id']
-        constraints = [
-            models.UniqueConstraint(
-                fields=['comunidad'],
-                condition=Q(activo=True),
-                name='uniq_representacion_activa_por_comunidad',
-            ),
-        ]
 
     def __str__(self):
         return f'{self.comunidad.nombre} - {self.socio_representante.nombre}'
@@ -308,6 +308,21 @@ class RepresentacionComunidad(TimestampedModel):
             if not self.comunidad.participaciones_activas().filter(participante_socio=self.socio_representante).exists():
                 raise ValidationError(
                     {'socio_representante': 'La representacion patrimonial debe pertenecer a las participaciones activas.'}
+                )
+        if self.activo and self.comunidad_id and self.vigente_desde:
+            overlapping_representations = RepresentacionComunidad.objects.filter(
+                comunidad_id=self.comunidad_id,
+                activo=True,
+            )
+            if self.pk:
+                overlapping_representations = overlapping_representations.exclude(pk=self.pk)
+            if _overlapping_effective_windows(
+                overlapping_representations,
+                self.vigente_desde,
+                self.vigente_hasta,
+            ).exists():
+                raise ValidationError(
+                    {'vigente_desde': 'La comunidad ya tiene una representacion activa en una ventana solapada.'}
                 )
 
 

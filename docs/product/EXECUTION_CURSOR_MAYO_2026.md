@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 0 - Compliance niega payloads cifrados no descifrables de forma controlada. |
-| Fuente exacta | PR #274; commit `deeb7ab`; merge `3915c9a`. `backend/compliance/services.py`; `backend/core/compliance_data_readiness.py`; `backend/compliance/tests.py`; `backend/core/tests_compliance_data_readiness.py`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
-| Brecha activa | Ninguna abierta en cursor. La brecha donde un `encrypted_payload` heredado corrupto/no descifrable podia terminar como error interno quedo corregida y validada en PR #274. |
-| Motivo de prioridad | Paquete cerrado porque Compliance debe negar descargas no verificables sin exponer errores internos ni registrar acceso exitoso. El cambio convierte fallas de descifrado en `access_denied` y hace que readiness reporte `compliance.export_payload_unreadable` separado de mismatch hash/payload. No requirio `.env`, secretos, DB historica, datos reales, snapshots, backfills, deploys ni integraciones externas. |
-| Worktree | Ninguno tactico abierto. |
-| Rama | Ninguna tactica abierta. |
-| Estado | PR #274 mergeado, CI `acceptance` en verde, main sincronizado y worktree tactico de producto eliminado. |
-| Gate esperado | Compliance.DatosPersonalesChile2026 sigue como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa no sensibles. |
-| Estado al cerrar paquete | Cerrado en main con merge `3915c9a`; siguiente frente debe elegirse por trazabilidad desde estado limpio. |
-| Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado`, `SourceLabel`, `AuthorizationRef`, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa siguen siendo condicion de cierre real de Compliance, no de preparacion local. |
+| Frente activo | Etapa 1 - Patrimonio: ventanas efectivas de representacion de comunidad. |
+| Fuente exacta | `backend/patrimonio/models.py`; `backend/core/stage1_matrix_audit.py`; `backend/patrimonio/tests.py`; `backend/core/tests_stage1_matrix_audit.py`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
+| Brecha activa | `RepresentacionComunidad` no debe bloquear una representacion futura no solapada por una unicidad global de filas activas, pero si debe impedir ventanas efectivas solapadas y hacer que el auditor detecte snapshots heredados con solape. |
+| Motivo de prioridad | Patrimonio ya diferencia representacion actualmente vigente de representacion futura; falta alinear constraint, dominio y auditor para permitir planificacion operativa sin perder la garantia de una sola representacion vigente por fecha. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-representation-window-overlap`. |
+| Rama | `codex/stage1-representation-window-overlap`. |
+| Estado | En implementacion local. |
+| Gate esperado | Etapa 1 debe seguir como diagnostico parcial/no evidencial; este paquete endurece preparacion local y no cierra sin fuente `snapshot_controlado` o `real_autorizado`. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
+| Siguiente accion | Completar paquete en worktree tactico, validar con pruebas proporcionales, actualizar evidencia/trazabilidad y cerrar con PR, CI, merge y limpieza. |
 
 ## Actualizacion
 
