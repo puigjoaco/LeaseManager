@@ -99,6 +99,12 @@ acceso denegado controlado. La API no expone error interno, registra auditoria
 y readiness reporta `compliance.export_payload_unreadable` para datos heredados
 corruptos o no verificables.
 
+Nota 2026-05-25: Contratos registra avisos de termino fuera de plazo sin
+inventar fechas, compara el timestamp real de registro contra las `23:59:59`
+del ultimo dia permitido y expone/audita la situacion como advertencia
+`stage1.aviso_termino.registro_fuera_plazo`, sin convertirla en bloqueo por si
+sola.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas. |

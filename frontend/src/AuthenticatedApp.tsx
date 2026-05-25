@@ -662,6 +662,9 @@ type AvisoTermino = {
   fecha_efectiva: string
   causal: string
   estado: string
+  fecha_limite_registro_oportuno: string | null
+  registrado_fuera_plazo: boolean
+  alerta_registro_fuera_plazo: string
 }
 
 type ValorUF = {

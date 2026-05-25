@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | `backend/operacion/models.py`; `backend/core/stage1_matrix_audit.py`; `backend/operacion/tests.py`; `backend/core/tests_stage1_matrix_audit.py`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
-| Brecha activa | Ninguna abierta en este cursor. |
-| Motivo de prioridad | El PRD exige una sola cuenta recaudadora vigente para el mandato aplicable; Operacion ya tiene `vigencia_desde`/`vigencia_hasta`, por lo que el cierre local debe distinguir planificacion futura valida de doble mandato vigente en la misma fecha. |
-| Worktree | Ninguno. |
-| Rama | Ninguna. |
-| Estado | Paquete cerrado e integrado en `main`. |
+| Frente activo | Etapa 1 - Contratos: avisos de termino fuera de plazo. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md`; `backend/contratos/models.py`; `backend/contratos/serializers.py`; `backend/contratos/views.py`; `backend/core/stage1_matrix_audit.py`; `backend/contratos/tests.py`; `backend/core/tests_stage1_matrix_audit.py`; `frontend/src/backoffice/workspaces/ContratosWorkspace.tsx`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
+| Brecha activa | `AvisoTermino` debe registrar avisos fuera de plazo usando el timestamp real de registro, alertarlos como advertencia y no bloquear ni corregir fechas inventadas. |
+| Motivo de prioridad | El PRD exige que un aviso fuera de plazo se registre y alerte; tambien define que la oportunidad depende del timestamp real hasta `23:59:59` del ultimo dia permitido. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-late-termination-notice`. |
+| Rama | `codex/stage1-late-termination-notice`. |
+| Estado | En implementacion local. |
 | Gate esperado | Etapa 1 debe seguir como diagnostico parcial/no evidencial; este paquete endurece preparacion local y no cierra sin fuente `snapshot_controlado` o `real_autorizado`. |
-| Estado al cerrar paquete | PR #278 `Guard Stage 1 mandate validity windows`; commit de paquete `99c6b22`; merge commit `550d9f1`; CI GitHub `acceptance` OK; worktree tactico eliminado. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Desde `main` limpio, elegir el siguiente paquete seguro por trazabilidad y abrir un nuevo worktree `codex/...` solo si el cambio no es trivial. |
+| Siguiente accion | Completar paquete en worktree tactico, validar con pruebas proporcionales, actualizar evidencia/trazabilidad y cerrar con PR, CI, merge y limpieza. |
 
 ## Actualizacion
 

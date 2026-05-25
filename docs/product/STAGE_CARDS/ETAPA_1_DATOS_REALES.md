@@ -124,6 +124,9 @@ contra datos reales o snapshot controlado.
   justificacion deben ser coherentes antes de usarlos en cobranza.
 - Validacion de avisos de termino existentes: la fecha efectiva debe quedar
   dentro del rango del contrato asociado.
+- Avisos de termino fuera de plazo: se registran sin inventar fechas, se
+  comparan contra el timestamp real de registro hasta las `23:59:59` del
+  ultimo dia permitido y se reportan como advertencia operativa.
 - Terminacion anticipada con ultimo mes parcial: solo se permite si el
   contrato conserva una referencia no sensible a regla o decision de prorrata,
   un motivo trazable y un evento auditable dedicado. El auditor Etapa 1 bloquea
