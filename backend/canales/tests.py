@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -665,6 +666,34 @@ class CanalesAPITests(APITestCase):
             message.full_clean()
 
         self.assertIn('external_ref', error.exception.message_dict)
+
+    def test_sent_message_full_clean_requires_sent_timestamp(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-SENT-TS')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+        identity = self._create_identity(empresa, canal='email')
+
+        message = MensajeSaliente(
+            canal='email',
+            canal_mensajeria=gate,
+            identidad_envio=identity,
+            contrato=contrato,
+            arrendatario=contrato.arrendatario,
+            destinatario=contrato.arrendatario.email,
+            asunto='Cobro mensual',
+            cuerpo='Mensaje enviado heredado',
+            estado=EstadoMensajeSaliente.SENT,
+            external_ref='email-provider-controlled-001',
+            usuario=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            message.full_clean()
+
+        self.assertIn('enviado_at', error.exception.message_dict)
+
+        message.enviado_at = timezone.now()
+        message.full_clean()
 
     def test_prepare_email_message_uses_mandate_identity_assignment(self):
         empresa, contrato = self._create_contract_context(codigo='CH-EMAIL')

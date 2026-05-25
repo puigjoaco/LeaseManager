@@ -315,6 +315,8 @@ class MensajeSaliente(TimestampedModel):
                 errors['external_ref'] = (
                     'external_ref debe ser una referencia no sensible, no una URL, token o credencial.'
                 )
+            if self.enviado_at is None:
+                errors['enviado_at'] = 'Mensaje enviado requiere timestamp de envio.'
         if contains_sensitive_reference(self.provider_payload, include_sensitive_keys=True):
             errors['provider_payload'] = 'provider_payload no debe contener URLs, tokens, credenciales ni correos.'
         if self.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}:
