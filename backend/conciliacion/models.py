@@ -372,6 +372,12 @@ class MovimientoBancarioImportado(TimestampedModel):
                     'pago_mensual',
                     'El monto del movimiento no puede exceder el monto calculado del pago mensual.',
                 )
+            if movement_date and (payment.anio != movement_date.year or payment.mes != movement_date.month):
+                _append_error(
+                    errors,
+                    'pago_mensual',
+                    'El periodo del pago mensual debe coincidir con el periodo del movimiento bancario.',
+                )
             if _coerce_date(payment.fecha_deposito_banco) != movement_date:
                 _append_error(
                     errors,
