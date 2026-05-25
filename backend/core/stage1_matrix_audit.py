@@ -11,6 +11,7 @@ from typing import Any
 from django.core.exceptions import ValidationError
 from django.db.models import Count
 
+from audit.models import AuditEvent
 from core.reference_validation import is_non_sensitive_reference
 from cobranza.models import (
     AjusteContrato,
@@ -30,6 +31,7 @@ from contratos.models import (
     ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
+    EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
     EstadoContactoArrendatario,
     EstadoContactoPago,
     EstadoAvisoTermino,
@@ -975,6 +977,50 @@ def _audit_future_contract_closure_evidence(
         )
 
 
+def _has_early_termination_proration_audit_event(contrato: Contrato) -> bool:
+    events = AuditEvent.objects.filter(
+        event_type=EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
+        entity_type='contrato',
+        entity_id=str(contrato.pk),
+    )
+    expected_ref = (contrato.terminacion_anticipada_prorrata_ref or '').strip()
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if metadata.get('terminacion_anticipada_prorrata_ref') == expected_ref:
+            return True
+    return False
+
+
+def _audit_early_termination_proration(issues: list[dict[str, Any]]) -> None:
+    contracts = Contrato.objects.filter(estado=EstadoContrato.EARLY_TERMINATED)
+    for contrato in contracts:
+        if not contrato.has_partial_early_termination_month():
+            continue
+        if not contrato.has_early_termination_proration_decision():
+            _issue(
+                issues,
+                code='stage1.contrato.terminacion_anticipada_prorrata_sin_decision',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message=(
+                    'Contrato terminado anticipadamente con ultimo mes parcial requiere regla o decision '
+                    'auditada con referencia no sensible y motivo trazable.'
+                ),
+            )
+            continue
+        if not _has_early_termination_proration_audit_event(contrato):
+            _issue(
+                issues,
+                code='stage1.contrato.terminacion_anticipada_prorrata_sin_auditoria',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message=(
+                    'Contrato terminado anticipadamente con ultimo mes parcial conserva decision, '
+                    'pero no tiene evento auditable dedicado para esa prorrata.'
+                ),
+            )
+
+
 def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Contrato) -> None:
     tenant = contrato.arrendatario
     if tenant.estado_contacto != EstadoContactoArrendatario.ACTIVE:
@@ -1446,6 +1492,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         entity='GarantiaContractual',
     )
     _audit_payment_distribution_consistency(issues)
+    _audit_early_termination_proration(issues)
 
     duplicate_any_role = (
         ContratoPropiedad.objects.filter(contrato__estado__in=ACTIVE_CONTRACT_STATES)

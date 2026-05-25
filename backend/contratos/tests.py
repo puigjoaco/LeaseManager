@@ -28,6 +28,7 @@ from .models import (
     ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
+    EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
     EstadoAvisoTermino,
     EstadoContrato,
     PeriodoContractual,
@@ -1429,6 +1430,77 @@ class ContratosAPITests(APITestCase):
 
         future_response = self.client.post(reverse('contratos-contrato-list'), future_payload, format='json')
         self.assertEqual(future_response.status_code, status.HTTP_201_CREATED)
+
+    def test_early_termination_partial_month_requires_proration_decision(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-PR', owner_rut='14141410-6')
+        arrendatario = self._create_arrendatario(rut='15151510-3')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-PR')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('contratos-contrato-detail', args=[create_response.data['id']]),
+            {
+                'estado': EstadoContrato.EARLY_TERMINATED,
+                'fecha_fin_vigente': '2026-06-15',
+                'periodos_contractuales': [
+                    {
+                        'numero_periodo': 1,
+                        'fecha_inicio': '2026-01-01',
+                        'fecha_fin': '2026-06-15',
+                        'monto_base': '1000000.00',
+                        'moneda_base': 'CLP',
+                        'tipo_periodo': 'terminacion_anticipada',
+                        'origen_periodo': 'decision_controlada',
+                    }
+                ],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('terminacion_anticipada_prorrata_ref', response.data)
+        self.assertIn('terminacion_anticipada_prorrata_motivo', response.data)
+
+    def test_early_termination_partial_month_records_proration_audit_event(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-PRA', owner_rut='14141411-4')
+        arrendatario = self._create_arrendatario(rut='15151511-1')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-PRA')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('contratos-contrato-detail', args=[create_response.data['id']]),
+            {
+                'estado': EstadoContrato.EARLY_TERMINATED,
+                'fecha_fin_vigente': '2026-06-15',
+                'terminacion_anticipada_prorrata_ref': 'early-term-proration-act-001',
+                'terminacion_anticipada_prorrata_motivo': 'Prorrata aprobada por termino anticipado controlado.',
+                'periodos_contractuales': [
+                    {
+                        'numero_periodo': 1,
+                        'fecha_inicio': '2026-01-01',
+                        'fecha_fin': '2026-06-15',
+                        'monto_base': '1000000.00',
+                        'moneda_base': 'CLP',
+                        'tipo_periodo': 'terminacion_anticipada',
+                        'origen_periodo': 'decision_controlada',
+                    }
+                ],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['fecha_fin_vigente'], '2026-06-15')
+        self.assertEqual(response.data['terminacion_anticipada_prorrata_ref'], 'early-term-proration-act-001')
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
+                entity_type='contrato',
+                entity_id=str(create_response.data['id']),
+            ).exists()
+        )
 
     def test_future_contract_rejects_notice_from_non_current_contract(self):
         mandato = self._create_active_mandato(codigo='MAND-106-X', owner_rut='14141414-8')
