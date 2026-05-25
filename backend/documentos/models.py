@@ -190,6 +190,8 @@ class DocumentoEmitido(TimestampedModel):
             raise ValidationError(
                 {'storage_ref': 'storage_ref debe ser una referencia PDF no sensible, no una URL, token o credencial.'}
             )
+        if not self.usuario_id:
+            raise ValidationError({'usuario': 'Documento emitido requiere usuario responsable de carga.'})
         if self.comprobante_notarial_id and self.comprobante_notarial.tipo_documental != TipoDocumental.NOTARY_RECEIPT:
             raise ValidationError({'comprobante_notarial': 'El comprobante vinculado debe ser un comprobante notarial.'})
         if self.comprobante_notarial_id and self.pk and self.comprobante_notarial_id == self.pk:

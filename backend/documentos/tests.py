@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
@@ -269,6 +270,24 @@ class DocumentosAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('checksum', response.data)
+
+    def test_document_full_clean_requires_responsible_user(self):
+        expediente = self._create_expediente(entidad_id='user-guard')
+        document = DocumentoEmitido(
+            expediente_id=expediente['id'],
+            tipo_documental='contrato_principal',
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            origen='generado_sistema',
+            estado='emitido',
+            storage_ref='storage/contracts/contrato-1.pdf',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            document.full_clean()
+
+        self.assertIn('usuario', error.exception.message_dict)
 
     def test_document_storage_ref_must_be_non_sensitive_pdf_reference(self):
         expediente = self._create_expediente(entidad_id='pdf-sensitive-guard')

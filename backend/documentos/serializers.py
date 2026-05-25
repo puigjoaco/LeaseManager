@@ -241,6 +241,8 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
             setattr(candidate, field, value)
         if self.instance:
             candidate.usuario = self.instance.usuario
+        else:
+            candidate.usuario = _request_user(self)
         try:
             candidate.full_clean()
         except DjangoValidationError as error:

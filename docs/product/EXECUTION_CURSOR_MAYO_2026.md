@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 5 - Contabilidad, validacion de empresa en movimientos de asiento. |
-| Fuente exacta | PR #231 `Guard Stage 5 movement account company consistency`; commit `6f938a2`; merge `38ace39`; `backend/contabilidad/models.py`; `backend/contabilidad/tests.py`; stage card, trazabilidad y evidencia actualizadas. |
-| Brecha activa | Cerrada localmente: `MovimientoAsiento.clean()` rechaza cuentas contables de otra empresa y `audit_stage5_contabilidad_readiness` conserva la deteccion de snapshots heredados con `stage5.asiento_movement_company_mismatch`. |
-| Motivo de prioridad | Brecha local trazable de Contabilidad cerrada sin usar `.env`, datos reales, banco, SII ni integraciones externas. |
-| Worktree | Ninguno. |
-| Rama | `main` sincronizada con `origin/main` tras PR #231. |
-| Estado | PR #231 integrado con CI remoto en verde; paquete tactico limpiado. |
-| Gate esperado | Etapa 5 local queda como diagnostico parcial/no evidencial; no cierra Contabilidad sin Conciliacion cerrada, fuente autorizada, ledger/reportes controlados y responsable. |
-| Estado al cerrar paquete | Cerrado e integrado en `main` con validacion local y CI remoto. |
-| Bloqueos relacionados | Conciliacion cerrada y fuente autorizada siguen siendo condicion de cierre, no freno para este hardening local. |
-| Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Seleccionar el siguiente frente util desde stage cards, matriz de trazabilidad y PRD, abrir worktree `codex/...` si corresponde y avanzar con validaciones proporcionales. |
+| Frente activo | Etapa 5 - Documentos PDF: responsable obligatorio en documento emitido. |
+| Fuente exacta | `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Documentos`; `backend/documentos/models.py`; `backend/documentos/serializers.py`; `backend/documentos/readiness.py`; tests de Documentos/readiness. |
+| Brecha activa | `audit_document_readiness` bloquea documentos emitidos sin `usuario`, pero `DocumentoEmitido.clean()` aun no impide nuevas escrituras sin responsable de carga. |
+| Motivo de prioridad | Brecha local trazable de Documentos; alinea dominio con readiness y evita nuevos documentos sin responsable sin usar storage real, `.env`, datos reales ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-document-user-domain-guard`. |
+| Rama | `codex/stage5-document-user-domain-guard`. |
+| Estado | En implementacion. `main` queda limpio en `D:/Proyectos/LeaseManager`. |
+| Gate esperado | Etapa 5 Documentos local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, politica final, prueba PDF controlada y responsable. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Politica final, prueba PDF controlada y fuente autorizada siguen siendo condicion de cierre, no freno para este hardening local. |
+| Politica de reanudacion | Retomar este worktree hasta cerrar, pausar explicitamente en este cursor o limpiar con instruccion segura. |
+| Siguiente accion | Exigir `usuario` en `DocumentoEmitido.clean()`, ajustar validacion API para considerar el request user en create, cubrir con pruebas y actualizar evidencia/trazabilidad. |
 
 ## Actualizacion
 
