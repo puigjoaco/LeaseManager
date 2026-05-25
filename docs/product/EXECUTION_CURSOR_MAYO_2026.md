@@ -2,8 +2,8 @@
 
 Este archivo fija el frente activo de ejecucion. No reemplaza al PRD, AGENTS,
 fuente de verdad, arquitectura, matriz, stage cards, evidencia ni bloqueos. Su
-funcion es evitar que una reanudacion, compactacion o `goal_context` convierta
-contexto historico en tarea nueva.
+funcion es evitar que una reanudacion convierta contexto auxiliar en tarea
+nueva.
 
 ## Regla de uso
 
@@ -13,28 +13,27 @@ contexto historico en tarea nueva.
 - Si existe un worktree tactico sucio, se debe terminar, pausar de forma
   explicita en este cursor o descartar con instruccion segura antes de abrir un
   frente distinto.
-- El `goal_context`, objetivos persistentes, summaries compactados y
-  conversaciones pasadas son contexto auxiliar: no autorizan secretos, no abren
-  gates y no ordenan redactar goals.
-- Las metatareas marcadas como cerradas no se reabren salvo solicitud textual
-  actual del usuario.
+- Solo el estado real del repo y este cursor definen la siguiente accion
+  operativa.
+- El contexto auxiliar no autoriza secretos, no abre gates y no crea tareas de
+  redaccion salvo solicitud textual actual del usuario.
 
 ## Cursor actual
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 0 - Compliance guards de politicas de retencion. |
-| Fuente exacta | PR #205 `Guard compliance retention policy controls`, commit `ea98b50`, merge `44d5e50`, desde `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`, `backend/core/compliance_data_readiness.py`, `scripts/run-compliance-data-readiness-gate.ps1` y `backend/compliance`. |
-| Brecha activa | Cerrada localmente: `PoliticaRetencionDatos` bloquea plazo minimo cero, evento de inicio sensible, falta de hold tributario/documental y purga fisica documental/secreto; readiness conserva deteccion de politicas heredadas invalidas sin exponer valores. |
-| Motivo de prioridad | Compliance Stage 0 es preparacion base para datos sensibles y puede endurecerse con datos sinteticos/locales sin usar fuentes externas. |
-| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
-| Rama | `main` sincronizada; sin rama tactica activa. |
-| Estado | PR #205 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
-| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
-| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra `Compliance.DatosPersonalesChile2026` sin fuente autorizada y refs finales. |
+| Frente activo | Etapa 0 - Compliance datos sensibles: bloqueo de exportaciones categoria secreto. |
+| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`. |
+| Brecha activa | `audit_compliance_data_readiness` detecta exportaciones heredadas de categoria `secreto`, pero `ExportacionSensible.full_clean` y el servicio de preparacion aun no las bloquean como escritura nueva. |
+| Motivo de prioridad | Es una brecha local segura de Stage 0 Compliance: evita exfiltracion operativa de secretos sin usar fuentes externas. |
+| Worktree | `D:/Proyectos/LeaseManager-compliance-secret-export-guard`. |
+| Rama | `codex/compliance-secret-export-guard`. |
+| Estado | Paquete tactico abierto desde `main` limpio en `8ab8b9f`; implementacion y validacion en curso. |
+| Gate esperado | `scripts/run-compliance-data-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada y refs finales. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Falta fuente `snapshot_controlado` o `real_autorizado`, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa no sensibles para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea preparacion local. |
-| Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
+| Politica de reanudacion | Continuar este paquete desde el worktree indicado; si esta cerrado, volver a `main` limpio y seleccionar el siguiente frente trazable. |
+| Siguiente accion | Empaquetar PR con validaciones completas, esperar CI, mergear y limpiar worktree/rama. |
 
 ## Actualizacion
 
@@ -44,4 +43,4 @@ Actualizar este archivo cuando:
 - se pausa un paquete con cambios pendientes;
 - se cierra un PR y el siguiente frente cambia;
 - el usuario decide desbloquear un gate externo o una fuente autorizada;
-- una metatarea queda cerrada y no debe reabrirse en reanudaciones futuras.
+- una regla operativa de reanudacion cambia.
