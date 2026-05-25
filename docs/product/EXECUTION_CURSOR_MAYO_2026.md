@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 7 - senales runtime deben ser recientes para cierre productivo. |
-| Fuente exacta | PR #270; commit `8e8cc05`; merge `52bdc7f`. `docs/product/STAGE_CARDS/ETAPA_7_OPERACION_PRODUCTIVA.md`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `backend/core/operational_observability.py`; tests de observabilidad operativa. |
-| Brecha activa | Ninguna abierta en cursor. La brecha de observabilidad runtime autorizada que podia contar para cierre con mediciones antiguas quedo corregida y validada en PR #270. |
-| Motivo de prioridad | Paquete cerrado porque Operacion productiva requiere monitoreo vigente: las cuatro senales runtime obligatorias solo cuentan para cierre si estan OK, tienen evidencia/fuente/autorizacion no sensibles y fueron observadas dentro de las ultimas 24 horas. No requirio `.env`, secretos, DB historica, datos reales, snapshots, backfills, deploys ni integraciones externas. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 0 - Compliance verifica integridad payload/hash antes de descargar exportaciones sensibles. |
+| Fuente exacta | PR #272; commit `9180dd4`; merge `cc09eca`. `backend/compliance/services.py`; `backend/core/compliance_data_readiness.py`; `backend/compliance/tests.py`; `backend/core/tests_compliance_data_readiness.py`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
+| Brecha activa | Ninguna abierta en cursor. La brecha donde un payload cifrado manipulado podia descargarse aunque ya no coincidiera con `payload_hash` quedo corregida y validada en PR #272. |
+| Motivo de prioridad | Paquete cerrado porque Compliance ya exigia hash canonico, pero faltaba verificar que el contenido descifrado siguiera alineado antes de entregar la exportacion. El cambio niega la descarga, audita `access_denied` y hace que readiness reporte `compliance.export_payload_hash_mismatch` para datos heredados. No requirio `.env`, secretos, DB historica, datos reales, snapshots, backfills, deploys ni integraciones externas. |
 | Worktree | Ninguno tactico abierto. |
 | Rama | Ninguna tactica abierta. |
-| Estado | PR #270 mergeado, CI `acceptance` en verde, main sincronizado y worktree tactico eliminado. |
-| Gate esperado | Etapa 7 sigue como diagnostico parcial/no evidencial; no cierra sin mediciones recientes autorizadas, restore autorizado, smoke autorizado, Reporting autorizado y aceptacion final. |
-| Estado al cerrar paquete | Cerrado en main con merge `52bdc7f`; siguiente frente debe elegirse por trazabilidad desde estado limpio. |
-| Bloqueos relacionados | Mediciones recientes con fuente `snapshot_controlado` o `real_autorizado`, restore de backup/snapshot autorizado, smoke publico autorizado, Reporting autorizado y aceptacion final siguen siendo condicion de cierre real, no de preparacion local. |
+| Estado | PR #272 mergeado, CI `acceptance` en verde, main sincronizado y worktree tactico de producto eliminado. |
+| Gate esperado | Compliance.DatosPersonalesChile2026 sigue como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa no sensibles. |
+| Estado al cerrar paquete | Cerrado en main con merge `cc09eca`; siguiente frente debe elegirse por trazabilidad desde estado limpio. |
+| Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado`, `SourceLabel`, `AuthorizationRef`, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa siguen siendo condicion de cierre real de Compliance, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 | Siguiente accion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 
