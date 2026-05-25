@@ -232,6 +232,8 @@ def _collect_message_issues(messages) -> dict[str, int]:
                 counts['sent_without_external_ref'] += 1
             elif not _non_sensitive_reference(message.external_ref):
                 counts['sent_with_sensitive_external_ref'] += 1
+            if message.enviado_at is None:
+                counts['sent_without_timestamp'] += 1
         if _message_operational_issue(message):
             counts['prepared_or_sent_not_ready'] += 1
         if message.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}:
@@ -826,6 +828,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.message.sent_with_sensitive_external_ref',
                 'Existen mensajes marcados enviados con external_ref sensible.',
                 count=message_issues['sent_with_sensitive_external_ref'],
+            )
+        )
+    if message_issues.get('sent_without_timestamp'):
+        issues.append(
+            _issue(
+                'stage2.message.sent_without_timestamp',
+                'Existen mensajes marcados enviados sin timestamp de envio.',
+                count=message_issues['sent_without_timestamp'],
             )
         )
     if message_issues.get('prepared_or_sent_not_ready'):

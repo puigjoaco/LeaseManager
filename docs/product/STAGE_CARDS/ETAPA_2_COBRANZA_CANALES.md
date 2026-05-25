@@ -43,7 +43,7 @@ condicionados sin envios reales accidentales.
   `enviado` sin gate abierto, readiness Email, identidad activa, destinatario,
   mandato operativo activo, contexto WhatsApp valido o formalizacion
   documental cuando corresponda; mensajes `enviado` requieren `external_ref`
-  trazable no sensible.
+  trazable no sensible y timestamp de envio.
 - Las notificaciones por cobranza se configuran por contrato y canal
   habilitado mediante cadencias activas de dias. La base sugerida es
   `1/3/5/10/15/20/25`; una cadencia distinta requiere referencia no sensible,
@@ -104,7 +104,7 @@ condicionados sin envios reales accidentales.
   snapshot de Canales, sin abrir integraciones externas. Los mensajes
   salientes rechazan nuevas escrituras con `provider_payload` que contenga
   URLs, tokens, credenciales, correos o claves sensibles y tambien rechazan
-  mensajes enviados sin `external_ref` no sensible.
+  mensajes enviados sin `external_ref` no sensible o sin timestamp de envio.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   estados de cuenta, identidades/asignaciones de canal, gates
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,
