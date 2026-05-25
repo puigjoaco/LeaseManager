@@ -6,6 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
@@ -140,12 +141,17 @@ class Stage6RentaAnualReadinessTests(TestCase):
             entidad_id=str(process.pk),
             owner_operativo='tributario-stage6',
         )
+        user = get_user_model().objects.create_user(
+            username=f'stage6-docs-{process.pk}',
+            password='secret123',
+        )
         return DocumentoEmitido.objects.create(
             expediente=expediente,
             tipo_documental=TipoDocumental.TAX_SUPPORT,
             version_plantilla='stage6-v1',
             checksum=VALID_DOCUMENT_SHA256,
             fecha_carga=timezone.now(),
+            usuario=user,
             origen=OrigenDocumento.GENERATED,
             estado=EstadoDocumento.ISSUED,
             storage_ref='local-evidence/stage6/certificado-renta-anual.pdf',

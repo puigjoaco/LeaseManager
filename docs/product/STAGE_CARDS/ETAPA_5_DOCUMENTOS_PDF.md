@@ -18,7 +18,9 @@ firma y notaria trazables.
   no URL, token, credencial, correo ni secreto.
 - Documento emitido debe conservar `version_plantilla`, `checksum`, `usuario`,
   `fecha_carga`, `origen` y expediente; `checksum` debe ser un digest
-  SHA-256 canonico, no una etiqueta libre.
+  SHA-256 canonico, no una etiqueta libre. `DocumentoEmitido.clean()` bloquea
+  nuevas escrituras sin `usuario` responsable y readiness conserva la deteccion
+  de documentos heredados sin responsable.
 - APIs y snapshot documental deben redactar `storage_ref` sensible heredado
   antes de exponer documentos al backoffice.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
