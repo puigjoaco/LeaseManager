@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 0 - Compliance datos sensibles: formato SHA-256 real para `payload_hash` de exportaciones sensibles. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance/models.py`; `backend/core/compliance_data_readiness.py`; tests de Compliance/readiness. |
-| Brecha activa | El modelo/readiness exigen hash de 64 caracteres, pero no verifican que `payload_hash` sea hexadecimal SHA-256; un snapshot heredado podria conservar un valor de 64 caracteres no hex. |
-| Motivo de prioridad | Primer frente parcial por orden, hardening local pequeno y verificable sin secretos, `.env`, DB historica, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-export-hash-format`. |
-| Rama | `codex/compliance-export-hash-format`. |
-| Estado | En implementacion. `main` queda limpio en `D:/Proyectos/LeaseManager`. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 0 - Compliance datos sensibles, formato SHA-256 real para `payload_hash` de exportaciones sensibles. |
+| Fuente exacta | PR #227 `Guard Compliance export hash format`; commit `4b3b38a`; merge `16d9c23`; `backend/compliance/models.py`; `backend/core/compliance_data_readiness.py`; tests de Compliance/readiness; trazabilidad y evidencia actualizadas. |
+| Brecha activa | Cerrada localmente: `ExportacionSensible.full_clean` rechaza `payload_hash` no hexadecimal aunque tenga 64 caracteres y readiness clasifica snapshots heredados con `compliance.export_payload_hash_invalid`. |
+| Motivo de prioridad | Paquete local, pequeno y verificable completado sin secretos, `.env`, DB historica, datos reales ni integraciones externas. |
+| Worktree | Ninguno. Solo debe quedar el worktree principal `D:/Proyectos/LeaseManager`. |
+| Rama | `main`, sincronizada con `origin/main`. |
+| Estado | PR #227 integrado con CI remoto verde; worktree tactico y ramas local/remota eliminados. |
 | Gate esperado | Compliance local diagnostica parcial/no evidencial; no cierra `Compliance.DatosPersonalesChile2026` sin fuente autorizada, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Cierre real de Compliance sigue dependiendo de refs y fuente autorizada; no bloquea este hardening local. |
-| Politica de reanudacion | Retomar este worktree hasta cerrar, pausar explicitamente en este cursor o limpiar con instruccion segura. |
-| Siguiente accion | Validar `payload_hash` hexadecimal en dominio/readiness, agregar pruebas focales y documentar evidencia/trazabilidad. |
+| Estado al cerrar paquete | Preparacion local de Compliance reforzada; cierre real de Compliance sigue pendiente de fuente autorizada, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa. |
+| Bloqueos relacionados | Fuente/evidencia legal-operativa autorizada sigue siendo condicion de cierre, no freno para elegir otro paquete local seguro. |
+| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, diagnosticar el siguiente paquete pequeno, trazable y local desde la matriz/stage cards. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; elegir el siguiente frente seguro por trazabilidad y abrir worktree `codex/...` solo si requiere cambios no triviales. |
 
 ## Actualizacion
 
