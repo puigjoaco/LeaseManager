@@ -26,6 +26,10 @@ cierres mensuales.
   capacidades DDJJ/F22, doce cierres, obligaciones mensuales, proceso anual,
   respaldos tributarios PDF y referencias finales no sensibles sin conectar SII
   ni leer certificados reales.
+- `ProcesoRentaAnual.resumen_anual`, `DDJJPreparacionAnual.resumen_paquete`
+  y `F22PreparacionAnual.resumen_f22` deben trazar al ano comercial
+  inmediatamente anterior al `anio_tributario`; el dominio rechaza nuevas
+  escrituras desalineadas y readiness bloquea snapshots heredados.
 - El dominio SII rechaza F29, ProcesoRentaAnual, DDJJ y F22 en estados
   aprobados, presentados, observados o rectificados si falta la referencia
   final trazable correspondiente.

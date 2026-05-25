@@ -366,6 +366,70 @@ class SiiAPITests(APITestCase):
         with self.assertRaisesMessage(ValidationError, 'F22Preparacion'):
             f22.full_clean()
 
+    def test_annual_tax_payloads_require_expected_commercial_year(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
+        ddjj_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DDJJPreparacion',
+            **self._sii_readiness_fields('ddjj'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        f22_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F22Preparacion',
+            **self._sii_readiness_fields('f22'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        wrong_summary = {
+            'fiscal_year': 2025,
+            'obligaciones': [{'anio': 2025, 'mes': 1, 'tipo': 'PPM'}],
+        }
+
+        process = ProcesoRentaAnual(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual=wrong_summary,
+        )
+        with self.assertRaises(ValidationError) as process_error:
+            process.full_clean()
+        self.assertIn('resumen_anual', process_error.exception.message_dict)
+
+        stored_process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'anio': 2026, 'mes': 1, 'tipo': 'PPM'}]},
+        )
+        ddjj = DDJJPreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=stored_process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_paquete={'resumen_anual': wrong_summary},
+        )
+        with self.assertRaises(ValidationError) as ddjj_error:
+            ddjj.full_clean()
+        self.assertIn('resumen_paquete', ddjj_error.exception.message_dict)
+
+        f22 = F22PreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=stored_process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_f22={'resumen_anual': wrong_summary},
+        )
+        with self.assertRaises(ValidationError) as f22_error:
+            f22.full_clean()
+        self.assertIn('resumen_f22', f22_error.exception.message_dict)
+
     def test_tax_artifacts_require_traceable_ref_for_advanced_state(self):
         empresa, _ = self._setup_paid_payment()
         self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])

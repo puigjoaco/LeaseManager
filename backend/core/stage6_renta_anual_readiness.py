@@ -88,7 +88,21 @@ def _annual_summary_is_traceable(summary: Any) -> bool:
     if not isinstance(summary, dict):
         return False
     obligations = summary.get('obligaciones')
-    return bool(summary.get('fiscal_year')) and isinstance(obligations, list) and bool(obligations)
+    return _annual_summary_fiscal_year(summary) is not None and isinstance(obligations, list) and bool(obligations)
+
+
+def _annual_summary_fiscal_year(summary: Any) -> int | None:
+    if not isinstance(summary, dict) or not summary.get('fiscal_year'):
+        return None
+    try:
+        return int(summary.get('fiscal_year'))
+    except (TypeError, ValueError):
+        return None
+
+
+def _annual_summary_fiscal_year_mismatch(summary: Any, anio_tributario: int) -> bool:
+    fiscal_year = _annual_summary_fiscal_year(summary)
+    return fiscal_year is not None and fiscal_year != anio_tributario - 1
 
 
 def _approved_close_months(*, empresa_id: int, fiscal_year: int) -> set[int]:
@@ -116,9 +130,11 @@ def _collect_process_issues(processes) -> dict[str, int]:
             counts['process_not_traceable'] += 1
         if not _annual_summary_is_traceable(process.resumen_anual):
             counts['process_summary_missing'] += 1
+        if _annual_summary_fiscal_year_mismatch(process.resumen_anual, process.anio_tributario):
+            counts['process_fiscal_year_mismatch'] += 1
 
         summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
-        fiscal_year = int(summary.get('fiscal_year') or process.anio_tributario - 1)
+        fiscal_year = _annual_summary_fiscal_year(summary) or process.anio_tributario - 1
         if _approved_close_months(empresa_id=process.empresa_id, fiscal_year=fiscal_year) != expected_months:
             counts['twelve_closes_missing'] += 1
         if not ObligacionTributariaMensual.objects.filter(empresa=process.empresa, anio=fiscal_year).exists():
@@ -155,6 +171,9 @@ def _collect_annual_document_issues(processes, ddjj_preparations, f22_preparatio
             counts['ddjj_not_traceable'] += 1
         if not ddjj.resumen_paquete:
             counts['ddjj_summary_missing'] += 1
+        ddjj_summary = ddjj.resumen_paquete.get('resumen_anual') if isinstance(ddjj.resumen_paquete, dict) else None
+        if _annual_summary_fiscal_year_mismatch(ddjj_summary, ddjj.anio_tributario):
+            counts['ddjj_summary_fiscal_year_mismatch'] += 1
         if ddjj.estado_preparacion in ANNUAL_REF_REQUIRED_STATES and not has_text(ddjj.paquete_ref):
             counts['ddjj_ref_missing'] += 1
 
@@ -169,6 +188,9 @@ def _collect_annual_document_issues(processes, ddjj_preparations, f22_preparatio
             counts['f22_not_traceable'] += 1
         if not f22.resumen_f22:
             counts['f22_summary_missing'] += 1
+        f22_summary = f22.resumen_f22.get('resumen_anual') if isinstance(f22.resumen_f22, dict) else None
+        if _annual_summary_fiscal_year_mismatch(f22_summary, f22.anio_tributario):
+            counts['f22_summary_fiscal_year_mismatch'] += 1
         if f22.estado_preparacion in ANNUAL_REF_REQUIRED_STATES and not has_text(f22.borrador_ref):
             counts['f22_ref_missing'] += 1
 
@@ -413,6 +435,11 @@ def collect_stage6_renta_anual_readiness(
             'ProcesoRentaAnual requiere resumen_anual con fiscal_year y obligaciones.',
         ),
         (
+            'process_fiscal_year_mismatch',
+            'stage6.annual_process_fiscal_year_mismatch',
+            'ProcesoRentaAnual tiene resumen_anual de un ano comercial distinto al ano tributario.',
+        ),
+        (
             'twelve_closes_missing',
             'stage6.process_twelve_closes_missing',
             'Existen procesos anuales sin doce cierres aprobados del ano comercial.',
@@ -483,9 +510,19 @@ def collect_stage6_renta_anual_readiness(
             'DDJJ requiere resumen_paquete trazable.',
         ),
         (
+            'ddjj_summary_fiscal_year_mismatch',
+            'stage6.ddjj_summary_fiscal_year_mismatch',
+            'DDJJ contiene resumen anual de un ano comercial distinto al ano tributario.',
+        ),
+        (
             'f22_summary_missing',
             'stage6.f22_summary_missing',
             'F22 requiere resumen_f22 trazable.',
+        ),
+        (
+            'f22_summary_fiscal_year_mismatch',
+            'stage6.f22_summary_fiscal_year_mismatch',
+            'F22 contiene resumen anual de un ano comercial distinto al ano tributario.',
         ),
         (
             'ddjj_ref_missing',

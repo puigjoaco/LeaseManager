@@ -102,6 +102,29 @@ def _add_non_sensitive_payload_error(errors, field_name, value):
         errors[field_name] = f'{field_name} no debe contener URLs, tokens, credenciales ni correos.'
 
 
+def _summary_fiscal_year(summary):
+    if not isinstance(summary, dict) or not has_text(summary.get('fiscal_year')):
+        return None
+    try:
+        return int(summary.get('fiscal_year'))
+    except (TypeError, ValueError):
+        return None
+
+
+def _add_annual_summary_year_error(errors, field_name, summary, anio_tributario):
+    if not isinstance(summary, dict) or not has_text(summary.get('fiscal_year')):
+        return
+    fiscal_year = _summary_fiscal_year(summary)
+    expected_fiscal_year = anio_tributario - 1
+    if fiscal_year != expected_fiscal_year:
+        _add_error(
+            errors,
+            field_name,
+            f'{field_name} debe corresponder al año comercial {expected_fiscal_year} '
+            f'para el año tributario {anio_tributario}.',
+        )
+
+
 def _add_capability_kind_error(errors, instance, expected_capability, artifact_label):
     capability = getattr(instance, 'capacidad_tributaria', None)
     if capability and capability.capacidad_key != expected_capability:
@@ -359,6 +382,7 @@ class ProcesoRentaAnual(TimestampedModel):
         _add_non_sensitive_reference_error(errors, self, 'paquete_ddjj_ref')
         _add_non_sensitive_reference_error(errors, self, 'borrador_f22_ref')
         _add_active_fiscal_config_error(errors, self, 'ProcesoRentaAnual')
+        _add_annual_summary_year_error(errors, 'resumen_anual', self.resumen_anual, self.anio_tributario)
         if errors:
             raise ValidationError(errors)
 
@@ -406,6 +430,8 @@ class DDJJPreparacionAnual(TimestampedModel):
         _add_capability_kind_error(errors, self, CapacidadSII.DDJJ_PREPARACION, 'DDJJ')
         if self.proceso_renta_anual.empresa_id != self.empresa_id or self.proceso_renta_anual.anio_tributario != self.anio_tributario:
             errors['proceso_renta_anual'] = 'El proceso anual debe coincidir con la empresa y año tributario de DDJJ.'
+        summary = self.resumen_paquete.get('resumen_anual') if isinstance(self.resumen_paquete, dict) else None
+        _add_annual_summary_year_error(errors, 'resumen_paquete', summary, self.anio_tributario)
         if errors:
             raise ValidationError(errors)
 
@@ -453,5 +479,7 @@ class F22PreparacionAnual(TimestampedModel):
         _add_capability_kind_error(errors, self, CapacidadSII.F22_PREPARACION, 'F22')
         if self.proceso_renta_anual.empresa_id != self.empresa_id or self.proceso_renta_anual.anio_tributario != self.anio_tributario:
             errors['proceso_renta_anual'] = 'El proceso anual debe coincidir con la empresa y año tributario del F22.'
+        summary = self.resumen_f22.get('resumen_anual') if isinstance(self.resumen_f22, dict) else None
+        _add_annual_summary_year_error(errors, 'resumen_f22', summary, self.anio_tributario)
         if errors:
             raise ValidationError(errors)
