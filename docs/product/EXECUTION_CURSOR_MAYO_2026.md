@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 - CobranzaActiva, excepcion formal para repactacion parcial. |
-| Fuente exacta | PRD `01_Set_Vigente/PRD_CANONICO.md` linea 358; `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`; `backend/cobranza/models.py`; `backend/cobranza/serializers.py`; `backend/core/stage2_cobranza_readiness.py`; `backend/cobranza/tests.py`; `backend/core/tests_stage2_cobranza_readiness.py`. |
-| Brecha activa | En curso: una repactacion parcial no debe pasar como plan ordinario; debe requerir referencia de excepcion formal no sensible, motivo auditable y deteccion de snapshots heredados sin esa traza. |
-| Motivo de prioridad | Brecha de CobranzaActiva derivada del PRD, verificable localmente sin `.env`, secretos, DB historica, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-partial-repayment-exception`. |
-| Rama | `codex/stage2-partial-repayment-exception`. |
-| Estado | En diagnostico e implementacion local. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 2 - CobranzaActiva, excepcion formal para repactacion parcial. |
+| Fuente exacta | PR #256, commit `6c4e46d`, merge `a050578`; PRD `01_Set_Vigente/PRD_CANONICO.md` linea 358; `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`; `backend/cobranza/models.py`; `backend/cobranza/serializers.py`; `backend/cobranza/views.py`; `backend/core/stage2_cobranza_readiness.py`; evidencia y trazabilidad. |
+| Brecha activa | Cerrada localmente: repactacion parcial exige referencia de excepcion formal no sensible, motivo auditable y evento auditable dedicado; readiness Etapa 2 bloquea snapshots heredados sin esa traza. |
+| Motivo de prioridad | Paquete de CobranzaActiva derivado del PRD, cerrado con validacion local, CI y merge sin `.env`, secretos, DB historica, datos reales ni integraciones externas. |
+| Worktree | Ninguno. Solo debe quedar el worktree principal. |
+| Rama | `main` sincronizada con `origin/main` despues de PR #256. |
+| Estado | Listo para reanudacion operativa desde el siguiente paquete de producto seguro. |
 | Gate esperado | Etapa 2 local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, evidencia Etapa 1 y pruebas Email/WebPay controladas. |
-| Estado al cerrar paquete | Pendiente de implementacion, validacion, PR, CI, merge y limpieza. |
+| Estado al cerrar paquete | Validado, PR #256 mergeado con CI acceptance verde y worktree tactico eliminado. |
 | Bloqueos relacionados | Fuente autorizada de Etapa 2, evidencia Etapa 1 y pruebas externas controladas siguen siendo condicion de cierre real, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Implementar guard de dominio/API/readiness para repactacion parcial, validar Cobranza/Etapa 2, abrir PR, esperar CI, mergear, limpiar worktree y cerrar cursor. |
+| Siguiente accion | Seleccionar el siguiente paquete seguro desde stage cards, trazabilidad y PRD; abrir worktree `codex/...` si el cambio no es trivial. |
 
 ## Actualizacion
 
