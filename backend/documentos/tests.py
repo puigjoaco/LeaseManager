@@ -289,6 +289,51 @@ class DocumentosAPITests(APITestCase):
 
         self.assertIn('usuario', error.exception.message_dict)
 
+    def test_document_requires_active_policy_for_type(self):
+        expediente = self._create_expediente(entidad_id='policy-guard')
+
+        response = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v1',
+                'checksum': VALID_SHA256,
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'emitido',
+                'storage_ref': 'storage/contracts/policy-guard.pdf',
+                'firma_arrendador_registrada': False,
+                'firma_arrendatario_registrada': False,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('tipo_documental', response.data)
+
+        self._create_politica()
+        created = self._create_documento(expediente['id'], storage_ref='storage/contracts/policy-guard.pdf')
+        self.assertEqual(created['tipo_documental'], 'contrato_principal')
+
+    def test_policy_deactivation_rejected_when_documents_depend_on_type(self):
+        expediente = self._create_expediente(entidad_id='policy-deactivate-guard')
+        policy = self._create_politica()
+        self._create_documento(expediente['id'])
+
+        response = self.client.patch(
+            reverse('documentos-politica-detail', args=[policy['id']]),
+            {'estado': 'inactiva'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        self.assertEqual(PoliticaFirmaYNotaria.objects.get(pk=policy['id']).estado, 'activa')
+
     def test_document_storage_ref_must_be_non_sensitive_pdf_reference(self):
         expediente = self._create_expediente(entidad_id='pdf-sensitive-guard')
         self._create_politica()
@@ -445,6 +490,11 @@ class DocumentosAPITests(APITestCase):
     def test_notary_receipt_must_be_issued_formalized_or_archived(self):
         expediente = self._create_expediente(entidad_id='3B')
         self._create_politica(requiere_notaria=True)
+        self._create_politica(
+            tipo_documental='comprobante_notarial',
+            requiere_firma_arrendador=False,
+            requiere_firma_arrendatario=False,
+        )
         receipt = self._create_documento(
             expediente['id'],
             tipo_documental='comprobante_notarial',
@@ -474,6 +524,11 @@ class DocumentosAPITests(APITestCase):
     def test_document_can_be_formalized_when_policy_is_satisfied(self):
         expediente = self._create_expediente(entidad_id='4')
         self._create_politica(requiere_notaria=True)
+        self._create_politica(
+            tipo_documental='comprobante_notarial',
+            requiere_firma_arrendador=False,
+            requiere_firma_arrendatario=False,
+        )
         receipt = self._create_documento(
             expediente['id'],
             tipo_documental='comprobante_notarial',
@@ -670,6 +725,11 @@ class DocumentosAPITests(APITestCase):
         expediente_a = self._create_expediente(entidad_id='4A')
         expediente_b = self._create_expediente(entidad_id='4B')
         self._create_politica(requiere_notaria=True)
+        self._create_politica(
+            tipo_documental='comprobante_notarial',
+            requiere_firma_arrendador=False,
+            requiere_firma_arrendatario=False,
+        )
         receipt = self._create_documento(
             expediente_b['id'],
             tipo_documental='comprobante_notarial',

@@ -212,6 +212,48 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertIn('documents.user_missing', {issue['code'] for issue in result['issues']})
         self.assertEqual(result['sections']['documents']['missing_user'], 1)
 
+    def test_inactive_policy_with_existing_document_is_blocking(self):
+        user = create_user('docs-readiness-inactive-policy')
+        PoliticaFirmaYNotaria.objects.create(
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            requiere_firma_arrendador=True,
+            requiere_firma_arrendatario=True,
+            modo_firma_permitido='firma_simple',
+            estado='inactiva',
+        )
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='inactive-policy',
+            estado='abierto',
+            owner_operativo='manual:inactive-policy',
+        )
+        DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='generado_sistema',
+            estado='emitido',
+            storage_ref='storage/docs/inactive-policy.pdf',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.active_policy_missing', issue_codes)
+        self.assertIn('documents.document_without_active_policy', issue_codes)
+        self.assertEqual(result['sections']['documents']['without_active_policy'], 1)
+
     def test_invalid_checksum_is_blocking_without_exposing_values(self):
         create_all_active_policies()
         user = create_user('docs-readiness-invalid-checksum')
