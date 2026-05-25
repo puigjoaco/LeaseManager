@@ -51,6 +51,37 @@ TAX_REFERENCE_REQUIRED_STATES = {
 }
 
 
+def _add_error(errors, field_name, message):
+    existing = errors.get(field_name)
+    if existing:
+        errors[field_name] = (
+            [*existing, message]
+            if isinstance(existing, list)
+            else [existing, message]
+        )
+    else:
+        errors[field_name] = message
+
+
+def _active_fiscal_config_for(empresa):
+    try:
+        fiscal_config = empresa.configuracion_fiscal
+    except ObjectDoesNotExist:
+        return None
+    if fiscal_config.estado != EstadoRegistro.ACTIVE:
+        return None
+    return fiscal_config
+
+
+def _add_active_fiscal_config_error(errors, instance, artifact_label):
+    if _active_fiscal_config_for(instance.empresa) is None:
+        _add_error(
+            errors,
+            'empresa',
+            f'{artifact_label} requiere ConfiguracionFiscalEmpresa activa para la misma empresa.',
+        )
+
+
 def _add_non_sensitive_reference_error(errors, instance, field_name):
     value = getattr(instance, field_name, '')
     if has_text(value) and not is_non_sensitive_reference(value):
@@ -78,15 +109,7 @@ def _add_capability_kind_error(errors, instance, expected_capability, artifact_l
             f'{artifact_label} requiere capacidad SII {expected_capability}; '
             f'recibio {capability.capacidad_key}.'
         )
-        existing = errors.get('capacidad_tributaria')
-        if existing:
-            errors['capacidad_tributaria'] = (
-                [*existing, message]
-                if isinstance(existing, list)
-                else [existing, message]
-            )
-        else:
-            errors['capacidad_tributaria'] = message
+        _add_error(errors, 'capacidad_tributaria', message)
 
 
 class EstadoDTE(models.TextChoices):
@@ -155,15 +178,10 @@ class CapacidadTributariaSII(TimestampedModel):
         if self.capacidad_key in fiscal_rule_capabilities and not has_text(self.regla_fiscal_ref):
             errors['regla_fiscal_ref'] = 'SII abierto requiere regla_fiscal_ref validada.'
 
-        try:
-            fiscal_config = self.empresa.configuracion_fiscal
-        except ObjectDoesNotExist:
-            fiscal_config = None
-        if (
-            fiscal_config is not None
-            and fiscal_config.estado == EstadoRegistro.ACTIVE
-            and fiscal_config.regimen_tributario.codigo_regimen != SII_AUTOMATED_REGIME_CODE
-        ):
+        fiscal_config = _active_fiscal_config_for(self.empresa)
+        if fiscal_config is None:
+            errors['empresa'] = 'SII abierto requiere ConfiguracionFiscalEmpresa activa para la misma empresa.'
+        elif fiscal_config.regimen_tributario.codigo_regimen != SII_AUTOMATED_REGIME_CODE:
             errors['empresa'] = 'La empresa no pertenece al regimen fiscal automatizable del v1.'
 
         if self.ambiente == AmbienteSII.PRODUCTION:
@@ -238,6 +256,7 @@ class DTEEmitido(TimestampedModel):
         super().clean()
         errors = {}
         _add_non_sensitive_reference_error(errors, self, 'sii_track_id')
+        _add_active_fiscal_config_error(errors, self, 'DTE')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad SII debe pertenecer a la misma empresa del DTE.'
         _add_capability_kind_error(errors, self, CapacidadSII.DTE_EMISION, 'DTE')
@@ -296,6 +315,7 @@ class F29PreparacionMensual(TimestampedModel):
         errors = {}
         _add_required_tax_reference_error(errors, self, 'borrador_ref', 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
+        _add_active_fiscal_config_error(errors, self, 'F29')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad SII debe pertenecer a la misma empresa del borrador F29.'
         _add_capability_kind_error(errors, self, CapacidadSII.F29_PREPARACION, 'F29')
@@ -338,6 +358,7 @@ class ProcesoRentaAnual(TimestampedModel):
         _add_required_tax_reference_error(errors, self, 'borrador_f22_ref', 'estado')
         _add_non_sensitive_reference_error(errors, self, 'paquete_ddjj_ref')
         _add_non_sensitive_reference_error(errors, self, 'borrador_f22_ref')
+        _add_active_fiscal_config_error(errors, self, 'ProcesoRentaAnual')
         if errors:
             raise ValidationError(errors)
 
@@ -379,6 +400,7 @@ class DDJJPreparacionAnual(TimestampedModel):
         errors = {}
         _add_required_tax_reference_error(errors, self, 'paquete_ref', 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'paquete_ref')
+        _add_active_fiscal_config_error(errors, self, 'DDJJ')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad DDJJ debe pertenecer a la misma empresa.'
         _add_capability_kind_error(errors, self, CapacidadSII.DDJJ_PREPARACION, 'DDJJ')
@@ -425,6 +447,7 @@ class F22PreparacionAnual(TimestampedModel):
         errors = {}
         _add_required_tax_reference_error(errors, self, 'borrador_ref', 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
+        _add_active_fiscal_config_error(errors, self, 'F22')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad F22 debe pertenecer a la misma empresa.'
         _add_capability_kind_error(errors, self, CapacidadSII.F22_PREPARACION, 'F22')
