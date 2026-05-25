@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 1 - Patrimonio permite planificar representaciones de comunidad futuras no solapadas. |
-| Fuente exacta | PR #276; commit `c17e1b7`; merge `f91d3e9`. `backend/patrimonio/models.py`; `backend/patrimonio/migrations/0005_remove_representacioncomunidad_unique_active.py`; `backend/core/stage1_matrix_audit.py`; `backend/patrimonio/tests.py`; `backend/core/tests_stage1_matrix_audit.py`; `docs/product/STAGE_CARDS/ETAPA_1_DATOS_REALES.md`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
-| Brecha activa | Ninguna abierta en cursor. La brecha donde una unicidad global de filas activas impedia planificar una representacion futura no solapada quedo corregida, manteniendo bloqueo de ventanas efectivas solapadas por dominio y auditor. |
-| Motivo de prioridad | Paquete cerrado porque Patrimonio debe permitir planificacion operativa de representaciones sin perder la garantia de una sola representacion vigente por fecha. No requirio `.env`, secretos, DB historica, datos reales, snapshots, backfills, deploys ni integraciones externas. |
-| Worktree | Ninguno tactico abierto. |
-| Rama | Ninguna tactica abierta. |
-| Estado | PR #276 mergeado, CI `acceptance` en verde, main sincronizado y worktree tactico de producto eliminado. |
-| Gate esperado | Etapa 1 sigue como diagnostico parcial/no evidencial; no cierra sin fuente `snapshot_controlado` o `real_autorizado`. |
-| Estado al cerrar paquete | Cerrado en main con merge `f91d3e9`; siguiente frente debe elegirse por trazabilidad desde estado limpio. |
+| Frente activo | Etapa 1 - Operacion: ventanas efectivas de `MandatoOperacion`. |
+| Fuente exacta | `backend/operacion/models.py`; `backend/core/stage1_matrix_audit.py`; `backend/operacion/tests.py`; `backend/core/tests_stage1_matrix_audit.py`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
+| Brecha activa | `MandatoOperacion` no debe bloquear un mandato futuro no solapado por una unicidad global de filas activas, pero si debe impedir ventanas efectivas solapadas y hacer que el auditor detecte snapshots heredados con solape. |
+| Motivo de prioridad | El PRD exige una sola cuenta recaudadora vigente para el mandato aplicable; Operacion ya tiene `vigencia_desde`/`vigencia_hasta`, por lo que el cierre local debe distinguir planificacion futura valida de doble mandato vigente en la misma fecha. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-mandate-window-overlap`. |
+| Rama | `codex/stage1-mandate-window-overlap`. |
+| Estado | En implementacion local. |
+| Gate esperado | Etapa 1 debe seguir como diagnostico parcial/no evidencial; este paquete endurece preparacion local y no cierra sin fuente `snapshot_controlado` o `real_autorizado`. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
+| Siguiente accion | Completar paquete en worktree tactico, validar con pruebas proporcionales, actualizar evidencia/trazabilidad y cerrar con PR, CI, merge y limpieza. |
 
 ## Actualizacion
 
