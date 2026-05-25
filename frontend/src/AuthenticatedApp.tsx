@@ -569,6 +569,9 @@ type Cuenta = {
   titular_nombre: string
   titular_rut: string
   moneda_operativa: string
+  uso_operativo: string
+  modo_operativo: string
+  evidencia_operativa_ref: string
   estado_operativo: string
 }
 type Identidad = {
@@ -1456,6 +1459,9 @@ function App() {
     titular_nombre: '',
     titular_rut: '',
     moneda_operativa: 'CLP',
+    uso_operativo: 'recaudacion_arriendos',
+    modo_operativo: 'manual_controlado',
+    evidencia_operativa_ref: '',
     estado_operativo: 'activa',
     owner_tipo: 'empresa',
     owner_id: '',
@@ -2058,6 +2064,9 @@ function App() {
       titular_nombre: '',
       titular_rut: '',
       moneda_operativa: 'CLP',
+      uso_operativo: 'recaudacion_arriendos',
+      modo_operativo: 'manual_controlado',
+      evidencia_operativa_ref: '',
       estado_operativo: 'activa',
       owner_tipo: 'empresa',
       owner_id: '',
@@ -3346,6 +3355,9 @@ function App() {
         titular_nombre: '',
         titular_rut: '',
         moneda_operativa: 'CLP',
+        uso_operativo: 'recaudacion_arriendos',
+        modo_operativo: 'manual_controlado',
+        evidencia_operativa_ref: '',
         estado_operativo: 'activa',
         owner_tipo: 'empresa',
         owner_id: '',
@@ -3611,6 +3623,9 @@ function App() {
       titular_nombre: row.titular_nombre,
       titular_rut: row.titular_rut,
       moneda_operativa: row.moneda_operativa,
+      uso_operativo: row.uso_operativo,
+      modo_operativo: row.modo_operativo,
+      evidencia_operativa_ref: row.evidencia_operativa_ref,
       estado_operativo: row.estado_operativo,
       owner_tipo: row.owner_tipo,
       owner_id: String(row.owner_id),
@@ -3627,6 +3642,9 @@ function App() {
       titular_nombre: '',
       titular_rut: '',
       moneda_operativa: 'CLP',
+      uso_operativo: 'recaudacion_arriendos',
+      modo_operativo: 'manual_controlado',
+      evidencia_operativa_ref: '',
       estado_operativo: 'activa',
       owner_tipo: 'empresa',
       owner_id: '',
@@ -4848,6 +4866,9 @@ function App() {
           item.institucion,
           item.owner_display,
           item.owner_tipo,
+          item.uso_operativo,
+          item.modo_operativo,
+          item.evidencia_operativa_ref,
           item.estado_operativo,
         ]),
       ),

@@ -59,6 +59,10 @@ contra datos reales o snapshot controlado.
   identidades de envio y asignaciones de canal no pueden pausarse,
   suspenderse o inactivarse si dejan contratos vigentes/futuros, mandatos o
   canales activos sin cobertura operativa.
+- Validacion de cuentas recaudadoras activas: una cuenta activa debe declarar
+  uso operativo, modo `manual_controlado` o `gate_bancario`, y evidencia
+  operativa trazable no sensible; la API, snapshot/backoffice y auditor Etapa 1
+  detectan faltantes o referencias sensibles heredadas.
 - Validacion de que cada contrato vigente o futuro este cubierto por la
   vigencia del `MandatoOperacion` que define propiedad, cuenta y facturacion;
   un mandato con contratos vigentes/futuros no puede recortar su vigencia fuera

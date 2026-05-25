@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -28,6 +29,7 @@ from .models import (
     EstadoMandatoOperacion,
     IdentidadDeEnvio,
     MandatoOperacion,
+    ModoOperacionCuentaRecaudadora,
     MonedaOperativa,
 )
 
@@ -48,10 +50,50 @@ class OperacionModelTests(TestCase):
             titular_nombre='Owner Uno',
             titular_rut='11111111-1',
             moneda_operativa=MonedaOperativa.CLP,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            evidencia_operativa_ref='account-operational-evidence-owner',
             estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
         )
 
         with self.assertRaisesMessage(Exception, 'owner activo'):
+            cuenta.full_clean()
+
+    def test_active_account_requires_operational_evidence(self):
+        cuenta = CuentaRecaudadora(
+            socio_owner=self.socio,
+            institucion='Banco Uno',
+            numero_cuenta='123456',
+            tipo_cuenta='corriente',
+            titular_nombre='Owner Uno',
+            titular_rut='11111111-1',
+            moneda_operativa=MonedaOperativa.CLP,
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            cuenta.full_clean()
+
+        self.assertIn('uso_operativo', context.exception.message_dict)
+        self.assertIn('modo_operativo', context.exception.message_dict)
+        self.assertIn('evidencia_operativa_ref', context.exception.message_dict)
+
+    def test_active_account_rejects_sensitive_operational_evidence(self):
+        cuenta = CuentaRecaudadora(
+            socio_owner=self.socio,
+            institucion='Banco Uno',
+            numero_cuenta='123456',
+            tipo_cuenta='corriente',
+            titular_nombre='Owner Uno',
+            titular_rut='11111111-1',
+            moneda_operativa=MonedaOperativa.CLP,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.BANK_GATE,
+            evidencia_operativa_ref='https://bank.example.test/token/secret',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+        with self.assertRaisesMessage(ValidationError, 'referencia no sensible'):
             cuenta.full_clean()
 
 
@@ -164,6 +206,9 @@ class OperacionAPITests(APITestCase):
             titular_nombre=titular_nombre,
             titular_rut=titular_rut,
             moneda_operativa=MonedaOperativa.CLP,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            evidencia_operativa_ref=f'account-operational-evidence-{numero}',
             estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
         )
 
@@ -249,6 +294,9 @@ class OperacionAPITests(APITestCase):
             'titular_nombre': empresa.razon_social,
             'titular_rut': empresa.rut,
             'moneda_operativa': MonedaOperativa.CLP,
+            'uso_operativo': 'recaudacion_arriendos',
+            'modo_operativo': ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            'evidencia_operativa_ref': 'account-operational-evidence-api',
             'estado_operativo': EstadoCuentaRecaudadora.ACTIVE,
         }
 
@@ -270,6 +318,9 @@ class OperacionAPITests(APITestCase):
             'titular_nombre': comunidad.nombre,
             'titular_rut': comunidad.representante_socio.rut,
             'moneda_operativa': MonedaOperativa.CLP,
+            'uso_operativo': 'recaudacion_arriendos',
+            'modo_operativo': ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            'evidencia_operativa_ref': 'account-operational-evidence-comunidad',
             'estado_operativo': EstadoCuentaRecaudadora.ACTIVE,
         }
 
@@ -278,6 +329,30 @@ class OperacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['owner_tipo'], 'comunidad')
         self.assertEqual(response.data['owner_id'], comunidad.id)
+
+    def test_create_active_account_requires_operational_evidence(self):
+        empresa = self._create_active_empresa('AdminCo Evidencia', '88888888-8')
+
+        response = self.client.post(
+            reverse('operacion-cuenta-list'),
+            {
+                'owner_tipo': 'empresa',
+                'owner_id': empresa.id,
+                'institucion': 'Banco Uno',
+                'numero_cuenta': '999002',
+                'tipo_cuenta': 'corriente',
+                'titular_nombre': empresa.razon_social,
+                'titular_rut': empresa.rut,
+                'moneda_operativa': MonedaOperativa.CLP,
+                'estado_operativo': EstadoCuentaRecaudadora.ACTIVE,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('uso_operativo', response.data)
+        self.assertIn('modo_operativo', response.data)
+        self.assertIn('evidencia_operativa_ref', response.data)
 
     def test_create_identity_validates_email_when_channel_is_email(self):
         socio = self._create_socio('Operador Uno', '33333333-3')

@@ -51,6 +51,7 @@ from operacion.models import (
     EstadoMandatoOperacion,
     IdentidadDeEnvio,
     MandatoOperacion,
+    ModoOperacionCuentaRecaudadora,
 )
 from patrimonio.models import (
     ComunidadPatrimonial,
@@ -147,6 +148,9 @@ class Stage1MatrixAuditTests(TestCase):
             tipo_cuenta='corriente',
             titular_nombre=empresa.razon_social,
             titular_rut=empresa.rut,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            evidencia_operativa_ref='account-operational-evidence-stage1',
             estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
         )
         mandato = MandatoOperacion.objects.create(
@@ -367,6 +371,26 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.cuenta.validacion_modelo', issue_codes)
         self.assertIn('stage1.mandato.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['cuentas_recaudadoras']['classification'],
+            'defectuoso',
+        )
+
+    def test_active_account_without_operational_evidence_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        cuenta = contrato.mandato_operacion.cuenta_recaudadora
+        CuentaRecaudadora.objects.filter(pk=cuenta.pk).update(
+            uso_operativo='',
+            modo_operativo='',
+            evidencia_operativa_ref='',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.cuenta.validacion_modelo', issue_codes)
         self.assertEqual(
             result['aggregate_classification']['cuentas_recaudadoras']['classification'],
             'defectuoso',
@@ -1211,6 +1235,9 @@ class Stage1MatrixAuditTests(TestCase):
             tipo_cuenta='corriente',
             titular_nombre=socio.nombre,
             titular_rut=socio.rut,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            evidencia_operativa_ref='account-operational-evidence-duplicate',
             estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
         )
         MandatoOperacion.objects.create(
