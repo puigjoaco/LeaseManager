@@ -155,6 +155,13 @@ class PagoMensual(TimestampedModel):
         on_delete=models.CASCADE,
         related_name='pagos_mensuales',
     )
+    repactacion_deuda = models.ForeignKey(
+        'RepactacionDeuda',
+        on_delete=models.PROTECT,
+        related_name='pagos_origen',
+        null=True,
+        blank=True,
+    )
     periodo_contractual = models.ForeignKey(
         PeriodoContractual,
         on_delete=models.PROTECT,
@@ -197,6 +204,45 @@ class PagoMensual(TimestampedModel):
             )
         if self.periodo_contractual.contrato_id != self.contrato_id:
             raise ValidationError({'periodo_contractual': 'El periodo contractual debe pertenecer al mismo contrato.'})
+
+        repayment_states = {EstadoPago.IN_REPAYMENT, EstadoPago.PAID_VIA_REPAYMENT}
+        if self.estado_pago in repayment_states:
+            if not self.repactacion_deuda_id:
+                raise ValidationError(
+                    {
+                        'repactacion_deuda': (
+                            'Los pagos en repactacion deben quedar enlazados a una repactacion trazable.'
+                        )
+                    }
+                )
+            repayment = self.repactacion_deuda
+            repayment_errors = {}
+            if repayment.contrato_origen_id != self.contrato_id:
+                repayment_errors['repactacion_deuda'] = (
+                    'La repactacion enlazada debe pertenecer al mismo contrato del pago original.'
+                )
+            elif repayment.arrendatario_id != self.contrato.arrendatario_id:
+                repayment_errors['repactacion_deuda'] = (
+                    'La repactacion enlazada debe pertenecer al arrendatario del contrato.'
+                )
+            if self.estado_pago == EstadoPago.IN_REPAYMENT and repayment.estado != EstadoRepactacion.ACTIVE:
+                repayment_errors['estado_pago'] = (
+                    'Un pago en repactacion requiere una repactacion activa.'
+                )
+            if self.estado_pago == EstadoPago.PAID_VIA_REPAYMENT and repayment.estado != EstadoRepactacion.COMPLETED:
+                repayment_errors['estado_pago'] = (
+                    'Un pago pagado via repactacion requiere una repactacion cumplida.'
+                )
+            if repayment_errors:
+                raise ValidationError(repayment_errors)
+        elif self.repactacion_deuda_id:
+            raise ValidationError(
+                {
+                    'repactacion_deuda': (
+                        'Solo los pagos en repactacion o pagados via repactacion pueden enlazar una repactacion.'
+                    )
+                }
+            )
 
         try:
             month_start = date(int(self.anio), int(self.mes), 1)

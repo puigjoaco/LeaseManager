@@ -25,6 +25,11 @@ condicionados sin envios reales accidentales.
 - Repactaciones parciales solo pueden existir con excepcion formal, referencia
   no sensible, motivo auditable y evento auditable dedicado; la readiness
   bloquea snapshots heredados sin esa traza.
+- Pagos originales en estado `en_repactacion` o `pagado_via_repactacion`
+  deben conservar enlace a una `RepactacionDeuda` del mismo contrato y
+  arrendatario. Un pago `en_repactacion` requiere plan activo; un pago
+  `pagado_via_repactacion` requiere plan cumplido. La readiness bloquea
+  snapshots heredados sin plan trazable o con estado de plan incompatible.
 - Codigos residuales existentes deben usar formato canonico `CCR-XXXXXX` con
   caracteres mayusculos no ambiguos; la readiness debe bloquear snapshots que
   conserven referencias fuera de formato.

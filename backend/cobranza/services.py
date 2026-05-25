@@ -248,6 +248,14 @@ def calculate_open_days_late(payment, reference_date=None):
 
 
 def sync_payment_state(payment, reference_date=None):
+    if payment.estado_pago == EstadoPago.IN_REPAYMENT:
+        if not payment.dias_mora:
+            payment.dias_mora = calculate_open_days_late(payment, reference_date)
+        return payment
+    if payment.estado_pago == EstadoPago.PAID_VIA_REPAYMENT:
+        if not payment.dias_mora:
+            payment.dias_mora = calculate_days_late(payment) or calculate_open_days_late(payment, reference_date)
+        return payment
     if payment.estado_pago == EstadoPago.OVERDUE and not (
         payment.fecha_deposito_banco or payment.fecha_pago_webpay or payment.fecha_deteccion_sistema
     ):

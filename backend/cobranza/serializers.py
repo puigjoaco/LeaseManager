@@ -61,6 +61,17 @@ def _scoped_arrendatario_queryset(user):
     )
 
 
+def _scoped_repactacion_queryset(user):
+    return scope_queryset_for_user(
+        RepactacionDeuda.objects.all(),
+        user,
+        property_paths=(
+            'contrato_origen__mandato_operacion__propiedad_id',
+            'arrendatario__contratos__mandato_operacion__propiedad_id',
+        ),
+    )
+
+
 def _scoped_historial_queryset(user):
     return scope_queryset_for_user(
         HistorialGarantia.objects.all(),
@@ -134,6 +145,7 @@ class PagoMensualSerializer(serializers.ModelSerializer):
         fields = (
             'id',
             'contrato',
+            'repactacion_deuda',
             'periodo_contractual',
             'mes',
             'anio',
@@ -165,6 +177,12 @@ class PagoMensualSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['repactacion_deuda'].queryset = _scoped_repactacion_queryset(user)
 
     def validate(self, attrs):
         if not self.instance:

@@ -1335,6 +1335,78 @@ class CobranzaAPITests(APITestCase):
             ).exists()
         )
 
+    def test_payment_entering_repayment_requires_traceable_repayment_plan(self):
+        payment = self._generate_monthly_payment(codigo='CON-REP-PAYMENT-TRACE')
+        self.client.post(
+            reverse('cobranza-pago-refresh-mora'),
+            {'fecha_corte': '2026-01-10'},
+            format='json',
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.OVERDUE)
+        self.assertEqual(payment.dias_mora, 5)
+
+        without_plan = self.client.patch(
+            reverse('cobranza-pago-detail', args=[payment.pk]),
+            {'estado_pago': EstadoPago.IN_REPAYMENT},
+            format='json',
+        )
+
+        self.assertEqual(without_plan.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('repactacion_deuda', without_plan.data)
+
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=payment.contrato.arrendatario,
+            contrato_origen=payment.contrato,
+            deuda_total_original='30000.00',
+            cantidad_cuotas=3,
+            monto_cuota='10000.00',
+            saldo_pendiente='30000.00',
+            estado='activa',
+        )
+        with_plan = self.client.patch(
+            reverse('cobranza-pago-detail', args=[payment.pk]),
+            {
+                'estado_pago': EstadoPago.IN_REPAYMENT,
+                'repactacion_deuda': repayment.pk,
+            },
+            format='json',
+        )
+
+        self.assertEqual(with_plan.status_code, status.HTTP_200_OK)
+        self.assertEqual(with_plan.data['estado_pago'], EstadoPago.IN_REPAYMENT)
+        self.assertEqual(with_plan.data['repactacion_deuda'], repayment.pk)
+        self.assertEqual(with_plan.data['dias_mora'], 5)
+        payment.refresh_from_db()
+        self.assertEqual(payment.repactacion_deuda_id, repayment.pk)
+        self.assertEqual(payment.dias_mora, 5)
+
+    def test_payment_paid_via_repayment_requires_completed_plan(self):
+        payment = self._generate_monthly_payment(codigo='CON-REP-PAYMENT-CLOSE')
+        active_repayment = RepactacionDeuda.objects.create(
+            arrendatario=payment.contrato.arrendatario,
+            contrato_origen=payment.contrato,
+            deuda_total_original='30000.00',
+            cantidad_cuotas=3,
+            monto_cuota='10000.00',
+            saldo_pendiente='30000.00',
+            estado='activa',
+        )
+        payment.estado_pago = EstadoPago.PAID_VIA_REPAYMENT
+        payment.repactacion_deuda = active_repayment
+        payment.monto_pagado_clp = Decimal('30000.00')
+        payment.fecha_deteccion_sistema = date(2026, 2, 5)
+
+        with self.assertRaises(ValidationError) as error:
+            payment.full_clean()
+
+        self.assertIn('estado_pago', error.exception.message_dict)
+
+        active_repayment.estado = 'cumplida'
+        active_repayment.saldo_pendiente = Decimal('0.00')
+        active_repayment.save(update_fields=['estado', 'saldo_pendiente', 'updated_at'])
+        payment.full_clean()
+
     def test_rebuild_account_state_summarizes_open_payments_repactations_and_residuals(self):
         contrato = self._create_active_contract(codigo='CON-STATE-ALL', monto_base='100000.00', code='111')
         generate = self.client.post(

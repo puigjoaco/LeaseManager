@@ -166,7 +166,7 @@ class CobranzaSnapshotView(APIView):
             property_paths=('contrato__mandato_operacion__propiedad_id',),
         )
         pagos = scope_queryset_for_access(
-            PagoMensual.objects.select_related('contrato').order_by('-anio', '-mes', '-id'),
+            PagoMensual.objects.select_related('contrato', 'repactacion_deuda').order_by('-anio', '-mes', '-id'),
             access,
             property_paths=('contrato__mandato_operacion__propiedad_id',),
         )
@@ -250,6 +250,7 @@ class CobranzaSnapshotView(APIView):
                         'monto_pagado_clp': item.monto_pagado_clp,
                         'fecha_vencimiento': item.fecha_vencimiento,
                         'estado_pago': item.estado_pago,
+                        'repactacion_deuda': item.repactacion_deuda_id,
                         'dias_mora': item.dias_mora,
                         'fecha_pago_webpay': item.fecha_pago_webpay,
                     }
@@ -346,7 +347,7 @@ class AjusteContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, gene
 class PagoMensualListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = PagoMensualSerializer
-    queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual').prefetch_related(
+    queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual', 'repactacion_deuda').prefetch_related(
         Prefetch(
             'distribuciones_cobro',
             queryset=DistribucionCobroMensual.objects.select_related(
@@ -361,7 +362,7 @@ class PagoMensualListView(ScopedQuerysetMixin, generics.ListAPIView):
 class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = PagoMensualSerializer
-    queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual').prefetch_related(
+    queryset = PagoMensual.objects.select_related('contrato', 'periodo_contractual', 'repactacion_deuda').prefetch_related(
         Prefetch(
             'distribuciones_cobro',
             queryset=DistribucionCobroMensual.objects.select_related(
@@ -402,6 +403,7 @@ class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
                     'fecha_pago_webpay',
                     'fecha_deteccion_sistema',
                     'estado_pago',
+                    'repactacion_deuda',
                     'dias_mora',
                     'updated_at',
                 ]
