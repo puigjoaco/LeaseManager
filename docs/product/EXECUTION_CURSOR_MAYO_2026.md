@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 2 - CobranzaActiva, excepcion formal para repactacion parcial. |
-| Fuente exacta | PR #256, commit `6c4e46d`, merge `a050578`; PRD `01_Set_Vigente/PRD_CANONICO.md` linea 358; `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`; `backend/cobranza/models.py`; `backend/cobranza/serializers.py`; `backend/cobranza/views.py`; `backend/core/stage2_cobranza_readiness.py`; evidencia y trazabilidad. |
-| Brecha activa | Cerrada localmente: repactacion parcial exige referencia de excepcion formal no sensible, motivo auditable y evento auditable dedicado; readiness Etapa 2 bloquea snapshots heredados sin esa traza. |
-| Motivo de prioridad | Paquete de CobranzaActiva derivado del PRD, cerrado con validacion local, CI y merge sin `.env`, secretos, DB historica, datos reales ni integraciones externas. |
-| Worktree | Ninguno. Solo debe quedar el worktree principal. |
-| Rama | `main` sincronizada con `origin/main` despues de PR #256. |
-| Estado | Listo para reanudacion operativa desde el siguiente paquete de producto seguro. |
+| Frente activo | Etapa 2 - CobranzaActiva, pagos originales trazables a repactaciones. |
+| Fuente exacta | PRD `01_Set_Vigente/PRD_CANONICO.md` lineas 362 y 416; `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`; `backend/cobranza/models.py`; `backend/cobranza/serializers.py`; `backend/core/stage2_cobranza_readiness.py`; tests de Cobranza y readiness Etapa 2. |
+| Brecha activa | Los estados `en_repactacion` y `pagado_via_repactacion` existen en `PagoMensual`, pero el pago original no queda enlazado a una `RepactacionDeuda` ni el readiness bloquea snapshots heredados con estados de repactacion sin plan trazable o con estado de plan incompatible. |
+| Motivo de prioridad | Regla local del PRD sobre deuda repactada; no requiere `.env`, secretos, DB historica, datos reales ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-repayment-origin-payments`. |
+| Rama | `codex/stage2-repayment-origin-payments`. |
+| Estado | Validado localmente; pendiente PR, CI, merge y limpieza. |
 | Gate esperado | Etapa 2 local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, evidencia Etapa 1 y pruebas Email/WebPay controladas. |
-| Estado al cerrar paquete | Validado, PR #256 mergeado con CI acceptance verde y worktree tactico eliminado. |
+| Estado al cerrar paquete | Implementado y validado localmente: focal 5 tests, suite impactada 107 tests, acceptance local 728 tests, frontend build, readiness Etapa 2 local, higiene repo y `git diff --check` OK. Pendiente PR/CI/merge/limpieza. |
 | Bloqueos relacionados | Fuente autorizada de Etapa 2, evidencia Etapa 1 y pruebas externas controladas siguen siendo condicion de cierre real, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Seleccionar el siguiente paquete seguro desde stage cards, trazabilidad y PRD; abrir worktree `codex/...` si el cambio no es trivial. |
+| Siguiente accion | Implementar enlace `PagoMensual` -> `RepactacionDeuda` para estados de repactacion, cubrir validaciones de dominio/readiness y documentar evidencia/trazabilidad. |
 
 ## Actualizacion
 

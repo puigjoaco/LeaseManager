@@ -393,6 +393,34 @@ def _collect_payment_overdue_issues(payments, reference_date) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _collect_payment_repayment_trace_issues(payments) -> dict[str, int]:
+    counts = Counter()
+    repayment_states = {EstadoPago.IN_REPAYMENT, EstadoPago.PAID_VIA_REPAYMENT}
+    for payment in payments:
+        has_repayment = bool(payment.repactacion_deuda_id)
+        if payment.estado_pago in repayment_states and not has_repayment:
+            counts['repayment_state_without_plan'] += 1
+            continue
+        if payment.estado_pago not in repayment_states and has_repayment:
+            counts['repayment_link_on_non_repayment_state'] += 1
+            continue
+        if not has_repayment:
+            continue
+
+        repayment = payment.repactacion_deuda
+        if repayment.contrato_origen_id != payment.contrato_id:
+            counts['repayment_plan_contract_mismatch'] += 1
+            continue
+        if repayment.arrendatario_id != payment.contrato.arrendatario_id:
+            counts['repayment_plan_tenant_mismatch'] += 1
+            continue
+        if payment.estado_pago == EstadoPago.IN_REPAYMENT and repayment.estado != 'activa':
+            counts['in_repayment_plan_not_active'] += 1
+        if payment.estado_pago == EstadoPago.PAID_VIA_REPAYMENT and repayment.estado != 'cumplida':
+            counts['paid_via_repayment_plan_not_completed'] += 1
+    return dict(sorted(counts.items()))
+
+
 def _collect_account_state_issues(account_states, required_tenant_ids: set[int]) -> dict[str, int]:
     counts = Counter()
     existing_tenant_ids: set[int] = set()
@@ -539,7 +567,7 @@ def collect_stage2_cobranza_readiness(
     webpay_intent_issues = _collect_webpay_intent_issues(webpay_intents)
     invalid_webpay_intents = webpay_intent_issues.get('invalid_model', 0)
 
-    payments = PagoMensual.objects.select_related('contrato__arrendatario')
+    payments = PagoMensual.objects.select_related('contrato__arrendatario', 'repactacion_deuda')
     notification_schedules = NotificacionCobranzaProgramada.objects.select_related(
         'pago_mensual',
         'pago_mensual__contrato',
@@ -552,6 +580,7 @@ def collect_stage2_cobranza_readiness(
         notification_schedules,
     )
     payment_overdue_issues = _collect_payment_overdue_issues(payments, reference_date)
+    payment_repayment_issues = _collect_payment_repayment_trace_issues(payments)
     payments_total = payments.count()
     repayments = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen')
     repayment_issues = _collect_repayment_issues(repayments)
@@ -625,6 +654,54 @@ def collect_stage2_cobranza_readiness(
                 'stage2.payment.overdue_days_stale',
                 'Existen pagos atrasados cuyo dias_mora no coincide con la fecha de corte auditada.',
                 count=payment_overdue_issues['overdue_days_stale'],
+            )
+        )
+    if payment_repayment_issues.get('repayment_state_without_plan'):
+        issues.append(
+            _issue(
+                'stage2.payment.repayment_state_without_plan',
+                'Existen pagos en estado de repactacion sin una repactacion trazable enlazada.',
+                count=payment_repayment_issues['repayment_state_without_plan'],
+            )
+        )
+    if payment_repayment_issues.get('repayment_link_on_non_repayment_state'):
+        issues.append(
+            _issue(
+                'stage2.payment.repayment_link_on_non_repayment_state',
+                'Existen pagos que enlazan repactacion sin estar en estado de repactacion.',
+                count=payment_repayment_issues['repayment_link_on_non_repayment_state'],
+            )
+        )
+    if payment_repayment_issues.get('repayment_plan_contract_mismatch'):
+        issues.append(
+            _issue(
+                'stage2.payment.repayment_plan_contract_mismatch',
+                'Existen pagos enlazados a repactaciones de otro contrato.',
+                count=payment_repayment_issues['repayment_plan_contract_mismatch'],
+            )
+        )
+    if payment_repayment_issues.get('repayment_plan_tenant_mismatch'):
+        issues.append(
+            _issue(
+                'stage2.payment.repayment_plan_tenant_mismatch',
+                'Existen pagos enlazados a repactaciones de otro arrendatario.',
+                count=payment_repayment_issues['repayment_plan_tenant_mismatch'],
+            )
+        )
+    if payment_repayment_issues.get('in_repayment_plan_not_active'):
+        issues.append(
+            _issue(
+                'stage2.payment.in_repayment_plan_not_active',
+                'Existen pagos en repactacion cuyo plan no esta activo.',
+                count=payment_repayment_issues['in_repayment_plan_not_active'],
+            )
+        )
+    if payment_repayment_issues.get('paid_via_repayment_plan_not_completed'):
+        issues.append(
+            _issue(
+                'stage2.payment.paid_via_repayment_plan_not_completed',
+                'Existen pagos pagados via repactacion cuyo plan no esta cumplido.',
+                count=payment_repayment_issues['paid_via_repayment_plan_not_completed'],
             )
         )
     if invalid_repayments:
@@ -1090,6 +1167,7 @@ def collect_stage2_cobranza_readiness(
                 'by_state': _count_by(payments, 'estado_pago'),
                 'reference_date': reference_date.isoformat(),
                 **payment_overdue_issues,
+                **payment_repayment_issues,
             },
             'account_states': {
                 'total': account_states.count(),

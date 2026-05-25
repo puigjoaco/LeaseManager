@@ -571,6 +571,76 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertNotIn('stage2.repayment.partial_without_audit_event', issue_codes)
         self.assertNotIn('stage2.repayment.invalid_model', issue_codes)
 
+    def test_payment_in_repayment_without_traceable_plan_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(
+            estado_pago=EstadoPago.IN_REPAYMENT,
+            dias_mora=5,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.repayment_state_without_plan', issue_codes)
+        self.assertEqual(result['sections']['payments']['repayment_state_without_plan'], 1)
+
+    def test_payment_in_repayment_with_inactive_plan_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            deuda_total_original=Decimal('30000.00'),
+            cantidad_cuotas=3,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('30000.00'),
+            estado='borrador',
+        )
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(
+            estado_pago=EstadoPago.IN_REPAYMENT,
+            repactacion_deuda=repayment,
+            dias_mora=5,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.in_repayment_plan_not_active', issue_codes)
+        self.assertEqual(result['sections']['payments']['in_repayment_plan_not_active'], 1)
+
+    def test_payment_paid_via_repayment_requires_completed_plan_in_readiness(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            deuda_total_original=Decimal('30000.00'),
+            cantidad_cuotas=3,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('30000.00'),
+            estado='activa',
+        )
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(
+            estado_pago=EstadoPago.PAID_VIA_REPAYMENT,
+            repactacion_deuda=repayment,
+            monto_pagado_clp=Decimal('30000.00'),
+            fecha_deteccion_sistema=date(2026, 2, 5),
+            dias_mora=5,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.paid_via_repayment_plan_not_completed', issue_codes)
+        self.assertEqual(result['sections']['payments']['paid_via_repayment_plan_not_completed'], 1)
+
     def test_valid_local_matrix_and_refs_prepare_but_do_not_close_readiness(self):
         self._create_payment_matrix()
         self._create_valid_email_gate()
