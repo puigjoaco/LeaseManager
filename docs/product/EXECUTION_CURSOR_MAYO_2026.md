@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 4 - SII/DTE: bloqueo de regimen fiscal no soportado para automatizacion tributaria v1. |
-| Fuente exacta | PR #217 (`Guard Stage 4 unsupported fiscal regimes`), commit `38758af`, merge `9af0f18`; `01_Set_Vigente/PRD_CANONICO.md` escenario transversal 16; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `SII`; `docs/product/STAGE_CARDS/ETAPA_4_SII_DTE.md`; `backend/sii`; `backend/core/stage4_sii_readiness.py`; `scripts/run-stage4-readiness-gate.ps1`. |
-| Brecha activa | Cerrada localmente: capacidades SII abiertas rechazan empresas con `ConfiguracionFiscalEmpresa` activa fuera del regimen automatizable del v1 y readiness Etapa 4 bloquea snapshots con esa condicion. |
-| Motivo de prioridad | Paquete seguro completado sin SII real, certificados, `.env`, secretos, DB historicas, datos reales, snapshots ni integraciones externas. |
-| Worktree | Ninguno. Solo debe quedar el worktree principal `D:/Proyectos/LeaseManager`. |
-| Rama | `main` sincronizada con `origin/main`. |
-| Estado | PR #217 integrado con CI `acceptance` verde; worktree tactico y rama local/remota eliminados. |
-| Gate esperado | `scripts/run-stage4-readiness-gate.ps1` sigue en `classification=parcial`, `ready_for_stage4_sii=false` con fuente local; no cierra Etapa 4 sin ambiente SII/fuente autorizada y regla fiscal validada. |
-| Estado al cerrar paquete | Preparacion local de Etapa 4 reforzada; cierre real de Etapa 4 sigue pendiente por fuentes/evidencia externas autorizadas. |
-| Bloqueos relacionados | Falta ambiente SII real/controlado autorizado, evidencia de ledger, regla fiscal validada y responsable para cierre real de Etapa 4; no bloquea preparacion local ni el siguiente frente seguro. |
-| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, diagnosticar el siguiente frente seguro segun trazabilidad y orden de construccion. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; elegir el siguiente paquete pequeno, seguro y verificable desde trazabilidad/stage cards. |
+| Frente activo | Compliance datos sensibles: guard de servicio para preparar exportaciones sensibles solo con categoria canonica y politica de retencion activa. |
+| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance/services.py`; `backend/compliance/serializers.py`; `backend/compliance/tests.py`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`. |
+| Brecha activa | La API de Compliance ya rechaza exportaciones con categoria incompatible o sin politica activa, pero `prepare_sensitive_export` puede invocarse directo sin ese guard central. |
+| Motivo de prioridad | Frente transversal de seguridad en Etapa 0, local, verificable y sin depender de secretos, `.env`, datos reales, snapshots, backfills, deploys ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-compliance-export-service-guard`. |
+| Rama | `codex/compliance-export-service-guard`. |
+| Estado | En ejecucion local. |
+| Gate esperado | `scripts/run-compliance-data-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada, politica aprobada, responsables y validacion legal-operativa. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Falta fuente autorizada, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea el guard local. |
+| Politica de reanudacion | Si este worktree existe, continuar y cerrar este paquete antes de abrir otro frente. |
+| Siguiente accion | Centralizar validacion de categoria/politica activa en el servicio, cubrir tests focales, ejecutar gate local, acceptance, PR, CI, merge y limpieza. |
 
 ## Actualizacion
 

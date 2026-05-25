@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from cryptography.fernet import Fernet
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from core.reference_validation import contains_sensitive_reference
@@ -15,11 +16,30 @@ from reporting.services import (
     build_period_books_summary,
 )
 
-from .models import CategoriaDato, EstadoExportacionSensible, ExportacionSensible
+from .models import (
+    CategoriaDato,
+    EstadoExportacionSensible,
+    EstadoRegistro,
+    ExportacionSensible,
+    PoliticaRetencionDatos,
+    SECRET_EXPORT_ERROR,
+)
 
 
 MAX_EXPORT_DAYS = 30
 SENSITIVE_EXPORT_METADATA_ERROR = 'La metadata visible de exportacion no puede contener referencias sensibles.'
+ACTIVE_RETENTION_POLICY_ERROR = 'No existe una politica de retencion activa para la categoria indicada.'
+EXPORT_KIND_CATEGORY_MAP = {
+    'dashboard_operativo': CategoriaDato.OPERATIONAL,
+    'financiero_mensual': CategoriaDato.FINANCIAL,
+    'tributario_anual': CategoriaDato.TAX,
+    'socio_resumen': CategoriaDato.DOCUMENT,
+    'libros_periodo': CategoriaDato.FINANCIAL,
+}
+
+
+def _choice_value(value):
+    return getattr(value, 'value', value)
 
 
 def get_fernet():
@@ -60,8 +80,31 @@ def ensure_export_metadata_is_non_sensitive(*, scope_resumen, motivo):
         raise ValueError(SENSITIVE_EXPORT_METADATA_ERROR)
 
 
+def validate_sensitive_export_controls(*, categoria_dato, export_kind):
+    category_value = _choice_value(categoria_dato)
+    if category_value == _choice_value(CategoriaDato.SECRET):
+        raise ValidationError({'categoria_dato': SECRET_EXPORT_ERROR})
+
+    expected_category = EXPORT_KIND_CATEGORY_MAP.get(export_kind)
+    if expected_category is None:
+        raise ValueError('Tipo de exportacion no soportado.')
+
+    expected_value = _choice_value(expected_category)
+    if category_value != expected_value:
+        raise ValidationError(
+            {'categoria_dato': f'La categoria_dato debe ser {expected_value} para export_kind={export_kind}.'}
+        )
+
+    if not PoliticaRetencionDatos.objects.filter(
+        categoria_dato=category_value,
+        estado=EstadoRegistro.ACTIVE,
+    ).exists():
+        raise ValidationError({'categoria_dato': ACTIVE_RETENTION_POLICY_ERROR})
+
+
 def prepare_sensitive_export(*, categoria_dato, export_kind, scope_resumen, motivo, payload, created_by, hold_activo=False):
     ensure_export_metadata_is_non_sensitive(scope_resumen=scope_resumen, motivo=motivo)
+    validate_sensitive_export_controls(categoria_dato=categoria_dato, export_kind=export_kind)
     encrypted_payload, payload_hash = encrypt_payload(payload)
     expires_at = timezone.now() + timedelta(days=MAX_EXPORT_DAYS)
     export = ExportacionSensible(
