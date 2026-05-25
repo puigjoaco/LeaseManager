@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 3 - Conciliacion: alineacion de periodo economico y fecha de cuadratura bancaria. |
-| Fuente exacta | `docs/product/STAGE_CARDS/ETAPA_3_BANCO_CONCILIACION.md`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Conciliacion`; `backend/conciliacion/models.py`; `backend/core/stage3_conciliacion_readiness.py`; tests de Conciliacion/Stage 3. |
-| Brecha activa | `CuadraturaBancaria` valida formato `YYYY-MM`, diferencia y refs, pero no impide que `periodo_economico` apunte a un mes distinto de `fecha_cuadratura`; readiness tampoco clasifica ese snapshot heredado explicitamente. |
-| Motivo de prioridad | Brecha local trazable de Conciliacion; refuerza cuadratura sistema/banco sin usar banco real, `.env`, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage3-balance-square-period-alignment`. |
-| Rama | `codex/stage3-balance-square-period-alignment`. |
-| Estado | En implementacion. `main` queda limpio en `D:/Proyectos/LeaseManager`. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 3 - Conciliacion, alineacion de periodo economico y fecha de cuadratura bancaria. |
+| Fuente exacta | PR #229 `Guard Stage 3 balance square period alignment`; commit `fa92f56`; merge `557b054`; `backend/conciliacion/models.py`; `backend/core/stage3_conciliacion_readiness.py`; tests de Conciliacion/Stage 3; stage card, trazabilidad y evidencia actualizadas. |
+| Brecha activa | Cerrada localmente: `CuadraturaBancaria` rechaza `periodo_economico` que no coincide con el mes de `fecha_cuadratura`, y readiness clasifica snapshots heredados con `stage3.balance_square.period_date_mismatch`. |
+| Motivo de prioridad | Brecha local trazable de Conciliacion cerrada sin usar banco real, `.env`, datos reales ni integraciones externas. |
+| Worktree | Ninguno. |
+| Rama | `main` sincronizada con `origin/main` tras PR #229. |
+| Estado | PR #229 integrado con CI remoto en verde; paquete tactico limpiado. |
 | Gate esperado | Etapa 3 local queda como diagnostico parcial/no evidencial; no cierra Conciliacion sin banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria, cuadratura sistema/banco y responsable. |
-| Estado al cerrar paquete | Pendiente. |
+| Estado al cerrar paquete | Cerrado e integrado en `main` con validacion local y CI remoto. |
 | Bloqueos relacionados | Banco real/snapshot autorizado y evidencias externas siguen siendo condicion de cierre, no freno para este hardening local. |
-| Politica de reanudacion | Retomar este worktree hasta cerrar, pausar explicitamente en este cursor o limpiar con instruccion segura. |
-| Siguiente accion | Validar periodo/fecha de `CuadraturaBancaria` en dominio/readiness, agregar pruebas focales y actualizar evidencia/trazabilidad. |
+| Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
+| Siguiente accion | Seleccionar el siguiente frente util desde stage cards, matriz de trazabilidad y PRD, abrir worktree `codex/...` si corresponde y avanzar con validaciones proporcionales. |
 
 ## Actualizacion
 
