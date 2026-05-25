@@ -11,7 +11,14 @@ from audit.models import AuditEvent
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from reporting.tests import ReportingAPITests
 
-from .models import CategoriaDato, ExportacionSensible, PoliticaRetencionDatos, SECRET_EXPORT_ERROR
+from .models import (
+    CategoriaDato,
+    EstadoExportacionSensible,
+    EXPIRED_EXPORT_STATE_ERROR,
+    ExportacionSensible,
+    PoliticaRetencionDatos,
+    SECRET_EXPORT_ERROR,
+)
 from .services import SENSITIVE_EXPORT_METADATA_ERROR, encrypt_payload, prepare_sensitive_export
 
 
@@ -252,6 +259,34 @@ class ComplianceAPITests(APITestCase):
         export.refresh_from_db()
         self.assertEqual(export.estado, 'expirada')
 
+    def test_expired_export_status_is_terminal_even_before_expiry(self):
+        self._create_context('EXP-STATE')
+        self._create_policy('financiero')
+        prepared = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'financiero',
+                'export_kind': 'financiero_mensual',
+                'motivo': 'Revision mensual',
+                'anio': 2026,
+                'mes': 1,
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+
+        export = ExportacionSensible.objects.get(pk=prepared.data['id'])
+        ExportacionSensible.objects.filter(pk=export.pk).update(
+            estado=EstadoExportacionSensible.EXPIRED,
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+
+        denied = self.client.get(reverse('compliance-export-content', args=[export.id]))
+
+        self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(denied.data['detail'], 'La exportacion expiro y ya no puede descargarse.')
+        self.assertFalse(AuditEvent.objects.filter(event_type='compliance.exportacion_sensible.accessed').exists())
+
     def test_export_with_hold_stays_downloadable_after_expiry(self):
         socio, _, _, _, _, _ = self._create_context('HOLD')
         self._create_policy('documental_sensible')
@@ -273,6 +308,31 @@ class ComplianceAPITests(APITestCase):
 
         allowed = self.client.get(reverse('compliance-export-content', args=[export.id]))
         self.assertEqual(allowed.status_code, status.HTTP_200_OK)
+
+    def test_export_model_rejects_inconsistent_expired_state(self):
+        encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = ExportacionSensible(
+            categoria_dato=CategoriaDato.FINANCIAL,
+            export_kind='financiero_mensual',
+            scope_resumen={'anio': 2026, 'mes': 5},
+            motivo='Revision mensual',
+            encrypted_payload=encrypted_payload,
+            payload_hash=payload_hash,
+            encrypted_ref=f'export://financiero_mensual/{payload_hash[:12]}',
+            expires_at=timezone.now() + timedelta(days=1),
+            estado=EstadoExportacionSensible.EXPIRED,
+            created_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            export.full_clean()
+        self.assertEqual(context.exception.message_dict['expires_at'][0], EXPIRED_EXPORT_STATE_ERROR)
+
+        export.expires_at = timezone.now() - timedelta(days=1)
+        export.hold_activo = True
+        with self.assertRaises(ValidationError) as hold_context:
+            export.full_clean()
+        self.assertEqual(hold_context.exception.message_dict['hold_activo'][0], EXPIRED_EXPORT_STATE_ERROR)
 
     def test_prepare_export_requires_matching_categoria_for_export_kind(self):
         self._create_context('CMP-CAT')

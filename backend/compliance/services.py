@@ -84,6 +84,8 @@ def prepare_sensitive_export(*, categoria_dato, export_kind, scope_resumen, moti
 def get_export_payload(export):
     if export.estado == EstadoExportacionSensible.REVOKED:
         raise ValueError('La exportacion fue revocada.')
+    if export.estado == EstadoExportacionSensible.EXPIRED:
+        raise ValueError('La exportacion expiro y ya no puede descargarse.')
     if not export.hold_activo and export.expires_at <= timezone.now():
         export.estado = EstadoExportacionSensible.EXPIRED
         export.save(update_fields=['estado', 'updated_at'])

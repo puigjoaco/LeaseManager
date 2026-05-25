@@ -42,6 +42,7 @@ RETENTION_NO_PHYSICAL_PURGE_CATEGORIES = {
     CategoriaDato.SECRET.value,
 }
 SECRET_EXPORT_ERROR = 'No se permite preparar exportaciones operativas sobre categoria secreto.'
+EXPIRED_EXPORT_STATE_ERROR = 'La exportacion expirada debe representar una exportacion ya vencida sin hold activo.'
 
 
 class PoliticaRetencionDatos(TimestampedModel):
@@ -107,6 +108,11 @@ class ExportacionSensible(TimestampedModel):
         reference_time = self.created_at or timezone.now()
         if not self.hold_activo and self.estado == EstadoExportacionSensible.PREPARED and self.expires_at <= reference_time:
             errors['expires_at'] = 'La exportacion preparada debe expirar en el futuro.'
+        if self.estado == EstadoExportacionSensible.EXPIRED:
+            if self.hold_activo:
+                errors['hold_activo'] = EXPIRED_EXPORT_STATE_ERROR
+            if self.expires_at and self.expires_at > reference_time:
+                errors['expires_at'] = EXPIRED_EXPORT_STATE_ERROR
         if self.categoria_dato == CategoriaDato.SECRET:
             errors['categoria_dato'] = SECRET_EXPORT_ERROR
         if contains_sensitive_reference(self.motivo, include_sensitive_keys=True):
