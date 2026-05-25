@@ -647,6 +647,8 @@ type Contrato = {
     moneda_base: string
     tipo_periodo: string
     origen_periodo: string
+    politica_base_renovacion_ref: string
+    politica_base_renovacion_motivo: string
   }>
   codeudores_solidarios_detail: Array<{
     id: number

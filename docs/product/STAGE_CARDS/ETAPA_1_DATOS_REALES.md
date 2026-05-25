@@ -113,6 +113,11 @@ contra datos reales o snapshot controlado.
 - Validacion de periodos contractuales existentes: cada tramo debe quedar
   dentro de la vigencia del contrato, iniciar el dia 1, cerrar el ultimo dia
   del mes y respetar numeracion cronologica antes de calcular cobranza.
+- Renovaciones de contratos con tramos: la base por defecto debe ser la del
+  ultimo tramo vigente. Si una renovacion cambia monto o moneda, el periodo
+  debe conservar referencia no sensible y motivo trazable de la politica
+  documentada que autoriza la diferencia; API y auditor Etapa 1 bloquean
+  renovaciones heredadas sin esa traza.
 - Validacion de garantias: montos/estado coherentes, fechas de recepcion y
   cierre consistentes, y saldos recibidos, devueltos o aplicados conciliados
   contra `HistorialGarantia`, incluyendo cronologia de movimientos derivados

@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`; `docs/product/STAGE_CARDS/`; `01_Set_Vigente/PRD_CANONICO.md`. |
-| Brecha activa | Ninguna registrada en curso. |
-| Motivo de prioridad | El paquete de conflicto entre aviso, renovacion ejecutada y contrato futuro quedo cerrado en PR #282. |
-| Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
-| Rama | `main`. |
-| Estado | Sin paquete activo; listo para elegir el siguiente frente seguro por trazabilidad. |
-| Gate esperado | Los gates externos siguen siendo condiciones de cierre real, no de preparacion local. |
-| Estado al cerrar paquete | PR #282 mergeado en `main` con merge `fa5b23b`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
+| Frente activo | Etapa 1 - Contratos: politica documentada para base de renovacion con tramos. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md`; `backend/contratos/models.py`; `backend/contratos/serializers.py`; `backend/core/stage1_matrix_audit.py`; `backend/contratos/tests.py`; `backend/core/tests_stage1_matrix_audit.py`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
+| Brecha activa | El PRD exige que si un contrato con tramos se renueva, la base por defecto sea el ultimo tramo vigente salvo politica documentada distinta; el modelo actual no fuerza ni audita esa documentacion. |
+| Motivo de prioridad | Es la siguiente regla local de Contratos posterior a avisos, renovaciones ejecutadas y contratos retroactivos. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-renewal-base-policy`. |
+| Rama | `codex/stage1-renewal-base-policy`. |
+| Estado | En implementacion local. |
+| Gate esperado | Etapa 1 debe seguir como diagnostico parcial/no evidencial; este paquete endurece preparacion local y no cierra sin fuente `snapshot_controlado` o `real_autorizado`. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Elegir el siguiente paquete seguro desde trazabilidad/cursor, abrir worktree `codex/...` si no es trivial, validar proporcionalmente y cerrar con PR, CI, merge y limpieza. |
+| Siguiente accion | Implementar guard y auditor para renovaciones automaticas con base distinta al ultimo tramo sin politica no sensible, validar con pruebas proporcionales, actualizar evidencia/trazabilidad y cerrar con PR, CI, merge y limpieza. |
 
 ## Actualizacion
 

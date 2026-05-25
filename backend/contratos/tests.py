@@ -900,6 +900,75 @@ class ContratosAPITests(APITestCase):
         self.assertIn('periodos_contractuales', response.data)
         self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-PER-NUM').exists())
 
+    def test_renewal_period_with_changed_base_requires_policy_trace(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REN-BASE', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REN-BASE')
+        payload['tiene_tramos'] = True
+        payload['periodos_contractuales'] = [
+            {
+                'numero_periodo': 1,
+                'fecha_inicio': '2026-01-01',
+                'fecha_fin': '2026-06-30',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'inicial',
+                'origen_periodo': 'manual',
+            },
+            {
+                'numero_periodo': 2,
+                'fecha_inicio': '2026-07-01',
+                'fecha_fin': '2026-12-31',
+                'monto_base': '1100000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'renovacion',
+                'origen_periodo': 'renovacion_automatica',
+            },
+        ]
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('periodos_contractuales', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-REN-BASE').exists())
+
+    def test_renewal_period_with_changed_base_accepts_documented_policy(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REN-POL', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REN-POL')
+        payload['tiene_tramos'] = True
+        payload['periodos_contractuales'] = [
+            {
+                'numero_periodo': 1,
+                'fecha_inicio': '2026-01-01',
+                'fecha_fin': '2026-06-30',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'inicial',
+                'origen_periodo': 'manual',
+            },
+            {
+                'numero_periodo': 2,
+                'fecha_inicio': '2026-07-01',
+                'fecha_fin': '2026-12-31',
+                'monto_base': '1100000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'renovacion',
+                'origen_periodo': 'renovacion_automatica',
+                'politica_base_renovacion_ref': 'renewal-base-policy-001',
+                'politica_base_renovacion_motivo': (
+                    'Politica documentada permite reajustar la base de renovacion del tramo.'
+                ),
+            },
+        ]
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        contrato = Contrato.objects.get(codigo_contrato='CTR-101-REN-POL')
+        renewal = contrato.periodos_contractuales.get(numero_periodo=2)
+        self.assertEqual(renewal.politica_base_renovacion_ref, 'renewal-base-policy-001')
+
     def test_active_contract_rejects_non_month_boundary_dates(self):
         mandato = self._create_active_mandato(codigo='MAND-101-DATES', owner_rut='11111113-8')
         arrendatario = self._create_arrendatario(rut='22222223-0')

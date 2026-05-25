@@ -702,6 +702,8 @@ class PeriodoContractual(TimestampedModel):
     moneda_base = models.CharField(max_length=8, choices=MonedaBaseContrato.choices)
     tipo_periodo = models.CharField(max_length=64)
     origen_periodo = models.CharField(max_length=64)
+    politica_base_renovacion_ref = models.CharField(max_length=255, blank=True)
+    politica_base_renovacion_motivo = models.TextField(blank=True)
 
     class Meta:
         ordering = ['contrato_id', 'numero_periodo']
@@ -715,8 +717,40 @@ class PeriodoContractual(TimestampedModel):
     def __str__(self):
         return f'{self.contrato.codigo_contrato} - Periodo {self.numero_periodo}'
 
+    def is_renewal_period(self):
+        return str(self.tipo_periodo or '').strip().lower() == RENEWAL_PERIOD_KIND
+
+    def previous_period(self):
+        if not self.contrato_id:
+            return None
+        return (
+            PeriodoContractual.objects.filter(
+                contrato_id=self.contrato_id,
+                fecha_inicio__lt=self.fecha_inicio,
+            )
+            .exclude(pk=self.pk)
+            .order_by('-fecha_inicio', '-numero_periodo')
+            .first()
+        )
+
+    def has_renewal_base_policy(self):
+        return bool(
+            (self.politica_base_renovacion_ref or '').strip()
+            and (self.politica_base_renovacion_motivo or '').strip()
+        )
+
+    def renewal_base_deviates_from_previous(self):
+        if not self.contrato_id or not self.contrato.tiene_tramos or not self.is_renewal_period():
+            return False
+        previous = self.previous_period()
+        if previous is None:
+            return False
+        return self.moneda_base != previous.moneda_base or Decimal(self.monto_base) != Decimal(previous.monto_base)
+
     def clean(self):
         super().clean()
+        self.politica_base_renovacion_ref = (self.politica_base_renovacion_ref or '').strip()
+        self.politica_base_renovacion_motivo = (self.politica_base_renovacion_motivo or '').strip()
         if self.fecha_fin < self.fecha_inicio:
             raise ValidationError({'fecha_fin': 'La fecha fin del periodo no puede ser anterior al inicio.'})
         if self.fecha_inicio.day != 1:
@@ -732,6 +766,24 @@ class PeriodoContractual(TimestampedModel):
             raise ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
         if self.moneda_base == MonedaBaseContrato.UF and self.monto_base <= Decimal('0.00'):
             raise ValidationError({'monto_base': 'Un periodo UF debe tener monto positivo.'})
+        if bool(self.politica_base_renovacion_ref) != bool(self.politica_base_renovacion_motivo):
+            raise ValidationError(
+                {
+                    'politica_base_renovacion_ref': (
+                        'La politica de base de renovacion requiere referencia y motivo trazable.'
+                    )
+                }
+            )
+        if self.politica_base_renovacion_ref and not is_non_sensitive_reference(
+            self.politica_base_renovacion_ref
+        ):
+            raise ValidationError(
+                {
+                    'politica_base_renovacion_ref': (
+                        'La politica de base de renovacion debe usar una referencia no sensible.'
+                    )
+                }
+            )
         if not self.contrato_id:
             return
 
@@ -748,6 +800,10 @@ class PeriodoContractual(TimestampedModel):
         if self.numero_periodo != expected_number:
             errors['numero_periodo'] = (
                 'El numero de periodo debe coincidir con el orden cronologico dentro del contrato.'
+            )
+        if self.renewal_base_deviates_from_previous() and not self.has_renewal_base_policy():
+            errors['politica_base_renovacion_ref'] = (
+                'Una renovacion con base distinta al ultimo tramo vigente requiere politica documentada.'
             )
         if errors:
             raise ValidationError(errors)
