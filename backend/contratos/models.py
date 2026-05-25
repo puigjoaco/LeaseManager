@@ -10,7 +10,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from operacion.models import EstadoIdentidadEnvio, IdentidadDeEnvio, MandatoOperacion
 from patrimonio.validators import normalize_rut, validate_rut
@@ -305,6 +305,8 @@ class Contrato(TimestampedModel):
     fecha_inicio = models.DateField()
     fecha_fin_vigente = models.DateField()
     fecha_entrega = models.DateField(null=True, blank=True)
+    entrega_llaves_autorizacion_ref = models.CharField(max_length=255, blank=True)
+    entrega_llaves_autorizacion_motivo = models.TextField(blank=True)
     fecha_registro_operativo = models.DateField(null=True, blank=True)
     terminacion_anticipada_prorrata_ref = models.CharField(max_length=255, blank=True)
     terminacion_anticipada_prorrata_motivo = models.TextField(blank=True)
@@ -383,6 +385,40 @@ class Contrato(TimestampedModel):
         except (TypeError, ValueError):
             return False
         return due_date < registration_date
+
+    def has_key_delivery_authorization(self):
+        return bool(
+            (self.entrega_llaves_autorizacion_ref or '').strip()
+            and (self.entrega_llaves_autorizacion_motivo or '').strip()
+        )
+
+    def validate_key_delivery_authorization(self):
+        self.entrega_llaves_autorizacion_ref = (self.entrega_llaves_autorizacion_ref or '').strip()
+        self.entrega_llaves_autorizacion_motivo = (self.entrega_llaves_autorizacion_motivo or '').strip()
+
+        errors = {}
+        has_ref = bool(self.entrega_llaves_autorizacion_ref)
+        has_motivo = bool(self.entrega_llaves_autorizacion_motivo)
+
+        if has_ref and not is_non_sensitive_reference(self.entrega_llaves_autorizacion_ref):
+            errors['entrega_llaves_autorizacion_ref'] = (
+                'La autorizacion de entrega de llaves debe ser una referencia no sensible.'
+            )
+        if has_motivo and contains_sensitive_reference(self.entrega_llaves_autorizacion_motivo):
+            errors['entrega_llaves_autorizacion_motivo'] = (
+                'El motivo de autorizacion de entrega de llaves no debe contener referencias sensibles.'
+            )
+        if has_ref and not has_motivo:
+            errors['entrega_llaves_autorizacion_motivo'] = (
+                'La autorizacion de entrega de llaves requiere motivo trazable.'
+            )
+        if has_motivo and not has_ref:
+            errors['entrega_llaves_autorizacion_ref'] = (
+                'La autorizacion de entrega de llaves requiere referencia no sensible.'
+            )
+
+        if errors:
+            raise ValidationError(errors)
 
     def has_partial_early_termination_month(self):
         if self.estado != EstadoContrato.EARLY_TERMINATED or not self.fecha_fin_vigente:
@@ -497,6 +533,7 @@ class Contrato(TimestampedModel):
             raise ValidationError({'fecha_fin_vigente': 'La fecha fin vigente no puede ser anterior al inicio.'})
 
         self.validate_early_termination_proration()
+        self.validate_key_delivery_authorization()
         self.validate_identity_override()
 
         if self.fecha_entrega and self.fecha_entrega < self.fecha_inicio:

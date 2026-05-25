@@ -1823,6 +1823,101 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.contrato.periodos_faltantes', issue_codes)
         self.assertIn('stage1.contrato.garantia_faltante', issue_codes)
 
+    def test_key_delivery_without_guarantee_or_authorization_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.fecha_entrega = date(2026, 1, 1)
+        contrato.save(update_fields=['fecha_entrega', 'updated_at'])
+        contrato.garantia_contractual.delete()
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.garantia_faltante', issue_codes)
+        self.assertIn('stage1.contrato.entrega_llaves_sin_garantia_autorizada', issue_codes)
+
+    def test_key_delivery_with_incomplete_guarantee_without_authorization_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.fecha_entrega = date(2026, 1, 1)
+        contrato.save(update_fields=['fecha_entrega', 'updated_at'])
+        garantia = contrato.garantia_contractual
+        garantia.monto_pactado = Decimal('500000.00')
+        garantia.monto_recibido = Decimal('250000.00')
+        garantia.estado_garantia = EstadoGarantia.HELD
+        garantia.fecha_recepcion = date(2026, 1, 1)
+        garantia.save(
+            update_fields=[
+                'monto_pactado',
+                'monto_recibido',
+                'estado_garantia',
+                'fecha_recepcion',
+                'updated_at',
+            ]
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.entrega_llaves_garantia_no_cubierta', issue_codes)
+
+    def test_key_delivery_authorization_suppresses_delivery_specific_blocker(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.fecha_entrega = date(2026, 1, 1)
+        contrato.entrega_llaves_autorizacion_ref = 'acta-entrega-llaves-001'
+        contrato.entrega_llaves_autorizacion_motivo = 'Autorizacion operativa aprobada por administracion.'
+        contrato.save(
+            update_fields=[
+                'fecha_entrega',
+                'entrega_llaves_autorizacion_ref',
+                'entrega_llaves_autorizacion_motivo',
+                'updated_at',
+            ]
+        )
+        garantia = contrato.garantia_contractual
+        garantia.monto_pactado = Decimal('500000.00')
+        garantia.monto_recibido = Decimal('250000.00')
+        garantia.estado_garantia = EstadoGarantia.HELD
+        garantia.fecha_recepcion = date(2026, 1, 1)
+        garantia.save(
+            update_fields=[
+                'monto_pactado',
+                'monto_recibido',
+                'estado_garantia',
+                'fecha_recepcion',
+                'updated_at',
+            ]
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertNotIn('stage1.contrato.entrega_llaves_sin_garantia_autorizada', issue_codes)
+        self.assertNotIn('stage1.contrato.entrega_llaves_garantia_no_cubierta', issue_codes)
+
+    def test_key_delivery_authorization_with_sensitive_reference_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.fecha_entrega = date(2026, 1, 1)
+        contrato.entrega_llaves_autorizacion_ref = 'https://secreto.local/token=abc'
+        contrato.entrega_llaves_autorizacion_motivo = 'Autorizacion operativa.'
+        contrato.save(
+            update_fields=[
+                'fecha_entrega',
+                'entrega_llaves_autorizacion_ref',
+                'entrega_llaves_autorizacion_motivo',
+                'updated_at',
+            ]
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.entrega_llaves_autorizacion_sensible', issue_codes)
+
     def test_active_contract_without_document_policy_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         contrato.politica_documental = None
