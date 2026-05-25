@@ -51,6 +51,12 @@ nacionalidad, estado civil y profesion, la API bloquea contratos vigentes o
 futuros cuando la politica lo exige y faltan esos datos, y `audit_stage1_matrix`
 detecta snapshots heredados incompletos.
 
+Nota 2026-05-24: Compliance mueve reglas de retencion desde solo readiness a
+dominio/API. `PoliticaRetencionDatos` rechaza eventos de inicio sensibles,
+plazos minimos cero, falta de hold para tributario/documental y purga fisica
+para documental/secreto; `audit_compliance_data_readiness` conserva la deteccion
+de politicas heredadas invalidas sin exponer valores sensibles.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas. |

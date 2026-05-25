@@ -175,6 +175,19 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertIn('compliance.retention_hold_missing', issue_codes)
         self.assertIn('compliance.retention_physical_purge_enabled', issue_codes)
 
+    def test_sensitive_retention_policy_event_is_blocking_without_exposing_values(self):
+        self._create_policies()
+        self._create_valid_export()
+        PoliticaRetencionDatos.objects.filter(categoria_dato=CategoriaDato.FINANCIAL).update(
+            evento_inicio='https://policy.example.test/source?token=secret',
+        )
+
+        result = self._collect_with_final_refs()
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.retention_policy_invalid', {issue['code'] for issue in result['issues']})
+        self.assertNotIn('policy.example.test', json.dumps(result))
+
     def test_sensitive_export_metadata_is_blocking_without_exposing_values(self):
         self._create_policies()
         export = self._create_raw_export(scope_resumen={'callback': 'https://files.example.test/export?token=secret'})
