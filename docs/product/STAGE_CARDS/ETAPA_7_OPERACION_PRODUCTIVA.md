@@ -33,7 +33,10 @@ runbook, smoke y aceptacion.
   metadatos de observabilidad.
 - Senales runtime persistidas para latencia mensual, cola/tareas, webhooks
   fallidos y crons fallidos, con evidencia y payload no sensibles; las claves
-  de payload con forma de secreto o credencial tambien se rechazan.
+  de payload con forma de secreto o credencial tambien se rechazan. Para cierre,
+  una senal OK debe estar observada dentro de las ultimas 24 horas; mediciones
+  antiguas quedan como diagnostico historico, no como evidencia operativa
+  vigente.
 - Para cierre productivo, las cuatro senales runtime obligatorias deben venir
   de `snapshot_controlado` o `real_autorizado`; mediciones locales, fixture o
   demo solo preparan el gate.

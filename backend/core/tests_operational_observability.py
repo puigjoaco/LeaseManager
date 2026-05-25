@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from io import StringIO
 from tempfile import TemporaryDirectory
 from pathlib import Path
@@ -10,6 +11,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.urls import reverse
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -176,6 +178,22 @@ class OperationalObservabilityAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage7_observability'])
         self.assertIn('observability.cron_metric_attention', issue_codes)
 
+    def test_authorized_runtime_signals_must_be_recent(self):
+        create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO)
+        OperationalRuntimeSignal.objects.filter(signal_key=RuntimeSignalKey.QUEUE_RUNTIME).update(
+            observed_at=timezone.now() - timedelta(hours=25),
+        )
+
+        result = collect_operational_observability_audit()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_observability'])
+        self.assertFalse(result['sections']['runtime_signals']['authorized_for_stage7_close'])
+        self.assertIn('observability.queue_runtime_metric_stale', issue_codes)
+        self.assertFalse(
+            result['sections']['runtime_signals'][RuntimeSignalKey.QUEUE_RUNTIME]['fresh_for_stage7_close']
+        )
+
     def test_record_runtime_signal_command_validates_payload(self):
         call_command(
             'record_operational_runtime_signal',
@@ -328,6 +346,7 @@ class OperationalObservabilityAPITests(APITestCase):
         self.assertEqual(queue_signal['status'], RuntimeSignalStatus.OK)
         self.assertFalse(queue_signal['has_evidence_ref'])
         self.assertEqual(queue_signal['source_trace'], {'source_label': False, 'authorization_ref': False})
+        self.assertTrue(queue_signal['fresh_for_stage7_close'])
         self.assertEqual(queue_signal['value'], {'healthy': True})
         self.assertNotIn('evidence_ref', queue_signal)
 
