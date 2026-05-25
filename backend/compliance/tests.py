@@ -19,7 +19,12 @@ from .models import (
     PoliticaRetencionDatos,
     SECRET_EXPORT_ERROR,
 )
-from .services import SENSITIVE_EXPORT_METADATA_ERROR, encrypt_payload, prepare_sensitive_export
+from .services import (
+    ACTIVE_RETENTION_POLICY_ERROR,
+    SENSITIVE_EXPORT_METADATA_ERROR,
+    encrypt_payload,
+    prepare_sensitive_export,
+)
 
 
 class ComplianceAPITests(APITestCase):
@@ -131,6 +136,41 @@ class ComplianceAPITests(APITestCase):
                 payload={'resultado': 'controlado'},
                 created_by=self.user,
             )
+
+    def test_prepare_sensitive_export_service_rejects_category_mismatch_and_missing_policy(self):
+        with self.assertRaises(ValidationError) as category_context:
+            prepare_sensitive_export(
+                categoria_dato='operativo',
+                export_kind='financiero_mensual',
+                scope_resumen={'anio': 2026, 'mes': 1},
+                motivo='Revision mensual',
+                payload={'resultado': 'controlado'},
+                created_by=self.user,
+            )
+        self.assertEqual(
+            category_context.exception.message_dict['categoria_dato'][0],
+            'La categoria_dato debe ser financiero para export_kind=financiero_mensual.',
+        )
+
+        PoliticaRetencionDatos.objects.create(
+            categoria_dato='financiero',
+            evento_inicio='ultimo_evento_relevante',
+            plazo_minimo_anos=6,
+            permite_borrado_logico=True,
+            permite_purga_fisica=False,
+            requiere_hold=False,
+            estado='inactiva',
+        )
+        with self.assertRaises(ValidationError) as policy_context:
+            prepare_sensitive_export(
+                categoria_dato='financiero',
+                export_kind='financiero_mensual',
+                scope_resumen={'anio': 2026, 'mes': 1},
+                motivo='Revision mensual',
+                payload={'resultado': 'controlado'},
+                created_by=self.user,
+            )
+        self.assertEqual(policy_context.exception.message_dict['categoria_dato'][0], ACTIVE_RETENTION_POLICY_ERROR)
 
     def test_export_model_clean_rejects_sensitive_visible_metadata(self):
         encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
