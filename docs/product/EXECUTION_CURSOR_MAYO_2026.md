@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 - Contabilidad: validacion de empresa en movimientos de asiento. |
-| Fuente exacta | `docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Contabilidad`; `backend/contabilidad/models.py`; `backend/core/stage5_contabilidad_readiness.py`; tests de Contabilidad/Stage 5. |
-| Brecha activa | `audit_stage5_contabilidad_readiness` y cierre mensual detectan movimientos de asiento asociados a cuentas de otra empresa, pero `MovimientoAsiento.clean()` aun no impide nuevas escrituras con esa incoherencia. |
-| Motivo de prioridad | Brecha local trazable de Contabilidad; evita crear nuevos defectos de ledger que ya son bloqueantes en readiness sin usar `.env`, datos reales, banco, SII ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-movement-account-company-clean`. |
-| Rama | `codex/stage5-movement-account-company-clean`. |
-| Estado | En implementacion. `main` queda limpio en `D:/Proyectos/LeaseManager`. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 5 - Contabilidad, validacion de empresa en movimientos de asiento. |
+| Fuente exacta | PR #231 `Guard Stage 5 movement account company consistency`; commit `6f938a2`; merge `38ace39`; `backend/contabilidad/models.py`; `backend/contabilidad/tests.py`; stage card, trazabilidad y evidencia actualizadas. |
+| Brecha activa | Cerrada localmente: `MovimientoAsiento.clean()` rechaza cuentas contables de otra empresa y `audit_stage5_contabilidad_readiness` conserva la deteccion de snapshots heredados con `stage5.asiento_movement_company_mismatch`. |
+| Motivo de prioridad | Brecha local trazable de Contabilidad cerrada sin usar `.env`, datos reales, banco, SII ni integraciones externas. |
+| Worktree | Ninguno. |
+| Rama | `main` sincronizada con `origin/main` tras PR #231. |
+| Estado | PR #231 integrado con CI remoto en verde; paquete tactico limpiado. |
 | Gate esperado | Etapa 5 local queda como diagnostico parcial/no evidencial; no cierra Contabilidad sin Conciliacion cerrada, fuente autorizada, ledger/reportes controlados y responsable. |
-| Estado al cerrar paquete | Pendiente. |
+| Estado al cerrar paquete | Cerrado e integrado en `main` con validacion local y CI remoto. |
 | Bloqueos relacionados | Conciliacion cerrada y fuente autorizada siguen siendo condicion de cierre, no freno para este hardening local. |
-| Politica de reanudacion | Retomar este worktree hasta cerrar, pausar explicitamente en este cursor o limpiar con instruccion segura. |
-| Siguiente accion | Agregar validacion de empresa en `MovimientoAsiento.clean()`, cubrirla con prueba focal, validar suite impactada y actualizar evidencia/trazabilidad. |
+| Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
+| Siguiente accion | Seleccionar el siguiente frente util desde stage cards, matriz de trazabilidad y PRD, abrir worktree `codex/...` si corresponde y avanzar con validaciones proporcionales. |
 
 ## Actualizacion
 
