@@ -1,7 +1,6 @@
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
-from contabilidad.services import DEFAULT_REGIME_CODE
 from contabilidad.models import EstadoPreparacionTributaria, ObligacionTributariaMensual
 from core.reference_validation import is_non_sensitive_reference
 
@@ -14,6 +13,7 @@ from .models import (
     F22PreparacionAnual,
     F29PreparacionMensual,
     ProcesoRentaAnual,
+    SII_AUTOMATED_REGIME_CODE,
     TipoDTE,
 )
 
@@ -91,7 +91,7 @@ def validate_company_fiscal_readiness(empresa):
     config = getattr(empresa, 'configuracion_fiscal', None)
     if not config or config.estado != 'activa':
         raise ValueError('La empresa no tiene una configuracion fiscal activa para emitir DTE.')
-    if config.regimen_tributario.codigo_regimen != DEFAULT_REGIME_CODE:
+    if config.regimen_tributario.codigo_regimen != SII_AUTOMATED_REGIME_CODE:
         raise ValueError('La empresa no pertenece al regimen fiscal automatizable del v1.')
     return config
 

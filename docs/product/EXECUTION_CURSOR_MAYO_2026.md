@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno; ultimo paquete cerrado: Etapa 3 - Conciliacion: guard de `referencia` sensible en movimientos bancarios importados. |
-| Fuente exacta | PR #215 `Guard Stage 3 bank movement references`; commit `b9ee39c`; merge `9c7e5d9`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Conciliacion`; `docs/product/STAGE_CARDS/ETAPA_3_BANCO_CONCILIACION.md`; `backend/conciliacion`; `backend/core/stage3_conciliacion_readiness.py`; `scripts/run-stage3-readiness-gate.ps1`. |
-| Brecha activa | Cerrada localmente: `MovimientoBancarioImportado.referencia` queda validada como referencia bancaria no sensible, API/snapshot redactan referencias sensibles heredadas y readiness conserva deteccion bloqueante de snapshots existentes. |
-| Motivo de prioridad | Paquete integrado; no hay worktree tactico abierto para este frente. |
-| Worktree | Ninguno. |
-| Rama | `main` sincronizada tras merge `9c7e5d9`. |
-| Estado | PR #215 integrado con CI `acceptance` verde; worktree `D:/Proyectos/LeaseManager-stage3-bank-movement-reference-guard` eliminado y rama tactica local/remota eliminada. |
-| Gate esperado | `scripts/run-stage3-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_stage3_conciliacion=false` con fuente local; no cierra Etapa 3 sin banco real o snapshot autorizado. |
-| Estado al cerrar paquete | `parcial`; avance local preparado, sin cierre real de Etapa 3. |
-| Bloqueos relacionados | Falta banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria, cuadratura sistema/banco y responsable para cierre real de Etapa 3; no bloquea preparacion local. |
-| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, seleccionar el siguiente frente util, seguro y trazable desde la matriz/PRD/arquitectura. |
-| Siguiente accion | Diagnosticar el siguiente paquete local cerrable y abrir worktree `codex/...` solo si el cambio no es trivial. |
+| Frente activo | Etapa 4 - SII/DTE: bloqueo de regimen fiscal no soportado para automatizacion tributaria v1. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` escenario transversal 16; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `SII`; `docs/product/STAGE_CARDS/ETAPA_4_SII_DTE.md`; `backend/sii`; `backend/core/stage4_sii_readiness.py`; `scripts/run-stage4-readiness-gate.ps1`. |
+| Brecha activa | Los servicios de generacion SII ya rechazan empresas fuera del regimen automatizable, pero la apertura de capacidades SII y readiness de snapshots no bloquean explicitamente una `ConfiguracionFiscalEmpresa` activa con regimen no soportado. |
+| Motivo de prioridad | Siguiente brecha local verificable que no depende de SII real, certificados, `.env`, secretos ni snapshot autorizado; reduce riesgo tributario antes de preparar cierres reales. |
+| Worktree | `D:/Proyectos/LeaseManager-stage4-unsupported-regime-guard`. |
+| Rama | `codex/stage4-unsupported-regime-guard`. |
+| Estado | En ejecucion local. |
+| Gate esperado | `scripts/run-stage4-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_stage4_sii=false` con fuente local; no cierra Etapa 4 sin ambiente SII/fuente autorizada y regla fiscal validada. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Falta ambiente SII real/controlado autorizado, evidencia de ledger, regla fiscal validada y responsable para cierre real de Etapa 4; no bloquea preparacion local. |
+| Politica de reanudacion | Si este worktree existe, continuar y cerrar este paquete antes de abrir otro frente. |
+| Siguiente accion | Validar modelo/API/readiness/docs, abrir PR, esperar CI, mergear y limpiar worktree. |
 
 ## Actualizacion
 

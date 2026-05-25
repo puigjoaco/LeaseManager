@@ -19,6 +19,7 @@ from contabilidad.models import (
     EstadoCierreMensual,
     EstadoPreparacionTributaria,
     ObligacionTributariaMensual,
+    RegimenTributarioEmpresa,
 )
 from contabilidad.services import ensure_default_regime
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
@@ -362,6 +363,25 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertIn('stage4.dte_fiscal_config_missing', issue_codes)
         self.assertIn('stage4.f29_fiscal_config_missing', issue_codes)
         self.assertEqual(result['sections']['capabilities']['open_without_active_fiscal_config'], 2)
+
+    def test_unsupported_fiscal_regime_is_blocking(self):
+        empresa = self._create_valid_local_matrix()
+        unsupported_regime = RegimenTributarioEmpresa.objects.create(
+            codigo_regimen='RentaPresuntaV1',
+            descripcion='Regimen no automatizable en v1',
+            estado='activa',
+        )
+        ConfiguracionFiscalEmpresa.objects.filter(empresa=empresa).update(
+            regimen_tributario=unsupported_regime,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertIn('stage4.fiscal_config_unsupported_regime', issue_codes)
+        self.assertIn('stage4.capability_invalid', issue_codes)
+        self.assertEqual(result['sections']['fiscal_setup']['unsupported_active_regime'], 1)
 
     def test_open_capability_without_readiness_refs_is_blocking(self):
         empresa = self._create_active_empresa()

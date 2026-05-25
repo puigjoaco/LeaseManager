@@ -419,6 +419,41 @@ class SiiAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('ultimo_resultado', response.data)
 
+    def test_open_sii_capability_rejects_unsupported_fiscal_regime(self):
+        empresa = self._create_active_empresa(nombre='SII Unsupported Regime SpA', rut='33333333-3')
+        unsupported_regime = RegimenTributarioEmpresa.objects.create(
+            codigo_regimen='RentaPresuntaV1',
+            descripcion='Regimen no automatizable en v1',
+            estado='activa',
+        )
+        ConfiguracionFiscalEmpresa.objects.create(
+            empresa=empresa,
+            regimen_tributario=unsupported_regime,
+            afecta_iva_arriendo=False,
+            tasa_iva='0.00',
+            aplica_ppm=True,
+            ddjj_habilitadas=[],
+            inicio_ejercicio='2026-01-01',
+            moneda_funcional='CLP',
+            estado='activa',
+        )
+
+        response = self.client.post(
+            reverse('sii-capacidad-list'),
+            {
+                'empresa': empresa.id,
+                'capacidad_key': 'DTEEmision',
+                **self._sii_readiness_fields('unsupported-regime'),
+                'ambiente': 'certificacion',
+                'estado_gate': 'abierto',
+                'ultimo_resultado': {},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('empresa', response.data)
+
     def test_sii_apis_redact_inherited_sensitive_references(self):
         empresa, pago = self._setup_paid_payment()
         self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])

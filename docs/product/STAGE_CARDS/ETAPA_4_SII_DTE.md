@@ -17,6 +17,9 @@ produccion por defecto.
 - Empresa emisora habilitada.
 - Cada capacidad SII abierta, DTE y F29 debe pertenecer a una empresa con
   `ConfiguracionFiscalEmpresa` activa propia.
+- Una `ConfiguracionFiscalEmpresa` activa fuera del regimen fiscal
+  automatizable v1 bloquea la apertura de capacidades SII y readiness de
+  snapshots; no se automatiza tributacion oficial fuera de ese boundary.
 - Cada artefacto tributario debe usar la capacidad SII exacta de su flujo:
   DTE con `DTEEmision`, F29 con `F29Preparacion`, DDJJ con
   `DDJJPreparacion` y F22 con `F22Preparacion`; la readiness debe bloquear
