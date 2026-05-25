@@ -358,6 +358,89 @@ class SiiAPITests(APITestCase):
         with self.assertRaisesMessage(ValidationError, 'F22Preparacion'):
             f22.full_clean()
 
+    def test_tax_artifacts_require_traceable_ref_for_advanced_state(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
+        close, _ = self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        f29_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F29Preparacion',
+            **self._sii_readiness_fields('f29'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        ddjj_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DDJJPreparacion',
+            **self._sii_readiness_fields('ddjj'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        f22_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F22Preparacion',
+            **self._sii_readiness_fields('f22'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+
+        f29 = F29PreparacionMensual(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_formulario={'obligaciones': [{'tipo': 'PPM'}]},
+        )
+        with self.assertRaises(ValidationError) as f29_error:
+            f29.full_clean()
+        self.assertIn('borrador_ref', f29_error.exception.message_dict)
+
+        process = ProcesoRentaAnual(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='aprobado_para_presentacion',
+            resumen_anual={'source': 'controlled'},
+        )
+        with self.assertRaises(ValidationError) as process_error:
+            process.full_clean()
+        self.assertIn('paquete_ddjj_ref', process_error.exception.message_dict)
+        self.assertIn('borrador_f22_ref', process_error.exception.message_dict)
+
+        prepared_process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'source': 'controlled'},
+        )
+        ddjj = DDJJPreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=prepared_process,
+            anio_tributario=2027,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_paquete={'source': 'controlled'},
+        )
+        with self.assertRaises(ValidationError) as ddjj_error:
+            ddjj.full_clean()
+        self.assertIn('paquete_ref', ddjj_error.exception.message_dict)
+
+        f22 = F22PreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=prepared_process,
+            anio_tributario=2027,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_f22={'source': 'controlled'},
+        )
+        with self.assertRaises(ValidationError) as f22_error:
+            f22.full_clean()
+        self.assertIn('borrador_ref', f22_error.exception.message_dict)
+
     def test_open_sii_capability_requires_readiness_references(self):
         empresa = self._create_active_empresa()
 

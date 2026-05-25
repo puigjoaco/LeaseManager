@@ -43,12 +43,27 @@ def has_text(value):
 
 
 SII_AUTOMATED_REGIME_CODE = 'EmpresaContabilidadCompletaV1'
+TAX_REFERENCE_REQUIRED_STATES = {
+    EstadoPreparacionTributaria.APPROVED,
+    EstadoPreparacionTributaria.PRESENTED,
+    EstadoPreparacionTributaria.OBSERVED,
+    EstadoPreparacionTributaria.RECTIFIED,
+}
 
 
 def _add_non_sensitive_reference_error(errors, instance, field_name):
     value = getattr(instance, field_name, '')
     if has_text(value) and not is_non_sensitive_reference(value):
         errors[field_name] = f'{field_name} debe ser una referencia no sensible, no una URL, token o credencial.'
+
+
+def _add_required_tax_reference_error(errors, instance, field_name, state_field_name):
+    state = getattr(instance, state_field_name, '')
+    if state in TAX_REFERENCE_REQUIRED_STATES and not has_text(getattr(instance, field_name, '')):
+        errors[field_name] = (
+            f'{field_name} es obligatorio para estados tributarios aprobados, '
+            'presentados, observados o rectificados.'
+        )
 
 
 def _add_non_sensitive_payload_error(errors, field_name, value):
@@ -279,6 +294,7 @@ class F29PreparacionMensual(TimestampedModel):
     def clean(self):
         super().clean()
         errors = {}
+        _add_required_tax_reference_error(errors, self, 'borrador_ref', 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad SII debe pertenecer a la misma empresa del borrador F29.'
@@ -318,6 +334,8 @@ class ProcesoRentaAnual(TimestampedModel):
     def clean(self):
         super().clean()
         errors = {}
+        _add_required_tax_reference_error(errors, self, 'paquete_ddjj_ref', 'estado')
+        _add_required_tax_reference_error(errors, self, 'borrador_f22_ref', 'estado')
         _add_non_sensitive_reference_error(errors, self, 'paquete_ddjj_ref')
         _add_non_sensitive_reference_error(errors, self, 'borrador_f22_ref')
         if errors:
@@ -359,6 +377,7 @@ class DDJJPreparacionAnual(TimestampedModel):
     def clean(self):
         super().clean()
         errors = {}
+        _add_required_tax_reference_error(errors, self, 'paquete_ref', 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'paquete_ref')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad DDJJ debe pertenecer a la misma empresa.'
@@ -404,6 +423,7 @@ class F22PreparacionAnual(TimestampedModel):
     def clean(self):
         super().clean()
         errors = {}
+        _add_required_tax_reference_error(errors, self, 'borrador_ref', 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad F22 debe pertenecer a la misma empresa.'
