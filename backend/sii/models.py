@@ -1,8 +1,8 @@
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
 
 from cobranza.models import DistribucionCobroMensual, PagoMensual
-from contabilidad.models import CierreMensualContable, EstadoPreparacionTributaria
+from contabilidad.models import CierreMensualContable, EstadoPreparacionTributaria, EstadoRegistro
 from contratos.models import Contrato
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from patrimonio.models import Empresa
@@ -40,6 +40,9 @@ class AmbienteSII(models.TextChoices):
 
 def has_text(value):
     return bool(str(value or '').strip())
+
+
+SII_AUTOMATED_REGIME_CODE = 'EmpresaContabilidadCompletaV1'
 
 
 def _add_non_sensitive_reference_error(errors, instance, field_name):
@@ -136,6 +139,17 @@ class CapacidadTributariaSII(TimestampedModel):
         }
         if self.capacidad_key in fiscal_rule_capabilities and not has_text(self.regla_fiscal_ref):
             errors['regla_fiscal_ref'] = 'SII abierto requiere regla_fiscal_ref validada.'
+
+        try:
+            fiscal_config = self.empresa.configuracion_fiscal
+        except ObjectDoesNotExist:
+            fiscal_config = None
+        if (
+            fiscal_config is not None
+            and fiscal_config.estado == EstadoRegistro.ACTIVE
+            and fiscal_config.regimen_tributario.codigo_regimen != SII_AUTOMATED_REGIME_CODE
+        ):
+            errors['empresa'] = 'La empresa no pertenece al regimen fiscal automatizable del v1.'
 
         if self.ambiente == AmbienteSII.PRODUCTION:
             metadata = self.ultimo_resultado if isinstance(self.ultimo_resultado, dict) else {}

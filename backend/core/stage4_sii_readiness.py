@@ -19,6 +19,7 @@ from sii.models import (
     F22PreparacionAnual,
     F29PreparacionMensual,
     ProcesoRentaAnual,
+    SII_AUTOMATED_REGIME_CODE,
     has_text,
 )
 
@@ -217,6 +218,11 @@ def collect_stage4_sii_readiness(
     fiscal_configs = ConfiguracionFiscalEmpresa.objects.select_related('empresa', 'regimen_tributario')
     active_fiscal_configs = fiscal_configs.filter(estado=EstadoRegistro.ACTIVE)
     invalid_active_fiscal_configs = _count_invalid(active_fiscal_configs)
+    unsupported_active_fiscal_configs = sum(
+        1
+        for config in active_fiscal_configs
+        if config.regimen_tributario.codigo_regimen != SII_AUTOMATED_REGIME_CODE
+    )
     active_fiscal_company_ids = set(active_fiscal_configs.values_list('empresa_id', flat=True))
 
     capabilities = CapacidadTributariaSII.objects.select_related('empresa')
@@ -309,6 +315,14 @@ def collect_stage4_sii_readiness(
                 'stage4.fiscal_config_invalid',
                 'Existen configuraciones fiscales activas que no pasan validacion de dominio.',
                 count=invalid_active_fiscal_configs,
+            )
+        )
+    if unsupported_active_fiscal_configs:
+        issues.append(
+            _issue(
+                'stage4.fiscal_config_unsupported_regime',
+                'Existen empresas con ConfiguracionFiscalEmpresa activa fuera del regimen fiscal automatizable del v1.',
+                count=unsupported_active_fiscal_configs,
             )
         )
     if open_dte_capabilities.count() == 0:
@@ -563,6 +577,8 @@ def collect_stage4_sii_readiness(
                 'configs_total': fiscal_configs.count(),
                 'active_configs': active_fiscal_configs.count(),
                 'invalid_active_configs': invalid_active_fiscal_configs,
+                'unsupported_active_regime': unsupported_active_fiscal_configs,
+                'supported_regime_code': SII_AUTOMATED_REGIME_CODE,
             },
             'capabilities': {
                 'total': capabilities.count(),
