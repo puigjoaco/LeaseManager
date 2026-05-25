@@ -15,25 +15,25 @@ nueva.
   frente distinto.
 - Solo el estado real del repo y este cursor definen la siguiente accion
   operativa.
-- El contexto auxiliar no autoriza secretos, no abre gates y no crea tareas de
-  redaccion salvo solicitud textual actual del usuario.
+- El contexto auxiliar no autoriza secretos, no abre gates y no crea tareas
+  nuevas salvo solicitud textual actual del usuario.
 
 ## Cursor actual
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 0 - Compliance datos sensibles: bloqueo de exportaciones categoria secreto. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`. |
-| Brecha activa | `audit_compliance_data_readiness` detecta exportaciones heredadas de categoria `secreto`, pero `ExportacionSensible.full_clean` y el servicio de preparacion aun no las bloquean como escritura nueva. |
-| Motivo de prioridad | Es una brecha local segura de Stage 0 Compliance: evita exfiltracion operativa de secretos sin usar fuentes externas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-secret-export-guard`. |
-| Rama | `codex/compliance-secret-export-guard`. |
-| Estado | Paquete tactico abierto desde `main` limpio en `8ab8b9f`; implementacion y validacion en curso. |
-| Gate esperado | `scripts/run-compliance-data-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada y refs finales. |
-| Estado al cerrar paquete | Pendiente. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 0 - Compliance bloqueo de exportaciones categoria secreto. |
+| Fuente exacta | PR #207 `Guard compliance secret category exports`, commit `77db16f`, merge `36f92df`, desde `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`, `backend/compliance`, `backend/core/compliance_data_readiness.py` y `scripts/run-compliance-data-readiness-gate.ps1`. |
+| Brecha activa | Cerrada localmente: `ExportacionSensible.full_clean` y `prepare_sensitive_export` bloquean nuevas exportaciones con categoria `secreto`; readiness conserva deteccion de exportaciones heredadas de secreto sin exponer payloads ni referencias. |
+| Motivo de prioridad | Compliance Stage 0 es preparacion base para datos sensibles y puede endurecerse con datos sinteticos/locales sin usar fuentes externas. |
+| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
+| Rama | `main` sincronizada; sin rama tactica activa. |
+| Estado | PR #207 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
+| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra `Compliance.DatosPersonalesChile2026` sin fuente autorizada y refs finales. |
 | Bloqueos relacionados | Falta fuente `snapshot_controlado` o `real_autorizado`, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa no sensibles para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea preparacion local. |
-| Politica de reanudacion | Continuar este paquete desde el worktree indicado; si esta cerrado, volver a `main` limpio y seleccionar el siguiente frente trazable. |
-| Siguiente accion | Empaquetar PR con validaciones completas, esperar CI, mergear y limpiar worktree/rama. |
+| Politica de reanudacion | Si no hay paquete abierto, partir desde `main` limpio y elegir el siguiente frente trazable por AGENTS.md, PRD canonico, stage cards, matriz y evidencia. |
+| Siguiente accion | Seleccionar el siguiente paquete util y seguro desde `main` limpio. |
 
 ## Actualizacion
 
