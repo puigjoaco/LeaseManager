@@ -30,6 +30,7 @@ MAX_EXPORT_DAYS = 30
 SENSITIVE_EXPORT_METADATA_ERROR = 'La metadata visible de exportacion no puede contener referencias sensibles.'
 ACTIVE_RETENTION_POLICY_ERROR = 'No existe una politica de retencion activa para la categoria indicada.'
 PAYLOAD_HASH_MISMATCH_ERROR = 'La integridad de la exportacion no coincide con su payload_hash.'
+PAYLOAD_UNREADABLE_ERROR = 'El payload cifrado de la exportacion sensible no puede descifrarse.'
 EXPORT_KIND_CATEGORY_MAP = {
     'dashboard_operativo': CategoriaDato.OPERATIONAL,
     'financiero_mensual': CategoriaDato.FINANCIAL,
@@ -85,12 +86,18 @@ def payload_hash_matches(payload, expected_hash):
     return _payload_hash(payload) == expected_hash.strip().lower()
 
 
-def export_payload_hash_matches(export):
+def inspect_export_payload_integrity(export):
     try:
         payload = decrypt_payload(export.encrypted_payload)
     except (InvalidToken, TypeError, ValueError, UnicodeError):
-        return False
-    return payload_hash_matches(payload, export.payload_hash)
+        return 'unreadable'
+    if not payload_hash_matches(payload, export.payload_hash):
+        return 'mismatch'
+    return 'ok'
+
+
+def export_payload_hash_matches(export):
+    return inspect_export_payload_integrity(export) == 'ok'
 
 
 def ensure_export_metadata_is_non_sensitive(*, scope_resumen, motivo):
@@ -154,7 +161,10 @@ def get_export_payload(export):
         export.estado = EstadoExportacionSensible.EXPIRED
         export.save(update_fields=['estado', 'updated_at'])
         raise ValueError('La exportacion expiro y ya no puede descargarse.')
-    payload = decrypt_payload(export.encrypted_payload)
+    try:
+        payload = decrypt_payload(export.encrypted_payload)
+    except (InvalidToken, TypeError, ValueError, UnicodeError) as error:
+        raise ValueError(PAYLOAD_UNREADABLE_ERROR) from error
     if not payload_hash_matches(payload, export.payload_hash):
         raise ValueError(PAYLOAD_HASH_MISMATCH_ERROR)
     return payload

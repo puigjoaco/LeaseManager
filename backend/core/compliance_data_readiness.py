@@ -15,7 +15,7 @@ from compliance.models import (
     ExportacionSensible,
     PoliticaRetencionDatos,
 )
-from compliance.services import MAX_EXPORT_DAYS, export_payload_hash_matches
+from compliance.services import MAX_EXPORT_DAYS, inspect_export_payload_integrity
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 
@@ -98,8 +98,12 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
         payload_hash_is_valid = _is_sha256_hex_digest(export.payload_hash)
         if not payload_hash_is_valid:
             counts['payload_hash_invalid'] += 1
-        elif has_encrypted_payload and has_payload_hash and not export_payload_hash_matches(export):
-            counts['payload_hash_mismatch'] += 1
+        elif has_encrypted_payload and has_payload_hash:
+            integrity_status = inspect_export_payload_integrity(export)
+            if integrity_status == 'unreadable':
+                counts['payload_unreadable'] += 1
+            elif integrity_status == 'mismatch':
+                counts['payload_hash_mismatch'] += 1
         if export.estado == EstadoExportacionSensible.PREPARED:
             if not export.hold_activo and export.expires_at <= now:
                 counts['prepared_expired_without_hold'] += 1
@@ -264,6 +268,11 @@ def collect_compliance_data_readiness(
             'El payload cifrado de la exportacion sensible debe coincidir con su payload_hash.',
         ),
         (
+            'payload_unreadable',
+            'compliance.export_payload_unreadable',
+            'El payload cifrado de la exportacion sensible debe ser descifrable para verificar integridad.',
+        ),
+        (
             'prepared_expired_without_hold',
             'compliance.export_prepared_expired_without_hold',
             'Existen exportaciones preparadas expiradas sin hold activo.',
@@ -371,6 +380,7 @@ def collect_compliance_data_readiness(
                 'integrity_fields_missing': export_issues.get('integrity_fields_missing', 0),
                 'payload_hash_invalid': export_issues.get('payload_hash_invalid', 0),
                 'payload_hash_mismatch': export_issues.get('payload_hash_mismatch', 0),
+                'payload_unreadable': export_issues.get('payload_unreadable', 0),
                 'prepared_expired_without_hold': export_issues.get('prepared_expired_without_hold', 0),
                 'prepared_expiry_too_long': export_issues.get('prepared_expiry_too_long', 0),
                 'expired_state_inconsistent': export_issues.get('expired_state_inconsistent', 0),
