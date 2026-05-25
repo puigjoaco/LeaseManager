@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 3 - Conciliacion, alineacion de periodo economico y fecha de cuadratura bancaria. |
-| Fuente exacta | PR #229 `Guard Stage 3 balance square period alignment`; commit `fa92f56`; merge `557b054`; `backend/conciliacion/models.py`; `backend/core/stage3_conciliacion_readiness.py`; tests de Conciliacion/Stage 3; stage card, trazabilidad y evidencia actualizadas. |
-| Brecha activa | Cerrada localmente: `CuadraturaBancaria` rechaza `periodo_economico` que no coincide con el mes de `fecha_cuadratura`, y readiness clasifica snapshots heredados con `stage3.balance_square.period_date_mismatch`. |
-| Motivo de prioridad | Brecha local trazable de Conciliacion cerrada sin usar banco real, `.env`, datos reales ni integraciones externas. |
-| Worktree | Ninguno. |
-| Rama | `main` sincronizada con `origin/main` tras PR #229. |
-| Estado | PR #229 integrado con CI remoto en verde; paquete tactico limpiado. |
-| Gate esperado | Etapa 3 local queda como diagnostico parcial/no evidencial; no cierra Conciliacion sin banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria, cuadratura sistema/banco y responsable. |
-| Estado al cerrar paquete | Cerrado e integrado en `main` con validacion local y CI remoto. |
-| Bloqueos relacionados | Banco real/snapshot autorizado y evidencias externas siguen siendo condicion de cierre, no freno para este hardening local. |
-| Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Seleccionar el siguiente frente util desde stage cards, matriz de trazabilidad y PRD, abrir worktree `codex/...` si corresponde y avanzar con validaciones proporcionales. |
+| Frente activo | Etapa 5 - Contabilidad: validacion de empresa en movimientos de asiento. |
+| Fuente exacta | `docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Contabilidad`; `backend/contabilidad/models.py`; `backend/core/stage5_contabilidad_readiness.py`; tests de Contabilidad/Stage 5. |
+| Brecha activa | `audit_stage5_contabilidad_readiness` y cierre mensual detectan movimientos de asiento asociados a cuentas de otra empresa, pero `MovimientoAsiento.clean()` aun no impide nuevas escrituras con esa incoherencia. |
+| Motivo de prioridad | Brecha local trazable de Contabilidad; evita crear nuevos defectos de ledger que ya son bloqueantes en readiness sin usar `.env`, datos reales, banco, SII ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-movement-account-company-clean`. |
+| Rama | `codex/stage5-movement-account-company-clean`. |
+| Estado | En implementacion. `main` queda limpio en `D:/Proyectos/LeaseManager`. |
+| Gate esperado | Etapa 5 local queda como diagnostico parcial/no evidencial; no cierra Contabilidad sin Conciliacion cerrada, fuente autorizada, ledger/reportes controlados y responsable. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Conciliacion cerrada y fuente autorizada siguen siendo condicion de cierre, no freno para este hardening local. |
+| Politica de reanudacion | Retomar este worktree hasta cerrar, pausar explicitamente en este cursor o limpiar con instruccion segura. |
+| Siguiente accion | Agregar validacion de empresa en `MovimientoAsiento.clean()`, cubrirla con prueba focal, validar suite impactada y actualizar evidencia/trazabilidad. |
 
 ## Actualizacion
 
