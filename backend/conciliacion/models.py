@@ -419,6 +419,12 @@ class MovimientoBancarioImportado(TimestampedModel):
             'transaction_id_banco',
             'transaction_id_banco debe ser una referencia no sensible, no una URL, token o credencial.',
         )
+        _add_non_sensitive_reference_error(
+            errors,
+            self,
+            'referencia',
+            'referencia debe ser una referencia bancaria no sensible, no una URL, token o credencial.',
+        )
 
         self._validate_bank_transaction_identity(errors)
         self._validate_reconciliation_snapshot(errors)

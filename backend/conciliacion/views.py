@@ -147,7 +147,7 @@ class ConciliacionSnapshotView(APIView):
                         'tipo_movimiento': item.tipo_movimiento,
                         'monto': item.monto,
                         'descripcion_origen': item.descripcion_origen,
-                        'referencia': item.referencia,
+                        'referencia': redact_sensitive_reference(item.referencia),
                         'estado_conciliacion': item.estado_conciliacion,
                     }
                     for item in movimientos

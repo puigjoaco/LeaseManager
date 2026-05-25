@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno; ultimo paquete cerrado: Etapa 2 - Cobranza/Canales: guard de `provider_payload` sensible en mensajes salientes. |
-| Fuente exacta | PR #213 `Guard Stage 2 message provider payloads`; commit `51182e3`; merge `23b3f1e`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `CobranzaActiva`; `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`; `backend/canales`; `backend/core/stage2_cobranza_readiness.py`; `scripts/run-stage2-readiness-gate.ps1`. |
-| Brecha activa | Cerrada localmente: `MensajeSaliente.full_clean` rechaza nuevas escrituras con `provider_payload` sensible y readiness conserva deteccion de snapshots heredados invalidos. |
-| Motivo de prioridad | Paquete integrado; no hay worktree tactico abierto para este frente. |
-| Worktree | Ninguno. |
-| Rama | `main` sincronizada tras merge `23b3f1e`. |
-| Estado | PR #213 integrado con CI `acceptance` verde; worktree `D:/Proyectos/LeaseManager-stage2-message-provider-payload-guard` eliminado y rama tactica local/remota eliminada. |
-| Gate esperado | `scripts/run-stage2-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_stage2_cobranza=false` con fuente local; no cierra Etapa 2 sin fuente autorizada y pruebas Email/WebPay controladas. |
-| Estado al cerrar paquete | `parcial`; avance local preparado, sin cierre real de Etapa 2. |
-| Bloqueos relacionados | Falta fuente autorizada, Etapa 1 confirmada y pruebas externas controladas de Email/WebPay para cierre real de Etapa 2; no bloquea preparacion local. |
-| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, seleccionar el siguiente frente util, seguro y trazable desde la matriz/PRD/arquitectura. |
-| Siguiente accion | Diagnosticar el siguiente paquete local cerrable y abrir worktree `codex/...` solo si el cambio no es trivial. |
+| Frente activo | Etapa 3 - Conciliacion: guard de `referencia` sensible en movimientos bancarios importados. |
+| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Conciliacion`; `docs/product/STAGE_CARDS/ETAPA_3_BANCO_CONCILIACION.md`; `backend/conciliacion`; `backend/core/stage3_conciliacion_readiness.py`; `scripts/run-stage3-readiness-gate.ps1`. |
+| Brecha activa | `MovimientoBancarioImportado.referencia` se exponia en API/snapshot y no estaba dentro del set de referencias sensibles de readiness; debe quedar validada como referencia bancaria no sensible, redactada al exponer datos heredados y detectada como brecha de snapshot. |
+| Motivo de prioridad | Siguiente brecha local cerrable de la etapa de menor orden con frente seguro disponible, sin depender de banco real, `.env`, secretos ni snapshot autorizado. |
+| Worktree | `D:/Proyectos/LeaseManager-stage3-bank-movement-reference-guard`. |
+| Rama | `codex/stage3-bank-movement-reference-guard`. |
+| Estado | En ejecucion local. |
+| Gate esperado | `scripts/run-stage3-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_stage3_conciliacion=false` con fuente local; no cierra Etapa 3 sin banco real o snapshot autorizado. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Falta banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria, cuadratura sistema/banco y responsable para cierre real de Etapa 3; no bloquea preparacion local. |
+| Politica de reanudacion | Si este worktree existe, continuar y cerrar este paquete antes de abrir otro frente. |
+| Siguiente accion | Validar dominio/API/readiness/docs, abrir PR, esperar CI, mergear y limpiar worktree. |
 
 ## Actualizacion
 

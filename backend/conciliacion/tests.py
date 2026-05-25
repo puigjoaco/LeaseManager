@@ -491,6 +491,22 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('evidencia_importacion_ref', response.data)
 
+    def test_bank_movement_rejects_sensitive_reference(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-MOV-REF-SENSITIVE')
+        conexion = self._create_connection(cuenta)
+
+        response = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                referencia='https://bank.example.test/reference?token=secret',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('referencia', response.data)
+
     def test_bank_movement_api_redacts_existing_sensitive_references(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-MOV-REDACT')
         conexion = self._create_connection(cuenta)
@@ -502,6 +518,7 @@ class ConciliacionAPITests(APITestCase):
             descripcion_origen='Movimiento con refs heredadas',
             origen_importacion='provider_sync',
             evidencia_importacion_ref='https://bank.example.test/import?token=secret',
+            referencia='https://bank.example.test/reference?token=secret',
             transaction_id_banco='https://bank.example.test/tx?token=secret',
             estado_conciliacion=EstadoConciliacionMovimiento.PENDING,
         )
@@ -511,7 +528,31 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         rendered = json.dumps(response.data)
         self.assertEqual(response.data[0]['evidencia_importacion_ref'], '<redacted-sensitive-reference>')
+        self.assertEqual(response.data[0]['referencia'], '<redacted-sensitive-reference>')
         self.assertEqual(response.data[0]['transaction_id_banco'], '<redacted-sensitive-reference>')
+        self.assertNotIn('bank.example.test', rendered)
+        self.assertNotIn('secret', rendered)
+
+    def test_bank_snapshot_redacts_sensitive_movement_reference(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-MOV-SNAP-REDACT')
+        conexion = self._create_connection(cuenta)
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='100111.00',
+            descripcion_origen='Movimiento con referencia heredada',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            referencia='https://bank.example.test/reference?token=secret',
+            estado_conciliacion=EstadoConciliacionMovimiento.PENDING,
+        )
+
+        response = self.client.get(reverse('conciliacion-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rendered = json.dumps(response.data, default=str)
+        self.assertEqual(response.data['movimientos'][0]['referencia'], '<redacted-sensitive-reference>')
         self.assertNotIn('bank.example.test', rendered)
         self.assertNotIn('secret', rendered)
 

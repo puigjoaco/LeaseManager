@@ -106,7 +106,7 @@ class ConexionBancariaSerializer(RedactReferenceFieldsMixin, serializers.ModelSe
 
 
 class MovimientoBancarioImportadoSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('evidencia_importacion_ref', 'transaction_id_banco')
+    redacted_reference_fields = ('evidencia_importacion_ref', 'referencia', 'transaction_id_banco')
 
     class Meta:
         model = MovimientoBancarioImportado
