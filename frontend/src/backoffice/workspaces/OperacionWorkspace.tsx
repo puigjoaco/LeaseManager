@@ -4,7 +4,7 @@ import { Badge, TableBlock } from '../shared'
 
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type OwnerOption = { tipo: string; id: number; label: string }
-type CuentaItem = { id: number; institucion: string; numero_cuenta: string; tipo_cuenta: string; owner_tipo: string; owner_id: number; owner_display: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; estado_operativo: string }
+type CuentaItem = { id: number; institucion: string; numero_cuenta: string; tipo_cuenta: string; owner_tipo: string; owner_id: number; owner_display: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; uso_operativo: string; modo_operativo: string; evidencia_operativa_ref: string; estado_operativo: string }
 type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; owner_tipo: string; owner_display: string; estado: string }
 type MandatoItem = {
   id: number
@@ -36,7 +36,7 @@ type MandatoItem = {
 }
 type PropiedadOption = { id: number; codigo_propiedad: string; direccion: string }
 
-type CuentaDraft = { institucion: string; numero_cuenta: string; tipo_cuenta: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; estado_operativo: string; owner_tipo: string; owner_id: string }
+type CuentaDraft = { institucion: string; numero_cuenta: string; tipo_cuenta: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; uso_operativo: string; modo_operativo: string; evidencia_operativa_ref: string; estado_operativo: string; owner_tipo: string; owner_id: string }
 type MandatoDraft = { propiedad_id: string; propietario_tipo: string; propietario_id: string; administrador_operativo_tipo: string; administrador_operativo_id: string; recaudador_tipo: string; recaudador_id: string; entidad_facturadora_id: string; cuenta_recaudadora_id: string; tipo_relacion_operativa: string; autoriza_recaudacion: boolean; autoriza_facturacion: boolean; autoriza_comunicacion: boolean; autoridad_operativa_nombre: string; autoridad_operativa_rut: string; autoridad_operativa_evidencia_ref: string; vigencia_desde: string; vigencia_hasta: string; estado: string }
 
 export function OperacionWorkspace({
@@ -105,6 +105,9 @@ export function OperacionWorkspace({
             <input placeholder="RUT titular" value={cuentaDraft.titular_rut} onChange={(event) => setCuentaDraft((current) => ({ ...current, titular_rut: event.target.value }))} />
             <select value={cuentaDraft.tipo_cuenta} onChange={(event) => setCuentaDraft((current) => ({ ...current, tipo_cuenta: event.target.value }))}><option value="corriente">Corriente</option><option value="vista">Vista</option><option value="ahorro">Ahorro</option></select>
             <select value={cuentaDraft.moneda_operativa} onChange={(event) => setCuentaDraft((current) => ({ ...current, moneda_operativa: event.target.value }))}><option value="CLP">CLP</option><option value="UF">UF</option></select>
+            <input placeholder="Uso operativo" value={cuentaDraft.uso_operativo} onChange={(event) => setCuentaDraft((current) => ({ ...current, uso_operativo: event.target.value }))} />
+            <select value={cuentaDraft.modo_operativo} onChange={(event) => setCuentaDraft((current) => ({ ...current, modo_operativo: event.target.value }))}><option value="">Modo operativo</option><option value="manual_controlado">Manual controlado</option><option value="gate_bancario">Gate bancario</option></select>
+            <input placeholder="Evidencia operativa" value={cuentaDraft.evidencia_operativa_ref} onChange={(event) => setCuentaDraft((current) => ({ ...current, evidencia_operativa_ref: event.target.value }))} />
             <select value={cuentaDraft.estado_operativo} onChange={(event) => setCuentaDraft((current) => ({ ...current, estado_operativo: event.target.value }))}><option value="activa">Activa</option><option value="pausada">Pausada</option><option value="inactiva">Inactiva</option></select>
             <select value={`${cuentaDraft.owner_tipo}:${cuentaDraft.owner_id}`} onChange={(event) => { const [tipo, id] = event.target.value.split(':'); setCuentaDraft((current) => ({ ...current, owner_tipo: tipo, owner_id: id || '' })) }}>
               <option value="">Selecciona owner</option>
@@ -164,7 +167,8 @@ export function OperacionWorkspace({
       <TableBlock title="Cuentas recaudadoras" subtitle="Ownership bancario operativo." rows={filteredCuentas} empty="No hay cuentas para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[
         { label: 'Cuenta', render: (row) => `${row.institucion} · ${row.numero_cuenta}` },
         { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo}` },
-        { label: 'Moneda', render: (row) => row.moneda_operativa },
+        { label: 'Modo', render: (row) => row.modo_operativo || 'sin modo' },
+        { label: 'Evidencia', render: (row) => row.evidencia_operativa_ref || 'sin evidencia' },
         { label: 'Estado', render: (row) => <Badge label={row.estado_operativo} tone={toneFor(row.estado_operativo)} /> },
         { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditCuenta(row)}>Editar</button> },
         { label: 'Siguiente paso', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => goToCuentaConciliacion(row.id, row.numero_cuenta)}>Conectar banco</button> },

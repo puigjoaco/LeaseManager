@@ -23,6 +23,11 @@ class EstadoCuentaRecaudadora(models.TextChoices):
     INACTIVE = 'inactiva', 'Inactiva'
 
 
+class ModoOperacionCuentaRecaudadora(models.TextChoices):
+    MANUAL_CONTROLLED = 'manual_controlado', 'Manual controlado'
+    BANK_GATE = 'gate_bancario', 'Gate bancario'
+
+
 class EstadoIdentidadEnvio(models.TextChoices):
     DRAFT = 'borrador', 'Borrador'
     ACTIVE = 'activa', 'Activa'
@@ -106,6 +111,9 @@ class CuentaRecaudadora(TimestampedModel):
     titular_nombre = models.CharField(max_length=255)
     titular_rut = models.CharField(max_length=16, validators=[validate_rut])
     moneda_operativa = models.CharField(max_length=8, choices=MonedaOperativa.choices, default=MonedaOperativa.CLP)
+    uso_operativo = models.CharField(max_length=120, blank=True)
+    modo_operativo = models.CharField(max_length=32, choices=ModoOperacionCuentaRecaudadora.choices, blank=True)
+    evidencia_operativa_ref = models.CharField(max_length=255, blank=True)
     estado_operativo = models.CharField(
         max_length=16,
         choices=EstadoCuentaRecaudadora.choices,
@@ -177,8 +185,20 @@ class CuentaRecaudadora(TimestampedModel):
         if sum(bool(value) for value in (self.empresa_owner_id, self.comunidad_owner_id, self.socio_owner_id)) != 1:
             raise ValidationError('La cuenta recaudadora debe pertenecer exactamente a una empresa, comunidad o socio.')
 
-        if self.estado_operativo == EstadoCuentaRecaudadora.ACTIVE and not self.owner_is_active():
-            raise ValidationError({'estado_operativo': 'La cuenta activa requiere un owner activo.'})
+        if self.estado_operativo == EstadoCuentaRecaudadora.ACTIVE:
+            errors = {}
+            if not self.owner_is_active():
+                errors['estado_operativo'] = 'La cuenta activa requiere un owner activo.'
+            if not self.uso_operativo:
+                errors['uso_operativo'] = 'La cuenta activa requiere uso operativo declarado.'
+            if not self.modo_operativo:
+                errors['modo_operativo'] = 'La cuenta activa requiere modo operativo.'
+            if not self.evidencia_operativa_ref:
+                errors['evidencia_operativa_ref'] = 'La cuenta activa requiere evidencia operativa trazable.'
+            elif not is_non_sensitive_reference(self.evidencia_operativa_ref):
+                errors['evidencia_operativa_ref'] = 'La evidencia operativa debe ser una referencia no sensible.'
+            if errors:
+                raise ValidationError(errors)
 
         if (
             self.estado_operativo != EstadoCuentaRecaudadora.ACTIVE

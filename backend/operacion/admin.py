@@ -5,9 +5,9 @@ from .models import AsignacionCanalOperacion, CuentaRecaudadora, IdentidadDeEnvi
 
 @admin.register(CuentaRecaudadora)
 class CuentaRecaudadoraAdmin(admin.ModelAdmin):
-    list_display = ('institucion', 'numero_cuenta', 'owner_tipo', 'owner_display', 'estado_operativo')
-    list_filter = ('estado_operativo', 'moneda_operativa', 'institucion')
-    search_fields = ('institucion', 'numero_cuenta', 'titular_nombre', 'titular_rut')
+    list_display = ('institucion', 'numero_cuenta', 'owner_tipo', 'owner_display', 'modo_operativo', 'estado_operativo')
+    list_filter = ('estado_operativo', 'modo_operativo', 'moneda_operativa', 'institucion')
+    search_fields = ('institucion', 'numero_cuenta', 'titular_nombre', 'titular_rut', 'evidencia_operativa_ref')
 
 
 @admin.register(IdentidadDeEnvio)
