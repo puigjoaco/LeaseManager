@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 4 - SII/DTE: bloqueo de regimen fiscal no soportado para automatizacion tributaria v1. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` escenario transversal 16; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `SII`; `docs/product/STAGE_CARDS/ETAPA_4_SII_DTE.md`; `backend/sii`; `backend/core/stage4_sii_readiness.py`; `scripts/run-stage4-readiness-gate.ps1`. |
-| Brecha activa | Los servicios de generacion SII ya rechazan empresas fuera del regimen automatizable, pero la apertura de capacidades SII y readiness de snapshots no bloquean explicitamente una `ConfiguracionFiscalEmpresa` activa con regimen no soportado. |
-| Motivo de prioridad | Siguiente brecha local verificable que no depende de SII real, certificados, `.env`, secretos ni snapshot autorizado; reduce riesgo tributario antes de preparar cierres reales. |
-| Worktree | `D:/Proyectos/LeaseManager-stage4-unsupported-regime-guard`. |
-| Rama | `codex/stage4-unsupported-regime-guard`. |
-| Estado | En ejecucion local. |
-| Gate esperado | `scripts/run-stage4-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_stage4_sii=false` con fuente local; no cierra Etapa 4 sin ambiente SII/fuente autorizada y regla fiscal validada. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Falta ambiente SII real/controlado autorizado, evidencia de ledger, regla fiscal validada y responsable para cierre real de Etapa 4; no bloquea preparacion local. |
-| Politica de reanudacion | Si este worktree existe, continuar y cerrar este paquete antes de abrir otro frente. |
-| Siguiente accion | Validar modelo/API/readiness/docs, abrir PR, esperar CI, mergear y limpiar worktree. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 4 - SII/DTE: bloqueo de regimen fiscal no soportado para automatizacion tributaria v1. |
+| Fuente exacta | PR #217 (`Guard Stage 4 unsupported fiscal regimes`), commit `38758af`, merge `9af0f18`; `01_Set_Vigente/PRD_CANONICO.md` escenario transversal 16; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `SII`; `docs/product/STAGE_CARDS/ETAPA_4_SII_DTE.md`; `backend/sii`; `backend/core/stage4_sii_readiness.py`; `scripts/run-stage4-readiness-gate.ps1`. |
+| Brecha activa | Cerrada localmente: capacidades SII abiertas rechazan empresas con `ConfiguracionFiscalEmpresa` activa fuera del regimen automatizable del v1 y readiness Etapa 4 bloquea snapshots con esa condicion. |
+| Motivo de prioridad | Paquete seguro completado sin SII real, certificados, `.env`, secretos, DB historicas, datos reales, snapshots ni integraciones externas. |
+| Worktree | Ninguno. Solo debe quedar el worktree principal `D:/Proyectos/LeaseManager`. |
+| Rama | `main` sincronizada con `origin/main`. |
+| Estado | PR #217 integrado con CI `acceptance` verde; worktree tactico y rama local/remota eliminados. |
+| Gate esperado | `scripts/run-stage4-readiness-gate.ps1` sigue en `classification=parcial`, `ready_for_stage4_sii=false` con fuente local; no cierra Etapa 4 sin ambiente SII/fuente autorizada y regla fiscal validada. |
+| Estado al cerrar paquete | Preparacion local de Etapa 4 reforzada; cierre real de Etapa 4 sigue pendiente por fuentes/evidencia externas autorizadas. |
+| Bloqueos relacionados | Falta ambiente SII real/controlado autorizado, evidencia de ledger, regla fiscal validada y responsable para cierre real de Etapa 4; no bloquea preparacion local ni el siguiente frente seguro. |
+| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, diagnosticar el siguiente frente seguro segun trazabilidad y orden de construccion. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; elegir el siguiente paquete pequeno, seguro y verificable desde trazabilidad/stage cards. |
 
 ## Actualizacion
 
