@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 / Operacion - evidencia operativa de cuenta recaudadora activa. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 167-169; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/STAGE_CARDS/ETAPA_1_DATOS_REALES.md`. |
-| Brecha activa | `CuentaRecaudadora` activa valida owner y dependencias, pero no exige modo operativo/gate manual controlado ni evidencia trazable no sensible. |
-| Motivo de prioridad | PRD exige que una cuenta activa no baste por existir en tabla: debe declarar uso operativo, gate bancario o modo manual controlado y evidencia de conciliabilidad. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-account-operational-evidence`. |
-| Rama | `codex/stage1-account-operational-evidence`. |
-| Estado | Paquete tactico abierto para endurecer cuentas activas y cubrir API/auditor/evidencia. |
-| Gate esperado | Los gates externos siguen siendo condiciones de cierre real, no de preparacion local. |
-| Estado al cerrar paquete | PR #290 mergeado en `main` con merge `f491ad4`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
+| Frente activo | Ninguno. |
+| Fuente exacta | N/A; elegir el siguiente frente seguro desde PRD, trazabilidad y stage cards. |
+| Brecha activa | Ninguna en curso. |
+| Motivo de prioridad | El ultimo paquete fue cerrado; el proximo turno debe diagnosticar el repo y seleccionar el siguiente avance trazable. |
+| Worktree | N/A. |
+| Rama | `main`. |
+| Estado | Sin paquete tactico abierto; main debe permanecer limpio. |
+| Gate esperado | N/A hasta seleccionar el siguiente frente. |
+| Estado al cerrar paquete | PR #292 mergeado en `main` con merge `f84f115`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Implementar paquete acotado, validar proporcionalmente y cerrar con PR, CI, merge y limpieza. |
+| Siguiente accion | Elegir siguiente paquete seguro por trazabilidad, abrir worktree `codex/...` si es no trivial, validar proporcionalmente y cerrar con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 
