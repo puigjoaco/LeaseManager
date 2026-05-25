@@ -951,6 +951,66 @@ class PatrimonioAPITests(APITestCase):
         except ValidationError as error:
             self.fail(f'Future representation should not block deactivation: {error}')
 
+    def test_scheduled_representation_after_current_window_is_allowed(self):
+        socio_actual = self._create_socio('Socio Actual Programado', '11111111-1')
+        socio_futuro = self._create_socio('Socio Futuro Programado', '22222222-2')
+        today = timezone.localdate()
+        future_date = today + timedelta(days=30)
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Programable', estado=EstadoPatrimonial.ACTIVE)
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_actual,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde=today,
+            activo=True,
+        )
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+            socio_representante=socio_actual,
+            vigente_desde=today,
+            vigente_hasta=future_date - timedelta(days=1),
+            activo=True,
+        )
+        future_representation = RepresentacionComunidad(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio_futuro,
+            vigente_desde=future_date,
+            activo=True,
+        )
+
+        future_representation.full_clean()
+        future_representation.save()
+        comunidad.full_clean()
+
+        self.assertEqual(comunidad.representacion_vigente().socio_representante_id, socio_actual.id)
+        self.assertEqual(comunidad.representaciones.filter(activo=True).count(), 2)
+
+    def test_overlapping_active_representation_window_is_rejected(self):
+        socio_actual = self._create_socio('Socio Actual Solape', '11111111-1')
+        socio_futuro = self._create_socio('Socio Futuro Solape', '22222222-2')
+        today = timezone.localdate()
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Solape')
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio_actual,
+            vigente_desde=today,
+            activo=True,
+        )
+        overlapping_representation = RepresentacionComunidad(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio_futuro,
+            vigente_desde=today + timedelta(days=30),
+            activo=True,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            overlapping_representation.full_clean()
+        self.assertIn('vigente_desde', error.exception.message_dict)
+
 
 class PatrimonioScopeAPITests(APITestCase):
     def setUp(self):

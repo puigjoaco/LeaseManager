@@ -704,6 +704,30 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_active_community_overlapping_representation_windows_are_blocking(self):
+        self._create_valid_stage1_matrix()
+        comunidad = ComunidadPatrimonial.objects.get(nombre='Comunidad Controlada')
+        socio = Socio.objects.get(nombre='Socio Controlado Dos')
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio,
+            vigente_desde=timezone.localdate() + timedelta(days=30),
+            activo=True,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.representacion.validacion_modelo', issue_codes)
+        self.assertIn('stage1.comunidad.representacion_solapada', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['comunidades']['classification'],
+            'defectuoso',
+        )
+
     def test_active_participation_with_inactive_participant_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         socio = ParticipacionPatrimonial.objects.filter(
