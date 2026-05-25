@@ -622,6 +622,8 @@ type Contrato = {
   fecha_inicio: string
   fecha_fin_vigente: string
   fecha_entrega: string | null
+  entrega_llaves_autorizacion_ref: string
+  entrega_llaves_autorizacion_motivo: string
   fecha_registro_operativo: string | null
   terminacion_anticipada_prorrata_ref: string
   terminacion_anticipada_prorrata_motivo: string
@@ -1506,6 +1508,8 @@ function App() {
     fecha_inicio: todayIso(),
     fecha_fin_vigente: todayIso(),
     fecha_entrega: todayIso(),
+    entrega_llaves_autorizacion_ref: '',
+    entrega_llaves_autorizacion_motivo: '',
     terminacion_anticipada_prorrata_ref: '',
     terminacion_anticipada_prorrata_motivo: '',
     dia_pago_mensual: '5',
@@ -2106,6 +2110,8 @@ function App() {
       fecha_inicio: todayIso(),
       fecha_fin_vigente: todayIso(),
       fecha_entrega: todayIso(),
+      entrega_llaves_autorizacion_ref: '',
+      entrega_llaves_autorizacion_motivo: '',
       terminacion_anticipada_prorrata_ref: '',
       terminacion_anticipada_prorrata_motivo: '',
       dia_pago_mensual: '5',
@@ -3448,6 +3454,8 @@ function App() {
         fecha_inicio: contratoDraft.fecha_inicio,
         fecha_fin_vigente: contratoDraft.fecha_fin_vigente,
         fecha_entrega: contratoDraft.fecha_entrega || null,
+        entrega_llaves_autorizacion_ref: contratoDraft.entrega_llaves_autorizacion_ref,
+        entrega_llaves_autorizacion_motivo: contratoDraft.entrega_llaves_autorizacion_motivo,
         terminacion_anticipada_prorrata_ref: contratoDraft.terminacion_anticipada_prorrata_ref,
         terminacion_anticipada_prorrata_motivo: contratoDraft.terminacion_anticipada_prorrata_motivo,
         dia_pago_mensual: Number(contratoDraft.dia_pago_mensual),
@@ -3490,6 +3498,8 @@ function App() {
         fecha_inicio: todayIso(),
         fecha_fin_vigente: todayIso(),
         fecha_entrega: todayIso(),
+        entrega_llaves_autorizacion_ref: '',
+        entrega_llaves_autorizacion_motivo: '',
         terminacion_anticipada_prorrata_ref: '',
         terminacion_anticipada_prorrata_motivo: '',
         dia_pago_mensual: '5',
@@ -3737,6 +3747,8 @@ function App() {
       fecha_inicio: row.fecha_inicio,
       fecha_fin_vigente: row.fecha_fin_vigente,
       fecha_entrega: row.fecha_entrega || '',
+      entrega_llaves_autorizacion_ref: row.entrega_llaves_autorizacion_ref || '',
+      entrega_llaves_autorizacion_motivo: row.entrega_llaves_autorizacion_motivo || '',
       terminacion_anticipada_prorrata_ref: row.terminacion_anticipada_prorrata_ref || '',
       terminacion_anticipada_prorrata_motivo: row.terminacion_anticipada_prorrata_motivo || '',
       dia_pago_mensual: String(row.dia_pago_mensual),
@@ -3764,6 +3776,8 @@ function App() {
       fecha_inicio: todayIso(),
       fecha_fin_vigente: todayIso(),
       fecha_entrega: todayIso(),
+      entrega_llaves_autorizacion_ref: '',
+      entrega_llaves_autorizacion_motivo: '',
       terminacion_anticipada_prorrata_ref: '',
       terminacion_anticipada_prorrata_motivo: '',
       dia_pago_mensual: '5',

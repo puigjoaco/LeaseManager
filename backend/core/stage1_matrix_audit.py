@@ -1349,6 +1349,54 @@ def _audit_contract_identity_override(issues: list[dict[str, Any]], contrato: Co
         )
 
 
+def _guarantee_covers_key_delivery(garantia: GarantiaContractual) -> bool:
+    if garantia.monto_pactado <= Decimal('0.00'):
+        return True
+    return garantia.monto_recibido >= garantia.monto_pactado or garantia.garantia_parcial_aceptada
+
+
+def _audit_contract_key_delivery_authorization(
+    issues: list[dict[str, Any]],
+    contrato: Contrato,
+    garantia: GarantiaContractual | None,
+) -> None:
+    if not contrato.fecha_entrega:
+        return
+
+    if contrato.has_key_delivery_authorization():
+        if (
+            not is_non_sensitive_reference(contrato.entrega_llaves_autorizacion_ref)
+            or contains_sensitive_reference(contrato.entrega_llaves_autorizacion_motivo)
+        ):
+            _issue(
+                issues,
+                code='stage1.contrato.entrega_llaves_autorizacion_sensible',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message='Autorizacion de entrega de llaves contiene referencia o motivo sensible.',
+            )
+        return
+
+    if garantia is None:
+        _issue(
+            issues,
+            code='stage1.contrato.entrega_llaves_sin_garantia_autorizada',
+            entity='Contrato',
+            entity_id=contrato.pk,
+            message='Contrato con entrega de llaves registrada no tiene garantia cubierta ni autorizacion auditada.',
+        )
+        return
+
+    if not _guarantee_covers_key_delivery(garantia):
+        _issue(
+            issues,
+            code='stage1.contrato.entrega_llaves_garantia_no_cubierta',
+            entity='Contrato',
+            entity_id=contrato.pk,
+            message='Contrato con entrega de llaves registrada tiene garantia incompleta sin autorizacion auditada.',
+        )
+
+
 def _audit_guarantee_history_consistency(
     issues: list[dict[str, Any]],
     garantia: GarantiaContractual,
@@ -1868,6 +1916,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
 
         _audit_contract_periods(issues, contrato)
 
+        garantia = None
         try:
             garantia = contrato.garantia_contractual
         except GarantiaContractual.DoesNotExist:
@@ -1880,6 +1929,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
             )
         else:
             _audit_guarantee_history_consistency(issues, garantia)
+        _audit_contract_key_delivery_authorization(issues, contrato, garantia)
 
 
 def collect_stage1_matrix_audit(

@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent, ManualResolution
+from cobranza.models import EstadoGarantia, GarantiaContractual
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from operacion.models import (
@@ -614,6 +615,85 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(len(response.data['periodos_contractuales_detail']), 1)
         self.assertEqual(len(response.data['codeudores_solidarios_detail']), 1)
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
+
+    def test_update_delivery_date_requires_guarantee_or_authorization(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-DEL-BLOCK', owner_rut='11111111-1')
+        arrendatario = self._create_arrendatario()
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-DEL-BLOCK')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        contrato_id = create_response.data['id']
+
+        response = self.client.patch(
+            reverse('contratos-contrato-detail', args=[contrato_id]),
+            {'fecha_entrega': '2026-01-02'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('entrega_llaves_autorizacion_ref', response.data)
+
+    def test_update_delivery_date_accepts_audited_authorization(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-DEL-AUTH', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario()
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-DEL-AUTH')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        contrato_id = create_response.data['id']
+
+        response = self.client.patch(
+            reverse('contratos-contrato-detail', args=[contrato_id]),
+            {
+                'fecha_entrega': '2026-01-02',
+                'entrega_llaves_autorizacion_ref': 'acta-entrega-llaves-001',
+                'entrega_llaves_autorizacion_motivo': 'Autorizacion operativa aprobada por administracion.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        contrato = Contrato.objects.get(pk=contrato_id)
+        self.assertEqual(contrato.entrega_llaves_autorizacion_ref, 'acta-entrega-llaves-001')
+        self.assertEqual(contrato.fecha_entrega, date(2026, 1, 2))
+
+    def test_update_delivery_date_accepts_covered_guarantee(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-DEL-GAR', owner_rut='11111113-8')
+        arrendatario = self._create_arrendatario()
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-DEL-GAR')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        contrato = Contrato.objects.get(pk=create_response.data['id'])
+        GarantiaContractual.objects.create(
+            contrato=contrato,
+            monto_pactado=Decimal('500000.00'),
+            monto_recibido=Decimal('500000.00'),
+            estado_garantia=EstadoGarantia.HELD,
+            fecha_recepcion=date(2026, 1, 1),
+        )
+
+        response = self.client.patch(
+            reverse('contratos-contrato-detail', args=[contrato.pk]),
+            {'fecha_entrega': '2026-01-02'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_update_delivery_authorization_rejects_sensitive_reference(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-DEL-SENS', owner_rut='11111114-6')
+        arrendatario = self._create_arrendatario()
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-DEL-SENS')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        response = self.client.patch(
+            reverse('contratos-contrato-detail', args=[create_response.data['id']]),
+            {
+                'fecha_entrega': '2026-01-02',
+                'entrega_llaves_autorizacion_ref': 'https://secreto.local/token=abc',
+                'entrega_llaves_autorizacion_motivo': 'Autorizacion operativa.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('entrega_llaves_autorizacion_ref', response.data)
 
     def test_create_active_contract_requires_document_policy(self):
         mandato = self._create_active_mandato(codigo='MAND-101-POL-MISS', owner_rut='11111114-6')

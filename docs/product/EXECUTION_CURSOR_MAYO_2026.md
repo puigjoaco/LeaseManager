@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`; `docs/product/STAGE_CARDS/`; `01_Set_Vigente/PRD_CANONICO.md`. |
-| Brecha activa | Ninguna registrada en curso. |
-| Motivo de prioridad | El paquete de exceso de garantia contractual quedo cerrado en PR #286. |
-| Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
-| Rama | `main`. |
-| Estado | Sin paquete activo; listo para elegir el siguiente frente seguro por trazabilidad. |
+| Frente activo | Etapa 1 / Contratos - entrega de llaves con garantia o autorizacion auditada. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` linea 354; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/STAGE_CARDS/ETAPA_1_DATOS_REALES.md`. |
+| Brecha activa | `Contrato.fecha_entrega` no diferencia una entrega operativa autorizada de una entrega sin garantia cubierta ni excepcion auditada. |
+| Motivo de prioridad | PRD exige recibir garantia exigida o registrar excepcion antes de entregar llaves; la trazabilidad de Etapa 1 aun no cubre esa condicion. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-key-delivery-authorization`. |
+| Rama | `codex/stage1-key-delivery-authorization`. |
+| Estado | Paquete tactico abierto para agregar autorizacion no sensible, validacion API/backoffice, auditor Etapa 1 y evidencia. |
 | Gate esperado | Los gates externos siguen siendo condiciones de cierre real, no de preparacion local. |
 | Estado al cerrar paquete | PR #286 mergeado en `main` con merge `4b183f8`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Elegir el siguiente paquete seguro desde trazabilidad/cursor, abrir worktree `codex/...` si no es trivial, validar proporcionalmente y cerrar con PR, CI, merge y limpieza. |
+| Siguiente accion | Implementar paquete acotado, validar proporcionalmente y cerrar con PR, CI, merge y limpieza. |
 
 ## Actualizacion
 

@@ -282,6 +282,12 @@ class ContractsSnapshotView(APIView):
                         'fecha_inicio': item.fecha_inicio,
                         'fecha_fin_vigente': item.fecha_fin_vigente,
                         'fecha_entrega': item.fecha_entrega,
+                        'entrega_llaves_autorizacion_ref': redact_sensitive_reference(
+                            item.entrega_llaves_autorizacion_ref
+                        ),
+                        'entrega_llaves_autorizacion_motivo': (
+                            item.entrega_llaves_autorizacion_motivo or ''
+                        ),
                         'fecha_registro_operativo': item.fecha_registro_operativo,
                         'terminacion_anticipada_prorrata_ref': redact_sensitive_reference(
                             item.terminacion_anticipada_prorrata_ref
