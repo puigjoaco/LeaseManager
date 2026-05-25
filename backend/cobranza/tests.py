@@ -919,6 +919,7 @@ class CobranzaAPITests(APITestCase):
                 'tipo_movimiento': 'devolucion_parcial',
                 'monto_clp': '30000.00',
                 'fecha': '2026-12-31',
+                'movimiento_origen': deposit.data['id'],
                 'justificacion': 'Devolucion parcial',
             },
             format='json',
@@ -937,6 +938,7 @@ class CobranzaAPITests(APITestCase):
                 'tipo_movimiento': 'retencion_total',
                 'monto_clp': '70000.00',
                 'fecha': '2027-01-10',
+                'movimiento_origen': deposit.data['id'],
                 'justificacion': 'Aplicacion final',
             },
             format='json',
@@ -1145,6 +1147,116 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('anterior', response.data['detail'])
         self.assertEqual(garantia.historial_movimientos.count(), 1)
+
+    def test_guarantee_movement_rejects_derived_without_origin(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-NO-ORIGIN', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='50000.00')
+
+        deposit = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {'tipo_movimiento': 'deposito', 'monto_clp': '50000.00', 'fecha': '2026-01-10'},
+            format='json',
+        )
+        self.assertEqual(deposit.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {
+                'tipo_movimiento': 'devolucion_parcial',
+                'monto_clp': '10000.00',
+                'fecha': '2026-01-31',
+                'justificacion': 'Sin deposito trazado',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('movimiento_origen', response.data)
+        self.assertEqual(garantia.historial_movimientos.count(), 1)
+
+    def test_guarantee_movement_rejects_non_deposit_origin(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-NON-DEPOSIT', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='50000.00')
+
+        deposit = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {'tipo_movimiento': 'deposito', 'monto_clp': '50000.00', 'fecha': '2026-01-10'},
+            format='json',
+        )
+        self.assertEqual(deposit.status_code, status.HTTP_201_CREATED)
+        partial_return = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {
+                'tipo_movimiento': 'devolucion_parcial',
+                'monto_clp': '10000.00',
+                'fecha': '2026-01-31',
+                'movimiento_origen': deposit.data['id'],
+                'justificacion': 'Devolucion parcial trazada',
+            },
+            format='json',
+        )
+        self.assertEqual(partial_return.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {
+                'tipo_movimiento': 'retencion_parcial',
+                'monto_clp': '10000.00',
+                'fecha': '2026-02-01',
+                'movimiento_origen': partial_return.data['id'],
+                'justificacion': 'Origen no deposito',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('movimiento_origen', response.data)
+        self.assertEqual(garantia.historial_movimientos.count(), 2)
+
+    def test_guarantee_movement_rejects_derived_total_above_origin_deposit(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-ORIGIN-AMOUNT', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='100000.00')
+
+        deposit = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {'tipo_movimiento': 'deposito', 'monto_clp': '50000.00', 'fecha': '2026-01-10'},
+            format='json',
+        )
+        self.assertEqual(deposit.status_code, status.HTTP_201_CREATED)
+        second_deposit = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {'tipo_movimiento': 'deposito', 'monto_clp': '50000.00', 'fecha': '2026-01-11'},
+            format='json',
+        )
+        self.assertEqual(second_deposit.status_code, status.HTTP_201_CREATED)
+        partial_return = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {
+                'tipo_movimiento': 'devolucion_parcial',
+                'monto_clp': '40000.00',
+                'fecha': '2026-01-31',
+                'movimiento_origen': deposit.data['id'],
+                'justificacion': 'Devolucion parcial trazada',
+            },
+            format='json',
+        )
+        self.assertEqual(partial_return.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {
+                'tipo_movimiento': 'retencion_parcial',
+                'monto_clp': '20000.00',
+                'fecha': '2026-02-01',
+                'movimiento_origen': deposit.data['id'],
+                'justificacion': 'Excede deposito origen',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('monto_clp', response.data)
+        self.assertEqual(garantia.historial_movimientos.count(), 3)
 
     def test_adjustment_rejects_invalid_month_range(self):
         contrato = self._create_active_contract(codigo='CON-AJUSTE', monto_base='100000.00', code='111')

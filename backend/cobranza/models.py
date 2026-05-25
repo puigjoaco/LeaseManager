@@ -96,6 +96,14 @@ class TipoMovimientoGarantia(models.TextChoices):
     TOTAL_RETENTION = 'retencion_total', 'Retencion total'
 
 
+DERIVED_GUARANTEE_MOVEMENT_TYPES = {
+    TipoMovimientoGarantia.PARTIAL_RETURN,
+    TipoMovimientoGarantia.TOTAL_RETURN,
+    TipoMovimientoGarantia.PARTIAL_RETENTION,
+    TipoMovimientoGarantia.TOTAL_RETENTION,
+}
+
+
 class ResolucionExcesoGarantia(models.TextChoices):
     CLASSIFY = 'clasificar', 'Clasificar'
     REFUND = 'devolver', 'Devolver'
@@ -735,6 +743,17 @@ class HistorialGarantia(TimestampedModel):
 
     def clean(self):
         super().clean()
+        is_derived = self.tipo_movimiento in DERIVED_GUARANTEE_MOVEMENT_TYPES
+        if self.tipo_movimiento == TipoMovimientoGarantia.DEPOSIT and self.movimiento_origen_id:
+            raise ValidationError({'movimiento_origen': 'Un deposito de garantia no debe tener movimiento origen.'})
+        if is_derived and not self.movimiento_origen_id:
+            raise ValidationError(
+                {
+                    'movimiento_origen': (
+                        'Las devoluciones, retenciones o aplicaciones de garantia deben apuntar al deposito origen.'
+                    )
+                }
+            )
         if (
             self.movimiento_origen_id
             and self.garantia_contractual_id
@@ -743,12 +762,32 @@ class HistorialGarantia(TimestampedModel):
             raise ValidationError(
                 {'movimiento_origen': 'El movimiento origen debe pertenecer a la misma garantia contractual.'}
             )
+        if is_derived and self.movimiento_origen_id and self.movimiento_origen.tipo_movimiento != TipoMovimientoGarantia.DEPOSIT:
+            raise ValidationError(
+                {
+                    'movimiento_origen': (
+                        'El movimiento origen de una devolucion, retencion o aplicacion debe ser un deposito.'
+                    )
+                }
+            )
         movement_date = _coerce_date(self.fecha)
         origin_date = _coerce_date(self.movimiento_origen.fecha) if self.movimiento_origen_id else None
         if movement_date and origin_date and movement_date < origin_date:
             raise ValidationError(
                 {'fecha': 'La fecha del movimiento derivado no puede ser anterior al movimiento origen.'}
             )
+        if is_derived and self.movimiento_origen_id:
+            sibling_total = (
+                HistorialGarantia.objects.filter(movimiento_origen_id=self.movimiento_origen_id)
+                .exclude(pk=self.pk)
+                .aggregate(total=models.Sum('monto_clp'))
+                .get('total')
+                or Decimal('0.00')
+            )
+            if sibling_total + self.monto_clp > self.movimiento_origen.monto_clp:
+                raise ValidationError(
+                    {'monto_clp': 'Los movimientos derivados no pueden superar el monto del deposito origen.'}
+                )
 
 
 class RepactacionDeuda(TimestampedModel):
