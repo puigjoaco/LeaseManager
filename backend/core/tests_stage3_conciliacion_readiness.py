@@ -481,6 +481,28 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.balance_square.sensitive_reference', issue_codes)
         self.assertEqual(result['sections']['balance_squares']['sensitive_reference'], 1)
 
+    def test_balance_square_period_date_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-BALANCE-PERIOD')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        CuadraturaBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            periodo_economico='2026-01',
+            fecha_cuadratura=date(2026, 2, 1),
+            saldo_sistema_clp=Decimal('1000000.00'),
+            saldo_banco_clp=Decimal('1000000.00'),
+            estado=EstadoCuadraturaBancaria.SQUARED,
+            evidencia_cuadratura_ref='balance-square-stage3',
+            responsable_ref='stage3-balance-owner',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.balance_square.period_date_mismatch', issue_codes)
+        self.assertEqual(result['sections']['balance_squares']['period_date_mismatch'], 1)
+
     def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
         cuenta, payment = self._create_payment_matrix()
         conexion = self._create_ready_connection(cuenta)

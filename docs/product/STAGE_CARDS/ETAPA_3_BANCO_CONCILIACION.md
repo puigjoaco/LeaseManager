@@ -80,11 +80,12 @@ sistema igual a saldo banco.
   el saldo reportado previo aplicando abonos y cargos intermedios.
 - La cuadratura sistema/banco se registra por cuenta recaudadora y periodo en
   `CuadraturaBancaria`, con saldo sistema, saldo banco, diferencia calculada,
-  evidencia no sensible y responsable no sensible.
+  fecha de cuadratura alineada al periodo economico, evidencia no sensible y
+  responsable no sensible.
 - Las diferencias banco/sistema quedan registradas con motivo auditable, pero
   no habilitan cierre: readiness bloquea cuadraturas faltantes, invalidas, con
-  referencias sensibles, con diferencia distinta de cero o sin estado
-  `cuadrada`.
+  referencias sensibles, con periodo/fecha desalineados, con diferencia
+  distinta de cero o sin estado `cuadrada`.
 - Saldo sistema igual a saldo banco antes de habilitar cierre.
 
 ## Salida
