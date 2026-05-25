@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 4/6 - SII y Renta anual, configuracion fiscal activa en dominio. |
-| Fuente exacta | Stage cards Etapa 4/6/7, matriz de trazabilidad SII/Renta/Reporting, `backend/sii/models.py`, `backend/core/stage4_sii_readiness.py`, `backend/core/stage6_renta_anual_readiness.py`. |
-| Brecha activa | En curso: readiness detecta capacidades/artifacts SII y anuales de empresas sin `ConfiguracionFiscalEmpresa` activa; el dominio debe rechazar nuevas escrituras equivalentes via `full_clean()` y API. |
-| Motivo de prioridad | Brecha local trazable que endurece SII/Renta sin conectar SII, leer certificados, `.env`, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-sii-fiscal-config-domain`. |
-| Rama | `codex/stage6-sii-fiscal-config-domain`. |
-| Estado | Implementacion en curso. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 4/6 - SII y Renta anual, configuracion fiscal activa en dominio. |
+| Fuente exacta | PR #237 `Guard SII artifacts active fiscal config`; commit `fd37bd9`; merge `3230aff`; `backend/sii/models.py`; `backend/sii/tests.py`; stage cards, trazabilidad y evidencia actualizadas. |
+| Brecha activa | Cerrada localmente: capacidades SII abiertas, DTE, F29, ProcesoRentaAnual, DDJJ y F22 rechazan nuevas escrituras de empresas sin `ConfiguracionFiscalEmpresa` activa propia via `full_clean()` y API. |
+| Motivo de prioridad | Brecha local trazable cerrada sin conectar SII, leer certificados, `.env`, datos reales ni integraciones externas. |
+| Worktree | Ninguno. |
+| Rama | `main` sincronizada con `origin/main` tras PR #237. |
+| Estado | PR #237 integrado con CI remoto en verde; paquete tactico limpiado. |
 | Gate esperado | Etapa 6 local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, doce cierres/snapshot controlado, regla fiscal, respaldos y responsable tributario. |
-| Estado al cerrar paquete | Pendiente. |
+| Estado al cerrar paquete | Cerrado e integrado en `main` con validacion local y CI remoto. |
 | Bloqueos relacionados | Evidencia final autorizada, SII/control fiscal y responsable siguen siendo condicion de cierre, no requisito para este hardening local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 | Siguiente accion | Seleccionar el siguiente frente util desde stage cards, matriz de trazabilidad y PRD, abrir worktree `codex/...` si corresponde y avanzar con validaciones proporcionales. |
