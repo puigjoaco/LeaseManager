@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 / Garantias - movimientos derivados con deposito de origen. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 351-356; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/STAGE_CARDS/ETAPA_1_DATOS_REALES.md`. |
-| Brecha activa | Devoluciones, retenciones o aplicaciones de garantia pueden registrarse sin apuntar al deposito origen que justifican. |
-| Motivo de prioridad | PRD exige eventos auditables y no crear devoluciones/aplicaciones sin movimiento bancario, evidencia o resolucion trazable. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-guarantee-derived-origin`. |
-| Rama | `codex/stage1-guarantee-derived-origin`. |
-| Estado | Paquete tactico abierto para exigir origen en movimientos derivados de garantia y cubrir API/auditor/evidencia. |
+| Frente activo | Ninguno. |
+| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`; `docs/product/STAGE_CARDS/`; `01_Set_Vigente/PRD_CANONICO.md`. |
+| Brecha activa | Ninguna registrada en curso. |
+| Motivo de prioridad | El paquete de movimientos derivados de garantia con deposito origen quedo cerrado en PR #290. |
+| Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
+| Rama | `main`. |
+| Estado | Sin paquete activo; listo para elegir el siguiente frente seguro por trazabilidad. |
 | Gate esperado | Los gates externos siguen siendo condiciones de cierre real, no de preparacion local. |
-| Estado al cerrar paquete | PR #288 mergeado en `main` con merge `7322c4a`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
+| Estado al cerrar paquete | PR #290 mergeado en `main` con merge `f491ad4`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Implementar paquete acotado, validar proporcionalmente y cerrar con PR, CI, merge y limpieza. |
+| Siguiente accion | Elegir el siguiente paquete seguro desde trazabilidad/cursor, abrir worktree `codex/...` si no es trivial, validar proporcionalmente y cerrar con PR, CI, merge y limpieza. |
 
 ## Actualizacion
 
