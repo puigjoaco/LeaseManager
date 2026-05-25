@@ -6,8 +6,8 @@ from django.db import models
 from django.db.models import Q
 
 from cobranza.models import PagoMensual
-from contratos.models import Arrendatario, Contrato
-from documentos.models import DocumentoEmitido
+from contratos.models import Arrendatario, Contrato, is_international_phone_number
+from documentos.models import DocumentoEmitido, EstadoDocumento
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from operacion.models import (
     AsignacionCanalOperacion,
@@ -53,6 +53,33 @@ def normalize_notification_days(value):
 def has_non_sensitive_operational_ref(restrictions, keys):
     restrictions = restrictions or {}
     return any(is_non_sensitive_reference(restrictions.get(key, '')) for key in keys)
+
+
+def whatsapp_gate_has_approved_template(canal_mensajeria):
+    restrictions = canal_mensajeria.restricciones_operativas or {}
+    if contains_sensitive_reference(restrictions):
+        return False
+    return bool(restrictions.get('templates_aprobados')) or has_non_sensitive_operational_ref(
+        restrictions,
+        ('template_aprobado_ref', 'template_ref'),
+    )
+
+
+def document_delivery_blocking_reason(documento_emitido):
+    if not documento_emitido:
+        return ''
+    policy = documento_emitido.get_active_policy()
+    if not policy:
+        return ''
+    requires_formalization = (
+        policy.requiere_firma_arrendador
+        or policy.requiere_firma_arrendatario
+        or policy.requiere_codeudor
+        or policy.requiere_notaria
+    )
+    if requires_formalization and documento_emitido.estado != EstadoDocumento.FORMALIZED:
+        return 'El documento requiere formalizacion antes de enviarse por canales.'
+    return ''
 
 
 class TimestampedModel(models.Model):
@@ -276,22 +303,62 @@ class MensajeSaliente(TimestampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
         if self.identidad_envio_id and self.identidad_envio.canal != self.canal:
-            raise ValidationError({'identidad_envio': 'La identidad de envio debe pertenecer al mismo canal del mensaje.'})
+            errors['identidad_envio'] = 'La identidad de envio debe pertenecer al mismo canal del mensaje.'
         if self.canal_mensajeria.canal != self.canal:
-            raise ValidationError({'canal_mensajeria': 'El gate configurado debe corresponder al mismo canal del mensaje.'})
-        if (
-            self.estado == EstadoMensajeSaliente.SENT
-            and self.external_ref.strip()
-            and not is_non_sensitive_reference(self.external_ref)
-        ):
-            raise ValidationError(
-                {'external_ref': 'external_ref debe ser una referencia no sensible, no una URL, token o credencial.'}
-            )
+            errors['canal_mensajeria'] = 'El gate configurado debe corresponder al mismo canal del mensaje.'
+        if self.estado == EstadoMensajeSaliente.SENT:
+            if not self.external_ref.strip():
+                errors['external_ref'] = 'Mensaje enviado requiere external_ref trazable.'
+            elif not is_non_sensitive_reference(self.external_ref):
+                errors['external_ref'] = (
+                    'external_ref debe ser una referencia no sensible, no una URL, token o credencial.'
+                )
         if contains_sensitive_reference(self.provider_payload, include_sensitive_keys=True):
-            raise ValidationError(
-                {'provider_payload': 'provider_payload no debe contener URLs, tokens, credenciales ni correos.'}
-            )
+            errors['provider_payload'] = 'provider_payload no debe contener URLs, tokens, credenciales ni correos.'
+        if self.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}:
+            if self.canal_mensajeria.estado_gate != EstadoGateCanal.OPEN:
+                errors['canal_mensajeria'] = 'Mensaje preparado/enviado requiere gate de canal abierto.'
+            elif self.canal == CanalOperacion.EMAIL:
+                if not is_non_sensitive_reference(self.canal_mensajeria.evidencia_ref):
+                    errors['canal_mensajeria'] = 'Email preparado/enviado requiere evidencia_ref no sensible.'
+                elif not has_non_sensitive_operational_ref(
+                    self.canal_mensajeria.restricciones_operativas,
+                    EMAIL_READINESS_REF_KEYS,
+                ):
+                    errors['canal_mensajeria'] = 'Email preparado/enviado requiere prueba aislada trazable.'
+                elif not has_non_sensitive_operational_ref(
+                    self.canal_mensajeria.restricciones_operativas,
+                    EMAIL_CREDENTIAL_REF_KEYS,
+                ):
+                    errors['canal_mensajeria'] = 'Email preparado/enviado requiere credencial u OAuth validado.'
+            if not self.identidad_envio_id or self.identidad_envio.estado != EstadoIdentidadEnvio.ACTIVE:
+                errors['identidad_envio'] = 'Mensaje preparado/enviado requiere identidad activa.'
+            if not self.destinatario.strip():
+                errors['destinatario'] = 'Mensaje preparado/enviado requiere destinatario trazable.'
+            if self.contrato_id and self.contrato.mandato_operacion.estado != EstadoMandatoOperacion.ACTIVE:
+                errors['contrato'] = 'Mensaje preparado/enviado requiere mandato operativo activo.'
+            if self.canal == CanalOperacion.WHATSAPP:
+                tenant = self.arrendatario
+                if not tenant:
+                    errors['arrendatario'] = 'WhatsApp preparado/enviado requiere arrendatario trazable.'
+                elif tenant.whatsapp_bloqueado:
+                    errors['arrendatario'] = 'WhatsApp preparado/enviado no acepta contacto bloqueado.'
+                elif not tenant.whatsapp_opt_in:
+                    errors['arrendatario'] = 'WhatsApp preparado/enviado requiere opt-in operativo.'
+                elif not tenant.whatsapp_opt_in_evidencia_ref.strip():
+                    errors['arrendatario'] = 'WhatsApp preparado/enviado requiere evidencia de opt-in.'
+                elif not is_non_sensitive_reference(tenant.whatsapp_opt_in_evidencia_ref):
+                    errors['arrendatario'] = 'WhatsApp preparado/enviado requiere evidencia de opt-in no sensible.'
+                elif not is_international_phone_number(tenant.telefono):
+                    errors['arrendatario'] = 'WhatsApp preparado/enviado requiere telefono internacional.'
+                elif not whatsapp_gate_has_approved_template(self.canal_mensajeria):
+                    errors['canal_mensajeria'] = 'WhatsApp preparado/enviado requiere template aprobado.'
+            if reason := document_delivery_blocking_reason(self.documento_emitido):
+                errors['documento_emitido'] = reason
+        if errors:
+            raise ValidationError(errors)
 
 
 class NotificacionCobranzaProgramada(TimestampedModel):

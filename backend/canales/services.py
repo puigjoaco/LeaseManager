@@ -5,10 +5,9 @@ from django.db import transaction
 from django.utils import timezone
 
 from audit.models import ManualResolution
-from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.reference_validation import is_non_sensitive_reference
 from cobranza.models import EstadoPago
 from contratos.models import Arrendatario, Contrato, is_international_phone_number
-from documentos.models import EstadoDocumento
 from operacion.models import AsignacionCanalOperacion, CanalOperacion, EstadoIdentidadEnvio, EstadoMandatoOperacion
 
 from .models import (
@@ -21,7 +20,9 @@ from .models import (
     EstadoNotificacionCobranza,
     MensajeSaliente,
     NotificacionCobranzaProgramada,
+    document_delivery_blocking_reason,
     has_non_sensitive_operational_ref,
+    whatsapp_gate_has_approved_template,
 )
 
 
@@ -131,16 +132,6 @@ def is_within_whatsapp_window(now=None):
     return WHATSAPP_WINDOW_START_HOUR <= current_time.hour < WHATSAPP_WINDOW_END_HOUR
 
 
-def whatsapp_gate_has_approved_template(canal_mensajeria):
-    restrictions = canal_mensajeria.restricciones_operativas or {}
-    if contains_sensitive_reference(restrictions):
-        return False
-    return bool(restrictions.get('templates_aprobados')) or has_non_sensitive_operational_ref(
-        restrictions,
-        ('template_aprobado_ref', 'template_ref'),
-    )
-
-
 def whatsapp_blocking_reason(arrendatario, canal_mensajeria):
     if not arrendatario:
         return ''
@@ -170,23 +161,6 @@ def email_readiness_blocking_reason(canal_mensajeria):
         return 'Email requiere prueba aislada de envio no sensible registrada en el gate.'
     if not has_non_sensitive_operational_ref(canal_mensajeria.restricciones_operativas, EMAIL_CREDENTIAL_REF_KEYS):
         return 'Email requiere referencia OAuth o credencial validada no sensible en el gate.'
-    return ''
-
-
-def document_delivery_blocking_reason(documento_emitido):
-    if not documento_emitido:
-        return ''
-    policy = documento_emitido.get_active_policy()
-    if not policy:
-        return ''
-    requires_formalization = (
-        policy.requiere_firma_arrendador
-        or policy.requiere_firma_arrendatario
-        or policy.requiere_codeudor
-        or policy.requiere_notaria
-    )
-    if requires_formalization and documento_emitido.estado != EstadoDocumento.FORMALIZED:
-        return 'El documento requiere formalizacion antes de enviarse por canales.'
     return ''
 
 
