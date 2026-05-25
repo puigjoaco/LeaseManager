@@ -69,6 +69,11 @@ def _audit_event_has_sensitive_metadata(event: AuditEvent) -> bool:
     )
 
 
+def _is_sha256_hex_digest(value: str) -> bool:
+    candidate = value.strip()
+    return len(candidate) == 64 and all(char in '0123456789abcdefABCDEF' for char in candidate)
+
+
 def _collect_export_issues(exports, now) -> dict[str, int]:
     counts = Counter()
     max_expiry_seconds = MAX_EXPORT_DAYS * 24 * 60 * 60
@@ -88,7 +93,7 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
             counts['created_by_missing'] += 1
         if not export.encrypted_payload.strip() or not export.payload_hash.strip() or not export.encrypted_ref.strip():
             counts['integrity_fields_missing'] += 1
-        if len(export.payload_hash.strip()) != 64:
+        if not _is_sha256_hex_digest(export.payload_hash):
             counts['payload_hash_invalid'] += 1
         if export.estado == EstadoExportacionSensible.PREPARED:
             if not export.hold_activo and export.expires_at <= now:
