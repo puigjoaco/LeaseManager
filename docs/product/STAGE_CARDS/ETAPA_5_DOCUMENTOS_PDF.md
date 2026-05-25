@@ -21,6 +21,9 @@ firma y notaria trazables.
   SHA-256 canonico, no una etiqueta libre. `DocumentoEmitido.clean()` bloquea
   nuevas escrituras sin `usuario` responsable y readiness conserva la deteccion
   de documentos heredados sin responsable.
+- Cada documento emitido debe tener politica activa para su tipo documental;
+  el dominio/API rechaza nuevas escrituras sin esa politica y evita desactivar
+  politicas ya usadas por documentos existentes.
 - APIs y snapshot documental deben redactar `storage_ref` sensible heredado
   antes de exponer documentos al backoffice.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
@@ -46,6 +49,8 @@ firma y notaria trazables.
   faltantes antes de declarar cierre.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   documentos emitidos sin `usuario` responsable registrado.
+- Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
+  documentos heredados sin politica activa para su tipo documental.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   checksums heredados no canonicos, sin exponer el valor.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta

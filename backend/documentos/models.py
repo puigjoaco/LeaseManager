@@ -117,12 +117,22 @@ class PoliticaFirmaYNotaria(TimestampedModel):
                 raise ValidationError(
                     'El ContratoPrincipal requiere firma de arrendador y arrendatario.'
                 )
-            return
+        if (
+            self.pk
+            and self.estado != EstadoPoliticaFirma.ACTIVE
+            and DocumentoEmitido.objects.filter(tipo_documental=self.tipo_documental).exists()
+        ):
+            raise ValidationError(
+                {'estado': 'No se puede desactivar una politica usada por documentos emitidos.'}
+            )
 
         if (
-            self.requiere_nacionalidad_arrendatario
-            or self.requiere_estado_civil_arrendatario
-            or self.requiere_profesion_arrendatario
+            self.tipo_documental != TipoDocumental.MAIN_CONTRACT
+            and (
+                self.requiere_nacionalidad_arrendatario
+                or self.requiere_estado_civil_arrendatario
+                or self.requiere_profesion_arrendatario
+            )
         ):
             raise ValidationError(
                 'Los requisitos documentales del arrendatario persona natural solo aplican al contrato principal.'
@@ -192,6 +202,8 @@ class DocumentoEmitido(TimestampedModel):
             )
         if not self.usuario_id:
             raise ValidationError({'usuario': 'Documento emitido requiere usuario responsable de carga.'})
+        if not self.get_active_policy():
+            raise ValidationError({'tipo_documental': 'Documento emitido requiere politica activa para su tipo documental.'})
         if self.comprobante_notarial_id and self.comprobante_notarial.tipo_documental != TipoDocumental.NOTARY_RECEIPT:
             raise ValidationError({'comprobante_notarial': 'El comprobante vinculado debe ser un comprobante notarial.'})
         if self.comprobante_notarial_id and self.pk and self.comprobante_notarial_id == self.pk:

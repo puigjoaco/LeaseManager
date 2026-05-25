@@ -21,7 +21,14 @@ from contabilidad.models import (
 )
 from contabilidad.services import ensure_default_regime
 from core.stage6_renta_anual_readiness import collect_stage6_renta_anual_readiness
-from documentos.models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, OrigenDocumento, TipoDocumental
+from documentos.models import (
+    DocumentoEmitido,
+    EstadoDocumento,
+    ExpedienteDocumental,
+    OrigenDocumento,
+    PoliticaFirmaYNotaria,
+    TipoDocumental,
+)
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import (
     AmbienteSII,
@@ -136,6 +143,17 @@ class Stage6RentaAnualReadinessTests(TestCase):
         }
 
     def _create_tax_support_document(self, process):
+        PoliticaFirmaYNotaria.objects.get_or_create(
+            tipo_documental=TipoDocumental.TAX_SUPPORT,
+            defaults={
+                'requiere_firma_arrendador': False,
+                'requiere_firma_arrendatario': False,
+                'requiere_codeudor': False,
+                'requiere_notaria': False,
+                'modo_firma_permitido': 'firma_simple',
+                'estado': 'activa',
+            },
+        )
         expediente = ExpedienteDocumental.objects.create(
             entidad_tipo='proceso_renta_anual',
             entidad_id=str(process.pk),
