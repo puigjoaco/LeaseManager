@@ -22,13 +22,13 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 2 - Canales, readiness operacional de mensajes salientes en dominio. |
-| Fuente exacta | PR #241 `Guard outbound message operational readiness`; commit `62cf636`; merge `63450b3`; `backend/canales/models.py`; `backend/canales/services.py`; `backend/canales/tests.py`; stage card Etapa 2, trazabilidad y evidencia actualizadas. |
-| Brecha activa | Cerrada localmente: `MensajeSaliente.clean()` rechaza mensajes `preparado`/`enviado` sin readiness operacional y mensajes enviados sin `external_ref` trazable no sensible. |
-| Motivo de prioridad | Hardening trazable de Canales completado sin Email/WhatsApp/WebPay reales, `.env`, secretos ni datos reales. |
-| Worktree | Ninguno. |
-| Rama | `main` sincronizada tras PR #241. |
-| Estado | Paquete integrado en main con CI verde; worktree tactico eliminado. |
+| Frente activo | Etapa 2 - Canales, programacion de notificaciones con configuracion activa. |
+| Fuente exacta | Stage card Etapa 2; matriz de trazabilidad CobranzaActiva; `backend/canales/models.py`; `backend/canales/tests.py`; `backend/core/stage2_cobranza_readiness.py`. |
+| Brecha activa | En curso: `NotificacionCobranzaProgramada` debe rechazar recordatorios ligados a una `ConfiguracionNotificacionContrato` inactiva y readiness debe bloquear snapshots heredados equivalentes. |
+| Motivo de prioridad | Hardening local de Canales: evita que cadencias desactivadas sigan soportando programaciones cobrables sin tocar Email/WhatsApp/WebPay reales, `.env`, secretos ni datos reales. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-notification-active-config`. |
+| Rama | `codex/stage2-notification-active-config`. |
+| Estado | En implementacion y validacion local. |
 | Gate esperado | Etapa 2 local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, evidencia Etapa 1 y pruebas Email/WebPay controladas. |
 | Estado al cerrar paquete | Cerrado e integrado en main con validacion local, acceptance local y CI remoto. |
 | Bloqueos relacionados | Evidencia Etapa 1, prueba externa real/controlada de Email/WebPay y responsables siguen siendo condicion de cierre real de Etapa 2. |
