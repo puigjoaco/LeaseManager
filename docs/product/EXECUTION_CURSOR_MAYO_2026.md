@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 0 - Compliance datos sensibles: estado expirado terminal y coherente. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`. |
-| Brecha activa | El servicio bloquea expiracion por fecha, pero un registro heredado/manual marcado `expirada` con vencimiento futuro o hold activo debe quedar terminal para descarga y visible como inconsistencia en readiness. |
-| Motivo de prioridad | Es una brecha local segura de Stage 0 Compliance: protege exports sensibles ya marcados como expirados sin usar fuentes externas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-expired-export-state`. |
-| Rama | `codex/compliance-expired-export-state`. |
-| Estado | Paquete tactico abierto desde `main` limpio en `3d5fa3c`; implementacion y validacion en curso. |
-| Gate esperado | `scripts/run-compliance-data-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada y refs finales. |
-| Estado al cerrar paquete | Pendiente. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 0 - Compliance estado expirado terminal y coherente. |
+| Fuente exacta | PR #209 `Guard compliance expired export state`, commit `eac8eeb`, merge `2466e8c`, desde `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`, `backend/compliance`, `backend/core/compliance_data_readiness.py` y `scripts/run-compliance-data-readiness-gate.ps1`. |
+| Brecha activa | Cerrada localmente: `expirada` es terminal para descarga, el modelo rechaza estado expirado con vencimiento futuro o hold activo y readiness reporta exportaciones heredadas inconsistentes. |
+| Motivo de prioridad | Compliance Stage 0 es preparacion base para datos sensibles y puede endurecerse con datos sinteticos/locales sin usar fuentes externas. |
+| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
+| Rama | `main` sincronizada; sin rama tactica activa. |
+| Estado | PR #209 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
+| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra `Compliance.DatosPersonalesChile2026` sin fuente autorizada y refs finales. |
 | Bloqueos relacionados | Falta fuente `snapshot_controlado` o `real_autorizado`, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa no sensibles para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea preparacion local. |
-| Politica de reanudacion | Continuar este paquete desde el worktree indicado; si esta cerrado, volver a `main` limpio y seleccionar el siguiente frente trazable. |
-| Siguiente accion | Implementar, validar, documentar evidencia/trazabilidad, empaquetar PR, esperar CI, mergear y limpiar worktree/rama. |
+| Politica de reanudacion | Si no hay paquete abierto, partir desde `main` limpio y elegir el siguiente frente trazable por AGENTS.md, PRD canonico, stage cards, matriz y evidencia. |
+| Siguiente accion | Seleccionar el siguiente paquete util y seguro desde `main` limpio. |
 
 ## Actualizacion
 
