@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 0 - Compliance datos sensibles: auditoria de acceso denegado a exportaciones. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`. |
-| Brecha activa | Los accesos fallidos a contenido de exportaciones revocadas o expiradas devuelven error, pero no dejan evento auditable especifico del intento denegado. |
-| Motivo de prioridad | Es una brecha local segura de Stage 0 Compliance: todo acceso a datos sensibles debe quedar trazado sin exponer payloads. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-denied-export-audit`. |
-| Rama | `codex/compliance-denied-export-audit`. |
-| Estado | Paquete tactico abierto desde `main` limpio en `c17a59e`; implementacion y validacion en curso. |
-| Gate esperado | `scripts/run-compliance-data-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada y refs finales. |
-| Estado al cerrar paquete | Pendiente. |
+| Frente activo | Ninguno; ultimo paquete cerrado: Etapa 0 - Compliance datos sensibles: auditoria de acceso denegado a exportaciones. |
+| Fuente exacta | PR #211 `Audit denied compliance export access`; commit `daf6a64`; merge `e7d0dac`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`. |
+| Brecha activa | Cerrada localmente: los accesos fallidos a contenido de exportaciones revocadas o expiradas registran `compliance.exportacion_sensible.access_denied` sin exponer payloads. |
+| Motivo de prioridad | Paquete integrado; no hay worktree tactico abierto para este frente. |
+| Worktree | Ninguno. |
+| Rama | `main` sincronizada tras merge `e7d0dac`. |
+| Estado | PR #211 integrado con CI `acceptance` verde; worktree `D:/Proyectos/LeaseManager-compliance-denied-export-audit` eliminado y rama tactica local/remota eliminada. |
+| Gate esperado | Compliance datos sensibles sigue en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada y refs finales. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; avance local preparado, sin cierre real de Compliance. |
 | Bloqueos relacionados | Falta fuente `snapshot_controlado` o `real_autorizado`, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa no sensibles para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea preparacion local. |
-| Politica de reanudacion | Continuar este paquete desde el worktree indicado; si esta cerrado, volver a `main` limpio y seleccionar el siguiente frente trazable. |
-| Siguiente accion | Implementar, validar, documentar evidencia/trazabilidad, empaquetar PR, esperar CI, mergear y limpiar worktree/rama. |
+| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, seleccionar el siguiente frente util, seguro y trazable desde la matriz/PRD/arquitectura. |
+| Siguiente accion | Diagnosticar el siguiente paquete local cerrable y abrir worktree `codex/...` solo si el cambio no es trivial. |
 
 ## Actualizacion
 
