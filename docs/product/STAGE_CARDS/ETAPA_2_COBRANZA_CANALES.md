@@ -35,7 +35,8 @@ condicionados sin envios reales accidentales.
   incompletitud y aceptacion parcial.
 - Envio externo cerrado por defecto.
 - Prueba aislada de correos/WebPay con referencias no sensibles.
-- Evidencia de auditoria por operacion critica.
+- Evidencia de auditoria por operacion critica; mensajes en estado `enviado`
+  deben conservar evento auditable de envio manual.
 - Registro manual de envio solo con `external_ref` trazable no sensible y
   revalidacion del gate abierto, identidad activa, destinatario y mandato
   operativo activo.
@@ -104,7 +105,8 @@ condicionados sin envios reales accidentales.
   snapshot de Canales, sin abrir integraciones externas. Los mensajes
   salientes rechazan nuevas escrituras con `provider_payload` que contenga
   URLs, tokens, credenciales, correos o claves sensibles y tambien rechazan
-  mensajes enviados sin `external_ref` no sensible o sin timestamp de envio.
+  mensajes enviados sin `external_ref` no sensible, sin timestamp de envio o
+  sin evento auditable de envio manual.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   estados de cuenta, identidades/asignaciones de canal, gates
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,

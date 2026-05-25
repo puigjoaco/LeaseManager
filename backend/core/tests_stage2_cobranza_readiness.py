@@ -668,6 +668,62 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.message.sent_without_timestamp', issue_codes)
         self.assertEqual(result['sections']['messages']['sent_without_timestamp'], 1)
 
+    def test_sent_message_without_audit_event_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        MensajeSaliente.objects.create(
+            canal=CanalOperacion.EMAIL,
+            canal_mensajeria=email_gate,
+            identidad_envio=fixture['identity'],
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario=fixture['tenant'].email,
+            asunto='Aviso',
+            cuerpo='Cobranza controlada',
+            estado=EstadoMensajeSaliente.SENT,
+            external_ref='email-provider-controlled-001',
+            enviado_at=timezone.now(),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.message.sent_without_audit_event', issue_codes)
+        self.assertEqual(result['sections']['messages']['sent_without_audit_event'], 1)
+
+    def test_sent_message_with_audit_event_is_accepted(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        message = MensajeSaliente.objects.create(
+            canal=CanalOperacion.EMAIL,
+            canal_mensajeria=email_gate,
+            identidad_envio=fixture['identity'],
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario=fixture['tenant'].email,
+            asunto='Aviso',
+            cuerpo='Cobranza controlada',
+            estado=EstadoMensajeSaliente.SENT,
+            external_ref='email-provider-controlled-001',
+            enviado_at=timezone.now(),
+        )
+        AuditEvent.objects.create(
+            event_type='canales.mensaje_saliente.sent_manually',
+            entity_type='mensaje_saliente',
+            entity_id=str(message.pk),
+            summary='Envio manual registrado',
+            metadata={'external_ref': 'email-provider-controlled-001'},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertNotIn('stage2.message.sent_without_audit_event', issue_codes)
+        self.assertNotIn('stage2.message.sent_without_timestamp', issue_codes)
+
     def test_prepared_message_with_unformalized_required_document_is_blocking(self):
         fixture = self._create_payment_matrix()
         email_gate = self._create_valid_email_gate()
