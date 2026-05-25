@@ -31,6 +31,7 @@ from cobranza.models import (
     EstadoPago,
     GateCobroExterno,
     IntentoPagoWebPay,
+    PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
     PagoMensual,
     RepactacionDeuda,
 )
@@ -79,6 +80,41 @@ def _count_invalid(queryset) -> int:
         except ValidationError:
             invalid_count += 1
     return invalid_count
+
+
+def _partial_repayment_exception_event_is_complete(repayment: RepactacionDeuda) -> bool:
+    if not repayment.es_repactacion_parcial:
+        return True
+    events = AuditEvent.objects.filter(
+        event_type=PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
+        entity_type='repactacion_deuda',
+        entity_id=str(repayment.pk),
+    )
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if not event.actor_user_id and not event.actor_identifier.strip():
+            continue
+        if str(metadata.get('excepcion_parcial_ref') or '').strip() != repayment.excepcion_parcial_ref.strip():
+            continue
+        if not _non_sensitive_reference(metadata.get('excepcion_parcial_ref') or ''):
+            continue
+        return True
+    return False
+
+
+def _collect_repayment_issues(repayments) -> dict[str, int]:
+    counts = Counter()
+    for repayment in repayments:
+        try:
+            repayment.full_clean()
+        except ValidationError:
+            counts['invalid_model'] += 1
+        if repayment.es_repactacion_parcial:
+            if not repayment.tiene_excepcion_parcial:
+                counts['partial_without_exception'] += 1
+            elif not _partial_repayment_exception_event_is_complete(repayment):
+                counts['partial_without_audit_event'] += 1
+    return dict(sorted(counts.items()))
 
 
 def _count_by(queryset, field_name: str) -> dict[str, int]:
@@ -518,7 +554,8 @@ def collect_stage2_cobranza_readiness(
     payment_overdue_issues = _collect_payment_overdue_issues(payments, reference_date)
     payments_total = payments.count()
     repayments = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen')
-    invalid_repayments = _count_invalid(repayments)
+    repayment_issues = _collect_repayment_issues(repayments)
+    invalid_repayments = repayment_issues.get('invalid_model', 0)
     residual_codes = CodigoCobroResidual.objects.select_related('arrendatario', 'contrato_origen')
     invalid_residual_codes = _count_invalid(residual_codes)
     account_state_required_tenant_ids = {
@@ -596,6 +633,22 @@ def collect_stage2_cobranza_readiness(
                 'stage2.repayment.invalid_model',
                 'Existen repactaciones de deuda que no pasan validacion de dominio.',
                 count=invalid_repayments,
+            )
+        )
+    if repayment_issues.get('partial_without_exception'):
+        issues.append(
+            _issue(
+                'stage2.repayment.partial_without_exception',
+                'Existen repactaciones parciales sin excepcion formal y motivo auditable.',
+                count=repayment_issues['partial_without_exception'],
+            )
+        )
+    if repayment_issues.get('partial_without_audit_event'):
+        issues.append(
+            _issue(
+                'stage2.repayment.partial_without_audit_event',
+                'Existen repactaciones parciales cuya excepcion formal no tiene evento auditable con actor.',
+                count=repayment_issues['partial_without_audit_event'],
             )
         )
     if invalid_residual_codes:
@@ -1048,7 +1101,7 @@ def collect_stage2_cobranza_readiness(
                 'active': repayments.filter(estado='activa').count(),
                 'completed': repayments.filter(estado='cumplida').count(),
                 'by_state': _count_by(repayments, 'estado'),
-                'invalid_model': invalid_repayments,
+                **repayment_issues,
             },
             'residual_codes': {
                 'total': residual_codes.count(),

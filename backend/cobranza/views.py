@@ -21,12 +21,17 @@ from contratos.models import Arrendatario, Contrato
 
 from .models import (
     AjusteContrato,
+    CodigoCobroResidual,
     DistribucionCobroMensual,
+    EstadoCuentaArrendatario,
+    EstadoPago,
     GateCobroExterno,
     GarantiaContractual,
     HistorialGarantia,
     IntentoPagoWebPay,
+    PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
     PagoMensual,
+    RepactacionDeuda,
     ValorUFDiario,
 )
 from .serializers import (
@@ -58,7 +63,40 @@ from .services import (
     sync_payment_distribution,
     sync_payment_state,
 )
-from .models import CodigoCobroResidual, EstadoCuentaArrendatario, EstadoPago, RepactacionDeuda
+
+
+def _partial_repayment_exception_trace(instance):
+    if not isinstance(instance, RepactacionDeuda) or not instance.es_repactacion_parcial:
+        return ''
+    return '|'.join(
+        [
+            str(instance.pk or ''),
+            instance.excepcion_parcial_ref.strip(),
+            instance.excepcion_parcial_motivo.strip(),
+            str(instance.monto_total_plan_clp),
+            str(instance.deuda_total_original),
+        ]
+    )
+
+
+def create_partial_repayment_exception_event(instance, request):
+    if not instance.es_repactacion_parcial:
+        return
+    create_audit_event(
+        event_type=PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
+        entity_type='repactacion_deuda',
+        entity_id=str(instance.pk),
+        summary=f'Repactacion parcial autorizada para arrendatario {instance.arrendatario_id}',
+        actor_user=request.user,
+        ip_address=request.META.get('REMOTE_ADDR'),
+        metadata={
+            'arrendatario_id': instance.arrendatario_id,
+            'contrato_id': instance.contrato_origen_id,
+            'deuda_total_original': str(instance.deuda_total_original),
+            'monto_total_plan_clp': str(instance.monto_total_plan_clp),
+            'excepcion_parcial_ref': instance.excepcion_parcial_ref.strip(),
+        },
+    )
 
 
 class AuditCreateUpdateMixin:
@@ -68,12 +106,18 @@ class AuditCreateUpdateMixin:
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
+            if isinstance(instance, RepactacionDeuda):
+                create_partial_repayment_exception_event(instance, self.request)
         self._create_audit_event(instance=instance, action='created')
 
     def perform_update(self, serializer):
         previous_state = self._extract_state(serializer.instance)
+        previous_repayment_trace = _partial_repayment_exception_trace(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
+            current_repayment_trace = _partial_repayment_exception_trace(instance)
+            if isinstance(instance, RepactacionDeuda) and current_repayment_trace and current_repayment_trace != previous_repayment_trace:
+                create_partial_repayment_exception_event(instance, self.request)
         self._create_audit_event(instance=instance, action='updated')
         if previous_state != self._extract_state(instance):
             self._create_audit_event(

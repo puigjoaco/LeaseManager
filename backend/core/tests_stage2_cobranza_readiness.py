@@ -29,6 +29,7 @@ from cobranza.models import (
     EstadoPago,
     GateCobroExterno,
     IntentoPagoWebPay,
+    PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
     PagoMensual,
     RepactacionDeuda,
 )
@@ -494,6 +495,81 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertEqual(result['sections']['repayments']['total'], 1)
         self.assertEqual(result['sections']['repayments']['active'], 1)
         self.assertEqual(result['sections']['repayments']['invalid_model'], 1)
+
+    def test_partial_repayment_without_exception_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        RepactacionDeuda.objects.create(
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            deuda_total_original=Decimal('50000.00'),
+            cantidad_cuotas=4,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('40000.00'),
+            estado='activa',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.repayment.partial_without_exception', issue_codes)
+        self.assertEqual(result['sections']['repayments']['partial_without_exception'], 1)
+
+    def test_partial_repayment_without_audit_event_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        RepactacionDeuda.objects.create(
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            deuda_total_original=Decimal('50000.00'),
+            cantidad_cuotas=4,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('40000.00'),
+            estado='activa',
+            excepcion_parcial_ref='partial-repayment-exception-2026-01',
+            excepcion_parcial_motivo='Excepcion formal autorizada por acuerdo operativo controlado.',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.repayment.partial_without_audit_event', issue_codes)
+        self.assertEqual(result['sections']['repayments']['partial_without_audit_event'], 1)
+
+    def test_partial_repayment_with_audit_event_can_pass_repayment_gate(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            deuda_total_original=Decimal('50000.00'),
+            cantidad_cuotas=4,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('40000.00'),
+            estado='activa',
+            excepcion_parcial_ref='partial-repayment-exception-2026-01',
+            excepcion_parcial_motivo='Excepcion formal autorizada por acuerdo operativo controlado.',
+        )
+        AuditEvent.objects.create(
+            event_type=PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
+            entity_type='repactacion_deuda',
+            entity_id=str(repayment.pk),
+            summary='Repactacion parcial autorizada.',
+            actor_identifier='stage2-operator',
+            metadata={'excepcion_parcial_ref': 'partial-repayment-exception-2026-01'},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertNotIn('stage2.repayment.partial_without_exception', issue_codes)
+        self.assertNotIn('stage2.repayment.partial_without_audit_event', issue_codes)
+        self.assertNotIn('stage2.repayment.invalid_model', issue_codes)
 
     def test_valid_local_matrix_and_refs_prepare_but_do_not_close_readiness(self):
         self._create_payment_matrix()
