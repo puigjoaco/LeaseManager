@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-25: Conciliacion acota el match exacto automatico de pagos al
+periodo economico del movimiento bancario. Un abono de otro mes ya no cierra
+automaticamente un `PagoMensual` aunque coincidan cuenta y monto; queda como
+ingreso desconocido/manual. Readiness Etapa 3 bloquea snapshots heredados con
+movimientos conciliados exactos apuntando a pagos de otro periodo.
+
 Nota 2026-05-25: CobranzaActiva calcula y persiste `score_pago` al recalcular
 `EstadoCuentaArrendatario`, expone porcentaje, meses evaluados, pagos en plazo
 y pagos fuera de plazo en `resumen_operativo`, y readiness Etapa 2 reporta

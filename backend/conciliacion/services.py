@@ -233,6 +233,8 @@ def reconcile_exact_movement(movimiento):
     payment_matches = list(
         PagoMensual.objects.filter(
             contrato__mandato_operacion__cuenta_recaudadora=movimiento.conexion_bancaria.cuenta_recaudadora,
+            anio=movimiento.fecha_movimiento.year,
+            mes=movimiento.fecha_movimiento.month,
             monto_calculado_clp=movimiento.monto,
             estado_pago__in=[EstadoPago.PENDING, EstadoPago.OVERDUE],
         ).select_related('contrato')

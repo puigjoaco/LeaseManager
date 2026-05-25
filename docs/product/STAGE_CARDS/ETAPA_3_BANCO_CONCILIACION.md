@@ -28,7 +28,9 @@ sistema igual a saldo banco.
   carga manual controlada exige `evidencia_importacion_ref` no sensible.
 - Movimientos conciliados exactos existentes deben conservar coherencia con su
   target: abonos apuntan a pago mensual pagado o codigo residual pagado de la
-  misma cuenta recaudadora; movimientos no conciliados no conservan target.
+  misma cuenta recaudadora; el pago mensual target debe pertenecer al mismo
+  periodo economico del movimiento bancario; movimientos no conciliados no
+  conservan target.
 - `audit_stage3_conciliacion_readiness` consolida readiness local de
   conexiones, movimientos, ingresos desconocidos, senales de saldo y
   referencias finales sin conectar bancos ni leer secretos; tambien detecta

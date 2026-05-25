@@ -290,6 +290,30 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
 
+    def test_exact_match_payment_period_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-PAY-PERIOD')
+        conexion = self._create_ready_connection(cuenta)
+        payment.fecha_deposito_banco = date(2026, 2, 8)
+        payment.save(update_fields=['fecha_deposito_banco', 'updated_at'])
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 2, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=payment.monto_calculado_clp,
+            descripcion_origen='Pago conciliado fuera de periodo',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3',
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+            pago_mensual=payment,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['movements']['invalid_model'], 1)
+
     def test_internal_transfer_pair_can_pass_readiness(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER')
         conexion = self._create_ready_connection(cuenta)
