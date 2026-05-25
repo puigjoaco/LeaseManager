@@ -846,6 +846,40 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(payment.dias_mora, 3)
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.webpay_intento.confirmed_manually').exists())
 
+    def test_webpay_confirmed_intent_requires_payment_alignment(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-ALIGN')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-sandbox-evidence-ok',
+        )
+        intent = IntentoPagoWebPay(
+            pago_mensual=payment,
+            gate_cobro=gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=payment.monto_calculado_clp,
+            buy_order='LM-PM-WP-ALIGN',
+            session_id='LM-WP-ALIGN',
+            return_url_ref='webpay-return-controlled-v1',
+            estado=EstadoIntentoPagoWebPay.CONFIRMED_MANUAL,
+            external_ref='TBK-ALIGN-001',
+            fecha_pago_webpay=date(2026, 1, 8),
+        )
+
+        with self.assertRaises(ValidationError) as not_paid_error:
+            intent.full_clean()
+        self.assertIn('pago_mensual', not_paid_error.exception.message_dict)
+
+        payment.estado_pago = EstadoPago.PAID
+        payment.monto_pagado_clp = payment.monto_calculado_clp
+        payment.fecha_pago_webpay = date(2026, 1, 9)
+        payment.fecha_deteccion_sistema = date(2026, 1, 9)
+        payment.save()
+
+        with self.assertRaises(ValidationError) as date_error:
+            intent.full_clean()
+        self.assertIn('fecha_pago_webpay', date_error.exception.message_dict)
+
     def test_payment_rejects_invalid_state_transition(self):
         contrato = self._create_active_contract(codigo='CON-STATE', monto_base='100000.00', code='111')
         generate = self.client.post(

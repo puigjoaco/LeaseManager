@@ -374,6 +374,16 @@ class IntentoPagoWebPay(TimestampedModel):
                 )
             if not self.fecha_pago_webpay:
                 raise ValidationError({'fecha_pago_webpay': 'La confirmacion WebPay requiere fecha de pago WebPay.'})
+            if self.pago_mensual.estado_pago != EstadoPago.PAID:
+                raise ValidationError({'pago_mensual': 'Un intento WebPay confirmado requiere pago mensual pagado.'})
+            if self.pago_mensual.fecha_pago_webpay != self.fecha_pago_webpay:
+                raise ValidationError(
+                    {
+                        'fecha_pago_webpay': (
+                            'La fecha WebPay del intento confirmado debe coincidir con la del pago mensual.'
+                        )
+                    }
+                )
 
 
 class DistribucionCobroMensual(TimestampedModel):

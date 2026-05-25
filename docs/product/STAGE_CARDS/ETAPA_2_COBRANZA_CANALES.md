@@ -85,9 +85,11 @@ condicionados sin envios reales accidentales.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
   `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y
   `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`
-  trazable no sensible y `fecha_pago_webpay` diferenciada. `provider_payload`
-  no puede contener URLs, tokens, credenciales, correos ni claves sensibles.
-  Ningun flujo llama Transbank ni marca pago confirmado sin revalidar el gate.
+  trazable no sensible y `fecha_pago_webpay` diferenciada. Un intento WebPay
+  confirmado debe quedar alineado con un `PagoMensual` pagado y la misma fecha
+  WebPay. `provider_payload` no puede contener URLs, tokens, credenciales,
+  correos ni claves sensibles. Ningun flujo llama Transbank ni marca pago
+  confirmado sin revalidar el gate.
 - APIs y snapshots de Canales/Cobranza redactan refs sensibles ya persistidas
   antes de devolver gates, mensajes salientes o intentos WebPay al backoffice;
   esto cubre `evidencia_ref`, `restricciones_operativas`, `external_ref`,
@@ -100,8 +102,9 @@ condicionados sin envios reales accidentales.
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,
   incluyendo deteccion de
   refs sensibles en gates, `external_ref`, `return_url_ref` o
-  `provider_payload` sensible, pagos pendientes vencidos y mora desactualizada,
-  sin enviar mensajes ni conectar proveedores externos. Para cierre debe ejecutarse
+  `provider_payload` sensible, intentos WebPay confirmados desalineados con el
+  pago mensual, pagos pendientes vencidos y mora desactualizada, sin enviar
+  mensajes ni conectar proveedores externos. Para cierre debe ejecutarse
   con `--source-kind
   snapshot_controlado` o `--source-kind real_autorizado`; la fuente local no
   puede marcar `ready_for_stage2_cobranza=true`.
