@@ -332,6 +332,28 @@ class ConciliacionAPITests(APITestCase):
         self.assertIn('estado', response.data)
         self.assertFalse(CuadraturaBancaria.objects.filter(cuenta_recaudadora=cuenta).exists())
 
+    def test_balance_square_rejects_period_date_mismatch(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BALANCE-PERIOD')
+
+        response = self.client.post(
+            reverse('conciliacion-cuadratura-list'),
+            {
+                'cuenta_recaudadora': cuenta.pk,
+                'periodo_economico': '2026-01',
+                'fecha_cuadratura': '2026-02-01',
+                'saldo_sistema_clp': '1000000.00',
+                'saldo_banco_clp': '1000000.00',
+                'estado': 'cuadrada',
+                'evidencia_cuadratura_ref': 'balance-square-controlled-2026-01',
+                'responsable_ref': 'stage3-balance-owner',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('periodo_economico', response.data)
+        self.assertFalse(CuadraturaBancaria.objects.filter(cuenta_recaudadora=cuenta).exists())
+
     def test_balance_square_rejects_sensitive_evidence(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BALANCE-SENSITIVE')
 

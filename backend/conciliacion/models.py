@@ -99,6 +99,13 @@ def _coerce_date(value):
     return None
 
 
+def _period_from_date(value):
+    date_value = _coerce_date(value)
+    if date_value is None:
+        return ''
+    return f'{date_value.year:04d}-{date_value.month:02d}'
+
+
 class ConexionBancaria(TimestampedModel):
     cuenta_recaudadora = models.ForeignKey(
         CuentaRecaudadora,
@@ -490,6 +497,8 @@ class CuadraturaBancaria(TimestampedModel):
 
         if not ECONOMIC_PERIOD_RE.fullmatch(str(self.periodo_economico or '').strip()):
             errors['periodo_economico'] = 'periodo_economico debe usar formato YYYY-MM.'
+        elif _period_from_date(self.fecha_cuadratura) != str(self.periodo_economico).strip():
+            errors['periodo_economico'] = 'periodo_economico debe coincidir con el mes de fecha_cuadratura.'
 
         if not is_non_sensitive_reference(self.evidencia_cuadratura_ref):
             errors['evidencia_cuadratura_ref'] = (

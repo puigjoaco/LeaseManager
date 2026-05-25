@@ -92,6 +92,12 @@ def _valid_economic_period(value) -> bool:
     return ECONOMIC_PERIOD_RE.fullmatch(str(value or '').strip()) is not None
 
 
+def _period_from_date(value) -> str:
+    if not all(hasattr(value, attribute) for attribute in ('year', 'month', 'day')):
+        return ''
+    return f'{value.year:04d}-{value.month:02d}'
+
+
 def _metadata_int(metadata: dict[str, Any], key: str) -> int | None:
     try:
         return int(str(metadata.get(key) or '').strip())
@@ -354,6 +360,11 @@ def _collect_balance_square_issues(balance_squares) -> dict[str, int]:
 
         if _has_sensitive_reference(balance_square, BALANCE_SQUARE_REFERENCE_FIELDS):
             counts['sensitive_reference'] += 1
+
+        if _valid_economic_period(balance_square.periodo_economico) and (
+            str(balance_square.periodo_economico).strip() != _period_from_date(balance_square.fecha_cuadratura)
+        ):
+            counts['period_date_mismatch'] += 1
 
         if Decimal(str(balance_square.diferencia_clp)) != Decimal('0.00'):
             counts['nonzero_difference'] += 1
@@ -708,6 +719,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.balance_square.sensitive_reference',
                 'Existen cuadraturas banco/sistema con referencias sensibles.',
                 count=balance_square_issues['sensitive_reference'],
+            )
+        )
+    if balance_square_issues.get('period_date_mismatch'):
+        issues.append(
+            _issue(
+                'stage3.balance_square.period_date_mismatch',
+                'Existen cuadraturas banco/sistema cuyo periodo economico no coincide con la fecha de cuadratura.',
+                count=balance_square_issues['period_date_mismatch'],
             )
         )
     if balance_square_issues.get('nonzero_difference'):

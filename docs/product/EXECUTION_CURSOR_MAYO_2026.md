@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 0 - Compliance datos sensibles, formato SHA-256 real para `payload_hash` de exportaciones sensibles. |
-| Fuente exacta | PR #227 `Guard Compliance export hash format`; commit `4b3b38a`; merge `16d9c23`; `backend/compliance/models.py`; `backend/core/compliance_data_readiness.py`; tests de Compliance/readiness; trazabilidad y evidencia actualizadas. |
-| Brecha activa | Cerrada localmente: `ExportacionSensible.full_clean` rechaza `payload_hash` no hexadecimal aunque tenga 64 caracteres y readiness clasifica snapshots heredados con `compliance.export_payload_hash_invalid`. |
-| Motivo de prioridad | Paquete local, pequeno y verificable completado sin secretos, `.env`, DB historica, datos reales ni integraciones externas. |
-| Worktree | Ninguno. Solo debe quedar el worktree principal `D:/Proyectos/LeaseManager`. |
-| Rama | `main`, sincronizada con `origin/main`. |
-| Estado | PR #227 integrado con CI remoto verde; worktree tactico y ramas local/remota eliminados. |
-| Gate esperado | Compliance local diagnostica parcial/no evidencial; no cierra `Compliance.DatosPersonalesChile2026` sin fuente autorizada, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa. |
-| Estado al cerrar paquete | Preparacion local de Compliance reforzada; cierre real de Compliance sigue pendiente de fuente autorizada, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa. |
-| Bloqueos relacionados | Fuente/evidencia legal-operativa autorizada sigue siendo condicion de cierre, no freno para elegir otro paquete local seguro. |
-| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, diagnosticar el siguiente paquete pequeno, trazable y local desde la matriz/stage cards. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; elegir el siguiente frente seguro por trazabilidad y abrir worktree `codex/...` solo si requiere cambios no triviales. |
+| Frente activo | Etapa 3 - Conciliacion: alineacion de periodo economico y fecha de cuadratura bancaria. |
+| Fuente exacta | `docs/product/STAGE_CARDS/ETAPA_3_BANCO_CONCILIACION.md`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Conciliacion`; `backend/conciliacion/models.py`; `backend/core/stage3_conciliacion_readiness.py`; tests de Conciliacion/Stage 3. |
+| Brecha activa | `CuadraturaBancaria` valida formato `YYYY-MM`, diferencia y refs, pero no impide que `periodo_economico` apunte a un mes distinto de `fecha_cuadratura`; readiness tampoco clasifica ese snapshot heredado explicitamente. |
+| Motivo de prioridad | Brecha local trazable de Conciliacion; refuerza cuadratura sistema/banco sin usar banco real, `.env`, datos reales ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage3-balance-square-period-alignment`. |
+| Rama | `codex/stage3-balance-square-period-alignment`. |
+| Estado | En implementacion. `main` queda limpio en `D:/Proyectos/LeaseManager`. |
+| Gate esperado | Etapa 3 local queda como diagnostico parcial/no evidencial; no cierra Conciliacion sin banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria, cuadratura sistema/banco y responsable. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Banco real/snapshot autorizado y evidencias externas siguen siendo condicion de cierre, no freno para este hardening local. |
+| Politica de reanudacion | Retomar este worktree hasta cerrar, pausar explicitamente en este cursor o limpiar con instruccion segura. |
+| Siguiente accion | Validar periodo/fecha de `CuadraturaBancaria` en dominio/readiness, agregar pruebas focales y actualizar evidencia/trazabilidad. |
 
 ## Actualizacion
 
