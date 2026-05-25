@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`; `docs/product/STAGE_CARDS/`; `01_Set_Vigente/PRD_CANONICO.md`; estado real de `main`. |
-| Brecha activa | Ninguna abierta en este cursor. |
-| Motivo de prioridad | PR #280 cerro el paquete anterior; el siguiente frente debe elegirse desde trazabilidad y estado real del repo. |
-| Worktree | Ninguno. |
-| Rama | Ninguna. |
-| Estado | Paquete cerrado e integrado en `main`. |
-| Gate esperado | Los gates de etapa siguen segun stage cards y matriz vigente; no declarar cierre sin evidencia suficiente. |
-| Estado al cerrar paquete | PR #280 `Warn on late Stage 1 termination notices` integrado con commit `220da1e` y merge `407ab7d`; CI acceptance OK; worktree tactico y rama local/remota eliminados. |
+| Frente activo | Etapa 1 - Contratos: conflicto entre aviso, renovacion ejecutada y contrato futuro. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md`; `backend/contratos/models.py`; `backend/contratos/serializers.py`; `backend/core/stage1_matrix_audit.py`; `backend/contratos/tests.py`; `backend/core/tests_stage1_matrix_audit.py`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
+| Brecha activa | El PRD exige resolucion guiada con chequeo de integridad cuando coexisten AvisoTermino, renovacion automatica ya ejecutada y contrato futuro; el sistema no debe cancelar ni reescribir efectos producidos automaticamente. |
+| Motivo de prioridad | Es la siguiente regla local no cerrada del tramo Etapa 1/Contratos tras avisos fuera de plazo y contratos retroactivos. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-notice-renewal-conflict`. |
+| Rama | `codex/stage1-notice-renewal-conflict`. |
+| Estado | En implementacion local. |
+| Gate esperado | Etapa 1 debe seguir como diagnostico parcial/no evidencial; este paquete endurece preparacion local y no cierra sin fuente `snapshot_controlado` o `real_autorizado`. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Desde `main` limpio, identificar el siguiente paquete seguro por trazabilidad, abrir worktree `codex/...` si el cambio no es trivial y cerrar con validacion proporcional, PR, CI, merge y limpieza. |
+| Siguiente accion | Implementar guard/resolucion auditada del conflicto, validar con pruebas proporcionales, actualizar evidencia/trazabilidad y cerrar con PR, CI, merge y limpieza. |
 
 ## Actualizacion
 

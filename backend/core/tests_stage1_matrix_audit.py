@@ -1553,6 +1553,35 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertNotIn('stage1.contrato_futuro.aviso_termino_faltante', issue_codes)
 
+    def test_future_contract_with_executed_renewal_conflict_needs_guided_resolution(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.fecha_fin_vigente = date(2027, 12, 31)
+        contrato.save(update_fields=['fecha_fin_vigente', 'updated_at'])
+        PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=2,
+            fecha_inicio=date(2027, 1, 1),
+            fecha_fin=date(2027, 12, 31),
+            monto_base='250000.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='renovacion',
+            origen_periodo='renovacion_automatica',
+        )
+        AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='Termino controlado con renovacion ya ejecutada',
+            estado=EstadoAvisoTermino.REGISTERED,
+        )
+        self._create_future_contract_for(contrato)
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato_futuro.conflicto_renovacion_sin_resolucion', issue_codes)
+
     def test_early_terminated_partial_month_without_audit_event_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         partial_contract = Contrato.objects.create(

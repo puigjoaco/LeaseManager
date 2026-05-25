@@ -349,6 +349,10 @@ class ContractsSnapshotView(APIView):
                         'fecha_efectiva': item.fecha_efectiva,
                         'causal': item.causal,
                         'estado': item.estado,
+                        'resolucion_conflicto_renovacion_ref': redact_sensitive_reference(
+                            item.resolucion_conflicto_renovacion_ref
+                        ),
+                        'resolucion_conflicto_renovacion_motivo': item.resolucion_conflicto_renovacion_motivo,
                         'fecha_limite_registro_oportuno': item.latest_timely_registration_at(),
                         'registrado_fuera_plazo': item.is_late_registered_notice(),
                         'alerta_registro_fuera_plazo': item.late_registration_alert(),

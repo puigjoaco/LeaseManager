@@ -662,6 +662,8 @@ type AvisoTermino = {
   fecha_efectiva: string
   causal: string
   estado: string
+  resolucion_conflicto_renovacion_ref: string
+  resolucion_conflicto_renovacion_motivo: string
   fecha_limite_registro_oportuno: string | null
   registrado_fuera_plazo: boolean
   alerta_registro_fuera_plazo: string
@@ -1587,6 +1589,8 @@ function App() {
     fecha_efectiva: todayIso(),
     causal: '',
     estado: 'registrado',
+    resolucion_conflicto_renovacion_ref: '',
+    resolucion_conflicto_renovacion_motivo: '',
   })
   const [ufDraft, setUfDraft] = useState({
     fecha: todayIso(),
@@ -2175,6 +2179,8 @@ function App() {
       fecha_efectiva: todayIso(),
       causal: '',
       estado: 'registrado',
+      resolucion_conflicto_renovacion_ref: '',
+      resolucion_conflicto_renovacion_motivo: '',
     })
     setUfDraft({
       fecha: todayIso(),
@@ -3769,6 +3775,8 @@ function App() {
       fecha_efectiva: avisoDraft.fecha_efectiva,
       causal: avisoDraft.causal,
       estado: avisoDraft.estado,
+      resolucion_conflicto_renovacion_ref: avisoDraft.resolucion_conflicto_renovacion_ref,
+      resolucion_conflicto_renovacion_motivo: avisoDraft.resolucion_conflicto_renovacion_motivo,
     }, 'Aviso de término creado correctamente.')
     if (ok) {
       setAvisoDraft({
@@ -3776,6 +3784,8 @@ function App() {
         fecha_efectiva: todayIso(),
         causal: '',
         estado: 'registrado',
+        resolucion_conflicto_renovacion_ref: '',
+        resolucion_conflicto_renovacion_motivo: '',
       })
     }
   }
