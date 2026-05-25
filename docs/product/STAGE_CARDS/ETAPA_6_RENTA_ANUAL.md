@@ -25,6 +25,9 @@ cierres mensuales.
   capacidades DDJJ/F22, doce cierres, obligaciones mensuales, proceso anual,
   respaldos tributarios PDF y referencias finales no sensibles sin conectar SII
   ni leer certificados reales.
+- El dominio SII rechaza F29, ProcesoRentaAnual, DDJJ y F22 en estados
+  aprobados, presentados, observados o rectificados si falta la referencia
+  final trazable correspondiente.
 - Los payloads anuales y referencias de DDJJ/F22 heredadas se entregan a
   reporting con redaccion antes de exponerse al backoffice.
 - `audit_stage6_renta_anual_readiness` solo puede cerrar con `--source-kind`
