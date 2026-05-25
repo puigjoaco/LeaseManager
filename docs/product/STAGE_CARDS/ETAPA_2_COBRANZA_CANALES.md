@@ -92,7 +92,9 @@ condicionados sin envios reales accidentales.
   antes de devolver gates, mensajes salientes o intentos WebPay al backoffice;
   esto cubre `evidencia_ref`, `restricciones_operativas`, `external_ref`,
   `return_url_ref`, `provider_payload` y `storage_ref` documental expuesto por
-  snapshot de Canales, sin abrir integraciones externas.
+  snapshot de Canales, sin abrir integraciones externas. Los mensajes
+  salientes rechazan nuevas escrituras con `provider_payload` que contenga
+  URLs, tokens, credenciales, correos o claves sensibles.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   estados de cuenta, identidades/asignaciones de canal, gates
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,
