@@ -34,9 +34,11 @@ condicionados sin envios reales accidentales.
   caracteres mayusculos no ambiguos; la readiness debe bloquear snapshots que
   conserven referencias fuera de formato.
 - Estados de cuenta existentes deben estar recalculados contra pagos abiertos,
-  repactaciones activas y codigos residuales activos; la readiness debe
-  bloquear snapshots con arrendatarios cobrables sin estado o con resumen
-  operativo desactualizado.
+  repactaciones activas, codigos residuales activos y score de pago; el resumen
+  operativo debe exponer porcentaje, meses evaluados, pagos en plazo y pagos
+  fuera de plazo. La readiness debe bloquear snapshots con arrendatarios
+  cobrables sin estado, con resumen operativo desactualizado o con score
+  faltante/desalineado.
 - Garantias contractuales recibidas parcialmente deben quedar visibles como
   incompletas hasta regularizarse o contar con aceptacion formal mediante
   referencia no sensible; APIs y backoffice exponen brecha, estado de
@@ -123,8 +125,9 @@ condicionados sin envios reales accidentales.
   incluyendo deteccion de
   refs sensibles en gates, `external_ref`, `return_url_ref` o
   `provider_payload` sensible, intentos WebPay confirmados desalineados con el
-  pago mensual, pagos pendientes vencidos y mora desactualizada, sin enviar
-  mensajes ni conectar proveedores externos. Para cierre debe ejecutarse
+  pago mensual, pagos pendientes vencidos, mora desactualizada y estados de
+  cuenta con score faltante o desalineado, sin enviar mensajes ni conectar
+  proveedores externos. Para cierre debe ejecutarse
   con `--source-kind
   snapshot_controlado` o `--source-kind real_autorizado`; la fuente local no
   puede marcar `ready_for_stage2_cobranza=true`.

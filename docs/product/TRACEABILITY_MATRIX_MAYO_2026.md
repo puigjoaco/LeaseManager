@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-25: CobranzaActiva calcula y persiste `score_pago` al recalcular
+`EstadoCuentaArrendatario`, expone porcentaje, meses evaluados, pagos en plazo
+y pagos fuera de plazo en `resumen_operativo`, y readiness Etapa 2 reporta
+`stage2.account_state.missing_score` o `stage2.account_state.stale_score` para
+snapshots heredados sin score trazable o desalineado con pagos operativos.
+
 Nota 2026-05-24: CobranzaActiva/Canales incorpora guard local para que
 WhatsApp solo opere con telefonos en formato internacional. El modelo rechaza
 opt-in nuevo con numero local o ambiguo, Canales bloquea preparacion/envio con

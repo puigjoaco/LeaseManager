@@ -10,7 +10,7 @@ type AjusteContratoItem = { id: number; contrato: number; tipo_ajuste: string; m
 type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_pagado_clp: string; fecha_vencimiento: string; estado_pago: string; dias_mora: number }
 type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; brecha_garantia_clp: string; garantia_incompleta: boolean; garantia_parcial_aceptada: boolean; aceptacion_parcial_ref: string; estado_garantia: string }
 type HistorialGarantiaItem = { id: number; contrato_id: number; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string }
-type EstadoCuentaItem = { id: number; arrendatario: number; score_pago: number | null; resumen_operativo: { pagos_abiertos?: number; pagos_atrasados?: number; saldo_total_clp?: string } }
+type EstadoCuentaItem = { id: number; arrendatario: number; score_pago: number | null; resumen_operativo: { pagos_abiertos?: number; pagos_atrasados?: number; score_meses_evaluados?: number; score_pagos_en_plazo?: number; score_pagos_fuera_plazo?: number; saldo_total_clp?: string } }
 type ContratoItem = { id: number; codigo_contrato: string }
 type ArrendatarioItem = { id: number; nombre_razon_social: string }
 
@@ -242,6 +242,7 @@ export function CobranzaWorkspace({
         { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
         { label: 'Pagos abiertos', render: (row) => count(row.resumen_operativo.pagos_abiertos) },
         { label: 'Pagos atrasados', render: (row) => count(row.resumen_operativo.pagos_atrasados) },
+        { label: 'Meses eval.', render: (row) => count(row.resumen_operativo.score_meses_evaluados) },
         { label: 'Saldo total', render: (row) => row.resumen_operativo.saldo_total_clp || '0.00' },
         { label: 'Score', render: (row) => row.score_pago ?? 'Sin score' },
       ]} />

@@ -822,3 +822,8 @@ class EstadoCuentaArrendatario(TimestampedModel):
 
     def __str__(self):
         return f'EstadoCuenta {self.arrendatario_id}'
+
+    def clean(self):
+        super().clean()
+        if self.score_pago is not None and not 0 <= self.score_pago <= 100:
+            raise ValidationError({'score_pago': 'El score de pago debe estar entre 0 y 100.'})

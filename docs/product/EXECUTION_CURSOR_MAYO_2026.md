@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 2 - CobranzaActiva, pagos originales trazables a repactaciones. |
-| Fuente exacta | PR #258, commit `c187f29`, merge `96ae62f`; PRD `01_Set_Vigente/PRD_CANONICO.md` lineas 362 y 416; `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`; `backend/cobranza/models.py`; `backend/cobranza/serializers.py`; `backend/cobranza/services.py`; `backend/core/stage2_cobranza_readiness.py`; evidencia y trazabilidad. |
-| Brecha activa | Cerrada localmente: `PagoMensual` enlaza la `RepactacionDeuda` que explica estados `en_repactacion` y `pagado_via_repactacion`, conserva `dias_mora`, valida contrato/arrendatario/estado del plan, expone el enlace en API/snapshot y readiness Etapa 2 bloquea snapshots heredados sin plan trazable o con plan incompatible. |
-| Motivo de prioridad | Paquete de CobranzaActiva derivado del PRD, cerrado con validacion local, CI y merge sin `.env`, secretos, DB historica, datos reales ni integraciones externas. |
-| Worktree | Ninguno. Solo debe quedar el worktree principal. |
-| Rama | `main` sincronizada con `origin/main` despues de PR #258. |
-| Estado | Listo para reanudacion operativa desde el siguiente paquete de producto seguro. |
+| Frente activo | Etapa 2 - CobranzaActiva, score de pago en estado de cuenta del arrendatario. |
+| Fuente exacta | PRD `01_Set_Vigente/PRD_CANONICO.md` lineas 111-112 y 231; `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`; `backend/cobranza/services.py`; `backend/cobranza/models.py`; `backend/core/stage2_cobranza_readiness.py`; tests de Cobranza y readiness Etapa 2. |
+| Brecha activa | `EstadoCuentaArrendatario.score_pago` existe, pero el recalculo del estado de cuenta no calcula ni persiste porcentaje, conteo de meses evaluados ni cumplimiento en plazo segun pagos operativos; readiness tampoco detecta scores heredados faltantes o desactualizados. |
+| Motivo de prioridad | Regla local del PRD sobre estado de cuenta y score de pago; no requiere `.env`, secretos, DB historica, datos reales ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-account-payment-score`. |
+| Rama | `codex/stage2-account-payment-score`. |
+| Estado | Implementado y validado localmente; pendiente de commit, PR, CI, merge y limpieza. |
 | Gate esperado | Etapa 2 local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, evidencia Etapa 1 y pruebas Email/WebPay controladas. |
-| Estado al cerrar paquete | Validado, PR #258 mergeado con CI acceptance verde y worktree tactico eliminado. |
+| Estado al cerrar paquete | Pendiente de abrir PR, esperar CI, mergear y limpiar worktree tactico. |
 | Bloqueos relacionados | Fuente autorizada de Etapa 2, evidencia Etapa 1 y pruebas externas controladas siguen siendo condicion de cierre real, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Seleccionar el siguiente paquete seguro desde stage cards, trazabilidad y PRD; abrir worktree `codex/...` si el cambio no es trivial. |
+| Siguiente accion | Empaquetar el cambio, abrir PR, esperar CI, mergear y limpiar worktree tactico. |
 
 ## Actualizacion
 
