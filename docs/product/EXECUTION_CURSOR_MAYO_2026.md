@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 - Contratos: avisos de termino fuera de plazo. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md`; `backend/contratos/models.py`; `backend/contratos/serializers.py`; `backend/contratos/views.py`; `backend/core/stage1_matrix_audit.py`; `backend/contratos/tests.py`; `backend/core/tests_stage1_matrix_audit.py`; `frontend/src/backoffice/workspaces/ContratosWorkspace.tsx`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
-| Brecha activa | `AvisoTermino` debe registrar avisos fuera de plazo usando el timestamp real de registro, alertarlos como advertencia y no bloquear ni corregir fechas inventadas. |
-| Motivo de prioridad | El PRD exige que un aviso fuera de plazo se registre y alerte; tambien define que la oportunidad depende del timestamp real hasta `23:59:59` del ultimo dia permitido. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-late-termination-notice`. |
-| Rama | `codex/stage1-late-termination-notice`. |
-| Estado | En implementacion local. |
-| Gate esperado | Etapa 1 debe seguir como diagnostico parcial/no evidencial; este paquete endurece preparacion local y no cierra sin fuente `snapshot_controlado` o `real_autorizado`. |
-| Estado al cerrar paquete | Pendiente. |
+| Frente activo | Ninguno. |
+| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`; `docs/product/STAGE_CARDS/`; `01_Set_Vigente/PRD_CANONICO.md`; estado real de `main`. |
+| Brecha activa | Ninguna abierta en este cursor. |
+| Motivo de prioridad | PR #280 cerro el paquete anterior; el siguiente frente debe elegirse desde trazabilidad y estado real del repo. |
+| Worktree | Ninguno. |
+| Rama | Ninguna. |
+| Estado | Paquete cerrado e integrado en `main`. |
+| Gate esperado | Los gates de etapa siguen segun stage cards y matriz vigente; no declarar cierre sin evidencia suficiente. |
+| Estado al cerrar paquete | PR #280 `Warn on late Stage 1 termination notices` integrado con commit `220da1e` y merge `407ab7d`; CI acceptance OK; worktree tactico y rama local/remota eliminados. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Completar paquete en worktree tactico, validar con pruebas proporcionales, actualizar evidencia/trazabilidad y cerrar con PR, CI, merge y limpieza. |
+| Siguiente accion | Desde `main` limpio, identificar el siguiente paquete seguro por trazabilidad, abrir worktree `codex/...` si el cambio no es trivial y cerrar con validacion proporcional, PR, CI, merge y limpieza. |
 
 ## Actualizacion
 
