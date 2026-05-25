@@ -1,5 +1,6 @@
 from collections import Counter
 from copy import deepcopy
+from datetime import timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -39,6 +40,8 @@ AUTHORIZED_RUNTIME_SIGNAL_SOURCE_KINDS = {
     RuntimeSignalSourceKind.REAL_AUTORIZADO,
 }
 
+RUNTIME_SIGNAL_MAX_AGE = timedelta(hours=24)
+
 
 REQUIRED_RUNTIME_SIGNALS = {
     RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY: {
@@ -47,11 +50,13 @@ REQUIRED_RUNTIME_SIGNALS = {
         'evidence_code': 'observability.monthly_latency_metric_evidence_ref_missing',
         'source_code': 'observability.monthly_latency_metric_source_not_authorized',
         'trace_code': 'observability.monthly_latency_metric_source_trace_missing',
+        'stale_code': 'observability.monthly_latency_metric_stale',
         'missing_message': 'No existe metrica persistida para latencia de calculo mensual.',
         'attention_message': 'La metrica de latencia de calculo mensual requiere atencion.',
         'evidence_message': 'La metrica de latencia de calculo mensual requiere evidencia_ref no sensible.',
         'source_message': 'La metrica de latencia de calculo mensual requiere fuente snapshot_controlado o real_autorizado para cierre.',
         'trace_message': 'La metrica de latencia de calculo mensual requiere source_label y authorization_ref no sensibles para cierre.',
+        'stale_message': 'La metrica de latencia de calculo mensual esta fuera de la ventana reciente de cierre.',
     },
     RuntimeSignalKey.QUEUE_RUNTIME: {
         'missing_code': 'observability.queue_runtime_metric_missing',
@@ -59,11 +64,13 @@ REQUIRED_RUNTIME_SIGNALS = {
         'evidence_code': 'observability.queue_runtime_metric_evidence_ref_missing',
         'source_code': 'observability.queue_runtime_metric_source_not_authorized',
         'trace_code': 'observability.queue_runtime_metric_source_trace_missing',
+        'stale_code': 'observability.queue_runtime_metric_stale',
         'missing_message': 'La auditoria local solo verifica configuracion de broker; falta metrica runtime de colas/tareas.',
         'attention_message': 'La metrica runtime de colas/tareas requiere atencion.',
         'evidence_message': 'La metrica runtime de colas/tareas requiere evidencia_ref no sensible.',
         'source_message': 'La metrica runtime de colas/tareas requiere fuente snapshot_controlado o real_autorizado para cierre.',
         'trace_message': 'La metrica runtime de colas/tareas requiere source_label y authorization_ref no sensibles para cierre.',
+        'stale_message': 'La metrica runtime de colas/tareas esta fuera de la ventana reciente de cierre.',
     },
     RuntimeSignalKey.FAILED_WEBHOOKS: {
         'missing_code': 'observability.webhook_metric_missing',
@@ -71,11 +78,13 @@ REQUIRED_RUNTIME_SIGNALS = {
         'evidence_code': 'observability.webhook_metric_evidence_ref_missing',
         'source_code': 'observability.webhook_metric_source_not_authorized',
         'trace_code': 'observability.webhook_metric_source_trace_missing',
+        'stale_code': 'observability.webhook_metric_stale',
         'missing_message': 'No existe metrica persistida para webhooks fallidos.',
         'attention_message': 'La metrica de webhooks fallidos requiere atencion.',
         'evidence_message': 'La metrica de webhooks fallidos requiere evidencia_ref no sensible.',
         'source_message': 'La metrica de webhooks fallidos requiere fuente snapshot_controlado o real_autorizado para cierre.',
         'trace_message': 'La metrica de webhooks fallidos requiere source_label y authorization_ref no sensibles para cierre.',
+        'stale_message': 'La metrica de webhooks fallidos esta fuera de la ventana reciente de cierre.',
     },
     RuntimeSignalKey.FAILED_CRONS: {
         'missing_code': 'observability.cron_metric_missing',
@@ -83,11 +92,13 @@ REQUIRED_RUNTIME_SIGNALS = {
         'evidence_code': 'observability.cron_metric_evidence_ref_missing',
         'source_code': 'observability.cron_metric_source_not_authorized',
         'trace_code': 'observability.cron_metric_source_trace_missing',
+        'stale_code': 'observability.cron_metric_stale',
         'missing_message': 'No existe metrica persistida para crons fallidos.',
         'attention_message': 'La metrica de crons fallidos requiere atencion.',
         'evidence_message': 'La metrica de crons fallidos requiere evidencia_ref no sensible.',
         'source_message': 'La metrica de crons fallidos requiere fuente snapshot_controlado o real_autorizado para cierre.',
         'trace_message': 'La metrica de crons fallidos requiere source_label y authorization_ref no sensibles para cierre.',
+        'stale_message': 'La metrica de crons fallidos esta fuera de la ventana reciente de cierre.',
     },
 }
 
@@ -123,6 +134,12 @@ def _non_sensitive_reference(value):
     return bool(normalized) and not SENSITIVE_EVIDENCE_REF_PATTERN.search(normalized)
 
 
+def _runtime_signal_is_fresh(signal):
+    if signal is None or signal.observed_at is None:
+        return False
+    return signal.observed_at >= timezone.now() - RUNTIME_SIGNAL_MAX_AGE
+
+
 def _runtime_signal_payload(signal):
     if signal is None:
         return {
@@ -134,6 +151,7 @@ def _runtime_signal_payload(signal):
                 'source_label': False,
                 'authorization_ref': False,
             },
+            'fresh_for_stage7_close': False,
             'value': {},
         }
     safe_evidence_ref = signal.evidence_ref if _non_sensitive_reference(signal.evidence_ref) else ''
@@ -146,6 +164,7 @@ def _runtime_signal_payload(signal):
             'source_label': _non_sensitive_reference(signal.source_label),
             'authorization_ref': _non_sensitive_reference(signal.authorization_ref),
         },
+        'fresh_for_stage7_close': _runtime_signal_is_fresh(signal),
         'value': _public_runtime_value(signal.signal_key, {'value': signal.value if isinstance(signal.value, dict) else {}}),
     }
 
@@ -179,6 +198,7 @@ def _public_runtime_signal_payload(signal_key, payload):
         'source_kind': payload.get('source_kind'),
         'has_evidence_ref': bool(payload.get('evidence_ref')),
         'source_trace': payload.get('source_trace') if isinstance(payload.get('source_trace'), dict) else {},
+        'fresh_for_stage7_close': payload.get('fresh_for_stage7_close') is True,
         'value': _public_runtime_value(signal_key, payload),
     }
 
@@ -234,6 +254,8 @@ def _collect_runtime_signals():
             and _non_sensitive_reference(signal.authorization_ref)
         ):
             runtime_issues.append(_issue(definition['trace_code'], definition['trace_message']))
+        elif not _runtime_signal_is_fresh(signal):
+            runtime_issues.append(_issue(definition['stale_code'], definition['stale_message']))
         else:
             authorized_ok_signal_count += 1
 
