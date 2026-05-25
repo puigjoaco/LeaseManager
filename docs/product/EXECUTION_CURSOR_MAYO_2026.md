@@ -23,18 +23,18 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 - Versiones correctivas de documentos formalizados. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 193, 252, 364 y 584; `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`. |
-| Brecha activa | Un documento formalizado queda inmutable, pero las correcciones posteriores no tienen aun una version correctiva trazada con origen, referencia no sensible y readiness. |
-| Motivo de prioridad | Documentos debe permitir preparar correcciones sin mutar el PDF formalizado ni usar storage real, manteniendo trazabilidad antes de Canales/Reporting. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-document-correction-version`. |
-| Rama | `codex/stage5-document-correction-version`. |
-| Estado | Implementado y validado localmente; pendiente de PR, CI, merge y limpieza. No usar `.env`, secretos, storage real, documentos productivos, DB historica, snapshot, backfills, deploys ni integraciones externas. |
-| Gate esperado | Readiness local documental queda `classification=parcial`, `ready_for_stage5_documents=false`; el versionado correctivo queda preparado localmente pero no cierra Documentos sin politica final, PDF controlado, fuente autorizada y responsable. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 5 - Versiones correctivas de documentos formalizados. |
+| Fuente exacta | PR #203 `Guard Stage 5 document corrective versions`, merge `015ab2d`, desde `01_Set_Vigente/PRD_CANONICO.md` lineas 193, 252, 364 y 584; `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`. |
+| Brecha activa | Cerrada localmente: documentos formalizados pueden tener version correctiva trazada con origen formalizado, referencia no sensible, PDF/checksum propios y readiness bloqueante si falta auditoria o validez. |
+| Motivo de prioridad | Documentos puede preparar correcciones sin mutar el PDF formalizado ni usar storage real, manteniendo trazabilidad antes de Canales/Reporting. |
+| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
+| Rama | `main` sincronizada; sin rama tactica activa. |
+| Estado | PR #203 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
+| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
 | Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 5 Documentos sin fuente `snapshot_controlado` o `real_autorizado`, politica final, prueba PDF controlada y responsable. |
-| Bloqueos relacionados | `BLK-005` y fuente documental autorizada no bloquean esta preparacion local; solo impiden cierre evidencial. |
+| Bloqueos relacionados | `BLK-005` y fuente documental autorizada no bloquean preparacion local; solo impiden cierre evidencial. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Publicar PR, esperar CI, mergear, limpiar worktree/rama tactica y cerrar el cursor post-merge desde `main` limpio. |
+| Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
 
 ## Actualizacion
 
