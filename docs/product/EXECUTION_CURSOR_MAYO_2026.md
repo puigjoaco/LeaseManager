@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 - Canales, contexto de auditoria de mensajes enviados. |
-| Fuente exacta | PRD `EventoAuditable`; stage card Etapa 2; matriz de trazabilidad CobranzaActiva; `backend/core/stage2_cobranza_readiness.py`; `backend/core/tests_stage2_cobranza_readiness.py`; `backend/canales/tests.py`. |
-| Brecha activa | En curso: readiness debe bloquear eventos auditables de mensajes `enviado` que existan pero no tengan actor o `external_ref` no sensible alineado al mensaje. |
-| Motivo de prioridad | Hardening local de trazabilidad de Canales sin Email/WhatsApp/WebPay reales, `.env`, secretos ni datos reales. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-sent-message-audit-context`. |
-| Rama | `codex/stage2-sent-message-audit-context`. |
-| Estado | En implementacion y validacion local. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 2 - Canales, contexto de auditoria de mensajes enviados. |
+| Fuente exacta | PR #251 `Require actor and ref on sent message audit events`; commit `9cae40e`; merge `13cc418`; `backend/canales/tests.py`; `backend/core/stage2_cobranza_readiness.py`; `backend/core/tests_stage2_cobranza_readiness.py`; stage card Etapa 2, trazabilidad y evidencia actualizadas. |
+| Brecha activa | Cerrada localmente: readiness bloquea eventos auditables de mensajes `enviado` sin actor o sin `external_ref` no sensible alineado al mensaje, y el endpoint controlado conserva actor autenticado y referencia trazable. |
+| Motivo de prioridad | Hardening local de trazabilidad de Canales completado sin Email/WhatsApp/WebPay reales, `.env`, secretos ni datos reales. |
+| Worktree | Ninguno. |
+| Rama | `main` sincronizada tras PR #251. |
+| Estado | Paquete integrado en main con CI verde; worktree tactico eliminado. |
 | Gate esperado | Etapa 2 local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, evidencia Etapa 1 y pruebas Email/WebPay controladas. |
-| Estado al cerrar paquete | Pendiente de validacion, PR, CI, merge y limpieza. |
+| Estado al cerrar paquete | Cerrado e integrado en main con validacion local, acceptance local y CI remoto. |
 | Bloqueos relacionados | Evidencia Etapa 1, prueba externa real/controlada de Email/WebPay y responsables siguen siendo condicion de cierre real de Etapa 2. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Implementar deteccion de eventos de envio manual incompletos, validar Etapa 2/Canales, abrir PR, esperar CI, mergear, limpiar worktree y cerrar cursor. |
+| Siguiente accion | Seleccionar el siguiente paquete seguro desde stage cards, trazabilidad y PRD, abriendo un worktree `codex/...` si el cambio no es trivial. |
 
 ## Actualizacion
 
