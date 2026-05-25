@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 - Operacion: ventanas efectivas de `MandatoOperacion`. |
+| Frente activo | Ninguno. |
 | Fuente exacta | `backend/operacion/models.py`; `backend/core/stage1_matrix_audit.py`; `backend/operacion/tests.py`; `backend/core/tests_stage1_matrix_audit.py`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`. |
-| Brecha activa | `MandatoOperacion` no debe bloquear un mandato futuro no solapado por una unicidad global de filas activas, pero si debe impedir ventanas efectivas solapadas y hacer que el auditor detecte snapshots heredados con solape. |
+| Brecha activa | Ninguna abierta en este cursor. |
 | Motivo de prioridad | El PRD exige una sola cuenta recaudadora vigente para el mandato aplicable; Operacion ya tiene `vigencia_desde`/`vigencia_hasta`, por lo que el cierre local debe distinguir planificacion futura valida de doble mandato vigente en la misma fecha. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-mandate-window-overlap`. |
-| Rama | `codex/stage1-mandate-window-overlap`. |
-| Estado | En implementacion local. |
+| Worktree | Ninguno. |
+| Rama | Ninguna. |
+| Estado | Paquete cerrado e integrado en `main`. |
 | Gate esperado | Etapa 1 debe seguir como diagnostico parcial/no evidencial; este paquete endurece preparacion local y no cierra sin fuente `snapshot_controlado` o `real_autorizado`. |
-| Estado al cerrar paquete | Pendiente. |
+| Estado al cerrar paquete | PR #278 `Guard Stage 1 mandate validity windows`; commit de paquete `99c6b22`; merge commit `550d9f1`; CI GitHub `acceptance` OK; worktree tactico eliminado. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Completar paquete en worktree tactico, validar con pruebas proporcionales, actualizar evidencia/trazabilidad y cerrar con PR, CI, merge y limpieza. |
+| Siguiente accion | Desde `main` limpio, elegir el siguiente paquete seguro por trazabilidad y abrir un nuevo worktree `codex/...` solo si el cambio no es trivial. |
 
 ## Actualizacion
 
