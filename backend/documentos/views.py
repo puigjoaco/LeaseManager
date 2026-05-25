@@ -32,6 +32,12 @@ class AuditCreateUpdateMixin:
         with transaction.atomic():
             instance = serializer.save()
         self._create_audit_event(instance=instance, action='created')
+        if getattr(instance, 'documento_origen_id', None):
+            self._create_audit_event(
+                instance=instance,
+                action='corrective_version_created',
+                summary=f'Version correctiva de documento {instance.documento_origen_id}',
+            )
         return instance
 
     def perform_update(self, serializer):
@@ -69,7 +75,7 @@ class DocumentsSnapshotView(APIView):
         expedientes = scope_expediente_queryset(ExpedienteDocumental.objects.all().order_by('id'), request.user)
         politicas = PoliticaFirmaYNotaria.objects.all().order_by('tipo_documental', 'id')
         documentos = scope_documento_queryset(
-            DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial').all().order_by('id'),
+            DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial', 'documento_origen').all().order_by('id'),
             request.user,
         )
 
@@ -118,6 +124,8 @@ class DocumentsSnapshotView(APIView):
                         'firma_codeudor_registrada': item.firma_codeudor_registrada,
                         'recepcion_notarial_registrada': item.recepcion_notarial_registrada,
                         'comprobante_notarial': item.comprobante_notarial_id,
+                        'documento_origen': item.documento_origen_id,
+                        'correccion_ref': redact_sensitive_reference(item.correccion_ref),
                     }
                     for item in documentos
                 ],
@@ -166,7 +174,7 @@ class PoliticaFirmaYNotariaDetailView(AuditCreateUpdateMixin, generics.RetrieveU
 class DocumentoEmitidoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = DocumentoEmitidoSerializer
-    queryset = DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial').all()
+    queryset = DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial', 'documento_origen').all()
     audit_entity_type = 'documento_emitido'
     audit_entity_label = 'documento emitido'
 
@@ -177,7 +185,7 @@ class DocumentoEmitidoListCreateView(AuditCreateUpdateMixin, generics.ListCreate
 class DocumentoEmitidoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
     serializer_class = DocumentoEmitidoSerializer
-    queryset = DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial').all()
+    queryset = DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial', 'documento_origen').all()
     audit_entity_type = 'documento_emitido'
     audit_entity_label = 'documento emitido'
 
@@ -191,7 +199,7 @@ class DocumentoFormalizarView(APIView):
     def post(self, request, pk):
         document = generics.get_object_or_404(
             scope_documento_queryset(
-                DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial'),
+                DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial', 'documento_origen'),
                 request.user,
             ),
             pk=pk,

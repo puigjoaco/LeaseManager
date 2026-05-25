@@ -160,6 +160,14 @@ class DocumentoEmitido(TimestampedModel):
         on_delete=models.SET_NULL,
         related_name='documentos_formalizados',
     )
+    documento_origen = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='versiones_correctivas',
+    )
+    correccion_ref = models.CharField(max_length=128, blank=True)
 
     class Meta:
         ordering = ['-fecha_carga', '-id']
@@ -197,9 +205,34 @@ class DocumentoEmitido(TimestampedModel):
             raise ValidationError(
                 {'comprobante_notarial': 'El comprobante notarial debe estar emitido, formalizado o archivado.'}
             )
+        if self.correccion_ref and not self.documento_origen_id:
+            raise ValidationError(
+                {'documento_origen': 'Una referencia de correccion requiere documento formalizado de origen.'}
+            )
+        if self.documento_origen_id:
+            self.validate_corrective_version()
 
         if self.estado == EstadoDocumento.FORMALIZED:
             self.validate_formalization()
+
+    def validate_corrective_version(self):
+        origin = self.documento_origen
+        if self.pk and self.documento_origen_id == self.pk:
+            raise ValidationError({'documento_origen': 'Un documento no puede corregirse a si mismo.'})
+        if origin.estado != EstadoDocumento.FORMALIZED:
+            raise ValidationError({'documento_origen': 'La version correctiva debe referenciar un documento formalizado.'})
+        if origin.expediente_id != self.expediente_id:
+            raise ValidationError({'documento_origen': 'La version correctiva debe pertenecer al mismo expediente.'})
+        if origin.tipo_documental != self.tipo_documental:
+            raise ValidationError({'documento_origen': 'La version correctiva debe conservar el tipo documental.'})
+        if not str(self.correccion_ref or '').strip():
+            raise ValidationError({'correccion_ref': 'La version correctiva requiere referencia no sensible de motivo.'})
+        if not is_non_sensitive_reference(self.correccion_ref):
+            raise ValidationError({'correccion_ref': 'correccion_ref debe ser una referencia no sensible.'})
+        if str(self.checksum or '').strip().lower() == str(origin.checksum or '').strip().lower():
+            raise ValidationError({'checksum': 'La version correctiva debe tener checksum propio distinto al documento origen.'})
+        if str(self.storage_ref or '').strip() == str(origin.storage_ref or '').strip():
+            raise ValidationError({'storage_ref': 'La version correctiva debe tener PDF propio distinto al documento origen.'})
 
     def validate_formalization(self):
         policy = self.get_active_policy()

@@ -77,6 +77,14 @@ def _has_formalization_audit(document):
     ).exists()
 
 
+def _has_correction_audit(document):
+    return AuditEvent.objects.filter(
+        event_type='documentos.documento_emitido.corrective_version_created',
+        entity_type='documento_emitido',
+        entity_id=str(document.pk),
+    ).exists()
+
+
 def collect_document_readiness(
     *,
     final_policy_ref='',
@@ -91,7 +99,7 @@ def collect_document_readiness(
     missing_policy_types = sorted(REQUIRED_POLICY_TYPES - active_policy_types)
     invalid_active_policies = _count_invalid(active_policies)
 
-    documents = DocumentoEmitido.objects.select_related('expediente', 'comprobante_notarial').all()
+    documents = DocumentoEmitido.objects.select_related('expediente', 'comprobante_notarial', 'documento_origen').all()
     documents_without_policy = documents.exclude(tipo_documental__in=active_policy_types).count()
     non_pdf_documents = 0
     sensitive_storage_refs = 0
@@ -104,6 +112,8 @@ def collect_document_readiness(
     )
     formalized_without_notary_receipt = 0
     formalized_without_formalization_audit = 0
+    corrective_versions_without_audit = 0
+    invalid_corrective_versions = 0
 
     for document in documents:
         if not is_pdf_storage_ref(document.storage_ref):
@@ -125,6 +135,13 @@ def collect_document_readiness(
                 formalized_without_formalization_audit += 1
             if document.tipo_documental in notary_required_policies and not document.comprobante_notarial_id:
                 formalized_without_notary_receipt += 1
+        if document.documento_origen_id:
+            try:
+                document.full_clean()
+            except ValidationError:
+                invalid_corrective_versions += 1
+            if not _has_correction_audit(document):
+                corrective_versions_without_audit += 1
 
     checks = {
         'final_policy_ref': _non_sensitive_reference(final_policy_ref),
@@ -248,6 +265,22 @@ def collect_document_readiness(
                 count=formalized_without_formalization_audit,
             )
         )
+    if invalid_corrective_versions:
+        issues.append(
+            _issue(
+                'documents.corrective_version_invalid',
+                'Existen versiones correctivas documentales que no trazan correctamente a un documento formalizado.',
+                count=invalid_corrective_versions,
+            )
+        )
+    if corrective_versions_without_audit:
+        issues.append(
+            _issue(
+                'documents.corrective_version_audit_missing',
+                'Existen versiones correctivas documentales sin evento de auditoria dedicado.',
+                count=corrective_versions_without_audit,
+            )
+        )
 
     for key, code, message in [
         (
@@ -303,6 +336,9 @@ def collect_document_readiness(
                 'invalid_formalized_documents': invalid_formalized_documents,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,
                 'formalized_without_formalization_audit': formalized_without_formalization_audit,
+                'corrective_versions': documents.filter(documento_origen__isnull=False).count(),
+                'invalid_corrective_versions': invalid_corrective_versions,
+                'corrective_versions_without_audit': corrective_versions_without_audit,
             },
             'final_evidence': checks,
             'source_trace': source_trace,
