@@ -305,9 +305,6 @@ class PeriodoContractualWriteSerializer(serializers.Serializer):
             raise serializers.ValidationError({'fecha_fin': 'La fecha fin del periodo no puede ser anterior al inicio.'})
         if attrs['fecha_inicio'].day != 1:
             raise serializers.ValidationError({'fecha_inicio': 'El periodo contractual debe iniciar el primer dia del mes.'})
-        last_day = calendar.monthrange(attrs['fecha_fin'].year, attrs['fecha_fin'].month)[1]
-        if attrs['fecha_fin'].day != last_day:
-            raise serializers.ValidationError({'fecha_fin': 'El periodo contractual debe terminar el ultimo dia del mes.'})
         if attrs['moneda_base'] == MonedaBaseContrato.CLP and attrs['monto_base'] < Decimal('1000.00'):
             raise serializers.ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
         if attrs['moneda_base'] == MonedaBaseContrato.UF and attrs['monto_base'] <= Decimal('0.00'):
@@ -340,6 +337,8 @@ class ContratoSerializer(serializers.ModelSerializer):
             'fecha_fin_vigente',
             'fecha_entrega',
             'fecha_registro_operativo',
+            'terminacion_anticipada_prorrata_ref',
+            'terminacion_anticipada_prorrata_motivo',
             'requiere_notificacion_manual_retroactiva',
             'alerta_notificacion_manual_retroactiva',
             'dia_pago_mensual',
@@ -376,6 +375,13 @@ class ContratoSerializer(serializers.ModelSerializer):
 
     def get_contrato_propiedades_detail(self, obj):
         return ContratoPropiedadReadSerializer(obj.contrato_propiedades.all(), many=True).data
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['terminacion_anticipada_prorrata_ref'] = redact_sensitive_reference(
+            data.get('terminacion_anticipada_prorrata_ref')
+        )
+        return data
 
     def get_periodos_contractuales_detail(self, obj):
         return PeriodoContractualReadSerializer(obj.periodos_contractuales.all(), many=True).data
@@ -451,9 +457,13 @@ class ContratoSerializer(serializers.ModelSerializer):
         estado = attrs.get('estado', getattr(self.instance, 'estado', EstadoContrato.PENDING))
         fecha_inicio = attrs.get('fecha_inicio', getattr(self.instance, 'fecha_inicio', None))
         fecha_fin_vigente = attrs.get('fecha_fin_vigente', getattr(self.instance, 'fecha_fin_vigente', None))
-
         self._validate_contract_properties(contrato_propiedades, mandato, estado)
-        self._validate_periods(periodos, fecha_inicio, fecha_fin_vigente)
+        self._validate_periods(
+            periodos,
+            fecha_inicio,
+            fecha_fin_vigente,
+            estado=estado,
+        )
         self._validate_codeudores(codeudores)
         self._validate_overlap(contrato_propiedades, estado)
         self._validate_effective_code_namespace(contrato_propiedades, estado, mandato)
@@ -540,7 +550,14 @@ class ContratoSerializer(serializers.ModelSerializer):
                     {'contrato_propiedades': 'La propiedad principal y la vinculada deben compartir el mismo codigo efectivo.'}
                 )
 
-    def _validate_periods(self, periodos, fecha_inicio, fecha_fin_vigente):
+    def _validate_periods(
+        self,
+        periodos,
+        fecha_inicio,
+        fecha_fin_vigente,
+        *,
+        estado=None,
+    ):
         if not periodos:
             raise serializers.ValidationError({'periodos_contractuales': 'Debe enviar al menos un periodo contractual.'})
 
@@ -557,6 +574,19 @@ class ContratoSerializer(serializers.ModelSerializer):
             if period['numero_periodo'] != expected_number:
                 raise serializers.ValidationError(
                     {'periodos_contractuales': 'Los periodos deben numerarse en orden cronologico desde 1.'}
+                )
+            period_end = period['fecha_fin']
+            last_day = calendar.monthrange(period_end.year, period_end.month)[1]
+            is_final_period = expected_number == len(sorted_periods)
+            allow_partial_final_period = (
+                is_final_period
+                and estado == EstadoContrato.EARLY_TERMINATED
+                and fecha_fin_vigente == period_end
+                and period_end.day != last_day
+            )
+            if period_end.day != last_day and not allow_partial_final_period:
+                raise serializers.ValidationError(
+                    {'periodos_contractuales': 'Los periodos contractuales deben cerrar al ultimo dia del mes, salvo ultimo mes parcial por terminacion anticipada auditada.'}
                 )
         for index in range(1, len(sorted_periods)):
             if sorted_periods[index]['fecha_inicio'] <= sorted_periods[index - 1]['fecha_fin']:

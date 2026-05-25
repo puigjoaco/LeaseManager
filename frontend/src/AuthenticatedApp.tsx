@@ -623,6 +623,8 @@ type Contrato = {
   fecha_fin_vigente: string
   fecha_entrega: string | null
   fecha_registro_operativo: string | null
+  terminacion_anticipada_prorrata_ref: string
+  terminacion_anticipada_prorrata_motivo: string
   requiere_notificacion_manual_retroactiva: boolean
   alerta_notificacion_manual_retroactiva: string
   dia_pago_mensual: number
@@ -1488,6 +1490,8 @@ function App() {
     fecha_inicio: todayIso(),
     fecha_fin_vigente: todayIso(),
     fecha_entrega: todayIso(),
+    terminacion_anticipada_prorrata_ref: '',
+    terminacion_anticipada_prorrata_motivo: '',
     dia_pago_mensual: '5',
     plazo_notificacion_termino_dias: '60',
     dias_prealerta_admin: '90',
@@ -2081,6 +2085,8 @@ function App() {
       fecha_inicio: todayIso(),
       fecha_fin_vigente: todayIso(),
       fecha_entrega: todayIso(),
+      terminacion_anticipada_prorrata_ref: '',
+      terminacion_anticipada_prorrata_motivo: '',
       dia_pago_mensual: '5',
       plazo_notificacion_termino_dias: '60',
       dias_prealerta_admin: '90',
@@ -3416,6 +3422,8 @@ function App() {
         fecha_inicio: contratoDraft.fecha_inicio,
         fecha_fin_vigente: contratoDraft.fecha_fin_vigente,
         fecha_entrega: contratoDraft.fecha_entrega || null,
+        terminacion_anticipada_prorrata_ref: contratoDraft.terminacion_anticipada_prorrata_ref,
+        terminacion_anticipada_prorrata_motivo: contratoDraft.terminacion_anticipada_prorrata_motivo,
         dia_pago_mensual: Number(contratoDraft.dia_pago_mensual),
         plazo_notificacion_termino_dias: Number(contratoDraft.plazo_notificacion_termino_dias),
         dias_prealerta_admin: Number(contratoDraft.dias_prealerta_admin),
@@ -3456,6 +3464,8 @@ function App() {
         fecha_inicio: todayIso(),
         fecha_fin_vigente: todayIso(),
         fecha_entrega: todayIso(),
+        terminacion_anticipada_prorrata_ref: '',
+        terminacion_anticipada_prorrata_motivo: '',
         dia_pago_mensual: '5',
         plazo_notificacion_termino_dias: '60',
         dias_prealerta_admin: '90',
@@ -3701,6 +3711,8 @@ function App() {
       fecha_inicio: row.fecha_inicio,
       fecha_fin_vigente: row.fecha_fin_vigente,
       fecha_entrega: row.fecha_entrega || '',
+      terminacion_anticipada_prorrata_ref: row.terminacion_anticipada_prorrata_ref || '',
+      terminacion_anticipada_prorrata_motivo: row.terminacion_anticipada_prorrata_motivo || '',
       dia_pago_mensual: String(row.dia_pago_mensual),
       plazo_notificacion_termino_dias: String(row.plazo_notificacion_termino_dias),
       dias_prealerta_admin: String(row.dias_prealerta_admin),
@@ -3726,6 +3738,8 @@ function App() {
       fecha_inicio: todayIso(),
       fecha_fin_vigente: todayIso(),
       fecha_entrega: todayIso(),
+      terminacion_anticipada_prorrata_ref: '',
+      terminacion_anticipada_prorrata_motivo: '',
       dia_pago_mensual: '5',
       plazo_notificacion_termino_dias: '60',
       dias_prealerta_admin: '90',

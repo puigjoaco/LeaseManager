@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 2 - Canales, contexto de auditoria de mensajes enviados. |
-| Fuente exacta | PR #251 `Require actor and ref on sent message audit events`; commit `9cae40e`; merge `13cc418`; `backend/canales/tests.py`; `backend/core/stage2_cobranza_readiness.py`; `backend/core/tests_stage2_cobranza_readiness.py`; stage card Etapa 2, trazabilidad y evidencia actualizadas. |
-| Brecha activa | Cerrada localmente: readiness bloquea eventos auditables de mensajes `enviado` sin actor o sin `external_ref` no sensible alineado al mensaje, y el endpoint controlado conserva actor autenticado y referencia trazable. |
-| Motivo de prioridad | Hardening local de trazabilidad de Canales completado sin Email/WhatsApp/WebPay reales, `.env`, secretos ni datos reales. |
-| Worktree | Ninguno. |
-| Rama | `main` sincronizada tras PR #251. |
-| Estado | Paquete integrado en main con CI verde; worktree tactico eliminado. |
+| Frente activo | Etapa 1 - Contratos, decision auditada para prorrata por terminacion anticipada. |
+| Fuente exacta | PRD `01_Set_Vigente/PRD_CANONICO.md` lineas 342-345; `backend/contratos/models.py`; `backend/contratos/serializers.py`; `backend/contratos/views.py`; `backend/core/stage1_matrix_audit.py`; `backend/contratos/tests.py`; `backend/core/tests_stage1_matrix_audit.py`. |
+| Brecha activa | En curso: una terminacion anticipada con ultimo mes parcial debe exigir regla o decision auditada con referencia no sensible; los snapshots heredados sin esa traza deben quedar bloqueados por auditor Etapa 1. |
+| Motivo de prioridad | Brecha local de Contratos derivada del PRD, verificable sin `.env`, secretos, DB historica, datos reales ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-early-termination-proration`. |
+| Rama | `codex/stage1-early-termination-proration`. |
+| Estado | En implementacion y validacion local. |
 | Gate esperado | Etapa 2 local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, evidencia Etapa 1 y pruebas Email/WebPay controladas. |
-| Estado al cerrar paquete | Cerrado e integrado en main con validacion local, acceptance local y CI remoto. |
+| Estado al cerrar paquete | Pendiente de validacion, PR, CI, merge y limpieza. |
 | Bloqueos relacionados | Evidencia Etapa 1, prueba externa real/controlada de Email/WebPay y responsables siguen siendo condicion de cierre real de Etapa 2. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Seleccionar el siguiente paquete seguro desde stage cards, trazabilidad y PRD, abriendo un worktree `codex/...` si el cambio no es trivial. |
+| Siguiente accion | Implementar guard de dominio/API/auditor para prorrata de terminacion anticipada, validar Etapa 1/Contratos, abrir PR, esperar CI, mergear, limpiar worktree y cerrar cursor. |
 
 ## Actualizacion
 

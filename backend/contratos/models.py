@@ -25,6 +25,7 @@ INTERNATIONAL_PHONE_RE = re.compile(r'^\+[1-9]\d{7,14}$')
 WHATSAPP_BLOCK_ALERT_CATEGORY = 'canales.whatsapp.bloqueo_definitivo'
 WHATSAPP_BLOCK_EVENT_TYPE = 'contratos.arrendatario.whatsapp_blocked'
 WHATSAPP_REHABILITATION_EVENT_TYPE = 'contratos.arrendatario.whatsapp_rehabilitated'
+EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE = 'contratos.contrato.early_termination_partial_month_decision'
 
 
 def is_international_phone_number(value):
@@ -303,6 +304,8 @@ class Contrato(TimestampedModel):
     fecha_fin_vigente = models.DateField()
     fecha_entrega = models.DateField(null=True, blank=True)
     fecha_registro_operativo = models.DateField(null=True, blank=True)
+    terminacion_anticipada_prorrata_ref = models.CharField(max_length=255, blank=True)
+    terminacion_anticipada_prorrata_motivo = models.TextField(blank=True)
     dia_pago_mensual = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)],
     )
@@ -379,6 +382,53 @@ class Contrato(TimestampedModel):
             return False
         return due_date < registration_date
 
+    def has_partial_early_termination_month(self):
+        if self.estado != EstadoContrato.EARLY_TERMINATED or not self.fecha_fin_vigente:
+            return False
+        last_day = calendar.monthrange(self.fecha_fin_vigente.year, self.fecha_fin_vigente.month)[1]
+        return self.fecha_fin_vigente.day != last_day
+
+    def has_early_termination_proration_decision(self):
+        return bool(
+            (self.terminacion_anticipada_prorrata_ref or '').strip()
+            and (self.terminacion_anticipada_prorrata_motivo or '').strip()
+        )
+
+    def allows_partial_early_termination_period(self, period_end):
+        return (
+            self.has_partial_early_termination_month()
+            and self.has_early_termination_proration_decision()
+            and period_end == self.fecha_fin_vigente
+        )
+
+    def validate_early_termination_proration(self):
+        self.terminacion_anticipada_prorrata_ref = (self.terminacion_anticipada_prorrata_ref or '').strip()
+        self.terminacion_anticipada_prorrata_motivo = (
+            self.terminacion_anticipada_prorrata_motivo or ''
+        ).strip()
+
+        errors = {}
+        if (
+            self.terminacion_anticipada_prorrata_ref
+            and not is_non_sensitive_reference(self.terminacion_anticipada_prorrata_ref)
+        ):
+            errors['terminacion_anticipada_prorrata_ref'] = (
+                'La decision de prorrata por terminacion anticipada debe ser una referencia no sensible.'
+            )
+
+        if self.has_partial_early_termination_month():
+            if not self.terminacion_anticipada_prorrata_ref:
+                errors['terminacion_anticipada_prorrata_ref'] = (
+                    'El ultimo mes parcial por terminacion anticipada requiere regla o decision auditada.'
+                )
+            if not self.terminacion_anticipada_prorrata_motivo:
+                errors['terminacion_anticipada_prorrata_motivo'] = (
+                    'El ultimo mes parcial por terminacion anticipada requiere motivo o criterio trazable.'
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
     def validate_identity_override(self):
         if not self.identidad_envio_override_id or not self.mandato_operacion_id:
             return
@@ -444,6 +494,7 @@ class Contrato(TimestampedModel):
         if self.fecha_fin_vigente < self.fecha_inicio:
             raise ValidationError({'fecha_fin_vigente': 'La fecha fin vigente no puede ser anterior al inicio.'})
 
+        self.validate_early_termination_proration()
         self.validate_identity_override()
 
         if self.fecha_entrega and self.fecha_entrega < self.fecha_inicio:
@@ -669,7 +720,11 @@ class PeriodoContractual(TimestampedModel):
         if self.fecha_inicio.day != 1:
             raise ValidationError({'fecha_inicio': 'El periodo contractual debe iniciar el primer dia del mes.'})
         last_day = calendar.monthrange(self.fecha_fin.year, self.fecha_fin.month)[1]
-        if self.fecha_fin.day != last_day:
+        allow_partial_final_period = (
+            self.contrato_id
+            and self.contrato.allows_partial_early_termination_period(self.fecha_fin)
+        )
+        if self.fecha_fin.day != last_day and not allow_partial_final_period:
             raise ValidationError({'fecha_fin': 'El periodo contractual debe terminar el ultimo dia del mes.'})
         if self.moneda_base == MonedaBaseContrato.CLP and self.monto_base < Decimal('1000.00'):
             raise ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})

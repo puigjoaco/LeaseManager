@@ -20,6 +20,7 @@ from .models import (
     ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
+    EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
     PeriodoContractual,
     WHATSAPP_BLOCK_ALERT_CATEGORY,
     WHATSAPP_BLOCK_EVENT_TYPE,
@@ -146,6 +147,33 @@ def resolve_whatsapp_block_alerts(*, tenant, request, rehabilitacion_ref: str):
     )
 
 
+def contract_proration_trace_key(contract):
+    return (
+        contract.estado,
+        contract.fecha_fin_vigente,
+        (contract.terminacion_anticipada_prorrata_ref or '').strip(),
+        (contract.terminacion_anticipada_prorrata_motivo or '').strip(),
+    )
+
+
+def create_early_termination_proration_trace(*, contract, request):
+    create_audit_event(
+        event_type=EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
+        severity='warning',
+        entity_type='contrato',
+        entity_id=str(contract.pk),
+        summary='Se registro decision auditada para ultimo mes parcial por terminacion anticipada.',
+        actor_user=request.user,
+        ip_address=request.META.get('REMOTE_ADDR'),
+        metadata={
+            'codigo_contrato': contract.codigo_contrato,
+            'fecha_fin_vigente': contract.fecha_fin_vigente.isoformat(),
+            'terminacion_anticipada_prorrata_ref': contract.terminacion_anticipada_prorrata_ref,
+            'terminacion_anticipada_prorrata_motivo': contract.terminacion_anticipada_prorrata_motivo,
+        },
+    )
+
+
 class ContractsSnapshotView(APIView):
     permission_classes = [OperationalModulePermission]
 
@@ -255,6 +283,12 @@ class ContractsSnapshotView(APIView):
                         'fecha_fin_vigente': item.fecha_fin_vigente,
                         'fecha_entrega': item.fecha_entrega,
                         'fecha_registro_operativo': item.fecha_registro_operativo,
+                        'terminacion_anticipada_prorrata_ref': redact_sensitive_reference(
+                            item.terminacion_anticipada_prorrata_ref
+                        ),
+                        'terminacion_anticipada_prorrata_motivo': (
+                            item.terminacion_anticipada_prorrata_motivo or ''
+                        ),
                         'requiere_notificacion_manual_retroactiva': (
                             item.requires_retroactive_manual_notification()
                         ),
@@ -512,6 +546,8 @@ class ContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generi
                     'dia_corte': 5,
                 },
             )
+        if instance.has_partial_early_termination_month():
+            create_early_termination_proration_trace(contract=instance, request=self.request)
 
 
 class ContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
@@ -530,6 +566,24 @@ class ContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.R
     property_scope_paths = ('mandato_operacion__propiedad_id',)
     audit_entity_type = 'contrato'
     audit_entity_label = 'contrato'
+
+    def perform_update(self, serializer):
+        previous_state = self._extract_state(serializer.instance)
+        previous_proration_trace = contract_proration_trace_key(serializer.instance)
+        with transaction.atomic():
+            instance = serializer.save()
+        self._create_audit_event(instance=instance, action='updated')
+        if previous_state != self._extract_state(instance):
+            self._create_audit_event(
+                instance=instance,
+                action='state_changed',
+                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+            )
+        if (
+            instance.has_partial_early_termination_month()
+            and contract_proration_trace_key(instance) != previous_proration_trace
+        ):
+            create_early_termination_proration_trace(contract=instance, request=self.request)
 
 
 class AvisoTerminoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
