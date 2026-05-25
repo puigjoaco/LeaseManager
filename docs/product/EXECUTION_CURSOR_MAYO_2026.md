@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 6 - Renta Anual, resumen anual tributario exige ano comercial consistente. |
-| Fuente exacta | PR #266; commit `ae14890`; merge `9a17b63`. PRD `01_Set_Vigente/PRD_CANONICO.md` lineas 248, 312, 464 y 606; `docs/product/STAGE_CARDS/ETAPA_6_RENTA_ANUAL.md`; `backend/sii/models.py`; `backend/core/stage6_renta_anual_readiness.py`; tests SII y readiness Etapa 6. |
-| Brecha activa | Ninguna abierta en cursor. La brecha de payloads anuales con `fiscal_year` desalineado contra `anio_tributario` quedo corregida y validada en PR #266. |
-| Motivo de prioridad | Paquete cerrado porque reforzo una regla local de Renta Anual: `ProcesoRentaAnual`, DDJJ y F22 deben trazar al ano comercial inmediatamente anterior al ano tributario, y readiness detecta snapshots heredados desalineados. No requirio `.env`, secretos, DB historica, datos reales, certificados ni integraciones SII externas. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 7 - Reporting tributario anual exige ano comercial consistente. |
+| Fuente exacta | PR #268; commit `a136f37`; merge `45b7628`. `docs/product/STAGE_CARDS/ETAPA_7_REPORTING_TRAZABILIDAD.md`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `backend/reporting/services.py`; `backend/core/stage7_reporting_readiness.py`; tests Reporting y readiness Etapa 7. |
+| Brecha activa | Ninguna abierta en cursor. La brecha de reportes tributarios anuales con `fiscal_year` de proceso/DDJJ/F22 desalineado contra `anio_tributario` quedo corregida y validada en PR #268. |
+| Motivo de prioridad | Paquete cerrado porque alineo Reporting con la regla de Renta Anual ya reforzada: el reporte tributario anual no puede construirse ni pasar readiness si sus origenes declaran un ano comercial distinto del inmediatamente anterior al ano tributario. No requirio `.env`, secretos, DB historica, datos reales, certificados ni integraciones SII externas. |
 | Worktree | Ninguno tactico abierto. |
 | Rama | Ninguna tactica abierta. |
-| Estado | PR #266 mergeado, CI `acceptance` en verde, main sincronizado y worktree tactico eliminado. |
-| Gate esperado | Etapa 6 sigue como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, doce cierres/snapshot controlado, regla fiscal validada, certificados/respaldos controlados y responsable tributario. |
-| Estado al cerrar paquete | Cerrado en main con merge `9a17b63`; siguiente frente debe elegirse por trazabilidad desde estado limpio. |
-| Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado`, doce cierres evidenciados, regla fiscal validada, certificados/respaldos controlados y responsable tributario siguen siendo condicion de cierre real, no de preparacion local. |
+| Estado | PR #268 mergeado, CI `acceptance` en verde, main sincronizado y worktree tactico eliminado. |
+| Gate esperado | Etapa 7 sigue como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, cierres/snapshot controlado, datos autorizados y trazabilidad final. |
+| Estado al cerrar paquete | Cerrado en main con merge `45b7628`; siguiente frente debe elegirse por trazabilidad desde estado limpio. |
+| Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado`, cierres/snapshot controlado, datos autorizados y trazabilidad final siguen siendo condicion de cierre real, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 | Siguiente accion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 
