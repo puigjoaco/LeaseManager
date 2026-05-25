@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -221,6 +221,15 @@ def _collect_whatsapp_block_issues(blocked_tenants) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _sent_message_event_is_complete(event: AuditEvent, message: MensajeSaliente) -> bool:
+    event_external_ref = str((event.metadata or {}).get('external_ref') or '').strip()
+    if not event.actor_user_id and not event.actor_identifier.strip():
+        return False
+    if not event_external_ref or not _non_sensitive_reference(event_external_ref):
+        return False
+    return event_external_ref == message.external_ref.strip()
+
+
 def _collect_message_issues(messages) -> dict[str, int]:
     counts = Counter()
     sent_message_ids = [
@@ -228,13 +237,13 @@ def _collect_message_issues(messages) -> dict[str, int]:
         for message in messages
         if message.pk is not None and message.estado == EstadoMensajeSaliente.SENT
     ]
-    sent_message_event_refs = set(
-        AuditEvent.objects.filter(
-            event_type=SENT_MESSAGE_EVENT_TYPE,
-            entity_type='mensaje_saliente',
-            entity_id__in=sent_message_ids,
-        ).values_list('entity_id', flat=True)
-    )
+    sent_message_events = defaultdict(list)
+    for event in AuditEvent.objects.filter(
+        event_type=SENT_MESSAGE_EVENT_TYPE,
+        entity_type='mensaje_saliente',
+        entity_id__in=sent_message_ids,
+    ):
+        sent_message_events[event.entity_id].append(event)
     for message in messages:
         try:
             message.full_clean()
@@ -247,8 +256,11 @@ def _collect_message_issues(messages) -> dict[str, int]:
                 counts['sent_with_sensitive_external_ref'] += 1
             if message.enviado_at is None:
                 counts['sent_without_timestamp'] += 1
-            if str(message.pk) not in sent_message_event_refs:
+            message_events = sent_message_events.get(str(message.pk), [])
+            if not message_events:
                 counts['sent_without_audit_event'] += 1
+            elif not any(_sent_message_event_is_complete(event, message) for event in message_events):
+                counts['sent_audit_event_incomplete'] += 1
         if _message_operational_issue(message):
             counts['prepared_or_sent_not_ready'] += 1
         if message.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}:
@@ -859,6 +871,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.message.sent_without_audit_event',
                 'Existen mensajes marcados enviados sin evento auditable de envio manual.',
                 count=message_issues['sent_without_audit_event'],
+            )
+        )
+    if message_issues.get('sent_audit_event_incomplete'):
+        issues.append(
+            _issue(
+                'stage2.message.sent_audit_event_incomplete',
+                'Existen mensajes enviados cuyo evento auditable no conserva actor y external_ref trazable alineado.',
+                count=message_issues['sent_audit_event_incomplete'],
             )
         )
     if message_issues.get('prepared_or_sent_not_ready'):
