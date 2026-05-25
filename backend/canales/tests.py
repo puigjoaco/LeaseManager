@@ -478,6 +478,37 @@ class CanalesAPITests(APITestCase):
 
         self.assertIn('configuracion', error.exception.message_dict)
 
+    def test_skipped_notification_requires_non_sensitive_reason(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-SKIPPED')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payment = self._create_payment_for_contract(contrato)
+        configuration = ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
+        notification = NotificacionCobranzaProgramada(
+            pago_mensual=payment,
+            configuracion=configuration,
+            canal='email',
+            dia_notificacion=5,
+            fecha_programada=date(2026, 1, 5),
+            estado='omitida',
+        )
+
+        with self.assertRaises(ValidationError) as missing_error:
+            notification.full_clean()
+        self.assertIn('motivo_estado', missing_error.exception.message_dict)
+
+        notification.motivo_estado = 'https://mail.example.test/token/secret'
+        with self.assertRaises(ValidationError) as sensitive_error:
+            notification.full_clean()
+        self.assertIn('motivo_estado', sensitive_error.exception.message_dict)
+
+        notification.motivo_estado = 'arrendatario-contactado-por-canal-alternativo'
+        notification.full_clean()
+
     def test_channel_apis_redact_inherited_sensitive_references(self):
         _, contrato = self._create_contract_context(codigo='CH-API-REDACT')
         gate = CanalMensajeria.objects.create(

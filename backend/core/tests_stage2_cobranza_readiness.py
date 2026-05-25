@@ -333,6 +333,45 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.notification_schedule.invalid_model', issue_codes)
         self.assertEqual(result['sections']['notification_schedules']['invalid_model'], 1)
 
+    def test_skipped_notification_without_reason_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        notification = NotificacionCobranzaProgramada.objects.filter(
+            pago_mensual=fixture['payment'],
+            dia_notificacion=5,
+        ).get()
+        notification.estado = 'omitida'
+        notification.motivo_estado = ''
+        notification.save(update_fields=['estado', 'motivo_estado', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.notification_schedule.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['notification_schedules']['invalid_model'], 1)
+
+    def test_skipped_notification_with_sensitive_reason_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        notification = NotificacionCobranzaProgramada.objects.filter(
+            pago_mensual=fixture['payment'],
+            dia_notificacion=5,
+        ).get()
+        notification.estado = 'omitida'
+        notification.motivo_estado = 'https://mail.example.test/token/secret'
+        notification.save(update_fields=['estado', 'motivo_estado', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.notification_schedule.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['notification_schedules']['invalid_model'], 1)
+        self.assertNotIn('mail.example.test', json.dumps(result))
+
     def test_missing_account_state_for_active_billing_tenant_is_blocking(self):
         self._create_payment_matrix()
         self._create_valid_email_gate()
