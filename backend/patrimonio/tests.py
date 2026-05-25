@@ -833,6 +833,61 @@ class PatrimonioAPITests(APITestCase):
         self.assertEqual(comunidad.representante_socio_id, socio_designado.id)
         self.assertFalse(comunidad.representante_es_participante_activo())
 
+    def test_future_representation_is_not_current_for_active_community(self):
+        socio_participante = self._create_socio('Socio Participante Futuro', '11111111-1')
+        socio_designado = self._create_socio('Socio Representante Futuro', '22222222-2')
+        future_date = timezone.localdate() + timedelta(days=30)
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Futura', estado=EstadoPatrimonial.ACTIVE)
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_participante,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio_designado,
+            vigente_desde=future_date,
+            activo=True,
+        )
+
+        self.assertIsNone(comunidad.representacion_vigente())
+        with self.assertRaises(ValidationError) as error:
+            comunidad.full_clean()
+        self.assertIn('estado', error.exception.message_dict)
+
+        detail_response = self.client.get(reverse('patrimonio-comunidad-detail', args=[comunidad.id]))
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(detail_response.data['representacion_vigente'])
+
+        snapshot_response = self.client.get(reverse('patrimonio-snapshot'))
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        comunidad_snapshot = next(
+            item for item in snapshot_response.data['comunidades']
+            if item['id'] == comunidad.id
+        )
+        self.assertIsNone(comunidad_snapshot['representacion_vigente'])
+
+    def test_future_representation_does_not_block_socio_deactivation(self):
+        socio_designado = self._create_socio('Socio Futuro Desactivable', '11111111-1')
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Representacion Futura')
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio_designado,
+            vigente_desde=timezone.localdate() + timedelta(days=30),
+            activo=True,
+        )
+
+        socio_designado.activo = False
+
+        try:
+            socio_designado.full_clean()
+        except ValidationError as error:
+            self.fail(f'Future representation should not block deactivation: {error}')
+
 
 class PatrimonioScopeAPITests(APITestCase):
     def setUp(self):

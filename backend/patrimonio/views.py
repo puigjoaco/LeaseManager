@@ -146,7 +146,11 @@ class PatrimonioSnapshotView(APIView):
                                 representacion := next(
                                     (
                                         rep for rep in item.representaciones.all()
-                                        if rep.activo and (rep.vigente_hasta is None or rep.vigente_hasta >= today)
+                                        if (
+                                            rep.activo
+                                            and rep.vigente_desde <= today
+                                            and (rep.vigente_hasta is None or rep.vigente_hasta >= today)
+                                        )
                                     ),
                                     None,
                                 )

@@ -82,9 +82,7 @@ class Socio(TimestampedModel):
             errors.append('No se puede desactivar un socio con propiedades activas.')
         if _currently_effective(self.participaciones_patrimoniales_como_participante).exists():
             errors.append('No se puede desactivar un socio con participaciones patrimoniales activas vigentes.')
-        if self.representaciones_comunidad.filter(activo=True).filter(
-            Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=timezone.localdate())
-        ).exists():
+        if _currently_effective(self.representaciones_comunidad).exists():
             errors.append('No se puede desactivar un socio con representaciones de comunidad activas.')
         return errors
 
@@ -177,12 +175,7 @@ class ComunidadPatrimonial(TimestampedModel):
         return self.total_participaciones_activas() == Decimal('100.00')
 
     def representaciones_activas(self):
-        today = timezone.localdate()
-        return self.representaciones.filter(
-            activo=True,
-        ).filter(
-            Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=today),
-        )
+        return _currently_effective(self.representaciones)
 
     def representacion_vigente(self):
         return self.representaciones_activas().select_related('socio_representante').order_by('-vigente_desde', '-id').first()

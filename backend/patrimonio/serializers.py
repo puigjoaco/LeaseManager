@@ -372,7 +372,11 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
             today = timezone.localdate()
             activas = [
                 item for item in representaciones
-                if item.activo and (item.vigente_hasta is None or item.vigente_hasta >= today)
+                if (
+                    item.activo
+                    and item.vigente_desde <= today
+                    and (item.vigente_hasta is None or item.vigente_hasta >= today)
+                )
             ]
             activas.sort(key=lambda item: (item.vigente_desde, item.id), reverse=True)
             representacion = activas[0] if activas else None

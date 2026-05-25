@@ -646,6 +646,24 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_active_community_future_only_representation_is_blocking(self):
+        self._create_valid_stage1_matrix()
+        comunidad = ComunidadPatrimonial.objects.get(nombre='Comunidad Controlada')
+        future_date = timezone.localdate() + timedelta(days=30)
+        RepresentacionComunidad.objects.filter(comunidad=comunidad).update(vigente_desde=future_date)
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.comunidad.validacion_modelo', issue_codes)
+        self.assertIn('stage1.comunidad.representacion_activa_invalida', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['comunidades']['classification'],
+            'defectuoso',
+        )
+
     def test_active_participation_with_inactive_participant_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         socio = ParticipacionPatrimonial.objects.filter(
