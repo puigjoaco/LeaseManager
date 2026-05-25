@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
@@ -1375,6 +1375,28 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertEqual(result['issue_counts'].get('warning'), 1)
         self.assertIn('stage1.contrato.notificacion_manual_retroactiva', issue_codes)
+
+    def test_late_registered_notice_is_warning_only(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.fecha_registro_operativo = date(2026, 1, 1)
+        contrato.save(update_fields=['fecha_registro_operativo', 'updated_at'])
+        aviso = AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='No renovacion tardia',
+            estado=EstadoAvisoTermino.REGISTERED,
+        )
+        AvisoTermino.objects.filter(pk=aviso.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 11, 2, 10, 0, 0))
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertEqual(result['issue_counts'].get('warning'), 1)
+        self.assertIn('stage1.aviso_termino.registro_fuera_plazo', issue_codes)
 
     def test_existing_payment_for_retroactive_past_billing_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

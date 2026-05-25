@@ -1110,6 +1110,20 @@ def _audit_early_termination_proration(issues: list[dict[str, Any]]) -> None:
             )
 
 
+def _audit_late_termination_notices(issues: list[dict[str, Any]]) -> None:
+    for aviso in AvisoTermino.objects.filter(estado=EstadoAvisoTermino.REGISTERED).select_related('contrato'):
+        if not aviso.is_late_registered_notice():
+            continue
+        _issue(
+            issues,
+            code='stage1.aviso_termino.registro_fuera_plazo',
+            entity='AvisoTermino',
+            entity_id=aviso.pk,
+            message=aviso.late_registration_alert(),
+            severity='warning',
+        )
+
+
 def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Contrato) -> None:
     tenant = contrato.arrendatario
     if tenant.estado_contacto != EstadoContactoArrendatario.ACTIVE:
@@ -1582,6 +1596,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
     )
     _audit_payment_distribution_consistency(issues)
     _audit_early_termination_proration(issues)
+    _audit_late_termination_notices(issues)
 
     duplicate_any_role = (
         ContratoPropiedad.objects.filter(contrato__estado__in=ACTIVE_CONTRACT_STATES)

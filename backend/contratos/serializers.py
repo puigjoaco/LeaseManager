@@ -775,6 +775,10 @@ class ContratoSerializer(serializers.ModelSerializer):
 
 
 class AvisoTerminoSerializer(serializers.ModelSerializer):
+    fecha_limite_registro_oportuno = serializers.SerializerMethodField(read_only=True)
+    registrado_fuera_plazo = serializers.SerializerMethodField(read_only=True)
+    alerta_registro_fuera_plazo = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = AvisoTermino
         fields = (
@@ -784,6 +788,9 @@ class AvisoTerminoSerializer(serializers.ModelSerializer):
             'causal',
             'estado',
             'registrado_por',
+            'fecha_limite_registro_oportuno',
+            'registrado_fuera_plazo',
+            'alerta_registro_fuera_plazo',
             'created_at',
             'updated_at',
         )
@@ -794,6 +801,16 @@ class AvisoTerminoSerializer(serializers.ModelSerializer):
         user = _request_user(self)
         if user and getattr(user, 'is_authenticated', False):
             self.fields['contrato'].queryset = _scoped_contrato_queryset(user)
+
+    def get_fecha_limite_registro_oportuno(self, obj):
+        latest = obj.latest_timely_registration_at()
+        return latest.isoformat() if latest else None
+
+    def get_registrado_fuera_plazo(self, obj):
+        return obj.is_late_registered_notice()
+
+    def get_alerta_registro_fuera_plazo(self, obj):
+        return obj.late_registration_alert()
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, AvisoTermino)

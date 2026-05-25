@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -1593,6 +1594,36 @@ class ContratosAPITests(APITestCase):
 
         self.assertEqual(aviso_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('fecha_efectiva', aviso_response.data)
+
+    def test_registered_notice_exposes_late_registration_alert(self):
+        mandato = self._create_active_mandato(codigo='MAND-107-LATE-REG', owner_rut='16161618-8')
+        arrendatario = self._create_arrendatario(rut='17171719-5')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-107-LATE-REG')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        aviso_response = self.client.post(
+            reverse('contratos-aviso-list'),
+            {
+                'contrato': current_response.data['id'],
+                'fecha_efectiva': '2026-12-31',
+                'causal': 'No renovacion tardia',
+                'estado': EstadoAvisoTermino.REGISTERED,
+            },
+            format='json',
+        )
+        self.assertEqual(aviso_response.status_code, status.HTTP_201_CREATED)
+
+        AvisoTermino.objects.filter(pk=aviso_response.data['id']).update(
+            created_at=timezone.make_aware(datetime(2026, 11, 2, 10, 0, 0))
+        )
+
+        detail_response = self.client.get(reverse('contratos-aviso-detail', args=[aviso_response.data['id']]))
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(detail_response.data['registrado_fuera_plazo'])
+        self.assertTrue(detail_response.data['fecha_limite_registro_oportuno'].startswith('2026-11-01T23:59:59'))
+        self.assertIn('fuera del plazo contractual', detail_response.data['alerta_registro_fuera_plazo'])
 
     def test_notice_to_future_contract_workflow_preserves_registered_notice(self):
         mandato = self._create_active_mandato(codigo='MAND-109', owner_rut='20202020-2')

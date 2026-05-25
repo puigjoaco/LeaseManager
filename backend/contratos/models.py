@@ -1,6 +1,6 @@
 import calendar
 import re
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -21,6 +21,7 @@ codigo_efectivo_validator = RegexValidator(
     message='El codigo de conciliacion efectivo debe tener exactamente 3 digitos.',
 )
 RETROACTIVE_MANUAL_NOTIFICATION_CUTOFF_DAY = 5
+NOTICE_DEADLINE_END_OF_DAY = time(23, 59, 59)
 INTERNATIONAL_PHONE_RE = re.compile(r'^\+[1-9]\d{7,14}$')
 WHATSAPP_BLOCK_ALERT_CATEGORY = 'canales.whatsapp.bloqueo_definitivo'
 WHATSAPP_BLOCK_EVENT_TYPE = 'contratos.arrendatario.whatsapp_blocked'
@@ -844,6 +845,45 @@ class AvisoTermino(TimestampedModel):
 
     def __str__(self):
         return f'{self.contrato.codigo_contrato} - {self.estado}'
+
+    def latest_timely_registration_at(self):
+        if not self.contrato_id or not self.contrato.fecha_fin_vigente:
+            return None
+        deadline_date = self.contrato.fecha_fin_vigente - timedelta(
+            days=self.contrato.plazo_notificacion_termino_dias
+        )
+        return timezone.make_aware(
+            datetime.combine(deadline_date, NOTICE_DEADLINE_END_OF_DAY),
+            timezone.get_current_timezone(),
+        )
+
+    def registration_timestamp_for_notice_deadline(self):
+        return self.created_at
+
+    def is_late_registered_notice(self):
+        if self.estado != EstadoAvisoTermino.REGISTERED:
+            return False
+        registration_timestamp = self.registration_timestamp_for_notice_deadline()
+        latest_timely_registration = self.latest_timely_registration_at()
+        if not registration_timestamp or not latest_timely_registration:
+            return False
+        if timezone.is_naive(registration_timestamp):
+            registration_timestamp = timezone.make_aware(
+                registration_timestamp,
+                timezone.get_current_timezone(),
+            )
+        return registration_timestamp > latest_timely_registration
+
+    def late_registration_alert(self):
+        if not self.is_late_registered_notice():
+            return ''
+        registration_timestamp = self.registration_timestamp_for_notice_deadline()
+        latest_timely_registration = self.latest_timely_registration_at()
+        return (
+            'Aviso de termino registrado fuera del plazo contractual; '
+            f'limite oportuno: {latest_timely_registration.isoformat()}; '
+            f'registro real: {registration_timestamp.isoformat()}.'
+        )
 
     def clean(self):
         super().clean()
