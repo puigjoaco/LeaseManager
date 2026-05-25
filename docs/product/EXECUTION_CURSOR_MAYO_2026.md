@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 - CobranzaActiva/WebPay: coherencia entre intento WebPay confirmado manualmente y pago mensual cerrado. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `CobranzaActiva`; `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`; `backend/cobranza/models.py`; `backend/cobranza/services.py`; `backend/core/stage2_cobranza_readiness.py`; tests de Cobranza/Etapa 2. |
-| Brecha activa | El servicio confirma WebPay alineando intento y pago, pero un snapshot heredado puede conservar un `IntentoPagoWebPay` confirmado con pago no pagado, sin fecha WebPay del pago o con fecha distinta, y readiness no lo clasifica especificamente. |
-| Motivo de prioridad | Es un hardening local de Etapa 2, pequeno y verificable, sin usar secretos, `.env`, DB historica, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-webpay-confirmation-alignment`. |
-| Rama | `codex/stage2-webpay-confirmation-alignment`. |
-| Estado | En implementacion. `main` queda limpio en `D:/Proyectos/LeaseManager`. |
-| Gate esperado | Etapa 2 local diagnostica parcial/no evidencial; no cierra Cobranza sin Etapa 1 evidenciada y fuente `snapshot_controlado` o `real_autorizado`. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Prueba externa real/controlada de Email/WebPay y datos de Etapa 1 confirmados siguen siendo condicion de cierre, no freno para este paquete local. |
-| Politica de reanudacion | Retomar este worktree hasta cerrar, pausar explicitamente en este cursor o limpiar con instruccion segura. |
-| Siguiente accion | Agregar guard de dominio/readiness para intentos WebPay confirmados desalineados con `PagoMensual`, tests focales y validacion proporcional. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 2 - CobranzaActiva/WebPay, coherencia entre intento WebPay confirmado manualmente y pago mensual cerrado. |
+| Fuente exacta | PR #225 `Guard Stage 2 WebPay confirmation alignment`; commit `32abb25`; merge `1e5912c`; `backend/cobranza/models.py`; `backend/core/stage2_cobranza_readiness.py`; tests de Cobranza/Etapa 2; stage card, trazabilidad y evidencia actualizadas. |
+| Brecha activa | Cerrada localmente: `IntentoPagoWebPay` confirmado exige `PagoMensual` pagado y misma `fecha_pago_webpay`; readiness clasifica snapshots heredados con pago no pagado, sin fecha WebPay del pago o con fecha distinta. |
+| Motivo de prioridad | Paquete local, pequeno y verificable completado sin secretos, `.env`, DB historica, datos reales ni integraciones externas. |
+| Worktree | Ninguno. Solo debe quedar el worktree principal `D:/Proyectos/LeaseManager`. |
+| Rama | `main`, sincronizada con `origin/main`. |
+| Estado | PR #225 integrado con CI remoto verde; worktree tactico y ramas local/remota eliminados. |
+| Gate esperado | Etapa 2 local queda como diagnostico parcial/no evidencial; no cierra Cobranza sin Etapa 1 evidenciada y fuente `snapshot_controlado` o `real_autorizado`. |
+| Estado al cerrar paquete | Preparacion local de WebPay/Etapa 2 reforzada; cierre real de Etapa 2 sigue pendiente de fuentes/evidencias autorizadas. |
+| Bloqueos relacionados | Prueba externa real/controlada de Email/WebPay y datos de Etapa 1 confirmados siguen siendo condicion de cierre, no freno para elegir otro paquete local seguro. |
+| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, diagnosticar el siguiente paquete pequeno, trazable y local desde la matriz/stage cards. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; elegir el siguiente frente seguro por trazabilidad y abrir worktree `codex/...` solo si requiere cambios no triviales. |
 
 ## Actualizacion
 
