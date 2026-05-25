@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 1 - Patrimonio, ventana efectiva de representaciones de comunidad. |
-| Fuente exacta | PR #221 (`Guard Stage 1 community representation window`), commit `ea548aa`, merge `0dd724e`; `backend/patrimonio/models.py`; `backend/patrimonio/serializers.py`; `backend/patrimonio/views.py`; `backend/patrimonio/tests.py`; `backend/core/tests_stage1_matrix_audit.py`; stage card, trazabilidad y evidencia Etapa 1. |
-| Brecha activa | Cerrada localmente: las representaciones de comunidad solo cuentan como vigentes si `activo=True`, `vigente_desde` ya fue alcanzado y `vigente_hasta` no vencio. |
-| Motivo de prioridad | Paquete seguro completado sin secretos, `.env`, datos reales, snapshots, backfills, deploys ni integraciones externas. |
-| Worktree | Ninguno. Solo debe quedar el worktree principal `D:/Proyectos/LeaseManager`. |
-| Rama | `main` sincronizada con `origin/main`. |
-| Estado | PR #221 integrado con CI `acceptance` verde; worktree tactico y rama local/remota eliminados. |
-| Gate esperado | Etapa 1 local sigue como diagnostico no evidencial; no cierra Etapa 1 sin `snapshot_controlado` o `real_autorizado`. |
-| Estado al cerrar paquete | Preparacion local de Patrimonio reforzada; cierre real de Etapa 1 sigue pendiente por fuente/evidencia autorizada. |
-| Bloqueos relacionados | Cierre real de Etapa 1 requiere fuente autorizada y evidencia suficiente; no bloquea preparacion local ni el siguiente frente seguro. |
-| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, diagnosticar el siguiente frente seguro segun trazabilidad y orden de construccion. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; elegir el siguiente paquete pequeno, seguro y verificable desde trazabilidad/stage cards. |
+| Frente activo | Etapa 1 - Patrimonio: duplicidad de participantes actualmente vigentes. |
+| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Patrimonio`; `docs/product/STAGE_CARDS/ETAPA_1_DATOS_REALES.md`; `backend/patrimonio/models.py`; `backend/patrimonio/serializers.py`; `backend/core/stage1_matrix_audit.py`; tests de Patrimonio/Etapa 1. |
+| Brecha activa | La API detecta duplicados sobre todo el historial de participaciones, no solo sobre las actualmente vigentes, y el dominio/auditor pueden dejar pasar snapshots heredados con el mismo participante vigente duplicado. |
+| Motivo de prioridad | La trazabilidad exige participaciones actualmente vigentes; es un paquete local, pequeno y verificable sin secretos ni fuentes externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-participation-duplicate-window`. |
+| Rama | `codex/stage1-participation-duplicate-window`. |
+| Estado | En implementacion. `main` queda limpio en `D:/Proyectos/LeaseManager`. |
+| Gate esperado | Etapa 1 local diagnostica parcial/no evidencial; no cierra Etapa 1 sin `snapshot_controlado` o `real_autorizado`. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Cierre real de Etapa 1 sigue dependiendo de fuente autorizada y evidencia suficiente; no bloquea este hardening local. |
+| Politica de reanudacion | Retomar este worktree hasta cerrar, pausar explicitamente en este cursor o limpiar con instruccion segura. |
+| Siguiente accion | Ajustar dominio/API/auditor para bloquear duplicados actualmente vigentes y permitir historial no vigente del mismo participante; agregar pruebas focales y validacion proporcional. |
 
 ## Actualizacion
 

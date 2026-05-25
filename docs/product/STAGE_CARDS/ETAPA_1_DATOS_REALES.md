@@ -28,6 +28,10 @@ contra datos reales o snapshot controlado.
 - Validacion de participaciones actualmente vigentes: para activar empresas o
   comunidades solo cuentan participaciones activas con `vigente_desde` ya
   alcanzado y sin `vigente_hasta` vencido.
+- Duplicidad de participantes vigentes: una empresa o comunidad activa no
+  puede repetir el mismo socio o empresa participante dentro del set
+  actualmente vigente; participaciones historicas no vigentes pueden coexistir
+  con la participacion actual del mismo participante.
 - Validacion de representaciones actualmente vigentes: para activar
   comunidades o bloquear desactivaciones de socios solo cuentan
   representaciones activas con `vigente_desde` ya alcanzado y sin

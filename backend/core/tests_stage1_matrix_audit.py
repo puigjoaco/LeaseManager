@@ -646,6 +646,44 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_active_company_duplicate_current_participant_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        empresa = contrato.mandato_operacion.propietario_empresa_owner
+        socio = ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).first().participante_socio
+        ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).exclude(
+            participante_socio=socio,
+        ).update(participante_socio=socio)
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.empresa.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['empresas']['classification'],
+            'defectuoso',
+        )
+
+    def test_active_community_duplicate_current_participant_is_blocking(self):
+        self._create_valid_stage1_matrix()
+        comunidad = ComunidadPatrimonial.objects.get(nombre='Comunidad Controlada')
+        socio = ParticipacionPatrimonial.objects.filter(comunidad_owner=comunidad).first().participante_socio
+        ParticipacionPatrimonial.objects.filter(comunidad_owner=comunidad).exclude(
+            participante_socio=socio,
+        ).update(participante_socio=socio)
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.comunidad.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['comunidades']['classification'],
+            'defectuoso',
+        )
+
     def test_active_community_future_only_representation_is_blocking(self):
         self._create_valid_stage1_matrix()
         comunidad = ComunidadPatrimonial.objects.get(nombre='Comunidad Controlada')

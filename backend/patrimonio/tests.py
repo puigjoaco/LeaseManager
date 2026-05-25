@@ -276,6 +276,69 @@ class PatrimonioAPITests(APITestCase):
             response = self.client.post(reverse('patrimonio-empresa-list'), payload, format='json')
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_empresa_active_rejects_duplicate_current_participant(self):
+        socio = self._create_socio('Socio Duplicado Vigente', '11111111-1')
+        payload = self._empresa_payload(
+            participaciones=[
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio.id,
+                    'porcentaje': '60.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio.id,
+                    'porcentaje': '40.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+            ],
+        )
+
+        response = self.client.post(reverse('patrimonio-empresa-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('participaciones', response.data)
+
+    def test_empresa_allows_same_participant_in_historical_non_current_row(self):
+        socio_1 = self._create_socio('Socio Historico Uno', '11111111-1')
+        socio_2 = self._create_socio('Socio Historico Dos', '22222222-2')
+        historical_start = (timezone.localdate() - timedelta(days=90)).isoformat()
+        historical_end = (timezone.localdate() - timedelta(days=30)).isoformat()
+        payload = self._empresa_payload(
+            participaciones=[
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_1.id,
+                    'porcentaje': '100.00',
+                    'vigente_desde': historical_start,
+                    'vigente_hasta': historical_end,
+                    'activo': True,
+                },
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_1.id,
+                    'porcentaje': '60.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_2.id,
+                    'porcentaje': '40.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+            ],
+        )
+
+        response = self.client.post(reverse('patrimonio-empresa-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data['participaciones_detail']), 3)
+
     def test_empresa_active_rejects_future_participations_for_activation(self):
         socio_1 = self._create_socio('Socio Futuro Uno', '11111111-1')
         socio_2 = self._create_socio('Socio Futuro Dos', '22222222-2')

@@ -55,6 +55,26 @@ def _currently_effective(queryset, effective_date=None):
     )
 
 
+def _participation_key(participacion):
+    if participacion.participante_socio_id:
+        return ('socio', participacion.participante_socio_id)
+    if participacion.participante_empresa_id:
+        return ('empresa', participacion.participante_empresa_id)
+    return None
+
+
+def _has_duplicate_effective_participants(participaciones):
+    seen = set()
+    for participacion in participaciones:
+        key = _participation_key(participacion)
+        if key is None:
+            continue
+        if key in seen:
+            return True
+        seen.add(key)
+    return False
+
+
 class Socio(TimestampedModel):
     nombre = models.CharField(max_length=255)
     rut = models.CharField(max_length=16, unique=True, validators=[validate_rut])
@@ -126,6 +146,9 @@ class Empresa(TimestampedModel):
     def participaciones_completas(self):
         return self.total_participaciones_activas() == Decimal('100.00')
 
+    def tiene_participantes_activos_duplicados(self):
+        return _has_duplicate_effective_participants(self.participaciones_activas())
+
     def inactive_state_dependency_errors(self):
         if not self.pk:
             return []
@@ -143,6 +166,8 @@ class Empresa(TimestampedModel):
             raise ValidationError(
                 {'estado': 'La empresa activa requiere participaciones activas que sumen exactamente 100.00.'}
             )
+        if self.estado == EstadoPatrimonial.ACTIVE and self.tiene_participantes_activos_duplicados():
+            raise ValidationError({'estado': 'La empresa activa no puede repetir participantes actualmente vigentes.'})
         if self.estado != EstadoPatrimonial.ACTIVE:
             errors = self.inactive_state_dependency_errors()
             if errors:
@@ -176,6 +201,9 @@ class ComunidadPatrimonial(TimestampedModel):
 
     def representaciones_activas(self):
         return _currently_effective(self.representaciones)
+
+    def tiene_participantes_activos_duplicados(self):
+        return _has_duplicate_effective_participants(self.participaciones_activas())
 
     def representacion_vigente(self):
         return self.representaciones_activas().select_related('socio_representante').order_by('-vigente_desde', '-id').first()
@@ -212,6 +240,8 @@ class ComunidadPatrimonial(TimestampedModel):
                 raise ValidationError(
                     {'estado': 'La comunidad activa requiere participaciones activas que sumen exactamente 100.00.'}
                 )
+            if self.tiene_participantes_activos_duplicados():
+                raise ValidationError({'estado': 'La comunidad activa no puede repetir participantes actualmente vigentes.'})
             if not self.representacion_vigente():
                 raise ValidationError({'estado': 'La comunidad activa debe tener una representacion vigente.'})
             if not self.representacion_vigente().socio_representante.activo:

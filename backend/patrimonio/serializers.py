@@ -221,8 +221,11 @@ class OwnerBaseSerializer(serializers.ModelSerializer):
         return total
 
     def _validate_no_duplicate_participantes(self, participaciones):
+        today = timezone.localdate()
         participant_keys = []
         for participacion in participaciones:
+            if not self._participacion_is_currently_active(participacion, today):
+                continue
             if participacion.get('participante_socio'):
                 participant_keys.append(('socio', participacion['participante_socio'].id))
             elif participacion.get('participante_empresa'):
