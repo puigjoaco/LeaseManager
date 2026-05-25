@@ -39,6 +39,11 @@ condicionados sin envios reales accidentales.
 - Registro manual de envio solo con `external_ref` trazable no sensible y
   revalidacion del gate abierto, identidad activa, destinatario y mandato
   operativo activo.
+- `MensajeSaliente.clean()` bloquea nuevas escrituras en estado `preparado` o
+  `enviado` sin gate abierto, readiness Email, identidad activa, destinatario,
+  mandato operativo activo, contexto WhatsApp valido o formalizacion
+  documental cuando corresponda; mensajes `enviado` requieren `external_ref`
+  trazable no sensible.
 - Las notificaciones por cobranza se configuran por contrato y canal
   habilitado mediante cadencias activas de dias. La base sugerida es
   `1/3/5/10/15/20/25`; una cadencia distinta requiere referencia no sensible,
@@ -59,7 +64,8 @@ condicionados sin envios reales accidentales.
   `dias_mora` desactualizado para la fecha de corte auditada.
 - Mensajes salientes con `DocumentoEmitido` cuya politica documental exige
   firma o notaria solo pueden prepararse o marcarse enviados si el documento
-  ya esta `formalizado`.
+  ya esta `formalizado`; el dominio conserva el mismo guard para escrituras
+  directas y readiness detecta snapshots heredados.
 - Email cerrado/condicionado por defecto: un gate `Email.Salida` abierto
   requiere `evidencia_ref`, referencia de prueba aislada/envio y referencia
   OAuth/credencial validada, todas no sensibles; preparar o registrar envio
@@ -96,7 +102,8 @@ condicionados sin envios reales accidentales.
   `return_url_ref`, `provider_payload` y `storage_ref` documental expuesto por
   snapshot de Canales, sin abrir integraciones externas. Los mensajes
   salientes rechazan nuevas escrituras con `provider_payload` que contenga
-  URLs, tokens, credenciales, correos o claves sensibles.
+  URLs, tokens, credenciales, correos o claves sensibles y tambien rechazan
+  mensajes enviados sin `external_ref` no sensible.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   estados de cuenta, identidades/asignaciones de canal, gates
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,

@@ -566,6 +566,52 @@ class CanalesAPITests(APITestCase):
 
         self.assertIn('provider_payload', error.exception.message_dict)
 
+    def test_prepared_message_full_clean_requires_open_gate_and_identity(self):
+        _, contrato = self._create_contract_context(codigo='CH-PREP-DOMAIN')
+        gate_data = self._create_gate(canal='email', estado_gate='suspendido')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+
+        message = MensajeSaliente(
+            canal='email',
+            canal_mensajeria=gate,
+            contrato=contrato,
+            destinatario=contrato.arrendatario.email,
+            asunto='Cobro mensual',
+            cuerpo='Mensaje preparado heredado',
+            estado=EstadoMensajeSaliente.PREPARED,
+            usuario=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            message.full_clean()
+
+        self.assertIn('canal_mensajeria', error.exception.message_dict)
+        self.assertIn('identidad_envio', error.exception.message_dict)
+
+    def test_sent_message_full_clean_requires_traceable_external_ref(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-SENT-DOMAIN')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+        identity = self._create_identity(empresa, canal='email')
+
+        message = MensajeSaliente(
+            canal='email',
+            canal_mensajeria=gate,
+            identidad_envio=identity,
+            contrato=contrato,
+            arrendatario=contrato.arrendatario,
+            destinatario=contrato.arrendatario.email,
+            asunto='Cobro mensual',
+            cuerpo='Mensaje enviado heredado',
+            estado=EstadoMensajeSaliente.SENT,
+            usuario=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            message.full_clean()
+
+        self.assertIn('external_ref', error.exception.message_dict)
+
     def test_prepare_email_message_uses_mandate_identity_assignment(self):
         empresa, contrato = self._create_contract_context(codigo='CH-EMAIL')
         gate = self._create_gate(canal='email')
