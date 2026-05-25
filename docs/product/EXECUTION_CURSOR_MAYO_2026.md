@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 7 - Reporting tributario anual exige ano comercial consistente. |
-| Fuente exacta | PR #268; commit `a136f37`; merge `45b7628`. `docs/product/STAGE_CARDS/ETAPA_7_REPORTING_TRAZABILIDAD.md`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `backend/reporting/services.py`; `backend/core/stage7_reporting_readiness.py`; tests Reporting y readiness Etapa 7. |
-| Brecha activa | Ninguna abierta en cursor. La brecha de reportes tributarios anuales con `fiscal_year` de proceso/DDJJ/F22 desalineado contra `anio_tributario` quedo corregida y validada en PR #268. |
-| Motivo de prioridad | Paquete cerrado porque alineo Reporting con la regla de Renta Anual ya reforzada: el reporte tributario anual no puede construirse ni pasar readiness si sus origenes declaran un ano comercial distinto del inmediatamente anterior al ano tributario. No requirio `.env`, secretos, DB historica, datos reales, certificados ni integraciones SII externas. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 7 - senales runtime deben ser recientes para cierre productivo. |
+| Fuente exacta | PR #270; commit `8e8cc05`; merge `52bdc7f`. `docs/product/STAGE_CARDS/ETAPA_7_OPERACION_PRODUCTIVA.md`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `backend/core/operational_observability.py`; tests de observabilidad operativa. |
+| Brecha activa | Ninguna abierta en cursor. La brecha de observabilidad runtime autorizada que podia contar para cierre con mediciones antiguas quedo corregida y validada en PR #270. |
+| Motivo de prioridad | Paquete cerrado porque Operacion productiva requiere monitoreo vigente: las cuatro senales runtime obligatorias solo cuentan para cierre si estan OK, tienen evidencia/fuente/autorizacion no sensibles y fueron observadas dentro de las ultimas 24 horas. No requirio `.env`, secretos, DB historica, datos reales, snapshots, backfills, deploys ni integraciones externas. |
 | Worktree | Ninguno tactico abierto. |
 | Rama | Ninguna tactica abierta. |
-| Estado | PR #268 mergeado, CI `acceptance` en verde, main sincronizado y worktree tactico eliminado. |
-| Gate esperado | Etapa 7 sigue como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, cierres/snapshot controlado, datos autorizados y trazabilidad final. |
-| Estado al cerrar paquete | Cerrado en main con merge `45b7628`; siguiente frente debe elegirse por trazabilidad desde estado limpio. |
-| Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado`, cierres/snapshot controlado, datos autorizados y trazabilidad final siguen siendo condicion de cierre real, no de preparacion local. |
+| Estado | PR #270 mergeado, CI `acceptance` en verde, main sincronizado y worktree tactico eliminado. |
+| Gate esperado | Etapa 7 sigue como diagnostico parcial/no evidencial; no cierra sin mediciones recientes autorizadas, restore autorizado, smoke autorizado, Reporting autorizado y aceptacion final. |
+| Estado al cerrar paquete | Cerrado en main con merge `52bdc7f`; siguiente frente debe elegirse por trazabilidad desde estado limpio. |
+| Bloqueos relacionados | Mediciones recientes con fuente `snapshot_controlado` o `real_autorizado`, restore de backup/snapshot autorizado, smoke publico autorizado, Reporting autorizado y aceptacion final siguen siendo condicion de cierre real, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 | Siguiente accion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 
