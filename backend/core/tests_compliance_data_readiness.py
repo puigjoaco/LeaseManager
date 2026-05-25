@@ -264,6 +264,24 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertIn('compliance.export_payload_hash_mismatch', issue_codes)
         self.assertEqual(result['sections']['exports']['payload_hash_mismatch'], 1)
 
+    def test_unreadable_encrypted_payload_is_blocking(self):
+        self._create_policies()
+        _encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = self._create_raw_export(
+            encrypted_payload='payload-no-descifrable',
+            payload_hash=payload_hash,
+            encrypted_ref=f'export://financiero_mensual/{payload_hash[:12]}',
+        )
+        self._create_prepared_audit_event(export, user=export.created_by)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_payload_unreadable', issue_codes)
+        self.assertEqual(result['sections']['exports']['payload_unreadable'], 1)
+        self.assertEqual(result['sections']['exports']['payload_hash_mismatch'], 0)
+
     def test_missing_prepared_audit_event_is_blocking(self):
         self._create_policies()
         self._create_raw_export()
