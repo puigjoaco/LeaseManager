@@ -20,7 +20,8 @@ cierres mensuales.
 - Documentos generados desde datos trazables.
 - Evidencia sin datos sensibles expuestos.
 - Capacidades DDJJ/F22, ProcesoRentaAnual, DDJJ y F22 pertenecen a empresas
-  con `ConfiguracionFiscalEmpresa` activa propia.
+  con `ConfiguracionFiscalEmpresa` activa propia; el dominio/API rechaza
+  nuevas escrituras que no cumplan esa regla.
 - `audit_stage6_renta_anual_readiness` consolida configuracion fiscal,
   capacidades DDJJ/F22, doce cierres, obligaciones mensuales, proceso anual,
   respaldos tributarios PDF y referencias finales no sensibles sin conectar SII
@@ -28,6 +29,8 @@ cierres mensuales.
 - El dominio SII rechaza F29, ProcesoRentaAnual, DDJJ y F22 en estados
   aprobados, presentados, observados o rectificados si falta la referencia
   final trazable correspondiente.
+- El dominio SII tambien rechaza ProcesoRentaAnual, DDJJ y F22 asociados a
+  empresas sin `ConfiguracionFiscalEmpresa` activa propia.
 - Los payloads anuales y referencias de DDJJ/F22 heredadas se entregan a
   reporting con redaccion antes de exponerse al backoffice.
 - `audit_stage6_renta_anual_readiness` solo puede cerrar con `--source-kind`

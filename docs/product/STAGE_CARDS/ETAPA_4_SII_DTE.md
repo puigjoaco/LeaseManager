@@ -16,7 +16,8 @@ produccion por defecto.
 
 - Empresa emisora habilitada.
 - Cada capacidad SII abierta, DTE y F29 debe pertenecer a una empresa con
-  `ConfiguracionFiscalEmpresa` activa propia.
+  `ConfiguracionFiscalEmpresa` activa propia; el dominio/API rechaza nuevas
+  escrituras que no cumplan esa regla.
 - Una `ConfiguracionFiscalEmpresa` activa fuera del regimen fiscal
   automatizable v1 bloquea la apertura de capacidades SII y readiness de
   snapshots; no se automatiza tributacion oficial fuera de ese boundary.
@@ -38,6 +39,8 @@ produccion por defecto.
 - DTE, F29, DDJJ/F22 y procesos anuales solo aceptan refs tributarias no
   sensibles para tracking, borradores y paquetes; las APIs y snapshots redactan
   refs o payloads sensibles heredados antes de exponerlos al backoffice.
+- DTE, F29, DDJJ/F22 y procesos anuales rechazan por dominio nuevas escrituras
+  asociadas a empresas sin `ConfiguracionFiscalEmpresa` activa propia.
 - Los eventos de auditoria de cambios de estado DTE registran `sii_track_id`
   redactado si existe una referencia sensible heredada.
 - Los borradores DTE/F29/anuales y los cambios de estado externo revalidan el

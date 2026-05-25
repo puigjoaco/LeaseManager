@@ -259,13 +259,21 @@ class SiiAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-        self._activate_capability(empresa)
+        self._activate_fiscal_config(empresa)
         response = self.client.post(
             reverse('sii-dte-generate'),
             {'pago_mensual_id': pago.id},
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self._activate_capability(empresa)
+        response = self.client.post(
+            reverse('sii-dte-generate'),
+            {'pago_mensual_id': pago.id},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_tax_artifacts_reject_wrong_sii_capability_kind(self):
         empresa, pago = self._setup_paid_payment()
@@ -441,6 +449,110 @@ class SiiAPITests(APITestCase):
             f22.full_clean()
         self.assertIn('borrador_ref', f22_error.exception.message_dict)
 
+    def test_tax_artifacts_require_active_fiscal_config(self):
+        empresa, pago = self._setup_paid_payment()
+        close, _ = self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        dte_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DTEEmision',
+            **self._sii_readiness_fields('dte-no-fiscal'),
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={},
+        )
+        f29_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F29Preparacion',
+            **self._sii_readiness_fields('f29-no-fiscal'),
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={},
+        )
+        ddjj_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DDJJPreparacion',
+            **self._sii_readiness_fields('ddjj-no-fiscal'),
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={},
+        )
+        f22_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F22Preparacion',
+            **self._sii_readiness_fields('f22-no-fiscal'),
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={},
+        )
+        distribution = pago.distribuciones_cobro.get()
+        dte = DTEEmitido(
+            empresa=empresa,
+            capacidad_tributaria=dte_capability,
+            contrato=pago.contrato,
+            pago_mensual=pago,
+            distribucion_cobro_mensual=distribution,
+            arrendatario=pago.contrato.arrendatario,
+            tipo_dte='34',
+            monto_neto_clp=distribution.monto_facturable_clp,
+            fecha_emision='2026-01-08',
+        )
+        with self.assertRaises(ValidationError) as dte_error:
+            dte.full_clean()
+        self.assertIn('empresa', dte_error.exception.message_dict)
+
+        f29 = F29PreparacionMensual(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion='preparado',
+            resumen_formulario={'obligaciones': [{'tipo': 'PPM'}]},
+        )
+        with self.assertRaises(ValidationError) as f29_error:
+            f29.full_clean()
+        self.assertIn('empresa', f29_error.exception.message_dict)
+
+        process = ProcesoRentaAnual(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'source': 'controlled'},
+        )
+        with self.assertRaises(ValidationError) as process_error:
+            process.full_clean()
+        self.assertIn('empresa', process_error.exception.message_dict)
+
+        stored_process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'source': 'controlled'},
+        )
+        ddjj = DDJJPreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=stored_process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_paquete={'source': 'controlled'},
+        )
+        with self.assertRaises(ValidationError) as ddjj_error:
+            ddjj.full_clean()
+        self.assertIn('empresa', ddjj_error.exception.message_dict)
+
+        f22 = F22PreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=stored_process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_f22={'source': 'controlled'},
+        )
+        with self.assertRaises(ValidationError) as f22_error:
+            f22.full_clean()
+        self.assertIn('empresa', f22_error.exception.message_dict)
+
     def test_open_sii_capability_requires_readiness_references(self):
         empresa = self._create_active_empresa()
 
@@ -462,6 +574,7 @@ class SiiAPITests(APITestCase):
         self.assertIn('prueba_flujo_ref', response.data)
         self.assertIn('regla_fiscal_ref', response.data)
 
+        self._activate_fiscal_config(empresa)
         response = self._activate_capability(empresa)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -527,6 +640,25 @@ class SiiAPITests(APITestCase):
                 'empresa': empresa.id,
                 'capacidad_key': 'DTEEmision',
                 **self._sii_readiness_fields('unsupported-regime'),
+                'ambiente': 'certificacion',
+                'estado_gate': 'abierto',
+                'ultimo_resultado': {},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('empresa', response.data)
+
+    def test_open_sii_capability_requires_active_fiscal_config(self):
+        empresa = self._create_active_empresa(nombre='SII No Fiscal Config SpA', rut='34343434-3')
+
+        response = self.client.post(
+            reverse('sii-capacidad-list'),
+            {
+                'empresa': empresa.id,
+                'capacidad_key': 'DTEEmision',
+                **self._sii_readiness_fields('missing-fiscal-config'),
                 'ambiente': 'certificacion',
                 'estado_gate': 'abierto',
                 'ultimo_resultado': {},
@@ -676,8 +808,8 @@ class SiiAPITests(APITestCase):
 
     def test_generate_dte_draft_rejects_conditioned_gate(self):
         empresa, pago = self._setup_paid_payment()
-        self._activate_capability(empresa, estado_gate='condicionado')
         self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa, estado_gate='condicionado')
 
         response = self.client.post(
             reverse('sii-dte-generate'),
@@ -689,6 +821,7 @@ class SiiAPITests(APITestCase):
 
     def test_generate_dte_draft_rechecks_readiness_refs(self):
         empresa, pago = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
         CapacidadTributariaSII.objects.create(
             empresa=empresa,
             capacidad_key='DTEEmision',
@@ -696,7 +829,6 @@ class SiiAPITests(APITestCase):
             ambiente='certificacion',
             estado_gate='abierto',
         )
-        self._activate_fiscal_config(empresa)
 
         response = self.client.post(
             reverse('sii-dte-generate'),
@@ -709,8 +841,8 @@ class SiiAPITests(APITestCase):
 
     def test_generate_dte_draft_uses_facturable_amount_not_coded_amount(self):
         empresa, pago = self._setup_paid_payment(monto_facturable='100000.00', monto_cobrado='100111.00')
-        self._activate_capability(empresa)
         self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa)
 
         response = self.client.post(
             reverse('sii-dte-generate'),
@@ -724,8 +856,8 @@ class SiiAPITests(APITestCase):
 
     def test_generate_dte_draft_is_idempotent(self):
         empresa, pago = self._setup_paid_payment()
-        self._activate_capability(empresa)
         self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa)
 
         first = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
         second = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
@@ -736,8 +868,8 @@ class SiiAPITests(APITestCase):
 
     def test_generate_dte_draft_rejects_missing_facturadora(self):
         empresa, pago = self._setup_paid_payment(with_facturadora=False)
-        self._activate_capability(empresa)
         self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa)
 
         response = self.client.post(
             reverse('sii-dte-generate'),
@@ -748,8 +880,8 @@ class SiiAPITests(APITestCase):
 
     def test_generate_dte_draft_only_allows_factura_exenta_from_paid_payment_path(self):
         empresa, pago = self._setup_paid_payment()
-        self._activate_capability(empresa)
         self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa)
 
         for tipo_dte in ('56', '61'):
             response = self.client.post(
@@ -763,8 +895,8 @@ class SiiAPITests(APITestCase):
 
     def test_update_dte_status_manually(self):
         empresa, pago = self._setup_paid_payment()
-        self._activate_capability(empresa, estado_gate='abierto')
         self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa, estado_gate='abierto')
         generated = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
         self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
 
@@ -783,8 +915,8 @@ class SiiAPITests(APITestCase):
 
     def test_dte_status_audit_metadata_redacts_inherited_sensitive_tracking_ref(self):
         empresa, pago = self._setup_paid_payment()
-        self._activate_capability(empresa, estado_gate='abierto')
         self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa, estado_gate='abierto')
         generated = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
         self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
         DTEEmitido.objects.filter(pk=generated.data['id']).update(
@@ -811,8 +943,8 @@ class SiiAPITests(APITestCase):
 
     def test_update_dte_status_requires_tracking_reference_for_external_state(self):
         empresa, pago = self._setup_paid_payment()
-        self._activate_capability(empresa, estado_gate='abierto')
         self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa, estado_gate='abierto')
         generated = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
         self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
 
@@ -829,8 +961,8 @@ class SiiAPITests(APITestCase):
 
     def test_sii_status_updates_reject_sensitive_references(self):
         empresa, pago = self._setup_paid_payment()
-        self._activate_capability(empresa, estado_gate='abierto')
         self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
+        self._activate_capability(empresa, estado_gate='abierto')
         generated_dte = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
         self.assertEqual(generated_dte.status_code, status.HTTP_201_CREATED)
 
