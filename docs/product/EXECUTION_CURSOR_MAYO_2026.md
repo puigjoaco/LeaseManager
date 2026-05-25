@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 3 - Conciliacion, pagos parciales o complementarios requieren resolucion manual auditada. |
-| Fuente exacta | PR #264; commit `0eaf147`; merge `962d1e9`. PRD `01_Set_Vigente/PRD_CANONICO.md` lineas 382-387; `docs/product/STAGE_CARDS/ETAPA_3_BANCO_CONCILIACION.md`; `backend/core/stage3_conciliacion_readiness.py`; tests de readiness Etapa 3. |
-| Brecha activa | Ninguna abierta en cursor. La brecha de abonos parciales conciliados sin resolucion manual quedo corregida y validada en PR #264. |
-| Motivo de prioridad | Paquete cerrado porque reforzo una regla local de conciliacion: pagos parciales, complementarios o en varios abonos solo pueden sumarse con regla segura, suma exacta y resolucion manual auditada. No requirio `.env`, secretos, DB historica, datos reales ni integraciones externas. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 6 - Renta Anual, resumen anual tributario exige ano comercial consistente. |
+| Fuente exacta | PR #266; commit `ae14890`; merge `9a17b63`. PRD `01_Set_Vigente/PRD_CANONICO.md` lineas 248, 312, 464 y 606; `docs/product/STAGE_CARDS/ETAPA_6_RENTA_ANUAL.md`; `backend/sii/models.py`; `backend/core/stage6_renta_anual_readiness.py`; tests SII y readiness Etapa 6. |
+| Brecha activa | Ninguna abierta en cursor. La brecha de payloads anuales con `fiscal_year` desalineado contra `anio_tributario` quedo corregida y validada en PR #266. |
+| Motivo de prioridad | Paquete cerrado porque reforzo una regla local de Renta Anual: `ProcesoRentaAnual`, DDJJ y F22 deben trazar al ano comercial inmediatamente anterior al ano tributario, y readiness detecta snapshots heredados desalineados. No requirio `.env`, secretos, DB historica, datos reales, certificados ni integraciones SII externas. |
 | Worktree | Ninguno tactico abierto. |
 | Rama | Ninguna tactica abierta. |
-| Estado | PR #264 mergeado, CI `acceptance` en verde, main sincronizado y worktree tactico eliminado. |
-| Gate esperado | Etapa 3 sigue como diagnostico parcial/no evidencial; no cierra sin banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria y cuadratura controlada. |
-| Estado al cerrar paquete | Cerrado en main con merge `962d1e9`; siguiente frente debe elegirse por trazabilidad desde estado limpio. |
-| Bloqueos relacionados | Banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria, cuadratura sistema/banco y responsable siguen siendo condicion de cierre real, no de preparacion local. |
+| Estado | PR #266 mergeado, CI `acceptance` en verde, main sincronizado y worktree tactico eliminado. |
+| Gate esperado | Etapa 6 sigue como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, doce cierres/snapshot controlado, regla fiscal validada, certificados/respaldos controlados y responsable tributario. |
+| Estado al cerrar paquete | Cerrado en main con merge `9a17b63`; siguiente frente debe elegirse por trazabilidad desde estado limpio. |
+| Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado`, doce cierres evidenciados, regla fiscal validada, certificados/respaldos controlados y responsable tributario siguen siendo condicion de cierre real, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 | Siguiente accion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 
