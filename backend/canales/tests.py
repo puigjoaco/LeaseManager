@@ -3,6 +3,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -538,6 +539,32 @@ class CanalesAPITests(APITestCase):
             self.assertNotIn('storage.example.test', body)
             self.assertNotIn('token', body)
             self.assertNotIn('secret', body)
+
+    def test_message_rejects_sensitive_provider_payload_on_full_clean(self):
+        _, contrato = self._create_contract_context(codigo='CH-PAYLOAD-GUARD')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+
+        message = MensajeSaliente(
+            canal='email',
+            canal_mensajeria=gate,
+            contrato=contrato,
+            destinatario='tenant@example.com',
+            asunto='Cobro mensual',
+            cuerpo='Mensaje con payload proveedor',
+            estado=EstadoMensajeSaliente.SENT,
+            external_ref='provider-controlled-001',
+            usuario=self.user,
+            provider_payload={
+                'provider_message_id': 'MSG-SAFE-002',
+                'callback': 'https://provider.example.test/callback?token=secret',
+            },
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            message.full_clean()
+
+        self.assertIn('provider_payload', error.exception.message_dict)
 
     def test_prepare_email_message_uses_mandate_identity_assignment(self):
         empresa, contrato = self._create_contract_context(codigo='CH-EMAIL')

@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno; ultimo paquete cerrado: Etapa 0 - Compliance datos sensibles: auditoria de acceso denegado a exportaciones. |
-| Fuente exacta | PR #211 `Audit denied compliance export access`; commit `daf6a64`; merge `e7d0dac`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`. |
-| Brecha activa | Cerrada localmente: los accesos fallidos a contenido de exportaciones revocadas o expiradas registran `compliance.exportacion_sensible.access_denied` sin exponer payloads. |
-| Motivo de prioridad | Paquete integrado; no hay worktree tactico abierto para este frente. |
-| Worktree | Ninguno. |
-| Rama | `main` sincronizada tras merge `e7d0dac`. |
-| Estado | PR #211 integrado con CI `acceptance` verde; worktree `D:/Proyectos/LeaseManager-compliance-denied-export-audit` eliminado y rama tactica local/remota eliminada. |
-| Gate esperado | Compliance datos sensibles sigue en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada y refs finales. |
-| Estado al cerrar paquete | `implementado_sin_evidencia`; avance local preparado, sin cierre real de Compliance. |
-| Bloqueos relacionados | Falta fuente `snapshot_controlado` o `real_autorizado`, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa no sensibles para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea preparacion local. |
-| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, seleccionar el siguiente frente util, seguro y trazable desde la matriz/PRD/arquitectura. |
-| Siguiente accion | Diagnosticar el siguiente paquete local cerrable y abrir worktree `codex/...` solo si el cambio no es trivial. |
+| Frente activo | Etapa 2 - Cobranza/Canales: guard de `provider_payload` sensible en mensajes salientes. |
+| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `CobranzaActiva`; `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`; `backend/canales`; `backend/core/stage2_cobranza_readiness.py`; `scripts/run-stage2-readiness-gate.ps1`. |
+| Brecha activa | `MensajeSaliente` redacta y readiness detecta `provider_payload` sensible heredado, pero el modelo no rechaza escrituras nuevas con URLs, tokens, credenciales o correos en ese payload. |
+| Motivo de prioridad | Brecha local segura de Etapa 2: evita que Canales persista nuevos payloads sensibles sin abrir Email, WhatsApp ni proveedores externos. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-message-provider-payload-guard`. |
+| Rama | `codex/stage2-message-provider-payload-guard`. |
+| Estado | Paquete tactico abierto desde `main` limpio en `8589c38`; implementacion y validacion en curso. |
+| Gate esperado | `scripts/run-stage2-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_stage2_cobranza=false` con fuente local; no cierra Etapa 2 sin fuente autorizada y pruebas Email/WebPay controladas. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Falta fuente autorizada, Etapa 1 confirmada y pruebas externas controladas de Email/WebPay para cierre real de Etapa 2; no bloquea preparacion local. |
+| Politica de reanudacion | Continuar este paquete desde el worktree indicado; si esta cerrado, volver a `main` limpio y seleccionar el siguiente frente trazable. |
+| Siguiente accion | Implementar, validar, actualizar evidencia/trazabilidad/stage card, empaquetar PR, esperar CI, mergear y limpiar worktree/rama. |
 
 ## Actualizacion
 

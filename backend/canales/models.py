@@ -288,6 +288,10 @@ class MensajeSaliente(TimestampedModel):
             raise ValidationError(
                 {'external_ref': 'external_ref debe ser una referencia no sensible, no una URL, token o credencial.'}
             )
+        if contains_sensitive_reference(self.provider_payload, include_sensitive_keys=True):
+            raise ValidationError(
+                {'provider_payload': 'provider_payload no debe contener URLs, tokens, credenciales ni correos.'}
+            )
 
 
 class NotificacionCobranzaProgramada(TimestampedModel):
