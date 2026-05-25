@@ -96,6 +96,13 @@ class TipoMovimientoGarantia(models.TextChoices):
     TOTAL_RETENTION = 'retencion_total', 'Retencion total'
 
 
+class ResolucionExcesoGarantia(models.TextChoices):
+    CLASSIFY = 'clasificar', 'Clasificar'
+    REFUND = 'devolver', 'Devolver'
+    REGULARIZE = 'regularizar', 'Regularizar'
+    BLOCK = 'bloquear', 'Bloquear'
+
+
 class ValorUFDiario(TimestampedModel):
     fecha = models.DateField(unique=True)
     valor = models.DecimalField(max_digits=12, decimal_places=4, validators=[MinValueValidator(Decimal('0.0001'))])
@@ -565,6 +572,13 @@ class GarantiaContractual(TimestampedModel):
     fecha_recepcion = models.DateField(null=True, blank=True)
     fecha_cierre = models.DateField(null=True, blank=True)
     aceptacion_parcial_ref = models.CharField(max_length=255, blank=True)
+    resolucion_exceso_garantia = models.CharField(
+        max_length=32,
+        choices=ResolucionExcesoGarantia.choices,
+        blank=True,
+    )
+    resolucion_exceso_garantia_ref = models.CharField(max_length=255, blank=True)
+    resolucion_exceso_garantia_motivo = models.TextField(blank=True)
 
     class Meta:
         ordering = ['contrato_id']
@@ -579,6 +593,18 @@ class GarantiaContractual(TimestampedModel):
     @property
     def brecha_garantia_clp(self):
         return max(self.monto_pactado - self.monto_recibido, Decimal('0.00'))
+
+    @property
+    def exceso_garantia_clp(self):
+        return max(self.monto_recibido - self.monto_pactado, Decimal('0.00'))
+
+    @property
+    def tiene_resolucion_exceso_garantia(self):
+        return bool(
+            self.resolucion_exceso_garantia
+            and self.resolucion_exceso_garantia_ref.strip()
+            and self.resolucion_exceso_garantia_motivo.strip()
+        )
 
     @property
     def requiere_aceptacion_parcial(self):
@@ -611,8 +637,44 @@ class GarantiaContractual(TimestampedModel):
                 }
             )
 
-        if self.monto_recibido > self.monto_pactado:
-            raise ValidationError({'monto_recibido': 'La garantia recibida no puede exceder el monto pactado.'})
+        if (
+            self.resolucion_exceso_garantia_ref.strip()
+            and not is_non_sensitive_reference(self.resolucion_exceso_garantia_ref)
+        ):
+            raise ValidationError(
+                {
+                    'resolucion_exceso_garantia_ref': (
+                        'La resolucion de exceso de garantia debe usar una referencia no sensible.'
+                    )
+                }
+            )
+        if (
+            self.resolucion_exceso_garantia_motivo.strip()
+            and contains_sensitive_reference(self.resolucion_exceso_garantia_motivo)
+        ):
+            raise ValidationError(
+                {
+                    'resolucion_exceso_garantia_motivo': (
+                        'El motivo de resolucion de exceso de garantia no debe contener referencias sensibles.'
+                    )
+                }
+            )
+
+        if self.exceso_garantia_clp > Decimal('0.00') and not self.tiene_resolucion_exceso_garantia:
+            raise ValidationError(
+                {
+                    'resolucion_exceso_garantia': (
+                        'Una garantia recibida por sobre lo pactado requiere clasificacion, devolucion, '
+                        'regularizacion o bloqueo documentado.'
+                    ),
+                    'resolucion_exceso_garantia_ref': (
+                        'Una garantia con exceso requiere evidencia o resolucion manual no sensible.'
+                    ),
+                    'resolucion_exceso_garantia_motivo': (
+                        'Una garantia con exceso requiere motivo auditable.'
+                    ),
+                }
+            )
 
         if self.monto_devuelto + self.monto_aplicado > self.monto_recibido:
             raise ValidationError('La garantia no puede devolver o aplicar mas de lo recibido.')

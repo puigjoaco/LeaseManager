@@ -8,7 +8,7 @@ type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type ValorUFItem = { id: number; fecha: string; valor: string; source_key: string }
 type AjusteContratoItem = { id: number; contrato: number; tipo_ajuste: string; monto: string; moneda: string; mes_inicio: string; mes_fin: string; activo: boolean }
 type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_pagado_clp: string; fecha_vencimiento: string; estado_pago: string; dias_mora: number }
-type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; brecha_garantia_clp: string; garantia_incompleta: boolean; garantia_parcial_aceptada: boolean; aceptacion_parcial_ref: string; estado_garantia: string }
+type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; brecha_garantia_clp: string; exceso_garantia_clp: string; garantia_incompleta: boolean; garantia_parcial_aceptada: boolean; aceptacion_parcial_ref: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string; tiene_resolucion_exceso_garantia: boolean; estado_garantia: string }
 type HistorialGarantiaItem = { id: number; contrato_id: number; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string }
 type EstadoCuentaItem = { id: number; arrendatario: number; score_pago: number | null; resumen_operativo: { pagos_abiertos?: number; pagos_atrasados?: number; score_meses_evaluados?: number; score_pagos_en_plazo?: number; score_pagos_fuera_plazo?: number; saldo_total_clp?: string } }
 type ContratoItem = { id: number; codigo_contrato: string }
@@ -19,7 +19,7 @@ type AjusteDraft = { contrato: string; tipo_ajuste: string; monto: string; moned
 type PagoDraft = { contrato_id: string; anio: string; mes: string }
 type MoraDraft = { fecha_corte: string }
 type GarantiaDraft = { contrato: string; monto_pactado: string }
-type GarantiaMovimientoDraft = { garantiaId: string; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string }
+type GarantiaMovimientoDraft = { garantiaId: string; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string }
 type EstadoCuentaDraft = { arrendatario_id: string }
 
 export function CobranzaWorkspace({
@@ -184,6 +184,15 @@ export function CobranzaWorkspace({
             <input placeholder="Monto movimiento" value={garantiaMovimientoDraft.monto_clp} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, monto_clp: event.target.value }))} />
             <input type="date" value={garantiaMovimientoDraft.fecha} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, fecha: event.target.value }))} />
             <input placeholder="Justificación" value={garantiaMovimientoDraft.justificacion} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, justificacion: event.target.value }))} />
+            <select value={garantiaMovimientoDraft.resolucion_exceso_garantia} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, resolucion_exceso_garantia: event.target.value }))}>
+              <option value="">Sin exceso</option>
+              <option value="clasificar">Clasificar exceso</option>
+              <option value="devolver">Devolver exceso</option>
+              <option value="regularizar">Regularizar exceso</option>
+              <option value="bloquear">Bloquear exceso</option>
+            </select>
+            <input placeholder="Ref. exceso no sensible" value={garantiaMovimientoDraft.resolucion_exceso_garantia_ref} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, resolucion_exceso_garantia_ref: event.target.value }))} />
+            <input placeholder="Motivo exceso" value={garantiaMovimientoDraft.resolucion_exceso_garantia_motivo} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, resolucion_exceso_garantia_motivo: event.target.value }))} />
             <button type="submit" className="button-secondary" disabled={isSubmitting || !canEditCobranza || !garantiaMovimientoDraft.garantiaId || !garantiaMovimientoDraft.monto_clp}>Registrar movimiento</button>
           </form>
         </section>
@@ -228,7 +237,8 @@ export function CobranzaWorkspace({
         { label: 'Pactado', render: (row) => row.monto_pactado },
         { label: 'Recibido', render: (row) => row.monto_recibido },
         { label: 'Saldo', render: (row) => row.saldo_vigente },
-        { label: 'Cobertura', render: (row) => row.garantia_incompleta ? <Badge label="incompleta" tone="warning" /> : row.garantia_parcial_aceptada ? <Badge label="parcial aceptada" tone="positive" /> : <Badge label="regular" tone="neutral" /> },
+        { label: 'Cobertura', render: (row) => row.garantia_incompleta ? <Badge label="incompleta" tone="warning" /> : row.garantia_parcial_aceptada ? <Badge label="parcial aceptada" tone="positive" /> : Number(row.exceso_garantia_clp) > 0 ? <Badge label={row.tiene_resolucion_exceso_garantia ? 'exceso resuelto' : 'exceso pendiente'} tone={row.tiene_resolucion_exceso_garantia ? 'warning' : 'danger'} /> : <Badge label="regular" tone="neutral" /> },
+        { label: 'Exceso', render: (row) => Number(row.exceso_garantia_clp) > 0 ? `${row.exceso_garantia_clp} · ${row.resolucion_exceso_garantia || 'sin resolución'}` : '0.00' },
         { label: 'Estado', render: (row) => <Badge label={row.estado_garantia} tone={toneFor(row.estado_garantia)} /> },
       ]} />
       <TableBlock title="Historial de garantías" subtitle="Movimientos auditables sobre depósitos, devoluciones y retenciones." rows={filteredHistorialGarantias} empty="No hay movimientos de garantía para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[

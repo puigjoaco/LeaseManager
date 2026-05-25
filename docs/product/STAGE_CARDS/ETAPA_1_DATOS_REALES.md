@@ -123,7 +123,10 @@ contra datos reales o snapshot controlado.
   contra `HistorialGarantia`, incluyendo cronologia de movimientos derivados
   contra su movimiento origen. Si una garantia fue recibida parcialmente y
   sigue abierta, debe tener aceptacion formal trazable no sensible o quedar
-  marcada como incompleta.
+  marcada como incompleta. Si una garantia recibida excede lo pactado, el
+  exceso debe quedar clasificado, devuelto, regularizado o bloqueado con
+  referencia no sensible y motivo auditable; snapshots sin esa resolucion son
+  defectuosos.
 - Validacion de ajustes contractuales existentes: contrato, moneda, rango de
   meses normalizado al primer dia del mes dentro de la vigencia contractual y
   justificacion deben ser coherentes antes de usarlos en cobranza.

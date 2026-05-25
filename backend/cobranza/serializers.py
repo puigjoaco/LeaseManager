@@ -353,9 +353,11 @@ class DistribucionCobroMensualSerializer(serializers.ModelSerializer):
 class GarantiaContractualSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
     saldo_vigente = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     brecha_garantia_clp = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    exceso_garantia_clp = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     garantia_incompleta = serializers.BooleanField(read_only=True)
     garantia_parcial_aceptada = serializers.BooleanField(read_only=True)
-    redacted_reference_fields = ('aceptacion_parcial_ref',)
+    tiene_resolucion_exceso_garantia = serializers.BooleanField(read_only=True)
+    redacted_reference_fields = ('aceptacion_parcial_ref', 'resolucion_exceso_garantia_ref')
 
     class Meta:
         model = GarantiaContractual
@@ -368,9 +370,14 @@ class GarantiaContractualSerializer(RedactReferenceFieldsMixin, serializers.Mode
             'monto_aplicado',
             'saldo_vigente',
             'brecha_garantia_clp',
+            'exceso_garantia_clp',
             'garantia_incompleta',
             'garantia_parcial_aceptada',
             'aceptacion_parcial_ref',
+            'resolucion_exceso_garantia',
+            'resolucion_exceso_garantia_ref',
+            'resolucion_exceso_garantia_motivo',
+            'tiene_resolucion_exceso_garantia',
             'estado_garantia',
             'fecha_recepcion',
             'fecha_cierre',
@@ -384,8 +391,10 @@ class GarantiaContractualSerializer(RedactReferenceFieldsMixin, serializers.Mode
             'monto_aplicado',
             'saldo_vigente',
             'brecha_garantia_clp',
+            'exceso_garantia_clp',
             'garantia_incompleta',
             'garantia_parcial_aceptada',
+            'tiene_resolucion_exceso_garantia',
             'estado_garantia',
             'fecha_recepcion',
             'fecha_cierre',
@@ -434,6 +443,13 @@ class GarantiaMovimientoSerializer(serializers.Serializer):
     monto_clp = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=Decimal('0.01'))
     fecha = serializers.DateField()
     justificacion = serializers.CharField(required=False, allow_blank=True)
+    resolucion_exceso_garantia = serializers.ChoiceField(
+        choices=GarantiaContractual._meta.get_field('resolucion_exceso_garantia').choices,
+        required=False,
+        allow_blank=True,
+    )
+    resolucion_exceso_garantia_ref = serializers.CharField(required=False, allow_blank=True)
+    resolucion_exceso_garantia_motivo = serializers.CharField(required=False, allow_blank=True)
     movimiento_origen = serializers.PrimaryKeyRelatedField(
         queryset=HistorialGarantia.objects.all(),
         required=False,

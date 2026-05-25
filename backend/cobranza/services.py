@@ -392,7 +392,18 @@ def recalculate_guarantee_state(garantia, fecha_cierre=None):
 
 
 @transaction.atomic
-def apply_guarantee_movement(*, garantia, tipo_movimiento, monto_clp, fecha, justificacion='', movimiento_origen=None):
+def apply_guarantee_movement(
+    *,
+    garantia,
+    tipo_movimiento,
+    monto_clp,
+    fecha,
+    justificacion='',
+    movimiento_origen=None,
+    resolucion_exceso_garantia='',
+    resolucion_exceso_garantia_ref='',
+    resolucion_exceso_garantia_motivo='',
+):
     amount = Decimal(monto_clp)
     if amount <= 0:
         raise ValueError('El monto del movimiento de garantia debe ser mayor que cero.')
@@ -400,10 +411,12 @@ def apply_guarantee_movement(*, garantia, tipo_movimiento, monto_clp, fecha, jus
         raise ValueError('La fecha del movimiento derivado no puede ser anterior al movimiento origen.')
 
     if tipo_movimiento == TipoMovimientoGarantia.DEPOSIT:
-        if garantia.monto_recibido + amount > garantia.monto_pactado:
-            raise ValueError('El deposito no puede exceder el monto pactado de la garantia.')
         garantia.monto_recibido += amount
         garantia.fecha_recepcion = garantia.fecha_recepcion or fecha
+        if garantia.monto_recibido > garantia.monto_pactado:
+            garantia.resolucion_exceso_garantia = resolucion_exceso_garantia
+            garantia.resolucion_exceso_garantia_ref = resolucion_exceso_garantia_ref
+            garantia.resolucion_exceso_garantia_motivo = resolucion_exceso_garantia_motivo
     elif tipo_movimiento == TipoMovimientoGarantia.PARTIAL_RETURN:
         if amount >= garantia.saldo_vigente:
             raise ValueError('Use devolucion_total cuando la devolucion cubra el saldo completo.')

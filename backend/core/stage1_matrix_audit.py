@@ -13,7 +13,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from audit.models import AuditEvent
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from cobranza.models import (
     AjusteContrato,
     DistribucionCobroMensual,
@@ -1353,6 +1353,30 @@ def _audit_guarantee_history_consistency(
     issues: list[dict[str, Any]],
     garantia: GarantiaContractual,
 ) -> None:
+    if garantia.exceso_garantia_clp > Decimal('0.00'):
+        if not garantia.tiene_resolucion_exceso_garantia:
+            _issue(
+                issues,
+                code='stage1.garantia.exceso_sin_resolucion',
+                entity='GarantiaContractual',
+                entity_id=garantia.pk,
+                message=(
+                    'Garantia recibida por sobre lo pactado no tiene clasificacion, devolucion, '
+                    'regularizacion o bloqueo documentado con evidencia no sensible.'
+                ),
+            )
+        elif (
+            not is_non_sensitive_reference(garantia.resolucion_exceso_garantia_ref)
+            or contains_sensitive_reference(garantia.resolucion_exceso_garantia_motivo)
+        ):
+            _issue(
+                issues,
+                code='stage1.garantia.exceso_resolucion_sensible',
+                entity='GarantiaContractual',
+                entity_id=garantia.pk,
+                message='Resolucion de exceso de garantia contiene referencia o motivo sensible.',
+            )
+
     if garantia.garantia_incompleta:
         _issue(
             issues,

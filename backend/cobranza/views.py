@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Prefetch
 from django.utils import timezone
@@ -279,9 +280,16 @@ class CobranzaSnapshotView(APIView):
                         'monto_recibido': item.monto_recibido,
                         'saldo_vigente': item.saldo_vigente,
                         'brecha_garantia_clp': item.brecha_garantia_clp,
+                        'exceso_garantia_clp': item.exceso_garantia_clp,
                         'garantia_incompleta': item.garantia_incompleta,
                         'garantia_parcial_aceptada': item.garantia_parcial_aceptada,
                         'aceptacion_parcial_ref': redact_sensitive_reference(item.aceptacion_parcial_ref),
+                        'resolucion_exceso_garantia': item.resolucion_exceso_garantia,
+                        'resolucion_exceso_garantia_ref': redact_sensitive_reference(
+                            item.resolucion_exceso_garantia_ref
+                        ),
+                        'resolucion_exceso_garantia_motivo': item.resolucion_exceso_garantia_motivo,
+                        'tiene_resolucion_exceso_garantia': item.tiene_resolucion_exceso_garantia,
                         'estado_garantia': item.estado_garantia,
                     }
                     for item in garantias
@@ -716,6 +724,9 @@ class GarantiaMovimientoCreateView(APIView):
         try:
             with transaction.atomic():
                 movimiento, garantia = serializer.save()
+        except DjangoValidationError as error:
+            payload = error.message_dict if hasattr(error, 'message_dict') else {'detail': error.messages}
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
