@@ -407,6 +407,8 @@ class NotificacionCobranzaProgramada(TimestampedModel):
         if self.configuracion_id:
             if self.canal != self.configuracion.canal:
                 errors['canal'] = 'El canal debe coincidir con la configuracion de notificacion.'
+            if not self.configuracion.activa:
+                errors['configuracion'] = 'La notificacion requiere una configuracion activa.'
             if self.pago_mensual_id and self.configuracion.contrato_id != self.pago_mensual.contrato_id:
                 errors['configuracion'] = (
                     'La configuracion debe pertenecer al contrato del pago mensual.'

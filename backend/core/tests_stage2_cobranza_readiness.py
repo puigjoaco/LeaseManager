@@ -304,6 +304,35 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.notification_schedule.invalid_model', issue_codes)
         self.assertEqual(result['sections']['notification_schedules']['invalid_model'], 1)
 
+    def test_notification_schedule_with_inactive_config_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        NotificacionCobranzaProgramada.objects.filter(
+            pago_mensual=fixture['payment'],
+            dia_notificacion=5,
+        ).delete()
+        inactive_config = ConfiguracionNotificacionContrato.objects.create(
+            contrato=fixture['contract'],
+            canal=CanalOperacion.EMAIL,
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=False,
+        )
+        NotificacionCobranzaProgramada.objects.create(
+            pago_mensual=fixture['payment'],
+            configuracion=inactive_config,
+            canal=CanalOperacion.EMAIL,
+            dia_notificacion=5,
+            fecha_programada=date(2026, 1, 5),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.notification_schedule.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['notification_schedules']['invalid_model'], 1)
+
     def test_missing_account_state_for_active_billing_tenant_is_blocking(self):
         self._create_payment_matrix()
         self._create_valid_email_gate()

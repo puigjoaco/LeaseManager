@@ -455,6 +455,29 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(snapshot_response.data['notificaciones_cobranza'][0]['canal'], 'email')
         self.assertEqual(snapshot_response.data['notificaciones_cobranza'][0]['pago_mensual'], payment.id)
 
+    def test_notification_schedule_rejects_inactive_configuration(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-INACTIVE')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payment = self._create_payment_for_contract(contrato)
+        configuration = ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=False,
+        )
+        notification = NotificacionCobranzaProgramada(
+            pago_mensual=payment,
+            configuracion=configuration,
+            canal='email',
+            dia_notificacion=5,
+            fecha_programada=date(2026, 1, 5),
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            notification.full_clean()
+
+        self.assertIn('configuracion', error.exception.message_dict)
+
     def test_channel_apis_redact_inherited_sensitive_references(self):
         _, contrato = self._create_contract_context(codigo='CH-API-REDACT')
         gate = CanalMensajeria.objects.create(
