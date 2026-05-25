@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 - Contratos, decision auditada para prorrata por terminacion anticipada. |
-| Fuente exacta | PRD `01_Set_Vigente/PRD_CANONICO.md` lineas 342-345; `backend/contratos/models.py`; `backend/contratos/serializers.py`; `backend/contratos/views.py`; `backend/core/stage1_matrix_audit.py`; `backend/contratos/tests.py`; `backend/core/tests_stage1_matrix_audit.py`. |
-| Brecha activa | En curso: una terminacion anticipada con ultimo mes parcial debe exigir regla o decision auditada con referencia no sensible; los snapshots heredados sin esa traza deben quedar bloqueados por auditor Etapa 1. |
-| Motivo de prioridad | Brecha local de Contratos derivada del PRD, verificable sin `.env`, secretos, DB historica, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-early-termination-proration`. |
-| Rama | `codex/stage1-early-termination-proration`. |
-| Estado | En implementacion y validacion local. |
-| Gate esperado | Etapa 2 local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, evidencia Etapa 1 y pruebas Email/WebPay controladas. |
-| Estado al cerrar paquete | Pendiente de validacion, PR, CI, merge y limpieza. |
-| Bloqueos relacionados | Evidencia Etapa 1, prueba externa real/controlada de Email/WebPay y responsables siguen siendo condicion de cierre real de Etapa 2. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 1 - Contratos, decision auditada para prorrata por terminacion anticipada. |
+| Fuente exacta | PR #253, commit `91e8afa`, merge `e58692a`; PRD `01_Set_Vigente/PRD_CANONICO.md` lineas 342-345; `backend/contratos/models.py`; `backend/contratos/serializers.py`; `backend/contratos/views.py`; `backend/core/stage1_matrix_audit.py`; `frontend/src/backoffice/workspaces/ContratosWorkspace.tsx`; stage card, trazabilidad y evidencia. |
+| Brecha activa | Cerrada localmente: ultimo mes parcial en terminacion anticipada exige regla o decision de prorrata no sensible, motivo trazable y evento auditable dedicado; auditor Etapa 1 bloquea snapshots heredados sin decision o sin auditoria. |
+| Motivo de prioridad | Paquete de Contratos derivado del PRD, cerrado con validacion local, CI y merge sin `.env`, secretos, DB historica, datos reales ni integraciones externas. |
+| Worktree | Ninguno. Solo debe quedar el worktree principal. |
+| Rama | `main` sincronizada con `origin/main` despues de PR #253. |
+| Estado | Paquete integrado; cursor en cierre administrativo para dejar reanudacion limpia. |
+| Gate esperado | Etapa 1 local queda como diagnostico no evidencial; no cierra sin fuente `snapshot_controlado` o `real_autorizado`. |
+| Estado al cerrar paquete | Validado, PR #253 mergeado con CI acceptance verde, worktree tactico eliminado. |
+| Bloqueos relacionados | Fuente autorizada de Etapa 1 y evidencia externa/controlada siguen siendo condicion de cierre real de etapa, no de avance local seguro. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Implementar guard de dominio/API/auditor para prorrata de terminacion anticipada, validar Etapa 1/Contratos, abrir PR, esperar CI, mergear, limpiar worktree y cerrar cursor. |
+| Siguiente accion | Cerrar este cursor por PR pequeno; luego seleccionar el siguiente paquete seguro desde stage cards, trazabilidad y PRD. |
 
 ## Actualizacion
 
