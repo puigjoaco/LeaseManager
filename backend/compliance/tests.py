@@ -234,6 +234,20 @@ class ComplianceAPITests(APITestCase):
 
         denied = self.client.get(reverse('compliance-export-content', args=[prepared.data['id']]))
         self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='compliance.exportacion_sensible.access_denied',
+                entity_type='exportacion_sensible',
+                entity_id=str(prepared.data['id']),
+                metadata__estado=EstadoExportacionSensible.REVOKED,
+            ).exists()
+        )
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='compliance.exportacion_sensible.accessed',
+                entity_id=str(prepared.data['id']),
+            ).exists()
+        )
 
     def test_export_expires_after_window_when_no_hold(self):
         self._create_context('EXP')
@@ -258,6 +272,14 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
         export.refresh_from_db()
         self.assertEqual(export.estado, 'expirada')
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='compliance.exportacion_sensible.access_denied',
+                entity_type='exportacion_sensible',
+                entity_id=str(export.id),
+                metadata__estado=EstadoExportacionSensible.EXPIRED,
+            ).exists()
+        )
 
     def test_expired_export_status_is_terminal_even_before_expiry(self):
         self._create_context('EXP-STATE')
@@ -286,6 +308,14 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(denied.data['detail'], 'La exportacion expiro y ya no puede descargarse.')
         self.assertFalse(AuditEvent.objects.filter(event_type='compliance.exportacion_sensible.accessed').exists())
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='compliance.exportacion_sensible.access_denied',
+                entity_type='exportacion_sensible',
+                entity_id=str(export.id),
+                metadata__estado=EstadoExportacionSensible.EXPIRED,
+            ).exists()
+        )
 
     def test_export_with_hold_stays_downloadable_after_expiry(self):
         socio, _, _, _, _, _ = self._create_context('HOLD')

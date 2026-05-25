@@ -371,6 +371,9 @@ def collect_compliance_data_readiness(
                 'revoked_events': export_audit_events.filter(
                     event_type='compliance.exportacion_sensible.revoked'
                 ).count(),
+                'access_denied_events': export_audit_events.filter(
+                    event_type='compliance.exportacion_sensible.access_denied'
+                ).count(),
                 'sensitive_metadata_events': sensitive_audit_metadata_events,
             },
             'final_evidence': final_evidence,
