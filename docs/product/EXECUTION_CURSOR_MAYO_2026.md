@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | Etapa 1 / Contratos - resolucion de exceso de garantia contractual. |
 | Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`; `docs/product/EVIDENCE_REGISTER_MAYO_2026.md`; `docs/product/STAGE_CARDS/`; `01_Set_Vigente/PRD_CANONICO.md`. |
-| Brecha activa | Ninguna registrada en curso. |
-| Motivo de prioridad | El paquete de politica de base de renovacion con tramos quedo cerrado en PR #284. |
-| Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
-| Rama | `main`. |
-| Estado | Sin paquete activo; listo para elegir el siguiente frente seguro por trazabilidad. |
+| Brecha activa | PRD linea 357: si se recibe mas garantia que la pactada, el exceso no es utilidad ni ingreso libre; debe quedar clasificado, devuelto, regularizado o bloqueado con evidencia y resolucion manual. |
+| Motivo de prioridad | La regla actual bloquea todo exceso, pero no permite representar el caso real excepcional con resolucion trazable exigido por el PRD. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-guarantee-excess-resolution`. |
+| Rama | `codex/stage1-guarantee-excess-resolution`. |
+| Estado | Paquete tactico abierto para guard local de exceso de garantia sin usar datos reales ni integraciones externas. |
 | Gate esperado | Los gates externos siguen siendo condiciones de cierre real, no de preparacion local. |
-| Estado al cerrar paquete | PR #284 mergeado en `main` con merge `8042ea2`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
+| Estado al cerrar paquete | PR #284 mergeado en `main` con merge `8042ea2`; CI `acceptance` pass; worktree tactico y rama remota eliminados. Nuevo paquete abierto sobre `d145ab3`. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Elegir el siguiente paquete seguro desde trazabilidad/cursor, abrir worktree `codex/...` si no es trivial, validar proporcionalmente y cerrar con PR, CI, merge y limpieza. |
+| Siguiente accion | Implementar guard/API/snapshot/backoffice/auditor para exceso de garantia contractual, validar proporcionalmente y cerrar con PR, CI, merge y limpieza. |
 
 ## Actualizacion
 

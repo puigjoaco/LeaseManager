@@ -725,9 +725,14 @@ type Garantia = {
   monto_aplicado: string
   saldo_vigente: string
   brecha_garantia_clp: string
+  exceso_garantia_clp: string
   garantia_incompleta: boolean
   garantia_parcial_aceptada: boolean
   aceptacion_parcial_ref: string
+  resolucion_exceso_garantia: string
+  resolucion_exceso_garantia_ref: string
+  resolucion_exceso_garantia_motivo: string
+  tiene_resolucion_exceso_garantia: boolean
   estado_garantia: string
 }
 
@@ -1627,6 +1632,9 @@ function App() {
     monto_clp: '',
     fecha: todayIso(),
     justificacion: '',
+    resolucion_exceso_garantia: '',
+    resolucion_exceso_garantia_ref: '',
+    resolucion_exceso_garantia_motivo: '',
   })
   const [estadoCuentaDraft, setEstadoCuentaDraft] = useState({
     arrendatario_id: '',
@@ -2214,6 +2222,9 @@ function App() {
       monto_clp: '',
       fecha: todayIso(),
       justificacion: '',
+      resolucion_exceso_garantia: '',
+      resolucion_exceso_garantia_ref: '',
+      resolucion_exceso_garantia_motivo: '',
     })
     setEstadoCuentaDraft({
       arrendatario_id: '',
@@ -3867,6 +3878,9 @@ function App() {
       monto_clp: garantiaMovimientoDraft.monto_clp,
       fecha: garantiaMovimientoDraft.fecha,
       justificacion: garantiaMovimientoDraft.justificacion,
+      resolucion_exceso_garantia: garantiaMovimientoDraft.resolucion_exceso_garantia || undefined,
+      resolucion_exceso_garantia_ref: garantiaMovimientoDraft.resolucion_exceso_garantia_ref || undefined,
+      resolucion_exceso_garantia_motivo: garantiaMovimientoDraft.resolucion_exceso_garantia_motivo || undefined,
     }, 'Movimiento de garantía registrado correctamente.')
     if (ok) {
       setGarantiaMovimientoDraft({
@@ -3875,6 +3889,9 @@ function App() {
         monto_clp: '',
         fecha: todayIso(),
         justificacion: '',
+        resolucion_exceso_garantia: '',
+        resolucion_exceso_garantia_ref: '',
+        resolucion_exceso_garantia_motivo: '',
       })
     }
   }

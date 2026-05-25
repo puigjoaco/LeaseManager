@@ -949,7 +949,7 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(final_detail.data['fecha_cierre'], '2027-01-10')
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.garantia_contractual.state_changed').exists())
 
-    def test_guarantee_deposit_rejects_amount_above_pactado(self):
+    def test_guarantee_deposit_above_pactado_requires_resolution(self):
         contrato = self._create_active_contract(codigo='CON-GAR-FAIL', monto_base='100000.00', code='111')
         garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='50000.00')
 
@@ -959,6 +959,51 @@ class CobranzaAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('resolucion_exceso_garantia_ref', response.data)
+
+    def test_guarantee_deposit_above_pactado_accepts_controlled_resolution(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-EXCESS', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='50000.00')
+
+        response = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {
+                'tipo_movimiento': 'deposito',
+                'monto_clp': '60000.00',
+                'fecha': '2026-01-01',
+                'resolucion_exceso_garantia': 'devolver',
+                'resolucion_exceso_garantia_ref': 'manual-resolution-guarantee-excess-2026-01',
+                'resolucion_exceso_garantia_motivo': 'Exceso recibido identificado y marcado para devolucion controlada.',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        detail = self.client.get(reverse('cobranza-garantia-detail', args=[garantia.id]))
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail.data['monto_recibido'], '60000.00')
+        self.assertEqual(detail.data['exceso_garantia_clp'], '10000.00')
+        self.assertEqual(detail.data['resolucion_exceso_garantia'], 'devolver')
+        self.assertTrue(detail.data['tiene_resolucion_exceso_garantia'])
+
+    def test_guarantee_excess_resolution_rejects_sensitive_reference(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-EXCESS-SENS', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='50000.00')
+
+        response = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {
+                'tipo_movimiento': 'deposito',
+                'monto_clp': '60000.00',
+                'fecha': '2026-01-01',
+                'resolucion_exceso_garantia': 'regularizar',
+                'resolucion_exceso_garantia_ref': 'https://example.test/approval?token=secret',
+                'resolucion_exceso_garantia_motivo': 'Regularizacion controlada.',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('resolucion_exceso_garantia_ref', response.data)
 
     def test_partial_guarantee_exposes_incomplete_until_formal_acceptance(self):
         contrato = self._create_active_contract(codigo='CON-GAR-PARTIAL', monto_base='100000.00', code='111')
