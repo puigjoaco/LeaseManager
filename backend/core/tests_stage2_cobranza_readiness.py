@@ -746,6 +746,60 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.webpay_intent.confirmed_with_sensitive_external_ref', issue_codes)
         self.assertNotIn('transbank.example.test', json.dumps(result))
 
+    def test_confirmed_webpay_with_unpaid_payment_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        webpay_gate = self._create_valid_webpay_gate()
+        IntentoPagoWebPay.objects.create(
+            pago_mensual=fixture['payment'],
+            gate_cobro=webpay_gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=fixture['payment'].monto_calculado_clp,
+            buy_order='LM-PM-STAGE2-UNPAID',
+            session_id='LM-WP-STAGE2-UNPAID',
+            return_url_ref='webpay-return-controlled-v1',
+            estado=EstadoIntentoPagoWebPay.CONFIRMED_MANUAL,
+            external_ref='TBK-STAGE2-UNPAID',
+            fecha_pago_webpay=date(2026, 1, 6),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.webpay_intent.confirmed_payment_not_paid', issue_codes)
+        self.assertEqual(result['sections']['webpay']['confirmed_payment_not_paid'], 1)
+
+    def test_confirmed_webpay_with_payment_date_mismatch_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        webpay_gate = self._create_valid_webpay_gate()
+        payment = fixture['payment']
+        payment.estado_pago = EstadoPago.PAID
+        payment.monto_pagado_clp = payment.monto_calculado_clp
+        payment.fecha_pago_webpay = date(2026, 1, 7)
+        payment.fecha_deteccion_sistema = date(2026, 1, 7)
+        payment.save()
+        IntentoPagoWebPay.objects.create(
+            pago_mensual=payment,
+            gate_cobro=webpay_gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=payment.monto_calculado_clp,
+            buy_order='LM-PM-STAGE2-DATE',
+            session_id='LM-WP-STAGE2-DATE',
+            return_url_ref='webpay-return-controlled-v1',
+            estado=EstadoIntentoPagoWebPay.CONFIRMED_MANUAL,
+            external_ref='TBK-STAGE2-DATE',
+            fecha_pago_webpay=date(2026, 1, 6),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.webpay_intent.confirmed_payment_date_mismatch', issue_codes)
+        self.assertEqual(result['sections']['webpay']['confirmed_payment_date_mismatch'], 1)
+
     def test_webpay_intent_with_sensitive_return_ref_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()

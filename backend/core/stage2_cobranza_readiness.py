@@ -308,6 +308,12 @@ def _collect_webpay_intent_issues(intents) -> dict[str, int]:
                 counts['confirmed_without_external_ref'] += 1
             elif not _non_sensitive_reference(intent.external_ref):
                 counts['confirmed_with_sensitive_external_ref'] += 1
+            if intent.pago_mensual.estado_pago != EstadoPago.PAID:
+                counts['confirmed_payment_not_paid'] += 1
+            if not intent.pago_mensual.fecha_pago_webpay:
+                counts['confirmed_payment_without_webpay_date'] += 1
+            elif intent.fecha_pago_webpay and intent.pago_mensual.fecha_pago_webpay != intent.fecha_pago_webpay:
+                counts['confirmed_payment_date_mismatch'] += 1
     return dict(sorted(counts.items()))
 
 
@@ -907,6 +913,30 @@ def collect_stage2_cobranza_readiness(
                 'stage2.webpay_intent.confirmed_with_sensitive_external_ref',
                 'Existen intentos WebPay confirmados con external_ref sensible.',
                 count=webpay_intent_issues['confirmed_with_sensitive_external_ref'],
+            )
+        )
+    if webpay_intent_issues.get('confirmed_payment_not_paid'):
+        issues.append(
+            _issue(
+                'stage2.webpay_intent.confirmed_payment_not_paid',
+                'Existen intentos WebPay confirmados cuyo pago mensual no esta pagado.',
+                count=webpay_intent_issues['confirmed_payment_not_paid'],
+            )
+        )
+    if webpay_intent_issues.get('confirmed_payment_without_webpay_date'):
+        issues.append(
+            _issue(
+                'stage2.webpay_intent.confirmed_payment_without_webpay_date',
+                'Existen intentos WebPay confirmados cuyo pago mensual no conserva fecha WebPay.',
+                count=webpay_intent_issues['confirmed_payment_without_webpay_date'],
+            )
+        )
+    if webpay_intent_issues.get('confirmed_payment_date_mismatch'):
+        issues.append(
+            _issue(
+                'stage2.webpay_intent.confirmed_payment_date_mismatch',
+                'Existen intentos WebPay confirmados con fecha distinta a la del pago mensual.',
+                count=webpay_intent_issues['confirmed_payment_date_mismatch'],
             )
         )
 
