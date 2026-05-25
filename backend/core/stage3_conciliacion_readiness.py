@@ -38,7 +38,7 @@ CONNECTION_REFERENCE_FIELDS = (
     'prueba_movimientos_ref',
     'prueba_saldos_ref',
 )
-MOVEMENT_REFERENCE_FIELDS = ('evidencia_importacion_ref', 'transaction_id_banco')
+MOVEMENT_REFERENCE_FIELDS = ('evidencia_importacion_ref', 'referencia', 'transaction_id_banco')
 BALANCE_SQUARE_REFERENCE_FIELDS = ('evidencia_cuadratura_ref', 'responsable_ref')
 TRANSFER_REFERENCE_FIELDS = ('evidencia_transferencia_ref', 'responsable_ref')
 STAGE3_MANUAL_RESOLUTION_CATEGORIES = (
@@ -636,7 +636,7 @@ def collect_stage3_conciliacion_readiness(
         issues.append(
             _issue(
                 'stage3.movement.sensitive_reference',
-                'Existen movimientos bancarios con referencias de importacion o proveedor sensibles.',
+                'Existen movimientos bancarios con referencias de importacion, banco o proveedor sensibles.',
                 count=movement_issues['sensitive_reference'],
             )
         )

@@ -24,7 +24,8 @@ sistema igual a saldo banco.
 - Movimiento importado por `provider_sync` solo contra conexion activa,
   primaria de movimientos, readiness trazable y `transaction_id_banco` no
   sensible y no duplicado dentro de la misma conexion por modelo y constraint
-  DB; la carga manual controlada exige `evidencia_importacion_ref` no sensible.
+  DB; toda `referencia` bancaria de movimiento debe ser no sensible, y la
+  carga manual controlada exige `evidencia_importacion_ref` no sensible.
 - Movimientos conciliados exactos existentes deben conservar coherencia con su
   target: abonos apuntan a pago mensual pagado o codigo residual pagado de la
   misma cuenta recaudadora; movimientos no conciliados no conservan target.
@@ -61,7 +62,8 @@ sistema igual a saldo banco.
   como `superseded` con motivo, metadata de origen/target y evento de
   auditoria; la readiness bloquea supersesiones sin traza suficiente.
 - Las respuestas API y snapshot de Conciliacion redactan refs bancarias
-  sensibles ya persistidas antes de exponerlas al backoffice.
+  sensibles ya persistidas, incluida `referencia` de movimientos, antes de
+  exponerlas al backoffice.
 - `audit_stage3_conciliacion_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 3.
