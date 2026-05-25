@@ -23,15 +23,15 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 0 - Compliance datos sensibles: guards de politicas de retencion. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`; `backend/compliance`. |
-| Brecha activa | El readiness detecta politicas de retencion invalidas, hold faltante y purga fisica restringida, pero `PoliticaRetencionDatos` no bloquea esas incoherencias desde dominio/API. |
-| Motivo de prioridad | Es la brecha local segura mas baja del orden vigente: Stage 0 parcial, verificable con datos sinteticos/locales y sin usar `.env`, secretos, datos reales, DB historicas ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-retention-policy-guards`. |
-| Rama | `codex/compliance-retention-policy-guards`. |
-| Estado | Paquete tactico abierto desde `main` limpio en `50a47d9`; implementacion y validacion en curso. |
-| Gate esperado | `scripts/run-compliance-data-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada y refs finales. |
-| Estado al cerrar paquete | Pendiente. |
+| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 0 - Compliance guards de politicas de retencion. |
+| Fuente exacta | PR #205 `Guard compliance retention policy controls`, commit `ea98b50`, merge `44d5e50`, desde `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`, `backend/core/compliance_data_readiness.py`, `scripts/run-compliance-data-readiness-gate.ps1` y `backend/compliance`. |
+| Brecha activa | Cerrada localmente: `PoliticaRetencionDatos` bloquea plazo minimo cero, evento de inicio sensible, falta de hold tributario/documental y purga fisica documental/secreto; readiness conserva deteccion de politicas heredadas invalidas sin exponer valores. |
+| Motivo de prioridad | Compliance Stage 0 es preparacion base para datos sensibles y puede endurecerse con datos sinteticos/locales sin usar fuentes externas. |
+| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
+| Rama | `main` sincronizada; sin rama tactica activa. |
+| Estado | PR #205 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
+| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra `Compliance.DatosPersonalesChile2026` sin fuente autorizada y refs finales. |
 | Bloqueos relacionados | Falta fuente `snapshot_controlado` o `real_autorizado`, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa no sensibles para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
 | Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
