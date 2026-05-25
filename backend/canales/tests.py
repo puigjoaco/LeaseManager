@@ -1203,13 +1203,13 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(sent.status_code, status.HTTP_200_OK)
         self.assertEqual(sent.data['estado'], EstadoMensajeSaliente.SENT)
         self.assertEqual(sent.data['external_ref'], 'manual-123')
-        self.assertTrue(
-            AuditEvent.objects.filter(
-                event_type='canales.mensaje_saliente.sent_manually',
-                entity_type='mensaje_saliente',
-                entity_id=str(sent.data['id']),
-            ).exists()
+        audit_event = AuditEvent.objects.get(
+            event_type='canales.mensaje_saliente.sent_manually',
+            entity_type='mensaje_saliente',
+            entity_id=str(sent.data['id']),
         )
+        self.assertEqual(audit_event.actor_user, self.user)
+        self.assertEqual(audit_event.metadata['external_ref'], 'manual-123')
 
     def test_register_manual_send_requires_external_reference(self):
         empresa, contrato = self._create_contract_context(codigo='CH-SENDREF')
