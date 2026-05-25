@@ -153,6 +153,27 @@ def _unknown_income_target_matches(resolution: ManualResolution, metadata: dict[
     )
 
 
+def _has_resolved_payment_manual_assignment(movement: MovimientoBancarioImportado) -> bool:
+    if not movement.pk or not movement.pago_mensual_id:
+        return False
+
+    resolutions = ManualResolution.objects.filter(
+        category='conciliacion.ingreso_desconocido',
+        scope_type='movimiento_bancario',
+        scope_reference=str(movement.pk),
+        status=ManualResolution.Status.RESOLVED,
+    )
+    for resolution in resolutions:
+        metadata = resolution.metadata if isinstance(resolution.metadata, dict) else {}
+        if metadata.get('resolved_with') != 'payment_manual_assignment':
+            continue
+        if _metadata_int(metadata, 'resolved_payment_id') != movement.pago_mensual_id:
+            continue
+        if _unknown_income_target_matches(resolution, metadata):
+            return True
+    return False
+
+
 def _charge_classification_target_matches(resolution: ManualResolution, metadata: dict[str, Any]) -> bool:
     movement = _get_resolution_movement(resolution)
     if movement is None:
@@ -291,6 +312,22 @@ def _collect_movement_issues(movements, *, internal_transfer_destination_ids=Non
             and movement.pk not in internal_transfer_destination_ids
         ):
             counts['credit_exact_match_without_target'] += 1
+
+        if (
+            movement.tipo_movimiento == TipoMovimientoBancario.CREDIT
+            and movement.estado_conciliacion == EstadoConciliacionMovimiento.EXACT_MATCH
+            and movement.pago_mensual_id
+        ):
+            try:
+                payment = movement.pago_mensual
+            except PagoMensual.DoesNotExist:
+                payment = None
+            if (
+                payment is not None
+                and Decimal(str(movement.monto)) != Decimal(str(payment.monto_calculado_clp))
+                and not _has_resolved_payment_manual_assignment(movement)
+            ):
+                counts['payment_partial_without_manual_resolution'] += 1
 
     duplicate_transaction_rows = sum(count for count in transaction_keys.values() if count > 1)
     if duplicate_transaction_rows:
@@ -657,6 +694,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.movement.credit_exact_match_without_target',
                 'Existen abonos conciliados exactos sin pago mensual ni codigo residual trazable.',
                 count=movement_issues['credit_exact_match_without_target'],
+            )
+        )
+    if movement_issues.get('payment_partial_without_manual_resolution'):
+        issues.append(
+            _issue(
+                'stage3.movement.payment_partial_without_manual_resolution',
+                'Existen abonos parciales o complementarios conciliados a pagos sin resolucion manual auditada.',
+                count=movement_issues['payment_partial_without_manual_resolution'],
             )
         )
     if unresolved_movements:

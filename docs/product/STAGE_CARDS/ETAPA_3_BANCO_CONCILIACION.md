@@ -31,6 +31,10 @@ sistema igual a saldo banco.
   misma cuenta recaudadora; el pago mensual target debe pertenecer al mismo
   periodo economico del movimiento bancario; movimientos no conciliados no
   conservan target.
+- Abonos parciales o complementarios conciliados a un `PagoMensual` solo son
+  validos con resolucion manual auditada de ingreso desconocido; readiness
+  bloquea snapshots donde el movimiento parcial quedo como match exacto sin
+  esa traza.
 - `audit_stage3_conciliacion_readiness` consolida readiness local de
   conexiones, movimientos, ingresos desconocidos, senales de saldo y
   referencias finales sin conectar bancos ni leer secretos; tambien detecta
