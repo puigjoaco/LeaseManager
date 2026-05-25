@@ -16,6 +16,7 @@ from .models import (
     EstadoExportacionSensible,
     EXPIRED_EXPORT_STATE_ERROR,
     ExportacionSensible,
+    PAYLOAD_HASH_FORMAT_ERROR,
     PoliticaRetencionDatos,
     SECRET_EXPORT_ERROR,
 )
@@ -218,6 +219,24 @@ class ComplianceAPITests(APITestCase):
                 created_by=self.user,
             )
         self.assertEqual(service_context.exception.message_dict['categoria_dato'][0], SECRET_EXPORT_ERROR)
+
+    def test_export_model_rejects_non_hex_payload_hash(self):
+        encrypted_payload, _payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = ExportacionSensible(
+            categoria_dato=CategoriaDato.FINANCIAL,
+            export_kind='financiero_mensual',
+            scope_resumen={'periodo': '2026-01'},
+            motivo='Revision mensual',
+            encrypted_payload=encrypted_payload,
+            payload_hash='z' * 64,
+            encrypted_ref='export://financiero_mensual/hash-no-hex',
+            expires_at=timezone.now() + timedelta(days=1),
+            created_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            export.full_clean()
+        self.assertEqual(context.exception.message_dict['payload_hash'][0], PAYLOAD_HASH_FORMAT_ERROR)
 
     def test_export_apis_redact_inherited_sensitive_visible_metadata(self):
         encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})

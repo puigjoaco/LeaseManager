@@ -43,6 +43,7 @@ RETENTION_NO_PHYSICAL_PURGE_CATEGORIES = {
 }
 SECRET_EXPORT_ERROR = 'No se permite preparar exportaciones operativas sobre categoria secreto.'
 EXPIRED_EXPORT_STATE_ERROR = 'La exportacion expirada debe representar una exportacion ya vencida sin hold activo.'
+PAYLOAD_HASH_FORMAT_ERROR = 'payload_hash debe ser un digest SHA-256 hexadecimal de 64 caracteres.'
 
 
 class PoliticaRetencionDatos(TimestampedModel):
@@ -113,6 +114,9 @@ class ExportacionSensible(TimestampedModel):
                 errors['hold_activo'] = EXPIRED_EXPORT_STATE_ERROR
             if self.expires_at and self.expires_at > reference_time:
                 errors['expires_at'] = EXPIRED_EXPORT_STATE_ERROR
+        payload_hash = self.payload_hash.strip()
+        if len(payload_hash) != 64 or any(char not in '0123456789abcdefABCDEF' for char in payload_hash):
+            errors['payload_hash'] = PAYLOAD_HASH_FORMAT_ERROR
         if self.categoria_dato == CategoriaDato.SECRET:
             errors['categoria_dato'] = SECRET_EXPORT_ERROR
         if contains_sensitive_reference(self.motivo, include_sensitive_keys=True):

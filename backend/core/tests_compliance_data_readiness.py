@@ -234,6 +234,18 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertFalse(result['ready_for_compliance_data'])
         self.assertIn('compliance.export_secret_category', {issue['code'] for issue in result['issues']})
 
+    def test_non_hex_payload_hash_is_blocking(self):
+        self._create_policies()
+        export = self._create_raw_export(payload_hash='z' * 64)
+        self._create_prepared_audit_event(export, user=export.created_by)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_payload_hash_invalid', issue_codes)
+        self.assertEqual(result['sections']['exports']['payload_hash_invalid'], 1)
+
     def test_missing_prepared_audit_event_is_blocking(self):
         self._create_policies()
         self._create_raw_export()
