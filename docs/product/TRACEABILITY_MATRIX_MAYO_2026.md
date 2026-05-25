@@ -7,6 +7,11 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-25: Conciliacion bloquea snapshots heredados donde un abono
+parcial o complementario queda `conciliado_exacto` contra un `PagoMensual` sin
+resolucion manual auditada. Los pagos parciales o en varios abonos siguen
+permitidos solo por resolucion manual trazable de ingreso desconocido.
+
 Nota 2026-05-25: Conciliacion acota el match exacto automatico de pagos al
 periodo economico del movimiento bancario. Un abono de otro mes ya no cierra
 automaticamente un `PagoMensual` aunque coincidan cuenta y monto; queda como

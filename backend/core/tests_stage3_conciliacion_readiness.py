@@ -314,6 +314,73 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.movement.invalid_model', issue_codes)
         self.assertEqual(result['sections']['movements']['invalid_model'], 1)
 
+    def test_partial_payment_exact_match_without_manual_resolution_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-PARTIAL-NO-MANUAL')
+        conexion = self._create_ready_connection(cuenta)
+        payment.fecha_deposito_banco = date(2026, 1, 8)
+        payment.save(update_fields=['fecha_deposito_banco', 'updated_at'])
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=Decimal('100000.00'),
+            descripcion_origen='Abono parcial conciliado sin resolucion manual',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3',
+            saldo_reportado=Decimal('1000000.00'),
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+            pago_mensual=payment,
+        )
+        self._create_square_balance(cuenta)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.payment_partial_without_manual_resolution', issue_codes)
+        self.assertEqual(result['sections']['movements']['payment_partial_without_manual_resolution'], 1)
+
+    def test_partial_payment_exact_match_with_manual_resolution_trace_can_pass_readiness(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-PARTIAL-MANUAL')
+        conexion = self._create_ready_connection(cuenta)
+        payment.fecha_deposito_banco = date(2026, 1, 8)
+        payment.save(update_fields=['fecha_deposito_banco', 'updated_at'])
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=Decimal('100000.00'),
+            descripcion_origen='Abono parcial conciliado con resolucion manual',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3',
+            saldo_reportado=Decimal('1000000.00'),
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+            pago_mensual=payment,
+        )
+        ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Abono parcial regularizado manualmente',
+            rationale='Se regularizo un abono parcial contra pago mensual con respaldo controlado.',
+            metadata={
+                'resolved_with': 'payment_manual_assignment',
+                'resolved_payment_id': payment.pk,
+                'resolved_contract_id': payment.contrato_id,
+                'periodo_economico': '2026-01',
+                'criterio_aplicado': 'Suma parcial auditada contra saldo del pago mensual.',
+                'evidencia_regularizacion_ref': 'partial-payment-evidence-2026-01',
+            },
+        )
+        self._create_square_balance(cuenta)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage3_conciliacion'])
+        self.assertNotIn('stage3.movement.payment_partial_without_manual_resolution', issue_codes)
+
     def test_internal_transfer_pair_can_pass_readiness(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER')
         conexion = self._create_ready_connection(cuenta)
