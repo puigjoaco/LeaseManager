@@ -41,6 +41,8 @@ type DocumentoEmitidoItem = {
   firma_codeudor_registrada: boolean
   recepcion_notarial_registrada: boolean
   comprobante_notarial: number | null
+  documento_origen: number | null
+  correccion_ref: string
 }
 
 type ExpedienteDraft = {
@@ -77,6 +79,8 @@ type DocumentoDraft = {
   firma_codeudor_registrada: boolean
   recepcion_notarial_registrada: boolean
   comprobante_notarial: string
+  documento_origen: string
+  correccion_ref: string
 }
 
 type DocumentoFormalizarDraft = {
@@ -153,6 +157,12 @@ export function DocumentosWorkspace({
     && ['emitido', 'formalizado', 'archivado'].includes(item.estado)
     && isPdfStorageRef(item.storage_ref),
   )
+  const correctiveOriginOptions = documentosEmitidos.filter((item) =>
+    item.estado === 'formalizado'
+    && item.expediente === Number(documentoDraft.expediente)
+    && item.tipo_documental === documentoDraft.tipo_documental,
+  )
+  const correctionRequiresRef = Boolean(documentoDraft.documento_origen) && !documentoDraft.correccion_ref.trim()
 
   return (
     <>
@@ -246,7 +256,14 @@ export function DocumentosWorkspace({
                 <option value="cancelado">Cancelado</option>
               </select>
               <input placeholder="Storage ref PDF" value={documentoDraft.storage_ref} onChange={(event) => setDocumentoDraft((current) => ({ ...current, storage_ref: event.target.value }))} />
-              <button type="submit" className="button-primary" disabled={isSubmitting || !documentoDraft.expediente || !isDocumentChecksum(documentoDraft.checksum) || !isPdfStorageRef(documentoDraft.storage_ref)}>Guardar documento</button>
+              <select value={documentoDraft.documento_origen} onChange={(event) => setDocumentoDraft((current) => ({ ...current, documento_origen: event.target.value }))}>
+                <option value="">Sin documento origen</option>
+                {correctiveOriginOptions.map((item) => (
+                  <option key={item.id} value={item.id}>{item.version_plantilla} · {item.storage_ref}</option>
+                ))}
+              </select>
+              <input placeholder="Ref corrección" value={documentoDraft.correccion_ref} onChange={(event) => setDocumentoDraft((current) => ({ ...current, correccion_ref: event.target.value }))} />
+              <button type="submit" className="button-primary" disabled={isSubmitting || !documentoDraft.expediente || !isDocumentChecksum(documentoDraft.checksum) || !isPdfStorageRef(documentoDraft.storage_ref) || correctionRequiresRef}>Guardar documento</button>
             </form>
           </section>
 
@@ -297,6 +314,7 @@ export function DocumentosWorkspace({
         { label: 'Tipo', render: (row) => row.tipo_documental },
         { label: 'Origen', render: (row) => row.origen },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+        { label: 'Corrige', render: (row) => row.documento_origen ? `Doc ${row.documento_origen}` : '-' },
         { label: 'Storage', render: (row) => row.storage_ref },
         { label: 'Acción', render: (row) => canEditDocumentos ? <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => setDocumentoFormalizarDraft((current) => ({ ...current, documentoId: String(row.id) }))}>Formalizar</button><button type="button" className="button-ghost inline-action" onClick={() => goToDocumentoContext(row.id)}>Canales</button></div> : 'Solo lectura' },
       ]} />

@@ -29,8 +29,14 @@ firma y notaria trazables.
 - Un documento ya formalizado queda inmutable frente al endpoint generico y no
   puede re-formalizarse; correcciones posteriores requieren nueva version o un
   flujo auditado dedicado.
+- Las versiones correctivas deben apuntar al documento formalizado de origen,
+  pertenecer al mismo expediente y tipo documental, tener PDF/checksum propios
+  y conservar `correccion_ref` no sensible con evento de auditoria dedicado.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   documentos formalizados sin evento `documentos.documento_emitido.formalized`.
+- Auditoria local `audit_document_readiness` debe bloquear versiones
+  correctivas heredadas invalidas o sin evento
+  `documentos.documento_emitido.corrective_version_created`.
 - Si la politica exige notaria, el comprobante notarial debe pertenecer al
   mismo expediente y estar emitido, formalizado o archivado.
 - Auditoria local `audit_document_readiness` debe consolidar politicas activas

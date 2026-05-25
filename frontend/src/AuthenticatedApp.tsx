@@ -970,6 +970,8 @@ type DocumentoEmitidoItem = {
   firma_codeudor_registrada: boolean
   recepcion_notarial_registrada: boolean
   comprobante_notarial: number | null
+  documento_origen: number | null
+  correccion_ref: string
 }
 
 type CanalMensajeriaItem = {
@@ -1529,6 +1531,8 @@ function App() {
     firma_codeudor_registrada: false,
     recepcion_notarial_registrada: false,
     comprobante_notarial: '',
+    documento_origen: '',
+    correccion_ref: '',
   })
   const [documentoFormalizarDraft, setDocumentoFormalizarDraft] = useState({
     documentoId: '',
@@ -2120,6 +2124,8 @@ function App() {
       firma_codeudor_registrada: false,
       recepcion_notarial_registrada: false,
       comprobante_notarial: '',
+      documento_origen: '',
+      correccion_ref: '',
     })
     setDocumentoFormalizarDraft({
       documentoId: '',
@@ -4453,6 +4459,7 @@ function App() {
         ...documentoDraft,
         fecha_carga: documentoDraft.fecha_carga ? new Date(documentoDraft.fecha_carga).toISOString() : undefined,
         comprobante_notarial: documentoDraft.comprobante_notarial || null,
+        documento_origen: documentoDraft.documento_origen || null,
       },
       'Documento emitido creado correctamente.',
       'documentos',

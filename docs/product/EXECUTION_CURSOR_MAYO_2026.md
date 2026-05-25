@@ -23,18 +23,18 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 5 - Eventos contables para transferencias intercuenta. |
-| Fuente exacta | PR #201 `Guard Stage 5 internal transfer accounting events`, merge `85f9976`, desde `01_Set_Vigente/PRD_CANONICO.md` lineas 191, 194, 235, 241-243, 294, 377, 387, 429, 434 y 435; `docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md`. |
-| Brecha activa | Cerrada localmente: `TransferenciaIntercuenta` conciliada alimenta eventos contables idempotentes de salida/entrada y readiness Etapa 5 bloquea transferencias de empresa sin esos eventos. |
-| Motivo de prioridad | Conciliacion ya distingue transferencias intercuenta; Contabilidad ahora recibe el hecho trazable antes de cierre mensual, sin banco real ni datos externos. |
-| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
-| Rama | `main` sincronizada; sin rama tactica activa. |
-| Estado | PR #201 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
-| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
-| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 5 sin Conciliacion cerrada, fuente `snapshot_controlado` o `real_autorizado`, ledger/reportes controlados y responsable. |
-| Bloqueos relacionados | `BLK-003` y dependencias de cierre contable no bloquean preparacion local; solo impiden cierre evidencial. |
+| Frente activo | Etapa 5 - Versiones correctivas de documentos formalizados. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 193, 252, 364 y 584; `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`. |
+| Brecha activa | Un documento formalizado queda inmutable, pero las correcciones posteriores no tienen aun una version correctiva trazada con origen, referencia no sensible y readiness. |
+| Motivo de prioridad | Documentos debe permitir preparar correcciones sin mutar el PDF formalizado ni usar storage real, manteniendo trazabilidad antes de Canales/Reporting. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-document-correction-version`. |
+| Rama | `codex/stage5-document-correction-version`. |
+| Estado | Implementado y validado localmente; pendiente de PR, CI, merge y limpieza. No usar `.env`, secretos, storage real, documentos productivos, DB historica, snapshot, backfills, deploys ni integraciones externas. |
+| Gate esperado | Readiness local documental queda `classification=parcial`, `ready_for_stage5_documents=false`; el versionado correctivo queda preparado localmente pero no cierra Documentos sin politica final, PDF controlado, fuente autorizada y responsable. |
+| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 5 Documentos sin fuente `snapshot_controlado` o `real_autorizado`, politica final, prueba PDF controlada y responsable. |
+| Bloqueos relacionados | `BLK-005` y fuente documental autorizada no bloquean esta preparacion local; solo impiden cierre evidencial. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
-| Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
+| Siguiente accion | Publicar PR, esperar CI, mergear, limpiar worktree/rama tactica y cerrar el cursor post-merge desde `main` limpio. |
 
 ## Actualizacion
 

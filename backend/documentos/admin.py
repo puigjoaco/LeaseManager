@@ -12,9 +12,17 @@ class ExpedienteDocumentalAdmin(admin.ModelAdmin):
 
 @admin.register(DocumentoEmitido)
 class DocumentoEmitidoAdmin(admin.ModelAdmin):
-    list_display = ('expediente', 'tipo_documental', 'version_plantilla', 'estado', 'origen', 'fecha_carga')
+    list_display = (
+        'expediente',
+        'tipo_documental',
+        'version_plantilla',
+        'estado',
+        'origen',
+        'fecha_carga',
+        'documento_origen',
+    )
     list_filter = ('tipo_documental', 'estado', 'origen')
-    search_fields = ('checksum', 'storage_ref', 'version_plantilla')
+    search_fields = ('checksum', 'storage_ref', 'version_plantilla', 'correccion_ref')
 
 
 @admin.register(PoliticaFirmaYNotaria)

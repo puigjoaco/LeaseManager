@@ -25,6 +25,8 @@ FORMALIZED_IMMUTABLE_FIELDS = {
     'firma_codeudor_registrada',
     'recepcion_notarial_registrada',
     'comprobante_notarial',
+    'documento_origen',
+    'correccion_ref',
 }
 
 
@@ -172,6 +174,7 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['storage_ref'] = redact_sensitive_reference(data.get('storage_ref'))
+        data['correccion_ref'] = redact_sensitive_reference(data.get('correccion_ref'))
         return data
 
     class Meta:
@@ -192,6 +195,8 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
             'firma_codeudor_registrada',
             'recepcion_notarial_registrada',
             'comprobante_notarial',
+            'documento_origen',
+            'correccion_ref',
             'created_at',
             'updated_at',
         )
@@ -203,6 +208,7 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
         if user and getattr(user, 'is_authenticated', False):
             self.fields['expediente'].queryset = scope_expediente_queryset(ExpedienteDocumental.objects.all(), user)
             self.fields['comprobante_notarial'].queryset = scope_documento_queryset(DocumentoEmitido.objects.all(), user)
+            self.fields['documento_origen'].queryset = scope_documento_queryset(DocumentoEmitido.objects.all(), user)
 
     def validate(self, attrs):
         if not self.instance and 'fecha_carga' not in attrs:

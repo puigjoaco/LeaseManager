@@ -536,6 +536,117 @@ class DocumentosAPITests(APITestCase):
         self.assertTrue(stored.firma_arrendador_registrada)
         self.assertEqual(stored.estado, EstadoDocumento.FORMALIZED)
 
+    def test_formalized_document_can_have_traceable_corrective_version(self):
+        expediente = self._create_expediente(entidad_id='4G')
+        self._create_politica()
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {},
+            format='json',
+        )
+        self.assertEqual(formalize.status_code, status.HTTP_200_OK)
+
+        correction = self._create_documento(
+            expediente['id'],
+            version_plantilla='v2',
+            checksum=VALID_SHA256_ALT,
+            storage_ref='storage/contracts/contrato-1-v2.pdf',
+            documento_origen=documento['id'],
+            correccion_ref='correction-ticket-doc-001',
+        )
+
+        self.assertEqual(correction['documento_origen'], documento['id'])
+        self.assertEqual(correction['correccion_ref'], 'correction-ticket-doc-001')
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='documentos.documento_emitido.corrective_version_created',
+                entity_type='documento_emitido',
+                entity_id=str(correction['id']),
+            ).exists()
+        )
+        snapshot = self.client.get(reverse('documentos-snapshot'))
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        correction_snapshot = next(
+            item for item in snapshot.data['documentos_emitidos'] if item['id'] == correction['id']
+        )
+        self.assertEqual(correction_snapshot['documento_origen'], documento['id'])
+        self.assertEqual(correction_snapshot['correccion_ref'], 'correction-ticket-doc-001')
+
+    def test_corrective_version_requires_formalized_origin(self):
+        expediente = self._create_expediente(entidad_id='4H')
+        self._create_politica()
+        documento = self._create_documento(expediente['id'])
+
+        response = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v2',
+                'checksum': VALID_SHA256_ALT,
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'emitido',
+                'storage_ref': 'storage/contracts/contrato-1-v2.pdf',
+                'firma_arrendador_registrada': False,
+                'firma_arrendatario_registrada': False,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+                'documento_origen': documento['id'],
+                'correccion_ref': 'correction-ticket-doc-002',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('documento_origen', response.data)
+
+    def test_corrective_version_rejects_sensitive_correction_ref(self):
+        expediente = self._create_expediente(entidad_id='4I')
+        self._create_politica()
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {},
+            format='json',
+        )
+        self.assertEqual(formalize.status_code, status.HTTP_200_OK)
+
+        response = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v2',
+                'checksum': VALID_SHA256_ALT,
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'emitido',
+                'storage_ref': 'storage/contracts/contrato-1-v2.pdf',
+                'firma_arrendador_registrada': False,
+                'firma_arrendatario_registrada': False,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+                'documento_origen': documento['id'],
+                'correccion_ref': 'https://docs.example.test/correccion?token=secret',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('correccion_ref', response.data)
+
     def test_document_cannot_be_formalized_with_notary_receipt_from_other_expediente(self):
         expediente_a = self._create_expediente(entidad_id='4A')
         expediente_b = self._create_expediente(entidad_id='4B')
