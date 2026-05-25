@@ -649,6 +649,38 @@ class ContabilidadAPITests(APITestCase):
 
         self.assertIn('hash_integridad', error.exception.message_dict)
 
+    def test_movimiento_full_clean_rejects_account_from_other_company(self):
+        empresa = self._create_active_empresa(nombre='MovementCompanyCo', rut='92929292-9')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'movement-company-clean-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'movement-company-clean-1',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        other_empresa = self._create_active_empresa(nombre='MovementOtherCo', rut='93939393-9')
+        other_accounts = self._setup_contabilidad(other_empresa)
+        asiento = AsientoContable.objects.get(evento_contable_id=response.data['id'])
+        movimiento = asiento.movimientos.get(tipo_movimiento=TipoMovimientoAsiento.DEBIT)
+        movimiento.cuenta_contable = other_accounts['bancos']
+
+        with self.assertRaises(ValidationError) as error:
+            movimiento.full_clean()
+
+        self.assertIn('cuenta_contable', error.exception.message_dict)
+
     def test_historical_event_stays_in_review_when_only_future_rule_exists(self):
         empresa = self._create_active_empresa(nombre='FutureRuleCo', rut='97979797-9')
         accounts = self._setup_contabilidad(empresa)

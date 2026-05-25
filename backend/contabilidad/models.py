@@ -341,6 +341,13 @@ class MovimientoAsiento(TimestampedModel):
         super().clean()
         errors = {}
         _add_non_sensitive_reference_error(errors, self, 'centro_resultado_ref')
+        if self.asiento_contable_id and self.cuenta_contable_id:
+            asiento_empresa_id = self.asiento_contable.evento_contable.empresa_id
+            cuenta_empresa_id = self.cuenta_contable.empresa_id
+            if asiento_empresa_id != cuenta_empresa_id:
+                errors['cuenta_contable'] = (
+                    'La cuenta contable debe pertenecer a la misma empresa del evento contable.'
+                )
         if errors:
             raise ValidationError(errors)
 

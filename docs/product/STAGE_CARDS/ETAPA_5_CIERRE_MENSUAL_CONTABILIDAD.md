@@ -31,6 +31,8 @@ contables desde hechos conciliados.
   aprobacion.
 - Movimientos de asiento obligatorios, con sumas debe/haber iguales a los
   totales del asiento y cuentas contables de la misma empresa del evento.
+  `MovimientoAsiento.clean()` bloquea nuevas escrituras con cuentas de otra
+  empresa y readiness conserva la deteccion de snapshots heredados.
 - Transferencias intercuenta conciliadas que involucren cuentas recaudadoras
   con owner empresa deben generar eventos contables idempotentes de salida y/o
   entrada (`TransferenciaIntercuentaSalida`,
