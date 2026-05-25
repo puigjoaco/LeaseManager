@@ -27,13 +27,13 @@ nueva.
 | Brecha activa | Cerrada localmente: ultimo mes parcial en terminacion anticipada exige regla o decision de prorrata no sensible, motivo trazable y evento auditable dedicado; auditor Etapa 1 bloquea snapshots heredados sin decision o sin auditoria. |
 | Motivo de prioridad | Paquete de Contratos derivado del PRD, cerrado con validacion local, CI y merge sin `.env`, secretos, DB historica, datos reales ni integraciones externas. |
 | Worktree | Ninguno. Solo debe quedar el worktree principal. |
-| Rama | `main` sincronizada con `origin/main` despues de PR #253. |
-| Estado | Paquete integrado; cursor en cierre administrativo para dejar reanudacion limpia. |
+| Rama | `main` sincronizada con `origin/main` despues de PR #254. |
+| Estado | Listo para reanudacion operativa desde el siguiente paquete de producto seguro. |
 | Gate esperado | Etapa 1 local queda como diagnostico no evidencial; no cierra sin fuente `snapshot_controlado` o `real_autorizado`. |
-| Estado al cerrar paquete | Validado, PR #253 mergeado con CI acceptance verde, worktree tactico eliminado. |
+| Estado al cerrar paquete | Validado, PR #253 mergeado con CI acceptance verde, cursor cerrado en PR #254 y worktrees tacticos eliminados. |
 | Bloqueos relacionados | Fuente autorizada de Etapa 1 y evidencia externa/controlada siguen siendo condicion de cierre real de etapa, no de avance local seguro. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Cerrar este cursor por PR pequeno; luego seleccionar el siguiente paquete seguro desde stage cards, trazabilidad y PRD. |
+| Siguiente accion | Seleccionar el siguiente paquete seguro desde stage cards, trazabilidad y PRD; abrir worktree `codex/...` si el cambio no es trivial. |
 
 ## Actualizacion
 
