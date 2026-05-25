@@ -22,6 +22,7 @@ from .models import (
 )
 from .services import (
     ACTIVE_RETENTION_POLICY_ERROR,
+    PAYLOAD_HASH_MISMATCH_ERROR,
     SENSITIVE_EXPORT_METADATA_ERROR,
     encrypt_payload,
     prepare_sensitive_export,
@@ -95,6 +96,45 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(content.status_code, status.HTTP_200_OK)
         self.assertEqual(content.data['id'], export.id)
         self.assertTrue(AuditEvent.objects.filter(event_type='compliance.exportacion_sensible.accessed').exists())
+
+    def test_export_content_rejects_payload_hash_mismatch(self):
+        self._create_context('HASH-MISMATCH')
+        self._create_policy('financiero')
+
+        prepared = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'financiero',
+                'export_kind': 'financiero_mensual',
+                'motivo': 'Revision mensual',
+                'anio': 2026,
+                'mes': 1,
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+
+        export = ExportacionSensible.objects.get(pk=prepared.data['id'])
+        tampered_payload, _tampered_hash = encrypt_payload({'resultado': 'alterado'})
+        ExportacionSensible.objects.filter(pk=export.pk).update(encrypted_payload=tampered_payload)
+
+        denied = self.client.get(reverse('compliance-export-content', args=[export.id]))
+
+        self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(denied.data['detail'], PAYLOAD_HASH_MISMATCH_ERROR)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='compliance.exportacion_sensible.access_denied',
+                entity_type='exportacion_sensible',
+                entity_id=str(export.id),
+            ).exists()
+        )
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='compliance.exportacion_sensible.accessed',
+                entity_id=str(export.id),
+            ).exists()
+        )
 
     def test_prepare_export_rejects_sensitive_visible_metadata(self):
         self._create_policy('financiero')

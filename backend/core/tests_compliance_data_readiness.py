@@ -19,7 +19,7 @@ from compliance.models import (
     ExportacionSensible,
     PoliticaRetencionDatos,
 )
-from compliance.services import prepare_sensitive_export
+from compliance.services import encrypt_payload, prepare_sensitive_export
 from core.compliance_data_readiness import collect_compliance_data_readiness
 
 
@@ -245,6 +245,24 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertFalse(result['ready_for_compliance_data'])
         self.assertIn('compliance.export_payload_hash_invalid', issue_codes)
         self.assertEqual(result['sections']['exports']['payload_hash_invalid'], 1)
+
+    def test_payload_hash_mismatch_is_blocking(self):
+        self._create_policies()
+        _original_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        tampered_payload, _tampered_hash = encrypt_payload({'resultado': 'alterado'})
+        export = self._create_raw_export(
+            encrypted_payload=tampered_payload,
+            payload_hash=payload_hash,
+            encrypted_ref=f'export://financiero_mensual/{payload_hash[:12]}',
+        )
+        self._create_prepared_audit_event(export, user=export.created_by)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_payload_hash_mismatch', issue_codes)
+        self.assertEqual(result['sections']['exports']['payload_hash_mismatch'], 1)
 
     def test_missing_prepared_audit_event_is_blocking(self):
         self._create_policies()

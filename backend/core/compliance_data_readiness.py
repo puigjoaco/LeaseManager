@@ -15,7 +15,7 @@ from compliance.models import (
     ExportacionSensible,
     PoliticaRetencionDatos,
 )
-from compliance.services import MAX_EXPORT_DAYS
+from compliance.services import MAX_EXPORT_DAYS, export_payload_hash_matches
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 
@@ -91,10 +91,15 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
             counts['secret_category_exports'] += 1
         if not export.created_by_id:
             counts['created_by_missing'] += 1
-        if not export.encrypted_payload.strip() or not export.payload_hash.strip() or not export.encrypted_ref.strip():
+        has_encrypted_payload = bool(export.encrypted_payload.strip())
+        has_payload_hash = bool(export.payload_hash.strip())
+        if not has_encrypted_payload or not has_payload_hash or not export.encrypted_ref.strip():
             counts['integrity_fields_missing'] += 1
-        if not _is_sha256_hex_digest(export.payload_hash):
+        payload_hash_is_valid = _is_sha256_hex_digest(export.payload_hash)
+        if not payload_hash_is_valid:
             counts['payload_hash_invalid'] += 1
+        elif has_encrypted_payload and has_payload_hash and not export_payload_hash_matches(export):
+            counts['payload_hash_mismatch'] += 1
         if export.estado == EstadoExportacionSensible.PREPARED:
             if not export.hold_activo and export.expires_at <= now:
                 counts['prepared_expired_without_hold'] += 1
@@ -254,6 +259,11 @@ def collect_compliance_data_readiness(
             'Toda exportacion sensible requiere hash SHA-256 de 64 caracteres.',
         ),
         (
+            'payload_hash_mismatch',
+            'compliance.export_payload_hash_mismatch',
+            'El payload cifrado de la exportacion sensible debe coincidir con su payload_hash.',
+        ),
+        (
             'prepared_expired_without_hold',
             'compliance.export_prepared_expired_without_hold',
             'Existen exportaciones preparadas expiradas sin hold activo.',
@@ -360,6 +370,7 @@ def collect_compliance_data_readiness(
                 'created_by_missing': export_issues.get('created_by_missing', 0),
                 'integrity_fields_missing': export_issues.get('integrity_fields_missing', 0),
                 'payload_hash_invalid': export_issues.get('payload_hash_invalid', 0),
+                'payload_hash_mismatch': export_issues.get('payload_hash_mismatch', 0),
                 'prepared_expired_without_hold': export_issues.get('prepared_expired_without_hold', 0),
                 'prepared_expiry_too_long': export_issues.get('prepared_expiry_too_long', 0),
                 'expired_state_inconsistent': export_issues.get('expired_state_inconsistent', 0),

@@ -2,7 +2,7 @@ import hashlib
 import json
 from datetime import timedelta
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -29,6 +29,7 @@ from .models import (
 MAX_EXPORT_DAYS = 30
 SENSITIVE_EXPORT_METADATA_ERROR = 'La metadata visible de exportacion no puede contener referencias sensibles.'
 ACTIVE_RETENTION_POLICY_ERROR = 'No existe una politica de retencion activa para la categoria indicada.'
+PAYLOAD_HASH_MISMATCH_ERROR = 'La integridad de la exportacion no coincide con su payload_hash.'
 EXPORT_KIND_CATEGORY_MAP = {
     'dashboard_operativo': CategoriaDato.OPERATIONAL,
     'financiero_mensual': CategoriaDato.FINANCIAL,
@@ -46,6 +47,14 @@ def get_fernet():
     return Fernet(settings.DATA_EXPORT_ENCRYPTION_KEY.encode('ascii'))
 
 
+def _canonical_payload_bytes(payload):
+    return json.dumps(payload, sort_keys=True, ensure_ascii=True).encode('utf-8')
+
+
+def _payload_hash(payload):
+    return hashlib.sha256(_canonical_payload_bytes(payload)).hexdigest()
+
+
 def render_export_payload(export_kind, params):
     if export_kind == 'dashboard_operativo':
         return build_operational_dashboard()
@@ -61,7 +70,7 @@ def render_export_payload(export_kind, params):
 
 
 def encrypt_payload(payload):
-    raw = json.dumps(payload, sort_keys=True, ensure_ascii=True).encode('utf-8')
+    raw = _canonical_payload_bytes(payload)
     token = get_fernet().encrypt(raw).decode('ascii')
     payload_hash = hashlib.sha256(raw).hexdigest()
     return token, payload_hash
@@ -70,6 +79,18 @@ def encrypt_payload(payload):
 def decrypt_payload(token):
     raw = get_fernet().decrypt(token.encode('ascii'))
     return json.loads(raw.decode('utf-8'))
+
+
+def payload_hash_matches(payload, expected_hash):
+    return _payload_hash(payload) == expected_hash.strip().lower()
+
+
+def export_payload_hash_matches(export):
+    try:
+        payload = decrypt_payload(export.encrypted_payload)
+    except (InvalidToken, TypeError, ValueError, UnicodeError):
+        return False
+    return payload_hash_matches(payload, export.payload_hash)
 
 
 def ensure_export_metadata_is_non_sensitive(*, scope_resumen, motivo):
@@ -133,7 +154,10 @@ def get_export_payload(export):
         export.estado = EstadoExportacionSensible.EXPIRED
         export.save(update_fields=['estado', 'updated_at'])
         raise ValueError('La exportacion expiro y ya no puede descargarse.')
-    return decrypt_payload(export.encrypted_payload)
+    payload = decrypt_payload(export.encrypted_payload)
+    if not payload_hash_matches(payload, export.payload_hash):
+        raise ValueError(PAYLOAD_HASH_MISMATCH_ERROR)
+    return payload
 
 
 def revoke_export(export):
