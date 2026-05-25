@@ -11,7 +11,7 @@ from audit.models import AuditEvent
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from reporting.tests import ReportingAPITests
 
-from .models import CategoriaDato, ExportacionSensible, PoliticaRetencionDatos
+from .models import CategoriaDato, ExportacionSensible, PoliticaRetencionDatos, SECRET_EXPORT_ERROR
 from .services import SENSITIVE_EXPORT_METADATA_ERROR, encrypt_payload, prepare_sensitive_export
 
 
@@ -142,6 +142,35 @@ class ComplianceAPITests(APITestCase):
         with self.assertRaises(ValidationError) as context:
             export.full_clean()
         self.assertIn('scope_resumen', context.exception.message_dict)
+
+    def test_export_model_and_service_reject_secret_category(self):
+        encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = ExportacionSensible(
+            categoria_dato=CategoriaDato.SECRET,
+            export_kind='resumen_restringido',
+            scope_resumen={'control_ref': 'categoria-controlada-v1'},
+            motivo='Revision restringida',
+            encrypted_payload=encrypted_payload,
+            payload_hash=payload_hash,
+            encrypted_ref=f'export://resumen_restringido/{payload_hash[:12]}',
+            expires_at=timezone.now() + timedelta(days=1),
+            created_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            export.full_clean()
+        self.assertEqual(context.exception.message_dict['categoria_dato'][0], SECRET_EXPORT_ERROR)
+
+        with self.assertRaises(ValidationError) as service_context:
+            prepare_sensitive_export(
+                categoria_dato=CategoriaDato.SECRET,
+                export_kind='resumen_restringido',
+                scope_resumen={'control_ref': 'categoria-controlada-v1'},
+                motivo='Revision restringida',
+                payload={'resultado': 'controlado'},
+                created_by=self.user,
+            )
+        self.assertEqual(service_context.exception.message_dict['categoria_dato'][0], SECRET_EXPORT_ERROR)
 
     def test_export_apis_redact_inherited_sensitive_visible_metadata(self):
         encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
