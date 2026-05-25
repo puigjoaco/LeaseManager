@@ -63,6 +63,10 @@ contra datos reales o snapshot controlado.
   vigencia del `MandatoOperacion` que define propiedad, cuenta y facturacion;
   un mandato con contratos vigentes/futuros no puede recortar su vigencia fuera
   del rango contractual ya dependiente.
+- Planificacion de mandatos operativos: pueden coexistir mandatos activos
+  historicos, actuales o futuros de una misma propiedad solo si sus ventanas
+  efectivas no se solapan; el dominio y el auditor bloquean cualquier snapshot
+  con mas de un mandato vigente para la misma fecha.
 - Autoridad operativa de mandato: un `MandatoOperacion` activo que autoriza
   comunicacion o facturacion de documentos debe conservar nombre, RUT valido
   normalizado y evidencia trazable no sensible de su representante/autoridad;

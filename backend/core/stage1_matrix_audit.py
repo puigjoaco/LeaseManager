@@ -9,7 +9,8 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import ValidationError
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.utils import timezone
 
 from audit.models import AuditEvent
 from core.reference_validation import is_non_sensitive_reference
@@ -574,6 +575,39 @@ def _audit_community_representation_window_overlaps(issues: list[dict[str, Any]]
         community_representations.append(representation)
 
 
+def _audit_mandate_window_overlaps(issues: list[dict[str, Any]]) -> None:
+    mandates_by_property: dict[int, list[MandatoOperacion]] = defaultdict(list)
+    reported_properties: set[int] = set()
+    mandates = MandatoOperacion.objects.filter(estado=EstadoMandatoOperacion.ACTIVE).order_by(
+        'propiedad_id',
+        'vigencia_desde',
+        'id',
+    )
+    for mandato in mandates:
+        property_mandates = mandates_by_property[mandato.propiedad_id]
+        if mandato.propiedad_id not in reported_properties:
+            for previous in property_mandates:
+                if _date_windows_overlap(
+                    previous.vigencia_desde,
+                    previous.vigencia_hasta,
+                    mandato.vigencia_desde,
+                    mandato.vigencia_hasta,
+                ):
+                    _issue(
+                        issues,
+                        code='stage1.mandato.ventana_solapada',
+                        entity='MandatoOperacion',
+                        entity_id=mandato.pk,
+                        message=(
+                            'Propiedad con mandatos operativos activos en ventanas efectivas solapadas; '
+                            'debe existir solo un mandato vigente por fecha.'
+                        ),
+                    )
+                    reported_properties.add(mandato.propiedad_id)
+                    break
+        property_mandates.append(mandato)
+
+
 def _build_summary() -> dict[str, int]:
     socios_count = Socio.objects.count()
     empresas_count = Empresa.objects.count()
@@ -710,14 +744,20 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
     _audit_property_identity_uniqueness(issues, active_properties)
 
     for propiedad in active_properties:
-        active_mandates_count = propiedad.mandatos_operacion.filter(estado=EstadoMandatoOperacion.ACTIVE).count()
-        if active_mandates_count != 1:
+        current_date = timezone.localdate()
+        current_mandates_count = propiedad.mandatos_operacion.filter(
+            estado=EstadoMandatoOperacion.ACTIVE,
+            vigencia_desde__lte=current_date,
+        ).filter(
+            Q(vigencia_hasta__isnull=True) | Q(vigencia_hasta__gte=current_date),
+        ).count()
+        if current_mandates_count != 1:
             _issue(
                 issues,
                 code='stage1.propiedad.mandato_activo_invalido',
                 entity='Propiedad',
                 entity_id=propiedad.pk,
-                message=f'Propiedad activa con {active_mandates_count} mandatos activos; debe tener exactamente uno.',
+                message=f'Propiedad activa con {current_mandates_count} mandatos vigentes; debe tener exactamente uno.',
             )
 
 
@@ -826,6 +866,8 @@ def _audit_operacion(issues: list[dict[str, Any]]) -> None:
                     entity_id=mandato.pk,
                     message='Mandato activo que comunica o factura documentos expone una evidencia sensible.',
                 )
+
+    _audit_mandate_window_overlaps(issues)
 
     _audit_model_validation(
         issues,

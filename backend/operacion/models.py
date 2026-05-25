@@ -71,6 +71,13 @@ def patrimonio_owner_tuple(*, empresa_id=None, comunidad_id=None, socio_id=None)
     return (None, None)
 
 
+def _overlapping_effective_windows(queryset, start_date, end_date=None):
+    overlaps = queryset
+    if end_date:
+        overlaps = overlaps.filter(vigencia_desde__lte=end_date)
+    return overlaps.filter(Q(vigencia_hasta__isnull=True) | Q(vigencia_hasta__gte=start_date))
+
+
 class CuentaRecaudadora(TimestampedModel):
     empresa_owner = models.ForeignKey(
         Empresa,
@@ -386,11 +393,6 @@ class MandatoOperacion(TimestampedModel):
                 ),
                 name='mandato_exactly_one_recaudador',
             ),
-            models.UniqueConstraint(
-                fields=['propiedad'],
-                condition=Q(estado='activa'),
-                name='uniq_mandato_operacion_activo_por_propiedad',
-            ),
         ]
 
     def __str__(self):
@@ -572,6 +574,22 @@ class MandatoOperacion(TimestampedModel):
                     }
                 )
             return
+
+        if self.propiedad_id and self.vigencia_desde:
+            overlapping_mandates = MandatoOperacion.objects.filter(
+                propiedad_id=self.propiedad_id,
+                estado=EstadoMandatoOperacion.ACTIVE,
+            )
+            if self.pk:
+                overlapping_mandates = overlapping_mandates.exclude(pk=self.pk)
+            if _overlapping_effective_windows(
+                overlapping_mandates,
+                self.vigencia_desde,
+                self.vigencia_hasta,
+            ).exists():
+                raise ValidationError(
+                    {'vigencia_desde': 'La propiedad ya tiene un mandato operativo activo en una ventana solapada.'}
+                )
 
         if self.propiedad.estado != 'activa':
             raise ValidationError({'estado': 'El mandato activo requiere una propiedad activa.'})

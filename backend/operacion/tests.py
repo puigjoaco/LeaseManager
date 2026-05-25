@@ -613,6 +613,102 @@ class OperacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['vigencia_hasta'], '2027-12-31')
 
+    def test_scheduled_mandate_after_current_window_is_allowed(self):
+        propietario = self._create_socio('Propietario Programado', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo Programado', '88888888-8')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-003G')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-003G')
+        current_response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+        )
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+        close_current_response = self.client.patch(
+            reverse('operacion-mandato-detail', args=[current_response.data['id']]),
+            {'vigencia_hasta': '2026-06-30'},
+            format='json',
+        )
+        self.assertEqual(close_current_response.status_code, status.HTTP_200_OK)
+
+        scheduled_response = self.client.post(
+            reverse('operacion-mandato-list'),
+            {
+                'propiedad_id': propiedad.id,
+                'propietario_tipo': 'socio',
+                'propietario_id': propietario.id,
+                'administrador_operativo_tipo': 'empresa',
+                'administrador_operativo_id': admin_company.id,
+                'recaudador_tipo': 'empresa',
+                'recaudador_id': admin_company.id,
+                'cuenta_recaudadora_id': cuenta.id,
+                'tipo_relacion_operativa': 'mandato_externo',
+                'autoriza_recaudacion': True,
+                'autoriza_facturacion': False,
+                'autoriza_comunicacion': True,
+                'autoridad_operativa_nombre': 'Representante Operativo',
+                'autoridad_operativa_rut': '12.345.678-5',
+                'autoridad_operativa_evidencia_ref': 'scheduled-mandate-authority-001',
+                'vigencia_desde': '2026-07-01',
+                'estado': EstadoMandatoOperacion.ACTIVE,
+            },
+            format='json',
+        )
+
+        self.assertEqual(scheduled_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            MandatoOperacion.objects.filter(
+                propiedad=propiedad,
+                estado=EstadoMandatoOperacion.ACTIVE,
+            ).count(),
+            2,
+        )
+
+    def test_overlapping_active_mandate_window_is_rejected(self):
+        propietario = self._create_socio('Propietario Solape', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo Solape', '88888888-8')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-003H')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-003H')
+        current_response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+        )
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        overlapping_response = self.client.post(
+            reverse('operacion-mandato-list'),
+            {
+                'propiedad_id': propiedad.id,
+                'propietario_tipo': 'socio',
+                'propietario_id': propietario.id,
+                'administrador_operativo_tipo': 'empresa',
+                'administrador_operativo_id': admin_company.id,
+                'recaudador_tipo': 'empresa',
+                'recaudador_id': admin_company.id,
+                'cuenta_recaudadora_id': cuenta.id,
+                'tipo_relacion_operativa': 'mandato_externo',
+                'autoriza_recaudacion': True,
+                'autoriza_facturacion': False,
+                'autoriza_comunicacion': True,
+                'autoridad_operativa_nombre': 'Representante Operativo',
+                'autoridad_operativa_rut': '12.345.678-5',
+                'autoridad_operativa_evidencia_ref': 'overlapping-mandate-authority-001',
+                'vigencia_desde': '2026-07-01',
+                'estado': EstadoMandatoOperacion.ACTIVE,
+            },
+            format='json',
+        )
+
+        self.assertEqual(overlapping_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('vigencia_desde', overlapping_response.data)
+
     def test_active_mandato_accepts_comunidad_recaudadora(self):
         comunidad = self._create_active_comunidad('Comunidad Recaudadora')
         admin = comunidad.representante_socio

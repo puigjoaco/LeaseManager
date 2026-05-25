@@ -418,6 +418,44 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_active_property_overlapping_mandate_windows_are_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        mandato = contrato.mandato_operacion
+        MandatoOperacion.objects.create(
+            propiedad=mandato.propiedad,
+            propietario_empresa_owner=mandato.propietario_empresa_owner,
+            propietario_comunidad_owner=mandato.propietario_comunidad_owner,
+            propietario_socio_owner=mandato.propietario_socio_owner,
+            administrador_empresa_owner=mandato.administrador_empresa_owner,
+            administrador_socio_owner=mandato.administrador_socio_owner,
+            recaudador_empresa_owner=mandato.recaudador_empresa_owner,
+            recaudador_comunidad_owner=mandato.recaudador_comunidad_owner,
+            recaudador_socio_owner=mandato.recaudador_socio_owner,
+            entidad_facturadora=mandato.entidad_facturadora,
+            cuenta_recaudadora=mandato.cuenta_recaudadora,
+            tipo_relacion_operativa=mandato.tipo_relacion_operativa,
+            autoriza_recaudacion=mandato.autoriza_recaudacion,
+            autoriza_facturacion=mandato.autoriza_facturacion,
+            autoriza_comunicacion=mandato.autoriza_comunicacion,
+            autoridad_operativa_nombre=mandato.autoridad_operativa_nombre,
+            autoridad_operativa_rut=mandato.autoridad_operativa_rut,
+            autoridad_operativa_evidencia_ref=mandato.autoridad_operativa_evidencia_ref,
+            vigencia_desde=timezone.localdate() + timedelta(days=30),
+            estado=EstadoMandatoOperacion.ACTIVE,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.mandato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.mandato.ventana_solapada', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['mandatos']['classification'],
+            'defectuoso',
+        )
+
     def test_active_mandate_missing_operational_authority_is_explicitly_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         mandato = contrato.mandato_operacion
