@@ -414,6 +414,29 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertIn('stage7.reporting.annual_ddjj_ref_missing', issue_codes)
         self.assertIn('stage7.reporting.annual_f22_ref_missing', issue_codes)
 
+    def test_annual_reporting_wrong_fiscal_year_is_blocking(self):
+        self._create_valid_local_matrix()
+        wrong_summary = {
+            'fiscal_year': 2025,
+            'obligaciones': [{'anio': 2025, 'mes': 1, 'tipo': 'PPM'}],
+            'total_obligaciones': 1,
+        }
+        ProcesoRentaAnual.objects.update(resumen_anual=wrong_summary)
+        DDJJPreparacionAnual.objects.update(
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': wrong_summary}
+        )
+        F22PreparacionAnual.objects.update(
+            resumen_f22={'resumen_anual': wrong_summary, 'regimen_tributario': 'propyme-general-v1'}
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_reporting'])
+        self.assertIn('stage7.reporting.annual_fiscal_year_mismatch', issue_codes)
+        self.assertIn('stage7.reporting.annual_ddjj_fiscal_year_mismatch', issue_codes)
+        self.assertIn('stage7.reporting.annual_f22_fiscal_year_mismatch', issue_codes)
+
     def test_sensitive_final_refs_and_command_behaviour(self):
         self._create_valid_local_matrix()
 

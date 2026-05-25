@@ -808,6 +808,50 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['traceability']['code'], 'reporting.annual_summary_incomplete')
 
+    def test_annual_tax_summary_blocks_wrong_fiscal_year(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALYEAR')
+        self._activate_fiscal_config(empresa)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'fiscal_year': 2025, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref='cert-ddjj-year',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='F22Preparacion',
+                certificado_ref='cert-f22-year',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_fiscal_year_mismatch')
+        self.assertEqual(str(response.data['traceability']['details']['expected_fiscal_year']), '2026')
+
     def test_migration_manual_resolution_summary_returns_category_breakdown(self):
         ManualResolution.objects.create(
             category='migration.propiedad.owner_manual_required',

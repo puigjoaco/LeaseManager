@@ -70,6 +70,20 @@ def _period_label(anio, mes) -> str:
     return f'{int(anio):04d}-{int(mes):02d}'
 
 
+def _annual_summary_fiscal_year(summary) -> int | None:
+    if not isinstance(summary, dict) or not summary.get('fiscal_year'):
+        return None
+    try:
+        return int(summary.get('fiscal_year'))
+    except (TypeError, ValueError):
+        return None
+
+
+def _annual_summary_fiscal_year_mismatch(summary, anio_tributario) -> bool:
+    fiscal_year = _annual_summary_fiscal_year(summary)
+    return fiscal_year is not None and fiscal_year != int(anio_tributario) - 1
+
+
 def _values_set(queryset, field: str) -> set[int]:
     return {value for value in queryset.values_list(field, flat=True).distinct() if value is not None}
 
@@ -307,6 +321,17 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                 'El reporte tributario anual requiere resumen anual generado desde obligaciones mensuales trazables.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
+        if _annual_summary_fiscal_year_mismatch(summary, anio_tributario):
+            _raise_traceability_error(
+                'reporting.annual_fiscal_year_mismatch',
+                'El reporte tributario anual requiere resumen del ano comercial inmediatamente anterior.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'fiscal_year': _annual_summary_fiscal_year(summary),
+                    'expected_fiscal_year': int(anio_tributario) - 1,
+                },
+            )
 
         ddjj = ddjj_by_process.get(process.id)
         f22 = f22_by_process.get(process.id)
@@ -320,6 +345,20 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
             _raise_traceability_error(
                 'reporting.annual_documents_without_summary',
                 'El reporte tributario anual requiere resumen trazable de DDJJ y F22.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        ddjj_summary = ddjj.resumen_paquete.get('resumen_anual') if isinstance(ddjj.resumen_paquete, dict) else None
+        f22_summary = f22.resumen_f22.get('resumen_anual') if isinstance(f22.resumen_f22, dict) else None
+        if _annual_summary_fiscal_year_mismatch(ddjj_summary, anio_tributario):
+            _raise_traceability_error(
+                'reporting.annual_ddjj_fiscal_year_mismatch',
+                'El reporte tributario anual requiere DDJJ alineada al ano comercial reportado.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if _annual_summary_fiscal_year_mismatch(f22_summary, anio_tributario):
+            _raise_traceability_error(
+                'reporting.annual_f22_fiscal_year_mismatch',
+                'El reporte tributario anual requiere F22 alineado al ano comercial reportado.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
         if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not ddjj.paquete_ref:
