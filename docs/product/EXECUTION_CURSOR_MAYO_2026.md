@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 - Canales, readiness operacional de mensajes salientes en dominio. |
-| Fuente exacta | Matriz de trazabilidad CobranzaActiva, stage card Etapa 2, `backend/canales/models.py`, `backend/core/stage2_cobranza_readiness.py`. |
-| Brecha activa | En curso: readiness detecta mensajes preparados/enviados sin gate, identidad, destinatario, mandato o documento formalizado; el dominio debe rechazar nuevas escrituras equivalentes via `MensajeSaliente.full_clean()`. |
-| Motivo de prioridad | Brecha local trazable de Canales que endurece Etapa 2 sin Email/WhatsApp/WebPay reales, `.env`, secretos ni datos reales. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-message-state-domain-readiness`. |
-| Rama | `codex/stage2-message-state-domain-readiness`. |
-| Estado | Implementacion en curso. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 2 - Canales, readiness operacional de mensajes salientes en dominio. |
+| Fuente exacta | PR #241 `Guard outbound message operational readiness`; commit `62cf636`; merge `63450b3`; `backend/canales/models.py`; `backend/canales/services.py`; `backend/canales/tests.py`; stage card Etapa 2, trazabilidad y evidencia actualizadas. |
+| Brecha activa | Cerrada localmente: `MensajeSaliente.clean()` rechaza mensajes `preparado`/`enviado` sin readiness operacional y mensajes enviados sin `external_ref` trazable no sensible. |
+| Motivo de prioridad | Hardening trazable de Canales completado sin Email/WhatsApp/WebPay reales, `.env`, secretos ni datos reales. |
+| Worktree | Ninguno. |
+| Rama | `main` sincronizada tras PR #241. |
+| Estado | Paquete integrado en main con CI verde; worktree tactico eliminado. |
 | Gate esperado | Etapa 2 local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, evidencia Etapa 1 y pruebas Email/WebPay controladas. |
-| Estado al cerrar paquete | Pendiente. |
+| Estado al cerrar paquete | Cerrado e integrado en main con validacion local, acceptance local y CI remoto. |
 | Bloqueos relacionados | Evidencia Etapa 1, prueba externa real/controlada de Email/WebPay y responsables siguen siendo condicion de cierre real de Etapa 2. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 | Siguiente accion | Seleccionar el siguiente frente util desde stage cards, matriz de trazabilidad y PRD, abrir worktree `codex/...` si corresponde y avanzar con validaciones proporcionales. |
