@@ -243,6 +243,23 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertFalse(result['ready_for_compliance_data'])
         self.assertIn('compliance.export_prepared_audit_event_missing', {issue['code'] for issue in result['issues']})
 
+    def test_access_denied_events_are_counted_without_blocking(self):
+        self._create_policies()
+        export = self._create_valid_export()
+        AuditEvent.objects.create(
+            event_type='compliance.exportacion_sensible.access_denied',
+            entity_type='exportacion_sensible',
+            entity_id=str(export.pk),
+            summary='Acceso a exportacion sensible denegado',
+            actor_user=export.created_by,
+            metadata={'export_kind': export.export_kind, 'estado': EstadoExportacionSensible.REVOKED},
+        )
+
+        result = self._collect_with_final_refs()
+
+        self.assertTrue(result['ready_for_compliance_data'])
+        self.assertEqual(result['sections']['audit']['access_denied_events'], 1)
+
     def test_sensitive_audit_metadata_is_blocking_without_exposing_values(self):
         self._create_policies()
         export = self._create_raw_export()

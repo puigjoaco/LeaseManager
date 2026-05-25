@@ -116,6 +116,16 @@ class ExportacionContentView(APIView):
         try:
             payload = get_export_payload(export)
         except ValueError as error:
+            create_audit_event(
+                event_type='compliance.exportacion_sensible.access_denied',
+                entity_type='exportacion_sensible',
+                entity_id=str(export.pk),
+                summary='Acceso a exportacion sensible denegado',
+                severity='warning',
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                metadata={'export_kind': export.export_kind, 'estado': export.estado},
+            )
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
         create_audit_event(
             event_type='compliance.exportacion_sensible.accessed',
