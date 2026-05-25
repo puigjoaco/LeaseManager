@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. Ultimo paquete cerrado: Compliance datos sensibles - guard de servicio para categoria canonica y politica de retencion activa en exportaciones sensibles. |
-| Fuente exacta | PR #219 (`Guard Compliance export service controls`), commit `cc90c4f`, merge `ee2873a`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance/services.py`; `backend/compliance/serializers.py`; `backend/compliance/tests.py`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`. |
-| Brecha activa | Cerrada localmente: `prepare_sensitive_export` centraliza validacion de categoria por `export_kind`, categoria `secreto` y politica de retencion activa; la API reutiliza el mismo guard. |
-| Motivo de prioridad | Paquete seguro completado sin secretos, `.env`, datos reales, snapshots, backfills, deploys ni integraciones externas. |
-| Worktree | Ninguno. Solo debe quedar el worktree principal `D:/Proyectos/LeaseManager`. |
-| Rama | `main` sincronizada con `origin/main`. |
-| Estado | PR #219 integrado con CI `acceptance` verde; worktree tactico y rama local/remota eliminados. |
-| Gate esperado | `scripts/run-compliance-data-readiness-gate.ps1` sigue en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada, politica aprobada, responsables y validacion legal-operativa. |
-| Estado al cerrar paquete | Preparacion local de Compliance reforzada; cierre real de `Compliance.DatosPersonalesChile2026` sigue pendiente por fuente/evidencia/autorizaciones externas. |
-| Bloqueos relacionados | Falta fuente autorizada, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea preparacion local ni el siguiente frente seguro. |
-| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, diagnosticar el siguiente frente seguro segun trazabilidad y orden de construccion. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; elegir el siguiente paquete pequeno, seguro y verificable desde trazabilidad/stage cards. |
+| Frente activo | Etapa 1 - Patrimonio: ventana efectiva de representaciones de comunidad. |
+| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Patrimonio`; `docs/product/STAGE_CARDS/ETAPA_1_DATOS_REALES.md`; `backend/patrimonio/models.py`; `backend/patrimonio/serializers.py`; `backend/core/stage1_matrix_audit.py`; tests de Patrimonio/Etapa 1. |
+| Brecha activa | Las representaciones de comunidad con `vigente_desde` futuro pueden contarse como vigentes si `activo=True`, lo que permite activar comunidades o bloquear desactivaciones antes de la vigencia real. |
+| Motivo de prioridad | La trazabilidad exige participaciones y representaciones actualmente vigentes; es un paquete local, pequeno y verificable sin secretos ni fuentes externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-representation-effective-window`. |
+| Rama | `codex/stage1-representation-effective-window`. |
+| Estado | En implementacion. `main` queda limpio en `D:/Proyectos/LeaseManager`. |
+| Gate esperado | Etapa 1 local diagnostica parcial/no evidencial; no cierra Etapa 1 sin `snapshot_controlado` o `real_autorizado`. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Cierre real de Etapa 1 sigue dependiendo de fuente autorizada y evidencia suficiente; no bloquea este hardening local. |
+| Politica de reanudacion | Retomar este worktree hasta cerrar, pausar explicitamente en este cursor o limpiar con instruccion segura. |
+| Siguiente accion | Ajustar dominio/API/auditor para usar `vigente_desde <= hoy` en representaciones vigentes, agregar pruebas focales y ejecutar validacion proporcional. |
 
 ## Actualizacion
 
