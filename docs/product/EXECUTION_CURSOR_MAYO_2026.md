@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 - Documentos PDF, politica documental activa en dominio. |
-| Fuente exacta | Stage card Etapa 5 Documentos, matriz de trazabilidad Documentos, `backend/documentos/models.py`, `backend/documentos/readiness.py`. |
-| Brecha activa | En curso: readiness detecta documentos sin politica activa para su tipo documental; el dominio/API debe rechazar nuevas escrituras equivalentes y evitar desactivar politicas usadas por documentos existentes. |
-| Motivo de prioridad | Brecha local trazable que endurece Documentos sin leer storage real, `.env`, documentos productivos ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-document-policy-domain-guard`. |
-| Rama | `codex/stage5-document-policy-domain-guard`. |
-| Estado | Implementacion en curso. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 5 - Documentos PDF, politica documental activa en dominio. |
+| Fuente exacta | PR #239 `Guard documents active policy domain`; commit `8610e1c`; merge `2d339f0`; `backend/documentos/models.py`; `backend/documentos/tests.py`; `backend/documentos/tests_readiness.py`; `backend/core/tests_stage6_renta_anual_readiness.py`; stage card Etapa 5 Documentos, trazabilidad y evidencia actualizadas. |
+| Brecha activa | Cerrada localmente: `DocumentoEmitido.clean()` rechaza documentos sin politica activa para su tipo documental y `PoliticaFirmaYNotaria.clean()` impide desactivar politicas usadas por documentos existentes. |
+| Motivo de prioridad | Hardening trazable de Documentos completado sin storage real, `.env`, documentos productivos, datos reales ni integraciones externas. |
+| Worktree | Ninguno. |
+| Rama | `main` sincronizada tras PR #239. |
+| Estado | Paquete integrado en main con CI verde; worktree tactico eliminado. |
 | Gate esperado | Etapa 5 Documentos local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, politica final, PDF controlado y responsable. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Evidencia final autorizada, politica final, PDF controlado y responsable siguen siendo condicion de cierre, no requisito para este hardening local. |
+| Estado al cerrar paquete | Cerrado e integrado en main con validacion local, acceptance local y CI remoto. |
+| Bloqueos relacionados | Evidencia final autorizada, politica final, PDF controlado y responsable siguen siendo condicion de cierre real de Etapa 5 Documentos. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
 | Siguiente accion | Seleccionar el siguiente frente util desde stage cards, matriz de trazabilidad y PRD, abrir worktree `codex/...` si corresponde y avanzar con validaciones proporcionales. |
 
