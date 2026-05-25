@@ -432,6 +432,10 @@ class NotificacionCobranzaProgramada(TimestampedModel):
                 )
         if self.estado == EstadoNotificacionCobranza.PREPARED and not self.mensaje_saliente_id:
             errors['mensaje_saliente'] = 'Una notificacion preparada requiere mensaje saliente asociado.'
+        if self.motivo_estado.strip() and contains_sensitive_reference(self.motivo_estado):
+            errors['motivo_estado'] = 'El motivo de la notificacion debe ser texto no sensible.'
+        if self.estado == EstadoNotificacionCobranza.SKIPPED and not self.motivo_estado.strip():
+            errors['motivo_estado'] = 'Una notificacion omitida requiere motivo operativo.'
         if self.mensaje_saliente_id:
             if self.mensaje_saliente.canal != self.canal:
                 errors['mensaje_saliente'] = 'El mensaje asociado debe usar el mismo canal.'
