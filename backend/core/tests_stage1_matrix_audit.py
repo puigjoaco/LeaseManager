@@ -2420,6 +2420,47 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.historial_garantia.validacion_modelo', issue_codes)
 
+    def test_guarantee_history_derived_without_origin_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        garantia = contrato.garantia_contractual
+        garantia.monto_pactado = Decimal('100000.00')
+        garantia.monto_recibido = Decimal('50000.00')
+        garantia.monto_devuelto = Decimal('50000.00')
+        garantia.fecha_recepcion = date(2026, 1, 10)
+        garantia.fecha_cierre = date(2026, 1, 31)
+        garantia.estado_garantia = EstadoGarantia.RETURNED
+        garantia.save(
+            update_fields=[
+                'monto_pactado',
+                'monto_recibido',
+                'monto_devuelto',
+                'fecha_recepcion',
+                'fecha_cierre',
+                'estado_garantia',
+                'updated_at',
+            ]
+        )
+        HistorialGarantia.objects.create(
+            garantia_contractual=garantia,
+            tipo_movimiento=TipoMovimientoGarantia.DEPOSIT,
+            monto_clp=Decimal('50000.00'),
+            fecha=date(2026, 1, 10),
+        )
+        HistorialGarantia.objects.create(
+            garantia_contractual=garantia,
+            tipo_movimiento=TipoMovimientoGarantia.TOTAL_RETURN,
+            monto_clp=Decimal('50000.00'),
+            fecha=date(2026, 1, 31),
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.historial_garantia.validacion_modelo', issue_codes)
+        self.assertEqual(result['aggregate_classification']['historial_garantias']['classification'], 'defectuoso')
+
     def test_guarantee_history_derived_date_before_origin_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         garantia = contrato.garantia_contractual

@@ -117,6 +117,12 @@ actualizaciones de `fecha_entrega`, redacta referencias sensibles, el
 backoffice expone la traza y el auditor Etapa 1 reporta entregas heredadas sin
 garantia suficiente ni autorizacion no sensible.
 
+Nota 2026-05-25: Contratos/garantias exige que devoluciones, retenciones o
+aplicaciones de garantia apunten al deposito origen, no usen movimientos
+derivados como origen y no superen el monto del deposito trazado. La API valida
+la regla antes de persistir y el auditor Etapa 1 clasifica snapshots heredados
+sin esa traza como defectuosos.
+
 Nota 2026-05-25: Contratos exige que una renovacion de contrato con tramos use
 como base el ultimo tramo vigente. Si cambia monto o moneda, el periodo debe
 tener referencia no sensible y motivo trazable de politica documentada; API y

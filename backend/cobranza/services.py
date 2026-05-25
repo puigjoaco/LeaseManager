@@ -440,7 +440,7 @@ def apply_guarantee_movement(
     garantia.full_clean()
     garantia.save()
 
-    movimiento = HistorialGarantia.objects.create(
+    movimiento = HistorialGarantia(
         garantia_contractual=garantia,
         tipo_movimiento=tipo_movimiento,
         monto_clp=amount,
@@ -448,6 +448,8 @@ def apply_guarantee_movement(
         justificacion=justificacion,
         movimiento_origen=movimiento_origen,
     )
+    movimiento.full_clean()
+    movimiento.save()
     return movimiento, garantia
 
 
