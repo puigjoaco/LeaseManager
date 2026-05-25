@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Compliance datos sensibles: guard de servicio para preparar exportaciones sensibles solo con categoria canonica y politica de retencion activa. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance/services.py`; `backend/compliance/serializers.py`; `backend/compliance/tests.py`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`. |
-| Brecha activa | La API de Compliance ya rechaza exportaciones con categoria incompatible o sin politica activa, pero `prepare_sensitive_export` puede invocarse directo sin ese guard central. |
-| Motivo de prioridad | Frente transversal de seguridad en Etapa 0, local, verificable y sin depender de secretos, `.env`, datos reales, snapshots, backfills, deploys ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-export-service-guard`. |
-| Rama | `codex/compliance-export-service-guard`. |
-| Estado | En ejecucion local. |
-| Gate esperado | `scripts/run-compliance-data-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada, politica aprobada, responsables y validacion legal-operativa. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Falta fuente autorizada, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea el guard local. |
-| Politica de reanudacion | Si este worktree existe, continuar y cerrar este paquete antes de abrir otro frente. |
-| Siguiente accion | Centralizar validacion de categoria/politica activa en el servicio, cubrir tests focales, ejecutar gate local, acceptance, PR, CI, merge y limpieza. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Compliance datos sensibles - guard de servicio para categoria canonica y politica de retencion activa en exportaciones sensibles. |
+| Fuente exacta | PR #219 (`Guard Compliance export service controls`), commit `cc90c4f`, merge `ee2873a`; `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/compliance/services.py`; `backend/compliance/serializers.py`; `backend/compliance/tests.py`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`. |
+| Brecha activa | Cerrada localmente: `prepare_sensitive_export` centraliza validacion de categoria por `export_kind`, categoria `secreto` y politica de retencion activa; la API reutiliza el mismo guard. |
+| Motivo de prioridad | Paquete seguro completado sin secretos, `.env`, datos reales, snapshots, backfills, deploys ni integraciones externas. |
+| Worktree | Ninguno. Solo debe quedar el worktree principal `D:/Proyectos/LeaseManager`. |
+| Rama | `main` sincronizada con `origin/main`. |
+| Estado | PR #219 integrado con CI `acceptance` verde; worktree tactico y rama local/remota eliminados. |
+| Gate esperado | `scripts/run-compliance-data-readiness-gate.ps1` sigue en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada, politica aprobada, responsables y validacion legal-operativa. |
+| Estado al cerrar paquete | Preparacion local de Compliance reforzada; cierre real de `Compliance.DatosPersonalesChile2026` sigue pendiente por fuente/evidencia/autorizaciones externas. |
+| Bloqueos relacionados | Falta fuente autorizada, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea preparacion local ni el siguiente frente seguro. |
+| Politica de reanudacion | Si `main` esta limpio y no hay worktrees tacticos sucios, diagnosticar el siguiente frente seguro segun trazabilidad y orden de construccion. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; elegir el siguiente paquete pequeno, seguro y verificable desde trazabilidad/stage cards. |
 
 ## Actualizacion
 
