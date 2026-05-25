@@ -145,6 +145,11 @@ contra datos reales o snapshot controlado.
   reconstruccion automatica de cobros vencidos antes del registro operativo.
   El auditor Etapa 1 reporta la alerta como advertencia y marca como defecto
   pagos existentes que reconstruyan esos cobros pasados.
+- Si un contrato futuro coexiste con `AvisoTermino` y una renovacion
+  contractual ya ejecutada, el aviso debe conservar resolucion guiada con
+  referencia no sensible y motivo trazable. La API bloquea el contrato futuro
+  sin esa resolucion y el auditor Etapa 1 marca snapshots heredados como
+  defectuosos sin cancelar ni reescribir efectos producidos.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
   del mes operativo.

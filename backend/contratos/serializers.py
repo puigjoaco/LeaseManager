@@ -684,15 +684,28 @@ class ContratoSerializer(serializers.ModelSerializer):
             current_contract_qs = current_contract_qs.exclude(pk=self.instance.pk)
         current_contract = current_contract_qs.order_by('-fecha_inicio', '-id').first()
         if current_contract is not None:
-            aviso_exists = AvisoTermino.objects.filter(
+            aviso = AvisoTermino.objects.filter(
                 estado=EstadoAvisoTermino.REGISTERED,
                 fecha_efectiva__lte=fecha_inicio,
                 contrato=current_contract,
-            ).exists()
-            if not aviso_exists:
+            ).order_by('-fecha_efectiva', '-id').first()
+            if aviso is None:
                 raise serializers.ValidationError(
                     {'estado': 'Un contrato futuro requiere un AvisoTermino registrado para la propiedad principal.'}
                 )
+            if aviso.has_executed_renewal_conflict(fecha_inicio):
+                if (
+                    not aviso.has_renewal_conflict_resolution()
+                    or not is_non_sensitive_reference(aviso.resolucion_conflicto_renovacion_ref)
+                ):
+                    raise serializers.ValidationError(
+                        {
+                            'estado': (
+                                'Existe conflicto entre AvisoTermino, renovacion ya ejecutada y contrato futuro; '
+                                'se requiere resolucion guiada con referencia no sensible y motivo trazable.'
+                            )
+                        }
+                    )
             return
 
         early_terminated_exists = Contrato.objects.filter(
@@ -787,6 +800,8 @@ class AvisoTerminoSerializer(serializers.ModelSerializer):
             'fecha_efectiva',
             'causal',
             'estado',
+            'resolucion_conflicto_renovacion_ref',
+            'resolucion_conflicto_renovacion_motivo',
             'registrado_por',
             'fecha_limite_registro_oportuno',
             'registrado_fuera_plazo',
@@ -801,6 +816,13 @@ class AvisoTerminoSerializer(serializers.ModelSerializer):
         user = _request_user(self)
         if user and getattr(user, 'is_authenticated', False):
             self.fields['contrato'].queryset = _scoped_contrato_queryset(user)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['resolucion_conflicto_renovacion_ref'] = redact_sensitive_reference(
+            data.get('resolucion_conflicto_renovacion_ref')
+        )
+        return data
 
     def get_fecha_limite_registro_oportuno(self, obj):
         latest = obj.latest_timely_registration_at()

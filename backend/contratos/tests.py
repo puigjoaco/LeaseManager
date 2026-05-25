@@ -1408,6 +1408,111 @@ class ContratosAPITests(APITestCase):
         future_response = self.client.post(reverse('contratos-contrato-list'), future_payload, format='json')
         self.assertEqual(future_response.status_code, status.HTTP_201_CREATED)
 
+    def test_future_contract_rejects_notice_with_executed_renewal_without_guided_resolution(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-REN-CONF', owner_rut='14141414-5')
+        arrendatario = self._create_arrendatario(rut='15151515-2')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-REN-C')
+        current_payload['fecha_fin_vigente'] = '2027-12-31'
+        current_payload['periodos_contractuales'] = [
+            {
+                'numero_periodo': 1,
+                'fecha_inicio': '2026-01-01',
+                'fecha_fin': '2026-12-31',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'inicial',
+                'origen_periodo': 'manual',
+            },
+            {
+                'numero_periodo': 2,
+                'fecha_inicio': '2027-01-01',
+                'fecha_fin': '2027-12-31',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'renovacion',
+                'origen_periodo': 'renovacion_automatica',
+            },
+        ]
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        aviso_response = self.client.post(
+            reverse('contratos-aviso-list'),
+            {
+                'contrato': current_response.data['id'],
+                'fecha_efectiva': '2026-12-31',
+                'causal': 'No renovacion con renovacion ya ejecutada',
+                'estado': EstadoAvisoTermino.REGISTERED,
+            },
+            format='json',
+        )
+        self.assertEqual(aviso_response.status_code, status.HTTP_201_CREATED)
+
+        future_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-REN-F')
+        future_payload['estado'] = EstadoContrato.FUTURE
+        future_payload['fecha_inicio'] = '2027-01-01'
+        future_payload['fecha_fin_vigente'] = '2027-12-31'
+        future_payload['fecha_entrega'] = '2027-01-01'
+        future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
+        future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
+
+        future_response = self.client.post(reverse('contratos-contrato-list'), future_payload, format='json')
+        self.assertEqual(future_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('resolucion guiada', str(future_response.data))
+
+    def test_future_contract_succeeds_after_guided_renewal_conflict_resolution(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-REN-OK', owner_rut='14141414-6')
+        arrendatario = self._create_arrendatario(rut='15151515-3')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-REN-OK-C')
+        current_payload['fecha_fin_vigente'] = '2027-12-31'
+        current_payload['periodos_contractuales'] = [
+            {
+                'numero_periodo': 1,
+                'fecha_inicio': '2026-01-01',
+                'fecha_fin': '2026-12-31',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'inicial',
+                'origen_periodo': 'manual',
+            },
+            {
+                'numero_periodo': 2,
+                'fecha_inicio': '2027-01-01',
+                'fecha_fin': '2027-12-31',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'renovacion',
+                'origen_periodo': 'renovacion_automatica',
+            },
+        ]
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        aviso_response = self.client.post(
+            reverse('contratos-aviso-list'),
+            {
+                'contrato': current_response.data['id'],
+                'fecha_efectiva': '2026-12-31',
+                'causal': 'No renovacion con resolucion guiada',
+                'estado': EstadoAvisoTermino.REGISTERED,
+                'resolucion_conflicto_renovacion_ref': 'renewal-conflict-resolution-001',
+                'resolucion_conflicto_renovacion_motivo': 'Resolucion guiada mantiene renovacion ejecutada y habilita contrato futuro trazado.',
+            },
+            format='json',
+        )
+        self.assertEqual(aviso_response.status_code, status.HTTP_201_CREATED)
+
+        future_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-REN-OK-F')
+        future_payload['estado'] = EstadoContrato.FUTURE
+        future_payload['fecha_inicio'] = '2027-01-01'
+        future_payload['fecha_fin_vigente'] = '2027-12-31'
+        future_payload['fecha_entrega'] = '2027-01-01'
+        future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
+        future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
+
+        future_response = self.client.post(reverse('contratos-contrato-list'), future_payload, format='json')
+        self.assertEqual(future_response.status_code, status.HTTP_201_CREATED)
+
     def test_future_contract_succeeds_after_executed_early_termination(self):
         mandato = self._create_active_mandato(codigo='MAND-106-ET', owner_rut='14141414-9')
         arrendatario = self._create_arrendatario(rut='15151515-6')

@@ -1025,12 +1025,12 @@ def _audit_future_contract_closure_evidence(
         .first()
     )
     if current_contract:
-        aviso_exists = AvisoTermino.objects.filter(
+        aviso = AvisoTermino.objects.filter(
             contrato=current_contract,
             estado=EstadoAvisoTermino.REGISTERED,
             fecha_efectiva__lte=contrato.fecha_inicio,
-        ).exists()
-        if not aviso_exists:
+        ).order_by('-fecha_efectiva', '-id').first()
+        if aviso is None:
             _issue(
                 issues,
                 code='stage1.contrato_futuro.aviso_termino_faltante',
@@ -1039,6 +1039,23 @@ def _audit_future_contract_closure_evidence(
                 message=(
                     'Contrato futuro requiere AvisoTermino registrado para el contrato vigente '
                     'de la propiedad principal.'
+                ),
+            )
+        elif (
+            aviso.has_executed_renewal_conflict(contrato.fecha_inicio)
+            and (
+                not aviso.has_renewal_conflict_resolution()
+                or not is_non_sensitive_reference(aviso.resolucion_conflicto_renovacion_ref)
+            )
+        ):
+            _issue(
+                issues,
+                code='stage1.contrato_futuro.conflicto_renovacion_sin_resolucion',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message=(
+                    'Contrato futuro coexiste con AvisoTermino y renovacion ya ejecutada; '
+                    'requiere resolucion guiada no sensible antes de considerarse integro.'
                 ),
             )
         return

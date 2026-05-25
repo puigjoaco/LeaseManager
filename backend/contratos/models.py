@@ -22,6 +22,7 @@ codigo_efectivo_validator = RegexValidator(
 )
 RETROACTIVE_MANUAL_NOTIFICATION_CUTOFF_DAY = 5
 NOTICE_DEADLINE_END_OF_DAY = time(23, 59, 59)
+RENEWAL_PERIOD_KIND = 'renovacion'
 INTERNATIONAL_PHONE_RE = re.compile(r'^\+[1-9]\d{7,14}$')
 WHATSAPP_BLOCK_ALERT_CATEGORY = 'canales.whatsapp.bloqueo_definitivo'
 WHATSAPP_BLOCK_EVENT_TYPE = 'contratos.arrendatario.whatsapp_blocked'
@@ -825,6 +826,8 @@ class AvisoTermino(TimestampedModel):
     fecha_efectiva = models.DateField()
     causal = models.CharField(max_length=255)
     estado = models.CharField(max_length=16, choices=EstadoAvisoTermino.choices, default=EstadoAvisoTermino.DRAFT)
+    resolucion_conflicto_renovacion_ref = models.CharField(max_length=255, blank=True)
+    resolucion_conflicto_renovacion_motivo = models.TextField(blank=True)
     registrado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -860,6 +863,23 @@ class AvisoTermino(TimestampedModel):
     def registration_timestamp_for_notice_deadline(self):
         return self.created_at
 
+    def has_renewal_conflict_resolution(self):
+        return bool(
+            (self.resolucion_conflicto_renovacion_ref or '').strip()
+            and (self.resolucion_conflicto_renovacion_motivo or '').strip()
+        )
+
+    def has_executed_renewal_conflict(self, future_start_date=None):
+        if self.estado != EstadoAvisoTermino.REGISTERED or not self.contrato_id:
+            return False
+        if future_start_date is None:
+            future_start_date = self.fecha_efectiva
+        return self.contrato.periodos_contractuales.filter(
+            tipo_periodo__iexact=RENEWAL_PERIOD_KIND,
+            fecha_inicio__lte=future_start_date,
+            fecha_fin__gte=future_start_date,
+        ).exists()
+
     def is_late_registered_notice(self):
         if self.estado != EstadoAvisoTermino.REGISTERED:
             return False
@@ -887,11 +907,42 @@ class AvisoTermino(TimestampedModel):
 
     def clean(self):
         super().clean()
+        self.resolucion_conflicto_renovacion_ref = (self.resolucion_conflicto_renovacion_ref or '').strip()
+        self.resolucion_conflicto_renovacion_motivo = (
+            self.resolucion_conflicto_renovacion_motivo or ''
+        ).strip()
         if self.fecha_efectiva < self.contrato.fecha_inicio:
             raise ValidationError({'fecha_efectiva': 'La fecha efectiva no puede ser anterior al inicio del contrato.'})
         if self.fecha_efectiva > self.contrato.fecha_fin_vigente:
             raise ValidationError(
                 {'fecha_efectiva': 'La fecha efectiva no puede ser posterior a la fecha fin vigente del contrato.'}
+            )
+        if (
+            self.resolucion_conflicto_renovacion_ref
+            and not is_non_sensitive_reference(self.resolucion_conflicto_renovacion_ref)
+        ):
+            raise ValidationError(
+                {
+                    'resolucion_conflicto_renovacion_ref': (
+                        'La resolucion guiada del conflicto de renovacion debe usar una referencia no sensible.'
+                    )
+                }
+            )
+        if self.resolucion_conflicto_renovacion_ref and not self.resolucion_conflicto_renovacion_motivo:
+            raise ValidationError(
+                {
+                    'resolucion_conflicto_renovacion_motivo': (
+                        'La resolucion guiada del conflicto de renovacion requiere motivo o criterio trazable.'
+                    )
+                }
+            )
+        if self.resolucion_conflicto_renovacion_motivo and not self.resolucion_conflicto_renovacion_ref:
+            raise ValidationError(
+                {
+                    'resolucion_conflicto_renovacion_ref': (
+                        'La resolucion guiada del conflicto de renovacion requiere referencia no sensible.'
+                    )
+                }
             )
 
         if self.estado == EstadoAvisoTermino.CANCELED:
