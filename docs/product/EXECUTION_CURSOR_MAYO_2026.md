@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 - Canales, timestamp de mensajes enviados. |
-| Fuente exacta | Stage card Etapa 2; matriz de trazabilidad CobranzaActiva; `backend/canales/models.py`; `backend/canales/tests.py`; `backend/core/stage2_cobranza_readiness.py`. |
-| Brecha activa | En curso: `MensajeSaliente` en estado `enviado` debe rechazar filas sin `enviado_at` y readiness debe bloquear snapshots heredados equivalentes. |
-| Motivo de prioridad | Hardening local de trazabilidad de Canales sin Email/WhatsApp/WebPay reales, `.env`, secretos ni datos reales. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-sent-message-timestamp`. |
-| Rama | `codex/stage2-sent-message-timestamp`. |
-| Estado | En implementacion y validacion local. |
+| Frente activo | Ninguno. Ultimo paquete cerrado: Etapa 2 - Canales, timestamp de mensajes enviados. |
+| Fuente exacta | PR #247 `Require timestamp for sent messages`; commit `fee3646`; merge `b68d0b6`; `backend/canales/models.py`; `backend/canales/tests.py`; `backend/core/stage2_cobranza_readiness.py`; stage card Etapa 2, trazabilidad y evidencia actualizadas. |
+| Brecha activa | Cerrada localmente: `MensajeSaliente.clean()` rechaza mensajes `enviado` sin `enviado_at`, y readiness bloquea snapshots heredados con `stage2.message.sent_without_timestamp`. |
+| Motivo de prioridad | Hardening trazable de Canales completado sin Email/WhatsApp/WebPay reales, `.env`, secretos ni datos reales. |
+| Worktree | Ninguno. |
+| Rama | `main` sincronizada tras PR #247. |
+| Estado | Paquete integrado en main con CI verde; worktree tactico eliminado. |
 | Gate esperado | Etapa 2 local queda como diagnostico parcial/no evidencial; no cierra sin fuente autorizada, evidencia Etapa 1 y pruebas Email/WebPay controladas. |
-| Estado al cerrar paquete | Pendiente de validacion, PR, CI, merge y limpieza. |
+| Estado al cerrar paquete | Cerrado e integrado en main con validacion local, acceptance local y CI remoto. |
 | Bloqueos relacionados | Evidencia Etapa 1, prueba externa real/controlada de Email/WebPay y responsables siguen siendo condicion de cierre real de Etapa 2. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Terminar implementacion del guard de `enviado_at`, ejecutar validaciones proporcionales, abrir PR, esperar CI, mergear, limpiar worktree y dejar cursor cerrado en main. |
+| Siguiente accion | Seleccionar el siguiente frente util desde stage cards, matriz de trazabilidad y PRD, abrir worktree `codex/...` si corresponde y avanzar con validaciones proporcionales. |
 
 ## Actualizacion
 
