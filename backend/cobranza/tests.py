@@ -38,6 +38,7 @@ from .models import (
     GateCobroExterno,
     GarantiaContractual,
     IntentoPagoWebPay,
+    PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
     PagoMensual,
     RepactacionDeuda,
     ValorUFDiario,
@@ -1282,6 +1283,57 @@ class CobranzaAPITests(APITestCase):
 
         self.assertIn('saldo_pendiente', active_error.exception.message_dict)
         self.assertIn('saldo_pendiente', completed_error.exception.message_dict)
+
+    def test_partial_repayment_requires_formal_exception(self):
+        contrato = self._create_active_contract(codigo='CON-REP-PARTIAL', monto_base='100000.00', code='111')
+
+        response = self.client.post(
+            reverse('cobranza-repactacion-list'),
+            {
+                'arrendatario': contrato.arrendatario_id,
+                'contrato_origen': contrato.id,
+                'deuda_total_original': '50000.00',
+                'cantidad_cuotas': 4,
+                'monto_cuota': '10000.00',
+                'saldo_pendiente': '40000.00',
+                'estado': 'activa',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('excepcion_parcial_ref', response.data)
+        self.assertIn('excepcion_parcial_motivo', response.data)
+
+    def test_partial_repayment_records_exception_audit_event(self):
+        contrato = self._create_active_contract(codigo='CON-REP-PARTIAL-OK', monto_base='100000.00', code='111')
+
+        response = self.client.post(
+            reverse('cobranza-repactacion-list'),
+            {
+                'arrendatario': contrato.arrendatario_id,
+                'contrato_origen': contrato.id,
+                'deuda_total_original': '50000.00',
+                'cantidad_cuotas': 4,
+                'monto_cuota': '10000.00',
+                'saldo_pendiente': '40000.00',
+                'estado': 'activa',
+                'excepcion_parcial_ref': 'partial-repayment-exception-2026-01',
+                'excepcion_parcial_motivo': 'Excepcion formal autorizada por acuerdo operativo controlado.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['excepcion_parcial_ref'], 'partial-repayment-exception-2026-01')
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
+                entity_type='repactacion_deuda',
+                entity_id=str(response.data['id']),
+                metadata__excepcion_parcial_ref='partial-repayment-exception-2026-01',
+            ).exists()
+        )
 
     def test_rebuild_account_state_summarizes_open_payments_repactations_and_residuals(self):
         contrato = self._create_active_contract(codigo='CON-STATE-ALL', monto_base='100000.00', code='111')

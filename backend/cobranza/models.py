@@ -18,6 +18,7 @@ codigo_efectivo_validator = RegexValidator(
     message='El codigo de conciliacion efectivo debe tener exactamente 3 digitos.',
 )
 RESIDUAL_REFERENCE_RE = re.compile(r'^CCR-[A-HJ-NP-Z2-9]{6}$')
+PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE = 'cobranza.repactacion_deuda.partial_exception'
 
 
 class TimestampedModel(models.Model):
@@ -658,12 +659,26 @@ class RepactacionDeuda(TimestampedModel):
     monto_cuota = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
     saldo_pendiente = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal('0.00'))])
     estado = models.CharField(max_length=16, choices=EstadoRepactacion.choices, default=EstadoRepactacion.DRAFT)
+    excepcion_parcial_ref = models.CharField(max_length=255, blank=True)
+    excepcion_parcial_motivo = models.TextField(blank=True)
 
     class Meta:
         ordering = ['-created_at']
 
     def __str__(self):
         return f'Repactacion {self.arrendatario_id} - {self.contrato_origen.codigo_contrato}'
+
+    @property
+    def monto_total_plan_clp(self):
+        return Decimal(str(self.cantidad_cuotas or 0)) * Decimal(str(self.monto_cuota or Decimal('0.00')))
+
+    @property
+    def es_repactacion_parcial(self):
+        return self.monto_total_plan_clp < Decimal(str(self.deuda_total_original or Decimal('0.00')))
+
+    @property
+    def tiene_excepcion_parcial(self):
+        return bool(self.excepcion_parcial_ref.strip() and self.excepcion_parcial_motivo.strip())
 
     def clean(self):
         super().clean()
@@ -673,10 +688,39 @@ class RepactacionDeuda(TimestampedModel):
         deuda_total_original = Decimal(str(self.deuda_total_original))
         if saldo_pendiente > deuda_total_original:
             raise ValidationError({'saldo_pendiente': 'El saldo pendiente no puede exceder la deuda total original.'})
+        if saldo_pendiente > self.monto_total_plan_clp:
+            raise ValidationError({'saldo_pendiente': 'El saldo pendiente no puede exceder el total del plan.'})
         if self.estado == EstadoRepactacion.ACTIVE and saldo_pendiente <= 0:
             raise ValidationError({'saldo_pendiente': 'Una repactacion activa requiere saldo pendiente mayor que cero.'})
         if self.estado == EstadoRepactacion.COMPLETED and saldo_pendiente != 0:
             raise ValidationError({'saldo_pendiente': 'Una repactacion cumplida debe quedar con saldo pendiente cero.'})
+        if self.excepcion_parcial_ref.strip() and not is_non_sensitive_reference(self.excepcion_parcial_ref):
+            raise ValidationError(
+                {
+                    'excepcion_parcial_ref': (
+                        'La excepcion formal de repactacion parcial debe ser una referencia no sensible.'
+                    )
+                }
+            )
+        if self.excepcion_parcial_motivo.strip() and contains_sensitive_reference(self.excepcion_parcial_motivo):
+            raise ValidationError(
+                {
+                    'excepcion_parcial_motivo': (
+                        'El motivo auditable de repactacion parcial no debe contener referencias sensibles.'
+                    )
+                }
+            )
+        if self.es_repactacion_parcial and not self.tiene_excepcion_parcial:
+            raise ValidationError(
+                {
+                    'excepcion_parcial_ref': (
+                        'Una repactacion parcial requiere excepcion formal con referencia no sensible.'
+                    ),
+                    'excepcion_parcial_motivo': (
+                        'Una repactacion parcial requiere motivo auditable.'
+                    ),
+                }
+            )
 
 
 class CodigoCobroResidual(TimestampedModel):

@@ -451,7 +451,9 @@ class GarantiaMovimientoSerializer(serializers.Serializer):
         return apply_guarantee_movement(garantia=garantia, **validated_data)
 
 
-class RepactacionDeudaSerializer(serializers.ModelSerializer):
+class RepactacionDeudaSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('excepcion_parcial_ref',)
+
     class Meta:
         model = RepactacionDeuda
         fields = (
@@ -463,6 +465,8 @@ class RepactacionDeudaSerializer(serializers.ModelSerializer):
             'monto_cuota',
             'saldo_pendiente',
             'estado',
+            'excepcion_parcial_ref',
+            'excepcion_parcial_motivo',
             'created_at',
             'updated_at',
         )

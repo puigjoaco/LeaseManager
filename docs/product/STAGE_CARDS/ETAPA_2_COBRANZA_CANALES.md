@@ -22,6 +22,9 @@ condicionados sin envios reales accidentales.
 - Repactaciones existentes deben mantener coherencia saldo/estado: una
   repactacion activa conserva saldo pendiente mayor que cero y una cumplida
   debe quedar sin saldo pendiente.
+- Repactaciones parciales solo pueden existir con excepcion formal, referencia
+  no sensible, motivo auditable y evento auditable dedicado; la readiness
+  bloquea snapshots heredados sin esa traza.
 - Codigos residuales existentes deben usar formato canonico `CCR-XXXXXX` con
   caracteres mayusculos no ambiguos; la readiness debe bloquear snapshots que
   conserven referencias fuera de formato.
