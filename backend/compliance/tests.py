@@ -11,7 +11,7 @@ from audit.models import AuditEvent
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from reporting.tests import ReportingAPITests
 
-from .models import ExportacionSensible, PoliticaRetencionDatos
+from .models import CategoriaDato, ExportacionSensible, PoliticaRetencionDatos
 from .services import SENSITIVE_EXPORT_METADATA_ERROR, encrypt_payload, prepare_sensitive_export
 
 
@@ -287,3 +287,97 @@ class ComplianceAPITests(APITestCase):
             response.data['categoria_dato'][0],
             'No existe una politica de retencion activa para la categoria indicada.',
         )
+
+    def test_retention_policy_model_rejects_unsafe_controls(self):
+        cases = [
+            (
+                PoliticaRetencionDatos(
+                    categoria_dato=CategoriaDato.FINANCIAL,
+                    evento_inicio='https://audit.example.test/policy?token=secret',
+                    plazo_minimo_anos=6,
+                    permite_borrado_logico=True,
+                    permite_purga_fisica=False,
+                    requiere_hold=False,
+                    estado='activa',
+                ),
+                'evento_inicio',
+            ),
+            (
+                PoliticaRetencionDatos(
+                    categoria_dato=CategoriaDato.OPERATIONAL,
+                    evento_inicio='cierre-operacional',
+                    plazo_minimo_anos=0,
+                    permite_borrado_logico=True,
+                    permite_purga_fisica=False,
+                    requiere_hold=False,
+                    estado='activa',
+                ),
+                'plazo_minimo_anos',
+            ),
+            (
+                PoliticaRetencionDatos(
+                    categoria_dato=CategoriaDato.TAX,
+                    evento_inicio='cierre-tributario',
+                    plazo_minimo_anos=6,
+                    permite_borrado_logico=True,
+                    permite_purga_fisica=False,
+                    requiere_hold=False,
+                    estado='activa',
+                ),
+                'requiere_hold',
+            ),
+            (
+                PoliticaRetencionDatos(
+                    categoria_dato=CategoriaDato.SECRET,
+                    evento_inicio='rotacion-credencial',
+                    plazo_minimo_anos=6,
+                    permite_borrado_logico=True,
+                    permite_purga_fisica=True,
+                    requiere_hold=False,
+                    estado='activa',
+                ),
+                'permite_purga_fisica',
+            ),
+        ]
+
+        for policy, field_name in cases:
+            with self.subTest(field_name=field_name), self.assertRaises(ValidationError) as context:
+                policy.full_clean()
+            self.assertIn(field_name, context.exception.message_dict)
+
+    def test_retention_policy_api_rejects_unsafe_controls(self):
+        responses = [
+            self.client.post(
+                reverse('compliance-politica-list'),
+                {
+                    'categoria_dato': 'tributario',
+                    'evento_inicio': 'cierre-tributario',
+                    'plazo_minimo_anos': 6,
+                    'permite_borrado_logico': True,
+                    'permite_purga_fisica': False,
+                    'requiere_hold': False,
+                    'estado': 'activa',
+                },
+                format='json',
+            ),
+            self.client.post(
+                reverse('compliance-politica-list'),
+                {
+                    'categoria_dato': 'documental_sensible',
+                    'evento_inicio': 'https://audit.example.test/policy?token=secret',
+                    'plazo_minimo_anos': 6,
+                    'permite_borrado_logico': True,
+                    'permite_purga_fisica': True,
+                    'requiere_hold': True,
+                    'estado': 'activa',
+                },
+                format='json',
+            ),
+        ]
+
+        self.assertEqual(responses[0].status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('requiere_hold', responses[0].data)
+        self.assertEqual(responses[1].status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evento_inicio', responses[1].data)
+        self.assertIn('permite_purga_fisica', responses[1].data)
+        self.assertNotIn('token=secret', str(responses[1].data))

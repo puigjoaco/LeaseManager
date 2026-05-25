@@ -23,16 +23,16 @@ contexto historico en tarea nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto; ultimo cierre Etapa 5 - Versiones correctivas de documentos formalizados. |
-| Fuente exacta | PR #203 `Guard Stage 5 document corrective versions`, merge `015ab2d`, desde `01_Set_Vigente/PRD_CANONICO.md` lineas 193, 252, 364 y 584; `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`. |
-| Brecha activa | Cerrada localmente: documentos formalizados pueden tener version correctiva trazada con origen formalizado, referencia no sensible, PDF/checksum propios y readiness bloqueante si falta auditoria o validez. |
-| Motivo de prioridad | Documentos puede preparar correcciones sin mutar el PDF formalizado ni usar storage real, manteniendo trazabilidad antes de Canales/Reporting. |
-| Worktree | Ninguno activo; solo debe existir `D:/Proyectos/LeaseManager` salvo que se abra el siguiente frente. |
-| Rama | `main` sincronizada; sin rama tactica activa. |
-| Estado | PR #203 integrado en `main`, CI `acceptance` verde, worktree/rama tactica eliminados. |
-| Gate esperado | Sin gate pendiente para este paquete; seleccionar el siguiente frente local seguro desde `main` limpio. |
-| Estado al cerrar paquete | `implementado_sin_evidencia`; no cierra Etapa 5 Documentos sin fuente `snapshot_controlado` o `real_autorizado`, politica final, prueba PDF controlada y responsable. |
-| Bloqueos relacionados | `BLK-005` y fuente documental autorizada no bloquean preparacion local; solo impiden cierre evidencial. |
+| Frente activo | Etapa 0 - Compliance datos sensibles: guards de politicas de retencion. |
+| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md` fila `Compliance datos sensibles`; `backend/core/compliance_data_readiness.py`; `scripts/run-compliance-data-readiness-gate.ps1`; `backend/compliance`. |
+| Brecha activa | El readiness detecta politicas de retencion invalidas, hold faltante y purga fisica restringida, pero `PoliticaRetencionDatos` no bloquea esas incoherencias desde dominio/API. |
+| Motivo de prioridad | Es la brecha local segura mas baja del orden vigente: Stage 0 parcial, verificable con datos sinteticos/locales y sin usar `.env`, secretos, datos reales, DB historicas ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-compliance-retention-policy-guards`. |
+| Rama | `codex/compliance-retention-policy-guards`. |
+| Estado | Paquete tactico abierto desde `main` limpio en `50a47d9`; implementacion y validacion en curso. |
+| Gate esperado | `scripts/run-compliance-data-readiness-gate.ps1` debe seguir en `classification=parcial`, `ready_for_compliance_data=false` con fuente local; no cierra Compliance sin fuente autorizada y refs finales. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Falta fuente `snapshot_controlado` o `real_autorizado`, politica aprobada, responsables, controles, evidencia archivada y validacion legal-operativa no sensibles para cierre real de `Compliance.DatosPersonalesChile2026`; no bloquea preparacion local. |
 | Metatareas cerradas | Redaccion/revision del goal; repeticion de solicitud BLK-002; solicitud repetida de `.env`/`DATABASE_URL` sin peticion actual del usuario. |
 | Siguiente accion | Desde `main` limpio, seleccionar el siguiente paquete util y seguro segun AGENTS.md, PRD canonico, stage cards y trazabilidad vigente. |
 

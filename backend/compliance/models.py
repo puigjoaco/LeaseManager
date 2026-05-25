@@ -33,6 +33,16 @@ class EstadoExportacionSensible(models.TextChoices):
     REVOKED = 'revocada', 'Revocada'
 
 
+RETENTION_HOLD_REQUIRED_CATEGORIES = {
+    CategoriaDato.TAX.value,
+    CategoriaDato.DOCUMENT.value,
+}
+RETENTION_NO_PHYSICAL_PURGE_CATEGORIES = {
+    CategoriaDato.DOCUMENT.value,
+    CategoriaDato.SECRET.value,
+}
+
+
 class PoliticaRetencionDatos(TimestampedModel):
     categoria_dato = models.CharField(max_length=32, choices=CategoriaDato.choices, unique=True)
     evento_inicio = models.CharField(max_length=64)
@@ -47,6 +57,22 @@ class PoliticaRetencionDatos(TimestampedModel):
 
     def __str__(self):
         return self.categoria_dato
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.plazo_minimo_anos is not None and self.plazo_minimo_anos <= 0:
+            errors['plazo_minimo_anos'] = 'La politica de retencion requiere un plazo minimo mayor a cero.'
+        if contains_sensitive_reference(self.evento_inicio, include_sensitive_keys=True):
+            errors['evento_inicio'] = (
+                'El evento de inicio no puede contener URLs, correos, tokens, bearer, claves ni credenciales.'
+            )
+        if self.categoria_dato in RETENTION_HOLD_REQUIRED_CATEGORIES and not self.requiere_hold:
+            errors['requiere_hold'] = 'Las categorias tributaria y documental sensible requieren hold operativo.'
+        if self.categoria_dato in RETENTION_NO_PHYSICAL_PURGE_CATEGORIES and self.permite_purga_fisica:
+            errors['permite_purga_fisica'] = 'Las categorias documental sensible y secreto no permiten purga fisica por defecto.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class ExportacionSensible(TimestampedModel):
