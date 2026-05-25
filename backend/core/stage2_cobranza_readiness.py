@@ -55,6 +55,7 @@ from operacion.models import (
 
 
 AUTHORIZED_STAGE2_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+SENT_MESSAGE_EVENT_TYPE = 'canales.mensaje_saliente.sent_manually'
 
 
 def _non_sensitive_reference(value: str) -> bool:
@@ -222,6 +223,18 @@ def _collect_whatsapp_block_issues(blocked_tenants) -> dict[str, int]:
 
 def _collect_message_issues(messages) -> dict[str, int]:
     counts = Counter()
+    sent_message_ids = [
+        str(message.pk)
+        for message in messages
+        if message.pk is not None and message.estado == EstadoMensajeSaliente.SENT
+    ]
+    sent_message_event_refs = set(
+        AuditEvent.objects.filter(
+            event_type=SENT_MESSAGE_EVENT_TYPE,
+            entity_type='mensaje_saliente',
+            entity_id__in=sent_message_ids,
+        ).values_list('entity_id', flat=True)
+    )
     for message in messages:
         try:
             message.full_clean()
@@ -234,6 +247,8 @@ def _collect_message_issues(messages) -> dict[str, int]:
                 counts['sent_with_sensitive_external_ref'] += 1
             if message.enviado_at is None:
                 counts['sent_without_timestamp'] += 1
+            if str(message.pk) not in sent_message_event_refs:
+                counts['sent_without_audit_event'] += 1
         if _message_operational_issue(message):
             counts['prepared_or_sent_not_ready'] += 1
         if message.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}:
@@ -836,6 +851,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.message.sent_without_timestamp',
                 'Existen mensajes marcados enviados sin timestamp de envio.',
                 count=message_issues['sent_without_timestamp'],
+            )
+        )
+    if message_issues.get('sent_without_audit_event'):
+        issues.append(
+            _issue(
+                'stage2.message.sent_without_audit_event',
+                'Existen mensajes marcados enviados sin evento auditable de envio manual.',
+                count=message_issues['sent_without_audit_event'],
             )
         )
     if message_issues.get('prepared_or_sent_not_ready'):

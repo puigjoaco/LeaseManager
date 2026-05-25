@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from audit.models import ManualResolution
+from audit.models import AuditEvent, ManualResolution
 from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
@@ -1203,6 +1203,13 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(sent.status_code, status.HTTP_200_OK)
         self.assertEqual(sent.data['estado'], EstadoMensajeSaliente.SENT)
         self.assertEqual(sent.data['external_ref'], 'manual-123')
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='canales.mensaje_saliente.sent_manually',
+                entity_type='mensaje_saliente',
+                entity_id=str(sent.data['id']),
+            ).exists()
+        )
 
     def test_register_manual_send_requires_external_reference(self):
         empresa, contrato = self._create_contract_context(codigo='CH-SENDREF')
