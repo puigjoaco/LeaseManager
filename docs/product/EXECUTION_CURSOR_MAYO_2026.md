@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | Pendiente de seleccionar desde trazabilidad vigente, PRD, stage cards y auditoria de producto. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | No hay paquete tactico en curso; el siguiente avance debe elegirse desde el estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Sin paquete abierto. |
-| Gate esperado | Definir segun el siguiente frente seguro seleccionado. |
-| Estado al cerrar paquete | PR #300 mergeado en `main` con merge `8ab5797`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
+| Frente activo | Etapa 1 / Patrimonio. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` reglas de sucesion, transferencia y redistribucion de participaciones patrimoniales; `docs/product/STAGE_CARDS/ETAPA_1_DATOS_REALES.md`; trazabilidad vigente. |
+| Brecha activa | Falta flujo operacional auditado para transferir, reemplazar o redistribuir una participacion activa conservando el 100% del owner. |
+| Motivo de prioridad | Es un frente temprano de Patrimonio, localmente verificable, no requiere secretos, datos reales ni integraciones externas, y evita ediciones manuales sin traza sobre participaciones. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-participation-transfer`. |
+| Rama | `codex/stage1-participation-transfer`. |
+| Estado | Paquete implementado y validado localmente; pendiente de PR/CI/merge. |
+| Gate esperado | Tests focales de Patrimonio y auditor Etapa 1; suite impactada Patrimonio + `core.tests_stage1_matrix_audit`; `manage.py check`; `makemigrations --check --dry-run`; readiness local Etapa 1; frontend build; acceptance local; CI GitHub. |
+| Estado al cerrar paquete | Validacion local completa OK: focal Patrimonio/auditor, suite impactada 149 tests, `manage.py check`, `makemigrations --check --dry-run`, readiness local Etapa 1, `npm ci`, `npm run build` y acceptance local 801 tests. Pendiente CI remoto y merge. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Elegir el siguiente paquete util, seguro y verificable desde trazabilidad vigente; abrir worktree `codex/...` si el cambio no es trivial. |
+| Siguiente accion | Implementar flujo auditado de transferencia de participaciones, actualizar stage card/trazabilidad/evidencia, validar y cerrar por PR/CI/merge/limpieza. |
 
 ## Actualizacion
 

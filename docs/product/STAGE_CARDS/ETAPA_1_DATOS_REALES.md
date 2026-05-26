@@ -44,6 +44,11 @@ contra datos reales o snapshot controlado.
 - Validacion de participantes patrimoniales activos: una participacion activa
   solo puede apuntar a un socio activo o a una empresa participante activa con
   participaciones completas.
+- Transferencia, reemplazo o redistribucion de participaciones: el flujo
+  operacional debe cerrar la participacion origen, crear destinos vigentes
+  desde la fecha efectiva, conservar el 100% del owner y registrar auditoria
+  dedicada con motivo y evidencia no sensible. El auditor Etapa 1 bloquea
+  sucesiones heredadas con sucesor inmediato sin evento auditable.
 - Validacion de transiciones de estado patrimonial: socios, empresas y
   comunidades no pueden desactivarse si sostienen propiedades,
   representaciones o participaciones activas vigentes.

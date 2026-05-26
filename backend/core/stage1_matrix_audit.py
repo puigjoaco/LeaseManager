@@ -67,6 +67,7 @@ from patrimonio.models import (
     Socio,
     TipoServicioPropiedad,
 )
+from patrimonio.services import PARTICIPATION_TRANSFER_EVENT_TYPE
 from patrimonio.validators import validate_rut
 
 
@@ -579,6 +580,46 @@ def _audit_community_representation_window_overlaps(issues: list[dict[str, Any]]
         community_representations.append(representation)
 
 
+def _audit_participation_transfers(issues: list[dict[str, Any]]) -> None:
+    ended_participations = ParticipacionPatrimonial.objects.filter(
+        activo=True,
+        vigente_hasta__isnull=False,
+    ).select_related(
+        'participante_socio',
+        'participante_empresa',
+        'empresa_owner',
+        'comunidad_owner',
+    )
+    for participation in ended_participations:
+        next_effective_date = participation.vigente_hasta + timedelta(days=1)
+        successor_filter = {
+            'activo': True,
+            'vigente_desde': next_effective_date,
+        }
+        if participation.empresa_owner_id:
+            successor_filter['empresa_owner_id'] = participation.empresa_owner_id
+        else:
+            successor_filter['comunidad_owner_id'] = participation.comunidad_owner_id
+        has_successors = ParticipacionPatrimonial.objects.filter(**successor_filter).exclude(pk=participation.pk).exists()
+        if not has_successors:
+            continue
+        has_audit = AuditEvent.objects.filter(
+            event_type=PARTICIPATION_TRANSFER_EVENT_TYPE,
+            metadata__origin_participation_id=participation.pk,
+        ).exists()
+        if not has_audit:
+            _issue(
+                issues,
+                code='stage1.participacion.transferencia_sin_auditoria',
+                entity='ParticipacionPatrimonial',
+                entity_id=participation.pk,
+                message=(
+                    'Participacion patrimonial terminada con sucesor inmediato sin evento auditado de '
+                    'transferencia/reemplazo; debe usar el flujo guiado para conservar trazabilidad.'
+                ),
+            )
+
+
 def _audit_mandate_window_overlaps(issues: list[dict[str, Any]]) -> None:
     mandates_by_property: dict[int, list[MandatoOperacion]] = defaultdict(list)
     reported_properties: set[int] = set()
@@ -707,6 +748,7 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
         entity='ServicioPropiedad',
     )
     _audit_community_representation_window_overlaps(issues)
+    _audit_participation_transfers(issues)
 
     for empresa in Empresa.objects.filter(estado='activa'):
         total = empresa.total_participaciones_activas()

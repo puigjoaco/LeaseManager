@@ -5,7 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import is_non_sensitive_reference, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 
 from .models import (
@@ -19,6 +19,7 @@ from .models import (
     ServicioPropiedad,
     Socio,
 )
+from .services import execute_participation_transfer
 from .validators import validate_rut
 
 
@@ -146,6 +147,68 @@ class ParticipacionPatrimonialWriteSerializer(serializers.Serializer):
         attrs['participante_socio'] = participante if participante_tipo == 'socio' else None
         attrs['participante_empresa'] = participante if participante_tipo == 'empresa' else None
         return attrs
+
+
+class ParticipacionTransferTargetSerializer(serializers.Serializer):
+    participante_tipo = serializers.ChoiceField(choices=('socio', 'empresa'))
+    participante_id = serializers.IntegerField()
+    porcentaje = serializers.DecimalField(max_digits=5, decimal_places=2)
+
+
+class ParticipacionTransferSerializer(serializers.Serializer):
+    owner_tipo = serializers.ChoiceField(choices=('empresa', 'comunidad'))
+    owner_id = serializers.IntegerField()
+    participante_origen_tipo = serializers.ChoiceField(choices=('socio', 'empresa'))
+    participante_origen_id = serializers.IntegerField()
+    fecha_efectiva = serializers.DateField()
+    transferencias = ParticipacionTransferTargetSerializer(many=True)
+    motivo = serializers.CharField(max_length=500)
+    evidencia_ref = serializers.CharField(max_length=255)
+
+    def _resolve_owner(self, owner_tipo, owner_id):
+        user = _request_user(self)
+        if owner_tipo == 'empresa':
+            queryset = Empresa.objects.all()
+            if user:
+                queryset = scope_queryset_for_user(queryset, user, company_paths=('id',))
+        else:
+            queryset = ComunidadPatrimonial.objects.all()
+            if user:
+                queryset = scope_queryset_for_user(queryset, user, property_paths=('propiedades__id',))
+        try:
+            return queryset.get(pk=owner_id)
+        except queryset.model.DoesNotExist as error:
+            raise serializers.ValidationError(
+                {'owner_id': 'El owner indicado no existe o queda fuera del scope asignado.'}
+            ) from error
+
+    def validate_evidencia_ref(self, value):
+        if not is_non_sensitive_reference(value):
+            raise serializers.ValidationError('La evidencia debe ser una referencia no sensible.')
+        return value
+
+    def validate(self, attrs):
+        attrs['_owner'] = self._resolve_owner(attrs['owner_tipo'], attrs['owner_id'])
+        if not attrs['transferencias']:
+            raise serializers.ValidationError({'transferencias': 'Debe indicar al menos un destino.'})
+        return attrs
+
+    def save(self, **kwargs):
+        owner = self.validated_data['_owner']
+        try:
+            return execute_participation_transfer(
+                owner=owner,
+                origin_participant_type=self.validated_data['participante_origen_tipo'],
+                origin_participant_id=self.validated_data['participante_origen_id'],
+                effective_date=self.validated_data['fecha_efectiva'],
+                transfers=self.validated_data['transferencias'],
+                reason=self.validated_data['motivo'],
+                evidence_ref=self.validated_data['evidencia_ref'],
+                actor_user=kwargs.get('actor_user'),
+                ip_address=kwargs.get('ip_address'),
+            )
+        except ValueError as error:
+            raise serializers.ValidationError({'detail': str(error)}) from error
 
 
 class RepresentacionComunidadReadSerializer(serializers.ModelSerializer):
