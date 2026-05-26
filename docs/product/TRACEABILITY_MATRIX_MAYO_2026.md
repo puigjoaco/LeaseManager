@@ -13,6 +13,11 @@ post-contrato. `fecha_activacion` debe ser posterior a
 vigencia y readiness Etapa 2 reporta `stage2.residual_code.invalid_model` para
 snapshots heredados con codigos residuales prematuros.
 
+Nota 2026-05-26: CobranzaActiva exige coherencia saldo/estado en
+`CodigoCobroResidual`. Un codigo `activa` mantiene saldo pendiente mayor que
+cero; `pagada` o `cancelada` deben quedar con `saldo_actual=0`, y readiness
+Etapa 2 bloquea snapshots heredados que oculten saldo bajo estados cerrados.
+
 Nota 2026-05-26: CobranzaActiva canoniza la procedencia de `ValorUFDiario`.
 `source_key` solo acepta `UF.BancoCentral`, `UF.CMF`, `UF.MiIndicador` o
 `UF.CargaManualExtraordinaria`; el bootstrap demo exige `--source-key`

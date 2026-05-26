@@ -1047,8 +1047,11 @@ class CodigoCobroResidual(TimestampedModel):
                         )
                     }
                 )
-        if self.estado == EstadoCobroResidual.ACTIVE and self.saldo_actual <= 0:
+        saldo_actual = Decimal(str(self.saldo_actual or Decimal('0.00')))
+        if self.estado == EstadoCobroResidual.ACTIVE and saldo_actual <= 0:
             raise ValidationError({'saldo_actual': 'El cobro residual activo requiere un saldo mayor que cero.'})
+        if self.estado in {EstadoCobroResidual.PAID, EstadoCobroResidual.CANCELED} and saldo_actual != 0:
+            raise ValidationError({'saldo_actual': 'Un cobro residual cerrado debe quedar sin saldo pendiente.'})
 
 
 class EstadoCuentaArrendatario(TimestampedModel):

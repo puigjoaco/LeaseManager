@@ -1600,6 +1600,43 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('fecha_activacion', response.data)
 
+    def test_residual_code_full_clean_rejects_closed_state_with_balance(self):
+        contrato = self._create_active_contract(codigo='CON-RES-BAL', monto_base='100000.00', code='111')
+
+        for estado in ('pagada', 'cancelada'):
+            residual = CodigoCobroResidual(
+                referencia_visible='CCR-ABC234' if estado == 'pagada' else 'CCR-DEF234',
+                arrendatario=contrato.arrendatario,
+                contrato_origen=contrato,
+                saldo_actual='25000.00',
+                estado=estado,
+                fecha_activacion='2027-01-10',
+            )
+            with self.subTest(estado=estado):
+                with self.assertRaises(ValidationError) as error:
+                    residual.full_clean()
+                self.assertIn('saldo_actual', error.exception.message_dict)
+
+    def test_update_residual_code_rejects_paid_state_with_balance(self):
+        contrato = self._create_active_contract(codigo='CON-RES-UPD', monto_base='100000.00', code='111')
+        residual = CodigoCobroResidual.objects.create(
+            referencia_visible='CCR-ABC234',
+            arrendatario=contrato.arrendatario,
+            contrato_origen=contrato,
+            saldo_actual='25000.00',
+            estado='activa',
+            fecha_activacion='2027-01-10',
+        )
+
+        response = self.client.patch(
+            reverse('cobranza-residual-detail', args=[residual.id]),
+            {'estado': 'pagada'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('saldo_actual', response.data)
+
     def test_repactacion_rejects_contract_arrendatario_mismatch(self):
         contrato = self._create_active_contract(codigo='CON-REP', monto_base='100000.00', code='111')
         other_tenant = Arrendatario.objects.create(
