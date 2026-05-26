@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 2 - bloqueos WhatsApp: traza y rehabilitacion desde servicio. |
+| Frente activo | Etapa 2 - fallback WhatsApp: alerta y evento trazable desde servicio. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `block_whatsapp_contact()` exija actor trazable, bloquee el contacto, cree alerta administrativa y evento auditable con motivo/evidencia alineados; `rehabilitate_whatsapp_contact()` resuelve alertas y audita la rehabilitacion desde servicio. |
-| Motivo de prioridad | Paquete local y verificable cerrado como preparacion segura de Etapa 2. |
-| Worktree | Ninguno pendiente despues de merge/limpieza. |
-| Rama | `main` despues de merge/limpieza. |
-| Estado | Paquete validado localmente e integrado despues de PR/CI/merge/limpieza. |
-| Gate esperado | Si `main` queda limpio, elegir el siguiente frente seguro por trazabilidad. Si existe worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
-| Estado al cerrar paquete | No cierra Etapa 2 sin fuente autorizada, evidencia Etapa 1, prueba Email/WebPay controlada y responsables; solo mueve la traza de bloqueo/rehabilitacion WhatsApp desde vistas a servicios transaccionales. |
+| Brecha activa | Los mensajes WhatsApp bloqueados/fallidos podian quedar cubiertos por una `ManualResolution` de fallback sin actor trazable ni evento dedicado; readiness aceptaba alertas heredadas demasiado debiles. |
+| Motivo de prioridad | Brecha local y verificable de Etapa 2; fortalece fallback critico sin abrir WhatsApp, Email, WebPay ni proveedores externos. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-whatsapp-fallback-service-audit`. |
+| Rama | `codex/stage2-whatsapp-fallback-service-audit`. |
+| Estado | Validado localmente; falta PR/CI/merge/limpieza. |
+| Gate esperado | `classification=parcial`, `ready_for_stage2_cobranza=false` en gate local Etapa 2; no declara cierre sin fuente autorizada, Etapa 1, Email/WebPay controlados y responsables. |
+| Estado al cerrar paquete | Debe quedar integrado en `main` con `prepare_message()` creando fallback WhatsApp con actor y evento dedicado, readiness bloqueando fallback heredado sin actor/evento/motivo alineado, evidencia y trazabilidad actualizadas. |
 | Bloqueos relacionados | Ninguno para este paquete. |
 | Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si solo existe `main` limpio, seleccionar el siguiente frente trazable. |
-| Siguiente accion | Si `main` queda limpio, seleccionar el siguiente frente seguro por trazabilidad. |
+| Siguiente accion | Continuar este worktree hasta validacion, evidencia, PR, CI, merge y limpieza. |
 
 ## Actualizacion
 

@@ -30,33 +30,99 @@ from .models import (
 WHATSAPP_WINDOW_START_HOUR = 8
 WHATSAPP_WINDOW_END_HOUR = 21
 WHATSAPP_FALLBACK_REQUIRED_CATEGORY = 'canales.whatsapp.fallback_requerido'
+WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE = 'canales.whatsapp.fallback_required'
 COLLECTABLE_PAYMENT_STATES = {EstadoPago.PENDING, EstadoPago.OVERDUE}
 
 
-def ensure_manual_resolution(category, message, payload=None):
+def _service_actor_identifier(actor_user=None, actor_identifier='', default='system:canales.prepare_message'):
+    actor_identifier = (actor_identifier or '').strip()
+    if actor_user is None and not actor_identifier:
+        return default
+    return actor_identifier
+
+
+def _with_actor_metadata(payload=None, *, actor_user=None, actor_identifier=''):
+    metadata = dict(payload or {})
+    actor_identifier = _service_actor_identifier(actor_user=actor_user, actor_identifier=actor_identifier)
+    if actor_user is None and actor_identifier:
+        metadata['actor_identifier'] = actor_identifier
+    elif actor_identifier:
+        metadata['actor_identifier'] = actor_identifier
+    return metadata, actor_identifier
+
+
+def ensure_manual_resolution(
+    category,
+    message,
+    payload=None,
+    *,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+    audit_event_type='',
+):
+    metadata, actor_identifier = _with_actor_metadata(
+        payload,
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+    )
     existing = ManualResolution.objects.filter(
         category=category,
-        scope_type='canales',
-        scope_reference=payload.get('scope_reference', '') if payload else '',
+        scope_type=metadata.get('scope_type', 'canales'),
+        scope_reference=metadata.get('scope_reference', ''),
         status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
     ).first()
     if existing:
+        updates = []
+        existing_metadata = dict(existing.metadata or {})
+        if actor_user is not None and existing.requested_by_id is None:
+            existing.requested_by = actor_user
+            updates.append('requested_by')
+        if actor_identifier and not existing_metadata.get('actor_identifier'):
+            existing_metadata['actor_identifier'] = actor_identifier
+            existing.metadata = existing_metadata
+            updates.append('metadata')
+        if updates:
+            existing.save(update_fields=updates)
         return existing
-    return ManualResolution.objects.create(
+    resolution = ManualResolution.objects.create(
         category=category,
-        scope_type='canales',
-        scope_reference=payload.get('scope_reference', '') if payload else '',
+        scope_type=metadata.get('scope_type', 'canales'),
+        scope_reference=metadata.get('scope_reference', ''),
         summary=message,
-        metadata=payload or {},
+        requested_by=actor_user,
+        metadata=metadata,
     )
+    if audit_event_type:
+        entity_id = str(metadata.get('message_id') or metadata.get('scope_reference', ''))
+        create_audit_event(
+            event_type=audit_event_type,
+            entity_type='mensaje_saliente',
+            entity_id=entity_id,
+            summary=message,
+            severity='warning',
+            actor_user=actor_user,
+            actor_identifier=actor_identifier,
+            ip_address=ip_address,
+            metadata=metadata,
+        )
+    return resolution
 
 
-def ensure_whatsapp_fallback_resolution(message, blocking_reason):
+def ensure_whatsapp_fallback_resolution(
+    message,
+    blocking_reason,
+    *,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
     return ensure_manual_resolution(
         WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
         'WhatsApp bloqueado requiere fallback por Email o alerta critica trazable.',
         payload={
             'scope_reference': str(message.pk),
+            'message_id': message.pk,
             'canal': CanalOperacion.WHATSAPP,
             'fallback_canal_base': CanalOperacion.EMAIL,
             'blocking_reason': blocking_reason,
@@ -64,6 +130,10 @@ def ensure_whatsapp_fallback_resolution(message, blocking_reason):
             'arrendatario_id': message.arrendatario_id,
             'documento_emitido_id': message.documento_emitido_id,
         },
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        audit_event_type=WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
     )
 
 
@@ -224,10 +294,24 @@ def materialize_payment_notification_schedule(payment):
 
 
 @transaction.atomic
-def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None, documento_emitido=None, explicit_identity=None, asunto='', cuerpo='', usuario=None):
+def prepare_message(
+    *,
+    canal,
+    canal_mensajeria,
+    contrato=None,
+    arrendatario=None,
+    documento_emitido=None,
+    explicit_identity=None,
+    asunto='',
+    cuerpo='',
+    usuario=None,
+    actor_identifier='',
+    ip_address=None,
+):
     arrendatario = resolve_arrendatario(contrato=contrato, arrendatario=arrendatario, documento_emitido=documento_emitido)
     identidad = resolve_identity(canal, contrato=contrato, explicit_identity=explicit_identity)
     destinatario = resolve_recipient(canal, arrendatario)
+    actor_identifier = _service_actor_identifier(actor_user=usuario, actor_identifier=actor_identifier)
 
     message = MensajeSaliente(
         canal=canal,
@@ -268,9 +352,18 @@ def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None
             f'canales.{canal}.bloqueado',
             blocking_reason,
             payload={'scope_reference': str(message.pk), 'canal': canal},
+            actor_user=usuario,
+            actor_identifier=actor_identifier,
+            ip_address=ip_address,
         )
         if canal == CanalOperacion.WHATSAPP:
-            ensure_whatsapp_fallback_resolution(message, blocking_reason)
+            ensure_whatsapp_fallback_resolution(
+                message,
+                blocking_reason,
+                actor_user=usuario,
+                actor_identifier=actor_identifier,
+                ip_address=ip_address,
+            )
         return message
 
     message.estado = EstadoMensajeSaliente.PREPARED

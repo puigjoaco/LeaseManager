@@ -326,6 +326,7 @@ class MensajePrepararView(APIView):
             asunto=data.get('asunto', ''),
             cuerpo=data.get('cuerpo', ''),
             usuario=request.user,
+            ip_address=request.META.get('REMOTE_ADDR'),
         )
 
         create_audit_event(
