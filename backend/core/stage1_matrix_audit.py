@@ -43,6 +43,7 @@ from contratos.models import (
     MonedaBaseContrato,
     PeriodoContractual,
     RENEWAL_PERIOD_KIND,
+    TENANT_REPLACEMENT_EVENT_TYPE,
     RolContratoPropiedad,
     TipoArrendatario,
     normalize_representante_legal_snapshot,
@@ -1096,6 +1097,25 @@ def _audit_future_contract_closure_evidence(
                 message=(
                     'Contrato futuro coexiste con AvisoTermino y renovacion ya ejecutada; '
                     'requiere resolucion guiada no sensible antes de considerarse integro.'
+                ),
+            )
+        elif contrato.arrendatario_id != current_contract.arrendatario_id and not AuditEvent.objects.filter(
+            event_type=TENANT_REPLACEMENT_EVENT_TYPE,
+            entity_type='contrato',
+            entity_id=str(contrato.pk),
+            metadata__contrato_anterior_id=current_contract.pk,
+            metadata__aviso_termino_id=aviso.pk,
+            metadata__arrendatario_anterior_id=current_contract.arrendatario_id,
+            metadata__arrendatario_nuevo_id=contrato.arrendatario_id,
+        ).exists():
+            _issue(
+                issues,
+                code='stage1.contrato_futuro.cambio_arrendatario_sin_auditoria',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message=(
+                    'Contrato futuro con cambio de arrendatario requiere flujo guiado y evento auditable '
+                    'que vincule contrato anterior, aviso de termino y contrato nuevo.'
                 ),
             )
         return

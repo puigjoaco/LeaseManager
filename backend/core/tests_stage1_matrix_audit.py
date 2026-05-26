@@ -39,6 +39,7 @@ from contratos.models import (
     MonedaBaseContrato,
     PeriodoContractual,
     RolContratoPropiedad,
+    TENANT_REPLACEMENT_EVENT_TYPE,
     TipoArrendatario,
 )
 from core.stage1_matrix_audit import collect_stage1_matrix_audit
@@ -1665,6 +1666,93 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertTrue(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertNotIn('stage1.contrato_futuro.aviso_termino_faltante', issue_codes)
+
+    def test_future_contract_with_new_tenant_without_replacement_audit_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='Termino controlado para cambio de arrendatario',
+            estado=EstadoAvisoTermino.REGISTERED,
+        )
+        new_tenant = Arrendatario.objects.create(
+            tipo_arrendatario=TipoArrendatario.NATURAL,
+            nombre_razon_social='Arrendatario Nuevo Controlado',
+            rut='44444444-4',
+            email='arrendatario-nuevo@example.com',
+            telefono='999',
+            domicilio_notificaciones='Domicilio Nuevo 123',
+            estado_contacto=EstadoContactoArrendatario.ACTIVE,
+        )
+        ContactoPagoArrendatario.objects.create(
+            arrendatario=new_tenant,
+            nombre='Contacto Pago Nuevo',
+            rol_operativo='pago_arriendo',
+            email='pagos-nuevo@example.com',
+            evidencia_autorizacion_ref='contacto-pago-nuevo-v1',
+            es_principal=True,
+            estado='activo',
+        )
+        future_contract = self._create_future_contract_for(contrato)
+        future_contract.arrendatario = new_tenant
+        future_contract.save(update_fields=['arrendatario', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato_futuro.cambio_arrendatario_sin_auditoria', issue_codes)
+
+    def test_future_contract_with_new_tenant_and_replacement_audit_can_pass(self):
+        contrato = self._create_valid_stage1_matrix()
+        aviso = AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='Termino controlado para cambio de arrendatario',
+            estado=EstadoAvisoTermino.REGISTERED,
+        )
+        new_tenant = Arrendatario.objects.create(
+            tipo_arrendatario=TipoArrendatario.NATURAL,
+            nombre_razon_social='Arrendatario Nuevo Auditado',
+            rut='55555555-5',
+            email='arrendatario-nuevo-auditado@example.com',
+            telefono='999',
+            domicilio_notificaciones='Domicilio Nuevo Auditado 123',
+            estado_contacto=EstadoContactoArrendatario.ACTIVE,
+        )
+        ContactoPagoArrendatario.objects.create(
+            arrendatario=new_tenant,
+            nombre='Contacto Pago Nuevo Auditado',
+            rol_operativo='pago_arriendo',
+            email='pagos-nuevo-auditado@example.com',
+            evidencia_autorizacion_ref='contacto-pago-nuevo-auditado-v1',
+            es_principal=True,
+            estado='activo',
+        )
+        future_contract = self._create_future_contract_for(contrato)
+        future_contract.arrendatario = new_tenant
+        future_contract.save(update_fields=['arrendatario', 'updated_at'])
+        AuditEvent.objects.create(
+            event_type=TENANT_REPLACEMENT_EVENT_TYPE,
+            entity_type='contrato',
+            entity_id=str(future_contract.pk),
+            summary='Cambio de arrendatario auditado.',
+            metadata={
+                'contrato_anterior_id': contrato.pk,
+                'contrato_nuevo_id': future_contract.pk,
+                'aviso_termino_id': aviso.pk,
+                'arrendatario_anterior_id': contrato.arrendatario_id,
+                'arrendatario_nuevo_id': new_tenant.pk,
+            },
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertNotIn('stage1.contrato_futuro.cambio_arrendatario_sin_auditoria', issue_codes)
 
     def test_future_contract_with_executed_renewal_conflict_needs_guided_resolution(self):
         contrato = self._create_valid_stage1_matrix()

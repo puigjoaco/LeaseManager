@@ -173,6 +173,13 @@ contra datos reales o snapshot controlado.
   referencia no sensible y motivo trazable. La API bloquea el contrato futuro
   sin esa resolucion y el auditor Etapa 1 marca snapshots heredados como
   defectuosos sin cancelar ni reescribir efectos producidos.
+- Cambio de arrendatario: el flujo operacional guiado crea `AvisoTermino`
+  registrado y contrato futuro con nuevo arrendatario en una transaccion,
+  conserva el contrato/deuda historica sin reescribir identidad, copia las
+  propiedades contractuales, inicia un periodo de origen `cambio_arrendatario`
+  y registra auditoria dedicada. El auditor Etapa 1 marca como defectuosos
+  contratos futuros heredados con arrendatario distinto al vigente si no existe
+  el evento auditable que vincula contrato anterior, aviso y contrato nuevo.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
   del mes operativo.

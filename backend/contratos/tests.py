@@ -11,7 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent, ManualResolution
-from cobranza.models import EstadoGarantia, GarantiaContractual
+from cobranza.models import EstadoGarantia, GarantiaContractual, PagoMensual
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from operacion.models import (
@@ -36,6 +36,7 @@ from .models import (
     EstadoContrato,
     PeriodoContractual,
     RolContratoPropiedad,
+    TENANT_REPLACEMENT_EVENT_TYPE,
 )
 
 
@@ -2045,6 +2046,108 @@ class ContratosAPITests(APITestCase):
         future_contract = Contrato.objects.get(pk=future_response.data['id'])
         self.assertEqual(aviso.estado, EstadoAvisoTermino.REGISTERED)
         self.assertEqual(future_contract.estado, EstadoContrato.FUTURE)
+
+    def test_tenant_replacement_endpoint_creates_notice_future_contract_and_audit(self):
+        mandato = self._create_active_mandato(codigo='MAND-TEN-REP', owner_rut='20202021-0')
+        arrendatario = self._create_arrendatario(rut='21212122-9')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-TEN-REP-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+        current_period = PeriodoContractual.objects.get(contrato_id=current_response.data['id'], numero_periodo=1)
+        PagoMensual.objects.create(
+            contrato_id=current_response.data['id'],
+            periodo_contractual=current_period,
+            mes=12,
+            anio=2026,
+            monto_facturable_clp=Decimal('1000000.00'),
+            monto_calculado_clp=Decimal('1000000.00'),
+            fecha_vencimiento=date(2026, 12, 5),
+            codigo_conciliacion_efectivo='123',
+        )
+
+        nuevo_arrendatario = self._create_arrendatario(rut='23232323-3')
+        response = self.client.post(
+            reverse('contratos-contrato-cambio-arrendatario', args=[current_response.data['id']]),
+            {
+                'arrendatario': nuevo_arrendatario.id,
+                'codigo_contrato': 'CTR-TEN-REP-F',
+                'fecha_inicio': '2027-01-01',
+                'fecha_fin_vigente': '2027-12-31',
+                'causal_aviso': 'Cambio de arrendatario acordado',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['aviso_termino']['fecha_efectiva'], '2026-12-31')
+        self.assertEqual(response.data['contrato_nuevo']['codigo_contrato'], 'CTR-TEN-REP-F')
+        self.assertEqual(response.data['contrato_nuevo']['estado'], EstadoContrato.FUTURE)
+        self.assertEqual(response.data['contrato_nuevo']['arrendatario'], nuevo_arrendatario.id)
+
+        current_contract = Contrato.objects.get(pk=current_response.data['id'])
+        future_contract = Contrato.objects.get(codigo_contrato='CTR-TEN-REP-F')
+        aviso = AvisoTermino.objects.get(contrato=current_contract)
+        self.assertEqual(current_contract.arrendatario_id, arrendatario.id)
+        self.assertEqual(future_contract.contrato_propiedades.count(), 1)
+        self.assertEqual(future_contract.periodos_contractuales.get().origen_periodo, 'cambio_arrendatario')
+        self.assertTrue(PagoMensual.objects.filter(contrato=current_contract, mes=12, anio=2026).exists())
+        self.assertFalse(PagoMensual.objects.filter(contrato=future_contract).exists())
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=TENANT_REPLACEMENT_EVENT_TYPE,
+                entity_type='contrato',
+                entity_id=str(future_contract.pk),
+                metadata__contrato_anterior_id=current_contract.pk,
+                metadata__aviso_termino_id=aviso.pk,
+                metadata__arrendatario_anterior_id=arrendatario.id,
+                metadata__arrendatario_nuevo_id=nuevo_arrendatario.id,
+            ).exists()
+        )
+
+    def test_tenant_replacement_endpoint_rejects_same_tenant(self):
+        mandato = self._create_active_mandato(codigo='MAND-TEN-SAME', owner_rut='20202022-9')
+        arrendatario = self._create_arrendatario(rut='21212123-7')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-TEN-SAME-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('contratos-contrato-cambio-arrendatario', args=[current_response.data['id']]),
+            {
+                'arrendatario': arrendatario.id,
+                'codigo_contrato': 'CTR-TEN-SAME-F',
+                'fecha_inicio': '2027-01-01',
+                'fecha_fin_vigente': '2027-12-31',
+                'causal_aviso': 'Cambio invalido con mismo arrendatario',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('arrendatario', response.data)
+
+    def test_tenant_replacement_endpoint_requires_next_day_after_current_term(self):
+        mandato = self._create_active_mandato(codigo='MAND-TEN-DATE', owner_rut='20202023-7')
+        arrendatario = self._create_arrendatario(rut='21212124-5')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-TEN-DATE-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        nuevo_arrendatario = self._create_arrendatario(rut='24242424-1')
+        response = self.client.post(
+            reverse('contratos-contrato-cambio-arrendatario', args=[current_response.data['id']]),
+            {
+                'arrendatario': nuevo_arrendatario.id,
+                'codigo_contrato': 'CTR-TEN-DATE-F',
+                'fecha_inicio': '2026-07-01',
+                'fecha_fin_vigente': '2027-06-30',
+                'causal_aviso': 'Cambio con fecha incompatible',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('fecha_inicio', response.data)
 
     def test_contract_update_emits_update_and_state_change_audit_events(self):
         mandato = self._create_active_mandato(codigo='MAND-108', owner_rut='18181818-6')

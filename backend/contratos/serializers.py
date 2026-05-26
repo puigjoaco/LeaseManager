@@ -9,6 +9,7 @@ from rest_framework import serializers
 
 from core.reference_validation import is_non_sensitive_reference, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
+from documentos.models import PoliticaFirmaYNotaria
 from operacion.models import IdentidadDeEnvio, MandatoOperacion
 from patrimonio.models import Propiedad
 from patrimonio.validators import validate_rut
@@ -367,6 +368,78 @@ class ContratoAutomaticRenewalSerializer(serializers.Serializer):
                         'La politica de base de renovacion debe usar una referencia no sensible.'
                     )
                 }
+            )
+        monto_base = attrs.get('monto_base')
+        moneda_base = attrs.get('moneda_base')
+        if monto_base is not None and moneda_base == MonedaBaseContrato.CLP and monto_base < Decimal('1000.00'):
+            raise serializers.ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
+        if monto_base is not None and moneda_base == MonedaBaseContrato.UF and monto_base <= Decimal('0.00'):
+            raise serializers.ValidationError({'monto_base': 'Un periodo UF debe tener monto positivo.'})
+        return attrs
+
+
+class ContratoTenantReplacementSerializer(serializers.Serializer):
+    arrendatario = serializers.PrimaryKeyRelatedField(queryset=Arrendatario.objects.all())
+    codigo_contrato = serializers.CharField(max_length=64, trim_whitespace=True)
+    fecha_inicio = serializers.DateField()
+    fecha_fin_vigente = serializers.DateField()
+    causal_aviso = serializers.CharField(max_length=255, trim_whitespace=True)
+    monto_base = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
+    moneda_base = serializers.ChoiceField(
+        choices=PeriodoContractual._meta.get_field('moneda_base').choices,
+        required=False,
+    )
+    dia_pago_mensual = serializers.IntegerField(min_value=1, max_value=5, required=False)
+    plazo_notificacion_termino_dias = serializers.IntegerField(min_value=1, required=False)
+    dias_prealerta_admin = serializers.IntegerField(min_value=1, required=False)
+    politica_documental = serializers.PrimaryKeyRelatedField(
+        queryset=PoliticaFirmaYNotaria.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    identidad_envio_override = serializers.PrimaryKeyRelatedField(
+        queryset=IdentidadDeEnvio.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    tiene_gastos_comunes = serializers.BooleanField(required=False)
+    snapshot_representante_legal = serializers.JSONField(required=False)
+    resolucion_conflicto_renovacion_ref = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    resolucion_conflicto_renovacion_motivo = serializers.CharField(required=False, allow_blank=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['arrendatario'].queryset = _scoped_arrendatario_queryset(user)
+        self.fields['identidad_envio_override'].queryset = _scoped_identidad_queryset(user)
+
+    def validate_codigo_contrato(self, value):
+        if Contrato.objects.filter(codigo_contrato=value).exists():
+            raise serializers.ValidationError('Ya existe un contrato con ese codigo.')
+        return value
+
+    def validate(self, attrs):
+        if attrs['fecha_fin_vigente'] < attrs['fecha_inicio']:
+            raise serializers.ValidationError(
+                {'fecha_fin_vigente': 'La fecha fin del contrato nuevo no puede ser anterior al inicio.'}
+            )
+        conflict_ref = str(attrs.get('resolucion_conflicto_renovacion_ref') or '').strip()
+        conflict_reason = str(attrs.get('resolucion_conflicto_renovacion_motivo') or '').strip()
+        attrs['resolucion_conflicto_renovacion_ref'] = conflict_ref
+        attrs['resolucion_conflicto_renovacion_motivo'] = conflict_reason
+        if bool(conflict_ref) != bool(conflict_reason):
+            raise serializers.ValidationError(
+                {
+                    'resolucion_conflicto_renovacion_ref': (
+                        'La resolucion guiada requiere referencia y motivo trazable.'
+                    )
+                }
+            )
+        if conflict_ref and not is_non_sensitive_reference(conflict_ref):
+            raise serializers.ValidationError(
+                {'resolucion_conflicto_renovacion_ref': 'La resolucion guiada debe usar referencia no sensible.'}
             )
         monto_base = attrs.get('monto_base')
         moneda_base = attrs.get('moneda_base')
