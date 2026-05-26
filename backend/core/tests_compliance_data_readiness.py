@@ -338,6 +338,25 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertIn('compliance.audit_sensitive_metadata', {issue['code'] for issue in result['issues']})
         self.assertNotIn('audit.example.test', json.dumps(result))
 
+    def test_export_audit_event_without_actor_is_blocking(self):
+        self._create_policies()
+        export = self._create_raw_export()
+        AuditEvent.objects.create(
+            event_type='compliance.exportacion_sensible.prepared',
+            entity_type='exportacion_sensible',
+            entity_id=str(export.pk),
+            summary='Exportacion sensible preparada y cifrada',
+            actor_user=None,
+            metadata={'export_kind': export.export_kind},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.audit_actor_missing', issue_codes)
+        self.assertEqual(result['sections']['audit']['actor_missing_events'], 1)
+
     def test_deadline_requires_suspension_if_not_ready(self):
         result = collect_compliance_data_readiness(as_of_date=date(2026, 12, 1))
 
