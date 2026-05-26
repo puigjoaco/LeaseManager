@@ -74,6 +74,13 @@ anterior, aviso y contrato nuevo; el servicio guiado conserva la excepcion
 interna necesaria para crear el contrato y su auditoria en la misma
 transaccion, y el auditor Etapa 1 mantiene la deteccion de snapshots heredados.
 
+Nota 2026-05-26: Contratos mueve la entrega de llaves a guard de dominio.
+`Contrato.full_clean()` y API rechazan crear o actualizar contratos con
+`fecha_entrega` operativa si no existe garantia cubierta o autorizacion
+auditada con referencia no sensible y motivo trazable; el auditor Etapa 1
+mantiene la deteccion de snapshots heredados sin garantia suficiente ni
+autorizacion.
+
 Nota 2026-05-26: CobranzaActiva y Canales endurecen los gates externos sin
 abrir integraciones. `restricciones_operativas` de Email/WhatsApp/WebPay
 rechaza valores sensibles y tambien nombres de claves sensibles como

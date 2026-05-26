@@ -156,8 +156,9 @@ contra datos reales o snapshot controlado.
   defectuosos.
 - Entrega de llaves: un contrato con `fecha_entrega` operativa debe tener
   garantia cubierta o autorizacion auditada con referencia no sensible y motivo
-  trazable. La API protege actualizaciones de entrega y el auditor Etapa 1
-  bloquea snapshots heredados sin garantia suficiente ni autorizacion.
+  trazable. `Contrato.full_clean()` y la API bloquean nuevas escrituras y
+  actualizaciones de entrega sin garantia suficiente ni autorizacion; el
+  auditor Etapa 1 mantiene deteccion de snapshots heredados.
 - Validacion de ajustes contractuales existentes: contrato, moneda, rango de
   meses normalizado al primer dia del mes dentro de la vigencia contractual y
   justificacion deben ser coherentes antes de usarlos en cobranza.
