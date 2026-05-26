@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 3 - cobertura de cuadratura bancaria por cuenta y periodo. |
+| Frente activo | Etapa 6 - referencias finales sensibles en readiness anual. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete integrado hizo que `audit_stage3_conciliacion_readiness` exija `CuadraturaBancaria` para cada cuenta recaudadora y periodo economico con movimientos bancarios. |
-| Motivo de prioridad | Mantiene la cobertura banco/sistema por cuenta y mes antes de cualquier cierre de Conciliacion. |
-| Worktree | Ninguno pendiente despues de merge/limpieza. |
-| Rama | `main` despues de merge/limpieza. |
-| Estado | Paquete validado localmente e integrado despues de PR/CI/merge. |
-| Gate esperado | Si `main` queda limpio, elegir el siguiente frente seguro por trazabilidad. Si existe worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
-| Estado al cerrar paquete | PR #343 mergeado en main como `e7d71e2`; no cierra Etapa 3 sin fuente autorizada, evidencia Etapa 2, prueba bancaria, cuadratura y responsables. |
-| Bloqueos relacionados | Bloqueos externos de Etapa 3 siguen como condicion de cierre, no bloquean preparacion local segura. |
-| Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si solo existe `main` limpio, seleccionar el siguiente frente trazable. |
-| Siguiente accion | Si `main` queda limpio, seleccionar el siguiente frente seguro por trazabilidad. |
+| Brecha activa | `audit_stage6_renta_anual_readiness` detecta refs finales sensibles de ProcesoRentaAnual, DDJJ y F22 solo como validacion de modelo, sin issue explicito de referencia final sensible. |
+| Motivo de prioridad | La stage card exige referencias finales no sensibles; clasificarlas explicitamente evita diagnosticos opacos antes de cierre tributario. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-final-ref-readiness`. |
+| Rama | `codex/stage6-final-ref-readiness`. |
+| Estado | En implementacion local segura. |
+| Gate esperado | Readiness Etapa 6 local queda `classification=parcial`, `ready_for_stage6_renta_anual=false`; no cierra etapa sin fuente autorizada, cierres, SII, regla fiscal, certificados y responsables. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Bloqueos externos de Etapa 6 siguen como condicion de cierre, no bloquean hardening local. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza o pausar explicitamente aqui. |
+| Siguiente accion | Implementar issues especificos, tests, docs, validaciones y empaquetado. |
 
 ## Actualizacion
 
