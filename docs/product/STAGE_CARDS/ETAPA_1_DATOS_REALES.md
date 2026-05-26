@@ -59,8 +59,10 @@ contra datos reales o snapshot controlado.
   representaciones o participaciones activas vigentes.
 - La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
   historicos no constituyen evidencia operativa de Etapa 1.
-- Validacion de no duplicar propiedades por rol de avaluo ni identidad
-  operativa fuerte; sin hardcodear montos.
+- Validacion de no duplicar propiedades activas por rol de avaluo normalizado
+  ni identidad operativa fuerte; `Propiedad.full_clean()` y la API bloquean
+  nuevas escrituras duplicadas, y el auditor Etapa 1 conserva la deteccion de
+  snapshots heredados.
 - Validacion de que cada contrato vigente o futuro tenga al menos un canal
   operativo activo asignado por su mandato.
 - Validacion de que las identidades de envio activas usen `credencial_ref`

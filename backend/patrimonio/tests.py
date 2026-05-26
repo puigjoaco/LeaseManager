@@ -59,6 +59,64 @@ class PropiedadModelConstraintTests(TestCase):
         with self.assertRaises(ValidationError):
             propiedad.full_clean()
 
+    def test_active_property_rejects_duplicate_normalized_rol_avaluo(self):
+        socio = Socio.objects.create(nombre='Socio Rol Uno', rut='11111111-1')
+        other_socio = Socio.objects.create(nombre='Socio Rol Dos', rut='22222222-2')
+        Propiedad.objects.create(
+            rol_avaluo='123-45',
+            direccion='Av Rol 100',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.APARTMENT,
+            codigo_propiedad='ROL-001',
+            estado=EstadoPatrimonial.ACTIVE,
+            socio_owner=socio,
+        )
+        duplicate = Propiedad(
+            rol_avaluo='123 45',
+            direccion='Av Rol 200',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.APARTMENT,
+            codigo_propiedad='ROL-002',
+            estado=EstadoPatrimonial.ACTIVE,
+            socio_owner=other_socio,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            duplicate.full_clean()
+
+        self.assertIn('rol_avaluo', error.exception.message_dict)
+
+    def test_active_property_rejects_duplicate_operational_identity(self):
+        socio = Socio.objects.create(nombre='Socio Identidad Uno', rut='11111111-1')
+        other_socio = Socio.objects.create(nombre='Socio Identidad Dos', rut='22222222-2')
+        Propiedad.objects.create(
+            rol_avaluo='ROL-ID-1',
+            direccion='Av Identidad 100',
+            comuna='Las Condes',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='ID-001',
+            estado=EstadoPatrimonial.ACTIVE,
+            socio_owner=socio,
+        )
+        duplicate = Propiedad(
+            rol_avaluo='ROL-ID-2',
+            direccion=' av identidad  100 ',
+            comuna='LAS CONDES',
+            region='rm',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='ID-001',
+            estado=EstadoPatrimonial.ACTIVE,
+            socio_owner=other_socio,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            duplicate.full_clean()
+
+        self.assertIn('codigo_propiedad', error.exception.message_dict)
+
     def test_common_expense_service_requires_structured_administration_data(self):
         socio = Socio.objects.create(nombre='Socio Servicio', rut='11111111-1')
         propiedad = Propiedad.objects.create(
@@ -739,12 +797,12 @@ class PatrimonioAPITests(APITestCase):
             {'owner_tipo': 'socio', 'owner_id': socio_directo.id, 'codigo_propiedad': 'SOC-001'},
         ]
 
-        for payload in payloads:
+        for index, payload in enumerate(payloads, start=1):
             response = self.client.post(
                 reverse('patrimonio-propiedad-list'),
                 {
-                    'rol_avaluo': 'ROL-1',
-                    'direccion': 'Apoquindo 100',
+                    'rol_avaluo': f'ROL-OWNER-{index}',
+                    'direccion': f'Apoquindo {100 + index}',
                     'comuna': 'Las Condes',
                     'region': 'RM',
                     'tipo_inmueble': TipoInmueble.LOCAL,
@@ -849,10 +907,88 @@ class PatrimonioAPITests(APITestCase):
 
         second_owner_response = self.client.post(
             reverse('patrimonio-propiedad-list'),
-            {**base_payload, 'owner_id': socio_2.id, 'direccion': 'Otra 2'},
+            {**base_payload, 'owner_id': socio_2.id, 'rol_avaluo': 'ROL-5', 'direccion': 'Otra 2'},
             format='json',
         )
         self.assertEqual(second_owner_response.status_code, status.HTTP_201_CREATED)
+
+    def test_propiedad_api_rejects_duplicate_normalized_rol_avaluo(self):
+        socio_1 = self._create_socio('Socio Rol API Uno', '12121212-4')
+        socio_2 = self._create_socio('Socio Rol API Dos', '13131313-1')
+        first_response = self.client.post(
+            reverse('patrimonio-propiedad-list'),
+            {
+                'rol_avaluo': '123-45',
+                'direccion': 'Av Rol API 100',
+                'comuna': 'Santiago',
+                'region': 'RM',
+                'tipo_inmueble': TipoInmueble.LOCAL,
+                'estado': EstadoPatrimonial.ACTIVE,
+                'codigo_propiedad': 'ROL-API-1',
+                'owner_tipo': 'socio',
+                'owner_id': socio_1.id,
+            },
+            format='json',
+        )
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+
+        duplicate_response = self.client.post(
+            reverse('patrimonio-propiedad-list'),
+            {
+                'rol_avaluo': '123 45',
+                'direccion': 'Av Rol API 200',
+                'comuna': 'Santiago',
+                'region': 'RM',
+                'tipo_inmueble': TipoInmueble.LOCAL,
+                'estado': EstadoPatrimonial.ACTIVE,
+                'codigo_propiedad': 'ROL-API-2',
+                'owner_tipo': 'socio',
+                'owner_id': socio_2.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(duplicate_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('rol_avaluo', duplicate_response.data)
+
+    def test_propiedad_api_rejects_duplicate_operational_identity(self):
+        socio_1 = self._create_socio('Socio Identidad API Uno', '14141414-9')
+        socio_2 = self._create_socio('Socio Identidad API Dos', '15151515-5')
+        first_response = self.client.post(
+            reverse('patrimonio-propiedad-list'),
+            {
+                'rol_avaluo': 'ROL-ID-API-1',
+                'direccion': 'Av Identidad API 100',
+                'comuna': 'Las Condes',
+                'region': 'RM',
+                'tipo_inmueble': TipoInmueble.LOCAL,
+                'estado': EstadoPatrimonial.ACTIVE,
+                'codigo_propiedad': 'ID-API-1',
+                'owner_tipo': 'socio',
+                'owner_id': socio_1.id,
+            },
+            format='json',
+        )
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+
+        duplicate_response = self.client.post(
+            reverse('patrimonio-propiedad-list'),
+            {
+                'rol_avaluo': 'ROL-ID-API-2',
+                'direccion': ' av identidad api  100 ',
+                'comuna': 'LAS CONDES',
+                'region': 'rm',
+                'tipo_inmueble': TipoInmueble.LOCAL,
+                'estado': EstadoPatrimonial.ACTIVE,
+                'codigo_propiedad': 'ID-API-1',
+                'owner_tipo': 'socio',
+                'owner_id': socio_2.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(duplicate_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('codigo_propiedad', duplicate_response.data)
 
     def test_empresa_update_emits_update_and_state_change_audit_events(self):
         create_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')

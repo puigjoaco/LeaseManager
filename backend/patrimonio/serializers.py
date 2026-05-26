@@ -651,7 +651,35 @@ class PropiedadSerializer(serializers.ModelSerializer):
 
         codigo_propiedad = attrs.get('codigo_propiedad', getattr(self.instance, 'codigo_propiedad', None))
         self._validate_codigo_unique(owner_tipo, owner.id, codigo_propiedad)
+        self._validate_model_rules(attrs)
         return attrs
+
+    def _validate_model_rules(self, attrs):
+        values = {}
+        for field in (
+            'rol_avaluo',
+            'direccion',
+            'comuna',
+            'region',
+            'tipo_inmueble',
+            'codigo_propiedad',
+            'estado',
+            'empresa_owner',
+            'comunidad_owner',
+            'socio_owner',
+        ):
+            if field in attrs:
+                values[field] = attrs[field]
+            elif self.instance:
+                values[field] = getattr(self.instance, field)
+
+        candidate = Propiedad(**values)
+        if self.instance:
+            candidate.pk = self.instance.pk
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(error.message_dict if hasattr(error, 'message_dict') else error.messages) from error
 
     def _current_owner(self):
         if self.instance.empresa_owner_id:
