@@ -22,6 +22,7 @@ PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE = 'cobranza.repactacion_deuda.partial_exc
 MANUAL_UF_LOAD_EVENT_TYPE = 'cobranza.valor_uf.manual_loaded'
 EFFECTIVE_CODE_APPLIED_EVENT_TYPE = 'cobranza.pago_mensual.effective_code_applied'
 EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE = 'cobranza.pago_mensual.exceptional_state_resolved'
+WEBPAY_MANUAL_CONFIRM_EVENT_TYPE = 'cobranza.webpay_intento.confirmed_manually'
 
 
 class TimestampedModel(models.Model):

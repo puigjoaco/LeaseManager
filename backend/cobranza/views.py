@@ -737,23 +737,11 @@ class WebPayIntentManualConfirmView(APIView):
                 external_ref=serializer.validated_data['external_ref'],
                 fecha_pago_webpay=serializer.validated_data['fecha_pago_webpay'],
                 actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
             )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
-        create_audit_event(
-            event_type='cobranza.webpay_intento.confirmed_manually',
-            entity_type='webpay_intento',
-            entity_id=str(intent.pk),
-            summary='Confirmacion WebPay manual controlada registrada',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            metadata={
-                'external_ref': redact_sensitive_reference(intent.external_ref),
-                'pago_mensual_id': payment.pk,
-                'fecha_pago_webpay': str(intent.fecha_pago_webpay),
-            },
-        )
         return Response(IntentoPagoWebPaySerializer(intent).data, status=status.HTTP_200_OK)
 
 
