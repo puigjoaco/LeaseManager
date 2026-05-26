@@ -31,6 +31,7 @@ from cobranza.models import (
     EstadoIntentoPagoWebPay,
     EstadoPago,
     EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+    EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
     GateCobroExterno,
     IntentoPagoWebPay,
     MANUAL_UF_LOAD_EVENT_TYPE,
@@ -487,6 +488,50 @@ def _collect_payment_effective_code_issues(payments) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _exceptional_payment_event_is_complete(payment: PagoMensual) -> bool:
+    events = AuditEvent.objects.filter(
+        event_type=EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
+        entity_type='pago_mensual',
+        entity_id=str(payment.pk),
+    )
+    expected_ref = str(payment.resolucion_pago_excepcional_ref or '').strip()
+    expected_reason = str(payment.resolucion_pago_excepcional_motivo or '').strip()
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        actor_identifier = (event.actor_identifier or '').strip()
+        if not event.actor_user_id and not actor_identifier:
+            continue
+        if str(metadata.get('estado_pago') or '').strip() != payment.estado_pago:
+            continue
+        if str(metadata.get('resolucion_pago_excepcional_ref') or '').strip() != expected_ref:
+            continue
+        if str(metadata.get('resolucion_pago_excepcional_motivo') or '').strip() != expected_reason:
+            continue
+        return True
+    return False
+
+
+def _collect_payment_exceptional_resolution_issues(payments) -> dict[str, int]:
+    counts = Counter()
+    exceptional_states = {EstadoPago.PAID_BY_TERMINATION, EstadoPago.FORGIVEN}
+    for payment in payments:
+        if payment.estado_pago not in exceptional_states:
+            continue
+        resolution_ref = str(payment.resolucion_pago_excepcional_ref or '').strip()
+        resolution_reason = str(payment.resolucion_pago_excepcional_motivo or '').strip()
+        if (
+            not resolution_ref
+            or not resolution_reason
+            or not _non_sensitive_reference(resolution_ref)
+            or contains_sensitive_reference(resolution_reason)
+        ):
+            counts['exceptional_resolution_missing'] += 1
+            continue
+        if not _exceptional_payment_event_is_complete(payment):
+            counts['exceptional_resolution_event_missing'] += 1
+    return dict(sorted(counts.items()))
+
+
 def _collect_payment_repayment_trace_issues(payments) -> dict[str, int]:
     counts = Counter()
     repayment_states = {EstadoPago.IN_REPAYMENT, EstadoPago.PAID_VIA_REPAYMENT}
@@ -681,6 +726,7 @@ def collect_stage2_cobranza_readiness(
     )
     payment_overdue_issues = _collect_payment_overdue_issues(payments, reference_date)
     payment_effective_code_issues = _collect_payment_effective_code_issues(payments)
+    payment_exceptional_resolution_issues = _collect_payment_exceptional_resolution_issues(payments)
     payment_repayment_issues = _collect_payment_repayment_trace_issues(payments)
     payments_total = payments.count()
     uf_values = ValorUFDiario.objects.all()
@@ -773,6 +819,22 @@ def collect_stage2_cobranza_readiness(
                 'stage2.payment.effective_code_event_missing',
                 'Existen pagos con efecto de codigo efectivo sin evento auditable con actor y montos alineados.',
                 count=payment_effective_code_issues['effective_code_event_missing'],
+            )
+        )
+    if payment_exceptional_resolution_issues.get('exceptional_resolution_missing'):
+        issues.append(
+            _issue(
+                'stage2.payment.exceptional_resolution_missing',
+                'Existen pagos por acuerdo de termino o condonados sin referencia/motivo trazable no sensible.',
+                count=payment_exceptional_resolution_issues['exceptional_resolution_missing'],
+            )
+        )
+    if payment_exceptional_resolution_issues.get('exceptional_resolution_event_missing'):
+        issues.append(
+            _issue(
+                'stage2.payment.exceptional_resolution_event_missing',
+                'Existen pagos por acuerdo de termino o condonados sin evento auditable con actor y resolucion alineada.',
+                count=payment_exceptional_resolution_issues['exceptional_resolution_event_missing'],
             )
         )
     if payment_repayment_issues.get('repayment_state_without_plan'):
@@ -1319,6 +1381,7 @@ def collect_stage2_cobranza_readiness(
                 'reference_date': reference_date.isoformat(),
                 **payment_overdue_issues,
                 **payment_effective_code_issues,
+                **payment_exceptional_resolution_issues,
                 **payment_repayment_issues,
             },
             'uf_values': {

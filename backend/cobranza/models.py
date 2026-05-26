@@ -22,6 +22,7 @@ PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE = 'cobranza.repactacion_deuda.partial_exc
 MANUAL_UF_LOAD_EVENT_TYPE = 'cobranza.valor_uf.manual_loaded'
 MANUAL_UF_SOURCE_KEYS = {'manual', 'UF.CargaManualExtraordinaria', 'carga_manual_extraordinaria'}
 EFFECTIVE_CODE_APPLIED_EVENT_TYPE = 'cobranza.pago_mensual.effective_code_applied'
+EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE = 'cobranza.pago_mensual.exceptional_state_resolved'
 
 
 class TimestampedModel(models.Model):
@@ -236,6 +237,8 @@ class PagoMensual(TimestampedModel):
     estado_pago = models.CharField(max_length=32, choices=EstadoPago.choices, default=EstadoPago.PENDING)
     dias_mora = models.PositiveIntegerField(default=0)
     codigo_conciliacion_efectivo = models.CharField(max_length=3, validators=[codigo_efectivo_validator])
+    resolucion_pago_excepcional_ref = models.CharField(max_length=255, blank=True)
+    resolucion_pago_excepcional_motivo = models.TextField(blank=True)
 
     class Meta:
         ordering = ['-anio', '-mes', 'contrato_id']
@@ -256,6 +259,50 @@ class PagoMensual(TimestampedModel):
                 {
                     'codigo_conciliacion_efectivo': (
                         'El codigo efectivo debe estar en el rango 001-999.'
+                    )
+                }
+            )
+        self.resolucion_pago_excepcional_ref = (self.resolucion_pago_excepcional_ref or '').strip()
+        self.resolucion_pago_excepcional_motivo = (self.resolucion_pago_excepcional_motivo or '').strip()
+        has_exceptional_ref = bool(self.resolucion_pago_excepcional_ref)
+        has_exceptional_reason = bool(self.resolucion_pago_excepcional_motivo)
+        exceptional_states = {EstadoPago.PAID_BY_TERMINATION, EstadoPago.FORGIVEN}
+        if self.resolucion_pago_excepcional_ref and not is_non_sensitive_reference(
+            self.resolucion_pago_excepcional_ref
+        ):
+            raise ValidationError(
+                {
+                    'resolucion_pago_excepcional_ref': (
+                        'La resolucion de pago excepcional debe usar una referencia no sensible.'
+                    )
+                }
+            )
+        if self.resolucion_pago_excepcional_motivo and contains_sensitive_reference(
+            self.resolucion_pago_excepcional_motivo
+        ):
+            raise ValidationError(
+                {
+                    'resolucion_pago_excepcional_motivo': (
+                        'El motivo de pago excepcional no debe contener referencias sensibles.'
+                    )
+                }
+            )
+        if self.estado_pago in exceptional_states and not (has_exceptional_ref and has_exceptional_reason):
+            raise ValidationError(
+                {
+                    'resolucion_pago_excepcional_ref': (
+                        'El pago por acuerdo de termino o condonacion requiere referencia trazable.'
+                    ),
+                    'resolucion_pago_excepcional_motivo': (
+                        'El pago por acuerdo de termino o condonacion requiere motivo auditable.'
+                    ),
+                }
+            )
+        if self.estado_pago not in exceptional_states and (has_exceptional_ref or has_exceptional_reason):
+            raise ValidationError(
+                {
+                    'estado_pago': (
+                        'La resolucion de pago excepcional solo aplica a pagos por acuerdo de termino o condonados.'
                     )
                 }
             )

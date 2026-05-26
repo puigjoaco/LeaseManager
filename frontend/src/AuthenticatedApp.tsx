@@ -714,6 +714,8 @@ type PagoMensual = {
   estado_pago: string
   dias_mora: number
   codigo_conciliacion_efectivo: string
+  resolucion_pago_excepcional_ref: string
+  resolucion_pago_excepcional_motivo: string
   distribuciones_detail: Array<{
     id: number
     beneficiario_tipo: string
