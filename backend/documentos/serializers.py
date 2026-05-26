@@ -3,12 +3,20 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from contratos.models import Contrato
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from operacion.models import MandatoOperacion
 
 from .scope import scope_documento_queryset, scope_expediente_queryset
-from .models import DocumentoEmitido, ExpedienteDocumental, EstadoDocumento, PoliticaFirmaYNotaria
+from .models import (
+    DocumentoEmitido,
+    EstadoDocumento,
+    EstadoPoliticaFirma,
+    ExpedienteDocumental,
+    OrigenDocumento,
+    PoliticaFirmaYNotaria,
+    TipoDocumental,
+)
 
 
 FORMALIZED_IMMUTABLE_FIELDS = {
@@ -214,6 +222,11 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
         if not self.instance and 'fecha_carga' not in attrs:
             attrs['fecha_carga'] = timezone.now()
 
+        if not self.instance and attrs.get('origen') == OrigenDocumento.GENERATED:
+            raise serializers.ValidationError(
+                {'origen': 'Los documentos generados por sistema deben emitirse desde generar-pdf/.'}
+            )
+
         requested_state = attrs.get('estado')
         current_state = getattr(self.instance, 'estado', None)
         if requested_state == EstadoDocumento.FORMALIZED and current_state != EstadoDocumento.FORMALIZED:
@@ -252,6 +265,47 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['usuario'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class DocumentoGenerarPDFSerializer(serializers.Serializer):
+    expediente = serializers.PrimaryKeyRelatedField(queryset=ExpedienteDocumental.objects.all())
+    tipo_documental = serializers.ChoiceField(choices=TipoDocumental.choices)
+    version_plantilla = serializers.CharField(max_length=64)
+    titulo = serializers.CharField(max_length=120)
+    lineas = serializers.ListField(
+        child=serializers.CharField(max_length=160),
+        min_length=1,
+        max_length=36,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['expediente'].queryset = scope_expediente_queryset(ExpedienteDocumental.objects.all(), user)
+
+    def validate(self, attrs):
+        lineas = [str(item or '').strip() for item in attrs.get('lineas', []) if str(item or '').strip()]
+        if not lineas:
+            raise serializers.ValidationError({'lineas': 'El PDF generado requiere al menos una linea de contenido.'})
+        attrs['lineas'] = lineas
+        payload_for_sensitivity = {
+            'version_plantilla': attrs.get('version_plantilla', ''),
+            'titulo': attrs.get('titulo', ''),
+            'lineas': lineas,
+        }
+        if contains_sensitive_reference(payload_for_sensitivity, include_sensitive_keys=True):
+            raise serializers.ValidationError(
+                {'lineas': 'El PDF generado solo acepta contenido operativo no sensible; use referencias controladas.'}
+            )
+        if not PoliticaFirmaYNotaria.objects.filter(
+            tipo_documental=attrs['tipo_documental'],
+            estado=EstadoPoliticaFirma.ACTIVE,
+        ).exists():
+            raise serializers.ValidationError(
+                {'tipo_documental': 'La emision PDF generada requiere politica activa para el tipo documental.'}
+            )
+        return attrs
 
 
 class DocumentoFormalizarSerializer(serializers.Serializer):

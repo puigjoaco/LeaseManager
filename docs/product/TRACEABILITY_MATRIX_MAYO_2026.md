@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-25: Documentos incorpora emision local de PDF generado por sistema
+mediante endpoint dedicado. El PDF canonico se renderiza sin dependencia
+externa, el checksum SHA-256 y `storage_ref` derivan del contenido, se rechaza
+contenido sensible, el endpoint generico rechaza `origen=generado_sistema` y
+readiness bloquea documentos `generado_sistema` sin auditoria
+`documentos.documento_emitido.generated_pdf`.
+
 Nota 2026-05-25: Conciliacion bloquea snapshots heredados donde un abono
 parcial o complementario queda `conciliado_exacto` contra un `PagoMensual` sin
 resolucion manual auditada. Los pagos parciales o en varios abonos siguen

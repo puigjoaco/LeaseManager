@@ -10,9 +10,11 @@ from core.reference_validation import redact_sensitive_reference
 
 from .scope import scope_documento_queryset, scope_expediente_queryset
 from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria
+from .pdf_generation import emit_generated_pdf_document
 from .serializers import (
     DocumentoEmitidoSerializer,
     DocumentoFormalizarSerializer,
+    DocumentoGenerarPDFSerializer,
     ExpedienteDocumentalSerializer,
     PoliticaFirmaYNotariaSerializer,
 )
@@ -191,6 +193,34 @@ class DocumentoEmitidoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdate
 
     def get_queryset(self):
         return scope_documento_queryset(super().get_queryset(), self.request.user)
+
+
+class DocumentoGenerarPDFView(APIView):
+    permission_classes = [OperationalModulePermission]
+
+    def post(self, request):
+        serializer = DocumentoGenerarPDFSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        try:
+            document, pdf_bytes = emit_generated_pdf_document(
+                expediente=serializer.validated_data['expediente'],
+                tipo_documental=serializer.validated_data['tipo_documental'],
+                version_plantilla=serializer.validated_data['version_plantilla'],
+                titulo=serializer.validated_data['titulo'],
+                lineas=serializer.validated_data['lineas'],
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+        except DjangoValidationError as error:
+            return Response(serialize_validation_error(error), status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                'documento': DocumentoEmitidoSerializer(document, context={'request': request}).data,
+                'pdf_sha256': document.checksum,
+                'pdf_size_bytes': len(pdf_bytes),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class DocumentoFormalizarView(APIView):
