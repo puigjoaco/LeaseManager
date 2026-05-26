@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en `main`; ultimo paquete local validado: Etapa 2 / Cobranza y Canales - claves sensibles en restricciones operativas de gates. |
+| Frente activo | Ninguno abierto en `main`; ultimo paquete integrado: PR #317 Etapa 2 / Cobranza y Canales - claves sensibles en restricciones operativas de gates. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna registrada en cursor. El paquete validado endurece `restricciones_operativas` de gates Canales/WebPay para detectar claves sensibles como `api_key`, `access_token` o `credential`, preservando claves canonicas de referencia no sensible. |
-| Motivo de prioridad | El paquete ya quedo cubierto por validacion local y documentacion; no cierra Etapa 2 sin fuente autorizada ni pruebas externas/controladas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-gate-sensitive-keys` hasta merge/limpieza del PR. |
-| Rama | `codex/stage2-gate-sensitive-keys` hasta merge/limpieza del PR. |
-| Estado | Validado localmente; pendiente PR, CI/merge y limpieza. |
-| Gate esperado | Focal, suite impactada, `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 2 parcial, frontend build, acceptance, higiene repo y `git diff --check` ya ejecutados OK localmente. |
+| Brecha activa | Ninguna registrada en cursor. El ultimo paquete integrado endurecio `restricciones_operativas` de gates Canales/WebPay para detectar claves sensibles como `api_key`, `access_token` o `credential`, preservando claves canonicas de referencia no sensible. |
+| Motivo de prioridad | PR #317 quedo mergeado; no cierra Etapa 2 sin fuente autorizada ni pruebas externas/controladas. |
+| Worktree | Ninguno tactico activo. |
+| Rama | `main`. |
+| Estado | Main sincronizado con PR #317; siguiente paquete aun no seleccionado. |
+| Gate esperado | Para el siguiente paquete, seleccionar frente seguro desde trazabilidad, abrir worktree `codex/...`, validar proporcionalmente y cerrar con PR/merge/limpieza. |
 | Estado al cerrar paquete | No cierra Etapa 2; solo endurece gates locales para bloquear claves sensibles en restricciones operativas. |
 | Bloqueos relacionados | Fuente autorizada Etapa 1, prueba Email/WebPay controlada y responsables siguen siendo condiciones de cierre, no requisitos para este paquete local. |
-| Politica de reanudacion | Si este PR no esta mergeado, terminar PR/CI/merge/limpieza. Si ya esta mergeado y `main` limpio, tomar el siguiente frente seguro por trazabilidad. |
-| Siguiente accion | Crear PR, esperar CI si GitHub Actions reporta checks, mergear y limpiar worktree/rama. |
+| Politica de reanudacion | Si `main` sigue limpio, tomar el siguiente frente seguro por trazabilidad. Si aparece un worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
+| Siguiente accion | Diagnosticar `main` real y elegir el siguiente paquete util sin depender de secretos, datos reales ni integraciones externas. |
 
 ## Actualizacion
 
