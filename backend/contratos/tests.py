@@ -157,19 +157,34 @@ class ContratosAPITests(APITestCase):
             estado=EstadoAsignacionCanal.ACTIVE,
         )
 
-    def _create_arrendatario(self, rut='12345678-5'):
-        return Arrendatario.objects.create(
-            tipo_arrendatario='persona_natural',
-            nombre_razon_social='Arrendatario Uno',
-            rut=rut,
-            email='tenant@example.com',
-            telefono='999',
-            domicilio_notificaciones='Notificaciones 123',
-            estado_contacto='activo',
+    def _create_arrendatario(self, rut='12345678-5', *, with_payment_contact=True, **overrides):
+        payload = {
+            'tipo_arrendatario': 'persona_natural',
+            'nombre_razon_social': 'Arrendatario Uno',
+            'rut': rut,
+            'email': 'tenant@example.com',
+            'telefono': '999',
+            'domicilio_notificaciones': 'Notificaciones 123',
+            'estado_contacto': 'activo',
+        }
+        payload.update(overrides)
+        arrendatario = Arrendatario.objects.create(**payload)
+        if with_payment_contact:
+            self._create_payment_contact(arrendatario)
+        return arrendatario
+
+    def _create_payment_contact(self, arrendatario, *, email='pagos-default@example.com'):
+        return ContactoPagoArrendatario.objects.create(
+            arrendatario=arrendatario,
+            nombre='Contacto Pago Operativo',
+            rol_operativo='pago_arriendo',
+            email=email,
+            es_principal=False,
+            estado='activo',
         )
 
-    def _create_document_ready_arrendatario(self, rut='12345671-8'):
-        return Arrendatario.objects.create(
+    def _create_document_ready_arrendatario(self, rut='12345671-8', *, with_payment_contact=True):
+        arrendatario = Arrendatario.objects.create(
             tipo_arrendatario='persona_natural',
             nombre_razon_social='Arrendatario Documental',
             rut=rut,
@@ -181,6 +196,9 @@ class ContratosAPITests(APITestCase):
             estado_civil='soltero',
             profesion='arquitecto',
         )
+        if with_payment_contact:
+            self._create_payment_contact(arrendatario)
+        return arrendatario
 
     def _create_active_identity(self, empresa, *, direccion='contrato-override@example.com'):
         return IdentidadDeEnvio.objects.create(
@@ -192,8 +210,8 @@ class ContratosAPITests(APITestCase):
             estado=EstadoIdentidadEnvio.ACTIVE,
         )
 
-    def _create_company_arrendatario(self, rut='22222222-2'):
-        return Arrendatario.objects.create(
+    def _create_company_arrendatario(self, rut='22222222-2', *, with_payment_contact=True):
+        arrendatario = Arrendatario.objects.create(
             tipo_arrendatario='empresa',
             nombre_razon_social='Arrendatario Empresa SpA',
             rut=rut,
@@ -202,6 +220,9 @@ class ContratosAPITests(APITestCase):
             domicilio_notificaciones='Notificaciones Empresa 123',
             estado_contacto='activo',
         )
+        if with_payment_contact:
+            self._create_payment_contact(arrendatario)
+        return arrendatario
 
     def _base_contract_payload(self, mandato, arrendatario, codigo='CTR-001'):
         return {
@@ -687,6 +708,60 @@ class ContratosAPITests(APITestCase):
             contrato.full_clean()
 
         self.assertIn('mandato_operacion', error_context.exception.message_dict)
+
+    def test_create_active_contract_requires_tenant_payment_contact(self):
+        mandato = self._create_active_mandato(codigo='MAND-TENANT-CONTACT', owner_rut='44444445-2')
+        arrendatario = self._create_arrendatario(rut='11111111-1', with_payment_contact=False)
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-TENANT-CONTACT')
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('arrendatario', response.data)
+        self.assertIn('contacto de pago activo estructurado', str(response.data['arrendatario']))
+
+    def test_create_active_contract_requires_tenant_operational_identity(self):
+        mandato = self._create_active_mandato(codigo='MAND-TENANT-DATA', owner_rut='44444446-0')
+        arrendatario = self._create_arrendatario(
+            rut='11111112-K',
+            with_payment_contact=False,
+            email='',
+            telefono='',
+            domicilio_notificaciones='',
+            estado_contacto='pendiente',
+        )
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-TENANT-DATA')
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        error_text = str(response.data['arrendatario'])
+        self.assertIn('estado de contacto activo', error_text)
+        self.assertIn('email o telefono operativo', error_text)
+        self.assertIn('domicilio de notificaciones', error_text)
+        self.assertIn('contacto de pago activo estructurado', error_text)
+
+    def test_active_contract_full_clean_requires_tenant_operational_readiness(self):
+        mandato = self._create_active_mandato(codigo='MAND-TENANT-MODEL', owner_rut='44444447-9')
+        arrendatario = self._create_arrendatario(rut='11111113-8', with_payment_contact=False)
+        contrato = Contrato(
+            codigo_contrato='CTR-TENANT-MODEL',
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            fecha_entrega=date(2026, 1, 1),
+            dia_pago_mensual=5,
+            plazo_notificacion_termino_dias=60,
+            dias_prealerta_admin=90,
+            estado=EstadoContrato.ACTIVE,
+            politica_documental=self.contract_policy,
+        )
+
+        with self.assertRaises(ValidationError) as error_context:
+            contrato.full_clean()
+
+        self.assertIn('arrendatario', error_context.exception.message_dict)
 
     def test_update_delivery_date_requires_guarantee_or_authorization(self):
         mandato = self._create_active_mandato(codigo='MAND-101-DEL-BLOCK', owner_rut='11111111-1')

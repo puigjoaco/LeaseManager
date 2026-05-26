@@ -537,6 +537,31 @@ class Contrato(TimestampedModel):
                 }
             )
 
+    def validate_tenant_operational_readiness(self):
+        if self.estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE} or not self.arrendatario_id:
+            return
+
+        tenant = self.arrendatario
+        errors = []
+        if tenant.estado_contacto != EstadoContactoArrendatario.ACTIVE:
+            errors.append('estado de contacto activo')
+        if not ((tenant.email or '').strip() or (tenant.telefono or '').strip()):
+            errors.append('email o telefono operativo')
+        if not (tenant.domicilio_notificaciones or '').strip():
+            errors.append('domicilio de notificaciones')
+        if not tenant.contactos_pago.filter(estado=EstadoContactoPago.ACTIVE).exists():
+            errors.append('contacto de pago activo estructurado')
+
+        if errors:
+            raise ValidationError(
+                {
+                    'arrendatario': (
+                        'Un contrato vigente o futuro requiere arrendatario operativo con '
+                        f'{", ".join(errors)}.'
+                    )
+                }
+            )
+
     def validate_common_expense_service(self):
         if not self.tiene_gastos_comunes or self.estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:
             return
@@ -628,6 +653,7 @@ class Contrato(TimestampedModel):
                 raise ValidationError(
                     {'politica_documental': 'La politica documental del contrato debe estar activa.'}
                 )
+            self.validate_tenant_operational_readiness()
             self.validate_natural_tenant_document_profile()
             if self.mandato_operacion.estado != 'activa':
                 raise ValidationError(
