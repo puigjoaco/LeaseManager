@@ -80,6 +80,12 @@ condicionados sin envios reales accidentales.
   se recalcula, y el estado de cuenta del arrendatario queda sincronizado. La
   readiness bloquea pagos pendientes ya vencidos o pagos atrasados con
   `dias_mora` desactualizado para la fecha de corte auditada.
+- El efecto economico de aplicar el codigo efectivo debe quedar persistido en
+  `PagoMensual.monto_efecto_codigo_efectivo_clp` como
+  `monto_calculado_clp - monto_facturable_clp`. Si el efecto es distinto de
+  cero, debe existir evento auditable `cobranza.pago_mensual.effective_code_applied`
+  con actor, codigo y montos alineados. La readiness bloquea snapshots con
+  efecto descuadrado o sin evento.
 - Mensajes salientes con `DocumentoEmitido` cuya politica documental exige
   firma o notaria solo pueden prepararse o marcarse enviados si el documento
   ya esta `formalizado`; el dominio conserva el mismo guard para escrituras
@@ -130,8 +136,9 @@ condicionados sin envios reales accidentales.
   incluyendo deteccion de
   UF manual sin evento auditable, refs sensibles en gates, `external_ref`, `return_url_ref` o
   `provider_payload` sensible, intentos WebPay confirmados desalineados con el
-  pago mensual, pagos pendientes vencidos, mora desactualizada y estados de
-  cuenta con score faltante o desalineado, sin enviar mensajes ni conectar
+  pago mensual, pagos pendientes vencidos, mora desactualizada, efecto de
+  codigo efectivo descuadrado o sin evento auditable, y estados de cuenta con
+  score faltante o desalineado, sin enviar mensajes ni conectar
   proveedores externos. Para cierre debe ejecutarse
   con `--source-kind
   snapshot_controlado` o `--source-kind real_autorizado`; la fuente local no

@@ -9,7 +9,13 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from audit.services import create_audit_event
-from cobranza.models import MANUAL_UF_LOAD_EVENT_TYPE, MANUAL_UF_SOURCE_KEYS, PagoMensual, ValorUFDiario
+from cobranza.models import (
+    EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+    MANUAL_UF_LOAD_EVENT_TYPE,
+    MANUAL_UF_SOURCE_KEYS,
+    PagoMensual,
+    ValorUFDiario,
+)
 from cobranza.services import calculate_monthly_amount, rebuild_account_state, sync_payment_distribution
 from contratos.models import Arrendatario, Contrato
 
@@ -159,10 +165,12 @@ class Command(BaseCommand):
                         anio=operational_month.year,
                         monto_facturable_clp=calculation["monto_facturable_clp"],
                         monto_calculado_clp=calculation["monto_calculado_clp"],
+                        monto_efecto_codigo_efectivo_clp=calculation["monto_efecto_codigo_efectivo_clp"],
                         fecha_vencimiento=calculation["fecha_vencimiento"],
                         codigo_conciliacion_efectivo=calculation["codigo_conciliacion_efectivo"],
                     )
                     sync_payment_distribution(payment)
+                    self._create_effective_code_audit_event(payment)
                 created_count += 1
 
         rebuilt_count = 0
@@ -245,3 +253,27 @@ class Command(BaseCommand):
                 'responsable_ref': uf_record.responsable_ref.strip(),
             },
         )
+
+    def _create_effective_code_audit_event(self, payment: PagoMensual) -> None:
+        effect = payment.monto_efecto_codigo_efectivo_clp
+        if not effect:
+            return
+        create_audit_event(
+            event_type=EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+            entity_type='pago_mensual',
+            entity_id=str(payment.pk),
+            summary=f'Codigo efectivo aplicado a pago {payment.anio}-{payment.mes:02d}',
+            actor_identifier='bootstrap_demo_operational_data',
+            metadata={
+                'contrato_id': payment.contrato_id,
+                'anio': payment.anio,
+                'mes': payment.mes,
+                'codigo_conciliacion_efectivo': payment.codigo_conciliacion_efectivo,
+                'monto_facturable_clp': self._format_clp_amount(payment.monto_facturable_clp),
+                'monto_calculado_clp': self._format_clp_amount(payment.monto_calculado_clp),
+                'monto_efecto_codigo_efectivo_clp': self._format_clp_amount(effect),
+            },
+        )
+
+    def _format_clp_amount(self, value: Decimal) -> str:
+        return f'{Decimal(value):.2f}'

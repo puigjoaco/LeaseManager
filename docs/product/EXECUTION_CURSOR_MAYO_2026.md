@@ -24,16 +24,16 @@ nueva.
 | --- | --- |
 | Frente activo | Ninguno. |
 | Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards vigentes y estado real del repo. |
-| Brecha activa | Ninguna abierta en cursor. Ultimo paquete preparado: Etapa 2 / CobranzaActiva - trazabilidad de UF manual. |
-| Motivo de prioridad | Mantener el siguiente frente gobernado por trazabilidad y worktree limpio, no por memoria de conversacion. |
+| Brecha activa | Ninguna abierta en cursor. Ultimo paquete preparado: Etapa 2 / CobranzaActiva - efecto operativo de codigo efectivo. |
+| Motivo de prioridad | Mantener el siguiente frente gobernado por trazabilidad y worktree limpio. |
 | Worktree | Root principal `D:/Proyectos/LeaseManager` cuando main quede sincronizado. |
 | Rama | `main`. |
-| Estado | Esperando siguiente paquete seguro despues de integracion/limpieza. |
+| Estado | Paquete listo para PR/CI/merge y limpieza. |
 | Gate esperado | Definirlo al abrir el siguiente frente, segun modulo afectado. |
-| Estado al cerrar paquete | UF manual validada localmente: focales, suite impactada, readiness Etapa 1/2, build frontend, acceptance local, higiene y whitespace OK. |
-| Bloqueos relacionados | Integraciones UF reales siguen bajo `BLK-003`; no bloquean preparacion local y solo condicionan cierre evidencial. |
-| Politica de reanudacion | Si existe un worktree `codex/...` sucio, terminarlo o pausarlo aqui antes de abrir otro frente. Si main esta limpio, tomar el siguiente frente desde trazabilidad. |
-| Siguiente accion | Tras merge y limpieza, seleccionar el siguiente paquete seguro por matriz trazable. |
+| Estado al cerrar paquete | Efecto de codigo efectivo validado localmente: focales, suite impactada, readiness Etapa 1/2, build frontend, acceptance local, higiene y whitespace OK. |
+| Bloqueos relacionados | Integraciones externas y fuentes evidenciales siguen condicionando cierres reales; no bloquearon este paquete local. |
+| Politica de reanudacion | Si existe un worktree `codex/...` sucio, terminarlo o pausarlo aqui antes de abrir otro frente. Si main esta limpio, tomar el siguiente paquete seguro por matriz trazable. |
+| Siguiente accion | Empaquetar PR, esperar CI, mergear y limpiar worktree. |
 
 ## Actualizacion
 

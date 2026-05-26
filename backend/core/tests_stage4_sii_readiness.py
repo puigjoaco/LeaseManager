@@ -179,6 +179,7 @@ class Stage4SiiReadinessTests(TestCase):
             anio=2026,
             monto_facturable_clp=Decimal('100000.00'),
             monto_calculado_clp=Decimal('100111.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('111.00'),
             monto_pagado_clp=Decimal('100111.00'),
             fecha_vencimiento=date(2026, 1, 5),
             fecha_deposito_banco=date(2026, 1, 8),

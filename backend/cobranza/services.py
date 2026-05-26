@@ -62,6 +62,10 @@ def apply_effective_code(amount_clp, code):
     return Decimal((int(amount_clp) // 1000) * 1000 + int(code))
 
 
+def calculate_effective_code_effect(amount_before_code, amount_after_code):
+    return Decimal(amount_after_code) - Decimal(amount_before_code)
+
+
 def calculate_monthly_amount(contrato, anio, mes):
     if contrato.blocks_automatic_past_billing(anio, mes):
         message = contrato.retroactive_manual_notification_alert()
@@ -107,11 +111,13 @@ def calculate_monthly_amount(contrato, anio, mes):
 
     effective_code = primary_property.codigo_conciliacion_efectivo_snapshot
     final_amount = apply_effective_code(truncated, effective_code)
+    effective_code_effect = calculate_effective_code_effect(truncated, final_amount)
 
     return {
         'periodo_contractual': period,
         'monto_facturable_clp': truncated,
         'monto_calculado_clp': final_amount,
+        'monto_efecto_codigo_efectivo_clp': effective_code_effect,
         'codigo_conciliacion_efectivo': effective_code,
         'fecha_vencimiento': date(int(anio), int(mes), contrato.dia_pago_mensual),
     }

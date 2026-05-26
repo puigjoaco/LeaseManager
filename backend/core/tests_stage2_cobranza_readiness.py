@@ -27,6 +27,7 @@ from cobranza.models import (
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
     EstadoPago,
+    EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
     GateCobroExterno,
     IntentoPagoWebPay,
     MANUAL_UF_LOAD_EVENT_TYPE,
@@ -164,9 +165,26 @@ class Stage2CobranzaReadinessTests(TestCase):
             anio=2026,
             monto_facturable_clp=Decimal('250000.00'),
             monto_calculado_clp=Decimal('250001.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('1.00'),
             monto_pagado_clp=Decimal('0.00'),
             fecha_vencimiento=date(2026, 1, 5),
             codigo_conciliacion_efectivo='001',
+        )
+        AuditEvent.objects.create(
+            event_type=EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+            entity_type='pago_mensual',
+            entity_id=str(payment.pk),
+            summary='Efecto de codigo efectivo aplicado.',
+            actor_identifier='stage2-operator',
+            metadata={
+                'contrato_id': contract.pk,
+                'anio': payment.anio,
+                'mes': payment.mes,
+                'codigo_conciliacion_efectivo': payment.codigo_conciliacion_efectivo,
+                'monto_facturable_clp': str(payment.monto_facturable_clp),
+                'monto_calculado_clp': str(payment.monto_calculado_clp),
+                'monto_efecto_codigo_efectivo_clp': str(payment.monto_efecto_codigo_efectivo_clp),
+            },
         )
         account_state = rebuild_account_state(tenant, reference_date=self.READINESS_REFERENCE_DATE)
         notification_config = ConfiguracionNotificacionContrato.objects.create(
@@ -264,6 +282,38 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.uf_value.manual_audit_missing', issue_codes)
         self.assertEqual(result['sections']['uf_values']['manual_without_audit_event'], 1)
+
+    def test_effective_code_effect_mismatch_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(
+            monto_efecto_codigo_efectivo_clp=Decimal('0.00')
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.effective_code_effect_mismatch', issue_codes)
+        self.assertEqual(result['sections']['payments']['effective_code_effect_mismatch'], 1)
+
+    def test_effective_code_event_missing_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        AuditEvent.objects.filter(
+            event_type=EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+            entity_type='pago_mensual',
+            entity_id=str(fixture['payment'].pk),
+        ).delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.effective_code_event_missing', issue_codes)
+        self.assertEqual(result['sections']['payments']['effective_code_event_missing'], 1)
 
     def test_manual_uf_with_audit_event_can_pass_readiness(self):
         self._create_payment_matrix()

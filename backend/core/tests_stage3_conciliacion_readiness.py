@@ -144,6 +144,7 @@ class Stage3ConciliacionReadinessTests(TestCase):
             anio=2026,
             monto_facturable_clp=amount,
             monto_calculado_clp=amount,
+            monto_efecto_codigo_efectivo_clp=Decimal('0.00'),
             monto_pagado_clp=amount,
             fecha_vencimiento=date(2026, 1, 5),
             codigo_conciliacion_efectivo='111',

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -29,6 +30,7 @@ from cobranza.models import (
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
     EstadoPago,
+    EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
     GateCobroExterno,
     IntentoPagoWebPay,
     MANUAL_UF_LOAD_EVENT_TYPE,
@@ -433,6 +435,58 @@ def _collect_payment_overdue_issues(payments, reference_date) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _expected_effective_code_effect(payment: PagoMensual) -> Decimal:
+    return Decimal(payment.monto_calculado_clp or Decimal('0.00')) - Decimal(
+        payment.monto_facturable_clp or Decimal('0.00')
+    )
+
+
+def _safe_decimal(value) -> Decimal | None:
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _effective_code_event_is_complete(payment: PagoMensual, expected_effect: Decimal) -> bool:
+    if not expected_effect:
+        return True
+    events = AuditEvent.objects.filter(
+        event_type=EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+        entity_type='pago_mensual',
+        entity_id=str(payment.pk),
+    )
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        actor_identifier = (event.actor_identifier or '').strip()
+        if not event.actor_user_id and not actor_identifier:
+            continue
+        if str(metadata.get('codigo_conciliacion_efectivo') or '').strip() != payment.codigo_conciliacion_efectivo:
+            continue
+        metadata_effect = _safe_decimal(metadata.get('monto_efecto_codigo_efectivo_clp') or '0.00')
+        if metadata_effect != expected_effect:
+            continue
+        metadata_billable = _safe_decimal(metadata.get('monto_facturable_clp') or '0.00')
+        if metadata_billable != Decimal(payment.monto_facturable_clp or Decimal('0.00')):
+            continue
+        metadata_calculated = _safe_decimal(metadata.get('monto_calculado_clp') or '0.00')
+        if metadata_calculated != Decimal(payment.monto_calculado_clp or Decimal('0.00')):
+            continue
+        return True
+    return False
+
+
+def _collect_payment_effective_code_issues(payments) -> dict[str, int]:
+    counts = Counter()
+    for payment in payments:
+        expected_effect = _expected_effective_code_effect(payment)
+        if Decimal(payment.monto_efecto_codigo_efectivo_clp or Decimal('0.00')) != expected_effect:
+            counts['effective_code_effect_mismatch'] += 1
+        if expected_effect and not _effective_code_event_is_complete(payment, expected_effect):
+            counts['effective_code_event_missing'] += 1
+    return dict(sorted(counts.items()))
+
+
 def _collect_payment_repayment_trace_issues(payments) -> dict[str, int]:
     counts = Counter()
     repayment_states = {EstadoPago.IN_REPAYMENT, EstadoPago.PAID_VIA_REPAYMENT}
@@ -626,6 +680,7 @@ def collect_stage2_cobranza_readiness(
         notification_schedules,
     )
     payment_overdue_issues = _collect_payment_overdue_issues(payments, reference_date)
+    payment_effective_code_issues = _collect_payment_effective_code_issues(payments)
     payment_repayment_issues = _collect_payment_repayment_trace_issues(payments)
     payments_total = payments.count()
     uf_values = ValorUFDiario.objects.all()
@@ -702,6 +757,22 @@ def collect_stage2_cobranza_readiness(
                 'stage2.payment.overdue_days_stale',
                 'Existen pagos atrasados cuyo dias_mora no coincide con la fecha de corte auditada.',
                 count=payment_overdue_issues['overdue_days_stale'],
+            )
+        )
+    if payment_effective_code_issues.get('effective_code_effect_mismatch'):
+        issues.append(
+            _issue(
+                'stage2.payment.effective_code_effect_mismatch',
+                'Existen pagos cuyo efecto de codigo efectivo no cuadra con monto calculado menos monto facturable.',
+                count=payment_effective_code_issues['effective_code_effect_mismatch'],
+            )
+        )
+    if payment_effective_code_issues.get('effective_code_event_missing'):
+        issues.append(
+            _issue(
+                'stage2.payment.effective_code_event_missing',
+                'Existen pagos con efecto de codigo efectivo sin evento auditable con actor y montos alineados.',
+                count=payment_effective_code_issues['effective_code_event_missing'],
             )
         )
     if payment_repayment_issues.get('repayment_state_without_plan'):
@@ -1247,6 +1318,7 @@ def collect_stage2_cobranza_readiness(
                 'by_state': _count_by(payments, 'estado_pago'),
                 'reference_date': reference_date.isoformat(),
                 **payment_overdue_issues,
+                **payment_effective_code_issues,
                 **payment_repayment_issues,
             },
             'uf_values': {
