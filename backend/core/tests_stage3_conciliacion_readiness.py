@@ -1,4 +1,5 @@
 import json
+from calendar import monthrange
 from datetime import date
 from decimal import Decimal
 from io import StringIO
@@ -218,10 +219,11 @@ class Stage3ConciliacionReadinessTests(TestCase):
         )
 
     def _create_square_balance(self, cuenta, periodo='2026-01'):
+        year, month = (int(part) for part in periodo.split('-'))
         return CuadraturaBancaria.objects.create(
             cuenta_recaudadora=cuenta,
             periodo_economico=periodo,
-            fecha_cuadratura=date(2026, 1, 31),
+            fecha_cuadratura=date(year, month, monthrange(year, month)[1]),
             saldo_sistema_clp=Decimal('1000000.00'),
             saldo_banco_clp=Decimal('1000000.00'),
             estado=EstadoCuadraturaBancaria.SQUARED,
@@ -664,6 +666,52 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.balance_square_record_missing', issue_codes)
         self.assertEqual(result['sections']['balance_squares']['total'], 0)
+
+    def test_missing_balance_square_for_movement_account_period_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-BALANCE-COVERAGE')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        self._create_square_balance(cuenta, periodo='2026-01')
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 2, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=Decimal('150000.00'),
+            descripcion_origen='Movimiento febrero sin cuadratura',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3-feb',
+            estado_conciliacion=EstadoConciliacionMovimiento.PENDING,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.balance_square.account_period_missing', issue_codes)
+        self.assertEqual(result['sections']['balance_squares']['missing_account_period'], 1)
+
+    def test_balance_square_for_each_movement_account_period_satisfies_coverage(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-BALANCE-COVERED')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        self._create_square_balance(cuenta, periodo='2026-01')
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 2, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=Decimal('150000.00'),
+            descripcion_origen='Movimiento febrero con cuadratura',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3-feb-covered',
+            estado_conciliacion=EstadoConciliacionMovimiento.PENDING,
+        )
+        self._create_square_balance(cuenta, periodo='2026-02')
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertNotIn('stage3.balance_square.account_period_missing', issue_codes)
+        self.assertNotIn('missing_account_period', result['sections']['balance_squares'])
 
     def test_nonzero_balance_square_difference_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-BALANCE-DIFF')

@@ -454,6 +454,27 @@ def _collect_balance_square_issues(balance_squares) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _collect_balance_square_coverage_issues(movements, balance_squares) -> dict[str, int]:
+    required_pairs = set()
+    for movement in movements:
+        account_id = getattr(getattr(movement, 'conexion_bancaria', None), 'cuenta_recaudadora_id', None)
+        period = _period_from_date(movement.fecha_movimiento)
+        if account_id and period:
+            required_pairs.add((account_id, period))
+
+    if not required_pairs:
+        return {}
+
+    existing_pairs = {
+        (account_id, str(period or '').strip())
+        for account_id, period in balance_squares.values_list('cuenta_recaudadora_id', 'periodo_economico')
+    }
+    missing_pairs = required_pairs - existing_pairs
+    if not missing_pairs:
+        return {}
+    return {'missing_account_period': len(missing_pairs)}
+
+
 def _collect_manual_resolution_issues(
     resolutions,
     *,
@@ -608,6 +629,7 @@ def collect_stage3_conciliacion_readiness(
     reported_balance_issues = _collect_reported_balance_issues(movements)
     balance_squares = CuadraturaBancaria.objects.select_related('cuenta_recaudadora').all()
     balance_square_issues = _collect_balance_square_issues(balance_squares)
+    balance_square_coverage_issues = _collect_balance_square_coverage_issues(movements, balance_squares)
     unresolved_movements = movements.filter(
         estado_conciliacion__in=[
             EstadoConciliacionMovimiento.PENDING,
@@ -836,6 +858,14 @@ def collect_stage3_conciliacion_readiness(
             _issue(
                 'stage3.balance_square_record_missing',
                 'No existe registro local de cuadratura sistema/banco por cuenta y periodo.',
+            )
+        )
+    if balance_square_coverage_issues.get('missing_account_period'):
+        issues.append(
+            _issue(
+                'stage3.balance_square.account_period_missing',
+                'Faltan cuadraturas banco/sistema para cuentas y periodos con movimientos bancarios.',
+                count=balance_square_coverage_issues['missing_account_period'],
             )
         )
     if balance_square_issues.get('invalid_model'):
@@ -1083,6 +1113,7 @@ def collect_stage3_conciliacion_readiness(
             'balance_squares': {
                 'total': balance_squares.count(),
                 'by_status': _count_by(balance_squares, 'estado'),
+                **balance_square_coverage_issues,
                 **balance_square_issues,
             },
             'internal_transfers': {
