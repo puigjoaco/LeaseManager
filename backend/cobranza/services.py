@@ -19,6 +19,7 @@ from .models import (
     EstadoIntentoPagoWebPay,
     EstadoPago,
     EstadoCuentaArrendatario,
+    EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
     GateCobroExterno,
     GarantiaContractual,
     HistorialGarantia,
@@ -238,6 +239,16 @@ PAYMENT_STATE_TRANSITIONS = {
     EstadoPago.FORGIVEN: set(),
 }
 
+EXCEPTIONAL_PAYMENT_STATES = {
+    EstadoPago.PAID_BY_TERMINATION,
+    EstadoPago.FORGIVEN,
+}
+
+PAYMENT_API_BLOCKED_CLOSED_STATES = {
+    EstadoPago.PAID,
+    EstadoPago.PAID_VIA_REPAYMENT,
+}
+
 
 def calculate_days_late(payment):
     reference_date = payment.fecha_deposito_banco or payment.fecha_pago_webpay or payment.fecha_deteccion_sistema
@@ -271,6 +282,89 @@ def sync_payment_state(payment, reference_date=None):
         return payment
     payment.dias_mora = calculate_days_late(payment)
     return payment
+
+
+def create_exceptional_payment_state_event(
+    payment,
+    *,
+    previous_state='',
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    if payment.estado_pago not in EXCEPTIONAL_PAYMENT_STATES:
+        return None
+    actor_identifier = (actor_identifier or '').strip()
+    if actor_user is None and not actor_identifier:
+        raise ValueError('El cierre excepcional de pago requiere un actor trazable para auditoria.')
+    return create_audit_event(
+        event_type=EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
+        entity_type='pago_mensual',
+        entity_id=str(payment.pk),
+        summary=f'Pago mensual cerrado excepcionalmente como {payment.estado_pago}',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata={
+            'contrato_id': payment.contrato_id,
+            'previous_state': previous_state,
+            'estado_pago': payment.estado_pago,
+            'resolucion_pago_excepcional_ref': payment.resolucion_pago_excepcional_ref.strip(),
+            'resolucion_pago_excepcional_motivo': payment.resolucion_pago_excepcional_motivo.strip(),
+        },
+    )
+
+
+@transaction.atomic
+def update_payment_operational_fields(
+    *,
+    payment,
+    validated_data,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    next_state = validated_data.get('estado_pago', payment.estado_pago)
+    if next_state in PAYMENT_API_BLOCKED_CLOSED_STATES:
+        raise ValueError(
+            'Los pagos cerrados solo se registran desde conciliacion bancaria '
+            'o desde el flujo especifico con artefacto de cierre.'
+        )
+    if next_state in EXCEPTIONAL_PAYMENT_STATES and actor_user is None and not (actor_identifier or '').strip():
+        raise ValueError('El cierre excepcional de pago requiere un actor trazable para auditoria.')
+
+    previous_state = payment.estado_pago
+    for field, value in validated_data.items():
+        setattr(payment, field, value)
+
+    sync_payment_state(payment)
+    sync_payment_distribution(payment)
+    payment.full_clean()
+    payment.save(
+        update_fields=[
+            'monto_pagado_clp',
+            'fecha_deposito_banco',
+            'fecha_pago_webpay',
+            'fecha_deteccion_sistema',
+            'estado_pago',
+            'repactacion_deuda',
+            'resolucion_pago_excepcional_ref',
+            'resolucion_pago_excepcional_motivo',
+            'dias_mora',
+            'updated_at',
+        ]
+    )
+
+    exceptional_event = None
+    if previous_state != payment.estado_pago:
+        exceptional_event = create_exceptional_payment_state_event(
+            payment,
+            previous_state=previous_state or '',
+            actor_user=actor_user,
+            actor_identifier=actor_identifier,
+            ip_address=ip_address,
+        )
+    return payment, previous_state, exceptional_event
 
 
 def sync_payment_overdue_state(payment, reference_date=None):

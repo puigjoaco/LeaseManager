@@ -103,8 +103,10 @@ condicionados sin envios reales accidentales.
   `condonado` solo son aceptables con referencia trazable no sensible, motivo
   auditable y evento dedicado
   `cobranza.pago_mensual.exceptional_state_resolved` con actor y resolucion
-  alineada. La readiness bloquea snapshots heredados sin esa resolucion o sin
-  evento.
+  alineada. El servicio de actualizacion operacional crea esa auditoria en la
+  misma transaccion que cambia el estado, y el endpoint HTTP delega esa
+  responsabilidad para cubrir tambien llamadas internas controladas. La
+  readiness bloquea snapshots heredados sin esa resolucion o sin evento.
 - Mensajes salientes con `DocumentoEmitido` cuya politica documental exige
   firma o notaria solo pueden prepararse o marcarse enviados si el documento
   ya esta `formalizado`; el dominio conserva el mismo guard para escrituras

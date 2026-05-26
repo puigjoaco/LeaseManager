@@ -47,7 +47,12 @@ from .models import (
     ValorUFDiario,
     WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
 )
-from .services import confirm_webpay_intent_manually, rebuild_account_state, sync_payment_distribution
+from .services import (
+    confirm_webpay_intent_manually,
+    rebuild_account_state,
+    sync_payment_distribution,
+    update_payment_operational_fields,
+)
 
 
 class CobranzaAPITests(APITestCase):
@@ -712,6 +717,56 @@ class CobranzaAPITests(APITestCase):
                 actor_user=self.user,
                 metadata__estado_pago=EstadoPago.FORGIVEN,
                 metadata__resolucion_pago_excepcional_ref='payment-forgiven-resolution-2026-01',
+            ).exists()
+        )
+
+    def test_payment_exceptional_state_service_creates_audit_event(self):
+        payment = self._generate_monthly_payment(codigo='CON-FORGIVE-SERVICE')
+
+        updated, previous_state, audit_event = update_payment_operational_fields(
+            payment=payment,
+            validated_data={
+                'estado_pago': EstadoPago.FORGIVEN,
+                'resolucion_pago_excepcional_ref': 'payment-forgiven-service-2026-01',
+                'resolucion_pago_excepcional_motivo': 'Condonacion aprobada por acuerdo operativo controlado.',
+            },
+            actor_user=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertEqual(previous_state, EstadoPago.PENDING)
+        self.assertEqual(updated.estado_pago, EstadoPago.FORGIVEN)
+        self.assertIsNotNone(audit_event)
+        self.assertEqual(audit_event.event_type, EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE)
+        self.assertEqual(audit_event.actor_user, self.user)
+        self.assertEqual(audit_event.ip_address, '127.0.0.1')
+        self.assertEqual(audit_event.metadata['previous_state'], EstadoPago.PENDING)
+        self.assertEqual(audit_event.metadata['estado_pago'], EstadoPago.FORGIVEN)
+        self.assertEqual(
+            audit_event.metadata['resolucion_pago_excepcional_ref'],
+            'payment-forgiven-service-2026-01',
+        )
+
+    def test_payment_exceptional_state_service_requires_actor(self):
+        payment = self._generate_monthly_payment(codigo='CON-FORGIVE-NO-ACTOR')
+
+        with self.assertRaisesMessage(ValueError, 'actor trazable'):
+            update_payment_operational_fields(
+                payment=payment,
+                validated_data={
+                    'estado_pago': EstadoPago.FORGIVEN,
+                    'resolucion_pago_excepcional_ref': 'payment-forgiven-service-2026-01',
+                    'resolucion_pago_excepcional_motivo': 'Condonacion aprobada por acuerdo operativo controlado.',
+                },
+            )
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
+                entity_type='pago_mensual',
+                entity_id=str(payment.pk),
             ).exists()
         )
 

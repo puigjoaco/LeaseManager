@@ -27,9 +27,7 @@ from .models import (
     CodigoCobroResidual,
     DistribucionCobroMensual,
     EstadoCuentaArrendatario,
-    EstadoPago,
     EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
-    EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
     GateCobroExterno,
     GarantiaContractual,
     HistorialGarantia,
@@ -67,7 +65,7 @@ from .services import (
     rebuild_account_state,
     refresh_overdue_payments,
     sync_payment_distribution,
-    sync_payment_state,
+    update_payment_operational_fields,
 )
 
 
@@ -164,26 +162,6 @@ def create_effective_code_applied_event(payment, request):
             'monto_facturable_clp': _format_clp_amount(payment.monto_facturable_clp),
             'monto_calculado_clp': _format_clp_amount(payment.monto_calculado_clp),
             'monto_efecto_codigo_efectivo_clp': _format_clp_amount(effect),
-        },
-    )
-
-
-def create_exceptional_payment_state_event(payment, request, previous_state):
-    if payment.estado_pago not in {EstadoPago.PAID_BY_TERMINATION, EstadoPago.FORGIVEN}:
-        return
-    create_audit_event(
-        event_type=EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
-        entity_type='pago_mensual',
-        entity_id=str(payment.pk),
-        summary=f'Pago mensual cerrado excepcionalmente como {payment.estado_pago}',
-        actor_user=request.user,
-        ip_address=request.META.get('REMOTE_ADDR'),
-        metadata={
-            'contrato_id': payment.contrato_id,
-            'previous_state': previous_state,
-            'estado_pago': payment.estado_pago,
-            'resolucion_pago_excepcional_ref': payment.resolucion_pago_excepcional_ref.strip(),
-            'resolucion_pago_excepcional_motivo': payment.resolucion_pago_excepcional_motivo.strip(),
         },
     )
 
@@ -488,42 +466,18 @@ class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
     audit_entity_label = 'pago mensual'
 
     def perform_update(self, serializer):
-        next_state = serializer.validated_data.get('estado_pago', serializer.instance.estado_pago)
-        if next_state in {
-            EstadoPago.PAID,
-            EstadoPago.PAID_VIA_REPAYMENT,
-        }:
-            raise ValidationError(
-                {
-                    'estado_pago': (
-                        'Los pagos cerrados solo se registran desde conciliacion bancaria '
-                        'o desde el flujo especifico con artefacto de cierre.'
-                    )
-                }
+        try:
+            instance, previous_state, _ = update_payment_operational_fields(
+                payment=serializer.instance,
+                validated_data=serializer.validated_data,
+                actor_user=self.request.user,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
             )
-
-        previous_state = self._extract_state(serializer.instance)
-        with transaction.atomic():
-            instance = serializer.save()
-            sync_payment_state(instance)
-            sync_payment_distribution(instance)
-            instance.save(
-                update_fields=[
-                    'monto_pagado_clp',
-                    'fecha_deposito_banco',
-                    'fecha_pago_webpay',
-                    'fecha_deteccion_sistema',
-                    'estado_pago',
-                    'repactacion_deuda',
-                    'resolucion_pago_excepcional_ref',
-                    'resolucion_pago_excepcional_motivo',
-                    'dias_mora',
-                    'updated_at',
-                ]
-            )
+        except ValueError as error:
+            raise ValidationError({'estado_pago': str(error)})
+        serializer.instance = instance
         self._create_audit_event(instance=instance, action='updated')
         if previous_state != self._extract_state(instance):
-            create_exceptional_payment_state_event(instance, self.request, previous_state or '')
             self._create_audit_event(
                 instance=instance,
                 action='state_changed',
