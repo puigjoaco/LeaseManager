@@ -382,6 +382,49 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertTrue(result['ready_for_stage3_conciliacion'])
         self.assertNotIn('stage3.movement.payment_partial_without_manual_resolution', issue_codes)
 
+    def test_debit_exact_match_without_manual_resolution_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-DEBIT-NO-RESOLUTION')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        self._create_reconciled_charge_movement(conexion)
+        self._create_square_balance(cuenta)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.debit_exact_match_without_manual_resolution', issue_codes)
+        self.assertEqual(result['sections']['movements']['debit_exact_match_without_manual_resolution'], 1)
+
+    def test_debit_exact_match_with_manual_resolution_trace_can_pass_readiness(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-DEBIT-RESOLUTION')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        charge = self._create_reconciled_charge_movement(conexion)
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(charge.pk),
+            summary='Cargo bancario clasificado manualmente',
+            rationale='Se clasifico comision bancaria con respaldo controlado.',
+            metadata={
+                'categoria_movimiento': 'comision_bancaria',
+                'entidad_afectada_tipo': 'empresa',
+                'entidad_afectada_id': cuenta.empresa_owner_id,
+                'periodo_economico': '2026-01',
+                'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
+                'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
+            },
+        )
+        self._create_square_balance(cuenta)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage3_conciliacion'])
+        self.assertNotIn('stage3.movement.debit_exact_match_without_manual_resolution', issue_codes)
+
     def test_internal_transfer_pair_can_pass_readiness(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER')
         conexion = self._create_ready_connection(cuenta)

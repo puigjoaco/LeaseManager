@@ -54,8 +54,9 @@ sistema igual a saldo banco.
   entidad afectada, periodo economico canonico `YYYY-MM`, criterio de reparto,
   `evidencia_clasificacion_ref` no sensible y motivo auditable; la API y el
   servicio no permiten nuevos cierres sin ese contexto, y la readiness bloquea
-  resoluciones heredadas resueltas sin ese contexto, con periodo/target
-  inconsistente o con evidencia sensible.
+  cargos conciliados exactos sin resolucion manual resuelta, resoluciones
+  heredadas resueltas sin ese contexto, con periodo/target inconsistente o con
+  evidencia sensible.
 - Transferencias internas/intercuenta se registran como par cargo/abono en
   `TransferenciaIntercuenta`, con cuenta origen/destino, owner origen/destino,
   periodo economico canonico `YYYY-MM`, criterio de conciliacion, evidencia no

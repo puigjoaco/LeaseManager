@@ -278,10 +278,16 @@ def _balance_connection_ready(connection: ConexionBancaria) -> bool:
     return True
 
 
-def _collect_movement_issues(movements, *, internal_transfer_destination_ids=None) -> dict[str, int]:
+def _collect_movement_issues(
+    movements,
+    *,
+    internal_transfer_destination_ids=None,
+    resolved_charge_movement_ids=None,
+) -> dict[str, int]:
     counts = Counter()
     transaction_keys = Counter()
     internal_transfer_destination_ids = internal_transfer_destination_ids or set()
+    resolved_charge_movement_ids = resolved_charge_movement_ids or set()
     for movement in movements:
         try:
             movement.full_clean()
@@ -328,6 +334,13 @@ def _collect_movement_issues(movements, *, internal_transfer_destination_ids=Non
                 and not _has_resolved_payment_manual_assignment(movement)
             ):
                 counts['payment_partial_without_manual_resolution'] += 1
+
+        if (
+            movement.tipo_movimiento == TipoMovimientoBancario.DEBIT
+            and movement.estado_conciliacion == EstadoConciliacionMovimiento.EXACT_MATCH
+            and movement.pk not in resolved_charge_movement_ids
+        ):
+            counts['debit_exact_match_without_manual_resolution'] += 1
 
     duplicate_transaction_rows = sum(count for count in transaction_keys.values() if count > 1)
     if duplicate_transaction_rows:
@@ -531,11 +544,26 @@ def collect_stage3_conciliacion_readiness(
         'movimiento_origen__conexion_bancaria__cuenta_recaudadora',
         'movimiento_destino__conexion_bancaria__cuenta_recaudadora',
     ).all()
+    manual_resolutions = ManualResolution.objects.filter(
+        category__in=STAGE3_MANUAL_RESOLUTION_CATEGORIES,
+        scope_type='movimiento_bancario',
+    )
+    resolved_charge_movement_ids = set()
+    for scope_reference in manual_resolutions.filter(
+        category='conciliacion.movimiento_cargo',
+        status=ManualResolution.Status.RESOLVED,
+    ).values_list('scope_reference', flat=True):
+        try:
+            resolved_charge_movement_ids.add(int(str(scope_reference or '').strip()))
+        except (TypeError, ValueError):
+            continue
+
     internal_transfer_issues = _collect_internal_transfer_issues(internal_transfers)
     internal_transfer_destination_ids = set(internal_transfers.values_list('movimiento_destino_id', flat=True))
     movement_issues = _collect_movement_issues(
         movements,
         internal_transfer_destination_ids=internal_transfer_destination_ids,
+        resolved_charge_movement_ids=resolved_charge_movement_ids,
     )
     reported_balance_issues = _collect_reported_balance_issues(movements)
     balance_squares = CuadraturaBancaria.objects.select_related('cuenta_recaudadora').all()
@@ -554,10 +582,6 @@ def collect_stage3_conciliacion_readiness(
     invalid_unknown_income = _count_invalid(unknown_income)
     open_unknown_income = unknown_income.filter(estado=EstadoIngresoDesconocido.OPEN).count()
     balance_signal_available = ready_primary_balances > 0 or movements_with_reported_balance > 0
-    manual_resolutions = ManualResolution.objects.filter(
-        category__in=STAGE3_MANUAL_RESOLUTION_CATEGORIES,
-        scope_type='movimiento_bancario',
-    )
     manual_resolution_issues = _collect_manual_resolution_issues(manual_resolutions)
 
     final_evidence = {
@@ -702,6 +726,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.movement.payment_partial_without_manual_resolution',
                 'Existen abonos parciales o complementarios conciliados a pagos sin resolucion manual auditada.',
                 count=movement_issues['payment_partial_without_manual_resolution'],
+            )
+        )
+    if movement_issues.get('debit_exact_match_without_manual_resolution'):
+        issues.append(
+            _issue(
+                'stage3.movement.debit_exact_match_without_manual_resolution',
+                'Existen cargos conciliados exactos sin resolucion manual trazable.',
+                count=movement_issues['debit_exact_match_without_manual_resolution'],
             )
         )
     if unresolved_movements:
