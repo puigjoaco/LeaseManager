@@ -529,6 +529,162 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertEqual(result['sections']['documents']['formalized_with_sensitive_evidence'], 1)
         self.assertNotIn(sensitive_ref, rendered)
 
+    def test_invalid_notary_receipts_are_reported_with_specific_codes(self):
+        create_all_active_policies()
+        PoliticaFirmaYNotaria.objects.filter(
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+        ).update(requiere_notaria=True)
+        user = create_user('docs-readiness-notary-receipts')
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='notary-receipts',
+            estado='abierto',
+            owner_operativo='manual:notary-receipts',
+        )
+        other_expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='notary-receipts-other',
+            estado='abierto',
+            owner_operativo='manual:notary-receipts-other',
+        )
+        valid_receipt = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.NOTARY_RECEIPT,
+            version_plantilla='notary-v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.ISSUED,
+            storage_ref='storage/docs/notary-valid.pdf',
+        )
+        wrong_type_receipt = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.ADDENDUM,
+            version_plantilla='notary-wrong-type-v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.ISSUED,
+            storage_ref='storage/docs/notary-wrong-type.pdf',
+        )
+        wrong_expediente_receipt = DocumentoEmitido.objects.create(
+            expediente=other_expediente,
+            tipo_documental=TipoDocumental.NOTARY_RECEIPT,
+            version_plantilla='notary-wrong-exp-v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.ISSUED,
+            storage_ref='storage/docs/notary-wrong-exp.pdf',
+        )
+        invalid_state_receipt = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.NOTARY_RECEIPT,
+            version_plantilla='notary-draft-v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.DRAFT,
+            storage_ref='storage/docs/notary-draft.pdf',
+        )
+        documents = [
+            DocumentoEmitido.objects.create(
+                expediente=expediente,
+                tipo_documental=TipoDocumental.MAIN_CONTRACT,
+                version_plantilla='contract-missing-reception',
+                checksum='1' * 64,
+                fecha_carga=timezone.now(),
+                usuario=user,
+                origen='carga_externa_controlada',
+                estado=EstadoDocumento.FORMALIZED,
+                storage_ref='storage/docs/contract-missing-reception.pdf',
+                firma_arrendador_registrada=True,
+                firma_arrendatario_registrada=True,
+                recepcion_notarial_registrada=False,
+                comprobante_notarial=valid_receipt,
+                evidencia_formalizacion_ref=FORMALIZATION_REF,
+            ),
+            DocumentoEmitido.objects.create(
+                expediente=expediente,
+                tipo_documental=TipoDocumental.MAIN_CONTRACT,
+                version_plantilla='contract-wrong-type',
+                checksum='2' * 64,
+                fecha_carga=timezone.now(),
+                usuario=user,
+                origen='carga_externa_controlada',
+                estado=EstadoDocumento.FORMALIZED,
+                storage_ref='storage/docs/contract-wrong-type.pdf',
+                firma_arrendador_registrada=True,
+                firma_arrendatario_registrada=True,
+                recepcion_notarial_registrada=True,
+                comprobante_notarial=wrong_type_receipt,
+                evidencia_formalizacion_ref=FORMALIZATION_REF,
+            ),
+            DocumentoEmitido.objects.create(
+                expediente=expediente,
+                tipo_documental=TipoDocumental.MAIN_CONTRACT,
+                version_plantilla='contract-wrong-exp',
+                checksum='3' * 64,
+                fecha_carga=timezone.now(),
+                usuario=user,
+                origen='carga_externa_controlada',
+                estado=EstadoDocumento.FORMALIZED,
+                storage_ref='storage/docs/contract-wrong-exp.pdf',
+                firma_arrendador_registrada=True,
+                firma_arrendatario_registrada=True,
+                recepcion_notarial_registrada=True,
+                comprobante_notarial=wrong_expediente_receipt,
+                evidencia_formalizacion_ref=FORMALIZATION_REF,
+            ),
+            DocumentoEmitido.objects.create(
+                expediente=expediente,
+                tipo_documental=TipoDocumental.MAIN_CONTRACT,
+                version_plantilla='contract-invalid-state',
+                checksum='4' * 64,
+                fecha_carga=timezone.now(),
+                usuario=user,
+                origen='carga_externa_controlada',
+                estado=EstadoDocumento.FORMALIZED,
+                storage_ref='storage/docs/contract-invalid-state.pdf',
+                firma_arrendador_registrada=True,
+                firma_arrendatario_registrada=True,
+                recepcion_notarial_registrada=True,
+                comprobante_notarial=invalid_state_receipt,
+                evidencia_formalizacion_ref=FORMALIZATION_REF,
+            ),
+        ]
+        for document in documents:
+            AuditEvent.objects.create(
+                event_type='documentos.documento_emitido.formalized',
+                entity_type='documento_emitido',
+                entity_id=str(document.pk),
+                summary='Documento formalizado',
+            )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.notary_reception_missing', issue_codes)
+        self.assertIn('documents.notary_receipt_wrong_type', issue_codes)
+        self.assertIn('documents.notary_receipt_wrong_expediente', issue_codes)
+        self.assertIn('documents.notary_receipt_invalid_state', issue_codes)
+        self.assertEqual(result['sections']['documents']['formalized_without_notary_reception'], 1)
+        self.assertEqual(result['sections']['documents']['notary_receipts_wrong_type'], 1)
+        self.assertEqual(result['sections']['documents']['notary_receipts_wrong_expediente'], 1)
+        self.assertEqual(result['sections']['documents']['notary_receipts_invalid_state'], 1)
+
     def test_corrective_version_without_dedicated_audit_is_blocking(self):
         create_all_active_policies()
         user = create_user('docs-readiness-correction')

@@ -22,12 +22,12 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 / Documentos - evidencia no sensible de formalizacion documental. |
+| Frente activo | Etapa 5 / Documentos - readiness especifico de comprobante notarial. |
 | Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` reglas de expediente documental, firma/notaria y evidencia; `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`; matriz de trazabilidad. |
-| Brecha activa | La formalizacion conserva firmas/notaria como estado operativo y auditoria, pero no exige una referencia no sensible del acto/evidencia de formalizacion; un snapshot heredado podria tener documentos formalizados sin trazabilidad documental suficiente. |
+| Brecha activa | El dominio/API bloquea formalizaciones con comprobante notarial invalido, pero el readiness documental no distingue snapshots heredados con comprobante notarial de tipo incorrecto, otro expediente o estado no permitido. |
 | Motivo de prioridad | Fortalece el gate documental antes de Canales/SII/Reporting sin usar storage real, documentos productivos, secretos ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-document-formalization-evidence`. |
-| Rama | `codex/stage5-document-formalization-evidence`. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-notary-receipt-readiness`. |
+| Rama | `codex/stage5-notary-receipt-readiness`. |
 | Estado | Implementado y validado localmente; pendiente PR, CI, merge y limpieza. |
 | Gate esperado | Tests focales Documentos/API/readiness, suite impactada Documentos/readiness, `manage.py check`, migraciones dry-run, readiness local Documentos, frontend build, acceptance local, CI remoto. |
 | Estado al cerrar paquete | Integrar paquete por PR/CI/merge y limpiar worktree/rama; no reabrir este frente despues del merge. |

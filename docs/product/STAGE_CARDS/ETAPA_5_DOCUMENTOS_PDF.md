@@ -53,6 +53,9 @@ firma y notaria trazables.
   `documentos.documento_emitido.corrective_version_created`.
 - Si la politica exige notaria, el comprobante notarial debe pertenecer al
   mismo expediente y estar emitido, formalizado o archivado.
+- La readiness documental debe distinguir documentos formalizados con politica
+  notarial sin recepcion registrada, sin comprobante, con comprobante de tipo
+  incorrecto, de otro expediente o en estado no permitido.
 - Auditoria local `audit_document_readiness` debe consolidar politicas activas
   por tipo documental, metadata PDF, evidencia controlada, responsables y
   faltantes antes de declarar cierre.
