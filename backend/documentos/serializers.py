@@ -32,6 +32,7 @@ FORMALIZED_IMMUTABLE_FIELDS = {
     'firma_arrendatario_registrada',
     'firma_codeudor_registrada',
     'recepcion_notarial_registrada',
+    'evidencia_formalizacion_ref',
     'comprobante_notarial',
     'documento_origen',
     'correccion_ref',
@@ -182,6 +183,7 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['storage_ref'] = redact_sensitive_reference(data.get('storage_ref'))
+        data['evidencia_formalizacion_ref'] = redact_sensitive_reference(data.get('evidencia_formalizacion_ref'))
         data['correccion_ref'] = redact_sensitive_reference(data.get('correccion_ref'))
         return data
 
@@ -202,6 +204,7 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
             'firma_arrendatario_registrada',
             'firma_codeudor_registrada',
             'recepcion_notarial_registrada',
+            'evidencia_formalizacion_ref',
             'comprobante_notarial',
             'documento_origen',
             'correccion_ref',
@@ -313,6 +316,7 @@ class DocumentoFormalizarSerializer(serializers.Serializer):
     firma_arrendatario_registrada = serializers.BooleanField(required=False)
     firma_codeudor_registrada = serializers.BooleanField(required=False)
     recepcion_notarial_registrada = serializers.BooleanField(required=False)
+    evidencia_formalizacion_ref = serializers.CharField(max_length=128, required=True, allow_blank=False)
     comprobante_notarial = serializers.PrimaryKeyRelatedField(
         queryset=DocumentoEmitido.objects.all(),
         required=False,

@@ -34,6 +34,10 @@ firma y notaria trazables.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
   desde el endpoint dedicado `formalizar/`, no desde create/update generico,
   para conservar la auditoria especifica del acto de formalizacion.
+- Toda formalizacion debe conservar `evidencia_formalizacion_ref` no sensible.
+  El dominio/API rechaza referencias faltantes o sensibles, snapshot/backoffice
+  redactan valores heredados sensibles y readiness bloquea documentos
+  formalizados sin esa evidencia.
 - Solo documentos en estado `emitido` pueden entrar al endpoint `formalizar/`;
   los borradores deben emitirse antes de cualquier acto de firma/notaria.
 - Un documento ya formalizado queda inmutable frente al endpoint generico y no

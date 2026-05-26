@@ -43,6 +43,13 @@ contenido sensible, el endpoint generico rechaza `origen=generado_sistema` y
 readiness bloquea documentos `generado_sistema` sin auditoria
 `documentos.documento_emitido.generated_pdf`.
 
+Nota 2026-05-26: Documentos exige `evidencia_formalizacion_ref` no sensible al
+formalizar documentos. API/modelo rechazan formalizaciones sin referencia o con
+referencia sensible, list/detail/snapshot/backoffice redactan evidencia
+heredada sensible y `audit_document_readiness` reporta
+`documents.formalization_evidence_missing` o
+`documents.formalization_evidence_sensitive` para snapshots heredados.
+
 Nota 2026-05-25: Patrimonio incorpora flujo operacional de transferencia o
 redistribucion de participaciones. El endpoint cierra la participacion origen,
 crea destinos desde la fecha efectiva, conserva el 100% del owner, exige motivo

@@ -117,6 +117,8 @@ def collect_document_readiness(
     documents_missing_user = 0
     invalid_checksum_documents = 0
     invalid_formalized_documents = 0
+    formalized_without_evidence = 0
+    formalized_with_sensitive_evidence = 0
     notary_required_policies = set(
         active_policies.filter(requiere_notaria=True).values_list('tipo_documental', flat=True)
     )
@@ -140,6 +142,10 @@ def collect_document_readiness(
         if document.origen == OrigenDocumento.GENERATED and not _has_generated_pdf_audit(document):
             generated_documents_without_audit += 1
         if document.estado == EstadoDocumento.FORMALIZED:
+            if not str(document.evidencia_formalizacion_ref or '').strip():
+                formalized_without_evidence += 1
+            elif _sensitive_reference(document.evidencia_formalizacion_ref):
+                formalized_with_sensitive_evidence += 1
             try:
                 document.full_clean()
             except ValidationError:
@@ -262,6 +268,22 @@ def collect_document_readiness(
                 count=invalid_formalized_documents,
             )
         )
+    if formalized_without_evidence:
+        issues.append(
+            _issue(
+                'documents.formalization_evidence_missing',
+                'Existen documentos formalizados sin referencia de evidencia no sensible.',
+                count=formalized_without_evidence,
+            )
+        )
+    if formalized_with_sensitive_evidence:
+        issues.append(
+            _issue(
+                'documents.formalization_evidence_sensitive',
+                'Existen documentos formalizados con referencia de evidencia sensible.',
+                count=formalized_with_sensitive_evidence,
+            )
+        )
     if generated_documents_without_audit:
         issues.append(
             _issue(
@@ -355,6 +377,8 @@ def collect_document_readiness(
                 'missing_user': documents_missing_user,
                 'invalid_checksums': invalid_checksum_documents,
                 'invalid_formalized_documents': invalid_formalized_documents,
+                'formalized_without_evidence': formalized_without_evidence,
+                'formalized_with_sensitive_evidence': formalized_with_sensitive_evidence,
                 'generated_without_audit': generated_documents_without_audit,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,
                 'formalized_without_formalization_audit': formalized_without_formalization_audit,

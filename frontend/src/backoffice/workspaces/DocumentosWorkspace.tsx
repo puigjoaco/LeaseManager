@@ -40,6 +40,7 @@ type DocumentoEmitidoItem = {
   firma_arrendatario_registrada: boolean
   firma_codeudor_registrada: boolean
   recepcion_notarial_registrada: boolean
+  evidencia_formalizacion_ref: string
   comprobante_notarial: number | null
   documento_origen: number | null
   correccion_ref: string
@@ -89,6 +90,7 @@ type DocumentoFormalizarDraft = {
   firma_arrendatario_registrada: boolean
   firma_codeudor_registrada: boolean
   recepcion_notarial_registrada: boolean
+  evidencia_formalizacion_ref: string
   comprobante_notarial: string
 }
 
@@ -286,7 +288,8 @@ export function DocumentosWorkspace({
               <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.firma_arrendatario_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, firma_arrendatario_registrada: event.target.checked }))} />Firma arrendatario</label>
               <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.firma_codeudor_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, firma_codeudor_registrada: event.target.checked }))} />Firma codeudor</label>
               <label className="checkbox-row"><input type="checkbox" checked={documentoFormalizarDraft.recepcion_notarial_registrada} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, recepcion_notarial_registrada: event.target.checked }))} />Recepción notarial</label>
-              <button type="submit" className="button-primary" disabled={isSubmitting || !documentoFormalizarDraft.documentoId}>Formalizar documento</button>
+              <input placeholder="Evidencia formalización" value={documentoFormalizarDraft.evidencia_formalizacion_ref} onChange={(event) => setDocumentoFormalizarDraft((current) => ({ ...current, evidencia_formalizacion_ref: event.target.value }))} />
+              <button type="submit" className="button-primary" disabled={isSubmitting || !documentoFormalizarDraft.documentoId || !documentoFormalizarDraft.evidencia_formalizacion_ref.trim()}>Formalizar documento</button>
             </form>
           </section>
         </section>
@@ -316,6 +319,7 @@ export function DocumentosWorkspace({
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
         { label: 'Corrige', render: (row) => row.documento_origen ? `Doc ${row.documento_origen}` : '-' },
         { label: 'Storage', render: (row) => row.storage_ref },
+        { label: 'Evidencia', render: (row) => row.evidencia_formalizacion_ref || '-' },
         { label: 'Acción', render: (row) => canEditDocumentos ? <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => setDocumentoFormalizarDraft((current) => ({ ...current, documentoId: String(row.id) }))}>Formalizar</button><button type="button" className="button-ghost inline-action" onClick={() => goToDocumentoContext(row.id)}>Canales</button></div> : 'Solo lectura' },
       ]} />
     </>
