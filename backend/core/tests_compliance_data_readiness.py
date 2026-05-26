@@ -291,6 +291,18 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertFalse(result['ready_for_compliance_data'])
         self.assertIn('compliance.export_prepared_audit_event_missing', {issue['code'] for issue in result['issues']})
 
+    def test_revoked_export_without_revoked_audit_event_is_blocking(self):
+        self._create_policies()
+        export = self._create_valid_export()
+        ExportacionSensible.objects.filter(pk=export.pk).update(estado=EstadoExportacionSensible.REVOKED)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_revoked_audit_event_missing', issue_codes)
+        self.assertEqual(result['sections']['exports']['revoked_audit_event_missing'], 1)
+
     def test_access_denied_events_are_counted_without_blocking(self):
         self._create_policies()
         export = self._create_valid_export()

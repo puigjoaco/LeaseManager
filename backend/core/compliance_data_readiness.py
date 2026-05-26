@@ -122,6 +122,12 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
             entity_id=str(export.pk),
         ).exists():
             counts['prepared_audit_event_missing'] += 1
+        if export.estado == EstadoExportacionSensible.REVOKED and not AuditEvent.objects.filter(
+            event_type='compliance.exportacion_sensible.revoked',
+            entity_type='exportacion_sensible',
+            entity_id=str(export.pk),
+        ).exists():
+            counts['revoked_audit_event_missing'] += 1
     return dict(sorted(counts.items()))
 
 
@@ -292,6 +298,11 @@ def collect_compliance_data_readiness(
             'compliance.export_prepared_audit_event_missing',
             'Toda exportacion sensible requiere evento de auditoria prepared trazable.',
         ),
+        (
+            'revoked_audit_event_missing',
+            'compliance.export_revoked_audit_event_missing',
+            'Toda exportacion sensible revocada requiere evento de auditoria revoked trazable.',
+        ),
     ]:
         if export_issues.get(key):
             issues.append(_issue(code, message, count=export_issues[key]))
@@ -385,6 +396,7 @@ def collect_compliance_data_readiness(
                 'prepared_expiry_too_long': export_issues.get('prepared_expiry_too_long', 0),
                 'expired_state_inconsistent': export_issues.get('expired_state_inconsistent', 0),
                 'prepared_audit_event_missing': export_issues.get('prepared_audit_event_missing', 0),
+                'revoked_audit_event_missing': export_issues.get('revoked_audit_event_missing', 0),
             },
             'audit': {
                 'export_events_total': export_audit_events.count(),

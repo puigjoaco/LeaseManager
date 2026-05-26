@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en `main`; ultimo paquete trabajado: Etapa 6/7 - readiness explicita para payloads anuales sensibles. |
+| Frente activo | Ninguno abierto en `main`; ultimo paquete trabajado: Etapa 0 - Compliance: revocaciones de exportaciones sensibles con auditoria trazable. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que Stage 6 y Stage 7 clasifiquen explicitamente `resumen_anual`, `resumen_paquete` y `resumen_f22` sensibles. |
-| Motivo de prioridad | Renta Anual y Reporting deben diagnosticar payloads heredados sensibles sin imprimir valores; el paquete es local y no requiere SII, certificados, `.env`, datos reales ni integraciones externas. |
+| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `audit_compliance_data_readiness` clasifique snapshots heredados con exportaciones `revocada` sin evento `compliance.exportacion_sensible.revoked`. |
+| Motivo de prioridad | Compliance datos sensibles es etapa temprana parcial; la brecha es local, verificable y no requiere `.env`, datos reales, secretos ni integraciones externas. |
 | Worktree | Ninguno tactico debe quedar activo tras merge/limpieza. |
 | Rama | `main` tras merge/limpieza. |
 | Estado | Paquete validado localmente; al reanudar, confirmar `git status --short --branch` y `git worktree list`. |
 | Gate esperado | Si `main` esta limpio, seleccionar el siguiente frente seguro desde trazabilidad; si aparece worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
-| Estado al cerrar paquete | No cierra Etapa 6 ni Etapa 7; solo mejora readiness local y evidencia de payloads anuales sensibles. |
-| Bloqueos relacionados | Fuente autorizada/snapshot, regla fiscal validada, certificados/respaldos controlados, datos/reporting autorizados y responsables siguen siendo condiciones de cierre, no requisitos para este paquete. |
+| Estado al cerrar paquete | No cierra Compliance.DatosPersonalesChile2026; solo mejora trazabilidad local de revocaciones de exportaciones sensibles. |
+| Bloqueos relacionados | Politica aprobada, responsables, controles, evidencia archivada, validacion legal-operativa y fuente autorizada siguen siendo condiciones de cierre, no requisitos para este paquete. |
 | Politica de reanudacion | Si `main` sigue limpio y no hay worktree tactico sucio, tomar el siguiente frente seguro por trazabilidad. |
 | Siguiente accion | Diagnosticar `main` real y elegir el siguiente paquete util sin depender de secretos, datos reales ni integraciones externas. |
 

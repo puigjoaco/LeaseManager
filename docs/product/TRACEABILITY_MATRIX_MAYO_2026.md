@@ -20,6 +20,11 @@ anuales sensibles heredados. Los readiness de Etapa 6 y Etapa 7 reportan
 credenciales, correos o claves sensibles como brecha bloqueante sin imprimir
 valores, manteniendo el cierre condicionado a fuente autorizada.
 
+Nota 2026-05-26: Compliance datos sensibles exige trazabilidad de revocacion.
+Las exportaciones sensibles en estado `revocada` deben conservar evento
+`compliance.exportacion_sensible.revoked`; readiness bloquea snapshots heredados
+sin esa auditoria y el endpoint de revocacion mantiene el evento dedicado.
+
 Nota 2026-05-26: CobranzaActiva y Canales endurecen los gates externos sin
 abrir integraciones. `restricciones_operativas` de Email/WhatsApp/WebPay
 rechaza valores sensibles y tambien nombres de claves sensibles como
