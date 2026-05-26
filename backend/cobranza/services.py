@@ -5,6 +5,7 @@ from decimal import Decimal, ROUND_DOWN
 from django.db import transaction
 from django.utils import timezone
 from audit.models import ManualResolution
+from audit.services import create_audit_event
 from core.reference_validation import is_non_sensitive_reference
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 
@@ -26,6 +27,7 @@ from .models import (
     RepactacionDeuda,
     TipoMovimientoGarantia,
     ValorUFDiario,
+    WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
 )
 
 
@@ -575,8 +577,17 @@ def prepare_webpay_intent(*, payment, gate=None, provider_key='transbank_webpay'
 
 
 @transaction.atomic
-def confirm_webpay_intent_manually(*, intent, external_ref, fecha_pago_webpay, actor_user=None):
+def confirm_webpay_intent_manually(
+    *,
+    intent,
+    external_ref,
+    fecha_pago_webpay,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
     external_ref = external_ref.strip()
+    actor_identifier = (actor_identifier or '').strip()
     if intent.estado != EstadoIntentoPagoWebPay.PREPARED:
         raise ValueError('Solo se puede confirmar manualmente un intento WebPay preparado.')
     if not external_ref:
@@ -587,6 +598,8 @@ def confirm_webpay_intent_manually(*, intent, external_ref, fecha_pago_webpay, a
         )
     if not fecha_pago_webpay:
         raise ValueError('La confirmacion WebPay requiere fecha de pago WebPay.')
+    if actor_user is None and not actor_identifier:
+        raise ValueError('La confirmacion WebPay manual requiere un actor trazable para auditoria.')
 
     payment = PagoMensual.objects.select_for_update().get(pk=intent.pago_mensual_id)
     gate = GateCobroExterno.objects.select_for_update().get(pk=intent.gate_cobro_id)
@@ -631,6 +644,20 @@ def confirm_webpay_intent_manually(*, intent, external_ref, fecha_pago_webpay, a
             'usuario',
             'updated_at',
         ]
+    )
+    create_audit_event(
+        event_type=WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
+        entity_type='webpay_intento',
+        entity_id=str(intent.pk),
+        summary='Confirmacion WebPay manual controlada registrada',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata={
+            'external_ref': external_ref,
+            'pago_mensual_id': payment.pk,
+            'fecha_pago_webpay': str(intent.fecha_pago_webpay),
+        },
     )
     return intent, payment
 

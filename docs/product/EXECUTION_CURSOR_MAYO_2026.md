@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 2 - Canales: auditoria de envio manual creada desde servicio. |
+| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 2 - WebPay: auditoria de confirmacion manual creada desde servicio. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `mark_message_as_sent()` exija actor trazable, marque el mensaje como `enviado` y cree el `AuditEvent` `canales.mensaje_saliente.sent_manually` con `external_ref` alineado en la misma transaccion. |
+| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `confirm_webpay_intent_manually()` exija actor trazable, confirme intento/pago y cree el `AuditEvent` `cobranza.webpay_intento.confirmed_manually` con `external_ref`, `pago_mensual_id` y `fecha_pago_webpay` alineados en la misma transaccion. |
 | Motivo de prioridad | Paquete local y verificable cerrado como preparacion segura de Etapa 2. |
 | Worktree | Ninguno pendiente despues de merge/limpieza. |
 | Rama | `main` despues de merge/limpieza. |
 | Estado | Paquete validado localmente e integrado despues de PR/CI/merge/limpieza. |
 | Gate esperado | Si `main` queda limpio, elegir el siguiente frente seguro por trazabilidad. Si existe worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
-| Estado al cerrar paquete | No cierra Etapa 2 sin fuente autorizada, evidencia Etapa 1, prueba Email/WebPay controlada y responsables; solo mueve la auditoria de envio manual desde vista HTTP a servicio transaccional. |
+| Estado al cerrar paquete | No cierra Etapa 2 sin fuente autorizada, evidencia Etapa 1, prueba Email/WebPay controlada y responsables; solo mueve la auditoria de confirmacion WebPay manual desde vista HTTP a servicio transaccional. |
 | Bloqueos relacionados | Ninguno para este paquete. |
 | Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si solo existe `main` limpio, seleccionar el siguiente frente trazable. |
 | Siguiente accion | Si `main` queda limpio, seleccionar el siguiente frente seguro por trazabilidad. |

@@ -14,6 +14,13 @@ servicio. `mark_message_as_sent()` exige actor trazable, marca el mensaje como
 misma transaccion; el endpoint HTTP delega esa responsabilidad para no duplicar
 eventos.
 
+Nota 2026-05-26: WebPay mueve la auditoria de confirmacion manual a la capa de
+servicio. `confirm_webpay_intent_manually()` exige actor trazable, revalida el
+gate, marca el intento y el pago en una transaccion y crea el `AuditEvent`
+`cobranza.webpay_intento.confirmed_manually` con `external_ref`,
+`pago_mensual_id` y `fecha_pago_webpay` alineados; el endpoint HTTP delega esa
+responsabilidad para no duplicar eventos.
+
 Nota 2026-05-26: Contratos reserva `renovacion_automatica` para el flujo
 guiado con auditoria. `PeriodoContractual.full_clean()` exige el `AuditEvent`
 dedicado para tramos con ese origen, el servicio de renovacion conserva la

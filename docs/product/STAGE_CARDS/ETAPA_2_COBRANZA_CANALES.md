@@ -139,10 +139,12 @@ condicionados sin envios reales accidentales.
   `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`
   trazable no sensible y `fecha_pago_webpay` diferenciada. Un intento WebPay
   confirmado debe quedar alineado con un `PagoMensual` pagado y la misma fecha
-  WebPay. `provider_payload` no puede contener URLs, tokens, credenciales,
-  correos ni claves sensibles; `restricciones_operativas` del gate WebPay
-  aplica la misma regla incluyendo nombres de claves sensibles. Ningun flujo
-  llama Transbank ni marca pago confirmado sin revalidar el gate.
+  WebPay, y el servicio de confirmacion manual debe conservar auditoria
+  dedicada con actor y referencia externa alineada en la misma transaccion.
+  `provider_payload` no puede contener URLs, tokens, credenciales, correos ni
+  claves sensibles; `restricciones_operativas` del gate WebPay aplica la misma
+  regla incluyendo nombres de claves sensibles. Ningun flujo llama Transbank ni
+  marca pago confirmado sin revalidar el gate.
 - APIs y snapshots de Canales/Cobranza redactan refs sensibles ya persistidas
   antes de devolver gates, mensajes salientes o intentos WebPay al backoffice;
   esto cubre `evidencia_ref`, `restricciones_operativas`, `external_ref`,
