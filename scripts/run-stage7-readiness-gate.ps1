@@ -90,6 +90,13 @@ function Test-NonSensitiveReference([string]$value) {
     return $value -notmatch '(?i)(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)'
 }
 
+function Test-SensitiveReference([string]$value) {
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $false
+    }
+    return $value -match '(?i)(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)'
+}
+
 function Get-PayloadTextProperty($payload, [string[]]$names) {
     foreach ($name in $names) {
         if ($payload.PSObject.Properties.Name -contains $name) {
@@ -128,6 +135,8 @@ function Test-AuthorizedRestoreEvidence($payload) {
     $syntheticOnly = $sourceKind -eq 'synthetic_fixture' -or $rehearsalKind -eq 'postgres_local_synthetic_restore' -or $mode -eq 'plan_only'
     $hasAuthorizationRef = Test-NonSensitiveReference $authorizationRef
     $hasBackupRef = Test-NonSensitiveReference $backupRef
+    $authorizationRefSensitive = Test-SensitiveReference $authorizationRef
+    $backupRefSensitive = Test-SensitiveReference $backupRef
     $authorized = $verified `
         -and (-not $syntheticOnly) `
         -and ($allowedSourceKinds -contains $sourceKind) `
@@ -144,8 +153,14 @@ function Test-AuthorizedRestoreEvidence($payload) {
     elseif (-not ($allowedSourceKinds -contains $sourceKind)) {
         $reason = 'restore_source_kind_invalid'
     }
+    elseif ($authorizationRefSensitive) {
+        $reason = 'restore_authorization_ref_sensitive'
+    }
     elseif (-not $hasAuthorizationRef) {
         $reason = 'restore_authorization_ref_missing'
+    }
+    elseif ($backupRefSensitive) {
+        $reason = 'restore_backup_ref_sensitive'
     }
     elseif (-not $hasBackupRef) {
         $reason = 'restore_backup_ref_missing'
@@ -158,6 +173,8 @@ function Test-AuthorizedRestoreEvidence($payload) {
         synthetic_only = $syntheticOnly
         has_authorization_ref = $hasAuthorizationRef
         has_backup_ref = $hasBackupRef
+        authorization_ref_sensitive = $authorizationRefSensitive
+        backup_ref_sensitive = $backupRefSensitive
         reason = $reason
     }
 }
@@ -198,6 +215,9 @@ function Test-AuthorizedSmokeEvidence($payload) {
     $hasAuthorizationRef = Test-NonSensitiveReference $authorizationRef
     $hasEnvironmentRef = Test-NonSensitiveReference $environmentRef
     $hasTargetRef = Test-NonSensitiveReference $targetRef
+    $authorizationRefSensitive = Test-SensitiveReference $authorizationRef
+    $environmentRefSensitive = Test-SensitiveReference $environmentRef
+    $targetRefSensitive = Test-SensitiveReference $targetRef
     $authorized = $verified `
         -and (-not $syntheticOnly) `
         -and ($allowedSourceKinds -contains $sourceKind) `
@@ -215,11 +235,20 @@ function Test-AuthorizedSmokeEvidence($payload) {
     elseif (-not ($allowedSourceKinds -contains $sourceKind)) {
         $reason = 'public_smoke_source_kind_invalid'
     }
+    elseif ($authorizationRefSensitive) {
+        $reason = 'public_smoke_authorization_ref_sensitive'
+    }
     elseif (-not $hasAuthorizationRef) {
         $reason = 'public_smoke_authorization_ref_missing'
     }
+    elseif ($environmentRefSensitive) {
+        $reason = 'public_smoke_environment_ref_sensitive'
+    }
     elseif (-not $hasEnvironmentRef) {
         $reason = 'public_smoke_environment_ref_missing'
+    }
+    elseif ($targetRefSensitive) {
+        $reason = 'public_smoke_target_ref_sensitive'
     }
     elseif (-not $hasTargetRef) {
         $reason = 'public_smoke_target_ref_missing'
@@ -233,6 +262,9 @@ function Test-AuthorizedSmokeEvidence($payload) {
         has_authorization_ref = $hasAuthorizationRef
         has_environment_ref = $hasEnvironmentRef
         has_target_ref = $hasTargetRef
+        authorization_ref_sensitive = $authorizationRefSensitive
+        environment_ref_sensitive = $environmentRefSensitive
+        target_ref_sensitive = $targetRefSensitive
         reason = $reason
     }
 }
@@ -256,6 +288,10 @@ function Test-AuthorizedFinalAcceptanceEvidence($payload, [string]$fallbackAccep
     $hasResponsibleRef = Test-NonSensitiveReference $responsibleRef
     $hasScopeRef = Test-NonSensitiveReference $scopeRef
     $hasAcceptanceRef = Test-NonSensitiveReference $acceptanceRef
+    $authorizationRefSensitive = Test-SensitiveReference $authorizationRef
+    $responsibleRefSensitive = Test-SensitiveReference $responsibleRef
+    $scopeRefSensitive = Test-SensitiveReference $scopeRef
+    $acceptanceRefSensitive = Test-SensitiveReference $acceptanceRef
     $authorized = $accepted `
         -and (-not $syntheticOnly) `
         -and ($allowedSourceKinds -contains $sourceKind) `
@@ -274,14 +310,26 @@ function Test-AuthorizedFinalAcceptanceEvidence($payload, [string]$fallbackAccep
     elseif (-not ($allowedSourceKinds -contains $sourceKind)) {
         $reason = 'final_acceptance_source_kind_invalid'
     }
+    elseif ($authorizationRefSensitive) {
+        $reason = 'final_acceptance_authorization_ref_sensitive'
+    }
     elseif (-not $hasAuthorizationRef) {
         $reason = 'final_acceptance_authorization_ref_missing'
+    }
+    elseif ($responsibleRefSensitive) {
+        $reason = 'final_acceptance_responsible_ref_sensitive'
     }
     elseif (-not $hasResponsibleRef) {
         $reason = 'final_acceptance_responsible_ref_missing'
     }
+    elseif ($scopeRefSensitive) {
+        $reason = 'final_acceptance_scope_ref_sensitive'
+    }
     elseif (-not $hasScopeRef) {
         $reason = 'final_acceptance_scope_ref_missing'
+    }
+    elseif ($acceptanceRefSensitive) {
+        $reason = 'final_acceptance_ref_sensitive'
     }
     elseif (-not $hasAcceptanceRef) {
         $reason = 'final_acceptance_ref_missing'
@@ -296,6 +344,10 @@ function Test-AuthorizedFinalAcceptanceEvidence($payload, [string]$fallbackAccep
         has_responsible_ref = $hasResponsibleRef
         has_scope_ref = $hasScopeRef
         has_acceptance_ref = $hasAcceptanceRef
+        authorization_ref_sensitive = $authorizationRefSensitive
+        responsible_ref_sensitive = $responsibleRefSensitive
+        scope_ref_sensitive = $scopeRefSensitive
+        acceptance_ref_sensitive = $acceptanceRefSensitive
         reason = $reason
     }
 }
@@ -360,6 +412,8 @@ $restoreEvidenceSummary = [ordered]@{
     synthetic_only = $false
     has_authorization_ref = $false
     has_backup_ref = $false
+    authorization_ref_sensitive = $false
+    backup_ref_sensitive = $false
 }
 $publicSmokeEvidenceSummary = [ordered]@{
     provided = $false
@@ -370,6 +424,9 @@ $publicSmokeEvidenceSummary = [ordered]@{
     has_authorization_ref = $false
     has_environment_ref = $false
     has_target_ref = $false
+    authorization_ref_sensitive = $false
+    environment_ref_sensitive = $false
+    target_ref_sensitive = $false
 }
 $finalAcceptanceEvidenceSummary = [ordered]@{
     provided = $false
@@ -381,6 +438,10 @@ $finalAcceptanceEvidenceSummary = [ordered]@{
     has_responsible_ref = $false
     has_scope_ref = $false
     has_acceptance_ref = $false
+    authorization_ref_sensitive = $false
+    responsible_ref_sensitive = $false
+    scope_ref_sensitive = $false
+    acceptance_ref_sensitive = $false
 }
 
 Step 'Backend local checks'
@@ -520,6 +581,8 @@ else {
         synthetic_only = $restoreCheck.synthetic_only
         has_authorization_ref = $restoreCheck.has_authorization_ref
         has_backup_ref = $restoreCheck.has_backup_ref
+        authorization_ref_sensitive = $restoreCheck.authorization_ref_sensitive
+        backup_ref_sensitive = $restoreCheck.backup_ref_sensitive
     }
     if (-not $restoreCheck.verified) {
         $issues += [ordered]@{
@@ -530,13 +593,17 @@ else {
     }
     elseif (-not $restoreCheck.authorized) {
         $issueCode = switch ($restoreCheck.reason) {
+            'restore_authorization_ref_sensitive' { 'stage7.restore_authorization_ref_sensitive' }
             'restore_authorization_ref_missing' { 'stage7.restore_authorization_ref_missing' }
+            'restore_backup_ref_sensitive' { 'stage7.restore_backup_ref_sensitive' }
             'restore_backup_ref_missing' { 'stage7.restore_backup_ref_missing' }
             default { 'stage7.restore_authorized_backup_missing' }
         }
         $issueMessage = switch ($restoreCheck.reason) {
             'synthetic_restore_not_authorized' { 'El restore sintetico prepara el gate, pero no reemplaza restore de backup/snapshot autorizado.' }
+            'restore_authorization_ref_sensitive' { 'La evidencia de restore contiene authorization_ref sensible.' }
             'restore_authorization_ref_missing' { 'La evidencia de restore requiere authorization_ref no sensible.' }
+            'restore_backup_ref_sensitive' { 'La evidencia de restore contiene backup_ref o backup_file sensible.' }
             'restore_backup_ref_missing' { 'La evidencia de restore requiere backup_ref o backup_file no sensible.' }
             default { 'La evidencia de restore debe declarar source_kind snapshot_controlado, real_autorizado, backup_autorizado o restore_autorizado.' }
         }
@@ -569,6 +636,9 @@ else {
         has_authorization_ref = $smokeCheck.has_authorization_ref
         has_environment_ref = $smokeCheck.has_environment_ref
         has_target_ref = $smokeCheck.has_target_ref
+        authorization_ref_sensitive = $smokeCheck.authorization_ref_sensitive
+        environment_ref_sensitive = $smokeCheck.environment_ref_sensitive
+        target_ref_sensitive = $smokeCheck.target_ref_sensitive
     }
     if (-not $smokeCheck.verified) {
         $issues += [ordered]@{
@@ -579,15 +649,21 @@ else {
     }
     elseif (-not $smokeCheck.authorized) {
         $issueCode = switch ($smokeCheck.reason) {
+            'public_smoke_authorization_ref_sensitive' { 'stage7.public_smoke_authorization_ref_sensitive' }
             'public_smoke_authorization_ref_missing' { 'stage7.public_smoke_authorization_ref_missing' }
+            'public_smoke_environment_ref_sensitive' { 'stage7.public_smoke_environment_ref_sensitive' }
             'public_smoke_environment_ref_missing' { 'stage7.public_smoke_environment_ref_missing' }
+            'public_smoke_target_ref_sensitive' { 'stage7.public_smoke_target_ref_sensitive' }
             'public_smoke_target_ref_missing' { 'stage7.public_smoke_target_ref_missing' }
             default { 'stage7.public_smoke_authorized_environment_missing' }
         }
         $issueMessage = switch ($smokeCheck.reason) {
             'public_smoke_synthetic_not_authorized' { 'El smoke local/sintetico prepara el gate, pero no reemplaza un smoke publico con ambiente autorizado.' }
+            'public_smoke_authorization_ref_sensitive' { 'La evidencia de smoke publico contiene authorization_ref sensible.' }
             'public_smoke_authorization_ref_missing' { 'La evidencia de smoke publico requiere authorization_ref no sensible.' }
+            'public_smoke_environment_ref_sensitive' { 'La evidencia de smoke publico contiene environment_ref sensible.' }
             'public_smoke_environment_ref_missing' { 'La evidencia de smoke publico requiere environment_ref no sensible.' }
+            'public_smoke_target_ref_sensitive' { 'La evidencia de smoke publico contiene target_ref o deployment_ref sensible.' }
             'public_smoke_target_ref_missing' { 'La evidencia de smoke publico requiere target_ref o deployment_ref no sensible.' }
             default { 'La evidencia de smoke publico debe declarar source_kind public_smoke_autorizado, ambiente_autorizado, staging_autorizado o real_autorizado.' }
         }
@@ -622,6 +698,10 @@ else {
         has_responsible_ref = $finalAcceptanceCheck.has_responsible_ref
         has_scope_ref = $finalAcceptanceCheck.has_scope_ref
         has_acceptance_ref = $finalAcceptanceCheck.has_acceptance_ref
+        authorization_ref_sensitive = $finalAcceptanceCheck.authorization_ref_sensitive
+        responsible_ref_sensitive = $finalAcceptanceCheck.responsible_ref_sensitive
+        scope_ref_sensitive = $finalAcceptanceCheck.scope_ref_sensitive
+        acceptance_ref_sensitive = $finalAcceptanceCheck.acceptance_ref_sensitive
     }
     if (-not $finalAcceptanceCheck.accepted) {
         $issues += [ordered]@{
@@ -632,17 +712,25 @@ else {
     }
     elseif (-not $finalAcceptanceCheck.authorized) {
         $issueCode = switch ($finalAcceptanceCheck.reason) {
+            'final_acceptance_authorization_ref_sensitive' { 'stage7.final_acceptance_authorization_ref_sensitive' }
             'final_acceptance_authorization_ref_missing' { 'stage7.final_acceptance_authorization_ref_missing' }
+            'final_acceptance_responsible_ref_sensitive' { 'stage7.final_acceptance_responsible_ref_sensitive' }
             'final_acceptance_responsible_ref_missing' { 'stage7.final_acceptance_responsible_ref_missing' }
+            'final_acceptance_scope_ref_sensitive' { 'stage7.final_acceptance_scope_ref_sensitive' }
             'final_acceptance_scope_ref_missing' { 'stage7.final_acceptance_scope_ref_missing' }
+            'final_acceptance_ref_sensitive' { 'stage7.final_acceptance_ref_sensitive' }
             'final_acceptance_ref_missing' { 'stage7.final_acceptance_ref_missing' }
             default { 'stage7.final_acceptance_authorized_evidence_missing' }
         }
         $issueMessage = switch ($finalAcceptanceCheck.reason) {
             'final_acceptance_synthetic_not_authorized' { 'La aceptacion local/sintetica prepara el gate, pero no reemplaza aceptacion final autorizada.' }
+            'final_acceptance_authorization_ref_sensitive' { 'La evidencia de aceptacion final contiene authorization_ref sensible.' }
             'final_acceptance_authorization_ref_missing' { 'La evidencia de aceptacion final requiere authorization_ref no sensible.' }
+            'final_acceptance_responsible_ref_sensitive' { 'La evidencia de aceptacion final contiene responsible_ref o accepted_by_ref sensible.' }
             'final_acceptance_responsible_ref_missing' { 'La evidencia de aceptacion final requiere responsible_ref o accepted_by_ref no sensible.' }
+            'final_acceptance_scope_ref_sensitive' { 'La evidencia de aceptacion final contiene scope_ref, acceptance_scope_ref o release_candidate_ref sensible.' }
             'final_acceptance_scope_ref_missing' { 'La evidencia de aceptacion final requiere scope_ref, acceptance_scope_ref o release_candidate_ref no sensible.' }
+            'final_acceptance_ref_sensitive' { 'La evidencia de aceptacion final contiene acceptance_ref, decision_ref, signoff_ref o FinalAcceptanceRef sensible.' }
             'final_acceptance_ref_missing' { 'La evidencia de aceptacion final requiere acceptance_ref, decision_ref, signoff_ref o FinalAcceptanceRef no sensible.' }
             default { 'La evidencia de aceptacion final debe declarar source_kind aceptacion_final_autorizada, final_acceptance_autorizada, cutover_autorizado, ambiente_autorizado o real_autorizado.' }
         }

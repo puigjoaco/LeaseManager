@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en `main`; ultimo paquete cerrado: Etapa 7 - referencias finales sensibles en readiness Reporting. |
+| Frente activo | Etapa 7 - referencias sensibles en evidencia de release gate. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `audit_stage7_reporting_readiness` clasifique explicitamente refs finales sensibles de ProcesoRentaAnual, DDJJ y F22 sin exponer valores. |
-| Motivo de prioridad | El paquete cerro un diagnostico de readiness Reporting para impedir referencias finales sensibles diluidas como validacion generica. |
-| Worktree | Ninguno tactico activo. |
-| Rama | `main`. |
-| Estado | Paquete validado, integrado y worktree tactico eliminado. |
-| Gate esperado | Si `main` esta limpio, elegir el siguiente frente seguro por trazabilidad y orden de construccion. No cerrar Etapa 7 sin fuente autorizada, ledger, renta anual, API/backoffice y responsables. |
-| Estado al cerrar paquete | PR #347 mergeado en `main` como `890e8f0`; CI acceptance remoto OK; validacion local OK con focal 1 test, impactada 39 tests, readiness Etapa 7 parcial, frontend build, acceptance 907 tests, higiene y `git diff --check`. |
-| Bloqueos relacionados | Bloqueos externos de Reporting siguen como condicion de cierre, no bloquean hardening local. |
-| Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si `main` esta limpio, seleccionar el siguiente frente seguro desde trazabilidad. |
-| Siguiente accion | Seleccionar nuevo paquete pequeno, seguro y verificable segun cursor, PRD/stage cards, trazabilidad y bloqueos vigentes. |
+| Brecha activa | `run-stage7-readiness-gate.ps1` distingue refs ausentes de refs no sensibles, pero algunas evidencias de restore/smoke/aceptacion con refs sensibles quedan clasificadas como faltantes genericos. |
+| Motivo de prioridad | Operacion productiva debe diagnosticar evidencia sensible de cierre sin exponer valores y sin confundirla con ausencia de evidencia. |
+| Worktree | `D:/Proyectos/LeaseManager-stage7-sensitive-release-evidence-refs`. |
+| Rama | `codex/stage7-sensitive-release-evidence-refs`. |
+| Estado | En implementacion local segura. |
+| Gate esperado | Readiness Etapa 7 local queda `classification=parcial`, `ready_for_stage7_close=false`; no cierra Operacion productiva sin fuentes/evidencias autorizadas. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Restore autorizado, smoke publico autorizado, Reporting autorizado, observabilidad runtime autorizada y aceptacion final siguen como condicion de cierre externo. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza o pausar explicitamente aqui. |
+| Siguiente accion | Implementar codigos especificos para refs sensibles en evidencia de restore, smoke publico y aceptacion final, cubrir acceptance y actualizar trazabilidad/evidencia. |
 
 ## Actualizacion
 

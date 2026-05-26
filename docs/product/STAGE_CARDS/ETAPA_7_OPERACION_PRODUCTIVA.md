@@ -58,6 +58,9 @@ runbook, smoke y aceptacion.
 - La aceptacion final para cierre requiere evidencia JSON autorizada con
   `accepted=true`, responsable, alcance/candidato, decision y referencias no
   sensibles; una referencia simple no reemplaza la aceptacion final.
+- El release gate clasifica referencias sensibles en evidencia de restore,
+  smoke publico y aceptacion final con codigos especificos, sin exponer sus
+  valores ni tratarlas como simples faltantes.
 - Restore probado.
 - Bloqueos criticos cerrados.
 - Aceptacion registrada.
