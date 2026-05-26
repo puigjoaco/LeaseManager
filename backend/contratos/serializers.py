@@ -11,7 +11,7 @@ from core.reference_validation import is_non_sensitive_reference, redact_sensiti
 from core.scope_access import scope_queryset_for_user
 from documentos.models import PoliticaFirmaYNotaria
 from operacion.models import IdentidadDeEnvio, MandatoOperacion
-from patrimonio.models import Propiedad
+from patrimonio.models import Propiedad, ServicioPropiedad, TipoServicioPropiedad
 from patrimonio.validators import validate_rut
 
 from .models import (
@@ -603,7 +603,12 @@ class ContratoSerializer(serializers.ModelSerializer):
         fecha_inicio = attrs.get('fecha_inicio', getattr(self.instance, 'fecha_inicio', None))
         fecha_fin_vigente = attrs.get('fecha_fin_vigente', getattr(self.instance, 'fecha_fin_vigente', None))
         tiene_tramos = attrs.get('tiene_tramos', getattr(self.instance, 'tiene_tramos', False))
+        tiene_gastos_comunes = attrs.get(
+            'tiene_gastos_comunes',
+            getattr(self.instance, 'tiene_gastos_comunes', False),
+        )
         self._validate_contract_properties(contrato_propiedades, mandato, estado)
+        self._validate_common_expense_service(contrato_propiedades, estado, tiene_gastos_comunes)
         self._validate_periods(
             periodos,
             fecha_inicio,
@@ -623,6 +628,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         model_attrs.pop('codeudores_solidarios', None)
         for field, value in model_attrs.items():
             setattr(candidate, field, value)
+        candidate._common_expense_primary_property_id = self._primary_property_id(contrato_propiedades)
 
         try:
             candidate.full_clean()
@@ -697,14 +703,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         if len(contrato_propiedades) == 1 and roles[0] != RolContratoPropiedad.PRIMARY:
             raise serializers.ValidationError({'contrato_propiedades': 'Si hay una sola propiedad, debe ser principal.'})
 
-        principal_property = next(
-            item['propiedad'] if 'propiedad' in item else None
-            for item in contrato_propiedades
-            if item['rol_en_contrato'] == RolContratoPropiedad.PRIMARY
-        )
-        principal_property_id = principal_property.id if principal_property else next(
-            item['propiedad_id'] for item in contrato_propiedades if item['rol_en_contrato'] == RolContratoPropiedad.PRIMARY
-        )
+        principal_property_id = self._primary_property_id(contrato_propiedades)
         if mandato and principal_property_id != mandato.propiedad_id:
             raise serializers.ValidationError(
                 {'contrato_propiedades': 'La propiedad principal del contrato debe coincidir con la propiedad del mandato operativo.'}
@@ -726,6 +725,37 @@ class ContratoSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {'contrato_propiedades': 'La propiedad principal y la vinculada deben compartir el mismo codigo efectivo.'}
                 )
+
+    def _validate_common_expense_service(self, contrato_propiedades, estado, tiene_gastos_comunes):
+        if not tiene_gastos_comunes or estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:
+            return
+
+        principal_property_id = self._primary_property_id(contrato_propiedades)
+        if not ServicioPropiedad.objects.filter(
+            propiedad_id=principal_property_id,
+            tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+            activo=True,
+        ).exists():
+            raise serializers.ValidationError(
+                {
+                    'tiene_gastos_comunes': (
+                        'Un contrato vigente o futuro con gastos comunes requiere gasto comun activo '
+                        'estructurado en la propiedad principal.'
+                    )
+                }
+            )
+
+    def _primary_property_id(self, contrato_propiedades):
+        principal_property = next(
+            item['propiedad'] if 'propiedad' in item else None
+            for item in contrato_propiedades
+            if item['rol_en_contrato'] == RolContratoPropiedad.PRIMARY
+        )
+        if principal_property:
+            return principal_property.id
+        return next(
+            item['propiedad_id'] for item in contrato_propiedades if item['rol_en_contrato'] == RolContratoPropiedad.PRIMARY
+        )
 
     def _validate_periods(
         self,
