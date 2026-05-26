@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: Cobranza mueve la auditoria de repactaciones parciales a la
+capa de servicio. `save_repayment_plan()` exige actor trazable cuando el plan
+cubre menos que la deuda original, guarda la repactacion y crea el `AuditEvent`
+`cobranza.repactacion_deuda.partial_exception` con referencia y motivo
+alineados en la misma transaccion; los endpoints HTTP delegan esa
+responsabilidad y readiness exige que el motivo del evento coincida con la
+repactacion.
+
 Nota 2026-05-26: Cobranza mueve la auditoria de cierre excepcional de pagos a
 la capa de servicio. `update_payment_operational_fields()` exige actor trazable
 para estados `condonado` o `pagado_por_acuerdo_termino`, sincroniza mora y

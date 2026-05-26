@@ -50,6 +50,7 @@ from .models import (
 from .services import (
     confirm_webpay_intent_manually,
     rebuild_account_state,
+    save_repayment_plan,
     sync_payment_distribution,
     update_payment_operational_fields,
 )
@@ -1894,7 +1895,63 @@ class CobranzaAPITests(APITestCase):
                 entity_type='repactacion_deuda',
                 entity_id=str(response.data['id']),
                 metadata__excepcion_parcial_ref='partial-repayment-exception-2026-01',
+                metadata__excepcion_parcial_motivo='Excepcion formal autorizada por acuerdo operativo controlado.',
             ).exists()
+        )
+
+    def test_partial_repayment_service_creates_exception_audit_event(self):
+        contrato = self._create_active_contract(codigo='CON-REP-PARTIAL-SVC', monto_base='100000.00', code='111')
+
+        repayment, audit_event = save_repayment_plan(
+            validated_data={
+                'arrendatario': contrato.arrendatario,
+                'contrato_origen': contrato,
+                'deuda_total_original': Decimal('50000.00'),
+                'cantidad_cuotas': 4,
+                'monto_cuota': Decimal('10000.00'),
+                'saldo_pendiente': Decimal('40000.00'),
+                'estado': 'activa',
+                'excepcion_parcial_ref': 'partial-repayment-service-2026-01',
+                'excepcion_parcial_motivo': 'Excepcion formal autorizada por acuerdo operativo controlado.',
+            },
+            actor_user=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertIsNotNone(audit_event)
+        self.assertEqual(audit_event.event_type, PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE)
+        self.assertEqual(audit_event.actor_user, self.user)
+        self.assertEqual(audit_event.ip_address, '127.0.0.1')
+        self.assertEqual(audit_event.entity_id, str(repayment.pk))
+        self.assertEqual(audit_event.metadata['arrendatario_id'], contrato.arrendatario_id)
+        self.assertEqual(audit_event.metadata['contrato_id'], contrato.id)
+        self.assertEqual(audit_event.metadata['excepcion_parcial_ref'], 'partial-repayment-service-2026-01')
+        self.assertEqual(
+            audit_event.metadata['excepcion_parcial_motivo'],
+            'Excepcion formal autorizada por acuerdo operativo controlado.',
+        )
+
+    def test_partial_repayment_service_requires_actor(self):
+        contrato = self._create_active_contract(codigo='CON-REP-PARTIAL-ACTOR', monto_base='100000.00', code='111')
+
+        with self.assertRaisesMessage(ValueError, 'actor trazable'):
+            save_repayment_plan(
+                validated_data={
+                    'arrendatario': contrato.arrendatario,
+                    'contrato_origen': contrato,
+                    'deuda_total_original': Decimal('50000.00'),
+                    'cantidad_cuotas': 4,
+                    'monto_cuota': Decimal('10000.00'),
+                    'saldo_pendiente': Decimal('40000.00'),
+                    'estado': 'activa',
+                    'excepcion_parcial_ref': 'partial-repayment-service-2026-01',
+                    'excepcion_parcial_motivo': 'Excepcion formal autorizada por acuerdo operativo controlado.',
+                },
+            )
+
+        self.assertFalse(RepactacionDeuda.objects.filter(contrato_origen=contrato).exists())
+        self.assertFalse(
+            AuditEvent.objects.filter(event_type=PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE).exists()
         )
 
     def test_payment_entering_repayment_requires_traceable_repayment_plan(self):

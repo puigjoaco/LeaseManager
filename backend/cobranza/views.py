@@ -33,7 +33,6 @@ from .models import (
     HistorialGarantia,
     IntentoPagoWebPay,
     MANUAL_UF_LOAD_EVENT_TYPE,
-    PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
     PagoMensual,
     RepactacionDeuda,
     ValorUFDiario,
@@ -64,23 +63,10 @@ from .services import (
     prepare_webpay_intent,
     rebuild_account_state,
     refresh_overdue_payments,
+    save_repayment_plan,
     sync_payment_distribution,
     update_payment_operational_fields,
 )
-
-
-def _partial_repayment_exception_trace(instance):
-    if not isinstance(instance, RepactacionDeuda) or not instance.es_repactacion_parcial:
-        return ''
-    return '|'.join(
-        [
-            str(instance.pk or ''),
-            instance.excepcion_parcial_ref.strip(),
-            instance.excepcion_parcial_motivo.strip(),
-            str(instance.monto_total_plan_clp),
-            str(instance.deuda_total_original),
-        ]
-    )
 
 
 def _manual_uf_trace(instance):
@@ -97,28 +83,6 @@ def _manual_uf_trace(instance):
             instance.responsable_ref.strip(),
         ]
     )
-
-
-def create_partial_repayment_exception_event(instance, request):
-    if not instance.es_repactacion_parcial:
-        return
-    create_audit_event(
-        event_type=PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
-        entity_type='repactacion_deuda',
-        entity_id=str(instance.pk),
-        summary=f'Repactacion parcial autorizada para arrendatario {instance.arrendatario_id}',
-        actor_user=request.user,
-        ip_address=request.META.get('REMOTE_ADDR'),
-        metadata={
-            'arrendatario_id': instance.arrendatario_id,
-            'contrato_id': instance.contrato_origen_id,
-            'deuda_total_original': str(instance.deuda_total_original),
-            'monto_total_plan_clp': str(instance.monto_total_plan_clp),
-            'excepcion_parcial_ref': instance.excepcion_parcial_ref.strip(),
-        },
-    )
-
-
 def create_manual_uf_load_event(instance, request):
     if not instance.requiere_auditoria_manual:
         return
@@ -173,21 +137,15 @@ class AuditCreateUpdateMixin:
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            if isinstance(instance, RepactacionDeuda):
-                create_partial_repayment_exception_event(instance, self.request)
             if isinstance(instance, ValorUFDiario):
                 create_manual_uf_load_event(instance, self.request)
         self._create_audit_event(instance=instance, action='created')
 
     def perform_update(self, serializer):
         previous_state = self._extract_state(serializer.instance)
-        previous_repayment_trace = _partial_repayment_exception_trace(serializer.instance)
         previous_manual_uf_trace = _manual_uf_trace(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
-            current_repayment_trace = _partial_repayment_exception_trace(instance)
-            if isinstance(instance, RepactacionDeuda) and current_repayment_trace and current_repayment_trace != previous_repayment_trace:
-                create_partial_repayment_exception_event(instance, self.request)
             current_manual_uf_trace = _manual_uf_trace(instance)
             if isinstance(instance, ValorUFDiario) and current_manual_uf_trace and current_manual_uf_trace != previous_manual_uf_trace:
                 create_manual_uf_load_event(instance, self.request)
@@ -825,6 +783,18 @@ class RepactacionDeudaListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin
     audit_entity_type = 'repactacion_deuda'
     audit_entity_label = 'repactacion de deuda'
 
+    def perform_create(self, serializer):
+        try:
+            instance, _ = save_repayment_plan(
+                validated_data=serializer.validated_data,
+                actor_user=self.request.user,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
+            )
+        except ValueError as error:
+            raise ValidationError({'excepcion_parcial_ref': str(error)})
+        serializer.instance = instance
+        self._create_audit_event(instance=instance, action='created')
+
 
 class RepactacionDeudaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
@@ -836,6 +806,19 @@ class RepactacionDeudaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, ge
     )
     audit_entity_type = 'repactacion_deuda'
     audit_entity_label = 'repactacion de deuda'
+
+    def perform_update(self, serializer):
+        try:
+            instance, _ = save_repayment_plan(
+                repayment=serializer.instance,
+                validated_data=serializer.validated_data,
+                actor_user=self.request.user,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
+            )
+        except ValueError as error:
+            raise ValidationError({'excepcion_parcial_ref': str(error)})
+        serializer.instance = instance
+        self._create_audit_event(instance=instance, action='updated')
 
 
 class CodigoCobroResidualListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):

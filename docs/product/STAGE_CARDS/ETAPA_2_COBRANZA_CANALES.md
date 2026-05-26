@@ -23,8 +23,10 @@ condicionados sin envios reales accidentales.
   repactacion activa conserva saldo pendiente mayor que cero y una cumplida
   debe quedar sin saldo pendiente.
 - Repactaciones parciales solo pueden existir con excepcion formal, referencia
-  no sensible, motivo auditable y evento auditable dedicado; la readiness
-  bloquea snapshots heredados sin esa traza.
+  no sensible, motivo auditable y evento auditable dedicado. El servicio de
+  guardado de repactaciones crea esa auditoria en la misma transaccion que
+  persiste el plan parcial y exige actor trazable; la readiness bloquea
+  snapshots heredados sin esa traza o con motivo desalineado en el evento.
 - Pagos originales en estado `en_repactacion` o `pagado_via_repactacion`
   deben conservar enlace a una `RepactacionDeuda` del mismo contrato y
   arrendatario. Un pago `en_repactacion` requiere plan activo; un pago
