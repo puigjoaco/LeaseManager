@@ -39,6 +39,11 @@ condicionados sin envios reales accidentales.
   fuera de plazo. La readiness debe bloquear snapshots con arrendatarios
   cobrables sin estado, con resumen operativo desactualizado o con score
   faltante/desalineado.
+- Valores UF manuales solo son aceptables como excepcion auditada: cada
+  `ValorUFDiario` con fuente manual debe conservar `evidencia_ref`,
+  `motivo_carga`, `responsable_ref` no sensibles y evento auditable
+  `cobranza.valor_uf.manual_loaded` con actor. La readiness bloquea snapshots
+  con procedencia incompleta, referencias sensibles o carga manual sin evento.
 - Garantias contractuales recibidas parcialmente deben quedar visibles como
   incompletas hasta regularizarse o contar con aceptacion formal mediante
   referencia no sensible; APIs y backoffice exponen brecha, estado de
@@ -120,10 +125,10 @@ condicionados sin envios reales accidentales.
   sin evento auditable de envio manual o con evento sin actor/`external_ref`
   trazable alineado.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
-  estados de cuenta, identidades/asignaciones de canal, gates
+  valores UF manuales, estados de cuenta, identidades/asignaciones de canal, gates
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,
   incluyendo deteccion de
-  refs sensibles en gates, `external_ref`, `return_url_ref` o
+  UF manual sin evento auditable, refs sensibles en gates, `external_ref`, `return_url_ref` o
   `provider_payload` sensible, intentos WebPay confirmados desalineados con el
   pago mensual, pagos pendientes vencidos, mora desactualizada y estados de
   cuenta con score faltante o desalineado, sin enviar mensajes ni conectar

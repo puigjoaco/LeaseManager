@@ -681,6 +681,9 @@ type ValorUF = {
   fecha: string
   valor: string
   source_key: string
+  evidencia_ref: string
+  motivo_carga: string
+  responsable_ref: string
 }
 
 type AjusteContrato = {
@@ -1613,6 +1616,9 @@ function App() {
     fecha: todayIso(),
     valor: '',
     source_key: 'manual',
+    evidencia_ref: '',
+    motivo_carga: '',
+    responsable_ref: '',
   })
   const [ajusteDraft, setAjusteDraft] = useState({
     contrato: '',
@@ -2211,6 +2217,9 @@ function App() {
       fecha: todayIso(),
       valor: '',
       source_key: 'manual',
+      evidencia_ref: '',
+      motivo_carga: '',
+      responsable_ref: '',
     })
     setAjusteDraft({
       contrato: '',
@@ -3840,7 +3849,14 @@ function App() {
     if (!canEditCobranza) return
     const ok = await submitCreate('/api/v1/cobranza/valores-uf/', ufDraft, 'Valor UF creado correctamente.')
     if (ok) {
-      setUfDraft({ fecha: todayIso(), valor: '', source_key: 'manual' })
+      setUfDraft({
+        fecha: todayIso(),
+        valor: '',
+        source_key: 'manual',
+        evidencia_ref: '',
+        motivo_carga: '',
+        responsable_ref: '',
+      })
     }
   }
 

@@ -5,7 +5,7 @@ import { count } from '../shared-utils'
 
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
-type ValorUFItem = { id: number; fecha: string; valor: string; source_key: string }
+type ValorUFItem = { id: number; fecha: string; valor: string; source_key: string; evidencia_ref: string; motivo_carga: string; responsable_ref: string }
 type AjusteContratoItem = { id: number; contrato: number; tipo_ajuste: string; monto: string; moneda: string; mes_inicio: string; mes_fin: string; activo: boolean }
 type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_pagado_clp: string; fecha_vencimiento: string; estado_pago: string; dias_mora: number }
 type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; brecha_garantia_clp: string; exceso_garantia_clp: string; garantia_incompleta: boolean; garantia_parcial_aceptada: boolean; aceptacion_parcial_ref: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string; tiene_resolucion_exceso_garantia: boolean; estado_garantia: string }
@@ -14,7 +14,7 @@ type EstadoCuentaItem = { id: number; arrendatario: number; score_pago: number |
 type ContratoItem = { id: number; codigo_contrato: string }
 type ArrendatarioItem = { id: number; nombre_razon_social: string }
 
-type UfDraft = { fecha: string; valor: string; source_key: string }
+type UfDraft = { fecha: string; valor: string; source_key: string; evidencia_ref: string; motivo_carga: string; responsable_ref: string }
 type AjusteDraft = { contrato: string; tipo_ajuste: string; monto: string; moneda: string; mes_inicio: string; mes_fin: string; justificacion: string; activo: boolean }
 type PagoDraft = { contrato_id: string; anio: string; mes: string }
 type MoraDraft = { fecha_corte: string }
@@ -103,6 +103,9 @@ export function CobranzaWorkspace({
   goToPagoContext: (pagoId: number) => void
   canOpenSii: boolean
 }) {
+  const ufRequiresManualTrace = ['manual', 'UF.CargaManualExtraordinaria', 'carga_manual_extraordinaria'].includes(ufDraft.source_key.trim())
+  const ufTraceMissing = ufRequiresManualTrace && (!ufDraft.evidencia_ref.trim() || !ufDraft.motivo_carga.trim() || !ufDraft.responsable_ref.trim())
+
   return (
     <>
       {!canEditCobranza ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Cobranza.</div> : null}
@@ -113,7 +116,10 @@ export function CobranzaWorkspace({
             <input type="date" value={ufDraft.fecha} onChange={(event) => setUfDraft((current) => ({ ...current, fecha: event.target.value }))} />
             <input placeholder="Valor UF" value={ufDraft.valor} onChange={(event) => setUfDraft((current) => ({ ...current, valor: event.target.value }))} />
             <input placeholder="Source key" value={ufDraft.source_key} onChange={(event) => setUfDraft((current) => ({ ...current, source_key: event.target.value }))} />
-            <button type="submit" className="button-primary" disabled={isSubmitting || !canEditCobranza || !ufDraft.valor}>Guardar UF</button>
+            <input placeholder="Evidencia UF" value={ufDraft.evidencia_ref} onChange={(event) => setUfDraft((current) => ({ ...current, evidencia_ref: event.target.value }))} />
+            <input placeholder="Motivo UF" value={ufDraft.motivo_carga} onChange={(event) => setUfDraft((current) => ({ ...current, motivo_carga: event.target.value }))} />
+            <input placeholder="Responsable UF" value={ufDraft.responsable_ref} onChange={(event) => setUfDraft((current) => ({ ...current, responsable_ref: event.target.value }))} />
+            <button type="submit" className="button-primary" disabled={isSubmitting || !canEditCobranza || !ufDraft.valor || ufTraceMissing}>Guardar UF</button>
           </form>
         </section>
 
@@ -213,6 +219,8 @@ export function CobranzaWorkspace({
         { label: 'Fecha', render: (row) => row.fecha },
         { label: 'Valor', render: (row) => row.valor },
         { label: 'Source', render: (row) => row.source_key },
+        { label: 'Evidencia', render: (row) => row.evidencia_ref || '-' },
+        { label: 'Responsable', render: (row) => row.responsable_ref || '-' },
       ]} />
       <TableBlock title="Ajustes de contrato" subtitle="Ajustes activos y programados por contrato." rows={filteredAjustes} empty="No hay ajustes para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },

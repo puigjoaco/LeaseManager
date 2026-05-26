@@ -187,7 +187,8 @@ contra datos reales o snapshot controlado.
   el evento auditable que vincula contrato anterior, aviso y contrato nuevo.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
-  del mes operativo.
+  del mes operativo. Si el valor UF fue cargado manualmente, debe conservar
+  `evidencia_ref`, `motivo_carga` y `responsable_ref` no sensibles.
 - Verificacion segura sin fuente autorizada:
 
 ```powershell

@@ -1289,6 +1289,22 @@ class Stage1MatrixAuditTests(TestCase):
             result['aggregate_classification']['valores_uf_diarios']['blocking_issue_codes'],
         )
 
+    def test_manual_uf_without_provenance_is_blocking(self):
+        self._create_valid_stage1_matrix()
+        ValorUFDiario.objects.create(
+            fecha=date(2026, 1, 1),
+            valor=Decimal('35000.0000'),
+            source_key='manual',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.valor_uf.validacion_modelo', issue_codes)
+        self.assertEqual(result['aggregate_classification']['valores_uf_diarios']['classification'], 'defectuoso')
+
     def test_duplicate_active_property_by_rol_avaluo_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         propiedad = contrato.mandato_operacion.propiedad

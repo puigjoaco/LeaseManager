@@ -19,6 +19,8 @@ codigo_efectivo_validator = RegexValidator(
 )
 RESIDUAL_REFERENCE_RE = re.compile(r'^CCR-[A-HJ-NP-Z2-9]{6}$')
 PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE = 'cobranza.repactacion_deuda.partial_exception'
+MANUAL_UF_LOAD_EVENT_TYPE = 'cobranza.valor_uf.manual_loaded'
+MANUAL_UF_SOURCE_KEYS = {'manual', 'UF.CargaManualExtraordinaria', 'carga_manual_extraordinaria'}
 
 
 class TimestampedModel(models.Model):
@@ -115,12 +117,50 @@ class ValorUFDiario(TimestampedModel):
     fecha = models.DateField(unique=True)
     valor = models.DecimalField(max_digits=12, decimal_places=4, validators=[MinValueValidator(Decimal('0.0001'))])
     source_key = models.CharField(max_length=64, default='manual')
+    evidencia_ref = models.CharField(max_length=255, blank=True, default='')
+    motivo_carga = models.TextField(blank=True, default='')
+    responsable_ref = models.CharField(max_length=255, blank=True, default='')
 
     class Meta:
         ordering = ['-fecha']
 
     def __str__(self):
         return f'{self.fecha} - {self.valor}'
+
+    @property
+    def requiere_auditoria_manual(self):
+        return str(self.source_key or '').strip() in MANUAL_UF_SOURCE_KEYS
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        source_key = str(self.source_key or '').strip()
+        evidencia_ref = str(self.evidencia_ref or '').strip()
+        motivo_carga = str(self.motivo_carga or '').strip()
+        responsable_ref = str(self.responsable_ref or '').strip()
+
+        if not source_key:
+            errors['source_key'] = 'La fuente UF es obligatoria.'
+        elif contains_sensitive_reference(source_key):
+            errors['source_key'] = 'La fuente UF no debe contener URLs, tokens, credenciales ni correos.'
+
+        if evidencia_ref and not is_non_sensitive_reference(evidencia_ref):
+            errors['evidencia_ref'] = 'La evidencia UF debe ser una referencia no sensible.'
+        if responsable_ref and not is_non_sensitive_reference(responsable_ref):
+            errors['responsable_ref'] = 'El responsable UF debe ser una referencia no sensible.'
+        if motivo_carga and contains_sensitive_reference(motivo_carga):
+            errors['motivo_carga'] = 'El motivo de carga UF no debe contener referencias sensibles.'
+
+        if self.requiere_auditoria_manual:
+            if not evidencia_ref:
+                errors['evidencia_ref'] = 'La carga manual UF requiere evidencia no sensible.'
+            if not motivo_carga:
+                errors['motivo_carga'] = 'La carga manual UF requiere motivo auditable.'
+            if not responsable_ref:
+                errors['responsable_ref'] = 'La carga manual UF requiere responsable trazable no sensible.'
+
+        if errors:
+            raise ValidationError(errors)
 
 
 class AjusteContrato(TimestampedModel):
