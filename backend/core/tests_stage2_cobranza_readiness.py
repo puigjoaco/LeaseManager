@@ -1706,14 +1706,22 @@ class Stage2CobranzaReadinessTests(TestCase):
             entity_type='arrendatario',
             entity_id=str(tenant.pk),
             summary='Bloqueo definitivo WhatsApp controlado.',
-            metadata={'evidencia_ref': 'wa-block-readiness-001'},
+            actor_identifier='stage2-operator',
+            metadata={
+                'motivo': 'Proveedor reporto bloqueo definitivo controlado.',
+                'evidencia_ref': 'wa-block-readiness-001',
+            },
         )
         ManualResolution.objects.create(
             category='canales.whatsapp.bloqueo_definitivo',
             scope_type='arrendatario',
             scope_reference=str(tenant.pk),
             summary='Bloqueo definitivo WhatsApp requiere seguimiento administrativo.',
-            metadata={'evidencia_ref': 'wa-block-readiness-001'},
+            rationale='Proveedor reporto bloqueo definitivo controlado.',
+            metadata={
+                'actor_identifier': 'stage2-operator',
+                'evidencia_ref': 'wa-block-readiness-001',
+            },
         )
 
         result = self._collect_with_final_refs()
@@ -1723,6 +1731,47 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertNotIn('stage2.whatsapp.block_event_missing', issue_codes)
         self.assertNotIn('stage2.whatsapp.block_alert_missing', issue_codes)
         self.assertEqual(result['sections']['channel_identities']['whatsapp_blocked_tenants'], 1)
+
+    def test_whatsapp_block_event_without_actor_or_mismatched_alert_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        tenant = fixture['tenant']
+        tenant.block_whatsapp(
+            motivo='Proveedor reporto bloqueo definitivo controlado.',
+            evidencia_ref='wa-block-readiness-002',
+        )
+        tenant.save()
+        AuditEvent.objects.create(
+            event_type='contratos.arrendatario.whatsapp_blocked',
+            entity_type='arrendatario',
+            entity_id=str(tenant.pk),
+            summary='Bloqueo definitivo WhatsApp controlado sin actor.',
+            metadata={
+                'motivo': 'Proveedor reporto bloqueo definitivo controlado.',
+                'evidencia_ref': 'wa-block-readiness-002',
+            },
+        )
+        ManualResolution.objects.create(
+            category='canales.whatsapp.bloqueo_definitivo',
+            scope_type='arrendatario',
+            scope_reference=str(tenant.pk),
+            summary='Bloqueo definitivo WhatsApp requiere seguimiento administrativo.',
+            rationale='Motivo heredado desalineado.',
+            metadata={
+                'actor_identifier': 'stage2-operator',
+                'evidencia_ref': 'wa-block-readiness-002',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.block_event_missing', issue_codes)
+        self.assertIn('stage2.whatsapp.block_alert_missing', issue_codes)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_block_event_missing'], 1)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_block_alert_missing'], 1)
 
     def test_whatsapp_block_sensitive_evidence_and_rehabilitation_ref_are_blocking(self):
         fixture = self._create_payment_matrix()

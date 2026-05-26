@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: Contratos y Canales mueven la traza de bloqueo y
+rehabilitacion WhatsApp a servicios. `block_whatsapp_contact()` exige actor
+trazable, bloquea el contacto, crea `ManualResolution`
+`canales.whatsapp.bloqueo_definitivo` y evento
+`contratos.arrendatario.whatsapp_blocked` con motivo/evidencia alineados en la
+misma transaccion; `rehabilitate_whatsapp_contact()` resuelve alertas y audita
+la rehabilitacion. Readiness Etapa 2 exige actor y alineacion de evento/alerta.
+
 Nota 2026-05-26: Cobranza mueve la auditoria de cargas UF manuales a la capa
 de servicio. `save_uf_value()` exige actor trazable para fuentes manuales,
 guarda el `ValorUFDiario` y crea el `AuditEvent`

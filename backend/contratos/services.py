@@ -4,13 +4,16 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 
+from audit.models import ManualResolution
 from audit.services import create_audit_event
 from core.reference_validation import is_non_sensitive_reference
 
 from .models import (
     AUTOMATIC_RENEWAL_EVENT_TYPE,
     AUTOMATIC_RENEWAL_ORIGIN,
+    Arrendatario,
     AvisoTermino,
     Contrato,
     ContratoPropiedad,
@@ -20,6 +23,9 @@ from .models import (
     PeriodoContractual,
     RENEWAL_PERIOD_KIND,
     TENANT_REPLACEMENT_EVENT_TYPE,
+    WHATSAPP_BLOCK_ALERT_CATEGORY,
+    WHATSAPP_BLOCK_EVENT_TYPE,
+    WHATSAPP_REHABILITATION_EVENT_TYPE,
 )
 
 
@@ -58,6 +64,188 @@ def _validate_renewal_base_policy(*, base_changed, policy_ref, policy_reason):
                 )
             }
         )
+
+
+def _require_audit_actor(message, *, actor_user=None, actor_identifier=''):
+    actor_identifier = str(actor_identifier or '').strip()
+    if actor_user is None and not actor_identifier:
+        raise ValueError(message)
+    return actor_identifier
+
+
+def create_whatsapp_block_trace(
+    *,
+    tenant,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    actor_identifier = _require_audit_actor(
+        'El bloqueo definitivo de WhatsApp requiere un actor trazable para auditoria.',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+    )
+    metadata = {
+        'arrendatario_id': tenant.pk,
+        'motivo': tenant.whatsapp_bloqueo_motivo,
+        'evidencia_ref': tenant.whatsapp_bloqueo_evidencia_ref,
+        'whatsapp_bloqueado_at': tenant.whatsapp_bloqueado_at.isoformat() if tenant.whatsapp_bloqueado_at else '',
+    }
+    if actor_identifier:
+        metadata['actor_identifier'] = actor_identifier
+    alert = ManualResolution.objects.create(
+        category=WHATSAPP_BLOCK_ALERT_CATEGORY,
+        scope_type='arrendatario',
+        scope_reference=str(tenant.pk),
+        summary='Bloqueo definitivo de WhatsApp requiere seguimiento administrativo.',
+        rationale=tenant.whatsapp_bloqueo_motivo,
+        requested_by=actor_user,
+        metadata=metadata,
+    )
+    event = create_audit_event(
+        event_type=WHATSAPP_BLOCK_EVENT_TYPE,
+        severity='warning',
+        entity_type='arrendatario',
+        entity_id=str(tenant.pk),
+        summary='Se registro bloqueo definitivo de WhatsApp para el arrendatario.',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata=metadata,
+    )
+    return alert, event
+
+
+def resolve_whatsapp_block_alerts(
+    *,
+    tenant,
+    rehabilitacion_ref: str,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    actor_identifier = _require_audit_actor(
+        'La rehabilitacion manual de WhatsApp requiere un actor trazable para auditoria.',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+    )
+    if tenant.whatsapp_rehabilitado_at is None:
+        tenant.whatsapp_rehabilitado_at = timezone.now()
+        tenant.full_clean()
+        tenant.save(update_fields=['whatsapp_rehabilitado_at', 'updated_at'])
+    open_alerts = list(
+        ManualResolution.objects.filter(
+            category=WHATSAPP_BLOCK_ALERT_CATEGORY,
+            scope_type='arrendatario',
+            scope_reference=str(tenant.pk),
+            status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
+        )
+    )
+    resolved_at = timezone.now()
+    for alert in open_alerts:
+        alert.status = ManualResolution.Status.RESOLVED
+        alert.resolved_at = resolved_at
+        alert.resolved_by = actor_user
+        metadata = alert.metadata if isinstance(alert.metadata, dict) else {}
+        alert.metadata = {
+            **metadata,
+            'rehabilitacion_ref': rehabilitacion_ref,
+            'whatsapp_rehabilitado_at': tenant.whatsapp_rehabilitado_at.isoformat()
+            if tenant.whatsapp_rehabilitado_at
+            else '',
+            'resolved_actor_identifier': actor_identifier,
+        }
+        alert.save(update_fields=['status', 'resolved_at', 'resolved_by', 'metadata'])
+    event = create_audit_event(
+        event_type=WHATSAPP_REHABILITATION_EVENT_TYPE,
+        entity_type='arrendatario',
+        entity_id=str(tenant.pk),
+        summary='Se registro rehabilitacion manual de WhatsApp para el arrendatario.',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata={
+            'arrendatario_id': tenant.pk,
+            'rehabilitacion_ref': rehabilitacion_ref,
+            'whatsapp_rehabilitado_at': tenant.whatsapp_rehabilitado_at.isoformat()
+            if tenant.whatsapp_rehabilitado_at
+            else '',
+            'alertas_resueltas': len(open_alerts),
+        },
+    )
+    return open_alerts, event
+
+
+@transaction.atomic
+def block_whatsapp_contact(
+    *,
+    tenant,
+    motivo,
+    evidencia_ref,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    tenant = Arrendatario.objects.select_for_update().get(pk=tenant.pk)
+    actor_identifier = _require_audit_actor(
+        'El bloqueo definitivo de WhatsApp requiere un actor trazable para auditoria.',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+    )
+    tenant.block_whatsapp(motivo=motivo, evidencia_ref=evidencia_ref)
+    tenant.save(
+        update_fields=[
+            'whatsapp_opt_in',
+            'whatsapp_bloqueado',
+            'whatsapp_bloqueo_motivo',
+            'whatsapp_bloqueo_evidencia_ref',
+            'whatsapp_bloqueado_at',
+            'whatsapp_rehabilitacion_ref',
+            'whatsapp_rehabilitado_at',
+            'updated_at',
+        ]
+    )
+    alert, event = create_whatsapp_block_trace(
+        tenant=tenant,
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+    )
+    return tenant, alert, event
+
+
+@transaction.atomic
+def rehabilitate_whatsapp_contact(
+    *,
+    tenant,
+    rehabilitacion_ref,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    tenant = Arrendatario.objects.select_for_update().get(pk=tenant.pk)
+    actor_identifier = _require_audit_actor(
+        'La rehabilitacion manual de WhatsApp requiere un actor trazable para auditoria.',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+    )
+    tenant.rehabilitate_whatsapp(rehabilitacion_ref=rehabilitacion_ref)
+    tenant.save(
+        update_fields=[
+            'whatsapp_bloqueado',
+            'whatsapp_rehabilitacion_ref',
+            'whatsapp_rehabilitado_at',
+            'updated_at',
+        ]
+    )
+    alerts, event = resolve_whatsapp_block_alerts(
+        tenant=tenant,
+        rehabilitacion_ref=rehabilitacion_ref,
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+    )
+    return tenant, alerts, event
 
 
 def _contract_property_payload(contract):
