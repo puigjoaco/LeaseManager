@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: CobranzaActiva refuerza que `CodigoCobroResidual` es
+post-contrato. `fecha_activacion` debe ser posterior a
+`Contrato.fecha_fin_vigente`; dominio/API rechazan nuevas escrituras durante la
+vigencia y readiness Etapa 2 reporta `stage2.residual_code.invalid_model` para
+snapshots heredados con codigos residuales prematuros.
+
 Nota 2026-05-26: CobranzaActiva canoniza la procedencia de `ValorUFDiario`.
 `source_key` solo acepta `UF.BancoCentral`, `UF.CMF`, `UF.MiIndicador` o
 `UF.CargaManualExtraordinaria`; el bootstrap demo exige `--source-key`

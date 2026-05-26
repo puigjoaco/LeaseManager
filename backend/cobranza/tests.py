@@ -1567,6 +1567,39 @@ class CobranzaAPITests(APITestCase):
             residual.full_clean()
         self.assertIn('referencia_visible', error.exception.message_dict)
 
+    def test_residual_code_full_clean_rejects_activation_during_contract(self):
+        contrato = self._create_active_contract(codigo='CON-RES-DATE', monto_base='100000.00', code='111')
+        residual = CodigoCobroResidual(
+            referencia_visible='CCR-ABC234',
+            arrendatario=contrato.arrendatario,
+            contrato_origen=contrato,
+            saldo_actual='25000.00',
+            estado='activa',
+            fecha_activacion='2026-12-31',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            residual.full_clean()
+        self.assertIn('fecha_activacion', error.exception.message_dict)
+
+    def test_create_residual_code_rejects_activation_during_contract(self):
+        contrato = self._create_active_contract(codigo='CON-RES-API', monto_base='100000.00', code='111')
+
+        response = self.client.post(
+            reverse('cobranza-residual-list'),
+            {
+                'arrendatario': contrato.arrendatario_id,
+                'contrato_origen': contrato.id,
+                'saldo_actual': '25000.00',
+                'estado': 'activa',
+                'fecha_activacion': '2026-12-31',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('fecha_activacion', response.data)
+
     def test_repactacion_rejects_contract_arrendatario_mismatch(self):
         contrato = self._create_active_contract(codigo='CON-REP', monto_base='100000.00', code='111')
         other_tenant = Arrendatario.objects.create(

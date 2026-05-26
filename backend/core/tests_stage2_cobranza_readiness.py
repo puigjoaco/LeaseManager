@@ -747,6 +747,28 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertEqual(result['sections']['residual_codes']['active'], 1)
         self.assertEqual(result['sections']['residual_codes']['invalid_model'], 1)
 
+    def test_residual_code_active_before_contract_end_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        CodigoCobroResidual.objects.create(
+            referencia_visible='CCR-ABC234',
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            saldo_actual=Decimal('25000.00'),
+            estado='activa',
+            fecha_activacion=date(2026, 12, 31),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.residual_code.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['residual_codes']['total'], 1)
+        self.assertEqual(result['sections']['residual_codes']['active'], 1)
+        self.assertEqual(result['sections']['residual_codes']['invalid_model'], 1)
+
     def test_repayment_with_inconsistent_state_balance_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()

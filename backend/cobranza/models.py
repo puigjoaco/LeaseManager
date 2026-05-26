@@ -1036,6 +1036,17 @@ class CodigoCobroResidual(TimestampedModel):
             )
         if self.contrato_origen.arrendatario_id != self.arrendatario_id:
             raise ValidationError({'arrendatario': 'El cobro residual debe pertenecer al mismo arrendatario del contrato origen.'})
+        fecha_activacion = _coerce_date(self.fecha_activacion)
+        fecha_fin_vigente = _coerce_date(self.contrato_origen.fecha_fin_vigente)
+        if fecha_activacion and fecha_fin_vigente:
+            if fecha_activacion <= fecha_fin_vigente:
+                raise ValidationError(
+                    {
+                        'fecha_activacion': (
+                            'El cobro residual solo puede activarse despues del termino del contrato origen.'
+                        )
+                    }
+                )
         if self.estado == EstadoCobroResidual.ACTIVE and self.saldo_actual <= 0:
             raise ValidationError({'saldo_actual': 'El cobro residual activo requiere un saldo mayor que cero.'})
 
