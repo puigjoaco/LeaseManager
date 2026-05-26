@@ -369,6 +369,13 @@ class ComplianceAPITests(APITestCase):
         revoked = self.client.post(reverse('compliance-export-revoke', args=[prepared.data['id']]), format='json')
         self.assertEqual(revoked.status_code, status.HTTP_200_OK)
         self.assertEqual(revoked.data['estado'], 'revocada')
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='compliance.exportacion_sensible.revoked',
+                entity_type='exportacion_sensible',
+                entity_id=str(prepared.data['id']),
+            ).exists()
+        )
 
         denied = self.client.get(reverse('compliance-export-content', args=[prepared.data['id']]))
         self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
