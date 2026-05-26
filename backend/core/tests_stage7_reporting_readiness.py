@@ -437,6 +437,29 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertIn('stage7.reporting.annual_ddjj_fiscal_year_mismatch', issue_codes)
         self.assertIn('stage7.reporting.annual_f22_fiscal_year_mismatch', issue_codes)
 
+    def test_annual_reporting_sensitive_payload_keys_are_blocking(self):
+        self._create_valid_local_matrix()
+        summary = self._annual_summary()
+        ProcesoRentaAnual.objects.update(resumen_anual={**summary, 'api_key': None})
+        DDJJPreparacionAnual.objects.update(
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': summary, 'access_token': None}
+        )
+        F22PreparacionAnual.objects.update(
+            resumen_f22={'resumen_anual': summary, 'regimen_tributario': 'propyme-general-v1', 'credential': None}
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_reporting'])
+        self.assertIn('stage7.reporting.annual_process_sensitive_payload', issue_codes)
+        self.assertIn('stage7.reporting.annual_ddjj_sensitive_payload', issue_codes)
+        self.assertIn('stage7.reporting.annual_f22_sensitive_payload', issue_codes)
+        self.assertEqual(result['sections']['annual_tax']['process_sensitive_payload'], 1)
+        self.assertEqual(result['sections']['annual_tax']['ddjj_sensitive_payload'], 1)
+        self.assertEqual(result['sections']['annual_tax']['f22_sensitive_payload'], 1)
+        self.assertNotIn('api_key', json.dumps(result))
+
     def test_sensitive_final_refs_and_command_behaviour(self):
         self._create_valid_local_matrix()
 

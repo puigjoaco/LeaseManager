@@ -30,6 +30,9 @@ documentos o procesos tributarios trazables.
   la API bloquea reportes desalineados y readiness los marca como brecha.
 - El resumen tributario anual redacta `paquete_ref`, `borrador_ref` y payloads
   anuales sensibles heredados antes de exponerlos al backoffice.
+- `audit_stage7_reporting_readiness` reporta payloads anuales sensibles en
+  `resumen_anual`, `resumen_paquete` y `resumen_f22` como brecha bloqueante de
+  reporting, manteniendo solo conteos/codigos y sin exponer valores.
 - Si falta alguno de esos origenes, la API responde con bloqueo de
   trazabilidad y no entrega el reporte como valido.
 - `audit_stage7_reporting_readiness` consolida readiness local de resumen

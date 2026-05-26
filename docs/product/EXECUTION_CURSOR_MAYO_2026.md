@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en `main`; ultimo paquete trabajado: Etapa 4 / SII - claves sensibles en payloads tributarios locales. |
+| Frente activo | Ninguno abierto en `main`; ultimo paquete trabajado: Etapa 6/7 - readiness explicita para payloads anuales sensibles. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete endurece SII para rechazar claves sensibles en `ultimo_resultado`, `resumen_formulario`, `resumen_anual`, `resumen_paquete` y `resumen_f22`. |
-| Motivo de prioridad | La stage card Etapa 4 exige refs/payloads no sensibles y el paquete se cerro localmente sin SII, certificados, `.env`, datos reales ni integraciones externas. |
+| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que Stage 6 y Stage 7 clasifiquen explicitamente `resumen_anual`, `resumen_paquete` y `resumen_f22` sensibles. |
+| Motivo de prioridad | Renta Anual y Reporting deben diagnosticar payloads heredados sensibles sin imprimir valores; el paquete es local y no requiere SII, certificados, `.env`, datos reales ni integraciones externas. |
 | Worktree | Ninguno tactico debe quedar activo tras merge/limpieza. |
 | Rama | `main` tras merge/limpieza. |
 | Estado | Paquete validado localmente; al reanudar, confirmar `git status --short --branch` y `git worktree list`. |
 | Gate esperado | Si `main` esta limpio, seleccionar el siguiente frente seguro desde trazabilidad; si aparece worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
-| Estado al cerrar paquete | No cierra Etapa 4; solo endurece escritura/readiness local de payloads tributarios. |
-| Bloqueos relacionados | Ambiente SII real/controlado, evidencia de ledger, regla fiscal validada y responsable siguen siendo condiciones de cierre, no requisitos para este paquete local. |
+| Estado al cerrar paquete | No cierra Etapa 6 ni Etapa 7; solo mejora readiness local y evidencia de payloads anuales sensibles. |
+| Bloqueos relacionados | Fuente autorizada/snapshot, regla fiscal validada, certificados/respaldos controlados, datos/reporting autorizados y responsables siguen siendo condiciones de cierre, no requisitos para este paquete. |
 | Politica de reanudacion | Si `main` sigue limpio y no hay worktree tactico sucio, tomar el siguiente frente seguro por trazabilidad. |
 | Siguiente accion | Diagnosticar `main` real y elegir el siguiente paquete util sin depender de secretos, datos reales ni integraciones externas. |
 

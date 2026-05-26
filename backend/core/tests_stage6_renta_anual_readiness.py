@@ -413,6 +413,29 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertIn('stage6.ddjj_summary_fiscal_year_mismatch', issue_codes)
         self.assertIn('stage6.f22_summary_fiscal_year_mismatch', issue_codes)
 
+    def test_sensitive_annual_payload_keys_are_blocking(self):
+        self._create_valid_local_matrix()
+        summary = self._annual_summary()
+        ProcesoRentaAnual.objects.update(resumen_anual={**summary, 'api_key': None})
+        DDJJPreparacionAnual.objects.update(
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': summary, 'access_token': None}
+        )
+        F22PreparacionAnual.objects.update(
+            resumen_f22={'resumen_anual': summary, 'regimen_tributario': 'propyme-general-v1', 'credential': None}
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.annual_process_sensitive_payload', issue_codes)
+        self.assertIn('stage6.ddjj_sensitive_payload', issue_codes)
+        self.assertIn('stage6.f22_sensitive_payload', issue_codes)
+        self.assertEqual(result['sections']['annual_process']['process_sensitive_payload'], 1)
+        self.assertEqual(result['sections']['annual_documents']['ddjj_sensitive_payload'], 1)
+        self.assertEqual(result['sections']['annual_documents']['f22_sensitive_payload'], 1)
+        self.assertNotIn('api_key', json.dumps(result))
+
     def test_ddjj_and_f22_approved_without_refs_or_presented_are_blocking(self):
         self._create_valid_local_matrix()
         ProcesoRentaAnual.objects.update(paquete_ddjj_ref='', borrador_f22_ref='')
