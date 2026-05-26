@@ -53,6 +53,12 @@ guard de escritura. Contratos vigentes/futuros requieren al menos una
 desde `Contrato.full_clean()` y API; el auditor Etapa 1 conserva la deteccion
 de snapshots heredados.
 
+Nota 2026-05-26: Contratos mueve el readiness operativo de arrendatario a
+guard de escritura. Contratos vigentes/futuros requieren arrendatario con
+estado de contacto activo, email o telefono, domicilio de notificaciones y
+contacto de pago activo estructurado desde `Contrato.full_clean()` y API; el
+auditor Etapa 1 conserva la deteccion de snapshots heredados.
+
 Nota 2026-05-26: CobranzaActiva y Canales endurecen los gates externos sin
 abrir integraciones. `restricciones_operativas` de Email/WhatsApp/WebPay
 rechaza valores sensibles y tambien nombres de claves sensibles como
@@ -187,7 +193,8 @@ invalidas.
 Nota 2026-05-24: Contratos incorpora `ContactoPagoArrendatario` como dato
 estructurado para cobranza. La API valida contactos activos con nombre y
 email/telefono, redacta evidencia sensible heredada, el snapshot expone la
-lista estructurada y el auditor Etapa 1 bloquea contratos vigentes/futuros sin
+lista estructurada y, desde el guard de escritura 2026-05-26, contratos
+vigentes/futuros quedan bloqueados por API/modelo si el arrendatario no tiene
 contacto de pago activo.
 
 Nota 2026-05-24: Patrimonio incorpora `ServicioPropiedad` para servicios y
