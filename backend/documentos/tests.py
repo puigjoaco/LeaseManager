@@ -13,6 +13,7 @@ from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoM
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria
+from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE
 
 
 VALID_SHA256 = 'a' * 64
@@ -65,7 +66,7 @@ class DocumentosAPITests(APITestCase):
             'version_plantilla': 'v1',
             'checksum': VALID_SHA256,
             'fecha_carga': '2026-03-18T10:00:00-03:00',
-            'origen': 'generado_sistema',
+            'origen': 'carga_externa_controlada',
             'estado': 'emitido',
             'storage_ref': 'storage/contracts/contrato-1.pdf',
             'firma_arrendador_registrada': False,
@@ -78,6 +79,91 @@ class DocumentosAPITests(APITestCase):
         response = self.client.post(reverse('documentos-documento-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         return response.data
+
+    def test_generate_pdf_endpoint_derives_checksum_storage_and_audit(self):
+        expediente = self._create_expediente(entidad_id='generated-pdf')
+        self._create_politica()
+
+        response = self.client.post(
+            reverse('documentos-documento-generar-pdf'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'contrato-v1',
+                'titulo': 'Contrato principal controlado',
+                'lineas': [
+                    'Arrendador: referencia-operativa-arrendador',
+                    'Arrendatario: referencia-operativa-arrendatario',
+                    'Propiedad: referencia-operativa-propiedad',
+                ],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        document_payload = response.data['documento']
+        document = DocumentoEmitido.objects.get(pk=document_payload['id'])
+        self.assertEqual(document.origen, 'generado_sistema')
+        self.assertEqual(document.estado, EstadoDocumento.ISSUED)
+        self.assertEqual(document.checksum, response.data['pdf_sha256'])
+        self.assertRegex(document.checksum, r'^[0-9a-f]{64}$')
+        self.assertTrue(document.storage_ref.startswith('storage/generated-documents/contrato_principal/contrato-v1-'))
+        self.assertTrue(document.storage_ref.endswith('.pdf'))
+        self.assertGreater(response.data['pdf_size_bytes'], 100)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=GENERATED_PDF_AUDIT_EVENT_TYPE,
+                entity_type='documento_emitido',
+                entity_id=str(document.pk),
+                metadata__checksum_sha256=document.checksum,
+            ).exists()
+        )
+
+    def test_generate_pdf_endpoint_rejects_sensitive_content(self):
+        expediente = self._create_expediente(entidad_id='generated-sensitive')
+        self._create_politica()
+
+        response = self.client.post(
+            reverse('documentos-documento-generar-pdf'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'contrato-v1',
+                'titulo': 'Contrato principal controlado',
+                'lineas': ['No persistir token=secret-value en PDF generado'],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('lineas', response.data)
+
+    def test_generic_document_endpoint_rejects_system_generated_origin(self):
+        expediente = self._create_expediente(entidad_id='generic-generated-origin')
+        self._create_politica()
+
+        response = self.client.post(
+            reverse('documentos-documento-list'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'v1',
+                'checksum': VALID_SHA256,
+                'fecha_carga': '2026-03-18T10:00:00-03:00',
+                'origen': 'generado_sistema',
+                'estado': 'emitido',
+                'storage_ref': 'storage/contracts/generic-generated-origin.pdf',
+                'firma_arrendador_registrada': False,
+                'firma_arrendatario_registrada': False,
+                'firma_codeudor_registrada': False,
+                'recepcion_notarial_registrada': False,
+                'comprobante_notarial': None,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('origen', response.data)
 
     def _create_active_company(self, nombre, rut, socio_ruts):
         socio_1 = Socio.objects.create(nombre=f'{nombre} Socio 1', rut=socio_ruts[0], activo=True)
@@ -229,7 +315,7 @@ class DocumentosAPITests(APITestCase):
                 'version_plantilla': 'v1',
                 'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
-                'origen': 'generado_sistema',
+                'origen': 'carga_externa_controlada',
                 'estado': 'emitido',
                 'storage_ref': 'storage/contracts/contrato-1.docx',
                 'firma_arrendador_registrada': False,
@@ -256,7 +342,7 @@ class DocumentosAPITests(APITestCase):
                 'version_plantilla': 'v1',
                 'checksum': 'checksum-operativo-sin-digest',
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
-                'origen': 'generado_sistema',
+                'origen': 'carga_externa_controlada',
                 'estado': 'emitido',
                 'storage_ref': 'storage/contracts/contrato-1.pdf',
                 'firma_arrendador_registrada': False,
@@ -279,7 +365,7 @@ class DocumentosAPITests(APITestCase):
             version_plantilla='v1',
             checksum=VALID_SHA256,
             fecha_carga=timezone.now(),
-            origen='generado_sistema',
+            origen='carga_externa_controlada',
             estado='emitido',
             storage_ref='storage/contracts/contrato-1.pdf',
         )
@@ -300,7 +386,7 @@ class DocumentosAPITests(APITestCase):
                 'version_plantilla': 'v1',
                 'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
-                'origen': 'generado_sistema',
+                'origen': 'carga_externa_controlada',
                 'estado': 'emitido',
                 'storage_ref': 'storage/contracts/policy-guard.pdf',
                 'firma_arrendador_registrada': False,
@@ -346,7 +432,7 @@ class DocumentosAPITests(APITestCase):
                 'version_plantilla': 'v1',
                 'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
-                'origen': 'generado_sistema',
+                'origen': 'carga_externa_controlada',
                 'estado': 'emitido',
                 'storage_ref': 'https://storage.example.test/contracts/contrato-1.pdf?token=secret',
                 'firma_arrendador_registrada': False,
@@ -371,7 +457,7 @@ class DocumentosAPITests(APITestCase):
             checksum=VALID_SHA256,
             fecha_carga=timezone.now(),
             usuario=self.user,
-            origen='generado_sistema',
+            origen='carga_externa_controlada',
             estado='emitido',
             storage_ref='https://storage.example.test/contracts/contrato-1.pdf?token=secret',
         )
@@ -434,7 +520,7 @@ class DocumentosAPITests(APITestCase):
                 'version_plantilla': 'v1',
                 'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
-                'origen': 'generado_sistema',
+                'origen': 'carga_externa_controlada',
                 'estado': 'formalizado',
                 'storage_ref': 'storage/contracts/direct-formalized-create.pdf',
                 'firma_arrendador_registrada': True,
@@ -664,7 +750,7 @@ class DocumentosAPITests(APITestCase):
                 'version_plantilla': 'v2',
                 'checksum': VALID_SHA256_ALT,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
-                'origen': 'generado_sistema',
+                'origen': 'carga_externa_controlada',
                 'estado': 'emitido',
                 'storage_ref': 'storage/contracts/contrato-1-v2.pdf',
                 'firma_arrendador_registrada': False,
@@ -704,7 +790,7 @@ class DocumentosAPITests(APITestCase):
                 'version_plantilla': 'v2',
                 'checksum': VALID_SHA256_ALT,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
-                'origen': 'generado_sistema',
+                'origen': 'carga_externa_controlada',
                 'estado': 'emitido',
                 'storage_ref': 'storage/contracts/contrato-1-v2.pdf',
                 'firma_arrendador_registrada': False,
@@ -917,7 +1003,7 @@ class DocumentosScopeAPITests(APITestCase):
                 'version_plantilla': 'v1',
                 'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
-                'origen': 'generado_sistema',
+                'origen': 'carga_externa_controlada',
                 'estado': 'emitido',
                 'storage_ref': 'storage/docs/doc-a.pdf',
                 'firma_arrendador_registrada': False,
@@ -1035,7 +1121,7 @@ class DocumentosScopeAPITests(APITestCase):
                 'version_plantilla': 'v1',
                 'checksum': VALID_SHA256,
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
-                'origen': 'generado_sistema',
+                'origen': 'carga_externa_controlada',
                 'estado': 'emitido',
                 'storage_ref': 'storage/docs/doc-b.pdf',
                 'firma_arrendador_registrada': False,

@@ -10,11 +10,13 @@ from .models import (
     DocumentoEmitido,
     EstadoDocumento,
     EstadoPoliticaFirma,
+    OrigenDocumento,
     PoliticaFirmaYNotaria,
     TipoDocumental,
     is_pdf_storage_ref,
     is_valid_pdf_checksum,
 )
+from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE
 
 
 REQUIRED_POLICY_TYPES = set(TipoDocumental.values)
@@ -85,6 +87,14 @@ def _has_correction_audit(document):
     ).exists()
 
 
+def _has_generated_pdf_audit(document):
+    return AuditEvent.objects.filter(
+        event_type=GENERATED_PDF_AUDIT_EVENT_TYPE,
+        entity_type='documento_emitido',
+        entity_id=str(document.pk),
+    ).exists()
+
+
 def collect_document_readiness(
     *,
     final_policy_ref='',
@@ -112,6 +122,7 @@ def collect_document_readiness(
     )
     formalized_without_notary_receipt = 0
     formalized_without_formalization_audit = 0
+    generated_documents_without_audit = 0
     corrective_versions_without_audit = 0
     invalid_corrective_versions = 0
 
@@ -126,6 +137,8 @@ def collect_document_readiness(
             documents_missing_user += 1
         if _document_missing_metadata(document):
             documents_missing_metadata += 1
+        if document.origen == OrigenDocumento.GENERATED and not _has_generated_pdf_audit(document):
+            generated_documents_without_audit += 1
         if document.estado == EstadoDocumento.FORMALIZED:
             try:
                 document.full_clean()
@@ -249,6 +262,14 @@ def collect_document_readiness(
                 count=invalid_formalized_documents,
             )
         )
+    if generated_documents_without_audit:
+        issues.append(
+            _issue(
+                'documents.generated_pdf_audit_missing',
+                'Existen documentos generados por sistema sin auditoria dedicada de generacion PDF.',
+                count=generated_documents_without_audit,
+            )
+        )
     if formalized_without_notary_receipt:
         issues.append(
             _issue(
@@ -334,6 +355,7 @@ def collect_document_readiness(
                 'missing_user': documents_missing_user,
                 'invalid_checksums': invalid_checksum_documents,
                 'invalid_formalized_documents': invalid_formalized_documents,
+                'generated_without_audit': generated_documents_without_audit,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,
                 'formalized_without_formalization_audit': formalized_without_formalization_audit,
                 'corrective_versions': documents.filter(documento_origen__isnull=False).count(),

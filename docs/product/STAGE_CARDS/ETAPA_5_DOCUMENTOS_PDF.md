@@ -21,6 +21,11 @@ firma y notaria trazables.
   SHA-256 canonico, no una etiqueta libre. `DocumentoEmitido.clean()` bloquea
   nuevas escrituras sin `usuario` responsable y readiness conserva la deteccion
   de documentos heredados sin responsable.
+- La emision de PDF generado por sistema debe usar el endpoint dedicado
+  `documentos-emitidos/generar-pdf/`: genera bytes PDF canonicos locales,
+  deriva `checksum` y `storage_ref` desde el contenido, rechaza contenido
+  sensible, registra auditoria `documentos.documento_emitido.generated_pdf` y
+  deja cerrado el endpoint generico para `origen=generado_sistema`.
 - Cada documento emitido debe tener politica activa para su tipo documental;
   el dominio/API rechaza nuevas escrituras sin esa politica y evita desactivar
   politicas ya usadas por documentos existentes.
@@ -49,6 +54,8 @@ firma y notaria trazables.
   faltantes antes de declarar cierre.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   documentos emitidos sin `usuario` responsable registrado.
+- Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
+  documentos `generado_sistema` sin auditoria dedicada de generacion PDF.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   documentos heredados sin politica activa para su tipo documental.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta

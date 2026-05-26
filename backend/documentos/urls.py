@@ -5,6 +5,7 @@ from .views import (
     DocumentoEmitidoDetailView,
     DocumentoEmitidoListCreateView,
     DocumentoFormalizarView,
+    DocumentoGenerarPDFView,
     ExpedienteDocumentalDetailView,
     ExpedienteDocumentalListCreateView,
     PoliticaFirmaYNotariaDetailView,
@@ -18,6 +19,7 @@ urlpatterns = [
     path('politicas-firma/', PoliticaFirmaYNotariaListCreateView.as_view(), name='documentos-politica-list'),
     path('politicas-firma/<int:pk>/', PoliticaFirmaYNotariaDetailView.as_view(), name='documentos-politica-detail'),
     path('documentos-emitidos/', DocumentoEmitidoListCreateView.as_view(), name='documentos-documento-list'),
+    path('documentos-emitidos/generar-pdf/', DocumentoGenerarPDFView.as_view(), name='documentos-documento-generar-pdf'),
     path('documentos-emitidos/<int:pk>/', DocumentoEmitidoDetailView.as_view(), name='documentos-documento-detail'),
     path('documentos-emitidos/<int:pk>/formalizar/', DocumentoFormalizarView.as_view(), name='documentos-documento-formalizar'),
 ]
