@@ -18,6 +18,12 @@ Nota 2026-05-26: CobranzaActiva exige coherencia saldo/estado en
 cero; `pagada` o `cancelada` deben quedar con `saldo_actual=0`, y readiness
 Etapa 2 bloquea snapshots heredados que oculten saldo bajo estados cerrados.
 
+Nota 2026-05-26: Conciliacion restringe el match exacto automatico de cobranza
+residual a la cuenta recaudadora del movimiento bancario. Una referencia
+`CCR-XXXXXX` valida pero asociada a otra cuenta queda como ingreso desconocido
+para resolucion manual auditada; readiness Etapa 3 sigue bloqueando snapshots
+heredados con targets residuales de cuenta incorrecta.
+
 Nota 2026-05-26: CobranzaActiva canoniza la procedencia de `ValorUFDiario`.
 `source_key` solo acepta `UF.BancoCentral`, `UF.CMF`, `UF.MiIndicador` o
 `UF.CargaManualExtraordinaria`; el bootstrap demo exige `--source-key`

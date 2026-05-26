@@ -11,7 +11,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 
 from audit.models import ManualResolution
-from cobranza.models import EstadoPago, PagoMensual
+from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
 from contratos.models import (
     Arrendatario,
     Contrato,
@@ -786,6 +786,39 @@ class Stage3ConciliacionReadinessTests(TestCase):
             estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
             pago_mensual=payment,
         )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['movements']['invalid_model'], 1)
+
+    def test_exact_matched_residual_from_other_account_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-RES-ACCOUNT')
+        other_account = self._create_secondary_account(cuenta, suffix='RES-MISMATCH')
+        conexion = self._create_ready_connection(other_account)
+        residual = CodigoCobroResidual.objects.create(
+            referencia_visible='CCR-ABC234',
+            arrendatario=payment.contrato.arrendatario,
+            contrato_origen=payment.contrato,
+            saldo_actual=Decimal('0.00'),
+            estado=EstadoCobroResidual.PAID,
+            fecha_activacion=date(2027, 1, 10),
+        )
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=Decimal('15000.00'),
+            descripcion_origen='Cobranza residual conciliada en cuenta incorrecta',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3',
+            saldo_reportado=Decimal('1000000.00'),
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+            codigo_cobro_residual=residual,
+        )
+        self._create_square_balance(other_account)
 
         result = self._collect_with_final_refs()
         issue_codes = {issue['code'] for issue in result['issues']}

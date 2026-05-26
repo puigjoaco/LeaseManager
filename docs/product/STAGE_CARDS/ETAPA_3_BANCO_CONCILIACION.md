@@ -30,7 +30,10 @@ sistema igual a saldo banco.
   target: abonos apuntan a pago mensual pagado o codigo residual pagado de la
   misma cuenta recaudadora; el pago mensual target debe pertenecer al mismo
   periodo economico del movimiento bancario; movimientos no conciliados no
-  conservan target.
+  conservan target. El match exacto automatico de cobranza residual debe
+  buscar codigos solo dentro de la cuenta recaudadora del movimiento; una
+  referencia residual de otra cuenta queda como ingreso desconocido para
+  resolucion manual auditada.
 - Abonos parciales o complementarios conciliados a un `PagoMensual` solo son
   validos con resolucion manual auditada de ingreso desconocido; readiness
   bloquea snapshots donde el movimiento parcial quedo como match exacto sin

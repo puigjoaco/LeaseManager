@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico activo tras preparar coherencia saldo/estado de codigos residuales. |
+| Frente activo | Sin paquete tactico activo tras preparar match exacto residual acotado a cuenta recaudadora. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
 | Brecha activa | Ninguna fijada en cursor. |
-| Motivo de prioridad | El paquete Etapa 2 / CobranzaActiva - coherencia saldo/estado de codigos residuales queda validado localmente para PR/CI/merge; no debe reabrirse tras integrarse. |
-| Worktree | Ninguno esperado aparte del root principal cuando el paquete este mergeado y limpio. |
-| Rama | Ninguna rama tactica activa esperada tras merge. |
-| Estado | Listo para seleccionar el siguiente frente desde el estado real de `main`. |
-| Gate esperado | Antes de abrir otro paquete, confirmar `git status --short --branch`, `git worktree list` y revisar trazabilidad/stage cards para escoger el siguiente avance local seguro. |
-| Estado al cerrar paquete | El paquete no cierra Etapa 2; endurece dominio/API/readiness para que codigos residuales activos tengan saldo pendiente y codigos cerrados queden sin saldo. |
-| Bloqueos relacionados | Prueba externa real/controlada de correo/WebPay y datos Etapa 1 confirmados siguen siendo condiciones de cierre, no requisitos para este paquete local. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, no reconstruir tareas previas: seleccionar el siguiente paquete operativo desde el estado real de `main`. |
-| Siguiente accion | Tras PR/CI/merge/limpieza del paquete, elegir el siguiente frente trazable y seguro. |
+| Motivo de prioridad | El paquete actual ya dejo preparado el guard para que referencias residuales de otra cuenta queden como ingreso desconocido/resolucion manual y no como cierre exacto. |
+| Worktree | Ninguno esperado tras merge y limpieza. |
+| Rama | Ninguna rama tactica esperada tras merge y limpieza. |
+| Estado | Listo para PR/CI/merge/limpieza del paquete actual; luego seleccionar el siguiente frente desde `main`. |
+| Gate esperado | Confirmar `git status --short --branch`, `git worktree list` y tomar el siguiente paquete seguro por trazabilidad vigente. |
+| Estado al cerrar paquete | Etapa 3 no queda cerrada; solo queda mas estricto el matching exacto local para que codigos residuales respeten cuenta recaudadora. |
+| Bloqueos relacionados | Banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria, cuadratura y responsable siguen siendo condiciones de cierre, no requisitos para este paquete local. |
+| Politica de reanudacion | Si el worktree tactico aun existe, terminar PR/CI/merge/limpieza; si no existe, operar solo desde el estado real de `main` y este cursor. |
+| Siguiente accion | Cerrar PR/CI/merge/limpieza del paquete actual y luego escoger el siguiente frente seguro. |
 
 ## Actualizacion
 

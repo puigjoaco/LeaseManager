@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -705,6 +706,40 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(residual.estado, EstadoCobroResidual.PAID)
         self.assertEqual(residual.saldo_actual, 0)
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
+
+    def test_exact_match_residual_requires_same_account(self):
+        cuenta, _, contrato = self._create_contract_and_payment(codigo='REC-RES-ACC')
+        other_account = self._create_secondary_account(codigo='REC-RES-OTHER')
+        conexion = self._create_connection(other_account, provider='banco_estado')
+        residual = CodigoCobroResidual.objects.create(
+            referencia_visible='CCR-ABC234',
+            arrendatario=contrato.arrendatario,
+            contrato_origen=contrato,
+            saldo_actual='15000.00',
+            estado=EstadoCobroResidual.ACTIVE,
+            fecha_activacion='2027-01-10',
+        )
+
+        response = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                fecha_movimiento='2027-01-15',
+                monto='15000.00',
+                descripcion_origen='Cobranza residual otra cuenta',
+                referencia=residual.referencia_visible,
+            ),
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        residual.refresh_from_db()
+        movimiento = MovimientoBancarioImportado.objects.get(pk=response.data['id'])
+        self.assertEqual(residual.estado, EstadoCobroResidual.ACTIVE)
+        self.assertEqual(residual.saldo_actual, Decimal('15000.00'))
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        self.assertIsNone(movimiento.codigo_cobro_residual_id)
+        self.assertTrue(IngresoDesconocido.objects.filter(movimiento_bancario=movimiento).exists())
 
     def test_unmatched_income_creates_ingreso_desconocido_and_manual_resolution(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-UNK')
