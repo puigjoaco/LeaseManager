@@ -34,7 +34,11 @@ from .models import (
     MensajeSaliente,
     NotificacionCobranzaProgramada,
 )
-from .services import mark_message_as_sent, materialize_payment_notification_schedule
+from .services import (
+    WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
+    mark_message_as_sent,
+    materialize_payment_notification_schedule,
+)
 
 
 VALID_DOCUMENT_SHA256 = 'c' * 64
@@ -830,8 +834,18 @@ class CanalesAPITests(APITestCase):
             category='canales.whatsapp.fallback_requerido',
             scope_reference=str(response.data['id']),
         )
+        self.assertEqual(fallback.requested_by, self.user)
         self.assertEqual(fallback.metadata['fallback_canal_base'], 'email')
         self.assertEqual(fallback.metadata['canal'], 'whatsapp')
+        self.assertEqual(fallback.metadata['blocking_reason'], response.data['motivo_bloqueo'])
+        self.assertEqual(fallback.metadata['message_id'], response.data['id'])
+        event = AuditEvent.objects.get(
+            event_type=WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
+            entity_type='mensaje_saliente',
+            entity_id=str(response.data['id']),
+        )
+        self.assertEqual(event.actor_user, self.user)
+        self.assertEqual(event.metadata['blocking_reason'], response.data['motivo_bloqueo'])
 
     def test_prepare_message_blocks_when_gate_is_only_conditioned(self):
         empresa, contrato = self._create_contract_context(codigo='CH-COND')

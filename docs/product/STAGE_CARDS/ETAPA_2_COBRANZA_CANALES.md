@@ -140,9 +140,11 @@ condicionados sin envios reales accidentales.
   transaccion. La rehabilitacion manual conserva la traza del bloqueo, usa
   referencia no sensible y resuelve alertas desde servicio con auditoria
   dedicada. Todo mensaje WhatsApp bloqueado o fallido debe quedar con Email
-  alternativo preparado/enviado o con alerta critica/fallback trazable; la
-  readiness bloquea snapshots heredados sin esa traza, con bloqueo definitivo
-  sin evento/alerta, sin actor o con evidencia/motivo desalineados.
+  alternativo preparado/enviado o con alerta critica/fallback trazable; el
+  servicio de preparacion crea esa alerta con actor y evento dedicado cuando
+  bloquea WhatsApp. La readiness bloquea snapshots heredados sin esa traza, sin
+  actor, sin evento dedicado, con motivo/contexto desalineado, con bloqueo
+  definitivo sin evento/alerta o con evidencia/motivo desalineados.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
   `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y
   `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`

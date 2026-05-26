@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: Canales endurece el fallback critico de WhatsApp desde
+servicio. Cuando `prepare_message()` bloquea un mensaje WhatsApp, crea
+`ManualResolution` `canales.whatsapp.fallback_requerido` con actor trazable y
+evento `canales.whatsapp.fallback_required` alineado al motivo/contexto del
+mensaje; readiness Etapa 2 ya no acepta alertas heredadas sin actor, sin evento
+dedicado o con motivo desalineado como fallback suficiente.
+
 Nota 2026-05-26: Contratos y Canales mueven la traza de bloqueo y
 rehabilitacion WhatsApp a servicios. `block_whatsapp_contact()` exige actor
 trazable, bloquea el contacto, crea `ManualResolution`

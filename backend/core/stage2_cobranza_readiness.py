@@ -20,6 +20,7 @@ from canales.models import (
 from canales.services import (
     COLLECTABLE_PAYMENT_STATES,
     WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
+    WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
     document_delivery_blocking_reason,
     email_readiness_blocking_reason,
     expected_payment_notification_schedule,
@@ -225,7 +226,15 @@ def _message_context_matches(left: MensajeSaliente, right: MensajeSaliente) -> b
 
 def _fallback_resolution_matches(message: MensajeSaliente, resolution: ManualResolution) -> bool:
     metadata = resolution.metadata if isinstance(resolution.metadata, dict) else {}
-    if resolution.scope_reference == str(message.pk):
+    if not resolution.requested_by_id and not str(metadata.get('actor_identifier') or '').strip():
+        return False
+    if str(metadata.get('canal') or '').strip() != CanalOperacion.WHATSAPP:
+        return False
+    if str(metadata.get('fallback_canal_base') or '').strip() != CanalOperacion.EMAIL:
+        return False
+    if str(metadata.get('blocking_reason') or '').strip() != message.motivo_bloqueo.strip():
+        return False
+    if resolution.scope_reference == str(message.pk) or str(metadata.get('message_id') or '') == str(message.pk):
         return True
     for key, value in [
         ('documento_emitido_id', message.documento_emitido_id),
@@ -234,6 +243,26 @@ def _fallback_resolution_matches(message: MensajeSaliente, resolution: ManualRes
     ]:
         if value and str(metadata.get(key, '')) == str(value):
             return True
+    return False
+
+
+def _fallback_event_matches(message: MensajeSaliente) -> bool:
+    events = AuditEvent.objects.filter(
+        event_type=WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
+        entity_type='mensaje_saliente',
+        entity_id=str(message.pk),
+    )
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if not event.actor_user_id and not event.actor_identifier.strip():
+            continue
+        if str(metadata.get('canal') or '').strip() != CanalOperacion.WHATSAPP:
+            continue
+        if str(metadata.get('fallback_canal_base') or '').strip() != CanalOperacion.EMAIL:
+            continue
+        if str(metadata.get('blocking_reason') or '').strip() != message.motivo_bloqueo.strip():
+            continue
+        return True
     return False
 
 
@@ -264,7 +293,9 @@ def _collect_whatsapp_fallback_issues(messages) -> dict[str, int]:
             continue
         if any(_message_context_matches(message, fallback) for fallback in email_fallbacks):
             continue
-        if any(_fallback_resolution_matches(message, resolution) for resolution in fallback_resolutions):
+        if any(_fallback_resolution_matches(message, resolution) for resolution in fallback_resolutions) and (
+            _fallback_event_matches(message)
+        ):
             continue
         counts['without_fallback_trace'] += 1
 
