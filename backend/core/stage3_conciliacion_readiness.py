@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import F, Q
 from django.utils import timezone
 
-from audit.models import ManualResolution
+from audit.models import AuditEvent, ManualResolution
 from cobranza.models import PagoMensual
 from conciliacion.models import (
     CategoriaMovimiento,
@@ -81,6 +81,7 @@ ALLOWED_MANUAL_RESOLUTION_SUPERSEDERS = {
     'conciliacion.exact_match',
     'conciliacion.manual_resolution',
 }
+SUPERSEDED_MANUAL_RESOLUTION_EVENT_TYPE = 'audit.manual_resolution.superseded'
 ECONOMIC_PERIOD_RE = re.compile(r'^\d{4}-(0[1-9]|1[0-2])$')
 
 
@@ -229,6 +230,34 @@ def _internal_transfer_target_matches(resolution: ManualResolution, metadata: di
     except ValidationError:
         return False
     return True
+
+
+def _superseded_audit_event_matches_resolution(
+    resolution: ManualResolution,
+    metadata: dict[str, Any],
+    audit_events_by_resolution: dict[str, list[AuditEvent]],
+) -> bool:
+    resolution_id = str(resolution.pk)
+    expected_movement_id = str(metadata.get('movimiento_id') or '').strip()
+    expected_superseder = str(metadata.get('superseded_by') or '').strip()
+    expected_match_type = str(metadata.get('superseded_match_type') or '').strip()
+    for event in audit_events_by_resolution.get(resolution_id, []):
+        event_metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        event_movement_id = str(event_metadata.get('movimiento_id') or '').strip()
+        event_superseder = str(event_metadata.get('superseded_by') or '').strip()
+        event_match_type = str(event_metadata.get('superseded_match_type') or '').strip()
+        if event_metadata.get('resolution_category') != resolution.category:
+            continue
+        if event_movement_id != expected_movement_id:
+            continue
+        if event_superseder != expected_superseder:
+            continue
+        if expected_match_type and event_match_type != expected_match_type:
+            continue
+        if not (event.actor_user_id or has_text(event.actor_identifier)):
+            continue
+        return True
+    return False
 
 
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
@@ -425,8 +454,13 @@ def _collect_balance_square_issues(balance_squares) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
-def _collect_manual_resolution_issues(resolutions) -> dict[str, int]:
+def _collect_manual_resolution_issues(
+    resolutions,
+    *,
+    superseded_audit_events_by_resolution: dict[str, list[AuditEvent]] | None = None,
+) -> dict[str, int]:
     counts = Counter()
+    superseded_audit_events_by_resolution = superseded_audit_events_by_resolution or {}
     for resolution in resolutions:
         if resolution.status == ManualResolution.Status.RESOLVED and not has_text(resolution.rationale):
             counts['resolved_without_rationale'] += 1
@@ -442,6 +476,12 @@ def _collect_manual_resolution_issues(resolutions) -> dict[str, int]:
                 missing_trace = True
             if missing_trace:
                 counts['superseded_without_trace'] += 1
+            if not _superseded_audit_event_matches_resolution(
+                resolution,
+                metadata,
+                superseded_audit_events_by_resolution,
+            ):
+                counts['superseded_without_audit_event'] += 1
         if (
             resolution.status == ManualResolution.Status.RESOLVED
             and resolution.category == 'conciliacion.ingreso_desconocido'
@@ -582,7 +622,23 @@ def collect_stage3_conciliacion_readiness(
     invalid_unknown_income = _count_invalid(unknown_income)
     open_unknown_income = unknown_income.filter(estado=EstadoIngresoDesconocido.OPEN).count()
     balance_signal_available = ready_primary_balances > 0 or movements_with_reported_balance > 0
-    manual_resolution_issues = _collect_manual_resolution_issues(manual_resolutions)
+    superseded_resolution_ids = [
+        str(pk)
+        for pk in manual_resolutions.filter(status=ManualResolution.Status.SUPERSEDED).values_list('pk', flat=True)
+    ]
+    superseded_audit_events_by_resolution: dict[str, list[AuditEvent]] = {}
+    if superseded_resolution_ids:
+        for event in AuditEvent.objects.filter(
+            event_type=SUPERSEDED_MANUAL_RESOLUTION_EVENT_TYPE,
+            entity_type='manual_resolution',
+            entity_id__in=superseded_resolution_ids,
+        ):
+            superseded_audit_events_by_resolution.setdefault(event.entity_id, []).append(event)
+
+    manual_resolution_issues = _collect_manual_resolution_issues(
+        manual_resolutions,
+        superseded_audit_events_by_resolution=superseded_audit_events_by_resolution,
+    )
 
     final_evidence = {
         'stage2_evidence_ref': _non_sensitive_reference(stage2_evidence_ref),
@@ -852,6 +908,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.manual_resolution.superseded_trace_missing',
                 'Existen resoluciones manuales de conciliacion supersedidas sin traza auditable suficiente.',
                 count=manual_resolution_issues['superseded_without_trace'],
+            )
+        )
+    if manual_resolution_issues.get('superseded_without_audit_event'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.superseded_audit_event_missing',
+                'Existen resoluciones manuales de conciliacion supersedidas sin evento de auditoria alineado.',
+                count=manual_resolution_issues['superseded_without_audit_event'],
             )
         )
     if manual_resolution_issues.get('unknown_income_resolution_context_missing'):

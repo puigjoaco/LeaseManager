@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Protocolo operativo - guard de PR abierto y cursor post fallback WhatsApp. |
+| Frente activo | Etapa 3 - readiness de supersesiones de resoluciones manuales con auditoria alineada. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete operativo corrigio `scripts/codex-github-package.ps1` para no reutilizar PRs cerrados y dejo registrado que el paquete Etapa 2 de fallback WhatsApp ya fue integrado. |
-| Motivo de prioridad | Evita que el flujo de cierre tome un PR cerrado por nombre de rama y deje `main` sin el ajuste esperado. |
-| Worktree | Ninguno pendiente despues de merge/limpieza. |
-| Rama | `main` despues de merge/limpieza. |
-| Estado | Paquete validado localmente e integrado despues de PR/CI/merge/limpieza. |
-| Gate esperado | Si `main` queda limpio, elegir el siguiente frente seguro por trazabilidad. Si existe worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
-| Estado al cerrar paquete | No cierra Etapa 2 sin fuente autorizada, evidencia Etapa 1, prueba Email/WebPay controlada y responsables; solo deja el cursor y el empaquetado GitHub coherentes para continuar. |
-| Bloqueos relacionados | Ninguno para este paquete. |
-| Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si solo existe `main` limpio, seleccionar el siguiente frente trazable. |
-| Siguiente accion | Si `main` queda limpio, seleccionar el siguiente frente seguro por trazabilidad. |
+| Brecha activa | `audit_stage3_conciliacion_readiness` valida metadata/motivo de `ManualResolution` `superseded`, pero debe bloquear tambien snapshots heredados sin `AuditEvent` `audit.manual_resolution.superseded` alineado. |
+| Motivo de prioridad | Etapa 3 ya exige supersesion con evento auditable; sin este control el readiness puede aceptar una traza incompleta antes de cierre banco/conciliacion. |
+| Worktree | `D:/Proyectos/LeaseManager-stage3-superseded-audit-event`. |
+| Rama | `codex/stage3-superseded-audit-event`. |
+| Estado | En implementacion local segura. |
+| Gate esperado | Readiness Etapa 3 local debe quedar `classification=parcial`, `ready_for_stage3_conciliacion=false`; no cierra etapa sin fuente autorizada y prueba bancaria/cuadratura. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Bloqueos externos de Etapa 3 siguen como condicion de cierre, no bloquean este hardening local. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza o pausar explicitamente aqui. |
+| Siguiente accion | Implementar test focal, readiness, docs, validaciones y empaquetado. |
 
 ## Actualizacion
 
