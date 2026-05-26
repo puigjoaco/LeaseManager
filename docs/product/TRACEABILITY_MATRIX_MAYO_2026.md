@@ -25,6 +25,11 @@ Las exportaciones sensibles en estado `revocada` deben conservar evento
 `compliance.exportacion_sensible.revoked`; readiness bloquea snapshots heredados
 sin esa auditoria y el endpoint de revocacion mantiene el evento dedicado.
 
+Nota 2026-05-26: Compliance datos sensibles exige actor trazable en auditoria
+de exportaciones sensibles. Readiness reporta eventos `prepared`, `accessed`,
+`access_denied` o `revoked` sin `actor_user` como brecha bloqueante mediante
+conteos/codigos, sin exponer payloads ni metadata sensible.
+
 Nota 2026-05-26: CobranzaActiva y Canales endurecen los gates externos sin
 abrir integraciones. `restricciones_operativas` de Email/WhatsApp/WebPay
 rechaza valores sensibles y tambien nombres de claves sensibles como

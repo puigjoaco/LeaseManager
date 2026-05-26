@@ -69,6 +69,18 @@ def _audit_event_has_sensitive_metadata(event: AuditEvent) -> bool:
     )
 
 
+def _export_audit_events_missing_actor(events) -> int:
+    return events.filter(
+        event_type__in=[
+            'compliance.exportacion_sensible.prepared',
+            'compliance.exportacion_sensible.accessed',
+            'compliance.exportacion_sensible.access_denied',
+            'compliance.exportacion_sensible.revoked',
+        ],
+        actor_user__isnull=True,
+    ).count()
+
+
 def _is_sha256_hex_digest(value: str) -> bool:
     candidate = value.strip()
     return len(candidate) == 64 and all(char in '0123456789abcdefABCDEF' for char in candidate)
@@ -166,6 +178,7 @@ def collect_compliance_data_readiness(
     sensitive_audit_metadata_events = sum(
         1 for event in export_audit_events if _audit_event_has_sensitive_metadata(event)
     )
+    audit_events_missing_actor = _export_audit_events_missing_actor(export_audit_events)
 
     final_evidence = {
         'policy_approval_ref': _non_sensitive_reference(policy_approval_ref),
@@ -315,6 +328,14 @@ def collect_compliance_data_readiness(
                 count=sensitive_audit_metadata_events,
             )
         )
+    if audit_events_missing_actor:
+        issues.append(
+            _issue(
+                'compliance.audit_actor_missing',
+                'Existen eventos de auditoria de exportacion sensible sin actor trazable.',
+                count=audit_events_missing_actor,
+            )
+        )
 
     for key, code, message in [
         (
@@ -413,6 +434,7 @@ def collect_compliance_data_readiness(
                     event_type='compliance.exportacion_sensible.access_denied'
                 ).count(),
                 'sensitive_metadata_events': sensitive_audit_metadata_events,
+                'actor_missing_events': audit_events_missing_actor,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,
