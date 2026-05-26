@@ -21,6 +21,7 @@ from .models import (
     ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
+    AUTOMATIC_RENEWAL_ORIGIN,
     EstadoAvisoTermino,
     EstadoCodeudorSolidario,
     EstadoContrato,
@@ -754,6 +755,14 @@ class ContratoSerializer(serializers.ModelSerializer):
 
         sorted_periods = sorted(periodos, key=lambda item: (item['fecha_inicio'], item['numero_periodo']))
         for expected_number, period in enumerate(sorted_periods, start=1):
+            if str(period['origen_periodo']).strip().lower() == AUTOMATIC_RENEWAL_ORIGIN:
+                raise serializers.ValidationError(
+                    {
+                        'periodos_contractuales': (
+                            'La renovacion automatica debe ejecutarse desde el endpoint guiado con auditoria dedicada.'
+                        )
+                    }
+                )
             if period['numero_periodo'] != expected_number:
                 raise serializers.ValidationError(
                     {'periodos_contractuales': 'Los periodos deben numerarse en orden cronologico desde 1.'}

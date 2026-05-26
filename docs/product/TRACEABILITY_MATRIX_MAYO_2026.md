@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: Contratos reserva `renovacion_automatica` para el flujo
+guiado con auditoria. `PeriodoContractual.full_clean()` exige el `AuditEvent`
+dedicado para tramos con ese origen, el servicio de renovacion conserva la
+excepcion interna para crear tramo y evento en la misma operacion, y la API de
+contratos rechaza payloads anidados que intenten marcar un tramo como
+automatico sin pasar por el endpoint.
+
 Nota 2026-05-26: Contratos mueve la auditoria de prorrata por terminacion
 anticipada parcial a guard de dominio. `Contrato.full_clean()` exige que un
 contrato terminado anticipadamente con ultimo mes parcial y decision de
