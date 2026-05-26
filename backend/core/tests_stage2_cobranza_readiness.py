@@ -1542,6 +1542,25 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.channel_gate_sensitive_reference', issue_codes)
         self.assertNotIn('mail.example.test', json.dumps(result))
 
+    def test_channel_gate_with_sensitive_key_is_blocking(self):
+        self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        CanalMensajeria.objects.filter(pk=email_gate.pk).update(
+            restricciones_operativas={
+                'prueba_aislada_ref': 'email-proof-v1',
+                'oauth_validado_ref': 'email-oauth-v1',
+                'api_key': 'email-api-key-controlled',
+            }
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.channel_gate_sensitive_reference', issue_codes)
+        self.assertNotIn('email-api-key-controlled', json.dumps(result))
+
     def test_whatsapp_opt_in_with_sensitive_evidence_ref_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()
@@ -1669,6 +1688,21 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.webpay_gate_sensitive_reference', issue_codes)
         self.assertNotIn('transbank.example.test', json.dumps(result))
+
+    def test_webpay_gate_with_sensitive_key_is_blocking(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        webpay_gate = self._create_valid_webpay_gate()
+        GateCobroExterno.objects.filter(pk=webpay_gate.pk).update(
+            restricciones_operativas={'access_token': 'webpay-access-token-controlled'}
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.webpay_gate_sensitive_reference', issue_codes)
+        self.assertNotIn('webpay-access-token-controlled', json.dumps(result))
 
     def test_sensitive_final_refs_do_not_close_readiness(self):
         self._create_payment_matrix()

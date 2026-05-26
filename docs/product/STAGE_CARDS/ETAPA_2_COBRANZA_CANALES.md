@@ -111,6 +111,9 @@ condicionados sin envios reales accidentales.
   requiere `evidencia_ref`, referencia de prueba aislada/envio y referencia
   OAuth/credencial validada, todas no sensibles; preparar o registrar envio
   revalida esas referencias antes de permitir operacion manual controlada. El
+  JSON `restricciones_operativas` rechaza URLs, tokens, credenciales, correos
+  y claves sensibles como `api_key` o `access_token`, conservando solo claves
+  canonicas de referencia no sensible como `credencial_validada_ref`. El
   cierre local exige `IdentidadDeEnvio` Email activa y
   `AsignacionCanalOperacion` activa sobre mandato operativo activo; el sistema
   no inventa remitente sustituto.
@@ -135,8 +138,9 @@ condicionados sin envios reales accidentales.
   trazable no sensible y `fecha_pago_webpay` diferenciada. Un intento WebPay
   confirmado debe quedar alineado con un `PagoMensual` pagado y la misma fecha
   WebPay. `provider_payload` no puede contener URLs, tokens, credenciales,
-  correos ni claves sensibles. Ningun flujo llama Transbank ni marca pago
-  confirmado sin revalidar el gate.
+  correos ni claves sensibles; `restricciones_operativas` del gate WebPay
+  aplica la misma regla incluyendo nombres de claves sensibles. Ningun flujo
+  llama Transbank ni marca pago confirmado sin revalidar el gate.
 - APIs y snapshots de Canales/Cobranza redactan refs sensibles ya persistidas
   antes de devolver gates, mensajes salientes o intentos WebPay al backoffice;
   esto cubre `evidencia_ref`, `restricciones_operativas`, `external_ref`,

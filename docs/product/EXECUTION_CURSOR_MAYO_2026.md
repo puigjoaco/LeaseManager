@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico activo tras preparar match exacto residual acotado a cuenta recaudadora. |
+| Frente activo | Ninguno abierto en `main`; ultimo paquete local validado: Etapa 2 / Cobranza y Canales - claves sensibles en restricciones operativas de gates. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna fijada en cursor. |
-| Motivo de prioridad | El paquete actual ya dejo preparado el guard para que referencias residuales de otra cuenta queden como ingreso desconocido/resolucion manual y no como cierre exacto. |
-| Worktree | Ninguno esperado tras merge y limpieza. |
-| Rama | Ninguna rama tactica esperada tras merge y limpieza. |
-| Estado | Listo para PR/CI/merge/limpieza del paquete actual; luego seleccionar el siguiente frente desde `main`. |
-| Gate esperado | Confirmar `git status --short --branch`, `git worktree list` y tomar el siguiente paquete seguro por trazabilidad vigente. |
-| Estado al cerrar paquete | Etapa 3 no queda cerrada; solo queda mas estricto el matching exacto local para que codigos residuales respeten cuenta recaudadora. |
-| Bloqueos relacionados | Banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria, cuadratura y responsable siguen siendo condiciones de cierre, no requisitos para este paquete local. |
-| Politica de reanudacion | Si el worktree tactico aun existe, terminar PR/CI/merge/limpieza; si no existe, operar solo desde el estado real de `main` y este cursor. |
-| Siguiente accion | Cerrar PR/CI/merge/limpieza del paquete actual y luego escoger el siguiente frente seguro. |
+| Brecha activa | Ninguna registrada en cursor. El paquete validado endurece `restricciones_operativas` de gates Canales/WebPay para detectar claves sensibles como `api_key`, `access_token` o `credential`, preservando claves canonicas de referencia no sensible. |
+| Motivo de prioridad | El paquete ya quedo cubierto por validacion local y documentacion; no cierra Etapa 2 sin fuente autorizada ni pruebas externas/controladas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-gate-sensitive-keys` hasta merge/limpieza del PR. |
+| Rama | `codex/stage2-gate-sensitive-keys` hasta merge/limpieza del PR. |
+| Estado | Validado localmente; pendiente PR, CI/merge y limpieza. |
+| Gate esperado | Focal, suite impactada, `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 2 parcial, frontend build, acceptance, higiene repo y `git diff --check` ya ejecutados OK localmente. |
+| Estado al cerrar paquete | No cierra Etapa 2; solo endurece gates locales para bloquear claves sensibles en restricciones operativas. |
+| Bloqueos relacionados | Fuente autorizada Etapa 1, prueba Email/WebPay controlada y responsables siguen siendo condiciones de cierre, no requisitos para este paquete local. |
+| Politica de reanudacion | Si este PR no esta mergeado, terminar PR/CI/merge/limpieza. Si ya esta mergeado y `main` limpio, tomar el siguiente frente seguro por trazabilidad. |
+| Siguiente accion | Crear PR, esperar CI si GitHub Actions reporta checks, mergear y limpiar worktree/rama. |
 
 ## Actualizacion
 
