@@ -33,11 +33,13 @@ from .serializers import (
     AvisoTerminoSerializer,
     CodeudorSolidarioReadSerializer,
     ContactoPagoArrendatarioSerializer,
+    ContratoAutomaticRenewalSerializer,
     ContratoPropiedadReadSerializer,
     ContratoSerializer,
     PeriodoContractualReadSerializer,
     raise_drf_validation_error,
 )
+from .services import execute_automatic_contract_renewal
 
 
 class AuditCreateUpdateMixin:
@@ -601,6 +603,46 @@ class ContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.R
             and contract_proration_trace_key(instance) != previous_proration_trace
         ):
             create_early_termination_proration_trace(contract=instance, request=self.request)
+
+
+class ContratoAutomaticRenewalView(ScopedQuerysetMixin, generics.GenericAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = ContratoAutomaticRenewalSerializer
+    queryset = Contrato.objects.select_related(
+        'mandato_operacion',
+        'arrendatario',
+        'politica_documental',
+    ).prefetch_related('periodos_contractuales')
+    property_scope_paths = ('mandato_operacion__propiedad_id',)
+
+    def post(self, request, pk):
+        contract = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+
+        try:
+            renewal_period = execute_automatic_contract_renewal(
+                contract=contract,
+                fecha_fin=payload['fecha_fin'],
+                monto_base=payload.get('monto_base'),
+                moneda_base=payload.get('moneda_base', ''),
+                politica_base_renovacion_ref=payload.get('politica_base_renovacion_ref', ''),
+                politica_base_renovacion_motivo=payload.get('politica_base_renovacion_motivo', ''),
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+
+        renewed_contract = renewal_period.contrato
+        return Response(
+            {
+                'contrato': ContratoSerializer(renewed_contract, context={'request': request}).data,
+                'periodo_renovacion': PeriodoContractualReadSerializer(renewal_period).data,
+            },
+            status=201,
+        )
 
 
 class AvisoTerminoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):

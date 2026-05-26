@@ -24,6 +24,7 @@ from cobranza.models import (
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from contratos.models import (
+    AUTOMATIC_RENEWAL_EVENT_TYPE,
     Arrendatario,
     AvisoTermino,
     CodeudorSolidario,
@@ -1081,6 +1082,62 @@ class Stage1MatrixAuditTests(TestCase):
             result['aggregate_classification']['periodos_contractuales']['classification'],
             'defectuoso',
         )
+
+    def test_automatic_renewal_period_without_audit_event_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.tiene_tramos = True
+        contrato.fecha_fin_vigente = date(2027, 12, 31)
+        contrato.save(update_fields=['tiene_tramos', 'fecha_fin_vigente', 'updated_at'])
+        PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=2,
+            fecha_inicio=date(2027, 1, 1),
+            fecha_fin=date(2027, 12, 31),
+            monto_base=Decimal('250000.00'),
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='renovacion',
+            origen_periodo='renovacion_automatica',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.periodo.renovacion_automatica_sin_auditoria', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['periodos_contractuales']['classification'],
+            'defectuoso',
+        )
+
+    def test_automatic_renewal_period_with_audit_event_can_pass_stage1_matrix_gate(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.tiene_tramos = True
+        contrato.fecha_fin_vigente = date(2027, 12, 31)
+        contrato.save(update_fields=['tiene_tramos', 'fecha_fin_vigente', 'updated_at'])
+        renewal = PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=2,
+            fecha_inicio=date(2027, 1, 1),
+            fecha_fin=date(2027, 12, 31),
+            monto_base=Decimal('250000.00'),
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='renovacion',
+            origen_periodo='renovacion_automatica',
+        )
+        AuditEvent.objects.create(
+            event_type=AUTOMATIC_RENEWAL_EVENT_TYPE,
+            entity_type='periodo_contractual',
+            entity_id=str(renewal.pk),
+            summary='Renovacion automatica auditada.',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertNotIn('stage1.periodo.renovacion_automatica_sin_auditoria', issue_codes)
 
     def test_uf_payment_without_monthly_uf_value_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
