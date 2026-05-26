@@ -186,9 +186,10 @@ contra datos reales o snapshot controlado.
   pagos existentes que reconstruyan esos cobros pasados.
 - Si un contrato futuro coexiste con `AvisoTermino` y una renovacion
   contractual ya ejecutada, el aviso debe conservar resolucion guiada con
-  referencia no sensible y motivo trazable. La API bloquea el contrato futuro
-  sin esa resolucion y el auditor Etapa 1 marca snapshots heredados como
-  defectuosos sin cancelar ni reescribir efectos producidos.
+  referencia no sensible y motivo trazable. `Contrato.full_clean()`, la API y
+  el auditor Etapa 1 bloquean contratos futuros sin AvisoTermino registrado,
+  terminacion anticipada ejecutada o resolucion guiada cuando hay conflicto de
+  renovacion, sin cancelar ni reescribir efectos producidos.
 - Cambio de arrendatario: el flujo operacional guiado crea `AvisoTermino`
   registrado y contrato futuro con nuevo arrendatario en una transaccion,
   conserva el contrato/deuda historica sin reescribir identidad, copia las
