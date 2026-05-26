@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 6 - referencias finales sensibles en readiness anual. |
+| Frente activo | Etapa 7 - referencias finales sensibles en readiness Reporting. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete integrado hizo que `audit_stage6_renta_anual_readiness` clasifique explicitamente refs finales sensibles en ProcesoRentaAnual, DDJJ y F22. |
-| Motivo de prioridad | Mejora el diagnostico tributario anual sin exponer valores sensibles ni abrir SII real. |
-| Worktree | Ninguno pendiente despues de merge/limpieza. |
-| Rama | `main` despues de merge/limpieza. |
-| Estado | Paquete validado localmente e integrado despues de PR/CI/merge. |
-| Gate esperado | Si `main` queda limpio, elegir el siguiente frente seguro por trazabilidad. Si existe worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
-| Estado al cerrar paquete | PR #345 mergeado en main como `ff3486d`; no cierra Etapa 6 sin fuente autorizada, doce cierres, SII, regla fiscal, certificados y responsables. |
-| Bloqueos relacionados | Bloqueos externos de Etapa 6 siguen como condicion de cierre, no bloquean preparacion local segura. |
-| Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si solo existe `main` limpio, seleccionar el siguiente frente trazable. |
-| Siguiente accion | Si `main` queda limpio, seleccionar el siguiente frente seguro por trazabilidad. |
+| Brecha activa | `audit_stage7_reporting_readiness` no clasifica explicitamente refs finales sensibles de ProcesoRentaAnual, DDJJ y F22; quedan diluidas como validacion de modelo. |
+| Motivo de prioridad | Reporting debe bloquear referencias finales sensibles sin exponer valores y con diagnostico especifico antes del cierre trazable. |
+| Worktree | `D:/Proyectos/LeaseManager-stage7-sensitive-final-ref-readiness`. |
+| Rama | `codex/stage7-sensitive-final-ref-readiness`. |
+| Estado | En implementacion local segura. |
+| Gate esperado | Readiness Etapa 7 local queda `classification=parcial`, `ready_for_stage7_reporting=false`; no cierra etapa sin fuente autorizada, ledger, renta anual, API, backoffice y responsables. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Bloqueos externos de Reporting siguen como condicion de cierre, no bloquean hardening local. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza o pausar explicitamente aqui. |
+| Siguiente accion | Implementar issues especificos, tests, docs, validaciones y empaquetado. |
 
 ## Actualizacion
 

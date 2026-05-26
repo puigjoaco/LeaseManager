@@ -460,6 +460,29 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertEqual(result['sections']['annual_tax']['f22_sensitive_payload'], 1)
         self.assertNotIn('api_key', json.dumps(result))
 
+    def test_annual_reporting_sensitive_final_refs_are_classified_explicitly(self):
+        self._create_valid_local_matrix()
+        ProcesoRentaAnual.objects.update(
+            paquete_ddjj_ref='https://sii.example.test/ddjj?token=secret',
+            borrador_f22_ref='https://sii.example.test/f22?token=secret',
+        )
+        DDJJPreparacionAnual.objects.update(paquete_ref='https://sii.example.test/ddjj?token=secret')
+        F22PreparacionAnual.objects.update(borrador_ref='https://sii.example.test/f22?token=secret')
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_reporting'])
+        self.assertIn('stage7.reporting.annual_process_ddjj_ref_sensitive', issue_codes)
+        self.assertIn('stage7.reporting.annual_process_f22_ref_sensitive', issue_codes)
+        self.assertIn('stage7.reporting.annual_ddjj_ref_sensitive', issue_codes)
+        self.assertIn('stage7.reporting.annual_f22_ref_sensitive', issue_codes)
+        self.assertEqual(result['sections']['annual_tax']['process_ddjj_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_tax']['process_f22_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_tax']['ddjj_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_tax']['f22_ref_sensitive'], 1)
+        self.assertNotIn('token=secret', json.dumps(result))
+
     def test_sensitive_final_refs_and_command_behaviour(self):
         self._create_valid_local_matrix()
 
