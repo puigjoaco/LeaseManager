@@ -1620,7 +1620,7 @@ function App() {
   const [ufDraft, setUfDraft] = useState({
     fecha: todayIso(),
     valor: '',
-    source_key: 'manual',
+    source_key: 'UF.CargaManualExtraordinaria',
     evidencia_ref: '',
     motivo_carga: '',
     responsable_ref: '',
@@ -2222,7 +2222,7 @@ function App() {
     setUfDraft({
       fecha: todayIso(),
       valor: '',
-      source_key: 'manual',
+      source_key: 'UF.CargaManualExtraordinaria',
       evidencia_ref: '',
       motivo_carga: '',
       responsable_ref: '',
@@ -3858,7 +3858,7 @@ function App() {
       setUfDraft({
         fecha: todayIso(),
         valor: '',
-        source_key: 'manual',
+        source_key: 'UF.CargaManualExtraordinaria',
         evidencia_ref: '',
         motivo_carga: '',
         responsable_ref: '',

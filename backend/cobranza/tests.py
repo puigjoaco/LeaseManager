@@ -315,7 +315,7 @@ class CobranzaAPITests(APITestCase):
             {
                 'fecha': '2026-01-01',
                 'valor': '35000.0000',
-                'source_key': 'manual',
+                'source_key': 'UF.CargaManualExtraordinaria',
             },
             format='json',
         )
@@ -325,13 +325,27 @@ class CobranzaAPITests(APITestCase):
         self.assertIn('motivo_carga', response.data)
         self.assertIn('responsable_ref', response.data)
 
+    def test_uf_rejects_non_canonical_source_key(self):
+        response = self.client.post(
+            reverse('cobranza-valor-uf-list'),
+            {
+                'fecha': '2026-01-01',
+                'valor': '35000.0000',
+                'source_key': 'spreadsheet_snapshot',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('source_key', response.data)
+
     def test_manual_uf_records_auditable_trace(self):
         response = self.client.post(
             reverse('cobranza-valor-uf-list'),
             {
                 'fecha': '2026-01-01',
                 'valor': '35000.0000',
-                'source_key': 'manual',
+                'source_key': 'UF.CargaManualExtraordinaria',
                 'evidencia_ref': 'uf-manual-evidence-2026-01-01',
                 'motivo_carga': 'Falla total de fuentes automaticas registrada para demo controlada.',
                 'responsable_ref': 'ops-uf-responsible-001',
@@ -555,7 +569,7 @@ class CobranzaAPITests(APITestCase):
         ValorUFDiario.objects.create(
             fecha='2026-01-01',
             valor='35000.0000',
-            source_key='manual',
+            source_key='UF.CargaManualExtraordinaria',
             evidencia_ref='uf-manual-evidence-2026-01-01',
             motivo_carga='Carga manual controlada para prueba local.',
             responsable_ref='ops-uf-responsible-001',

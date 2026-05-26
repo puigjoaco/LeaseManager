@@ -140,6 +140,7 @@ class Command(BaseCommand):
             strict,
             months=[item.text for item in months],
             uf_values=[f"{uf_date.isoformat()}={value}" for uf_date, value in uf_values.items()],
+            source_key="UF.BancoCentral",
             company_ids=company_ids,
         )
 

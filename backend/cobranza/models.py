@@ -20,7 +20,6 @@ codigo_efectivo_validator = RegexValidator(
 RESIDUAL_REFERENCE_RE = re.compile(r'^CCR-[A-HJ-NP-Z2-9]{6}$')
 PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE = 'cobranza.repactacion_deuda.partial_exception'
 MANUAL_UF_LOAD_EVENT_TYPE = 'cobranza.valor_uf.manual_loaded'
-MANUAL_UF_SOURCE_KEYS = {'manual', 'UF.CargaManualExtraordinaria', 'carga_manual_extraordinaria'}
 EFFECTIVE_CODE_APPLIED_EVENT_TYPE = 'cobranza.pago_mensual.effective_code_applied'
 EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE = 'cobranza.pago_mensual.exceptional_state_resolved'
 
@@ -84,6 +83,25 @@ class CapacidadCobroExterno(models.TextChoices):
     WEBPAY_INTENT = 'WebPay.IntentoPago', 'WebPay intento de pago'
 
 
+class FuenteUF(models.TextChoices):
+    BANCO_CENTRAL = 'UF.BancoCentral', 'Banco Central'
+    CMF = 'UF.CMF', 'CMF'
+    MI_INDICADOR = 'UF.MiIndicador', 'MiIndicador'
+    MANUAL_EXTRAORDINARIA = 'UF.CargaManualExtraordinaria', 'Carga manual extraordinaria'
+
+
+UF_SOURCE_PRIORITY = [
+    FuenteUF.BANCO_CENTRAL,
+    FuenteUF.CMF,
+    FuenteUF.MI_INDICADOR,
+    FuenteUF.MANUAL_EXTRAORDINARIA,
+]
+CANONICAL_UF_SOURCE_KEYS = {source.value for source in UF_SOURCE_PRIORITY}
+LEGACY_MANUAL_UF_SOURCE_KEYS = {'manual', 'carga_manual_extraordinaria'}
+MANUAL_UF_SOURCE_KEYS = {FuenteUF.MANUAL_EXTRAORDINARIA.value, *LEGACY_MANUAL_UF_SOURCE_KEYS}
+AUTOMATIC_UF_SOURCE_KEYS = CANONICAL_UF_SOURCE_KEYS - {FuenteUF.MANUAL_EXTRAORDINARIA.value}
+
+
 class EstadoIntentoPagoWebPay(models.TextChoices):
     BLOCKED = 'bloqueado_gate', 'Bloqueado por gate'
     PREPARED = 'preparado', 'Preparado'
@@ -118,7 +136,11 @@ class ResolucionExcesoGarantia(models.TextChoices):
 class ValorUFDiario(TimestampedModel):
     fecha = models.DateField(unique=True)
     valor = models.DecimalField(max_digits=12, decimal_places=4, validators=[MinValueValidator(Decimal('0.0001'))])
-    source_key = models.CharField(max_length=64, default='manual')
+    source_key = models.CharField(
+        max_length=64,
+        choices=FuenteUF.choices,
+        default=FuenteUF.MANUAL_EXTRAORDINARIA,
+    )
     evidencia_ref = models.CharField(max_length=255, blank=True, default='')
     motivo_carga = models.TextField(blank=True, default='')
     responsable_ref = models.CharField(max_length=255, blank=True, default='')
@@ -133,6 +155,10 @@ class ValorUFDiario(TimestampedModel):
     def requiere_auditoria_manual(self):
         return str(self.source_key or '').strip() in MANUAL_UF_SOURCE_KEYS
 
+    @property
+    def source_key_is_canonical(self):
+        return str(self.source_key or '').strip() in CANONICAL_UF_SOURCE_KEYS
+
     def clean(self):
         super().clean()
         errors = {}
@@ -145,6 +171,11 @@ class ValorUFDiario(TimestampedModel):
             errors['source_key'] = 'La fuente UF es obligatoria.'
         elif contains_sensitive_reference(source_key):
             errors['source_key'] = 'La fuente UF no debe contener URLs, tokens, credenciales ni correos.'
+        elif source_key not in CANONICAL_UF_SOURCE_KEYS:
+            errors['source_key'] = (
+                'La fuente UF debe ser canonica: UF.BancoCentral, UF.CMF, '
+                'UF.MiIndicador o UF.CargaManualExtraordinaria.'
+            )
 
         if evidencia_ref and not is_non_sensitive_reference(evidencia_ref):
             errors['evidencia_ref'] = 'La evidencia UF debe ser una referencia no sensible.'

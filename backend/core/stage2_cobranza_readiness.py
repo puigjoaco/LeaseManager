@@ -25,6 +25,7 @@ from canales.services import (
     whatsapp_gate_has_approved_template,
 )
 from cobranza.models import (
+    CANONICAL_UF_SOURCE_KEYS,
     CodigoCobroResidual,
     EstadoCuentaArrendatario,
     EstadoGateCobroExterno,
@@ -134,6 +135,8 @@ def _manual_uf_load_event_is_complete(uf_value: ValorUFDiario) -> bool:
 def _collect_uf_value_issues(uf_values) -> dict[str, int]:
     counts = Counter()
     for uf_value in uf_values:
+        if not uf_value.source_key_is_canonical:
+            counts['source_not_canonical'] += 1
         try:
             uf_value.full_clean()
         except ValidationError:
@@ -893,6 +896,14 @@ def collect_stage2_cobranza_readiness(
                 count=uf_value_issues['invalid_model'],
             )
         )
+    if uf_value_issues.get('source_not_canonical'):
+        issues.append(
+            _issue(
+                'stage2.uf_value.source_not_canonical',
+                'Existen valores UF con fuente fuera de la cadena canonica BancoCentral/CMF/MiIndicador/manual auditada.',
+                count=uf_value_issues['source_not_canonical'],
+            )
+        )
     if uf_value_issues.get('manual_without_audit_event'):
         issues.append(
             _issue(
@@ -1386,6 +1397,7 @@ def collect_stage2_cobranza_readiness(
             },
             'uf_values': {
                 'total': uf_values.count(),
+                'canonical_source_keys': sorted(CANONICAL_UF_SOURCE_KEYS),
                 'by_source_key': _count_by(uf_values, 'source_key'),
                 **uf_value_issues,
             },

@@ -271,7 +271,7 @@ class Stage2CobranzaReadinessTests(TestCase):
         ValorUFDiario.objects.create(
             fecha=date(2026, 1, 1),
             valor=Decimal('35000.0000'),
-            source_key='manual',
+            source_key='UF.CargaManualExtraordinaria',
             evidencia_ref='uf-manual-evidence-2026-01-01',
             motivo_carga='Carga manual por falla completa de fuentes automaticas.',
             responsable_ref='ops-uf-responsible-001',
@@ -283,6 +283,23 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.uf_value.manual_audit_missing', issue_codes)
         self.assertEqual(result['sections']['uf_values']['manual_without_audit_event'], 1)
+
+    def test_non_canonical_uf_source_is_blocking(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        ValorUFDiario.objects.create(
+            fecha=date(2026, 1, 1),
+            valor=Decimal('35000.0000'),
+            source_key='spreadsheet_snapshot',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.uf_value.source_not_canonical', issue_codes)
+        self.assertEqual(result['sections']['uf_values']['source_not_canonical'], 1)
 
     def test_effective_code_effect_mismatch_is_blocking(self):
         fixture = self._create_payment_matrix()
@@ -383,7 +400,7 @@ class Stage2CobranzaReadinessTests(TestCase):
         uf_value = ValorUFDiario.objects.create(
             fecha=date(2026, 1, 1),
             valor=Decimal('35000.0000'),
-            source_key='manual',
+            source_key='UF.CargaManualExtraordinaria',
             evidencia_ref='uf-manual-evidence-2026-01-01',
             motivo_carga='Carga manual por falla completa de fuentes automaticas.',
             responsable_ref='ops-uf-responsible-001',
@@ -415,7 +432,7 @@ class Stage2CobranzaReadinessTests(TestCase):
             'bootstrap_demo_operational_data',
             months=['2026-01'],
             uf_values=['2026-01-01=35000.0000'],
-            source_key='manual',
+            source_key='UF.CargaManualExtraordinaria',
             uf_evidence_ref='uf-manual-evidence-2026-01-01',
             uf_motive='Carga manual por falla completa de fuentes automaticas.',
             uf_responsible_ref='ops-uf-responsible-001',
@@ -435,6 +452,20 @@ class Stage2CobranzaReadinessTests(TestCase):
                 metadata__responsable_ref='ops-uf-responsible-001',
             ).exists()
         )
+
+    def test_bootstrap_demo_uf_requires_explicit_canonical_source(self):
+        self._create_payment_matrix()
+
+        with self.assertRaises(CommandError) as error:
+            call_command(
+                'bootstrap_demo_operational_data',
+                months=['2026-01'],
+                uf_values=['2026-01-01=35000.0000'],
+                skip_account_state_rebuild=True,
+                stdout=StringIO(),
+            )
+
+        self.assertIn('La carga UF requiere --source-key', str(error.exception))
 
     def test_missing_notification_config_for_enabled_channel_is_blocking(self):
         self._create_payment_matrix()
