@@ -476,6 +476,55 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertIn('stage5.events_not_posted', issue_codes)
         self.assertIn('stage5.asiento_unbalanced', issue_codes)
 
+    def test_duplicate_posted_event_origin_is_blocking(self):
+        empresa = self._create_valid_local_matrix()
+        debit = CuentaContable.objects.get(empresa=empresa, codigo='1101')
+        credit = CuentaContable.objects.get(empresa=empresa, codigo='4101')
+        duplicate_event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='pago_mensual',
+            entidad_origen_id='stage5-payment-1',
+            fecha_operativa=date(2026, 1, 10),
+            moneda='CLP',
+            monto_base=Decimal('100000.00'),
+            payload_resumen={'origen': 'fixture-controlado-duplicado'},
+            idempotency_key='stage5-posted-duplicate-origin',
+            estado_contable=EstadoEventoContable.POSTED,
+        )
+        duplicate_asiento = AsientoContable.objects.create(
+            evento_contable=duplicate_event,
+            fecha_contable=duplicate_event.fecha_operativa,
+            periodo_contable='2026-01',
+            estado=EstadoAsientoContable.POSTED,
+            debe_total=Decimal('100000.00'),
+            haber_total=Decimal('100000.00'),
+            moneda_funcional='CLP',
+        )
+        duplicate_asiento.set_hash_integridad()
+        duplicate_asiento.save(update_fields=['hash_integridad'])
+        MovimientoAsiento.objects.create(
+            asiento_contable=duplicate_asiento,
+            cuenta_contable=debit,
+            tipo_movimiento=TipoMovimientoAsiento.DEBIT,
+            monto=Decimal('100000.00'),
+            glosa='Pago conciliado duplicado',
+        )
+        MovimientoAsiento.objects.create(
+            asiento_contable=duplicate_asiento,
+            cuenta_contable=credit,
+            tipo_movimiento=TipoMovimientoAsiento.CREDIT,
+            monto=Decimal('100000.00'),
+            glosa='Pago conciliado duplicado',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.duplicate_posted_events', issue_codes)
+        self.assertEqual(result['sections']['ledger']['duplicate_posted_events'], 1)
+
     def test_asiento_movement_totals_and_company_mismatch_are_blocking(self):
         empresa = self._create_valid_local_matrix()
         other_empresa = self._create_active_empresa(nombre='OtherMovementCo', rut='76767676-7')

@@ -22,14 +22,14 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 / Patrimonio - evidencia de representacion designada de comunidad. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` reglas de comunidades/representacion trazable, stage card Etapa 1 y matriz de trazabilidad. |
-| Brecha activa | `RepresentacionComunidad` permite modo `designado`, pero no conserva evidencia formal no sensible ni el auditor Etapa 1 bloquea snapshots heredados sin esa traza. |
-| Motivo de prioridad | La representacion designada soporta comunicaciones, documentos y decisiones operativas de comunidades; sin evidencia queda una brecha de trazabilidad de Patrimonio. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-community-representative-evidence`. |
-| Rama | `codex/stage1-community-representative-evidence`. |
+| Frente activo | Etapa 5 / Contabilidad - unicidad efectiva de eventos contables contabilizados. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` regla "Un mismo hecho economico no puede generar doble contabilizacion efectiva para la misma empresa, cuenta y periodo", stage card Etapa 5 y matriz de trazabilidad. |
+| Brecha activa | `EventoContable` impide duplicados por `idempotency_key`, pero un snapshot o flujo directo podria dejar dos eventos `contabilizado` para la misma empresa, tipo y entidad origen si usan keys distintas. |
+| Motivo de prioridad | Evita doble contabilizacion efectiva antes del cierre mensual y fortalece readiness sin depender de banco real, SII, datos reales ni secretos. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-accounting-event-deduplication`. |
+| Rama | `codex/stage5-accounting-event-deduplication`. |
 | Estado | Implementado y validado localmente; pendiente PR, CI, merge y limpieza. |
-| Gate esperado | Tests focales Patrimonio/API y auditor Etapa 1, suite impactada Patrimonio + Stage1, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build, acceptance local, CI remoto. |
+| Gate esperado | Tests focales Contabilidad/API y readiness Etapa 5, suite impactada Contabilidad + Stage5, `manage.py check`, migraciones dry-run, readiness local Etapa 5, frontend build, acceptance local, CI remoto. |
 | Estado al cerrar paquete | Integrar paquete por PR/CI/merge y limpiar worktree/rama; no reabrir este frente despues del merge. |
 | Bloqueos relacionados | No requiere proveedores externos, datos reales, `.env`, DB historicas ni integraciones. |
 | Politica de reanudacion | Si esta rama existe, terminar solo PR/CI/merge/limpieza. Si ya no existe, no reabrir este frente y seleccionar el siguiente paquete operativo desde el estado real. |

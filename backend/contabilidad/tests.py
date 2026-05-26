@@ -24,6 +24,7 @@ from .models import (
     ConfiguracionFiscalEmpresa,
     CuentaContable,
     EfectoReaperturaCierreMensual,
+    EstadoEventoContable,
     EventoContable,
     LibroDiario,
     LibroMayor,
@@ -335,6 +336,78 @@ class ContabilidadAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('payload_resumen', response.data)
+
+    def test_posting_duplicate_origin_event_keeps_second_event_in_review(self):
+        empresa = self._create_active_empresa(nombre='DedupLedgerCo', rut='53535353-5')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(
+            empresa,
+            'PagoConciliadoArriendo',
+            accounts['bancos'],
+            accounts['cxc'],
+        )
+        base_payload = {
+            'empresa': empresa.id,
+            'evento_tipo': 'PagoConciliadoArriendo',
+            'entidad_origen_tipo': 'pago_mensual',
+            'entidad_origen_id': 'payment-dedup-001',
+            'fecha_operativa': '2026-01-10',
+            'moneda': 'CLP',
+            'monto_base': '100000.00',
+            'payload_resumen': {},
+        }
+
+        first = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {**base_payload, 'idempotency_key': 'payment-dedup-001-a'},
+            format='json',
+        )
+        second = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {**base_payload, 'idempotency_key': 'payment-dedup-001-b'},
+            format='json',
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        first_event = EventoContable.objects.get(pk=first.data['id'])
+        second_event = EventoContable.objects.get(pk=second.data['id'])
+        self.assertEqual(first_event.estado_contable, EstadoEventoContable.POSTED)
+        self.assertEqual(second_event.estado_contable, EstadoEventoContable.REVIEW)
+        self.assertTrue(AsientoContable.objects.filter(evento_contable=first_event).exists())
+        self.assertFalse(AsientoContable.objects.filter(evento_contable=second_event).exists())
+
+    def test_posted_duplicate_origin_event_fails_model_validation(self):
+        empresa = self._create_active_empresa(nombre='PostedDedupCo', rut='54545454-6')
+        EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='pago_mensual',
+            entidad_origen_id='payment-dedup-validation',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100000.00',
+            payload_resumen={},
+            idempotency_key='payment-dedup-validation-a',
+            estado_contable=EstadoEventoContable.POSTED,
+        )
+        duplicate = EventoContable(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='pago_mensual',
+            entidad_origen_id='payment-dedup-validation',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100000.00',
+            payload_resumen={},
+            idempotency_key='payment-dedup-validation-b',
+            estado_contable=EstadoEventoContable.POSTED,
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            duplicate.full_clean()
+
+        self.assertIn('entidad_origen_id', context.exception.message_dict)
 
     def test_accounting_apis_redact_inherited_sensitive_payloads_and_refs(self):
         empresa = self._create_active_empresa(nombre='RedactionLedgerCo', rut='76767676-6')

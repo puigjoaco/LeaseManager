@@ -269,6 +269,20 @@ class EventoContable(TimestampedModel):
         super().clean()
         errors = {}
         _add_non_sensitive_payload_error(errors, 'payload_resumen', self.payload_resumen)
+        if self.estado_contable == EstadoEventoContable.POSTED and self.empresa_id:
+            duplicate_query = EventoContable.objects.filter(
+                empresa_id=self.empresa_id,
+                evento_tipo=self.evento_tipo,
+                entidad_origen_tipo=self.entidad_origen_tipo,
+                entidad_origen_id=self.entidad_origen_id,
+                estado_contable=EstadoEventoContable.POSTED,
+            )
+            if self.pk:
+                duplicate_query = duplicate_query.exclude(pk=self.pk)
+            if duplicate_query.exists():
+                errors['entidad_origen_id'] = (
+                    'Ya existe un evento contable contabilizado para la misma empresa, tipo y entidad origen.'
+                )
         if errors:
             raise ValidationError(errors)
 

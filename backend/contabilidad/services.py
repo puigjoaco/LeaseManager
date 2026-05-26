@@ -186,6 +186,16 @@ def post_accounting_event(event):
         event.estado_contable = EstadoEventoContable.REVIEW
         event.save(update_fields=['estado_contable', 'updated_at'])
         return None
+    if event.empresa_id and EventoContable.objects.filter(
+        empresa_id=event.empresa_id,
+        evento_tipo=event.evento_tipo,
+        entidad_origen_tipo=event.entidad_origen_tipo,
+        entidad_origen_id=event.entidad_origen_id,
+        estado_contable=EstadoEventoContable.POSTED,
+    ).exclude(pk=event.pk).exists():
+        event.estado_contable = EstadoEventoContable.REVIEW
+        event.save(update_fields=['estado_contable', 'updated_at'])
+        return None
 
     close = _get_monthly_close_for_date(event.empresa, event.fecha_operativa)
     if close and close.estado == EstadoCierreMensual.APPROVED:
