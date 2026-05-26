@@ -706,6 +706,7 @@ type PagoMensual = {
   anio: number
   monto_facturable_clp: string
   monto_calculado_clp: string
+  monto_efecto_codigo_efectivo_clp: string
   monto_pagado_clp: string
   fecha_vencimiento: string
   fecha_deposito_banco: string | null

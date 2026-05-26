@@ -21,6 +21,7 @@ RESIDUAL_REFERENCE_RE = re.compile(r'^CCR-[A-HJ-NP-Z2-9]{6}$')
 PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE = 'cobranza.repactacion_deuda.partial_exception'
 MANUAL_UF_LOAD_EVENT_TYPE = 'cobranza.valor_uf.manual_loaded'
 MANUAL_UF_SOURCE_KEYS = {'manual', 'UF.CargaManualExtraordinaria', 'carga_manual_extraordinaria'}
+EFFECTIVE_CODE_APPLIED_EVENT_TYPE = 'cobranza.pago_mensual.effective_code_applied'
 
 
 class TimestampedModel(models.Model):
@@ -226,6 +227,7 @@ class PagoMensual(TimestampedModel):
     anio = models.PositiveSmallIntegerField()
     monto_facturable_clp = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'))
     monto_calculado_clp = models.DecimalField(max_digits=14, decimal_places=2)
+    monto_efecto_codigo_efectivo_clp = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'))
     monto_pagado_clp = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'))
     fecha_vencimiento = models.DateField()
     fecha_deposito_banco = models.DateField(null=True, blank=True)
@@ -254,6 +256,18 @@ class PagoMensual(TimestampedModel):
                 {
                     'codigo_conciliacion_efectivo': (
                         'El codigo efectivo debe estar en el rango 001-999.'
+                    )
+                }
+            )
+        expected_effect = Decimal(self.monto_calculado_clp or Decimal('0.00')) - Decimal(
+            self.monto_facturable_clp or Decimal('0.00')
+        )
+        if Decimal(self.monto_efecto_codigo_efectivo_clp or Decimal('0.00')) != expected_effect:
+            raise ValidationError(
+                {
+                    'monto_efecto_codigo_efectivo_clp': (
+                        'El efecto del codigo efectivo debe cuadrar con monto_calculado_clp '
+                        'menos monto_facturable_clp.'
                     )
                 }
             )

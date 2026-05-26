@@ -2061,6 +2061,7 @@ class ContratosAPITests(APITestCase):
             anio=2026,
             monto_facturable_clp=Decimal('1000000.00'),
             monto_calculado_clp=Decimal('1000000.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('0.00'),
             fecha_vencimiento=date(2026, 12, 5),
             codigo_conciliacion_efectivo='123',
         )

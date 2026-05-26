@@ -35,6 +35,7 @@ from .models import (
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
     EstadoPago,
+    EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
     GateCobroExterno,
     GarantiaContractual,
     IntentoPagoWebPay,
@@ -360,12 +361,22 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['monto_facturable_clp'], '523456.00')
         self.assertEqual(response.data['monto_calculado_clp'], '523042.00')
+        self.assertEqual(response.data['monto_efecto_codigo_efectivo_clp'], '-414.00')
         self.assertEqual(response.data['codigo_conciliacion_efectivo'], '042')
         self.assertEqual(len(response.data['distribuciones_detail']), 1)
         self.assertEqual(response.data['distribuciones_detail'][0]['beneficiario_tipo'], 'socio')
         self.assertEqual(response.data['distribuciones_detail'][0]['monto_devengado_clp'], '523456.00')
         self.assertEqual(response.data['distribuciones_detail'][0]['monto_facturable_clp'], '0.00')
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.generated').exists())
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+                entity_type='pago_mensual',
+                entity_id=str(response.data['id']),
+                actor_user=self.user,
+                metadata__monto_efecto_codigo_efectivo_clp='-414.00',
+            ).exists()
+        )
 
     def test_generate_payment_materializes_collection_notification_schedule(self):
         contrato = self._create_active_contract(codigo='CON-NOTIFY', monto_base='523456.00', code='042')
@@ -435,6 +446,26 @@ class CobranzaAPITests(APITestCase):
         with self.assertRaises(ValidationError):
             payment.full_clean()
 
+    def test_payment_full_clean_rejects_untraced_effective_code_effect(self):
+        contrato = self._create_active_contract(codigo='CON-PAY-EFFECT', monto_base='100000.00', code='111')
+        periodo = contrato.periodos_contractuales.get(numero_periodo=1)
+        payment = PagoMensual(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp=Decimal('100000.00'),
+            monto_calculado_clp=Decimal('100111.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('0.00'),
+            fecha_vencimiento='2026-01-05',
+            codigo_conciliacion_efectivo='111',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            payment.full_clean()
+
+        self.assertIn('monto_efecto_codigo_efectivo_clp', error.exception.message_dict)
+
     def test_payment_full_clean_rejects_month_outside_period(self):
         contrato = self._create_active_contract(codigo='CON-PAY-PERIOD', monto_base='100000.00', code='111')
         first_period = contrato.periodos_contractuales.get(numero_periodo=1)
@@ -457,6 +488,7 @@ class CobranzaAPITests(APITestCase):
             anio=2026,
             monto_facturable_clp=Decimal('100000.00'),
             monto_calculado_clp=Decimal('100111.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('111.00'),
             fecha_vencimiento=date(2026, 7, 5),
             codigo_conciliacion_efectivo='111',
         )
@@ -475,6 +507,7 @@ class CobranzaAPITests(APITestCase):
             anio=2026,
             monto_facturable_clp=Decimal('100000.00'),
             monto_calculado_clp=Decimal('100111.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('111.00'),
             fecha_vencimiento=date(2026, 2, 5),
             codigo_conciliacion_efectivo='111',
         )
@@ -493,6 +526,7 @@ class CobranzaAPITests(APITestCase):
             anio=2026,
             monto_facturable_clp=Decimal('100000.00'),
             monto_calculado_clp=Decimal('100111.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('111.00'),
             monto_pagado_clp=Decimal('0.00'),
             fecha_vencimiento=date(2026, 1, 5),
             estado_pago=EstadoPago.PAID,
@@ -1747,6 +1781,7 @@ class CobranzaAPITests(APITestCase):
             anio=2026,
             monto_facturable_clp='100000.00',
             monto_calculado_clp='100111.00',
+            monto_efecto_codigo_efectivo_clp='111.00',
             fecha_vencimiento='2026-01-05',
             estado_pago=EstadoPago.OVERDUE,
             codigo_conciliacion_efectivo='111',
@@ -1758,6 +1793,7 @@ class CobranzaAPITests(APITestCase):
             anio=2026,
             monto_facturable_clp='200000.00',
             monto_calculado_clp='200222.00',
+            monto_efecto_codigo_efectivo_clp='222.00',
             fecha_vencimiento='2026-01-05',
             estado_pago=EstadoPago.OVERDUE,
             codigo_conciliacion_efectivo='222',
@@ -1859,6 +1895,7 @@ class CobranzaAPITests(APITestCase):
             anio=2026,
             monto_facturable_clp='100000.00',
             monto_calculado_clp='100111.00',
+            monto_efecto_codigo_efectivo_clp='111.00',
             fecha_vencimiento='2026-01-05',
             estado_pago=EstadoPago.PENDING,
             codigo_conciliacion_efectivo='111',
@@ -1951,6 +1988,7 @@ class DistribucionCobroConstraintTests(TestCase):
             anio=2026,
             monto_facturable_clp='100000.00',
             monto_calculado_clp='100111.00',
+            monto_efecto_codigo_efectivo_clp='111.00',
             monto_pagado_clp='100111.00',
             fecha_vencimiento='2026-01-05',
             estado_pago=EstadoPago.PAID,

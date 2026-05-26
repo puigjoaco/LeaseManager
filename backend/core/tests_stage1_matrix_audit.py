@@ -275,6 +275,7 @@ class Stage1MatrixAuditTests(TestCase):
             anio=2026,
             monto_facturable_clp=Decimal('250000.00'),
             monto_calculado_clp=Decimal('250001.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('1.00'),
             monto_pagado_clp=Decimal('0.00'),
             fecha_vencimiento=date(2026, 1, 5),
             codigo_conciliacion_efectivo='001',
@@ -2924,6 +2925,30 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.pago_mensual.validacion_modelo', issue_codes)
 
+    def test_payment_effective_code_effect_mismatch_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        payment = self._create_payment_for(contrato)
+        payment.monto_efecto_codigo_efectivo_clp = Decimal('0.00')
+        payment.save(update_fields=['monto_efecto_codigo_efectivo_clp', 'updated_at'])
+        DistribucionCobroMensual.objects.create(
+            pago_mensual=payment,
+            beneficiario_empresa_owner=contrato.mandato_operacion.entidad_facturadora,
+            porcentaje_snapshot=Decimal('100.00'),
+            monto_devengado_clp=Decimal('250000.00'),
+            monto_conciliado_clp=Decimal('0.00'),
+            monto_facturable_clp=Decimal('250000.00'),
+            requiere_dte=True,
+            origen_atribucion='snapshot_pago',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.pago_mensual.validacion_modelo', issue_codes)
+        self.assertEqual(result['aggregate_classification']['pagos_mensuales']['classification'], 'defectuoso')
+
     def test_payment_month_outside_contractual_period_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         first_period = contrato.periodos_contractuales.get(numero_periodo=1)
@@ -2946,6 +2971,7 @@ class Stage1MatrixAuditTests(TestCase):
             anio=2026,
             monto_facturable_clp=Decimal('250000.00'),
             monto_calculado_clp=Decimal('250001.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('1.00'),
             monto_pagado_clp=Decimal('0.00'),
             fecha_vencimiento=date(2026, 7, 5),
             codigo_conciliacion_efectivo='001',

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Prefetch
@@ -26,6 +28,7 @@ from .models import (
     DistribucionCobroMensual,
     EstadoCuentaArrendatario,
     EstadoPago,
+    EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
     GateCobroExterno,
     GarantiaContractual,
     HistorialGarantia,
@@ -133,6 +136,33 @@ def create_manual_uf_load_event(instance, request):
             'source_key': instance.source_key.strip(),
             'evidencia_ref': instance.evidencia_ref.strip(),
             'responsable_ref': instance.responsable_ref.strip(),
+        },
+    )
+
+
+def _format_clp_amount(value):
+    return f'{Decimal(value):.2f}'
+
+
+def create_effective_code_applied_event(payment, request):
+    effect = payment.monto_efecto_codigo_efectivo_clp
+    if not effect:
+        return
+    create_audit_event(
+        event_type=EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+        entity_type='pago_mensual',
+        entity_id=str(payment.pk),
+        summary=f'Codigo efectivo aplicado a pago {payment.anio}-{payment.mes:02d}',
+        actor_user=request.user,
+        ip_address=request.META.get('REMOTE_ADDR'),
+        metadata={
+            'contrato_id': payment.contrato_id,
+            'anio': payment.anio,
+            'mes': payment.mes,
+            'codigo_conciliacion_efectivo': payment.codigo_conciliacion_efectivo,
+            'monto_facturable_clp': _format_clp_amount(payment.monto_facturable_clp),
+            'monto_calculado_clp': _format_clp_amount(payment.monto_calculado_clp),
+            'monto_efecto_codigo_efectivo_clp': _format_clp_amount(effect),
         },
     )
 
@@ -294,6 +324,7 @@ class CobranzaSnapshotView(APIView):
                         'anio': item.anio,
                         'monto_facturable_clp': item.monto_facturable_clp,
                         'monto_calculado_clp': item.monto_calculado_clp,
+                        'monto_efecto_codigo_efectivo_clp': item.monto_efecto_codigo_efectivo_clp,
                         'monto_pagado_clp': item.monto_pagado_clp,
                         'fecha_vencimiento': item.fecha_vencimiento,
                         'estado_pago': item.estado_pago,
@@ -520,10 +551,12 @@ class PagoMensualGenerateView(APIView):
                 anio=anio,
                 monto_facturable_clp=calculation['monto_facturable_clp'],
                 monto_calculado_clp=calculation['monto_calculado_clp'],
+                monto_efecto_codigo_efectivo_clp=calculation['monto_efecto_codigo_efectivo_clp'],
                 fecha_vencimiento=calculation['fecha_vencimiento'],
                 codigo_conciliacion_efectivo=calculation['codigo_conciliacion_efectivo'],
             )
             sync_payment_distribution(payment)
+            create_effective_code_applied_event(payment, request)
             create_audit_event(
                 event_type='cobranza.pago_mensual.generated',
                 entity_type='pago_mensual',
