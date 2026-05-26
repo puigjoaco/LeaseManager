@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: Cobranza mueve la auditoria de cargas UF manuales a la capa
+de servicio. `save_uf_value()` exige actor trazable para fuentes manuales,
+guarda el `ValorUFDiario` y crea el `AuditEvent`
+`cobranza.valor_uf.manual_loaded` con evidencia, motivo y responsable
+alineados en la misma transaccion; API y bootstrap delegan esa responsabilidad
+y readiness exige que el motivo del evento coincida con el valor UF.
+
 Nota 2026-05-26: Cobranza mueve la auditoria de repactaciones parciales a la
 capa de servicio. `save_repayment_plan()` exige actor trazable cuando el plan
 cubre menos que la deuda original, guarda la repactacion y crea el `AuditEvent`

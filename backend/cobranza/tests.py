@@ -51,6 +51,7 @@ from .services import (
     confirm_webpay_intent_manually,
     rebuild_account_state,
     save_repayment_plan,
+    save_uf_value,
     sync_payment_distribution,
     update_payment_operational_fields,
 )
@@ -368,8 +369,52 @@ class CobranzaAPITests(APITestCase):
                 entity_type='valor_uf_diario',
                 entity_id=str(response.data['id']),
                 actor_user=self.user,
+                metadata__motivo_carga='Falla total de fuentes automaticas registrada para demo controlada.',
             ).exists()
         )
+
+    def test_manual_uf_service_creates_audit_event(self):
+        uf_value, event = save_uf_value(
+            validated_data={
+                'fecha': date(2026, 1, 1),
+                'valor': Decimal('35000.0000'),
+                'source_key': 'UF.CargaManualExtraordinaria',
+                'evidencia_ref': 'uf-manual-service-2026-01-01',
+                'motivo_carga': 'Carga manual controlada desde servicio de dominio.',
+                'responsable_ref': 'ops-uf-responsible-001',
+            },
+            actor_user=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertIsNotNone(event)
+        self.assertEqual(event.event_type, MANUAL_UF_LOAD_EVENT_TYPE)
+        self.assertEqual(event.entity_type, 'valor_uf_diario')
+        self.assertEqual(event.entity_id, str(uf_value.pk))
+        self.assertEqual(event.actor_user, self.user)
+        self.assertEqual(event.ip_address, '127.0.0.1')
+        self.assertEqual(event.metadata['fecha'], '2026-01-01')
+        self.assertEqual(event.metadata['valor'], '35000.0000')
+        self.assertEqual(event.metadata['source_key'], 'UF.CargaManualExtraordinaria')
+        self.assertEqual(event.metadata['evidencia_ref'], 'uf-manual-service-2026-01-01')
+        self.assertEqual(event.metadata['motivo_carga'], 'Carga manual controlada desde servicio de dominio.')
+        self.assertEqual(event.metadata['responsable_ref'], 'ops-uf-responsible-001')
+
+    def test_manual_uf_service_requires_actor(self):
+        with self.assertRaisesMessage(ValueError, 'actor trazable'):
+            save_uf_value(
+                validated_data={
+                    'fecha': date(2026, 1, 1),
+                    'valor': Decimal('35000.0000'),
+                    'source_key': 'UF.CargaManualExtraordinaria',
+                    'evidencia_ref': 'uf-manual-service-2026-01-01',
+                    'motivo_carga': 'Carga manual controlada desde servicio de dominio.',
+                    'responsable_ref': 'ops-uf-responsible-001',
+                },
+            )
+
+        self.assertFalse(ValorUFDiario.objects.filter(fecha=date(2026, 1, 1)).exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type=MANUAL_UF_LOAD_EVENT_TYPE).exists())
 
     def test_generate_clp_payment_applies_effective_code(self):
         contrato = self._create_active_contract(codigo='CON-CLP', monto_base='523456.00', code='042')

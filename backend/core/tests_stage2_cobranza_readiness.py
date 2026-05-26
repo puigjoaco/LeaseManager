@@ -415,6 +415,7 @@ class Stage2CobranzaReadinessTests(TestCase):
                 'fecha': uf_value.fecha.isoformat(),
                 'source_key': uf_value.source_key,
                 'evidencia_ref': uf_value.evidencia_ref,
+                'motivo_carga': uf_value.motivo_carga,
                 'responsable_ref': uf_value.responsable_ref,
             },
         )
@@ -424,6 +425,40 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertTrue(result['ready_for_stage2_cobranza'])
         self.assertNotIn('stage2.uf_value.manual_audit_missing', {issue['code'] for issue in result['issues']})
         self.assertEqual(result['sections']['uf_values']['manual_values'], 1)
+
+    def test_manual_uf_audit_event_reason_mismatch_is_blocking(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        uf_value = ValorUFDiario.objects.create(
+            fecha=date(2026, 1, 1),
+            valor=Decimal('35000.0000'),
+            source_key='UF.CargaManualExtraordinaria',
+            evidencia_ref='uf-manual-evidence-2026-01-01',
+            motivo_carga='Carga manual por falla completa de fuentes automaticas.',
+            responsable_ref='ops-uf-responsible-001',
+        )
+        AuditEvent.objects.create(
+            event_type=MANUAL_UF_LOAD_EVENT_TYPE,
+            entity_type='valor_uf_diario',
+            entity_id=str(uf_value.pk),
+            summary='Valor UF manual auditado',
+            actor_identifier='ops-uf-bot',
+            metadata={
+                'fecha': uf_value.fecha.isoformat(),
+                'source_key': uf_value.source_key,
+                'evidencia_ref': uf_value.evidencia_ref,
+                'motivo_carga': 'Motivo historico desalineado.',
+                'responsable_ref': uf_value.responsable_ref,
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.uf_value.manual_audit_missing', issue_codes)
+        self.assertEqual(result['sections']['uf_values']['manual_without_audit_event'], 1)
 
     def test_bootstrap_demo_manual_uf_records_audit_event(self):
         self._create_payment_matrix()
@@ -449,6 +484,7 @@ class Stage2CobranzaReadinessTests(TestCase):
                 entity_id=str(uf_value.pk),
                 actor_identifier='bootstrap_demo_operational_data',
                 metadata__evidencia_ref='uf-manual-evidence-2026-01-01',
+                metadata__motivo_carga='Carga manual por falla completa de fuentes automaticas.',
                 metadata__responsable_ref='ops-uf-responsible-001',
             ).exists()
         )

@@ -126,6 +126,8 @@ def _manual_uf_load_event_is_complete(uf_value: ValorUFDiario) -> bool:
             continue
         if str(metadata.get('evidencia_ref') or '').strip() != uf_value.evidencia_ref.strip():
             continue
+        if str(metadata.get('motivo_carga') or '').strip() != uf_value.motivo_carga.strip():
+            continue
         if str(metadata.get('responsable_ref') or '').strip() != uf_value.responsable_ref.strip():
             continue
         if not _non_sensitive_reference(metadata.get('evidencia_ref') or ''):
