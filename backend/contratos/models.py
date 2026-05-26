@@ -13,6 +13,7 @@ from django.utils import timezone
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from operacion.models import EstadoIdentidadEnvio, IdentidadDeEnvio, MandatoOperacion
+from patrimonio.models import ServicioPropiedad, TipoServicioPropiedad
 from patrimonio.validators import normalize_rut, validate_rut
 
 
@@ -530,6 +531,35 @@ class Contrato(TimestampedModel):
                 }
             )
 
+    def validate_common_expense_service(self):
+        if not self.tiene_gastos_comunes or self.estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:
+            return
+        if not self.pk:
+            return
+
+        primary_property_id = getattr(self, '_common_expense_primary_property_id', None)
+        if primary_property_id is None:
+            primary_link = self.contrato_propiedades.filter(
+                rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            ).first()
+            if primary_link is None:
+                return
+            primary_property_id = primary_link.propiedad_id
+
+        if not ServicioPropiedad.objects.filter(
+            propiedad_id=primary_property_id,
+            tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+            activo=True,
+        ).exists():
+            raise ValidationError(
+                {
+                    'tiene_gastos_comunes': (
+                        'Un contrato vigente o futuro con gastos comunes requiere gasto comun activo '
+                        'estructurado en la propiedad principal.'
+                    )
+                }
+            )
+
     def clean(self):
         super().clean()
         if self.fecha_fin_vigente < self.fecha_inicio:
@@ -593,6 +623,7 @@ class Contrato(TimestampedModel):
                 self.snapshot_representante_legal = normalize_representante_legal_snapshot(
                     self.snapshot_representante_legal
                 )
+            self.validate_common_expense_service()
 
 
 class ContratoPropiedad(TimestampedModel):

@@ -22,7 +22,15 @@ from operacion.models import (
     IdentidadDeEnvio,
     MandatoOperacion,
 )
-from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
+from patrimonio.models import (
+    Empresa,
+    ParticipacionPatrimonial,
+    Propiedad,
+    ServicioPropiedad,
+    Socio,
+    TipoInmueble,
+    TipoServicioPropiedad,
+)
 
 from .models import (
     AUTOMATIC_RENEWAL_EVENT_TYPE,
@@ -1347,6 +1355,68 @@ class ContratosAPITests(APITestCase):
         response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(len(response.data['contrato_propiedades_detail']), 2)
+
+    def test_create_active_contract_with_common_expenses_requires_structured_service(self):
+        mandato = self._create_active_mandato(codigo='MAND-GC-001', owner_rut='33333335-K')
+        arrendatario = self._create_arrendatario(rut='44444446-0')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-GC-001')
+        payload['tiene_gastos_comunes'] = True
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('tiene_gastos_comunes', response.data)
+
+    def test_create_active_contract_with_common_expenses_accepts_structured_service(self):
+        mandato = self._create_active_mandato(codigo='MAND-GC-002', owner_rut='33333336-8')
+        arrendatario = self._create_arrendatario(rut='44444447-9')
+        ServicioPropiedad.objects.create(
+            propiedad=mandato.propiedad,
+            tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+            proveedor_nombre='Administracion Edificio',
+            numero_cliente='GC-100',
+            administrador_nombre='Administracion Edificio',
+            evidencia_ref='gasto-comun-contrato-001',
+            activo=True,
+        )
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-GC-002')
+        payload['tiene_gastos_comunes'] = True
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['tiene_gastos_comunes'])
+
+    def test_existing_active_contract_rejects_common_expenses_without_structured_service(self):
+        mandato = self._create_active_mandato(codigo='MAND-GC-003', owner_rut='33333337-6')
+        arrendatario = self._create_arrendatario(rut='44444448-7')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-GC-003')
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        contrato = Contrato.objects.get(codigo_contrato='CTR-GC-003')
+        contrato.tiene_gastos_comunes = True
+
+        with self.assertRaises(ValidationError) as error:
+            contrato.full_clean()
+
+        self.assertIn('tiene_gastos_comunes', error.exception.message_dict)
+
+    def test_update_active_contract_rejects_common_expenses_without_structured_service(self):
+        mandato = self._create_active_mandato(codigo='MAND-GC-004', owner_rut='33333338-4')
+        arrendatario = self._create_arrendatario(rut='44444449-5')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-GC-004')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        update_response = self.client.patch(
+            reverse('contratos-contrato-detail', args=[create_response.data['id']]),
+            {'tiene_gastos_comunes': True},
+            format='json',
+        )
+
+        self.assertEqual(update_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('tiene_gastos_comunes', update_response.data)
 
     def test_active_contract_rejects_inactive_linked_property(self):
         mandato = self._create_active_mandato(codigo='MAND-102-INACT', owner_rut='33333334-1')
