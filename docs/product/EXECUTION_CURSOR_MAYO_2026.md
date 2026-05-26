@@ -22,17 +22,17 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en `main`; ultimo paquete integrado: PR #317 Etapa 2 / Cobranza y Canales - claves sensibles en restricciones operativas de gates. |
+| Frente activo | Ninguno abierto en `main`; ultimo paquete trabajado: Etapa 4 / SII - claves sensibles en payloads tributarios locales. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna registrada en cursor. El ultimo paquete integrado endurecio `restricciones_operativas` de gates Canales/WebPay para detectar claves sensibles como `api_key`, `access_token` o `credential`, preservando claves canonicas de referencia no sensible. |
-| Motivo de prioridad | PR #317 quedo mergeado; no cierra Etapa 2 sin fuente autorizada ni pruebas externas/controladas. |
-| Worktree | Ninguno tactico activo. |
-| Rama | `main`. |
-| Estado | Main sincronizado con PR #317; siguiente paquete aun no seleccionado. |
-| Gate esperado | Para el siguiente paquete, seleccionar frente seguro desde trazabilidad, abrir worktree `codex/...`, validar proporcionalmente y cerrar con PR/merge/limpieza. |
-| Estado al cerrar paquete | No cierra Etapa 2; solo endurece gates locales para bloquear claves sensibles en restricciones operativas. |
-| Bloqueos relacionados | Fuente autorizada Etapa 1, prueba Email/WebPay controlada y responsables siguen siendo condiciones de cierre, no requisitos para este paquete local. |
-| Politica de reanudacion | Si `main` sigue limpio, tomar el siguiente frente seguro por trazabilidad. Si aparece un worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
+| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete endurece SII para rechazar claves sensibles en `ultimo_resultado`, `resumen_formulario`, `resumen_anual`, `resumen_paquete` y `resumen_f22`. |
+| Motivo de prioridad | La stage card Etapa 4 exige refs/payloads no sensibles y el paquete se cerro localmente sin SII, certificados, `.env`, datos reales ni integraciones externas. |
+| Worktree | Ninguno tactico debe quedar activo tras merge/limpieza. |
+| Rama | `main` tras merge/limpieza. |
+| Estado | Paquete validado localmente; al reanudar, confirmar `git status --short --branch` y `git worktree list`. |
+| Gate esperado | Si `main` esta limpio, seleccionar el siguiente frente seguro desde trazabilidad; si aparece worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
+| Estado al cerrar paquete | No cierra Etapa 4; solo endurece escritura/readiness local de payloads tributarios. |
+| Bloqueos relacionados | Ambiente SII real/controlado, evidencia de ledger, regla fiscal validada y responsable siguen siendo condiciones de cierre, no requisitos para este paquete local. |
+| Politica de reanudacion | Si `main` sigue limpio y no hay worktree tactico sucio, tomar el siguiente frente seguro por trazabilidad. |
 | Siguiente accion | Diagnosticar `main` real y elegir el siguiente paquete util sin depender de secretos, datos reales ni integraciones externas. |
 
 ## Actualizacion

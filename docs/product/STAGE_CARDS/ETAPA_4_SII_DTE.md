@@ -39,6 +39,11 @@ produccion por defecto.
 - DTE, F29, DDJJ/F22 y procesos anuales solo aceptan refs tributarias no
   sensibles para tracking, borradores y paquetes; las APIs y snapshots redactan
   refs o payloads sensibles heredados antes de exponerlos al backoffice.
+- Los payloads tributarios locales (`ultimo_resultado`, `resumen_formulario`,
+  `resumen_anual`, `resumen_paquete`, `resumen_f22`) rechazan URLs, tokens,
+  credenciales, correos y claves sensibles como `api_key`, `access_token` o
+  `credential`; readiness Etapa 4 detecta snapshots heredados sin exponer esos
+  valores.
 - DTE, F29, DDJJ/F22 y procesos anuales rechazan por dominio nuevas escrituras
   asociadas a empresas sin `ConfiguracionFiscalEmpresa` activa propia.
 - Los eventos de auditoria de cambios de estado DTE registran `sii_track_id`

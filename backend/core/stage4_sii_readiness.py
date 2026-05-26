@@ -96,7 +96,7 @@ def _capability_has_sensitive_reference(capability) -> bool:
         has_text(getattr(capability, field_name, ''))
         and not is_non_sensitive_reference(getattr(capability, field_name, ''))
         for field_name in CAPABILITY_REFERENCE_FIELDS
-    ) or contains_sensitive_reference(capability.ultimo_resultado or {})
+    ) or contains_sensitive_reference(capability.ultimo_resultado or {}, include_sensitive_keys=True)
 
 
 def _capability_ready_for_tax_state(capability) -> bool:
@@ -147,6 +147,8 @@ def _collect_f29_issues(f29_drafts) -> dict[str, int]:
             counts['approved_ref_missing'] += 1
         if has_text(draft.borrador_ref) and not is_non_sensitive_reference(draft.borrador_ref):
             counts['sensitive_ref'] += 1
+        if contains_sensitive_reference(draft.resumen_formulario or {}, include_sensitive_keys=True):
+            counts['sensitive_payload'] += 1
 
     return dict(sorted(counts.items()))
 
@@ -169,6 +171,8 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             and not is_non_sensitive_reference(process.borrador_f22_ref)
         ):
             counts['sensitive_ref'] += 1
+        if contains_sensitive_reference(process.resumen_anual or {}, include_sensitive_keys=True):
+            counts['process_sensitive_payload'] += 1
 
     for ddjj in ddjj_preparations:
         try:
@@ -185,6 +189,8 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['ddjj_ref_missing'] += 1
         if has_text(ddjj.paquete_ref) and not is_non_sensitive_reference(ddjj.paquete_ref):
             counts['sensitive_ref'] += 1
+        if contains_sensitive_reference(ddjj.resumen_paquete or {}, include_sensitive_keys=True):
+            counts['ddjj_sensitive_payload'] += 1
 
     for f22 in f22_preparations:
         try:
@@ -201,6 +207,8 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['f22_ref_missing'] += 1
         if has_text(f22.borrador_ref) and not is_non_sensitive_reference(f22.borrador_ref):
             counts['sensitive_ref'] += 1
+        if contains_sensitive_reference(f22.resumen_f22 or {}, include_sensitive_keys=True):
+            counts['f22_sensitive_payload'] += 1
 
     return dict(sorted(counts.items()))
 
@@ -465,6 +473,14 @@ def collect_stage4_sii_readiness(
                 count=f29_issues['sensitive_ref'],
             )
         )
+    if f29_issues.get('sensitive_payload'):
+        issues.append(
+            _issue(
+                'stage4.f29_sensitive_payload',
+                'Existen borradores F29 con payload tributario sensible.',
+                count=f29_issues['sensitive_payload'],
+            )
+        )
     if f29_without_fiscal_config:
         issues.append(
             _issue(
@@ -529,6 +545,21 @@ def collect_stage4_sii_readiness(
             'sensitive_ref',
             'stage4.annual_sensitive_ref',
             'Existen preparaciones anuales con referencias sensibles.',
+        ),
+        (
+            'process_sensitive_payload',
+            'stage4.annual_process_sensitive_payload',
+            'Existen procesos anuales con resumen_anual sensible.',
+        ),
+        (
+            'ddjj_sensitive_payload',
+            'stage4.ddjj_sensitive_payload',
+            'Existen DDJJ preparadas con resumen_paquete sensible.',
+        ),
+        (
+            'f22_sensitive_payload',
+            'stage4.f22_sensitive_payload',
+            'Existen F22 preparados con resumen_f22 sensible.',
         ),
     ]:
         if annual_issues.get(key):
