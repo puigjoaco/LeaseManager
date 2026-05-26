@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -785,6 +786,96 @@ class PatrimonioAPITests(APITestCase):
         self.assertIn('activo', response.data)
         socio.refresh_from_db()
         self.assertTrue(socio.activo)
+
+    def test_participation_transfer_endpoint_replaces_origin_with_audited_targets(self):
+        origin = self._create_socio('Cristian Origen', '14141414-9')
+        remaining = self._create_socio('Socio Continuador', '15151515-7')
+        target_one = self._create_socio('Catalina Destino', '16161616-5')
+        target_two = self._create_socio('Trinidad Destino', '17171717-3')
+        empresa = Empresa.objects.create(razon_social='Empresa Transferible', rut='99999999-9', estado=EstadoPatrimonial.ACTIVE)
+        origin_participation = ParticipacionPatrimonial.objects.create(
+            participante_socio=origin,
+            empresa_owner=empresa,
+            porcentaje='40.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=remaining,
+            empresa_owner=empresa,
+            porcentaje='60.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        effective_date = timezone.localdate()
+
+        response = self.client.post(
+            reverse('patrimonio-participacion-transferir'),
+            {
+                'owner_tipo': 'empresa',
+                'owner_id': empresa.id,
+                'participante_origen_tipo': 'socio',
+                'participante_origen_id': origin.id,
+                'fecha_efectiva': effective_date.isoformat(),
+                'transferencias': [
+                    {'participante_tipo': 'socio', 'participante_id': target_one.id, 'porcentaje': '20.00'},
+                    {'participante_tipo': 'socio', 'participante_id': target_two.id, 'porcentaje': '20.00'},
+                ],
+                'motivo': 'Redistribucion sucesoria controlada.',
+                'evidencia_ref': 'participation-transfer-success-001',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        origin_participation.refresh_from_db()
+        self.assertEqual(origin_participation.vigente_hasta, effective_date - timedelta(days=1))
+        self.assertEqual(len(response.data['participaciones_destino']), 2)
+        self.assertEqual(empresa.total_participaciones_activas(), Decimal('100.00'))
+        audit_event = AuditEvent.objects.get(event_type='patrimonio.participacion.transfer_executed')
+        self.assertEqual(audit_event.metadata['origin_participation_id'], origin_participation.id)
+        self.assertEqual(audit_event.metadata['target_count'], 2)
+
+    def test_participation_transfer_endpoint_rejects_percentage_mismatch(self):
+        origin = self._create_socio('Socio Origen Mismatch', '14141414-9')
+        remaining = self._create_socio('Socio Continuador Mismatch', '15151515-7')
+        target = self._create_socio('Socio Destino Mismatch', '16161616-5')
+        empresa = Empresa.objects.create(razon_social='Empresa Mismatch', rut='99999999-9', estado=EstadoPatrimonial.ACTIVE)
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=origin,
+            empresa_owner=empresa,
+            porcentaje='40.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=remaining,
+            empresa_owner=empresa,
+            porcentaje='60.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+
+        response = self.client.post(
+            reverse('patrimonio-participacion-transferir'),
+            {
+                'owner_tipo': 'empresa',
+                'owner_id': empresa.id,
+                'participante_origen_tipo': 'socio',
+                'participante_origen_id': origin.id,
+                'fecha_efectiva': timezone.localdate().isoformat(),
+                'transferencias': [
+                    {'participante_tipo': 'socio', 'participante_id': target.id, 'porcentaje': '30.00'},
+                ],
+                'motivo': 'Redistribucion con total incorrecto.',
+                'evidencia_ref': 'participation-transfer-mismatch-001',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('detail', response.data)
+        self.assertFalse(AuditEvent.objects.filter(event_type='patrimonio.participacion.transfer_executed').exists())
 
     def test_empresa_deactivation_rejects_active_property_dependency(self):
         empresa_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')

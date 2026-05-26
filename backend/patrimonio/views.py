@@ -14,6 +14,7 @@ from .serializers import (
     ComunidadPatrimonialSerializer,
     EmpresaSerializer,
     ParticipacionPatrimonialReadSerializer,
+    ParticipacionTransferSerializer,
     PropiedadSerializer,
     ServicioPropiedadSerializer,
     SocioSerializer,
@@ -326,3 +327,23 @@ class ParticipacionDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
         'comunidad_owner',
     ).all()
     property_scope_paths = ('empresa_owner__propiedades__id', 'comunidad_owner__propiedades__id')
+
+
+class ParticipacionTransferView(APIView):
+    permission_classes = [OperationalMasterDataPermission]
+
+    def post(self, request):
+        serializer = ParticipacionTransferSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save(
+            actor_user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
+        return Response(
+            {
+                'participacion_origen': ParticipacionPatrimonialReadSerializer(result['origin']).data,
+                'participaciones_destino': ParticipacionPatrimonialReadSerializer(result['targets'], many=True).data,
+                'audit_event_id': result['audit_event'].pk,
+            },
+            status=201,
+        )

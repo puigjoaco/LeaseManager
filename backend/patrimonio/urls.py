@@ -8,6 +8,7 @@ from .views import (
     PatrimonioSnapshotView,
     ParticipacionDetailView,
     ParticipacionListView,
+    ParticipacionTransferView,
     PropiedadDetailView,
     PropiedadListCreateView,
     ServicioPropiedadDetailView,
@@ -33,5 +34,6 @@ urlpatterns = [
         name='patrimonio-servicio-propiedad-detail',
     ),
     path('participaciones/', ParticipacionListView.as_view(), name='patrimonio-participacion-list'),
+    path('participaciones/transferir/', ParticipacionTransferView.as_view(), name='patrimonio-participacion-transferir'),
     path('participaciones/<int:pk>/', ParticipacionDetailView.as_view(), name='patrimonio-participacion-detail'),
 ]

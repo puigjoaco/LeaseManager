@@ -68,6 +68,7 @@ from patrimonio.models import (
     TipoInmueble,
     TipoServicioPropiedad,
 )
+from patrimonio.services import PARTICIPATION_TRANSFER_EVENT_TYPE
 
 
 class Stage1MatrixAuditTests(TestCase):
@@ -342,6 +343,62 @@ class Stage1MatrixAuditTests(TestCase):
             result['aggregate_classification']['codeudores_solidarios']['classification'],
             'resuelto_confirmado',
         )
+
+    def test_participation_transfer_without_audit_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        empresa = contrato.mandato_operacion.propietario_empresa_owner
+        origin = ParticipacionPatrimonial.objects.filter(empresa_owner=empresa, porcentaje=Decimal('40.00')).first()
+        successor = Socio.objects.create(nombre='Socio Sucesor Sin Auditoria', rut='44444444-4', activo=True)
+        effective_date = timezone.localdate()
+        origin.vigente_hasta = effective_date - timedelta(days=1)
+        origin.save(update_fields=['vigente_hasta', 'updated_at'])
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=successor,
+            empresa_owner=empresa,
+            porcentaje='40.00',
+            vigente_desde=effective_date,
+            activo=True,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.participacion.transferencia_sin_auditoria', issue_codes)
+
+    def test_participation_transfer_with_audit_can_pass(self):
+        contrato = self._create_valid_stage1_matrix()
+        empresa = contrato.mandato_operacion.propietario_empresa_owner
+        origin = ParticipacionPatrimonial.objects.filter(empresa_owner=empresa, porcentaje=Decimal('40.00')).first()
+        successor = Socio.objects.create(nombre='Socio Sucesor Auditado', rut='44444444-4', activo=True)
+        effective_date = timezone.localdate()
+        origin.vigente_hasta = effective_date - timedelta(days=1)
+        origin.save(update_fields=['vigente_hasta', 'updated_at'])
+        target = ParticipacionPatrimonial.objects.create(
+            participante_socio=successor,
+            empresa_owner=empresa,
+            porcentaje='40.00',
+            vigente_desde=effective_date,
+            activo=True,
+        )
+        AuditEvent.objects.create(
+            event_type=PARTICIPATION_TRANSFER_EVENT_TYPE,
+            entity_type='participacion_patrimonial',
+            entity_id=str(origin.pk),
+            summary='Transferencia patrimonial auditada.',
+            metadata={
+                'origin_participation_id': origin.pk,
+                'target_participation_ids': [target.pk],
+                'evidence_ref': 'participation-transfer-audit-test',
+            },
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertNotIn('stage1.participacion.transferencia_sin_auditoria', issue_codes)
 
     def test_active_identity_sensitive_credential_ref_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
