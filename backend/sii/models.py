@@ -98,8 +98,12 @@ def _add_required_tax_reference_error(errors, instance, field_name, state_field_
 
 
 def _add_non_sensitive_payload_error(errors, field_name, value):
-    if value and contains_sensitive_reference(value):
-        errors[field_name] = f'{field_name} no debe contener URLs, tokens, credenciales ni correos.'
+    if value and contains_sensitive_reference(value, include_sensitive_keys=True):
+        _add_error(
+            errors,
+            field_name,
+            f'{field_name} no debe contener URLs, tokens, credenciales, correos ni claves sensibles.',
+        )
 
 
 def _summary_fiscal_year(summary):
@@ -342,6 +346,7 @@ class F29PreparacionMensual(TimestampedModel):
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad SII debe pertenecer a la misma empresa del borrador F29.'
         _add_capability_kind_error(errors, self, CapacidadSII.F29_PREPARACION, 'F29')
+        _add_non_sensitive_payload_error(errors, 'resumen_formulario', self.resumen_formulario)
         if self.cierre_mensual.empresa_id != self.empresa_id or self.cierre_mensual.anio != self.anio or self.cierre_mensual.mes != self.mes:
             errors['cierre_mensual'] = 'El cierre mensual debe coincidir con la empresa y periodo del F29.'
         if errors:
@@ -382,6 +387,7 @@ class ProcesoRentaAnual(TimestampedModel):
         _add_non_sensitive_reference_error(errors, self, 'paquete_ddjj_ref')
         _add_non_sensitive_reference_error(errors, self, 'borrador_f22_ref')
         _add_active_fiscal_config_error(errors, self, 'ProcesoRentaAnual')
+        _add_non_sensitive_payload_error(errors, 'resumen_anual', self.resumen_anual)
         _add_annual_summary_year_error(errors, 'resumen_anual', self.resumen_anual, self.anio_tributario)
         if errors:
             raise ValidationError(errors)
@@ -430,6 +436,7 @@ class DDJJPreparacionAnual(TimestampedModel):
         _add_capability_kind_error(errors, self, CapacidadSII.DDJJ_PREPARACION, 'DDJJ')
         if self.proceso_renta_anual.empresa_id != self.empresa_id or self.proceso_renta_anual.anio_tributario != self.anio_tributario:
             errors['proceso_renta_anual'] = 'El proceso anual debe coincidir con la empresa y año tributario de DDJJ.'
+        _add_non_sensitive_payload_error(errors, 'resumen_paquete', self.resumen_paquete)
         summary = self.resumen_paquete.get('resumen_anual') if isinstance(self.resumen_paquete, dict) else None
         _add_annual_summary_year_error(errors, 'resumen_paquete', summary, self.anio_tributario)
         if errors:
@@ -479,6 +486,7 @@ class F22PreparacionAnual(TimestampedModel):
         _add_capability_kind_error(errors, self, CapacidadSII.F22_PREPARACION, 'F22')
         if self.proceso_renta_anual.empresa_id != self.empresa_id or self.proceso_renta_anual.anio_tributario != self.anio_tributario:
             errors['proceso_renta_anual'] = 'El proceso anual debe coincidir con la empresa y año tributario del F22.'
+        _add_non_sensitive_payload_error(errors, 'resumen_f22', self.resumen_f22)
         summary = self.resumen_f22.get('resumen_anual') if isinstance(self.resumen_f22, dict) else None
         _add_annual_summary_year_error(errors, 'resumen_f22', summary, self.anio_tributario)
         if errors:

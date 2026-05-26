@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: SII endurece payloads tributarios locales sin conectar SII ni
+leer certificados. `ultimo_resultado`, `resumen_formulario`, `resumen_anual`,
+`resumen_paquete` y `resumen_f22` rechazan valores y claves sensibles como
+`api_key`, `access_token` o `credential`; readiness Etapa 4 detecta payloads
+heredados sensibles sin imprimirlos y mantiene el cierre condicionado a fuente
+autorizada.
+
 Nota 2026-05-26: CobranzaActiva y Canales endurecen los gates externos sin
 abrir integraciones. `restricciones_operativas` de Email/WhatsApp/WebPay
 rechaza valores sensibles y tambien nombres de claves sensibles como
