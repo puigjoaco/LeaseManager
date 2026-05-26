@@ -13,7 +13,7 @@ from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoM
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria
-from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE
+from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
 
 
 VALID_SHA256 = 'a' * 64
@@ -84,22 +84,29 @@ class DocumentosAPITests(APITestCase):
     def test_generate_pdf_endpoint_derives_checksum_storage_and_audit(self):
         expediente = self._create_expediente(entidad_id='generated-pdf')
         self._create_politica()
+        payload = {
+            'expediente': expediente['id'],
+            'tipo_documental': 'contrato_principal',
+            'version_plantilla': 'contrato-v1',
+            'titulo': 'Contrato principal controlado',
+            'lineas': [
+                'Arrendador: referencia-operativa-arrendador',
+                'Arrendatario: referencia-operativa-arrendatario',
+                'Propiedad: referencia-operativa-propiedad',
+            ],
+        }
 
-        response = self.client.post(
-            reverse('documentos-documento-generar-pdf'),
-            {
-                'expediente': expediente['id'],
-                'tipo_documental': 'contrato_principal',
-                'version_plantilla': 'contrato-v1',
-                'titulo': 'Contrato principal controlado',
-                'lineas': [
-                    'Arrendador: referencia-operativa-arrendador',
-                    'Arrendatario: referencia-operativa-arrendatario',
-                    'Propiedad: referencia-operativa-propiedad',
-                ],
-            },
-            format='json',
+        preview = self.client.post(reverse('documentos-documento-previsualizar-pdf'), payload, format='json')
+        self.assertEqual(preview.status_code, status.HTTP_200_OK)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=PREVIEW_PDF_AUDIT_EVENT_TYPE,
+                entity_type='documento_pdf_preview',
+                entity_id=preview.data['preview_ref'],
+            ).exists()
         )
+
+        response = self.client.post(reverse('documentos-documento-generar-pdf'), payload, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         document_payload = response.data['documento']
@@ -107,6 +114,8 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(document.origen, 'generado_sistema')
         self.assertEqual(document.estado, EstadoDocumento.ISSUED)
         self.assertEqual(document.checksum, response.data['pdf_sha256'])
+        self.assertEqual(preview.data['pdf_sha256'], response.data['pdf_sha256'])
+        self.assertEqual(preview.data['storage_ref_preview'], document.storage_ref)
         self.assertRegex(document.checksum, r'^[0-9a-f]{64}$')
         self.assertTrue(document.storage_ref.startswith('storage/generated-documents/contrato_principal/contrato-v1-'))
         self.assertTrue(document.storage_ref.endswith('.pdf'))
@@ -120,12 +129,55 @@ class DocumentosAPITests(APITestCase):
             ).exists()
         )
 
+    def test_generate_pdf_requires_matching_preview(self):
+        expediente = self._create_expediente(entidad_id='generated-without-preview')
+        self._create_politica()
+
+        response = self.client.post(
+            reverse('documentos-documento-generar-pdf'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'contrato-v1',
+                'titulo': 'Contrato principal controlado',
+                'lineas': [
+                    'Arrendador: referencia-operativa-arrendador',
+                    'Arrendatario: referencia-operativa-arrendatario',
+                ],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('preview', response.data)
+        self.assertFalse(DocumentoEmitido.objects.filter(origen='generado_sistema').exists())
+
+    def test_generate_pdf_requires_preview_of_same_content(self):
+        expediente = self._create_expediente(entidad_id='generated-preview-mismatch')
+        self._create_politica()
+        payload = {
+            'expediente': expediente['id'],
+            'tipo_documental': 'contrato_principal',
+            'version_plantilla': 'contrato-v1',
+            'titulo': 'Contrato principal controlado',
+            'lineas': ['Arrendador: referencia-operativa-arrendador'],
+        }
+        preview = self.client.post(reverse('documentos-documento-previsualizar-pdf'), payload, format='json')
+        self.assertEqual(preview.status_code, status.HTTP_200_OK)
+
+        mutated = {**payload, 'lineas': ['Arrendador: referencia-operativa-distinta']}
+        response = self.client.post(reverse('documentos-documento-generar-pdf'), mutated, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('preview', response.data)
+        self.assertFalse(DocumentoEmitido.objects.filter(origen='generado_sistema').exists())
+
     def test_generate_pdf_endpoint_rejects_sensitive_content(self):
         expediente = self._create_expediente(entidad_id='generated-sensitive')
         self._create_politica()
 
         response = self.client.post(
-            reverse('documentos-documento-generar-pdf'),
+            reverse('documentos-documento-previsualizar-pdf'),
             {
                 'expediente': expediente['id'],
                 'tipo_documental': 'contrato_principal',

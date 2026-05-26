@@ -16,7 +16,7 @@ from .models import (
     is_pdf_storage_ref,
     is_valid_pdf_checksum,
 )
-from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE
+from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PDF_PREVIEW_ENTITY_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
 
 
 REQUIRED_POLICY_TYPES = set(TipoDocumental.values)
@@ -95,6 +95,23 @@ def _has_generated_pdf_audit(document):
     ).exists()
 
 
+def _has_generated_pdf_preview(document):
+    for event in AuditEvent.objects.filter(
+        event_type=PREVIEW_PDF_AUDIT_EVENT_TYPE,
+        entity_type=PDF_PREVIEW_ENTITY_TYPE,
+        entity_id=str(document.checksum or '').strip(),
+    ):
+        metadata = event.metadata or {}
+        if (
+            str(metadata.get('expediente_id')) == str(document.expediente_id)
+            and metadata.get('tipo_documental') == document.tipo_documental
+            and metadata.get('version_plantilla') == document.version_plantilla
+            and metadata.get('storage_ref') == document.storage_ref
+        ):
+            return True
+    return False
+
+
 def collect_document_readiness(
     *,
     final_policy_ref='',
@@ -128,6 +145,7 @@ def collect_document_readiness(
     notary_receipts_wrong_expediente = 0
     notary_receipts_invalid_state = 0
     formalized_without_formalization_audit = 0
+    generated_documents_without_preview = 0
     generated_documents_without_audit = 0
     corrective_versions_without_audit = 0
     invalid_corrective_versions = 0
@@ -143,8 +161,11 @@ def collect_document_readiness(
             documents_missing_user += 1
         if _document_missing_metadata(document):
             documents_missing_metadata += 1
-        if document.origen == OrigenDocumento.GENERATED and not _has_generated_pdf_audit(document):
-            generated_documents_without_audit += 1
+        if document.origen == OrigenDocumento.GENERATED:
+            if not _has_generated_pdf_preview(document):
+                generated_documents_without_preview += 1
+            if not _has_generated_pdf_audit(document):
+                generated_documents_without_audit += 1
         if document.estado == EstadoDocumento.FORMALIZED:
             if not str(document.evidencia_formalizacion_ref or '').strip():
                 formalized_without_evidence += 1
@@ -307,6 +328,14 @@ def collect_document_readiness(
                 count=generated_documents_without_audit,
             )
         )
+    if generated_documents_without_preview:
+        issues.append(
+            _issue(
+                'documents.generated_pdf_preview_missing',
+                'Existen documentos generados por sistema sin vista previa auditada del mismo contenido.',
+                count=generated_documents_without_preview,
+            )
+        )
     if formalized_without_notary_reception:
         issues.append(
             _issue(
@@ -426,6 +455,7 @@ def collect_document_readiness(
                 'invalid_formalized_documents': invalid_formalized_documents,
                 'formalized_without_evidence': formalized_without_evidence,
                 'formalized_with_sensitive_evidence': formalized_with_sensitive_evidence,
+                'generated_without_preview': generated_documents_without_preview,
                 'generated_without_audit': generated_documents_without_audit,
                 'formalized_without_notary_reception': formalized_without_notary_reception,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,

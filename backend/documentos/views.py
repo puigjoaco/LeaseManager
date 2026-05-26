@@ -10,7 +10,7 @@ from core.reference_validation import redact_sensitive_reference
 
 from .scope import scope_documento_queryset, scope_expediente_queryset
 from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria
-from .pdf_generation import emit_generated_pdf_document
+from .pdf_generation import emit_generated_pdf_document, preview_generated_pdf_document
 from .serializers import (
     DocumentoEmitidoSerializer,
     DocumentoFormalizarSerializer,
@@ -221,6 +221,32 @@ class DocumentoGenerarPDFView(APIView):
                 'pdf_size_bytes': len(pdf_bytes),
             },
             status=status.HTTP_201_CREATED,
+        )
+
+
+class DocumentoPrevisualizarPDFView(APIView):
+    permission_classes = [OperationalModulePermission]
+
+    def post(self, request):
+        serializer = DocumentoGenerarPDFSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        payload = preview_generated_pdf_document(
+            expediente=serializer.validated_data['expediente'],
+            tipo_documental=serializer.validated_data['tipo_documental'],
+            version_plantilla=serializer.validated_data['version_plantilla'],
+            titulo=serializer.validated_data['titulo'],
+            lineas=serializer.validated_data['lineas'],
+            actor_user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
+        return Response(
+            {
+                'pdf_sha256': payload['checksum'],
+                'pdf_size_bytes': len(payload['pdf_bytes']),
+                'storage_ref_preview': payload['storage_ref'],
+                'preview_ref': payload['checksum'],
+            },
+            status=status.HTTP_200_OK,
         )
 
 

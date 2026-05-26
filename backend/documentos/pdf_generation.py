@@ -5,12 +5,15 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from audit.models import AuditEvent
 from audit.services import create_audit_event
 
 from .models import DocumentoEmitido, EstadoDocumento, OrigenDocumento
 
 
 GENERATED_PDF_AUDIT_EVENT_TYPE = 'documentos.documento_emitido.generated_pdf'
+PREVIEW_PDF_AUDIT_EVENT_TYPE = 'documentos.documento_emitido.previewed_pdf'
+PDF_PREVIEW_ENTITY_TYPE = 'documento_pdf_preview'
 
 
 def _escape_pdf_text(value):
@@ -78,6 +81,87 @@ def build_generated_storage_ref(*, tipo_documental, version_plantilla, checksum)
     return f'storage/generated-documents/{tipo_documental}/{safe_version}-{checksum[:16]}.pdf'
 
 
+def build_generated_pdf_payload(*, tipo_documental, version_plantilla, titulo, lineas):
+    pdf_bytes = render_canonical_pdf_bytes(
+        title=titulo,
+        version_plantilla=version_plantilla,
+        lineas=lineas,
+    )
+    checksum = hashlib.sha256(pdf_bytes).hexdigest()
+    storage_ref = build_generated_storage_ref(
+        tipo_documental=tipo_documental,
+        version_plantilla=version_plantilla,
+        checksum=checksum,
+    )
+    return {
+        'pdf_bytes': pdf_bytes,
+        'checksum': checksum,
+        'storage_ref': storage_ref,
+    }
+
+
+def _preview_metadata_matches(metadata, *, expediente, tipo_documental, version_plantilla, storage_ref):
+    return (
+        str(metadata.get('expediente_id')) == str(expediente.pk)
+        and metadata.get('tipo_documental') == tipo_documental
+        and metadata.get('version_plantilla') == version_plantilla
+        and metadata.get('storage_ref') == storage_ref
+    )
+
+
+def has_matching_pdf_preview(*, expediente, tipo_documental, version_plantilla, checksum, storage_ref):
+    for event in AuditEvent.objects.filter(
+        event_type=PREVIEW_PDF_AUDIT_EVENT_TYPE,
+        entity_type=PDF_PREVIEW_ENTITY_TYPE,
+        entity_id=checksum,
+    ):
+        if _preview_metadata_matches(
+            event.metadata or {},
+            expediente=expediente,
+            tipo_documental=tipo_documental,
+            version_plantilla=version_plantilla,
+            storage_ref=storage_ref,
+        ):
+            return True
+    return False
+
+
+def preview_generated_pdf_document(
+    *,
+    expediente,
+    tipo_documental,
+    version_plantilla,
+    titulo,
+    lineas,
+    actor_user,
+    ip_address=None,
+):
+    payload = build_generated_pdf_payload(
+        tipo_documental=tipo_documental,
+        version_plantilla=version_plantilla,
+        titulo=titulo,
+        lineas=lineas,
+    )
+    create_audit_event(
+        event_type=PREVIEW_PDF_AUDIT_EVENT_TYPE,
+        entity_type=PDF_PREVIEW_ENTITY_TYPE,
+        entity_id=payload['checksum'],
+        summary='Vista previa PDF generada sin persistir documento.',
+        actor_user=actor_user,
+        ip_address=ip_address,
+        metadata={
+            'checksum_sha256': payload['checksum'],
+            'storage_ref': payload['storage_ref'],
+            'pdf_size_bytes': len(payload['pdf_bytes']),
+            'version_plantilla': version_plantilla,
+            'tipo_documental': tipo_documental,
+            'expediente_id': expediente.pk,
+            'line_count': len(lineas),
+        },
+    )
+    return payload
+
+
 @transaction.atomic
 def emit_generated_pdf_document(
     *,
@@ -89,12 +173,25 @@ def emit_generated_pdf_document(
     actor_user,
     ip_address=None,
 ):
-    pdf_bytes = render_canonical_pdf_bytes(
-        title=titulo,
+    payload = build_generated_pdf_payload(
+        tipo_documental=tipo_documental,
         version_plantilla=version_plantilla,
+        titulo=titulo,
         lineas=lineas,
     )
-    checksum = hashlib.sha256(pdf_bytes).hexdigest()
+    checksum = payload['checksum']
+    storage_ref = payload['storage_ref']
+    pdf_bytes = payload['pdf_bytes']
+    if not has_matching_pdf_preview(
+        expediente=expediente,
+        tipo_documental=tipo_documental,
+        version_plantilla=version_plantilla,
+        checksum=checksum,
+        storage_ref=storage_ref,
+    ):
+        raise ValidationError(
+            {'preview': 'La emision PDF generada requiere vista previa auditada del mismo contenido.'}
+        )
     document = DocumentoEmitido(
         expediente=expediente,
         tipo_documental=tipo_documental,
@@ -104,11 +201,7 @@ def emit_generated_pdf_document(
         usuario=actor_user if getattr(actor_user, 'is_authenticated', False) else None,
         origen=OrigenDocumento.GENERATED,
         estado=EstadoDocumento.ISSUED,
-        storage_ref=build_generated_storage_ref(
-            tipo_documental=tipo_documental,
-            version_plantilla=version_plantilla,
-            checksum=checksum,
-        ),
+        storage_ref=storage_ref,
     )
     try:
         document.full_clean()

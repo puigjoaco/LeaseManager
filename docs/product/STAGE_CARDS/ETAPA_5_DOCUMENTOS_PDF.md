@@ -26,6 +26,12 @@ firma y notaria trazables.
   deriva `checksum` y `storage_ref` desde el contenido, rechaza contenido
   sensible, registra auditoria `documentos.documento_emitido.generated_pdf` y
   deja cerrado el endpoint generico para `origen=generado_sistema`.
+- Antes de emitir un PDF generado por sistema, el mismo contenido debe haber
+  pasado por `documentos-emitidos/previsualizar-pdf/`, que deriva el mismo
+  checksum/storage esperado y registra auditoria
+  `documentos.documento_emitido.previewed_pdf` sin persistir documento. La
+  emision generada queda bloqueada si no existe preview auditada del mismo
+  expediente, tipo documental, version de plantilla, checksum y storage_ref.
 - Cada documento emitido debe tener politica activa para su tipo documental;
   el dominio/API rechaza nuevas escrituras sin esa politica y evita desactivar
   politicas ya usadas por documentos existentes.
@@ -63,6 +69,8 @@ firma y notaria trazables.
   documentos emitidos sin `usuario` responsable registrado.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   documentos `generado_sistema` sin auditoria dedicada de generacion PDF.
+- Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
+  documentos `generado_sistema` sin preview PDF auditada del mismo contenido.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   documentos heredados sin politica activa para su tipo documental.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
