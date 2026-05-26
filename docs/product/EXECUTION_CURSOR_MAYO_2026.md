@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa Documentos / PDF canonico generado por sistema. |
-| Fuente exacta | `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`; `docs/AUDITORIA_PRODUCTO_ARQUITECTURA_MAYO_2026.md` matriz por modulo Documentos. |
-| Brecha activa | Falta flujo local para emitir PDF canonico generado por sistema con checksum/storage_ref derivados del contenido, sin depender de storage real. |
-| Motivo de prioridad | Brecha local trazable de Documentos que prepara cierre sin usar secretos, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-document-generated-pdf`. |
-| Rama | `codex/stage5-document-generated-pdf`. |
-| Estado | Paquete tactico abierto. |
-| Gate esperado | Tests focales Documentos/readiness, `manage.py check`, migraciones dry-run, gate documental local, frontend build y acceptance si el impacto lo justifica. |
-| Estado al cerrar paquete | PR #299 mergeado en `main` con merge `68ccf49`; CI `acceptance` pass; cursor quedo sin paquete abierto. |
+| Frente activo | Ninguno. |
+| Fuente exacta | Pendiente de seleccionar desde trazabilidad vigente, PRD, stage cards y auditoria de producto. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | No hay paquete tactico en curso; el siguiente avance debe elegirse desde el estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Sin paquete abierto. |
+| Gate esperado | Definir segun el siguiente frente seguro seleccionado. |
+| Estado al cerrar paquete | PR #300 mergeado en `main` con merge `8ab5797`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Implementar emision PDF generada por sistema, validar checksum/storage_ref/auditoria/readiness, actualizar trazabilidad/evidencia y cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Elegir el siguiente paquete util, seguro y verificable desde trazabilidad vigente; abrir worktree `codex/...` si el cambio no es trivial. |
 
 ## Actualizacion
 
