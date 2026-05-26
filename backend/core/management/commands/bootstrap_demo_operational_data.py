@@ -10,6 +10,7 @@ from django.db import transaction
 
 from audit.services import create_audit_event
 from cobranza.models import (
+    CANONICAL_UF_SOURCE_KEYS,
     EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
     MANUAL_UF_LOAD_EVENT_TYPE,
     MANUAL_UF_SOURCE_KEYS,
@@ -63,8 +64,8 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--source-key",
-            default="bootstrap_demo_operational_data",
-            help="source_key para valores UF insertados o actualizados.",
+            default="",
+            help="Fuente UF canonica para valores UF insertados o actualizados.",
         )
         parser.add_argument(
             "--uf-evidence-ref",
@@ -88,11 +89,21 @@ class Command(BaseCommand):
             raise CommandError("Debes indicar al menos un --month YYYY-MM.")
 
         uf_values = self._parse_uf_values(options.get("uf_values") or [])
-        source_key = options["source_key"]
+        source_key = (options["source_key"] or "").strip()
         uf_evidence_ref = options["uf_evidence_ref"]
         uf_motive = options["uf_motive"]
         uf_responsible_ref = options["uf_responsible_ref"]
-        if source_key in MANUAL_UF_SOURCE_KEYS and not all([uf_evidence_ref, uf_motive, uf_responsible_ref]):
+        if uf_values and not source_key:
+            raise CommandError(
+                "La carga UF requiere --source-key con UF.BancoCentral, UF.CMF, "
+                "UF.MiIndicador o UF.CargaManualExtraordinaria."
+            )
+        if source_key and source_key not in CANONICAL_UF_SOURCE_KEYS:
+            raise CommandError(
+                "source_key UF invalido. Usa UF.BancoCentral, UF.CMF, "
+                "UF.MiIndicador o UF.CargaManualExtraordinaria."
+            )
+        if uf_values and source_key in MANUAL_UF_SOURCE_KEYS and not all([uf_evidence_ref, uf_motive, uf_responsible_ref]):
             raise CommandError(
                 "La carga manual UF requiere --uf-evidence-ref, --uf-motive y --uf-responsible-ref."
             )

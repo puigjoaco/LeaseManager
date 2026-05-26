@@ -1282,7 +1282,7 @@ class Stage1MatrixAuditTests(TestCase):
         periodo.moneda_base = MonedaBaseContrato.UF
         periodo.monto_base = Decimal('10.00')
         periodo.save(update_fields=['moneda_base', 'monto_base', 'updated_at'])
-        ValorUFDiario.objects.create(fecha=date(2026, 1, 1), valor=Decimal('35000.0000'), source_key='snapshot')
+        ValorUFDiario.objects.create(fecha=date(2026, 1, 1), valor=Decimal('35000.0000'), source_key='UF.BancoCentral')
         payment = self._create_payment_for(contrato)
         payment.monto_facturable_clp = Decimal('350000.00')
         payment.monto_calculado_clp = Decimal('350001.00')
@@ -1311,7 +1311,7 @@ class Stage1MatrixAuditTests(TestCase):
         periodo.moneda_base = MonedaBaseContrato.UF
         periodo.monto_base = Decimal('10.00')
         periodo.save(update_fields=['moneda_base', 'monto_base', 'updated_at'])
-        ValorUFDiario.objects.create(fecha=date(2026, 1, 1), valor=Decimal('0.0000'), source_key='snapshot')
+        ValorUFDiario.objects.create(fecha=date(2026, 1, 1), valor=Decimal('0.0000'), source_key='UF.BancoCentral')
         payment = self._create_payment_for(contrato)
         payment.monto_facturable_clp = Decimal('350000.00')
         payment.monto_calculado_clp = Decimal('350001.00')
@@ -1345,7 +1345,7 @@ class Stage1MatrixAuditTests(TestCase):
         ValorUFDiario.objects.create(
             fecha=date(2026, 1, 1),
             valor=Decimal('35000.0000'),
-            source_key='manual',
+            source_key='UF.CargaManualExtraordinaria',
         )
 
         result = self._collect_controlled_snapshot()

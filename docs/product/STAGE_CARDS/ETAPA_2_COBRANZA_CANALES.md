@@ -39,6 +39,12 @@ condicionados sin envios reales accidentales.
   fuera de plazo. La readiness debe bloquear snapshots con arrendatarios
   cobrables sin estado, con resumen operativo desactualizado o con score
   faltante/desalineado.
+- Los valores UF deben declarar una fuente canonica de la cadena
+  `UF.BancoCentral`, `UF.CMF`, `UF.MiIndicador` o
+  `UF.CargaManualExtraordinaria`. La API rechaza nuevas fuentes libres, el
+  bootstrap demo exige `--source-key` explicito y la readiness bloquea
+  snapshots heredados con `source_key` no canonico para evitar defaults
+  silenciosos.
 - Valores UF manuales solo son aceptables como excepcion auditada: cada
   `ValorUFDiario` con fuente manual debe conservar `evidencia_ref`,
   `motivo_carga`, `responsable_ref` no sensibles y evento auditable

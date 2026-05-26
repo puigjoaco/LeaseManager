@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 / Documentos - previsualizacion PDF antes de emision generada. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` regla "La generacion documental usa plantilla versionada y vista previa antes de formalizar o enviar documentos sensibles"; `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`; matriz de trazabilidad. |
-| Brecha activa | La emision PDF generada deriva checksum/storage y registra auditoria, pero no existe endpoint de vista previa ni guard que exija previsualizar el mismo contenido antes de emitir un documento generado por sistema. |
-| Motivo de prioridad | Fortalece el gate documental antes de Canales/SII/Reporting sin usar storage real, documentos productivos, secretos ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-document-pdf-preview`. |
-| Rama | `codex/stage5-document-pdf-preview`. |
-| Estado | Implementado y validado localmente; pendiente PR, CI, merge y limpieza. |
-| Gate esperado | Tests focales Documentos/API/readiness, suite impactada Documentos/readiness, `manage.py check`, migraciones dry-run, readiness local Documentos, frontend build, acceptance local, CI remoto. |
-| Estado al cerrar paquete | Integrar paquete por PR/CI/merge y limpiar worktree/rama; no reabrir este frente despues del merge. |
-| Bloqueos relacionados | No requiere proveedores externos, datos reales, `.env`, DB historicas ni integraciones. |
-| Politica de reanudacion | Si esta rama existe, terminar solo PR/CI/merge/limpieza. Si ya no existe, no reabrir este frente y seleccionar el siguiente paquete operativo desde el estado real. |
-| Siguiente accion | Ejecutar higiene final, abrir PR, esperar CI, mergear y limpiar. |
+| Frente activo | Sin paquete tactico activo en main despues del cierre de fuentes UF canonicas. |
+| Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
+| Brecha activa | Ninguna fijada en cursor. |
+| Motivo de prioridad | El paquete Etapa 2 / Cobranza - fuentes UF canonicas sin default silencioso queda validado localmente para PR/CI/merge; no debe reabrirse tras integrarse. |
+| Worktree | Ninguno esperado aparte del root principal cuando el paquete este mergeado y limpio. |
+| Rama | Ninguna rama tactica activa esperada tras merge. |
+| Estado | Listo para seleccionar el siguiente frente desde el estado real de `main`. |
+| Gate esperado | Antes de abrir otro paquete, confirmar `git status --short --branch`, `git worktree list` y revisar trazabilidad/stage cards para escoger el siguiente avance local seguro. |
+| Estado al cerrar paquete | El paquete UF canonico no cierra Etapa 2; deja readiness y validaciones preparadas sin usar proveedores externos ni datos reales. |
+| Bloqueos relacionados | Los proveedores UF reales y pruebas externas/controladas siguen siendo condiciones de cierre, no frentes locales activos. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, no reconstruir tareas previas: seleccionar el siguiente paquete operativo desde el estado real de `main`. |
+| Siguiente accion | Tras PR/CI/merge/limpieza del paquete UF, elegir el siguiente frente trazable y seguro. |
 
 ## Actualizacion
 

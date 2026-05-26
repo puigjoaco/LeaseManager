@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: CobranzaActiva canoniza la procedencia de `ValorUFDiario`.
+`source_key` solo acepta `UF.BancoCentral`, `UF.CMF`, `UF.MiIndicador` o
+`UF.CargaManualExtraordinaria`; el bootstrap demo exige `--source-key`
+explicito, el backoffice usa selector cerrado y readiness Etapa 2 reporta
+`stage2.uf_value.source_not_canonical` para fuentes heredadas libres.
+
 Nota 2026-05-26: CobranzaActiva persiste el efecto economico del codigo
 efectivo en `PagoMensual.monto_efecto_codigo_efectivo_clp`, lo valida como
 `monto_calculado_clp - monto_facturable_clp`, registra auditoria

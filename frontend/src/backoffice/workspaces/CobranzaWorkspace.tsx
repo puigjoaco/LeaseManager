@@ -22,6 +22,13 @@ type GarantiaDraft = { contrato: string; monto_pactado: string }
 type GarantiaMovimientoDraft = { garantiaId: string; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string }
 type EstadoCuentaDraft = { arrendatario_id: string }
 
+const UF_SOURCE_OPTIONS = [
+  { value: 'UF.BancoCentral', label: 'Banco Central' },
+  { value: 'UF.CMF', label: 'CMF' },
+  { value: 'UF.MiIndicador', label: 'MiIndicador' },
+  { value: 'UF.CargaManualExtraordinaria', label: 'Carga manual' },
+]
+
 export function CobranzaWorkspace({
   canEditCobranza,
   ufDraft,
@@ -103,7 +110,7 @@ export function CobranzaWorkspace({
   goToPagoContext: (pagoId: number) => void
   canOpenSii: boolean
 }) {
-  const ufRequiresManualTrace = ['manual', 'UF.CargaManualExtraordinaria', 'carga_manual_extraordinaria'].includes(ufDraft.source_key.trim())
+  const ufRequiresManualTrace = ufDraft.source_key.trim() === 'UF.CargaManualExtraordinaria'
   const ufTraceMissing = ufRequiresManualTrace && (!ufDraft.evidencia_ref.trim() || !ufDraft.motivo_carga.trim() || !ufDraft.responsable_ref.trim())
 
   return (
@@ -115,7 +122,9 @@ export function CobranzaWorkspace({
           <form className="entity-form" onSubmit={handleCreateUf}>
             <input type="date" value={ufDraft.fecha} onChange={(event) => setUfDraft((current) => ({ ...current, fecha: event.target.value }))} />
             <input placeholder="Valor UF" value={ufDraft.valor} onChange={(event) => setUfDraft((current) => ({ ...current, valor: event.target.value }))} />
-            <input placeholder="Source key" value={ufDraft.source_key} onChange={(event) => setUfDraft((current) => ({ ...current, source_key: event.target.value }))} />
+            <select value={ufDraft.source_key} onChange={(event) => setUfDraft((current) => ({ ...current, source_key: event.target.value }))}>
+              {UF_SOURCE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
             <input placeholder="Evidencia UF" value={ufDraft.evidencia_ref} onChange={(event) => setUfDraft((current) => ({ ...current, evidencia_ref: event.target.value }))} />
             <input placeholder="Motivo UF" value={ufDraft.motivo_carga} onChange={(event) => setUfDraft((current) => ({ ...current, motivo_carga: event.target.value }))} />
             <input placeholder="Responsable UF" value={ufDraft.responsable_ref} onChange={(event) => setUfDraft((current) => ({ ...current, responsable_ref: event.target.value }))} />
