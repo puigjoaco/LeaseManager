@@ -653,6 +653,37 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('comprobante_notarial', formalize.data)
 
+    def test_notary_receipt_must_have_notarial_document_type(self):
+        expediente = self._create_expediente(entidad_id='3C')
+        self._create_politica(requiere_notaria=True)
+        receipt = self._create_documento(
+            expediente['id'],
+            tipo_documental='contrato_principal',
+            version_plantilla='notary-wrong-type-v1',
+            checksum=VALID_SHA256,
+            storage_ref='storage/contracts/notary-wrong-type.pdf',
+        )
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+            checksum=VALID_SHA256_ALT,
+            storage_ref='storage/contracts/notary-wrong-type-target.pdf',
+        )
+
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {
+                'recepcion_notarial_registrada': True,
+                'evidencia_formalizacion_ref': FORMALIZATION_REF,
+                'comprobante_notarial': receipt['id'],
+            },
+            format='json',
+        )
+
+        self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('comprobante_notarial', formalize.data)
+
     def test_document_can_be_formalized_when_policy_is_satisfied(self):
         expediente = self._create_expediente(entidad_id='4')
         self._create_politica(requiere_notaria=True)

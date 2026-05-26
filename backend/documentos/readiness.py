@@ -122,7 +122,11 @@ def collect_document_readiness(
     notary_required_policies = set(
         active_policies.filter(requiere_notaria=True).values_list('tipo_documental', flat=True)
     )
+    formalized_without_notary_reception = 0
     formalized_without_notary_receipt = 0
+    notary_receipts_wrong_type = 0
+    notary_receipts_wrong_expediente = 0
+    notary_receipts_invalid_state = 0
     formalized_without_formalization_audit = 0
     generated_documents_without_audit = 0
     corrective_versions_without_audit = 0
@@ -152,8 +156,19 @@ def collect_document_readiness(
                 invalid_formalized_documents += 1
             if not _has_formalization_audit(document):
                 formalized_without_formalization_audit += 1
-            if document.tipo_documental in notary_required_policies and not document.comprobante_notarial_id:
-                formalized_without_notary_receipt += 1
+            if document.tipo_documental in notary_required_policies:
+                if not document.recepcion_notarial_registrada:
+                    formalized_without_notary_reception += 1
+                if not document.comprobante_notarial_id:
+                    formalized_without_notary_receipt += 1
+                else:
+                    receipt = document.comprobante_notarial
+                    if receipt.tipo_documental != TipoDocumental.NOTARY_RECEIPT:
+                        notary_receipts_wrong_type += 1
+                    if receipt.expediente_id != document.expediente_id:
+                        notary_receipts_wrong_expediente += 1
+                    if receipt.estado in {EstadoDocumento.DRAFT, EstadoDocumento.CANCELED}:
+                        notary_receipts_invalid_state += 1
         if document.documento_origen_id:
             try:
                 document.full_clean()
@@ -292,12 +307,44 @@ def collect_document_readiness(
                 count=generated_documents_without_audit,
             )
         )
+    if formalized_without_notary_reception:
+        issues.append(
+            _issue(
+                'documents.notary_reception_missing',
+                'Existen documentos formalizados con politica notarial sin recepcion notarial registrada.',
+                count=formalized_without_notary_reception,
+            )
+        )
     if formalized_without_notary_receipt:
         issues.append(
             _issue(
                 'documents.notary_receipt_missing',
                 'Existen documentos formalizados con politica notarial sin comprobante asociado.',
                 count=formalized_without_notary_receipt,
+            )
+        )
+    if notary_receipts_wrong_type:
+        issues.append(
+            _issue(
+                'documents.notary_receipt_wrong_type',
+                'Existen documentos formalizados con comprobante asociado que no es comprobante notarial.',
+                count=notary_receipts_wrong_type,
+            )
+        )
+    if notary_receipts_wrong_expediente:
+        issues.append(
+            _issue(
+                'documents.notary_receipt_wrong_expediente',
+                'Existen documentos formalizados con comprobante notarial de otro expediente.',
+                count=notary_receipts_wrong_expediente,
+            )
+        )
+    if notary_receipts_invalid_state:
+        issues.append(
+            _issue(
+                'documents.notary_receipt_invalid_state',
+                'Existen documentos formalizados con comprobante notarial en estado no permitido.',
+                count=notary_receipts_invalid_state,
             )
         )
     if formalized_without_formalization_audit:
@@ -380,7 +427,11 @@ def collect_document_readiness(
                 'formalized_without_evidence': formalized_without_evidence,
                 'formalized_with_sensitive_evidence': formalized_with_sensitive_evidence,
                 'generated_without_audit': generated_documents_without_audit,
+                'formalized_without_notary_reception': formalized_without_notary_reception,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,
+                'notary_receipts_wrong_type': notary_receipts_wrong_type,
+                'notary_receipts_wrong_expediente': notary_receipts_wrong_expediente,
+                'notary_receipts_invalid_state': notary_receipts_invalid_state,
                 'formalized_without_formalization_audit': formalized_without_formalization_audit,
                 'corrective_versions': documents.filter(documento_origen__isnull=False).count(),
                 'invalid_corrective_versions': invalid_corrective_versions,
