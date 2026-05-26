@@ -15,7 +15,9 @@ from cobranza.models import EstadoGarantia, GarantiaContractual, PagoMensual
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from operacion.models import (
+    AsignacionCanalOperacion,
     CuentaRecaudadora,
+    EstadoAsignacionCanal,
     EstadoCuentaRecaudadora,
     EstadoIdentidadEnvio,
     EstadoMandatoOperacion,
@@ -96,7 +98,7 @@ class ContratosAPITests(APITestCase):
         )
         return empresa
 
-    def _create_active_mandato(self, codigo='MAND-001', owner_rut='11111111-1'):
+    def _create_active_mandato(self, codigo='MAND-001', owner_rut='11111111-1', *, with_channel=True):
         propietario = self._create_socio(f'Prop {codigo}', owner_rut)
         admin_company = self._create_active_empresa(f'Admin {codigo}', '88888888-8')
         property_obj = Propiedad.objects.create(
@@ -133,7 +135,27 @@ class ContratosAPITests(APITestCase):
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde='2026-01-01',
         )
+        mandato.refresh_from_db()
+        if with_channel:
+            self._create_active_channel(mandato, direccion=f'{codigo.lower()}@example.com')
         return mandato
+
+    def _create_active_channel(self, mandato, *, direccion=None):
+        identidad = IdentidadDeEnvio.objects.create(
+            empresa_owner=mandato.administrador_empresa_owner,
+            canal='email',
+            remitente_visible=mandato.administrador_empresa_owner.razon_social,
+            direccion_o_numero=direccion or f'mandato-{mandato.id}@example.com',
+            credencial_ref=f'cred-mandato-{mandato.id}',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+        return AsignacionCanalOperacion.objects.create(
+            mandato_operacion=mandato,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado=EstadoAsignacionCanal.ACTIVE,
+        )
 
     def _create_arrendatario(self, rut='12345678-5'):
         return Arrendatario.objects.create(
@@ -625,6 +647,46 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(len(response.data['periodos_contractuales_detail']), 1)
         self.assertEqual(len(response.data['codeudores_solidarios_detail']), 1)
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
+
+    def test_create_active_contract_requires_active_operational_channel(self):
+        mandato = self._create_active_mandato(
+            codigo='MAND-NO-CHANNEL',
+            owner_rut='44444444-4',
+            with_channel=False,
+        )
+        arrendatario = self._create_arrendatario()
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-NO-CHANNEL')
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('mandato_operacion', response.data)
+
+    def test_active_contract_full_clean_requires_active_operational_channel(self):
+        mandato = self._create_active_mandato(
+            codigo='MAND-NO-CHANNEL-MODEL',
+            owner_rut='55555555-5',
+            with_channel=False,
+        )
+        arrendatario = self._create_arrendatario()
+        contrato = Contrato(
+            codigo_contrato='CTR-NO-CHANNEL-MODEL',
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            fecha_entrega=date(2026, 1, 1),
+            dia_pago_mensual=5,
+            plazo_notificacion_termino_dias=60,
+            dias_prealerta_admin=90,
+            estado=EstadoContrato.ACTIVE,
+            politica_documental=self.contract_policy,
+        )
+
+        with self.assertRaises(ValidationError) as error_context:
+            contrato.full_clean()
+
+        self.assertIn('mandato_operacion', error_context.exception.message_dict)
 
     def test_update_delivery_date_requires_guarantee_or_authorization(self):
         mandato = self._create_active_mandato(codigo='MAND-101-DEL-BLOCK', owner_rut='11111111-1')
@@ -1513,6 +1575,8 @@ class ContratosAPITests(APITestCase):
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde='2026-01-01',
         )
+        mandato_b.refresh_from_db()
+        self._create_active_channel(mandato_b, direccion='mand-link-b@example.com')
         arrendatario_b = self._create_arrendatario(rut='88888890-K')
         second_payload = self._base_contract_payload(mandato_b, arrendatario_b, codigo='CTR-LINK-B')
         second_payload['contrato_propiedades'][0]['codigo_conciliacion_efectivo_snapshot'] = '789'
@@ -1691,6 +1755,8 @@ class ContratosAPITests(APITestCase):
             estado=EstadoMandatoOperacion.ACTIVE,
             vigencia_desde='2026-01-01',
         )
+        mandato_b.refresh_from_db()
+        self._create_active_channel(mandato_b, direccion='mand-code-b@example.com')
         arrendatario_b = self._create_arrendatario(rut='74747474-9')
         second_payload = self._base_contract_payload(mandato_b, arrendatario_b, codigo='CTR-CODE-B')
         second_payload['contrato_propiedades'][0]['codigo_conciliacion_efectivo_snapshot'] = '456'

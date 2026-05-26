@@ -12,7 +12,13 @@ from django.utils import timezone
 
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
-from operacion.models import EstadoIdentidadEnvio, IdentidadDeEnvio, MandatoOperacion
+from operacion.models import (
+    AsignacionCanalOperacion,
+    EstadoAsignacionCanal,
+    EstadoIdentidadEnvio,
+    IdentidadDeEnvio,
+    MandatoOperacion,
+)
 from patrimonio.models import ServicioPropiedad, TipoServicioPropiedad
 from patrimonio.validators import normalize_rut, validate_rut
 
@@ -560,6 +566,24 @@ class Contrato(TimestampedModel):
                 }
             )
 
+    def validate_active_operational_channel(self):
+        if self.estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE} or not self.mandato_operacion_id:
+            return
+
+        has_active_channel = AsignacionCanalOperacion.objects.filter(
+            mandato_operacion_id=self.mandato_operacion_id,
+            estado=EstadoAsignacionCanal.ACTIVE,
+            identidad_envio__estado=EstadoIdentidadEnvio.ACTIVE,
+        ).exists()
+        if not has_active_channel:
+            raise ValidationError(
+                {
+                    'mandato_operacion': (
+                        'Un contrato vigente o futuro requiere al menos un canal operativo activo en su mandato.'
+                    )
+                }
+            )
+
     def clean(self):
         super().clean()
         if self.fecha_fin_vigente < self.fecha_inicio:
@@ -619,6 +643,7 @@ class Contrato(TimestampedModel):
                 mandato_errors.append('El mandato operativo debe cubrir la fecha fin vigente del contrato.')
             if mandato_errors:
                 raise ValidationError({'mandato_operacion': mandato_errors})
+            self.validate_active_operational_channel()
             if self.arrendatario_id and self.arrendatario.tipo_arrendatario == TipoArrendatario.COMPANY:
                 self.snapshot_representante_legal = normalize_representante_legal_snapshot(
                     self.snapshot_representante_legal
