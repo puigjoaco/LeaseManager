@@ -822,6 +822,16 @@ class CobranzaAPITests(APITestCase):
             sensitive_restriction_gate.full_clean()
         self.assertIn('restricciones_operativas', restriction_error.exception.message_dict)
 
+        sensitive_key_gate = GateCobroExterno(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.CONDITIONED,
+            evidencia_ref='webpay-gate-evidence-controlled',
+            restricciones_operativas={'api_key': 'webpay-api-key-controlled'},
+        )
+        with self.assertRaises(ValidationError) as key_error:
+            sensitive_key_gate.full_clean()
+        self.assertIn('restricciones_operativas', key_error.exception.message_dict)
+
     def test_webpay_intent_full_clean_rejects_sensitive_provider_payload(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-PAYLOAD-SECRET')
         gate = GateCobroExterno.objects.create(

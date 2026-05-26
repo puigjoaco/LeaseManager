@@ -301,6 +301,48 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('restricciones_operativas', response.data)
 
+    def test_open_email_gate_rejects_sensitive_operational_keys(self):
+        response = self.client.post(
+            reverse('canales-gate-list'),
+            {
+                'canal': 'email',
+                'provider_key': 'gmail_api',
+                'estado_gate': 'abierto',
+                'restricciones_operativas': {
+                    'prueba_aislada_ref': 'email-readiness-controlled',
+                    'oauth_validado_ref': 'oauth-readiness-controlled',
+                    'api_key': 'email-api-key-controlled',
+                },
+                'evidencia_ref': 'email-gate-evidence-controlled',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('restricciones_operativas', response.data)
+
+    def test_open_email_gate_allows_canonical_credential_reference_key(self):
+        response = self.client.post(
+            reverse('canales-gate-list'),
+            {
+                'canal': 'email',
+                'provider_key': 'gmail_api',
+                'estado_gate': 'abierto',
+                'restricciones_operativas': {
+                    'prueba_aislada_ref': 'email-readiness-controlled',
+                    'credencial_validada_ref': 'email-readiness-validado-controlled',
+                },
+                'evidencia_ref': 'email-gate-evidence-controlled',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data['restricciones_operativas']['credencial_validada_ref'],
+            'email-readiness-validado-controlled',
+        )
+
     def test_notification_config_requires_enabled_channel_and_normalizes_days(self):
         empresa, contrato = self._create_contract_context(codigo='NTF-001')
         self._enable_channel_for_contract(empresa, contrato, canal='email')

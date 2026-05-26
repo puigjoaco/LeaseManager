@@ -59,7 +59,14 @@ def redact_sensitive_payload_values(value):
     return value
 
 
-def contains_sensitive_reference(value, *, include_sensitive_keys=False, _sensitive_key=False):
+def contains_sensitive_reference(
+    value,
+    *,
+    include_sensitive_keys=False,
+    allowed_sensitive_keys=(),
+    _sensitive_key=False,
+):
+    allowed_sensitive_keys = {str(key) for key in allowed_sensitive_keys}
     if isinstance(value, str):
         return _sensitive_key or bool(SENSITIVE_REFERENCE_PATTERN.search(value))
     if isinstance(value, dict):
@@ -67,8 +74,14 @@ def contains_sensitive_reference(value, *, include_sensitive_keys=False, _sensit
             contains_sensitive_reference(
                 item,
                 include_sensitive_keys=include_sensitive_keys,
+                allowed_sensitive_keys=allowed_sensitive_keys,
                 _sensitive_key=_sensitive_key
-                or bool(include_sensitive_keys and isinstance(key, str) and SENSITIVE_REFERENCE_PATTERN.search(key)),
+                or bool(
+                    include_sensitive_keys
+                    and isinstance(key, str)
+                    and key not in allowed_sensitive_keys
+                    and SENSITIVE_REFERENCE_PATTERN.search(key)
+                ),
             )
             for key, item in value.items()
         )
@@ -77,10 +90,11 @@ def contains_sensitive_reference(value, *, include_sensitive_keys=False, _sensit
             contains_sensitive_reference(
                 item,
                 include_sensitive_keys=include_sensitive_keys,
+                allowed_sensitive_keys=allowed_sensitive_keys,
                 _sensitive_key=_sensitive_key,
             )
             for item in value
         )
-    if _sensitive_key and value is not None:
+    if _sensitive_key:
         return True
     return False

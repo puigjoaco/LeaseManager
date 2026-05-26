@@ -21,6 +21,13 @@ from operacion.models import (
 
 EMAIL_READINESS_REF_KEYS = ('prueba_aislada_ref', 'prueba_envio_ref')
 EMAIL_CREDENTIAL_REF_KEYS = ('oauth_validado_ref', 'credencial_validada_ref')
+CHANNEL_GATE_ALLOWED_SENSITIVE_REF_KEYS = (
+    *EMAIL_READINESS_REF_KEYS,
+    *EMAIL_CREDENTIAL_REF_KEYS,
+    'template_aprobado_ref',
+    'template_ref',
+    'templates_aprobados',
+)
 NOTIFICATION_BASE_SUGGESTED_DAYS = (1, 3, 5, 10, 15, 20, 25)
 
 
@@ -55,9 +62,17 @@ def has_non_sensitive_operational_ref(restrictions, keys):
     return any(is_non_sensitive_reference(restrictions.get(key, '')) for key in keys)
 
 
+def gate_restrictions_contain_sensitive_reference(restrictions):
+    return contains_sensitive_reference(
+        restrictions or {},
+        include_sensitive_keys=True,
+        allowed_sensitive_keys=CHANNEL_GATE_ALLOWED_SENSITIVE_REF_KEYS,
+    )
+
+
 def whatsapp_gate_has_approved_template(canal_mensajeria):
     restrictions = canal_mensajeria.restricciones_operativas or {}
-    if contains_sensitive_reference(restrictions):
+    if gate_restrictions_contain_sensitive_reference(restrictions):
         return False
     return bool(restrictions.get('templates_aprobados')) or has_non_sensitive_operational_ref(
         restrictions,
@@ -128,7 +143,7 @@ class CanalMensajeria(TimestampedModel):
         super().clean()
         if self.evidencia_ref.strip() and not is_non_sensitive_reference(self.evidencia_ref):
             raise ValidationError({'evidencia_ref': 'evidencia_ref debe ser una referencia no sensible.'})
-        if contains_sensitive_reference(self.restricciones_operativas):
+        if gate_restrictions_contain_sensitive_reference(self.restricciones_operativas):
             raise ValidationError(
                 {
                     'restricciones_operativas': (

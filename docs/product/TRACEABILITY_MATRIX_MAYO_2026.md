@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: CobranzaActiva y Canales endurecen los gates externos sin
+abrir integraciones. `restricciones_operativas` de Email/WhatsApp/WebPay
+rechaza valores sensibles y tambien nombres de claves sensibles como
+`api_key`, `access_token` o `credential`; las claves canonicas de referencia
+no sensible, como `credencial_validada_ref`, siguen permitidas cuando su valor
+es trazable y no sensible. Readiness Etapa 2 bloquea snapshots heredados con
+estas claves sensibles sin imprimir sus valores.
+
 Nota 2026-05-26: CobranzaActiva refuerza que `CodigoCobroResidual` es
 post-contrato. `fecha_activacion` debe ser posterior a
 `Contrato.fecha_fin_vigente`; dominio/API rechazan nuevas escrituras durante la

@@ -15,6 +15,7 @@ from canales.models import (
     EstadoMensajeSaliente,
     MensajeSaliente,
     NotificacionCobranzaProgramada,
+    gate_restrictions_contain_sensitive_reference,
 )
 from canales.services import (
     COLLECTABLE_PAYMENT_STATES,
@@ -397,9 +398,13 @@ def _collect_notification_schedule_issues(payments, active_notification_configs,
 
 
 def _gate_contains_sensitive_reference(gate) -> bool:
+    if isinstance(gate, CanalMensajeria):
+        restrictions_sensitive = gate_restrictions_contain_sensitive_reference(gate.restricciones_operativas)
+    else:
+        restrictions_sensitive = contains_sensitive_reference(gate.restricciones_operativas, include_sensitive_keys=True)
     return (
         bool(gate.evidencia_ref.strip() and not _non_sensitive_reference(gate.evidencia_ref))
-        or contains_sensitive_reference(gate.restricciones_operativas)
+        or restrictions_sensitive
     )
 
 

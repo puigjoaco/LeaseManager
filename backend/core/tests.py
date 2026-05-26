@@ -163,3 +163,25 @@ class ReferenceValidationTests(TestCase):
 
         self.assertFalse(contains_sensitive_reference(payload))
         self.assertTrue(contains_sensitive_reference(payload, include_sensitive_keys=True))
+        self.assertTrue(contains_sensitive_reference({'api_key': None}, include_sensitive_keys=True))
+
+    def test_contains_sensitive_reference_allows_canonical_reference_keys(self):
+        payload = {
+            'credencial_validada_ref': 'email-proof-v1',
+            'nested': {'api_key': 'opaque-value'},
+        }
+
+        self.assertTrue(
+            contains_sensitive_reference(
+                payload,
+                include_sensitive_keys=True,
+                allowed_sensitive_keys=('credencial_validada_ref',),
+            )
+        )
+        self.assertFalse(
+            contains_sensitive_reference(
+                {'credencial_validada_ref': 'email-proof-v1'},
+                include_sensitive_keys=True,
+                allowed_sensitive_keys=('credencial_validada_ref',),
+            )
+        )
