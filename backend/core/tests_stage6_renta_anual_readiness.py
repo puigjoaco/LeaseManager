@@ -458,6 +458,29 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertIn('stage6.ddjj_presented_boundary', issue_codes)
         self.assertIn('stage6.f22_presented_boundary', issue_codes)
 
+    def test_sensitive_annual_final_refs_are_classified_explicitly(self):
+        self._create_valid_local_matrix()
+        ProcesoRentaAnual.objects.update(
+            paquete_ddjj_ref='https://sii.example.test/ddjj?token=secret',
+            borrador_f22_ref='https://sii.example.test/f22?token=secret',
+        )
+        DDJJPreparacionAnual.objects.update(paquete_ref='https://sii.example.test/ddjj?token=secret')
+        F22PreparacionAnual.objects.update(borrador_ref='https://sii.example.test/f22?token=secret')
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_ddjj_ref_sensitive', issue_codes)
+        self.assertIn('stage6.process_f22_ref_sensitive', issue_codes)
+        self.assertIn('stage6.ddjj_ref_sensitive', issue_codes)
+        self.assertIn('stage6.f22_ref_sensitive', issue_codes)
+        self.assertEqual(result['sections']['annual_process']['process_ddjj_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_process']['process_f22_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_documents']['ddjj_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_documents']['f22_ref_sensitive'], 1)
+        self.assertNotIn('token=secret', json.dumps(result))
+
     def test_tax_support_document_must_be_valid_pdf(self):
         self._create_valid_local_matrix()
         DocumentoEmitido.objects.update(storage_ref='local-evidence/stage6/certificado.txt')

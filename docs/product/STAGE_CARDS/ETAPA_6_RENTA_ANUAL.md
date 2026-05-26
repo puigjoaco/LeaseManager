@@ -33,6 +33,9 @@ cierres mensuales.
 - El dominio SII rechaza F29, ProcesoRentaAnual, DDJJ y F22 en estados
   aprobados, presentados, observados o rectificados si falta la referencia
   final trazable correspondiente.
+- `audit_stage6_renta_anual_readiness` clasifica explicitamente como
+  bloqueantes las referencias finales sensibles en ProcesoRentaAnual, DDJJ y
+  F22, sin exponer esos valores.
 - El dominio SII tambien rechaza ProcesoRentaAnual, DDJJ y F22 asociados a
   empresas sin `ConfiguracionFiscalEmpresa` activa propia.
 - Los payloads anuales y referencias de DDJJ/F22 heredadas se entregan a
