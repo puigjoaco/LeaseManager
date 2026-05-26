@@ -14,7 +14,7 @@ from django.utils import timezone
 from audit.models import AuditEvent
 
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria, TipoDocumental
-from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE
+from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PDF_PREVIEW_ENTITY_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
 from .readiness import collect_document_readiness
 
 
@@ -362,7 +362,9 @@ class DocumentReadinessAuditTests(TestCase):
 
         self.assertFalse(result['ready_for_stage5_documents'])
         self.assertIn('documents.generated_pdf_audit_missing', {issue['code'] for issue in result['issues']})
+        self.assertIn('documents.generated_pdf_preview_missing', {issue['code'] for issue in result['issues']})
         self.assertEqual(result['sections']['documents']['generated_without_audit'], 1)
+        self.assertEqual(result['sections']['documents']['generated_without_preview'], 1)
 
         AuditEvent.objects.create(
             event_type=GENERATED_PDF_AUDIT_EVENT_TYPE,
@@ -381,9 +383,39 @@ class DocumentReadinessAuditTests(TestCase):
             source_kind='snapshot_controlado',
         )
 
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.generated_pdf_preview_missing', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['documents']['generated_without_audit'], 0)
+        self.assertEqual(result['sections']['documents']['generated_without_preview'], 1)
+
+        AuditEvent.objects.create(
+            event_type=PREVIEW_PDF_AUDIT_EVENT_TYPE,
+            entity_type=PDF_PREVIEW_ENTITY_TYPE,
+            entity_id=document.checksum,
+            summary='Vista previa PDF generada sin persistir documento.',
+            metadata={
+                'checksum_sha256': document.checksum,
+                'storage_ref': document.storage_ref,
+                'version_plantilla': document.version_plantilla,
+                'tipo_documental': document.tipo_documental,
+                'expediente_id': document.expediente_id,
+            },
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
         self.assertTrue(result['ready_for_stage5_documents'])
         self.assertEqual(result['sections']['documents']['generated_without_audit'], 0)
+        self.assertEqual(result['sections']['documents']['generated_without_preview'], 0)
         self.assertNotIn('documents.generated_pdf_audit_missing', {issue['code'] for issue in result['issues']})
+        self.assertNotIn('documents.generated_pdf_preview_missing', {issue['code'] for issue in result['issues']})
 
     def test_formalized_document_without_formalization_audit_is_blocking(self):
         create_all_active_policies()

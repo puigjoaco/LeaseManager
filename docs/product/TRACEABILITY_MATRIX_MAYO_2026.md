@@ -43,6 +43,12 @@ contenido sensible, el endpoint generico rechaza `origen=generado_sistema` y
 readiness bloquea documentos `generado_sistema` sin auditoria
 `documentos.documento_emitido.generated_pdf`.
 
+Nota 2026-05-26: Documentos incorpora vista previa auditada para PDF generado.
+`documentos-emitidos/previsualizar-pdf/` deriva checksum/storage sin persistir
+documento y registra `documentos.documento_emitido.previewed_pdf`; la emision
+generada exige una preview auditada del mismo contenido y readiness reporta
+`documents.generated_pdf_preview_missing` para snapshots heredados.
+
 Nota 2026-05-26: Documentos exige `evidencia_formalizacion_ref` no sensible al
 formalizar documentos. API/modelo rechazan formalizaciones sin referencia o con
 referencia sensible, list/detail/snapshot/backoffice redactan evidencia

@@ -52,7 +52,7 @@ cerrarse. El estado correcto es: producto base avanzado, no producto final.
 | CobranzaActiva | `parcial` | `ValorUFDiario` con procedencia auditada para carga manual, `PagoMensual` con efecto de codigo efectivo persistido/auditado y resolucion trazable para estados `pagado_por_acuerdo_termino`/`condonado`, ajustes, garantias, repactaciones, residual, estados de cuenta; tests de UF faltante, calculo, API y readiness | cadena automatica UF `BancoCentral -> CMF -> MiIndicador`, WebPay/Transbank real y evidencia de cobro real |
 | Conciliacion | `parcial` | `ConexionBancaria`, `MovimientoBancarioImportado`, `IngresoDesconocido`, match exacto/manual, resoluciones, tests | adapter Banco de Chile real, saldos, sync, credenciales y prueba sandbox/cuenta real |
 | Contabilidad | `implementado_sin_evidencia_real` | regimen, configuracion fiscal, cuentas, reglas, matriz, eventos sin doble contabilizacion efectiva por origen, asientos, obligaciones, libros, balance, cierres, reapertura; tests end-to-end locales | ledger con datos reales, saldos bancarios cuadrados, politicas finales y aprobacion contable/tributaria |
-| Documentos | `parcial` | expediente, politica firma/notaria, documento emitido, emision local de PDF generado con checksum derivado, formalizacion con evidencia no sensible, storage_ref, checksum; tests de bloqueo por firmas/notaria, evidencia de formalizacion y auditoria de generacion | plantillas finales, storage productivo, prueba PDF controlada y firma/notaria operativa |
+| Documentos | `parcial` | expediente, politica firma/notaria, documento emitido, preview auditada y emision local de PDF generado con checksum derivado, formalizacion con evidencia no sensible, storage_ref, checksum; tests de bloqueo por firmas/notaria, evidencia de formalizacion, preview y auditoria de generacion | plantillas finales, storage productivo, prueba PDF controlada y firma/notaria operativa |
 | Canales | `parcial` | gates de email/WhatsApp, identidad, preparacion/bloqueo, registro manual de envio; tests de gate suspendido y contacto bloqueado | Gmail/Twilio reales, OAuth/templates/opt-in, envio real y evidencia por identidad |
 | SII | `parcial` | capacidades SII, DTE 34 draft, F29 draft, DDJJ/F22 preparacion, gates por capacidad; tests de gate cerrado/abierto y doce cierres | firma/envio/consulta real SII, certificados, ambiente, normativa validada y aprobacion final |
 | Reporting | `resuelto_confirmado_local` | dashboards operativo/financiero, resumen socio, libros, anual, resoluciones manuales; workspace frontend y tests | datos reales, performance y aceptacion de usuarios |
@@ -91,8 +91,8 @@ cerrarse. El estado correcto es: producto base avanzado, no producto final.
 3. `parcial`: implementar adapters reales para UF, Banco de Chile, Gmail/Twilio
    y SII cuando sus gates tengan evidencia.
 4. `parcial`: completar storage documental/productivo y plantillas finales; ya
-   existe emision local controlada de PDF generado, registro documental y
-   formalizacion.
+   existe preview auditada, emision local controlada de PDF generado, registro
+   documental y formalizacion.
 5. `resuelto_en_hardening`: los `.db` locales, capturas versionadas y handoffs
    historicos del root anidado se sacaron del repo activo; quedan recuperables
    desde savegame/historial, no como producto vivo.

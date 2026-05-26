@@ -22,12 +22,12 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 / Documentos - readiness especifico de comprobante notarial. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` reglas de expediente documental, firma/notaria y evidencia; `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`; matriz de trazabilidad. |
-| Brecha activa | El dominio/API bloquea formalizaciones con comprobante notarial invalido, pero el readiness documental no distingue snapshots heredados con comprobante notarial de tipo incorrecto, otro expediente o estado no permitido. |
+| Frente activo | Etapa 5 / Documentos - previsualizacion PDF antes de emision generada. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` regla "La generacion documental usa plantilla versionada y vista previa antes de formalizar o enviar documentos sensibles"; `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`; matriz de trazabilidad. |
+| Brecha activa | La emision PDF generada deriva checksum/storage y registra auditoria, pero no existe endpoint de vista previa ni guard que exija previsualizar el mismo contenido antes de emitir un documento generado por sistema. |
 | Motivo de prioridad | Fortalece el gate documental antes de Canales/SII/Reporting sin usar storage real, documentos productivos, secretos ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-notary-receipt-readiness`. |
-| Rama | `codex/stage5-notary-receipt-readiness`. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-document-pdf-preview`. |
+| Rama | `codex/stage5-document-pdf-preview`. |
 | Estado | Implementado y validado localmente; pendiente PR, CI, merge y limpieza. |
 | Gate esperado | Tests focales Documentos/API/readiness, suite impactada Documentos/readiness, `manage.py check`, migraciones dry-run, readiness local Documentos, frontend build, acceptance local, CI remoto. |
 | Estado al cerrar paquete | Integrar paquete por PR/CI/merge y limpiar worktree/rama; no reabrir este frente despues del merge. |
