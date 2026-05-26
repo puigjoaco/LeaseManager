@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 1 - Contratos: guard de escritura para contratos con gastos comunes. |
+| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 1 - Contratos: guard de escritura para canal operativo activo por mandato. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `Contrato.full_clean()` y `ContratoSerializer` bloqueen contratos vigentes/futuros con `tiene_gastos_comunes=True` si la propiedad principal no tiene `ServicioPropiedad` de gasto comun activo. |
+| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `Contrato.full_clean()` y `ContratoSerializer` bloqueen contratos vigentes/futuros si el mandato no tiene al menos una `AsignacionCanalOperacion` activa con `IdentidadDeEnvio` activa. |
 | Motivo de prioridad | Paquete local y verificable cerrado como preparacion segura de Etapa 1. |
 | Worktree | Ninguno pendiente despues de merge/limpieza. |
 | Rama | `main` despues de merge/limpieza. |
-| Estado | Paquete validado localmente y listo para PR/CI/merge/limpieza. |
+| Estado | Paquete validado localmente e integrado despues de PR/CI/merge/limpieza. |
 | Gate esperado | Si `main` queda limpio, elegir el siguiente frente seguro por trazabilidad. Si existe worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
-| Estado al cerrar paquete | No cierra Etapa 1 sin snapshot o fuente real autorizada; solo mueve una regla local de gastos comunes desde readiness a validacion de escritura. |
+| Estado al cerrar paquete | No cierra Etapa 1 sin snapshot o fuente real autorizada; solo mueve una regla local de cobertura de canal operativo desde readiness a validacion de escritura. |
 | Bloqueos relacionados | Ninguno para este paquete. |
 | Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si solo existe `main` limpio, seleccionar el siguiente frente trazable. |
-| Siguiente accion | Publicar PR, esperar CI, mergear, limpiar branch/worktree y confirmar `main` limpio. |
+| Siguiente accion | Si `main` queda limpio, seleccionar el siguiente frente seguro por trazabilidad. |
 
 ## Actualizacion
 

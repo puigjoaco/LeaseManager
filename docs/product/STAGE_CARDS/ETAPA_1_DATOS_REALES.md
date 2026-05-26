@@ -64,7 +64,8 @@ contra datos reales o snapshot controlado.
   nuevas escrituras duplicadas, y el auditor Etapa 1 conserva la deteccion de
   snapshots heredados.
 - Validacion de que cada contrato vigente o futuro tenga al menos un canal
-  operativo activo asignado por su mandato.
+  operativo activo asignado por su mandato; `Contrato.full_clean()`, la API y
+  el auditor Etapa 1 bloquean contratos nuevos o heredados sin esa cobertura.
 - Validacion de que las identidades de envio activas usen `credencial_ref`
   trazable no sensible; la API debe redactar referencias sensibles heredadas.
 - Validacion de transiciones operativas: cuentas recaudadoras, mandatos,
