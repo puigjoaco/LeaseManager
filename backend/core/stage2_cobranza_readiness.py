@@ -99,9 +99,12 @@ def _partial_repayment_exception_event_is_complete(repayment: RepactacionDeuda) 
     )
     for event in events:
         metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        expected_reason = repayment.excepcion_parcial_motivo.strip()
         if not event.actor_user_id and not event.actor_identifier.strip():
             continue
         if str(metadata.get('excepcion_parcial_ref') or '').strip() != repayment.excepcion_parcial_ref.strip():
+            continue
+        if str(metadata.get('excepcion_parcial_motivo') or '').strip() != expected_reason:
             continue
         if not _non_sensitive_reference(metadata.get('excepcion_parcial_ref') or ''):
             continue

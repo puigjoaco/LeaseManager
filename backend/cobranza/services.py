@@ -24,6 +24,7 @@ from .models import (
     GarantiaContractual,
     HistorialGarantia,
     IntentoPagoWebPay,
+    PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
     PagoMensual,
     RepactacionDeuda,
     TipoMovimientoGarantia,
@@ -365,6 +366,82 @@ def update_payment_operational_fields(
             ip_address=ip_address,
         )
     return payment, previous_state, exceptional_event
+
+
+def partial_repayment_exception_trace(repayment):
+    if not isinstance(repayment, RepactacionDeuda) or not repayment.es_repactacion_parcial:
+        return ''
+    return '|'.join(
+        [
+            str(repayment.pk or ''),
+            repayment.excepcion_parcial_ref.strip(),
+            repayment.excepcion_parcial_motivo.strip(),
+            str(repayment.monto_total_plan_clp),
+            str(repayment.deuda_total_original),
+        ]
+    )
+
+
+def create_partial_repayment_exception_event(
+    repayment,
+    *,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    if not repayment.es_repactacion_parcial:
+        return None
+    actor_identifier = (actor_identifier or '').strip()
+    if actor_user is None and not actor_identifier:
+        raise ValueError('La repactacion parcial requiere un actor trazable para auditoria.')
+    return create_audit_event(
+        event_type=PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
+        entity_type='repactacion_deuda',
+        entity_id=str(repayment.pk),
+        summary=f'Repactacion parcial autorizada para arrendatario {repayment.arrendatario_id}',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata={
+            'arrendatario_id': repayment.arrendatario_id,
+            'contrato_id': repayment.contrato_origen_id,
+            'deuda_total_original': str(repayment.deuda_total_original),
+            'monto_total_plan_clp': str(repayment.monto_total_plan_clp),
+            'excepcion_parcial_ref': repayment.excepcion_parcial_ref.strip(),
+            'excepcion_parcial_motivo': repayment.excepcion_parcial_motivo.strip(),
+        },
+    )
+
+
+@transaction.atomic
+def save_repayment_plan(
+    *,
+    validated_data,
+    repayment=None,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    repayment = repayment or RepactacionDeuda()
+    previous_trace = partial_repayment_exception_trace(repayment)
+    for field, value in validated_data.items():
+        setattr(repayment, field, value)
+
+    repayment.full_clean()
+    current_trace = partial_repayment_exception_trace(repayment)
+    if current_trace and current_trace != previous_trace and actor_user is None and not (actor_identifier or '').strip():
+        raise ValueError('La repactacion parcial requiere un actor trazable para auditoria.')
+
+    repayment.save()
+    event = None
+    if current_trace and current_trace != previous_trace:
+        event = create_partial_repayment_exception_event(
+            repayment,
+            actor_user=actor_user,
+            actor_identifier=actor_identifier,
+            ip_address=ip_address,
+        )
+    return repayment, event
 
 
 def sync_payment_overdue_state(payment, reference_date=None):
