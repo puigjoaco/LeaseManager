@@ -357,6 +357,33 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertIn('compliance.audit_actor_missing', issue_codes)
         self.assertEqual(result['sections']['audit']['actor_missing_events'], 1)
 
+    def test_export_audit_event_with_invalid_target_is_blocking(self):
+        self._create_policies()
+        export = self._create_valid_export()
+        AuditEvent.objects.create(
+            event_type='compliance.exportacion_sensible.accessed',
+            entity_type='exportacion_sensible',
+            entity_id='999999',
+            summary='Contenido de exportacion sensible accedido',
+            actor_user=export.created_by,
+            metadata={'export_kind': export.export_kind},
+        )
+        AuditEvent.objects.create(
+            event_type='compliance.exportacion_sensible.revoked',
+            entity_type='otra_entidad',
+            entity_id=str(export.pk),
+            summary='Exportacion sensible revocada',
+            actor_user=export.created_by,
+            metadata={'export_kind': export.export_kind},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.audit_target_invalid', issue_codes)
+        self.assertEqual(result['sections']['audit']['invalid_target_events'], 2)
+
     def test_deadline_requires_suspension_if_not_ready(self):
         result = collect_compliance_data_readiness(as_of_date=date(2026, 12, 1))
 
