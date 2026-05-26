@@ -468,6 +468,22 @@ class Contrato(TimestampedModel):
             and (self.terminacion_anticipada_prorrata_motivo or '').strip()
         )
 
+    def has_early_termination_proration_audit(self):
+        if not self.pk or not self.has_early_termination_proration_decision():
+            return False
+
+        expected_ref = (self.terminacion_anticipada_prorrata_ref or '').strip()
+        events = AuditEvent.objects.filter(
+            event_type=EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
+            entity_type='contrato',
+            entity_id=str(self.pk),
+        )
+        for event in events:
+            metadata = event.metadata if isinstance(event.metadata, dict) else {}
+            if metadata.get('terminacion_anticipada_prorrata_ref') == expected_ref:
+                return True
+        return False
+
     def allows_partial_early_termination_period(self, period_end):
         return (
             self.has_partial_early_termination_month()
@@ -502,6 +518,23 @@ class Contrato(TimestampedModel):
 
         if errors:
             raise ValidationError(errors)
+
+    def validate_early_termination_proration_audit(self):
+        if not self.has_partial_early_termination_month():
+            return
+        if not self.has_early_termination_proration_decision():
+            return
+        if getattr(self, '_allow_early_termination_proration_trace', False):
+            return
+        if self.has_early_termination_proration_audit():
+            return
+        raise ValidationError(
+            {
+                'terminacion_anticipada_prorrata_ref': (
+                    'El ultimo mes parcial por terminacion anticipada requiere evento auditable dedicado.'
+                )
+            }
+        )
 
     def validate_identity_override(self):
         if not self.identidad_envio_override_id or not self.mandato_operacion_id:
@@ -734,6 +767,7 @@ class Contrato(TimestampedModel):
             raise ValidationError({'fecha_fin_vigente': 'La fecha fin vigente no puede ser anterior al inicio.'})
 
         self.validate_early_termination_proration()
+        self.validate_early_termination_proration_audit()
         self.validate_key_delivery_authorization()
         self.validate_identity_override()
 
