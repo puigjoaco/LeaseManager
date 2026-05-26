@@ -314,6 +314,7 @@ def execute_tenant_replacement(
         snapshot_representante_legal=snapshot_representante_legal or {},
     )
     future_contract._future_contract_primary_property_id = contract.principal_property_id()
+    future_contract._allow_guided_tenant_replacement = True
     future_contract.full_clean()
     future_contract.save()
 

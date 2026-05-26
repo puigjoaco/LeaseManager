@@ -66,6 +66,14 @@ principal, terminacion anticipada ejecutada o resolucion guiada no sensible si
 existe conflicto con renovacion ya ejecutada; API y auditor Etapa 1 conservan
 la misma regla para escrituras y snapshots heredados.
 
+Nota 2026-05-26: Contratos mueve el cambio de arrendatario futuro a guard de
+escritura. `Contrato.full_clean()` y API rechazan contratos futuros con
+arrendatario distinto al vigente si no provienen del flujo guiado de cambio de
+arrendatario o no conservan el `AuditEvent` exacto que vincula contrato
+anterior, aviso y contrato nuevo; el servicio guiado conserva la excepcion
+interna necesaria para crear el contrato y su auditoria en la misma
+transaccion, y el auditor Etapa 1 mantiene la deteccion de snapshots heredados.
+
 Nota 2026-05-26: CobranzaActiva y Canales endurecen los gates externos sin
 abrir integraciones. `restricciones_operativas` de Email/WhatsApp/WebPay
 rechaza valores sensibles y tambien nombres de claves sensibles como
@@ -291,8 +299,10 @@ Nota 2026-05-25: Contratos incorpora flujo operacional de cambio de
 arrendatario. El endpoint crea `AvisoTermino` registrado y contrato futuro con
 nuevo arrendatario en una transaccion, conserva contrato/deuda historica sin
 reescritura, copia propiedades contractuales, crea periodo inicial de origen
-`cambio_arrendatario` y registra evento auditable; el auditor Etapa 1 bloquea
-futuros heredados con arrendatario distinto si falta esa traza.
+`cambio_arrendatario` y registra evento auditable; `Contrato.full_clean()` y
+API bloquean escrituras directas de futuros con arrendatario distinto que no
+usen ese flujo o no conserven esa traza, y el auditor Etapa 1 bloquea futuros
+heredados con arrendatario distinto si falta esa traza.
 
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
