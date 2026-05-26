@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 / Contratos - cambio de arrendatario mediante termino y contrato nuevo. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 98, 355 y escenario transversal 4; `docs/AUDITORIA_PRODUCTO_ARQUITECTURA_MAYO_2026.md` escenario 4 parcial. |
-| Brecha activa | Falta flujo operacional atomico y auditable para crear aviso de termino y contrato futuro con nuevo arrendatario, sin reescribir identidad historica. |
-| Motivo de prioridad | Brecha local trazable de Etapa 1 que no requiere secretos, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-tenant-replacement`. |
-| Rama | `codex/stage1-tenant-replacement`. |
-| Estado | Paquete tactico abierto. |
-| Gate esperado | Tests focales Contratos + auditor Etapa 1, suite impactada, `manage.py check`, migraciones dry-run, readiness Etapa 1 local, frontend build, acceptance si el impacto lo justifica. |
-| Estado al cerrar paquete | PR #296 mergeado en `main` con merge `c3c3b5d`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
+| Frente activo | Ninguno. |
+| Fuente exacta | Pendiente de seleccionar desde trazabilidad vigente, PRD, stage cards y auditoria de producto. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | No hay paquete tactico en curso; el siguiente avance debe elegirse desde el estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Sin paquete abierto. |
+| Gate esperado | Definir segun el siguiente frente seguro seleccionado. |
+| Estado al cerrar paquete | PR #298 mergeado en `main` con merge `37e47dc`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Implementar flujo guiado de cambio de arrendatario, validarlo, actualizar trazabilidad/evidencia y cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Elegir el siguiente paquete util, seguro y verificable desde trazabilidad vigente; abrir worktree `codex/...` si el cambio no es trivial. |
 
 ## Actualizacion
 
