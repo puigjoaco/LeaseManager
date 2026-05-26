@@ -836,6 +836,7 @@ class Stage1MatrixAuditTests(TestCase):
             socio_representante=socio,
             vigente_desde=timezone.localdate() + timedelta(days=30),
             activo=True,
+            evidencia_ref='community-designated-representative-overlap-act-001',
         )
 
         result = self._collect_controlled_snapshot()
@@ -849,6 +850,55 @@ class Stage1MatrixAuditTests(TestCase):
             result['aggregate_classification']['comunidades']['classification'],
             'defectuoso',
         )
+
+    def test_designated_community_representation_without_evidence_is_blocking(self):
+        self._create_valid_stage1_matrix()
+        representation = RepresentacionComunidad.objects.get(comunidad__nombre='Comunidad Controlada')
+        RepresentacionComunidad.objects.filter(pk=representation.pk).update(
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            evidencia_ref='',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.representacion.designada_evidencia_faltante', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['representaciones_comunidad']['classification'],
+            'defectuoso',
+        )
+
+    def test_designated_community_representation_sensitive_evidence_is_blocking(self):
+        self._create_valid_stage1_matrix()
+        representation = RepresentacionComunidad.objects.get(comunidad__nombre='Comunidad Controlada')
+        RepresentacionComunidad.objects.filter(pk=representation.pk).update(
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            evidencia_ref='https://example.test/acta?token=secret',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.representacion.designada_evidencia_sensible', issue_codes)
+
+    def test_designated_community_representation_with_evidence_can_pass(self):
+        self._create_valid_stage1_matrix()
+        representation = RepresentacionComunidad.objects.get(comunidad__nombre='Comunidad Controlada')
+        RepresentacionComunidad.objects.filter(pk=representation.pk).update(
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            evidencia_ref='community-designated-representative-act-003',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertNotIn('stage1.representacion.designada_evidencia_faltante', issue_codes)
+        self.assertNotIn('stage1.representacion.designada_evidencia_sensible', issue_codes)
 
     def test_active_participation_with_inactive_participant_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

@@ -6,7 +6,7 @@ type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type OwnerOption = { tipo: string; id: number; label: string }
 type SocioItem = { id: number; nombre: string; rut: string; email: string; telefono: string; domicilio: string; activo: boolean }
 type EmpresaItem = { id: number; razon_social: string; rut: string; estado: string; participaciones_detail?: unknown[]; participaciones_count?: number }
-type ComunidadItem = { id: number; nombre: string; estado: string; participaciones_detail?: unknown[]; participaciones_count?: number; representacion_vigente: { modo_representacion: string; socio_representante_nombre: string } | null }
+type ComunidadItem = { id: number; nombre: string; estado: string; participaciones_detail?: unknown[]; participaciones_count?: number; representacion_vigente: { modo_representacion: string; socio_representante_nombre: string; evidencia_ref?: string } | null }
 type PropiedadItem = { id: number; codigo_propiedad: string; direccion: string; comuna: string; region: string; rol_avaluo: string; tipo_inmueble: string; owner_tipo: string; owner_id: number; owner_display: string; estado: string }
 type SocioDraft = { nombre: string; rut: string; email: string; telefono: string; domicilio: string; activo: boolean }
 type PropiedadDraft = { codigo_propiedad: string; direccion: string; comuna: string; region: string; rol_avaluo: string; tipo_inmueble: string; estado: string; owner_tipo: string; owner_id: string }
@@ -128,7 +128,7 @@ export function PatrimonioWorkspace({
       ]} />
       <TableBlock title="Comunidades" subtitle="Representación vigente y composición comunitaria." rows={filteredComunidades} empty="No hay comunidades para este filtro." isLoading={isLoading} loadingLabel="Cargando patrimonio..." columns={[
         { label: 'Nombre', render: (row) => row.nombre },
-        { label: 'Representación', render: (row) => row.representacion_vigente ? `${row.representacion_vigente.socio_representante_nombre} · ${row.representacion_vigente.modo_representacion.replaceAll('_', ' ')}` : 'Sin representación' },
+        { label: 'Representación', render: (row) => row.representacion_vigente ? `${row.representacion_vigente.socio_representante_nombre} · ${row.representacion_vigente.modo_representacion.replaceAll('_', ' ')}${row.representacion_vigente.evidencia_ref ? ` · ${row.representacion_vigente.evidencia_ref}` : ''}` : 'Sin representación' },
         { label: 'Participaciones', render: (row) => String(row.participaciones_count ?? row.participaciones_detail?.length ?? 0) },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />

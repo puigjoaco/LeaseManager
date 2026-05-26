@@ -142,6 +142,7 @@ class PatrimonioSnapshotView(APIView):
                             {
                                 'modo_representacion': representacion.modo_representacion,
                                 'socio_representante_nombre': representacion.socio_representante.nombre,
+                                'evidencia_ref': redact_sensitive_reference(representacion.evidencia_ref),
                             }
                             if (
                                 representacion := next(

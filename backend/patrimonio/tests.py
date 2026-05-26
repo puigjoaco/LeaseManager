@@ -137,14 +137,25 @@ class PatrimonioAPITests(APITestCase):
             'participaciones': participaciones,
         }
 
-    def _comunidad_payload(self, *, representante_modo, representante_socio_id, participaciones, estado=EstadoPatrimonial.ACTIVE):
-        return {
+    def _comunidad_payload(
+        self,
+        *,
+        representante_modo,
+        representante_socio_id,
+        participaciones,
+        estado=EstadoPatrimonial.ACTIVE,
+        representante_evidencia_ref=None,
+    ):
+        payload = {
             'nombre': 'Comunidad Patrimonial Uno',
             'representante_modo': representante_modo,
             'representante_socio_id': representante_socio_id,
             'estado': estado,
             'participaciones': participaciones,
         }
+        if representante_evidencia_ref is not None:
+            payload['representante_evidencia_ref'] = representante_evidencia_ref
+        return payload
 
     def test_auth_is_required_for_all_list_endpoints(self):
         client = self.client_class()
@@ -227,6 +238,35 @@ class PatrimonioAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         services = response.data['propiedades'][0]['servicios']
         self.assertEqual(services[0]['evidencia_ref'], '<redacted-sensitive-reference>')
+
+    def test_snapshot_redacts_sensitive_designated_representation_evidence(self):
+        socio_participante = self._create_socio('Socio Comunidad Snapshot', '11111111-1')
+        socio_designado = self._create_socio('Representante Snapshot', '22222222-2')
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Snapshot', estado=EstadoPatrimonial.ACTIVE)
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_participante,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio_designado,
+            vigente_desde='2026-01-01',
+            activo=True,
+            evidencia_ref='https://example.test/acta?token=secret',
+        )
+
+        response = self.client.get(reverse('patrimonio-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        comunidad_snapshot = next(item for item in response.data['comunidades'] if item['id'] == comunidad.id)
+        self.assertEqual(
+            comunidad_snapshot['representacion_vigente']['evidencia_ref'],
+            '<redacted-sensitive-reference>',
+        )
 
     def test_create_socio_normalizes_rut_and_rejects_duplicate(self):
         payload = {
@@ -527,6 +567,7 @@ class PatrimonioAPITests(APITestCase):
         payload = self._comunidad_payload(
             representante_modo=ModoRepresentacionComunidad.DESIGNATED,
             representante_socio_id=socio_designado.id,
+            representante_evidencia_ref='community-designated-representative-act-001',
             participaciones=[
                 {
                     'participante_tipo': 'socio',
@@ -549,6 +590,71 @@ class PatrimonioAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['representacion_vigente']['modo_representacion'], ModoRepresentacionComunidad.DESIGNATED)
         self.assertEqual(response.data['representacion_vigente']['socio_representante_id'], socio_designado.id)
+        self.assertEqual(
+            response.data['representacion_vigente']['evidencia_ref'],
+            'community-designated-representative-act-001',
+        )
+
+    def test_comunidad_designated_representative_requires_traceable_evidence(self):
+        socio_1 = self._create_socio('Socio Evidencia Uno', '11111111-1')
+        socio_2 = self._create_socio('Socio Evidencia Dos', '22222222-2')
+        socio_designado = self._create_socio('Joaquin Sin Evidencia', '33333333-3')
+        payload = self._comunidad_payload(
+            representante_modo=ModoRepresentacionComunidad.DESIGNATED,
+            representante_socio_id=socio_designado.id,
+            participaciones=[
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_1.id,
+                    'porcentaje': '50.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_2.id,
+                    'porcentaje': '50.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+            ],
+        )
+
+        response = self.client.post(reverse('patrimonio-comunidad-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('representante_evidencia_ref', response.data)
+
+    def test_comunidad_designated_representative_rejects_sensitive_evidence(self):
+        socio_1 = self._create_socio('Socio Sensible Uno', '11111111-1')
+        socio_2 = self._create_socio('Socio Sensible Dos', '22222222-2')
+        socio_designado = self._create_socio('Joaquin Sensible', '33333333-3')
+        payload = self._comunidad_payload(
+            representante_modo=ModoRepresentacionComunidad.DESIGNATED,
+            representante_socio_id=socio_designado.id,
+            representante_evidencia_ref='https://example.test/acta?token=secret',
+            participaciones=[
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_1.id,
+                    'porcentaje': '50.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+                {
+                    'participante_tipo': 'socio',
+                    'participante_id': socio_2.id,
+                    'porcentaje': '50.00',
+                    'vigente_desde': '2026-01-01',
+                    'activo': True,
+                },
+            ],
+        )
+
+        response = self.client.post(reverse('patrimonio-comunidad-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('representante_evidencia_ref', response.data)
 
     def test_comunidad_mixta_accepts_empresa_participant(self):
         empresa_participante = self.client.post(
@@ -982,6 +1088,7 @@ class PatrimonioAPITests(APITestCase):
             socio_representante=socio_designado,
             vigente_desde='2026-01-01',
             activo=True,
+            evidencia_ref='community-designated-representative-act-002',
         )
 
         self.assertEqual(comunidad.representante_socio_id, socio_designado.id)
@@ -1005,6 +1112,7 @@ class PatrimonioAPITests(APITestCase):
             socio_representante=socio_designado,
             vigente_desde=future_date,
             activo=True,
+            evidencia_ref='community-designated-representative-future-act-001',
         )
 
         self.assertIsNone(comunidad.representacion_vigente())
@@ -1033,6 +1141,7 @@ class PatrimonioAPITests(APITestCase):
             socio_representante=socio_designado,
             vigente_desde=timezone.localdate() + timedelta(days=30),
             activo=True,
+            evidencia_ref='community-designated-representative-future-act-002',
         )
 
         socio_designado.activo = False
@@ -1069,6 +1178,7 @@ class PatrimonioAPITests(APITestCase):
             socio_representante=socio_futuro,
             vigente_desde=future_date,
             activo=True,
+            evidencia_ref='community-designated-representative-future-act-003',
         )
 
         future_representation.full_clean()
@@ -1089,6 +1199,7 @@ class PatrimonioAPITests(APITestCase):
             socio_representante=socio_actual,
             vigente_desde=today,
             activo=True,
+            evidencia_ref='community-designated-representative-current-act-001',
         )
         overlapping_representation = RepresentacionComunidad(
             comunidad=comunidad,
@@ -1096,6 +1207,7 @@ class PatrimonioAPITests(APITestCase):
             socio_representante=socio_futuro,
             vigente_desde=today + timedelta(days=30),
             activo=True,
+            evidencia_ref='community-designated-representative-overlap-act-001',
         )
 
         with self.assertRaises(ValidationError) as error:

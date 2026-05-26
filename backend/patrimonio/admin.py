@@ -47,9 +47,17 @@ class ParticipacionPatrimonialAdmin(admin.ModelAdmin):
 
 @admin.register(RepresentacionComunidad)
 class RepresentacionComunidadAdmin(admin.ModelAdmin):
-    list_display = ('comunidad', 'modo_representacion', 'socio_representante', 'activo', 'vigente_desde', 'vigente_hasta')
+    list_display = (
+        'comunidad',
+        'modo_representacion',
+        'socio_representante',
+        'activo',
+        'vigente_desde',
+        'vigente_hasta',
+        'evidencia_ref',
+    )
     list_filter = ('modo_representacion', 'activo')
-    search_fields = ('comunidad__nombre', 'socio_representante__nombre', 'socio_representante__rut')
+    search_fields = ('comunidad__nombre', 'socio_representante__nombre', 'socio_representante__rut', 'evidencia_ref')
 
 
 @admin.register(Propiedad)

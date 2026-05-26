@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno en `main` despues de integrar el paquete vigente. |
-| Fuente exacta | Estado real del repo, `git status --short --branch`, `git worktree list`, matriz de trazabilidad y stage cards. |
-| Brecha activa | Ninguna declarada en este cursor; el ultimo paquete preparado corrige justificacion de pagos excepcionales en Etapa 2. |
-| Motivo de prioridad | Evitar que reanudaciones o compactaciones reabran paquetes ya preparados/integrados. |
-| Worktree | Ninguno esperado en `main` despues de limpieza; si existe un worktree `codex/...`, terminarlo o pausarlo explicitamente antes de abrir otro frente. |
-| Rama | `main`; ramas tacticas solo mientras dure un paquete. |
-| Estado | Esperando siguiente paquete seguro segun trazabilidad y orden de construccion. |
-| Gate esperado | Para el siguiente paquete, definir gate proporcional desde el frente elegido. |
-| Estado al cerrar paquete | El paquete Etapa 2 / justificacion de pagos excepcionales debe quedar integrado por PR, CI verde, merge y limpieza. |
-| Bloqueos relacionados | Ninguno nuevo; cierres evidenciales siguen dependiendo de fuentes autorizadas cuando corresponda. |
-| Politica de reanudacion | Si la rama `codex/stage2-exceptional-payment-justification` aun existe, terminar PR/CI/merge/limpieza; si ya no existe, no reabrir este paquete y seleccionar el siguiente frente seguro. |
-| Siguiente accion | Confirmar estado real del repo y continuar con el siguiente paquete trazable, no con tareas auxiliares del chat. |
+| Frente activo | Etapa 1 / Patrimonio - evidencia de representacion designada de comunidad. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` reglas de comunidades/representacion trazable, stage card Etapa 1 y matriz de trazabilidad. |
+| Brecha activa | `RepresentacionComunidad` permite modo `designado`, pero no conserva evidencia formal no sensible ni el auditor Etapa 1 bloquea snapshots heredados sin esa traza. |
+| Motivo de prioridad | La representacion designada soporta comunicaciones, documentos y decisiones operativas de comunidades; sin evidencia queda una brecha de trazabilidad de Patrimonio. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-community-representative-evidence`. |
+| Rama | `codex/stage1-community-representative-evidence`. |
+| Estado | Implementado y validado localmente; pendiente PR, CI, merge y limpieza. |
+| Gate esperado | Tests focales Patrimonio/API y auditor Etapa 1, suite impactada Patrimonio + Stage1, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build, acceptance local, CI remoto. |
+| Estado al cerrar paquete | Integrar paquete por PR/CI/merge y limpiar worktree/rama; no reabrir este frente despues del merge. |
+| Bloqueos relacionados | No requiere proveedores externos, datos reales, `.env`, DB historicas ni integraciones. |
+| Politica de reanudacion | Si esta rama existe, terminar solo PR/CI/merge/limpieza. Si ya no existe, no reabrir este frente y seleccionar el siguiente paquete operativo desde el estado real. |
+| Siguiente accion | Ejecutar higiene final, abrir PR, esperar CI, mergear y limpiar. |
 
 ## Actualizacion
 

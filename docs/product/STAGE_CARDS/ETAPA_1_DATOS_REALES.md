@@ -41,6 +41,11 @@ contra datos reales o snapshot controlado.
   representaciones activas historicas, actuales o futuras solo si sus ventanas
   efectivas no se solapan; el dominio y el auditor bloquean cualquier snapshot
   con mas de una representacion vigente para la misma fecha.
+- Representaciones designadas de comunidad: si una comunidad usa un
+  representante `designado` fuera de las participaciones patrimoniales, debe
+  conservar `evidencia_ref` formal trazable no sensible. API, snapshot,
+  backoffice y auditor Etapa 1 bloquean o redactan datos heredados sin esa
+  traza.
 - Validacion de participantes patrimoniales activos: una participacion activa
   solo puede apuntar a un socio activo o a una empresa participante activa con
   participaciones completas.
