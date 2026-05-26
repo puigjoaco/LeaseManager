@@ -10,7 +10,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from audit.models import ManualResolution
+from audit.models import AuditEvent, ManualResolution
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
 from contratos.models import (
     Arrendatario,
@@ -227,6 +227,32 @@ class Stage3ConciliacionReadinessTests(TestCase):
             estado=EstadoCuadraturaBancaria.SQUARED,
             evidencia_cuadratura_ref='balance-square-stage3',
             responsable_ref='stage3-balance-owner',
+        )
+
+    def _create_superseded_audit_event(
+        self,
+        resolution,
+        movimiento,
+        *,
+        superseded_by='conciliacion.exact_match',
+        match_type='payment',
+        metadata_extra=None,
+    ):
+        metadata = {
+            'resolution_category': resolution.category,
+            'superseded_by': superseded_by,
+            'superseded_match_type': match_type,
+            'movimiento_id': movimiento.pk,
+            'conexion_bancaria_id': movimiento.conexion_bancaria_id,
+            **(metadata_extra or {}),
+        }
+        return AuditEvent.objects.create(
+            actor_identifier='system.conciliacion',
+            event_type='audit.manual_resolution.superseded',
+            entity_type='manual_resolution',
+            entity_id=str(resolution.pk),
+            summary='Resolucion manual supersedida por conciliacion trazada.',
+            metadata=metadata,
         )
 
     def _create_internal_transfer_pair(self, cuenta_origen, conexion_origen, suffix='OK'):
@@ -534,7 +560,7 @@ class Stage3ConciliacionReadinessTests(TestCase):
         conexion = self._create_ready_connection(cuenta)
         movimiento = self._create_reconciled_movement(conexion, payment)
         self._create_square_balance(cuenta)
-        ManualResolution.objects.create(
+        resolution = ManualResolution.objects.create(
             category='conciliacion.ingreso_desconocido',
             status=ManualResolution.Status.SUPERSEDED,
             scope_type='movimiento_bancario',
@@ -548,6 +574,11 @@ class Stage3ConciliacionReadinessTests(TestCase):
                 'pago_mensual_id': payment.pk,
             },
         )
+        self._create_superseded_audit_event(
+            resolution,
+            movimiento,
+            metadata_extra={'pago_mensual_id': payment.pk},
+        )
 
         result = self._collect_with_final_refs()
 
@@ -557,6 +588,70 @@ class Stage3ConciliacionReadinessTests(TestCase):
             'stage3.manual_resolution.superseded_trace_missing',
             {issue['code'] for issue in result['issues']},
         )
+        self.assertNotIn(
+            'stage3.manual_resolution.superseded_audit_event_missing',
+            {issue['code'] for issue in result['issues']},
+        )
+
+    def test_superseded_manual_resolution_without_audit_event_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-SUPERSEDED-NO-AUDIT')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        self._create_square_balance(cuenta)
+        ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            status=ManualResolution.Status.SUPERSEDED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Ingreso supersedido sin evento',
+            rationale='Supersedida por match exacto trazable.',
+            metadata={
+                'superseded_by': 'conciliacion.exact_match',
+                'superseded_match_type': 'payment',
+                'movimiento_id': movimiento.pk,
+                'pago_mensual_id': payment.pk,
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.superseded_audit_event_missing', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['superseded_without_audit_event'], 1)
+
+    def test_superseded_manual_resolution_with_mismatched_audit_event_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-SUPERSEDED-AUDIT-MISMATCH')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        self._create_square_balance(cuenta)
+        resolution = ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            status=ManualResolution.Status.SUPERSEDED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Ingreso supersedido con evento desalineado',
+            rationale='Supersedida por match exacto trazable.',
+            metadata={
+                'superseded_by': 'conciliacion.exact_match',
+                'superseded_match_type': 'payment',
+                'movimiento_id': movimiento.pk,
+                'pago_mensual_id': payment.pk,
+            },
+        )
+        self._create_superseded_audit_event(
+            resolution,
+            movimiento,
+            superseded_by='conciliacion.manual_resolution',
+            metadata_extra={'pago_mensual_id': payment.pk},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.superseded_audit_event_missing', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['superseded_without_audit_event'], 1)
 
     def test_missing_balance_square_record_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-BALANCE-MISSING')

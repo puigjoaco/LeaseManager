@@ -70,7 +70,8 @@ sistema igual a saldo banco.
 - Resoluciones manuales abiertas que quedan obsoletas por match exacto o por
   otra resolucion manual no se marcan como resueltas manualmente: se cierran
   como `superseded` con motivo, metadata de origen/target y evento de
-  auditoria; la readiness bloquea supersesiones sin traza suficiente.
+  auditoria alineado; la readiness bloquea supersesiones sin metadata, motivo
+  o evento suficiente.
 - Las respuestas API y snapshot de Conciliacion redactan refs bancarias
   sensibles ya persistidas, incluida `referencia` de movimientos, antes de
   exponerlas al backoffice.
