@@ -2,7 +2,7 @@ import calendar
 from datetime import timedelta
 from decimal import Decimal
 
-from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -636,40 +636,10 @@ class ContratoSerializer(serializers.ModelSerializer):
             candidate.full_clean()
         except DjangoValidationError as error:
             raise_drf_validation_error(error)
-        self._validate_key_delivery_update(attrs, candidate)
         if 'snapshot_representante_legal' in attrs:
             attrs['snapshot_representante_legal'] = candidate.snapshot_representante_legal
 
         return attrs
-
-    def _validate_key_delivery_update(self, attrs, candidate):
-        guarded_fields = {
-            'fecha_entrega',
-            'entrega_llaves_autorizacion_ref',
-            'entrega_llaves_autorizacion_motivo',
-        }
-        if not self.instance or not guarded_fields.intersection(attrs):
-            return
-        if not candidate.fecha_entrega:
-            return
-        if self._has_key_delivery_guarantee_coverage(candidate) or candidate.has_key_delivery_authorization():
-            return
-        raise serializers.ValidationError(
-            {
-                'entrega_llaves_autorizacion_ref': (
-                    'Registrar entrega de llaves requiere garantia cubierta o autorizacion auditada no sensible.'
-                )
-            }
-        )
-
-    def _has_key_delivery_guarantee_coverage(self, contrato):
-        try:
-            garantia = contrato.garantia_contractual
-        except ObjectDoesNotExist:
-            return False
-        if garantia.monto_pactado <= Decimal('0.00'):
-            return True
-        return garantia.monto_recibido >= garantia.monto_pactado or garantia.garantia_parcial_aceptada
 
     def _validate_contract_properties(self, contrato_propiedades, mandato, estado):
         if not contrato_propiedades:

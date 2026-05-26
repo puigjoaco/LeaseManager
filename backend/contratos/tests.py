@@ -231,7 +231,6 @@ class ContratosAPITests(APITestCase):
             'arrendatario': arrendatario.id,
             'fecha_inicio': '2026-01-01',
             'fecha_fin_vigente': '2026-12-31',
-            'fecha_entrega': '2026-01-01',
             'dia_pago_mensual': 5,
             'plazo_notificacion_termino_dias': 60,
             'dias_prealerta_admin': 90,
@@ -275,7 +274,6 @@ class ContratosAPITests(APITestCase):
             arrendatario=arrendatario,
             fecha_inicio=date(2027, 1, 1),
             fecha_fin_vigente=date(2027, 12, 31),
-            fecha_entrega=date(2027, 1, 1),
             dia_pago_mensual=5,
             plazo_notificacion_termino_dias=60,
             dias_prealerta_admin=90,
@@ -779,6 +777,73 @@ class ContratosAPITests(APITestCase):
             contrato.full_clean()
 
         self.assertIn('arrendatario', error_context.exception.message_dict)
+
+    def test_create_contract_with_delivery_date_requires_guarantee_or_authorization(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-DEL-CREATE-BLOCK', owner_rut='11111110-3')
+        arrendatario = self._create_arrendatario()
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-DEL-CREATE-BLOCK')
+        payload['fecha_entrega'] = '2026-01-01'
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('entrega_llaves_autorizacion_ref', response.data)
+
+    def test_create_contract_with_delivery_date_accepts_audited_authorization(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-DEL-CREATE-AUTH', owner_rut='11111110-4')
+        arrendatario = self._create_arrendatario()
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-DEL-CREATE-AUTH')
+        payload['fecha_entrega'] = '2026-01-01'
+        payload['entrega_llaves_autorizacion_ref'] = 'acta-entrega-llaves-creacion-001'
+        payload['entrega_llaves_autorizacion_motivo'] = 'Autorizacion operativa aprobada para entrega inicial.'
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['fecha_entrega'], '2026-01-01')
+
+    def test_active_contract_full_clean_requires_key_delivery_coverage_or_authorization(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-DEL-MODEL-BLOCK', owner_rut='11111110-5')
+        arrendatario = self._create_arrendatario()
+        contrato = Contrato(
+            codigo_contrato='CTR-101-DEL-MODEL-BLOCK',
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            fecha_entrega=date(2026, 1, 1),
+            dia_pago_mensual=5,
+            plazo_notificacion_termino_dias=60,
+            dias_prealerta_admin=90,
+            estado=EstadoContrato.ACTIVE,
+            politica_documental=self.contract_policy,
+        )
+
+        with self.assertRaises(ValidationError) as error_context:
+            contrato.full_clean()
+
+        self.assertIn('entrega_llaves_autorizacion_ref', error_context.exception.message_dict)
+
+    def test_active_contract_full_clean_accepts_key_delivery_authorization(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-DEL-MODEL-AUTH', owner_rut='11111110-6')
+        arrendatario = self._create_arrendatario()
+        contrato = Contrato(
+            codigo_contrato='CTR-101-DEL-MODEL-AUTH',
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            fecha_entrega=date(2026, 1, 1),
+            entrega_llaves_autorizacion_ref='acta-entrega-llaves-modelo-001',
+            entrega_llaves_autorizacion_motivo='Autorizacion operativa aprobada para entrega inicial.',
+            dia_pago_mensual=5,
+            plazo_notificacion_termino_dias=60,
+            dias_prealerta_admin=90,
+            estado=EstadoContrato.ACTIVE,
+            politica_documental=self.contract_policy,
+        )
+
+        contrato.full_clean()
 
     def test_update_delivery_date_requires_guarantee_or_authorization(self):
         mandato = self._create_active_mandato(codigo='MAND-101-DEL-BLOCK', owner_rut='11111111-1')
@@ -1970,7 +2035,6 @@ class ContratosAPITests(APITestCase):
         future_payload['estado'] = EstadoContrato.FUTURE
         future_payload['fecha_inicio'] = '2027-01-01'
         future_payload['fecha_fin_vigente'] = '2027-12-31'
-        future_payload['fecha_entrega'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
 
@@ -1996,7 +2060,6 @@ class ContratosAPITests(APITestCase):
         future_payload['estado'] = EstadoContrato.FUTURE
         future_payload['fecha_inicio'] = '2027-01-01'
         future_payload['fecha_fin_vigente'] = '2027-12-31'
-        future_payload['fecha_entrega'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
 
@@ -2049,7 +2112,6 @@ class ContratosAPITests(APITestCase):
         future_payload['estado'] = EstadoContrato.FUTURE
         future_payload['fecha_inicio'] = '2027-01-01'
         future_payload['fecha_fin_vigente'] = '2027-12-31'
-        future_payload['fecha_entrega'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
 
@@ -2103,7 +2165,6 @@ class ContratosAPITests(APITestCase):
         future_payload['estado'] = EstadoContrato.FUTURE
         future_payload['fecha_inicio'] = '2027-01-01'
         future_payload['fecha_fin_vigente'] = '2027-12-31'
-        future_payload['fecha_entrega'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
 
@@ -2127,7 +2188,6 @@ class ContratosAPITests(APITestCase):
         future_payload['estado'] = EstadoContrato.FUTURE
         future_payload['fecha_inicio'] = '2027-01-01'
         future_payload['fecha_fin_vigente'] = '2027-12-31'
-        future_payload['fecha_entrega'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
 
@@ -2233,7 +2293,6 @@ class ContratosAPITests(APITestCase):
         future_payload['estado'] = EstadoContrato.FUTURE
         future_payload['fecha_inicio'] = '2027-01-01'
         future_payload['fecha_fin_vigente'] = '2027-12-31'
-        future_payload['fecha_entrega'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
 
@@ -2263,7 +2322,6 @@ class ContratosAPITests(APITestCase):
         future_payload['estado'] = EstadoContrato.FUTURE
         future_payload['fecha_inicio'] = '2027-01-01'
         future_payload['fecha_fin_vigente'] = '2027-12-31'
-        future_payload['fecha_entrega'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
         future_response = self.client.post(reverse('contratos-contrato-list'), future_payload, format='json')
@@ -2351,7 +2409,6 @@ class ContratosAPITests(APITestCase):
         future_payload['estado'] = EstadoContrato.FUTURE
         future_payload['fecha_inicio'] = '2027-01-01'
         future_payload['fecha_fin_vigente'] = '2027-12-31'
-        future_payload['fecha_entrega'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
         future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
 

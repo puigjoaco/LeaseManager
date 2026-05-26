@@ -4,7 +4,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import Q
@@ -431,6 +431,31 @@ class Contrato(TimestampedModel):
         if errors:
             raise ValidationError(errors)
 
+    def has_key_delivery_guarantee_coverage(self):
+        if not self.pk:
+            return False
+        try:
+            garantia = self.garantia_contractual
+        except ObjectDoesNotExist:
+            return False
+        if garantia.monto_pactado <= Decimal('0.00'):
+            return True
+        return garantia.monto_recibido >= garantia.monto_pactado or garantia.garantia_parcial_aceptada
+
+    def validate_key_delivery_coverage(self):
+        if not self.fecha_entrega:
+            return
+        if self.has_key_delivery_authorization() or self.has_key_delivery_guarantee_coverage():
+            return
+        raise ValidationError(
+            {
+                'entrega_llaves_autorizacion_ref': (
+                    'Registrar entrega de llaves requiere garantia cubierta '
+                    'o autorizacion auditada no sensible.'
+                )
+            }
+        )
+
     def has_partial_early_termination_month(self):
         if self.estado != EstadoContrato.EARLY_TERMINATED or not self.fecha_fin_vigente:
             return False
@@ -770,6 +795,7 @@ class Contrato(TimestampedModel):
                     self.snapshot_representante_legal
                 )
             self.validate_common_expense_service()
+        self.validate_key_delivery_coverage()
 
 
 class ContratoPropiedad(TimestampedModel):
