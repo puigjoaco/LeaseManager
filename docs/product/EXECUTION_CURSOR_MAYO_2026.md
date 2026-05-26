@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 1 - Contratos: guard de dominio/API para reservar `renovacion_automatica` al flujo guiado con auditoria dedicada. |
+| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 2 - Canales: auditoria de envio manual creada desde servicio. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `PeriodoContractual.full_clean()` y la API rechacen nuevas escrituras con `origen_periodo=renovacion_automatica` si no provienen del endpoint de renovacion automatica que crea el `AuditEvent` dedicado. |
-| Motivo de prioridad | Paquete local y verificable cerrado como preparacion segura de Etapa 1. |
+| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `mark_message_as_sent()` exija actor trazable, marque el mensaje como `enviado` y cree el `AuditEvent` `canales.mensaje_saliente.sent_manually` con `external_ref` alineado en la misma transaccion. |
+| Motivo de prioridad | Paquete local y verificable cerrado como preparacion segura de Etapa 2. |
 | Worktree | Ninguno pendiente despues de merge/limpieza. |
 | Rama | `main` despues de merge/limpieza. |
 | Estado | Paquete validado localmente e integrado despues de PR/CI/merge/limpieza. |
 | Gate esperado | Si `main` queda limpio, elegir el siguiente frente seguro por trazabilidad. Si existe worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
-| Estado al cerrar paquete | No cierra Etapa 1 sin snapshot o fuente real autorizada; solo mueve una regla local de renovacion automatica desde API/auditor a guard de dominio/API. |
+| Estado al cerrar paquete | No cierra Etapa 2 sin fuente autorizada, evidencia Etapa 1, prueba Email/WebPay controlada y responsables; solo mueve la auditoria de envio manual desde vista HTTP a servicio transaccional. |
 | Bloqueos relacionados | Ninguno para este paquete. |
 | Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si solo existe `main` limpio, seleccionar el siguiente frente trazable. |
 | Siguiente accion | Si `main` queda limpio, seleccionar el siguiente frente seguro por trazabilidad. |
