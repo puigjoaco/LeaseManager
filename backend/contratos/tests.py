@@ -1923,6 +1923,33 @@ class ContratosAPITests(APITestCase):
 
         future_contract.full_clean()
 
+    def test_future_contract_full_clean_rejects_new_tenant_without_guided_replacement(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-TEN-MODEL', owner_rut='14141410-4')
+        arrendatario = self._create_arrendatario(rut='15151510-K')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-TEN-MODEL-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+        current_contract = Contrato.objects.get(pk=current_response.data['id'])
+        AvisoTermino.objects.create(
+            contrato=current_contract,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='No renovacion',
+            estado=EstadoAvisoTermino.REGISTERED,
+            registrado_por=self.user,
+        )
+        nuevo_arrendatario = self._create_arrendatario(rut='15151511-8')
+
+        future_contract = self._future_contract_model_candidate(
+            mandato,
+            nuevo_arrendatario,
+            codigo='CTR-106-TEN-MODEL-F',
+        )
+
+        with self.assertRaises(ValidationError) as error_context:
+            future_contract.full_clean()
+
+        self.assertIn('arrendatario', error_context.exception.message_dict)
+
     def test_future_contract_succeeds_after_registered_notice(self):
         mandato = self._create_active_mandato(codigo='MAND-106', owner_rut='14141414-7')
         arrendatario = self._create_arrendatario(rut='15151515-4')
@@ -1949,6 +1976,34 @@ class ContratosAPITests(APITestCase):
 
         future_response = self.client.post(reverse('contratos-contrato-list'), future_payload, format='json')
         self.assertEqual(future_response.status_code, status.HTTP_201_CREATED)
+
+    def test_future_contract_rejects_new_tenant_without_guided_replacement(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-TEN', owner_rut='14141414-4')
+        arrendatario = self._create_arrendatario(rut='15151515-0')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-TEN-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+        AvisoTermino.objects.create(
+            contrato_id=current_response.data['id'],
+            fecha_efectiva='2026-12-31',
+            causal='No renovacion',
+            estado=EstadoAvisoTermino.REGISTERED,
+            registrado_por=self.user,
+        )
+        nuevo_arrendatario = self._create_arrendatario(rut='15151516-9')
+
+        future_payload = self._base_contract_payload(mandato, nuevo_arrendatario, codigo='CTR-106-TEN-F')
+        future_payload['estado'] = EstadoContrato.FUTURE
+        future_payload['fecha_inicio'] = '2027-01-01'
+        future_payload['fecha_fin_vigente'] = '2027-12-31'
+        future_payload['fecha_entrega'] = '2027-01-01'
+        future_payload['periodos_contractuales'][0]['fecha_inicio'] = '2027-01-01'
+        future_payload['periodos_contractuales'][0]['fecha_fin'] = '2027-12-31'
+
+        future_response = self.client.post(reverse('contratos-contrato-list'), future_payload, format='json')
+
+        self.assertEqual(future_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('arrendatario', future_response.data)
 
     def test_future_contract_rejects_notice_with_executed_renewal_without_guided_resolution(self):
         mandato = self._create_active_mandato(codigo='MAND-106-REN-CONF', owner_rut='14141414-5')

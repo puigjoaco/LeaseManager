@@ -194,9 +194,12 @@ contra datos reales o snapshot controlado.
   registrado y contrato futuro con nuevo arrendatario en una transaccion,
   conserva el contrato/deuda historica sin reescribir identidad, copia las
   propiedades contractuales, inicia un periodo de origen `cambio_arrendatario`
-  y registra auditoria dedicada. El auditor Etapa 1 marca como defectuosos
-  contratos futuros heredados con arrendatario distinto al vigente si no existe
-  el evento auditable que vincula contrato anterior, aviso y contrato nuevo.
+  y registra auditoria dedicada. `Contrato.full_clean()` y la API bloquean la
+  escritura directa de contratos futuros con arrendatario distinto al vigente
+  si no provienen del flujo guiado o no conservan el evento auditable exacto.
+  El auditor Etapa 1 marca como defectuosos contratos futuros heredados con
+  arrendatario distinto al vigente si no existe el evento auditable que vincula
+  contrato anterior, aviso y contrato nuevo.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
   del mes operativo. Si el valor UF fue cargado manualmente, debe conservar

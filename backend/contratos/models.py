@@ -10,6 +10,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from audit.models import AuditEvent
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from documentos.models import EstadoPoliticaFirma, PoliticaFirmaYNotaria, TipoDocumental
 from operacion.models import (
@@ -659,6 +660,27 @@ class Contrato(TimestampedModel):
                         )
                     }
                 )
+            if self.arrendatario_id != current_contract.arrendatario_id:
+                if getattr(self, '_allow_guided_tenant_replacement', False):
+                    return
+                has_replacement_audit = self.pk and AuditEvent.objects.filter(
+                    event_type=TENANT_REPLACEMENT_EVENT_TYPE,
+                    entity_type='contrato',
+                    entity_id=str(self.pk),
+                    metadata__contrato_anterior_id=current_contract.pk,
+                    metadata__aviso_termino_id=aviso.pk,
+                    metadata__arrendatario_anterior_id=current_contract.arrendatario_id,
+                    metadata__arrendatario_nuevo_id=self.arrendatario_id,
+                ).exists()
+                if not has_replacement_audit:
+                    raise ValidationError(
+                        {
+                            'arrendatario': (
+                                'Cambiar arrendatario en contrato futuro requiere el flujo guiado '
+                                'de cambio de arrendatario.'
+                            )
+                        }
+                    )
             return
 
         early_terminated_exists = (
