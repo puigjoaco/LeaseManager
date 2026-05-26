@@ -4,6 +4,7 @@ from collections import Counter
 from typing import Any
 
 from django.core.exceptions import ValidationError
+from django.db.models import Count
 from django.utils import timezone
 
 from contabilidad.models import (
@@ -182,6 +183,13 @@ def collect_stage5_contabilidad_readiness(
     posted_events = events.filter(estado_contable=EstadoEventoContable.POSTED)
     pending_events = events.exclude(estado_contable=EstadoEventoContable.POSTED).count()
     posted_events_without_asiento = posted_events.filter(asiento_contable__isnull=True).count()
+    duplicate_posted_events = (
+        posted_events.filter(empresa_id__isnull=False)
+        .values('empresa_id', 'evento_tipo', 'entidad_origen_tipo', 'entidad_origen_id')
+        .annotate(event_count=Count('id'))
+        .filter(event_count__gt=1)
+        .count()
+    )
     events_sensitive_payloads = _count_sensitive_payloads(events, 'payload_resumen')
 
     asientos_qs = AsientoContable.objects.select_related('evento_contable').prefetch_related(
@@ -392,6 +400,14 @@ def collect_stage5_contabilidad_readiness(
                 'stage5.posted_event_without_asiento',
                 'Existen eventos contabilizados sin asiento contable.',
                 count=posted_events_without_asiento,
+            )
+        )
+    if duplicate_posted_events:
+        issues.append(
+            _issue(
+                'stage5.duplicate_posted_events',
+                'Existen hechos economicos con mas de un evento contable contabilizado para la misma empresa y origen.',
+                count=duplicate_posted_events,
             )
         )
     if events_sensitive_payloads:
@@ -633,6 +649,7 @@ def collect_stage5_contabilidad_readiness(
                 'events_by_state': _count_by(events, 'estado_contable'),
                 'pending_events': pending_events,
                 'posted_events_without_asiento': posted_events_without_asiento,
+                'duplicate_posted_events': duplicate_posted_events,
                 'events_sensitive_payloads': events_sensitive_payloads,
                 'asientos_total': asientos_qs.count(),
                 'asientos_by_state': _count_by(asientos_qs, 'estado'),

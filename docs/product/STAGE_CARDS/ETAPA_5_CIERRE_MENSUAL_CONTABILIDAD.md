@@ -20,6 +20,10 @@ contables desde hechos conciliados.
   del periodo para cuentas de la empresa en `pendiente`,
   `ingreso_desconocido` o `manual_requerida`.
 - Reglas contables vigentes.
+- Un mismo hecho economico no puede generar doble contabilizacion efectiva:
+  si ya existe un `EventoContable` contabilizado para la misma empresa, tipo y
+  entidad origen, un evento nuevo con otra `idempotency_key` queda en revision
+  y readiness bloquea snapshots heredados con duplicados posteados.
 - Asientos balanceados.
 - Asientos del periodo con `periodo_contable` consistente con
   `fecha_contable`.
