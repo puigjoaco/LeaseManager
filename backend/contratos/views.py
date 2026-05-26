@@ -601,7 +601,10 @@ class ContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.R
             )
         if (
             instance.has_partial_early_termination_month()
-            and contract_proration_trace_key(instance) != previous_proration_trace
+            and (
+                contract_proration_trace_key(instance) != previous_proration_trace
+                or not instance.has_early_termination_proration_audit()
+            )
         ):
             create_early_termination_proration_trace(contract=instance, request=self.request)
 

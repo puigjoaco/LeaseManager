@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: Contratos mueve la auditoria de prorrata por terminacion
+anticipada parcial a guard de dominio. `Contrato.full_clean()` exige que un
+contrato terminado anticipadamente con ultimo mes parcial y decision de
+prorrata conserve el `AuditEvent` dedicado; la API mantiene el flujo guiado que
+crea esa traza despues de guardar y el auditor Etapa 1 conserva la deteccion de
+snapshots heredados.
+
 Nota 2026-05-26: SII endurece payloads tributarios locales sin conectar SII ni
 leer certificados. `ultimo_resultado`, `resumen_formulario`, `resumen_anual`,
 `resumen_paquete` y `resumen_f22` rechazan valores y claves sensibles como

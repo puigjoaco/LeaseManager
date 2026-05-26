@@ -2225,6 +2225,48 @@ class ContratosAPITests(APITestCase):
         self.assertIn('terminacion_anticipada_prorrata_ref', response.data)
         self.assertIn('terminacion_anticipada_prorrata_motivo', response.data)
 
+    def test_early_termination_partial_month_full_clean_requires_audit_event(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-PRAMOD', owner_rut='14141409-2')
+        arrendatario = self._create_arrendatario(rut='15151509-K')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-PRAMOD')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        contrato = Contrato.objects.get(pk=create_response.data['id'])
+        contrato.estado = EstadoContrato.EARLY_TERMINATED
+        contrato.fecha_fin_vigente = date(2026, 6, 15)
+        contrato.terminacion_anticipada_prorrata_ref = 'early-term-proration-model-001'
+        contrato.terminacion_anticipada_prorrata_motivo = 'Prorrata aprobada por decision operativa controlada.'
+
+        with self.assertRaises(ValidationError) as error_context:
+            contrato.full_clean()
+
+        self.assertIn('terminacion_anticipada_prorrata_ref', error_context.exception.message_dict)
+
+    def test_early_termination_partial_month_full_clean_accepts_audit_event(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-PRAOK', owner_rut='14141408-4')
+        arrendatario = self._create_arrendatario(rut='15151508-1')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-PRAOK')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        contrato = Contrato.objects.get(pk=create_response.data['id'])
+        contrato.estado = EstadoContrato.EARLY_TERMINATED
+        contrato.fecha_fin_vigente = date(2026, 6, 15)
+        contrato.terminacion_anticipada_prorrata_ref = 'early-term-proration-model-ok-001'
+        contrato.terminacion_anticipada_prorrata_motivo = 'Prorrata aprobada por decision operativa controlada.'
+        AuditEvent.objects.create(
+            event_type=EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
+            entity_type='contrato',
+            entity_id=str(contrato.pk),
+            summary='Decision auditada para prorrata de termino anticipado.',
+            metadata={
+                'terminacion_anticipada_prorrata_ref': 'early-term-proration-model-ok-001',
+            },
+        )
+
+        contrato.full_clean()
+
     def test_early_termination_partial_month_records_proration_audit_event(self):
         mandato = self._create_active_mandato(codigo='MAND-106-PRA', owner_rut='14141411-4')
         arrendatario = self._create_arrendatario(rut='15151511-1')

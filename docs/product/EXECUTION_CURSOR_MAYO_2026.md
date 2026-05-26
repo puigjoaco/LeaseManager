@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 1 - Contratos: guard de dominio para entrega de llaves con garantia/autorizacion. |
+| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 1 - Contratos: guard de dominio para auditoria dedicada de prorrata por terminacion anticipada parcial. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `Contrato.full_clean()` y API rechacen crear o actualizar contratos con `fecha_entrega` operativa si no existe garantia cubierta o autorizacion auditada no sensible con motivo trazable. |
+| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `Contrato.full_clean()` rechace contratos terminados anticipadamente con ultimo mes parcial y decision de prorrata si no conservan el `AuditEvent` dedicado, manteniendo el flujo API que registra esa traza despues de guardar. |
 | Motivo de prioridad | Paquete local y verificable cerrado como preparacion segura de Etapa 1. |
 | Worktree | Ninguno pendiente despues de merge/limpieza. |
 | Rama | `main` despues de merge/limpieza. |
 | Estado | Paquete validado localmente e integrado despues de PR/CI/merge/limpieza. |
 | Gate esperado | Si `main` queda limpio, elegir el siguiente frente seguro por trazabilidad. Si existe worktree sucio, terminarlo o pausarlo aqui antes de abrir otro. |
-| Estado al cerrar paquete | No cierra Etapa 1 sin snapshot o fuente real autorizada; solo mueve una regla local de entrega de llaves desde API/auditor a guard de dominio/API. |
+| Estado al cerrar paquete | No cierra Etapa 1 sin snapshot o fuente real autorizada; solo mueve una regla local de terminacion anticipada parcial desde API/auditor a guard de dominio/API. |
 | Bloqueos relacionados | Ninguno para este paquete. |
 | Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si solo existe `main` limpio, seleccionar el siguiente frente trazable. |
 | Siguiente accion | Si `main` queda limpio, seleccionar el siguiente frente seguro por trazabilidad. |

@@ -169,8 +169,9 @@ contra datos reales o snapshot controlado.
   ultimo dia permitido y se reportan como advertencia operativa.
 - Terminacion anticipada con ultimo mes parcial: solo se permite si el
   contrato conserva una referencia no sensible a regla o decision de prorrata,
-  un motivo trazable y un evento auditable dedicado. El auditor Etapa 1 bloquea
-  snapshots heredados sin esa decision o sin auditoria.
+  un motivo trazable y un evento auditable dedicado. `Contrato.full_clean()` y
+  la API bloquean nuevas escrituras sin esa auditoria, y el auditor Etapa 1
+  bloquea snapshots heredados sin esa decision o sin auditoria.
 - Validacion de pagos y distribuciones existentes en el snapshot: si existen,
   deben cuadrar devengo, conciliacion, porcentaje y entidad facturadora.
 - Validacion de que pagos mensuales existentes queden dentro de la vigencia

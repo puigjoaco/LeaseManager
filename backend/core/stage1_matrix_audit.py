@@ -34,7 +34,6 @@ from contratos.models import (
     ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
-    EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
     EstadoContactoArrendatario,
     EstadoContactoPago,
     EstadoAvisoTermino,
@@ -1212,20 +1211,6 @@ def _audit_future_contract_closure_evidence(
         )
 
 
-def _has_early_termination_proration_audit_event(contrato: Contrato) -> bool:
-    events = AuditEvent.objects.filter(
-        event_type=EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
-        entity_type='contrato',
-        entity_id=str(contrato.pk),
-    )
-    expected_ref = (contrato.terminacion_anticipada_prorrata_ref or '').strip()
-    for event in events:
-        metadata = event.metadata if isinstance(event.metadata, dict) else {}
-        if metadata.get('terminacion_anticipada_prorrata_ref') == expected_ref:
-            return True
-    return False
-
-
 def _audit_early_termination_proration(issues: list[dict[str, Any]]) -> None:
     contracts = Contrato.objects.filter(estado=EstadoContrato.EARLY_TERMINATED)
     for contrato in contracts:
@@ -1243,7 +1228,7 @@ def _audit_early_termination_proration(issues: list[dict[str, Any]]) -> None:
                 ),
             )
             continue
-        if not _has_early_termination_proration_audit_event(contrato):
+        if not contrato.has_early_termination_proration_audit():
             _issue(
                 issues,
                 code='stage1.contrato.terminacion_anticipada_prorrata_sin_auditoria',

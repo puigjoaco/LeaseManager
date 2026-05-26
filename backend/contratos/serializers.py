@@ -631,6 +631,9 @@ class ContratoSerializer(serializers.ModelSerializer):
         primary_property_id = self._primary_property_id(contrato_propiedades)
         candidate._common_expense_primary_property_id = primary_property_id
         candidate._future_contract_primary_property_id = primary_property_id
+        request_user = _request_user(self)
+        if request_user and getattr(request_user, 'is_authenticated', False):
+            candidate._allow_early_termination_proration_trace = True
 
         try:
             candidate.full_clean()
