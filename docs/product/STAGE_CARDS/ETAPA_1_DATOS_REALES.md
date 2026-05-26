@@ -142,8 +142,10 @@ contra datos reales o snapshot controlado.
   `PeriodoContractual` de origen `renovacion_automatica`, extiende
   `fecha_fin_vigente`, usa por defecto la base del ultimo tramo, bloquea la
   operacion si existe `AvisoTermino` registrado y deja evento auditable
-  dedicado. El auditor Etapa 1 marca como defectuosas renovaciones automaticas
-  heredadas sin ese evento.
+  dedicado. `PeriodoContractual.full_clean()` bloquea nuevas escrituras con
+  origen `renovacion_automatica` sin ese evento y la API de contratos no acepta
+  ese origen en payloads anidados; el auditor Etapa 1 marca como defectuosas
+  renovaciones automaticas heredadas sin ese evento.
 - Validacion de garantias: montos/estado coherentes, fechas de recepcion y
   cierre consistentes, y saldos recibidos, devueltos o aplicados conciliados
   contra `HistorialGarantia`, incluyendo que devoluciones, retenciones o

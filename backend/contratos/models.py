@@ -997,6 +997,18 @@ class PeriodoContractual(TimestampedModel):
     def is_renewal_period(self):
         return str(self.tipo_periodo or '').strip().lower() == RENEWAL_PERIOD_KIND
 
+    def is_automatic_renewal_origin(self):
+        return str(self.origen_periodo or '').strip().lower() == AUTOMATIC_RENEWAL_ORIGIN
+
+    def has_automatic_renewal_audit(self):
+        if not self.pk or not self.is_automatic_renewal_origin():
+            return False
+        return AuditEvent.objects.filter(
+            event_type=AUTOMATIC_RENEWAL_EVENT_TYPE,
+            entity_type='periodo_contractual',
+            entity_id=str(self.pk),
+        ).exists()
+
     def previous_period(self):
         if not self.contrato_id:
             return None
@@ -1058,6 +1070,18 @@ class PeriodoContractual(TimestampedModel):
                 {
                     'politica_base_renovacion_ref': (
                         'La politica de base de renovacion debe usar una referencia no sensible.'
+                    )
+                }
+            )
+        if (
+            self.is_automatic_renewal_origin()
+            and not getattr(self, '_allow_automatic_renewal_trace', False)
+            and not self.has_automatic_renewal_audit()
+        ):
+            raise ValidationError(
+                {
+                    'origen_periodo': (
+                        'La renovacion automatica requiere el flujo guiado con evento auditable dedicado.'
                     )
                 }
             )

@@ -181,6 +181,7 @@ def execute_automatic_contract_renewal(
         politica_base_renovacion_ref=policy_ref,
         politica_base_renovacion_motivo=policy_reason,
     )
+    renewal_period._allow_automatic_renewal_trace = True
     renewal_period.full_clean()
     renewal_period.save()
 

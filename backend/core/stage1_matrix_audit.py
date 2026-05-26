@@ -26,8 +26,6 @@ from cobranza.models import (
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoRegistro, RegimenTributarioEmpresa
 from documentos.models import EstadoPoliticaFirma, TipoDocumental
 from contratos.models import (
-    AUTOMATIC_RENEWAL_EVENT_TYPE,
-    AUTOMATIC_RENEWAL_ORIGIN,
     Arrendatario,
     AvisoTermino,
     CodeudorSolidario,
@@ -1075,11 +1073,7 @@ def _audit_contract_periods(issues: list[dict[str, Any]], contrato: Contrato) ->
                 entity_id=period.pk,
                 message='Periodo UF debe tener monto positivo y UF exacta disponible al calcular cobro.',
             )
-        if period.origen_periodo == AUTOMATIC_RENEWAL_ORIGIN and not AuditEvent.objects.filter(
-            event_type=AUTOMATIC_RENEWAL_EVENT_TYPE,
-            entity_type='periodo_contractual',
-            entity_id=str(period.pk),
-        ).exists():
+        if period.is_automatic_renewal_origin() and not period.has_automatic_renewal_audit():
             _issue(
                 issues,
                 code='stage1.periodo.renovacion_automatica_sin_auditoria',
