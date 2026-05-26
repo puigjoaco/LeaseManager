@@ -1457,7 +1457,7 @@ class CanalesAPITests(APITestCase):
 
         formalize = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento.data['id']]),
-            {},
+            {'evidencia_formalizacion_ref': 'formalizacion-canal-doc-001'},
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_200_OK)

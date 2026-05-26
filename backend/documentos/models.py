@@ -163,6 +163,7 @@ class DocumentoEmitido(TimestampedModel):
     firma_arrendatario_registrada = models.BooleanField(default=False)
     firma_codeudor_registrada = models.BooleanField(default=False)
     recepcion_notarial_registrada = models.BooleanField(default=False)
+    evidencia_formalizacion_ref = models.CharField(max_length=128, blank=True)
     comprobante_notarial = models.ForeignKey(
         'self',
         null=True,
@@ -199,6 +200,10 @@ class DocumentoEmitido(TimestampedModel):
         if self.storage_ref and not is_non_sensitive_reference(self.storage_ref):
             raise ValidationError(
                 {'storage_ref': 'storage_ref debe ser una referencia PDF no sensible, no una URL, token o credencial.'}
+            )
+        if self.evidencia_formalizacion_ref and not is_non_sensitive_reference(self.evidencia_formalizacion_ref):
+            raise ValidationError(
+                {'evidencia_formalizacion_ref': 'evidencia_formalizacion_ref debe ser una referencia no sensible.'}
             )
         if not self.usuario_id:
             raise ValidationError({'usuario': 'Documento emitido requiere usuario responsable de carga.'})
@@ -252,6 +257,10 @@ class DocumentoEmitido(TimestampedModel):
         policy = self.get_active_policy()
         if not policy:
             raise ValidationError({'estado': 'No existe una politica activa para formalizar este tipo documental.'})
+        if not str(self.evidencia_formalizacion_ref or '').strip():
+            raise ValidationError(
+                {'evidencia_formalizacion_ref': 'La formalizacion requiere una referencia no sensible de evidencia.'}
+            )
 
         if policy.requiere_firma_arrendador and not self.firma_arrendador_registrada:
             raise ValidationError({'estado': 'Falta registrar la firma del arrendador.'})

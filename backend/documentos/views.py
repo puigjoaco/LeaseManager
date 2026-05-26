@@ -125,6 +125,7 @@ class DocumentsSnapshotView(APIView):
                         'firma_arrendatario_registrada': item.firma_arrendatario_registrada,
                         'firma_codeudor_registrada': item.firma_codeudor_registrada,
                         'recepcion_notarial_registrada': item.recepcion_notarial_registrada,
+                        'evidencia_formalizacion_ref': redact_sensitive_reference(item.evidencia_formalizacion_ref),
                         'comprobante_notarial': item.comprobante_notarial_id,
                         'documento_origen': item.documento_origen_id,
                         'correccion_ref': redact_sensitive_reference(item.correccion_ref),

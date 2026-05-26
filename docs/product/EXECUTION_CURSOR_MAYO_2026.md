@@ -22,14 +22,14 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 / Contabilidad - unicidad efectiva de eventos contables contabilizados. |
-| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` regla "Un mismo hecho economico no puede generar doble contabilizacion efectiva para la misma empresa, cuenta y periodo", stage card Etapa 5 y matriz de trazabilidad. |
-| Brecha activa | `EventoContable` impide duplicados por `idempotency_key`, pero un snapshot o flujo directo podria dejar dos eventos `contabilizado` para la misma empresa, tipo y entidad origen si usan keys distintas. |
-| Motivo de prioridad | Evita doble contabilizacion efectiva antes del cierre mensual y fortalece readiness sin depender de banco real, SII, datos reales ni secretos. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-accounting-event-deduplication`. |
-| Rama | `codex/stage5-accounting-event-deduplication`. |
+| Frente activo | Etapa 5 / Documentos - evidencia no sensible de formalizacion documental. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` reglas de expediente documental, firma/notaria y evidencia; `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`; matriz de trazabilidad. |
+| Brecha activa | La formalizacion conserva firmas/notaria como estado operativo y auditoria, pero no exige una referencia no sensible del acto/evidencia de formalizacion; un snapshot heredado podria tener documentos formalizados sin trazabilidad documental suficiente. |
+| Motivo de prioridad | Fortalece el gate documental antes de Canales/SII/Reporting sin usar storage real, documentos productivos, secretos ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-document-formalization-evidence`. |
+| Rama | `codex/stage5-document-formalization-evidence`. |
 | Estado | Implementado y validado localmente; pendiente PR, CI, merge y limpieza. |
-| Gate esperado | Tests focales Contabilidad/API y readiness Etapa 5, suite impactada Contabilidad + Stage5, `manage.py check`, migraciones dry-run, readiness local Etapa 5, frontend build, acceptance local, CI remoto. |
+| Gate esperado | Tests focales Documentos/API/readiness, suite impactada Documentos/readiness, `manage.py check`, migraciones dry-run, readiness local Documentos, frontend build, acceptance local, CI remoto. |
 | Estado al cerrar paquete | Integrar paquete por PR/CI/merge y limpiar worktree/rama; no reabrir este frente despues del merge. |
 | Bloqueos relacionados | No requiere proveedores externos, datos reales, `.env`, DB historicas ni integraciones. |
 | Politica de reanudacion | Si esta rama existe, terminar solo PR/CI/merge/limpieza. Si ya no existe, no reabrir este frente y seleccionar el siguiente paquete operativo desde el estado real. |

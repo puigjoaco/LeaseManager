@@ -18,6 +18,7 @@ from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE
 
 VALID_SHA256 = 'a' * 64
 VALID_SHA256_ALT = 'b' * 64
+FORMALIZATION_REF = 'formalizacion-controlada-doc-001'
 
 
 class DocumentosAPITests(APITestCase):
@@ -460,6 +461,7 @@ class DocumentosAPITests(APITestCase):
             origen='carga_externa_controlada',
             estado='emitido',
             storage_ref='https://storage.example.test/contracts/contrato-1.pdf?token=secret',
+            evidencia_formalizacion_ref='https://docs.example.test/formalizacion?token=secret',
         )
 
         list_response = self.client.get(reverse('documentos-documento-list'))
@@ -470,14 +472,18 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
         self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
         self.assertEqual(list_response.data[0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(list_response.data[0]['evidencia_formalizacion_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(detail_response.data['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['evidencia_formalizacion_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['documentos_emitidos'][0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['documentos_emitidos'][0]['evidencia_formalizacion_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['documentos_emitidos'][0]['checksum'], VALID_SHA256)
         self.assertEqual(snapshot_response.data['documentos_emitidos'][0]['usuario'], self.user.id)
         self.assertIn('fecha_carga', snapshot_response.data['documentos_emitidos'][0])
         self.assertIn('comprobante_notarial', snapshot_response.data['documentos_emitidos'][0])
         rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
         self.assertNotIn('storage.example.test', rendered)
+        self.assertNotIn('docs.example.test', rendered)
         self.assertNotIn('token=secret', rendered)
 
     def test_main_contract_policy_requires_both_signatures(self):
@@ -503,10 +509,46 @@ class DocumentosAPITests(APITestCase):
 
         formalize = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento['id']]),
-            {},
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_document_formalization_requires_traceable_evidence(self):
+        expediente = self._create_expediente(entidad_id='2C')
+        self._create_politica()
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {},
+            format='json',
+        )
+
+        self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_formalizacion_ref', formalize.data)
+
+    def test_document_formalization_rejects_sensitive_evidence_ref(self):
+        expediente = self._create_expediente(entidad_id='2D')
+        self._create_politica()
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {'evidencia_formalizacion_ref': 'https://docs.example.test/formalizacion?token=secret'},
+            format='json',
+        )
+
+        self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_formalizacion_ref', formalize.data)
 
     def test_document_cannot_be_created_as_formalized_from_generic_endpoint(self):
         expediente = self._create_expediente(entidad_id='2A')
@@ -568,7 +610,10 @@ class DocumentosAPITests(APITestCase):
 
         formalize = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento['id']]),
-            {'recepcion_notarial_registrada': True},
+            {
+                'recepcion_notarial_registrada': True,
+                'evidencia_formalizacion_ref': FORMALIZATION_REF,
+            },
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
@@ -599,6 +644,7 @@ class DocumentosAPITests(APITestCase):
             reverse('documentos-documento-formalizar', args=[documento['id']]),
             {
                 'recepcion_notarial_registrada': True,
+                'evidencia_formalizacion_ref': FORMALIZATION_REF,
                 'comprobante_notarial': receipt['id'],
             },
             format='json',
@@ -632,12 +678,14 @@ class DocumentosAPITests(APITestCase):
             reverse('documentos-documento-formalizar', args=[documento['id']]),
             {
                 'recepcion_notarial_registrada': True,
+                'evidencia_formalizacion_ref': FORMALIZATION_REF,
                 'comprobante_notarial': receipt['id'],
             },
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_200_OK)
         self.assertEqual(formalize.data['estado'], EstadoDocumento.FORMALIZED)
+        self.assertEqual(formalize.data['evidencia_formalizacion_ref'], FORMALIZATION_REF)
         self.assertTrue(AuditEvent.objects.filter(event_type='documentos.documento_emitido.formalized').exists())
 
     def test_formalized_document_cannot_be_mutated_from_generic_endpoint(self):
@@ -651,7 +699,7 @@ class DocumentosAPITests(APITestCase):
 
         formalize = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento['id']]),
-            {},
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_200_OK)
@@ -679,14 +727,17 @@ class DocumentosAPITests(APITestCase):
 
         first = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento['id']]),
-            {},
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
             format='json',
         )
         self.assertEqual(first.status_code, status.HTTP_200_OK)
 
         second = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento['id']]),
-            {'firma_arrendador_registrada': False},
+            {
+                'firma_arrendador_registrada': False,
+                'evidencia_formalizacion_ref': 'formalizacion-controlada-doc-002',
+            },
             format='json',
         )
 
@@ -706,7 +757,7 @@ class DocumentosAPITests(APITestCase):
         )
         formalize = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento['id']]),
-            {},
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_200_OK)
@@ -777,7 +828,7 @@ class DocumentosAPITests(APITestCase):
         )
         formalize = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento['id']]),
-            {},
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_200_OK)
@@ -833,6 +884,7 @@ class DocumentosAPITests(APITestCase):
             reverse('documentos-documento-formalizar', args=[documento['id']]),
             {
                 'recepcion_notarial_registrada': True,
+                'evidencia_formalizacion_ref': FORMALIZATION_REF,
                 'comprobante_notarial': receipt['id'],
             },
             format='json',
@@ -852,7 +904,7 @@ class DocumentosAPITests(APITestCase):
 
         formalize = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento['id']]),
-            {},
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
             format='json',
         )
 
@@ -871,7 +923,7 @@ class DocumentosAPITests(APITestCase):
 
         formalize = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento['id']]),
-            {},
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
             format='json',
         )
 
@@ -892,7 +944,7 @@ class DocumentosAPITests(APITestCase):
 
         formalize = self.client.post(
             reverse('documentos-documento-formalizar', args=[documento['id']]),
-            {},
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)

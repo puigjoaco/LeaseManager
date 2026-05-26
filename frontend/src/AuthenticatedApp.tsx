@@ -998,6 +998,7 @@ type DocumentoEmitidoItem = {
   firma_arrendatario_registrada: boolean
   firma_codeudor_registrada: boolean
   recepcion_notarial_registrada: boolean
+  evidencia_formalizacion_ref: string
   comprobante_notarial: number | null
   documento_origen: number | null
   correccion_ref: string
@@ -1576,6 +1577,7 @@ function App() {
     firma_arrendatario_registrada: true,
     firma_codeudor_registrada: false,
     recepcion_notarial_registrada: false,
+    evidencia_formalizacion_ref: '',
     comprobante_notarial: '',
   })
   const [gateCanalDraft, setGateCanalDraft] = useState({
@@ -2184,6 +2186,7 @@ function App() {
       firma_arrendatario_registrada: true,
       firma_codeudor_registrada: false,
       recepcion_notarial_registrada: false,
+      evidencia_formalizacion_ref: '',
       comprobante_notarial: '',
     })
     setGateCanalDraft({
@@ -4579,6 +4582,7 @@ function App() {
         firma_arrendatario_registrada: documentoFormalizarDraft.firma_arrendatario_registrada,
         firma_codeudor_registrada: documentoFormalizarDraft.firma_codeudor_registrada,
         recepcion_notarial_registrada: documentoFormalizarDraft.recepcion_notarial_registrada,
+        evidencia_formalizacion_ref: documentoFormalizarDraft.evidencia_formalizacion_ref,
         comprobante_notarial: documentoFormalizarDraft.comprobante_notarial || null,
       },
       'Documento formalizado correctamente.',

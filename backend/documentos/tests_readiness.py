@@ -20,6 +20,7 @@ from .readiness import collect_document_readiness
 
 VALID_SHA256 = 'a' * 64
 VALID_SHA256_ALT = 'b' * 64
+FORMALIZATION_REF = 'formalizacion-readiness-doc-001'
 
 
 def create_user(username='docs-readiness'):
@@ -405,6 +406,7 @@ class DocumentReadinessAuditTests(TestCase):
             storage_ref='storage/docs/formalized-no-audit.pdf',
             firma_arrendador_registrada=True,
             firma_arrendatario_registrada=True,
+            evidencia_formalizacion_ref=FORMALIZATION_REF,
         )
 
         result = collect_document_readiness(
@@ -439,6 +441,94 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertTrue(result['ready_for_stage5_documents'])
         self.assertNotIn('documents.formalization_audit_missing', {issue['code'] for issue in result['issues']})
 
+    def test_formalized_document_without_evidence_is_blocking(self):
+        create_all_active_policies()
+        user = create_user('docs-readiness-formalization-evidence')
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='formalized-no-evidence',
+            estado='abierto',
+            owner_operativo='manual:formalized-evidence',
+        )
+        document = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.FORMALIZED,
+            storage_ref='storage/docs/formalized-no-evidence.pdf',
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+        AuditEvent.objects.create(
+            event_type='documentos.documento_emitido.formalized',
+            entity_type='documento_emitido',
+            entity_id=str(document.pk),
+            summary='Documento formalizado',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.formalization_evidence_missing', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['documents']['formalized_without_evidence'], 1)
+
+    def test_formalized_document_sensitive_evidence_is_blocking_without_exposing_value(self):
+        create_all_active_policies()
+        user = create_user('docs-readiness-formalization-sensitive')
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='formalized-sensitive-evidence',
+            estado='abierto',
+            owner_operativo='manual:formalized-sensitive',
+        )
+        sensitive_ref = 'https://docs.example.test/formalizacion?token=secret'
+        document = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.FORMALIZED,
+            storage_ref='storage/docs/formalized-sensitive-evidence.pdf',
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+            evidencia_formalizacion_ref=sensitive_ref,
+        )
+        AuditEvent.objects.create(
+            event_type='documentos.documento_emitido.formalized',
+            entity_type='documento_emitido',
+            entity_id=str(document.pk),
+            summary='Documento formalizado',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
+        rendered = json.dumps(result)
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.formalization_evidence_sensitive', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['documents']['formalized_with_sensitive_evidence'], 1)
+        self.assertNotIn(sensitive_ref, rendered)
+
     def test_corrective_version_without_dedicated_audit_is_blocking(self):
         create_all_active_policies()
         user = create_user('docs-readiness-correction')
@@ -460,6 +550,7 @@ class DocumentReadinessAuditTests(TestCase):
             storage_ref='storage/docs/formalized-origin.pdf',
             firma_arrendador_registrada=True,
             firma_arrendatario_registrada=True,
+            evidencia_formalizacion_ref=FORMALIZATION_REF,
         )
         AuditEvent.objects.create(
             event_type='documentos.documento_emitido.formalized',
