@@ -32,7 +32,10 @@ condicionados sin envios reales accidentales.
   snapshots heredados sin plan trazable o con estado de plan incompatible.
 - Codigos residuales existentes deben usar formato canonico `CCR-XXXXXX` con
   caracteres mayusculos no ambiguos; la readiness debe bloquear snapshots que
-  conserven referencias fuera de formato.
+  conserven referencias fuera de formato. Tambien deben ser estrictamente
+  post-contrato: `fecha_activacion` debe ser posterior a
+  `Contrato.fecha_fin_vigente`; dominio, API y readiness bloquean codigos
+  heredados activos durante la vigencia del contrato origen.
 - Estados de cuenta existentes deben estar recalculados contra pagos abiertos,
   repactaciones activas, codigos residuales activos y score de pago; el resumen
   operativo debe exponer porcentaje, meses evaluados, pagos en plazo y pagos
