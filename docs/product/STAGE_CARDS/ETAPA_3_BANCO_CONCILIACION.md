@@ -94,9 +94,10 @@ sistema igual a saldo banco.
   fecha de cuadratura alineada al periodo economico, evidencia no sensible y
   responsable no sensible.
 - Las diferencias banco/sistema quedan registradas con motivo auditable, pero
-  no habilitan cierre: readiness bloquea cuadraturas faltantes, invalidas, con
-  referencias sensibles, con periodo/fecha desalineados, con diferencia
-  distinta de cero o sin estado `cuadrada`.
+  no habilitan cierre: readiness bloquea cuadraturas faltantes por
+  cuenta/periodo con movimientos, invalidas, con referencias sensibles, con
+  periodo/fecha desalineados, con diferencia distinta de cero o sin estado
+  `cuadrada`.
 - Saldo sistema igual a saldo banco antes de habilitar cierre.
 
 ## Salida
