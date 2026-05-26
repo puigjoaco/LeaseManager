@@ -24,6 +24,7 @@ from contabilidad.models import (
     MovimientoAsiento,
     ObligacionTributariaMensual,
 )
+from core.reference_validation import contains_sensitive_reference
 from sii.models import DDJJPreparacionAnual, F22PreparacionAnual, ProcesoRentaAnual, has_text
 
 
@@ -196,6 +197,8 @@ def _collect_annual_report_issues(processes, ddjj_preparations, f22_preparations
             counts['process_summary_missing'] += 1
         if _annual_summary_fiscal_year_mismatch(process.resumen_anual, process.anio_tributario):
             counts['process_fiscal_year_mismatch'] += 1
+        if contains_sensitive_reference(process.resumen_anual or {}, include_sensitive_keys=True):
+            counts['process_sensitive_payload'] += 1
 
         ddjj = ddjj_by_process.get(process.id)
         f22 = f22_by_process.get(process.id)
@@ -222,6 +225,8 @@ def _collect_annual_report_issues(processes, ddjj_preparations, f22_preparations
         ddjj_summary = ddjj.resumen_paquete.get('resumen_anual') if isinstance(ddjj.resumen_paquete, dict) else None
         if _annual_summary_fiscal_year_mismatch(ddjj_summary, ddjj.anio_tributario):
             counts['ddjj_summary_fiscal_year_mismatch'] += 1
+        if contains_sensitive_reference(ddjj.resumen_paquete or {}, include_sensitive_keys=True):
+            counts['ddjj_sensitive_payload'] += 1
         if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not has_text(ddjj.paquete_ref):
             counts['ddjj_ref_missing'] += 1
 
@@ -237,6 +242,8 @@ def _collect_annual_report_issues(processes, ddjj_preparations, f22_preparations
         f22_summary = f22.resumen_f22.get('resumen_anual') if isinstance(f22.resumen_f22, dict) else None
         if _annual_summary_fiscal_year_mismatch(f22_summary, f22.anio_tributario):
             counts['f22_summary_fiscal_year_mismatch'] += 1
+        if contains_sensitive_reference(f22.resumen_f22 or {}, include_sensitive_keys=True):
+            counts['f22_sensitive_payload'] += 1
         if f22.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not has_text(f22.borrador_ref):
             counts['f22_ref_missing'] += 1
 
@@ -493,6 +500,11 @@ def collect_stage7_reporting_readiness(
             'Existen procesos de renta anual con ejercicio distinto al ano tributario reportado.',
         ),
         (
+            'process_sensitive_payload',
+            'stage7.reporting.annual_process_sensitive_payload',
+            'Existen procesos de renta anual con resumen_anual sensible.',
+        ),
+        (
             'ddjj_missing_for_process',
             'stage7.reporting.annual_ddjj_missing_for_process',
             'Existen procesos de renta anual sin DDJJ asociada.',
@@ -543,6 +555,11 @@ def collect_stage7_reporting_readiness(
             'DDJJ contiene resumen anual de un ano comercial distinto al ano tributario reportado.',
         ),
         (
+            'ddjj_sensitive_payload',
+            'stage7.reporting.annual_ddjj_sensitive_payload',
+            'DDJJ contiene resumen_paquete sensible para reporting.',
+        ),
+        (
             'f22_summary_missing',
             'stage7.reporting.annual_f22_summary_missing',
             'F22 requiere resumen_f22 trazable para reporting.',
@@ -551,6 +568,11 @@ def collect_stage7_reporting_readiness(
             'f22_summary_fiscal_year_mismatch',
             'stage7.reporting.annual_f22_fiscal_year_mismatch',
             'F22 contiene resumen anual de un ano comercial distinto al ano tributario reportado.',
+        ),
+        (
+            'f22_sensitive_payload',
+            'stage7.reporting.annual_f22_sensitive_payload',
+            'F22 contiene resumen_f22 sensible para reporting.',
         ),
         (
             'ddjj_ref_missing',

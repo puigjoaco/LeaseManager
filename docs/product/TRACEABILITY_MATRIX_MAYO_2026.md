@@ -14,6 +14,12 @@ leer certificados. `ultimo_resultado`, `resumen_formulario`, `resumen_anual`,
 heredados sensibles sin imprimirlos y mantiene el cierre condicionado a fuente
 autorizada.
 
+Nota 2026-05-26: Renta Anual y Reporting clasifican explicitamente payloads
+anuales sensibles heredados. Los readiness de Etapa 6 y Etapa 7 reportan
+`resumen_anual`, `resumen_paquete` y `resumen_f22` con URLs, tokens,
+credenciales, correos o claves sensibles como brecha bloqueante sin imprimir
+valores, manteniendo el cierre condicionado a fuente autorizada.
+
 Nota 2026-05-26: CobranzaActiva y Canales endurecen los gates externos sin
 abrir integraciones. `restricciones_operativas` de Email/WhatsApp/WebPay
 rechaza valores sensibles y tambien nombres de claves sensibles como

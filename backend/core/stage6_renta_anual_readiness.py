@@ -15,6 +15,7 @@ from contabilidad.models import (
     EstadoRegistro,
     ObligacionTributariaMensual,
 )
+from core.reference_validation import contains_sensitive_reference
 from documentos.models import DocumentoEmitido, EstadoDocumento, TipoDocumental
 from sii.models import (
     AmbienteSII,
@@ -132,6 +133,8 @@ def _collect_process_issues(processes) -> dict[str, int]:
             counts['process_summary_missing'] += 1
         if _annual_summary_fiscal_year_mismatch(process.resumen_anual, process.anio_tributario):
             counts['process_fiscal_year_mismatch'] += 1
+        if contains_sensitive_reference(process.resumen_anual or {}, include_sensitive_keys=True):
+            counts['process_sensitive_payload'] += 1
 
         summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
         fiscal_year = _annual_summary_fiscal_year(summary) or process.anio_tributario - 1
@@ -174,6 +177,8 @@ def _collect_annual_document_issues(processes, ddjj_preparations, f22_preparatio
         ddjj_summary = ddjj.resumen_paquete.get('resumen_anual') if isinstance(ddjj.resumen_paquete, dict) else None
         if _annual_summary_fiscal_year_mismatch(ddjj_summary, ddjj.anio_tributario):
             counts['ddjj_summary_fiscal_year_mismatch'] += 1
+        if contains_sensitive_reference(ddjj.resumen_paquete or {}, include_sensitive_keys=True):
+            counts['ddjj_sensitive_payload'] += 1
         if ddjj.estado_preparacion in ANNUAL_REF_REQUIRED_STATES and not has_text(ddjj.paquete_ref):
             counts['ddjj_ref_missing'] += 1
 
@@ -191,6 +196,8 @@ def _collect_annual_document_issues(processes, ddjj_preparations, f22_preparatio
         f22_summary = f22.resumen_f22.get('resumen_anual') if isinstance(f22.resumen_f22, dict) else None
         if _annual_summary_fiscal_year_mismatch(f22_summary, f22.anio_tributario):
             counts['f22_summary_fiscal_year_mismatch'] += 1
+        if contains_sensitive_reference(f22.resumen_f22 or {}, include_sensitive_keys=True):
+            counts['f22_sensitive_payload'] += 1
         if f22.estado_preparacion in ANNUAL_REF_REQUIRED_STATES and not has_text(f22.borrador_ref):
             counts['f22_ref_missing'] += 1
 
@@ -440,6 +447,11 @@ def collect_stage6_renta_anual_readiness(
             'ProcesoRentaAnual tiene resumen_anual de un ano comercial distinto al ano tributario.',
         ),
         (
+            'process_sensitive_payload',
+            'stage6.annual_process_sensitive_payload',
+            'ProcesoRentaAnual contiene resumen_anual sensible.',
+        ),
+        (
             'twelve_closes_missing',
             'stage6.process_twelve_closes_missing',
             'Existen procesos anuales sin doce cierres aprobados del ano comercial.',
@@ -515,6 +527,11 @@ def collect_stage6_renta_anual_readiness(
             'DDJJ contiene resumen anual de un ano comercial distinto al ano tributario.',
         ),
         (
+            'ddjj_sensitive_payload',
+            'stage6.ddjj_sensitive_payload',
+            'DDJJ contiene resumen_paquete sensible.',
+        ),
+        (
             'f22_summary_missing',
             'stage6.f22_summary_missing',
             'F22 requiere resumen_f22 trazable.',
@@ -523,6 +540,11 @@ def collect_stage6_renta_anual_readiness(
             'f22_summary_fiscal_year_mismatch',
             'stage6.f22_summary_fiscal_year_mismatch',
             'F22 contiene resumen anual de un ano comercial distinto al ano tributario.',
+        ),
+        (
+            'f22_sensitive_payload',
+            'stage6.f22_sensitive_payload',
+            'F22 contiene resumen_f22 sensible.',
         ),
         (
             'ddjj_ref_missing',

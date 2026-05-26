@@ -37,6 +37,10 @@ cierres mensuales.
   empresas sin `ConfiguracionFiscalEmpresa` activa propia.
 - Los payloads anuales y referencias de DDJJ/F22 heredadas se entregan a
   reporting con redaccion antes de exponerse al backoffice.
+- `audit_stage6_renta_anual_readiness` clasifica como bloqueantes los payloads
+  anuales heredados con URLs, tokens, credenciales, correos o claves sensibles
+  en `resumen_anual`, `resumen_paquete` o `resumen_f22`, sin imprimir esos
+  valores.
 - `audit_stage6_renta_anual_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 6.
