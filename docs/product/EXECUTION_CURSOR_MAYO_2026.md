@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 7 - referencias sensibles en evidencia de release gate. |
+| Frente activo | Ninguno abierto en `main`; ultimo paquete cerrado: Etapa 7 - referencias sensibles en evidencia de release gate. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `run-stage7-readiness-gate.ps1` distingue refs ausentes de refs no sensibles, pero algunas evidencias de restore/smoke/aceptacion con refs sensibles quedan clasificadas como faltantes genericos. |
-| Motivo de prioridad | Operacion productiva debe diagnosticar evidencia sensible de cierre sin exponer valores y sin confundirla con ausencia de evidencia. |
-| Worktree | `D:/Proyectos/LeaseManager-stage7-sensitive-release-evidence-refs`. |
-| Rama | `codex/stage7-sensitive-release-evidence-refs`. |
-| Estado | En implementacion local segura. |
-| Gate esperado | Readiness Etapa 7 local queda `classification=parcial`, `ready_for_stage7_close=false`; no cierra Operacion productiva sin fuentes/evidencias autorizadas. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `run-stage7-readiness-gate.ps1` clasifique refs sensibles de restore, smoke publico y aceptacion final con codigos especificos sin exponer valores. |
+| Motivo de prioridad | El paquete cerro diagnostico de evidencia sensible en el release gate para no confundir referencias sensibles con faltantes genericos. |
+| Worktree | Ninguno tactico activo. |
+| Rama | `main`. |
+| Estado | Paquete validado, integrado y worktree tactico eliminado. |
+| Gate esperado | Si `main` esta limpio, elegir el siguiente frente seguro por trazabilidad y orden de construccion. No cerrar Operacion productiva sin fuentes/evidencias autorizadas. |
+| Estado al cerrar paquete | PR #349 mergeado en `main` como `4c92f88`; CI acceptance remoto OK; validacion local OK con parser PS, focal gate Etapa 7, acceptance 907 tests, frontend build, higiene y `git diff --check`. |
 | Bloqueos relacionados | Restore autorizado, smoke publico autorizado, Reporting autorizado, observabilidad runtime autorizada y aceptacion final siguen como condicion de cierre externo. |
-| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza o pausar explicitamente aqui. |
-| Siguiente accion | Implementar codigos especificos para refs sensibles en evidencia de restore, smoke publico y aceptacion final, cubrir acceptance y actualizar trazabilidad/evidencia. |
+| Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si `main` esta limpio, seleccionar el siguiente frente seguro desde trazabilidad. |
+| Siguiente accion | Seleccionar nuevo paquete pequeno, seguro y verificable segun cursor, PRD/stage cards, trazabilidad y bloqueos vigentes. |
 
 ## Actualizacion
 
