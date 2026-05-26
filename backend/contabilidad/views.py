@@ -34,6 +34,7 @@ from .serializers import (
     BalanceComprobacionSerializer,
     CierreMensualContableSerializer,
     CierreMensualPrepareSerializer,
+    CierreMensualReopenSerializer,
     ConfiguracionFiscalEmpresaSerializer,
     CuentaContableSerializer,
     EventoContableSerializer,
@@ -577,6 +578,8 @@ class CierreMensualReopenView(APIView):
     permission_classes = [ControlModulePermission]
 
     def post(self, request, pk):
+        serializer = CierreMensualReopenSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
         close = generics.get_object_or_404(
             scope_queryset_for_user(
                 CierreMensualContable.objects.all(),
@@ -586,7 +589,7 @@ class CierreMensualReopenView(APIView):
             pk=pk,
         )
         try:
-            close = reopen_monthly_close(close)
+            close, effect = reopen_monthly_close(close, **serializer.validated_data)
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
         create_audit_event(
@@ -594,6 +597,7 @@ class CierreMensualReopenView(APIView):
             entity_type='cierre_mensual_contable',
             entity_id=str(close.pk),
             summary='Cierre mensual reabierto',
+            metadata={'efecto_reapertura_id': effect.pk, 'evento_contable_id': effect.evento_contable_id},
             actor_user=request.user,
             ip_address=request.META.get('REMOTE_ADDR'),
         )

@@ -20,6 +20,7 @@ from .models import (
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
     CuentaContable,
+    EfectoReaperturaCierreMensual,
     EstadoAsientoContable,
     EstadoCierreMensual,
     EstadoEventoContable,
@@ -34,6 +35,7 @@ from .models import (
     PoliticaReversoContable,
     RegimenTributarioEmpresa,
     ReglaContable,
+    TipoEfectoReaperturaCierre,
     TipoMovimientoAsiento,
     has_text,
 )
@@ -41,10 +43,22 @@ from .models import (
 
 DEFAULT_REGIME_CODE = 'EmpresaContabilidadCompletaV1'
 MONTHLY_CLOSE_REOPEN_POLICY_TYPE = 'reapertura_cierre_mensual'
+MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE = 'ReaperturaCierreMensualReverso'
+MONTHLY_CLOSE_REOPEN_COMPLEMENTARY_EVENT_TYPE = 'ReaperturaCierreMensualComplementario'
+MONTHLY_CLOSE_REOPEN_EFFECT_EVENT_TYPES = {
+    TipoEfectoReaperturaCierre.REVERSAL: MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE,
+    TipoEfectoReaperturaCierre.COMPLEMENTARY_ENTRY: MONTHLY_CLOSE_REOPEN_COMPLEMENTARY_EVENT_TYPE,
+}
 
 
 def period_date_bounds(anio, mes):
     return date(anio, mes, 1), date(anio, mes, monthrange(anio, mes)[1])
+
+
+def next_period_start(anio, mes):
+    if mes == 12:
+        return date(anio + 1, 1, 1)
+    return date(anio, mes + 1, 1)
 
 
 def _effective_company_allocations_for_community(comunidad, amount, effective_date):
@@ -698,18 +712,88 @@ def get_active_monthly_close_reopen_policy(empresa):
 
 
 def assert_monthly_close_reopen_allowed(close):
-    if not get_active_monthly_close_reopen_policy(close.empresa):
+    policy = get_active_monthly_close_reopen_policy(close.empresa)
+    if not policy:
         raise ValueError(
             'Reapertura de cierre mensual requiere politica activa que permita reapertura y exija aprobacion.'
         )
+    return policy
 
 
 @transaction.atomic
-def reopen_monthly_close(close):
+def reopen_monthly_close(close, *, tipo_efecto, monto_efecto, motivo, efecto_esperado, evidencia_ref):
     if close.estado != EstadoCierreMensual.APPROVED:
         raise ValueError('Solo se puede reabrir un cierre mensual aprobado.')
-    assert_monthly_close_reopen_allowed(close)
+    policy = assert_monthly_close_reopen_allowed(close)
+    tipo_efecto = str(tipo_efecto or '').strip()
+    if tipo_efecto not in MONTHLY_CLOSE_REOPEN_EFFECT_EVENT_TYPES:
+        raise ValueError('La reapertura requiere tipo_efecto reverso o asiento_complementario.')
+    if tipo_efecto == TipoEfectoReaperturaCierre.REVERSAL and not policy.usa_reverso:
+        raise ValueError('La politica activa no permite reverso para esta reapertura.')
+    if tipo_efecto == TipoEfectoReaperturaCierre.COMPLEMENTARY_ENTRY and not policy.usa_asiento_complementario:
+        raise ValueError('La politica activa no permite asiento complementario para esta reapertura.')
+
+    monto_efecto = Decimal(str(monto_efecto))
+    if monto_efecto <= Decimal('0.00'):
+        raise ValueError('La reapertura requiere monto_efecto mayor que cero.')
+
+    event_type = MONTHLY_CLOSE_REOPEN_EFFECT_EVENT_TYPES[tipo_efecto]
+    sequence = close.efectos_reapertura.count() + 1
+    event = EventoContable.objects.create(
+        empresa=close.empresa,
+        evento_tipo=event_type,
+        entidad_origen_tipo='cierre_mensual_contable',
+        entidad_origen_id=str(close.pk),
+        fecha_operativa=next_period_start(close.anio, close.mes),
+        moneda='CLP',
+        monto_base=monto_efecto,
+        payload_resumen={
+            'cierre_mensual_contable_id': close.pk,
+            'periodo_reabierto': f'{close.anio:04d}-{close.mes:02d}',
+            'tipo_efecto': tipo_efecto,
+            'motivo': motivo,
+            'efecto_esperado': efecto_esperado,
+            'evidencia_ref': evidencia_ref,
+            'politica_reverso_contable_id': policy.pk,
+        },
+        idempotency_key=f'{event_type}:{close.pk}:{sequence}',
+    )
+    event.full_clean()
+    asiento = post_accounting_event(event)
+    if asiento is None or event.estado_contable != EstadoEventoContable.POSTED:
+        raise ValueError(
+            'La reapertura requiere regla y matriz activas para contabilizar el efecto posterior al cierre.'
+        )
+
+    effect = EfectoReaperturaCierreMensual(
+        cierre=close,
+        politica_reverso=policy,
+        evento_contable=event,
+        tipo_efecto=tipo_efecto,
+        monto_efecto=monto_efecto,
+        motivo=motivo,
+        efecto_esperado=efecto_esperado,
+        evidencia_ref=evidencia_ref,
+    )
+    effect.full_clean()
+    effect.save()
+
     update_ledger_snapshot_state(close.empresa, close.anio, close.mes, EstadoCierreMensual.REOPENED)
+    reopen_trace = {
+        'efecto_reapertura_id': effect.pk,
+        'evento_contable_id': event.pk,
+        'asiento_contable_id': asiento.pk,
+        'tipo_efecto': tipo_efecto,
+        'monto_efecto': str(monto_efecto),
+        'motivo': motivo,
+        'efecto_esperado': efecto_esperado,
+        'evidencia_ref': evidencia_ref,
+        'politica_reverso_contable_id': policy.pk,
+    }
+    close.resumen_obligaciones = {
+        **(close.resumen_obligaciones or {}),
+        'reapertura': reopen_trace,
+    }
     close.estado = EstadoCierreMensual.REOPENED
-    close.save(update_fields=['estado', 'updated_at'])
-    return close
+    close.save(update_fields=['resumen_obligaciones', 'estado', 'updated_at'])
+    return close, effect

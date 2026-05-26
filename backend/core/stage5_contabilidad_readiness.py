@@ -12,6 +12,7 @@ from contabilidad.models import (
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
     CuentaContable,
+    EfectoReaperturaCierreMensual,
     EstadoAsientoContable,
     EstadoCierreMensual,
     EstadoEventoContable,
@@ -230,6 +231,12 @@ def collect_stage5_contabilidad_readiness(
         estado__in=[EstadoCierreMensual.PREPARED, EstadoCierreMensual.APPROVED]
     )
     approved_closes = closes.filter(estado=EstadoCierreMensual.APPROVED)
+    reopened_closes = closes.filter(estado=EstadoCierreMensual.REOPENED)
+    reopen_effects = EfectoReaperturaCierreMensual.objects.select_related(
+        'cierre',
+        'politica_reverso',
+        'evento_contable',
+    )
     libro_diario_snapshots = LibroDiario.objects.all()
     libro_mayor_snapshots = LibroMayor.objects.all()
     balance_snapshots = BalanceComprobacion.objects.all()
@@ -253,6 +260,17 @@ def collect_stage5_contabilidad_readiness(
     )
     approved_closes_without_reopen_policy = sum(
         1 for close in approved_closes if not get_active_monthly_close_reopen_policy(close.empresa)
+    )
+    reopened_closes_without_effect = sum(1 for close in reopened_closes if not close.efectos_reapertura.exists())
+    reopen_effects_without_posted_event = reopen_effects.exclude(
+        evento_contable__estado_contable=EstadoEventoContable.POSTED
+    ).count()
+    reopen_effects_sensitive_references = sum(
+        [
+            _count_sensitive_references(reopen_effects, 'evidencia_ref'),
+            _count_sensitive_payloads(reopen_effects, 'motivo'),
+            _count_sensitive_payloads(reopen_effects, 'efecto_esperado'),
+        ]
     )
 
     final_evidence = {
@@ -495,6 +513,30 @@ def collect_stage5_contabilidad_readiness(
                 count=approved_closes_without_reopen_policy,
             )
         )
+    if reopened_closes_without_effect:
+        issues.append(
+            _issue(
+                'stage5.reopened_close_effect_missing',
+                'Existen cierres reabiertos sin reverso o asiento complementario trazable.',
+                count=reopened_closes_without_effect,
+            )
+        )
+    if reopen_effects_without_posted_event:
+        issues.append(
+            _issue(
+                'stage5.reopen_effect_event_not_posted',
+                'Existen efectos de reapertura sin evento contable contabilizado.',
+                count=reopen_effects_without_posted_event,
+            )
+        )
+    if reopen_effects_sensitive_references:
+        issues.append(
+            _issue(
+                'stage5.reopen_effect_sensitive_reference',
+                'Existen efectos de reapertura con motivo, efecto esperado o evidencia sensible.',
+                count=reopen_effects_sensitive_references,
+            )
+        )
 
     for key, code, message in [
         (
@@ -614,8 +656,13 @@ def collect_stage5_contabilidad_readiness(
                 'closes_total': closes.count(),
                 'closes_by_state': _count_by(closes, 'estado'),
                 'approved_closes': approved_closes.count(),
+                'reopened_closes': reopened_closes.count(),
                 'monthly_close_reopen_policies_active': monthly_close_reopen_policies.count(),
                 'approved_closes_without_reopen_policy': approved_closes_without_reopen_policy,
+                'reopen_effects_total': reopen_effects.count(),
+                'reopened_closes_without_effect': reopened_closes_without_effect,
+                'reopen_effects_without_posted_event': reopen_effects_without_posted_event,
+                'reopen_effects_sensitive_references': reopen_effects_sensitive_references,
                 'close_sensitive_payloads': close_sensitive_payloads,
                 'obligations_total': obligations.count(),
                 'obligations_by_state': _count_by(obligations, 'estado_preparacion'),
