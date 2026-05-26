@@ -33,6 +33,9 @@ documentos o procesos tributarios trazables.
 - `audit_stage7_reporting_readiness` reporta payloads anuales sensibles en
   `resumen_anual`, `resumen_paquete` y `resumen_f22` como brecha bloqueante de
   reporting, manteniendo solo conteos/codigos y sin exponer valores.
+- `audit_stage7_reporting_readiness` tambien clasifica explicitamente como
+  bloqueantes las referencias finales sensibles de ProcesoRentaAnual, DDJJ y
+  F22, sin exponer esos valores.
 - Si falta alguno de esos origenes, la API responde con bloqueo de
   trazabilidad y no entrega el reporte como valido.
 - `audit_stage7_reporting_readiness` consolida readiness local de resumen
