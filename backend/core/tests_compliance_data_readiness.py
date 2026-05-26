@@ -158,10 +158,35 @@ class ComplianceDataReadinessTests(TestCase):
         self._create_valid_export()
 
         result = self._collect_with_final_refs(policy_approval_ref='https://example.test/policy?token=secret')
+        issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_compliance_data'])
-        self.assertIn('compliance.policy_approval_ref_missing', {issue['code'] for issue in result['issues']})
+        self.assertIn('compliance.policy_approval_ref_sensitive', issue_codes)
+        self.assertNotIn('compliance.policy_approval_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['final_evidence_sensitive']['policy_approval_ref'])
+        self.assertFalse(result['sections']['final_evidence']['policy_approval_ref'])
         self.assertNotIn('example.test', json.dumps(result))
+
+    def test_sensitive_source_trace_refs_do_not_close_readiness(self):
+        self._create_policies()
+        self._create_valid_export()
+
+        result = self._collect_with_final_refs(
+            source_label='https://source.example.test/dump?token=secret',
+            authorization_ref='bearer-token-secret',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.source_label_sensitive', issue_codes)
+        self.assertIn('compliance.authorization_ref_sensitive', issue_codes)
+        self.assertNotIn('compliance.source_label_missing', issue_codes)
+        self.assertNotIn('compliance.authorization_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['source_trace_sensitive']['source_label'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+        self.assertNotIn('source.example.test', json.dumps(result))
 
     def test_retention_hold_and_purge_controls_are_blocking(self):
         self._create_policies()
