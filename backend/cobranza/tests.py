@@ -38,6 +38,7 @@ from .models import (
     GateCobroExterno,
     GarantiaContractual,
     IntentoPagoWebPay,
+    MANUAL_UF_LOAD_EVENT_TYPE,
     PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
     PagoMensual,
     RepactacionDeuda,
@@ -306,6 +307,47 @@ class CobranzaAPITests(APITestCase):
             response = client.get(url) if ('generar' not in url and 'recalcular' not in url) else client.post(url, {}, format='json')
             self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_manual_uf_requires_traceable_provenance(self):
+        response = self.client.post(
+            reverse('cobranza-valor-uf-list'),
+            {
+                'fecha': '2026-01-01',
+                'valor': '35000.0000',
+                'source_key': 'manual',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('evidencia_ref', response.data)
+        self.assertIn('motivo_carga', response.data)
+        self.assertIn('responsable_ref', response.data)
+
+    def test_manual_uf_records_auditable_trace(self):
+        response = self.client.post(
+            reverse('cobranza-valor-uf-list'),
+            {
+                'fecha': '2026-01-01',
+                'valor': '35000.0000',
+                'source_key': 'manual',
+                'evidencia_ref': 'uf-manual-evidence-2026-01-01',
+                'motivo_carga': 'Falla total de fuentes automaticas registrada para demo controlada.',
+                'responsable_ref': 'ops-uf-responsible-001',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['evidencia_ref'], 'uf-manual-evidence-2026-01-01')
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=MANUAL_UF_LOAD_EVENT_TYPE,
+                entity_type='valor_uf_diario',
+                entity_id=str(response.data['id']),
+                actor_user=self.user,
+            ).exists()
+        )
+
     def test_generate_clp_payment_applies_effective_code(self):
         contrato = self._create_active_contract(codigo='CON-CLP', monto_base='523456.00', code='042')
 
@@ -475,7 +517,14 @@ class CobranzaAPITests(APITestCase):
 
     def test_generate_uf_payment_applies_adjustments_before_effective_code(self):
         contrato = self._create_active_contract(codigo='CON-UF-OK', moneda='UF', monto_base='10.00', code='123')
-        ValorUFDiario.objects.create(fecha='2026-01-01', valor='35000.0000', source_key='manual')
+        ValorUFDiario.objects.create(
+            fecha='2026-01-01',
+            valor='35000.0000',
+            source_key='manual',
+            evidencia_ref='uf-manual-evidence-2026-01-01',
+            motivo_carga='Carga manual controlada para prueba local.',
+            responsable_ref='ops-uf-responsible-001',
+        )
         AjusteContrato.objects.create(
             contrato=contrato,
             tipo_ajuste='cargo_extra',

@@ -4,10 +4,12 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from cobranza.models import PagoMensual, ValorUFDiario
+from audit.services import create_audit_event
+from cobranza.models import MANUAL_UF_LOAD_EVENT_TYPE, MANUAL_UF_SOURCE_KEYS, PagoMensual, ValorUFDiario
 from cobranza.services import calculate_monthly_amount, rebuild_account_state, sync_payment_distribution
 from contratos.models import Arrendatario, Contrato
 
@@ -58,6 +60,21 @@ class Command(BaseCommand):
             default="bootstrap_demo_operational_data",
             help="source_key para valores UF insertados o actualizados.",
         )
+        parser.add_argument(
+            "--uf-evidence-ref",
+            default="",
+            help="Referencia no sensible de evidencia para cargas UF manuales.",
+        )
+        parser.add_argument(
+            "--uf-motive",
+            default="",
+            help="Motivo auditable para cargas UF manuales.",
+        )
+        parser.add_argument(
+            "--uf-responsible-ref",
+            default="",
+            help="Referencia no sensible al responsable de cargas UF manuales.",
+        )
 
     def handle(self, *args, **options):
         months = self._parse_months(options.get("months") or [])
@@ -66,16 +83,36 @@ class Command(BaseCommand):
 
         uf_values = self._parse_uf_values(options.get("uf_values") or [])
         source_key = options["source_key"]
+        uf_evidence_ref = options["uf_evidence_ref"]
+        uf_motive = options["uf_motive"]
+        uf_responsible_ref = options["uf_responsible_ref"]
+        if source_key in MANUAL_UF_SOURCE_KEYS and not all([uf_evidence_ref, uf_motive, uf_responsible_ref]):
+            raise CommandError(
+                "La carga manual UF requiere --uf-evidence-ref, --uf-motive y --uf-responsible-ref."
+            )
         company_ids = options.get("company_ids") or []
         skip_account_state_rebuild = options["skip_account_state_rebuild"]
 
         uf_created = 0
         uf_updated = 0
         for uf_date, uf_value in uf_values.items():
-            _, created = ValorUFDiario.objects.update_or_create(
-                fecha=uf_date,
-                defaults={"valor": uf_value, "source_key": source_key},
-            )
+            uf_record = ValorUFDiario.objects.filter(fecha=uf_date).first()
+            created = uf_record is None
+            if created:
+                uf_record = ValorUFDiario(fecha=uf_date)
+            previous_trace = self._manual_uf_trace(uf_record)
+            uf_record.valor = uf_value
+            uf_record.source_key = source_key
+            uf_record.evidencia_ref = uf_evidence_ref
+            uf_record.motivo_carga = uf_motive
+            uf_record.responsable_ref = uf_responsible_ref
+            try:
+                uf_record.full_clean()
+            except ValidationError as error:
+                raise CommandError(f"Valor UF invalido para {uf_date}: {error}") from error
+            uf_record.save()
+            if uf_record.requiere_auditoria_manual and self._manual_uf_trace(uf_record) != previous_trace:
+                self._create_manual_uf_audit_event(uf_record)
             if created:
                 uf_created += 1
             else:
@@ -182,3 +219,29 @@ class Command(BaseCommand):
                 raise CommandError(f"Valor UF invalido: {raw_value}.") from error
             values[uf_date] = uf_amount
         return values
+
+    def _manual_uf_trace(self, uf_record: ValorUFDiario) -> tuple[str, str, str, str]:
+        if not uf_record.pk or not uf_record.requiere_auditoria_manual:
+            return ('', '', '', '')
+        return (
+            str(uf_record.source_key or '').strip(),
+            str(uf_record.evidencia_ref or '').strip(),
+            str(uf_record.motivo_carga or '').strip(),
+            str(uf_record.responsable_ref or '').strip(),
+        )
+
+    def _create_manual_uf_audit_event(self, uf_record: ValorUFDiario) -> None:
+        create_audit_event(
+            event_type=MANUAL_UF_LOAD_EVENT_TYPE,
+            entity_type='valor_uf_diario',
+            entity_id=str(uf_record.pk),
+            summary=f'Valor UF manual auditado para {uf_record.fecha.isoformat()}',
+            actor_identifier='bootstrap_demo_operational_data',
+            metadata={
+                'fecha': uf_record.fecha.isoformat(),
+                'valor': str(uf_record.valor),
+                'source_key': uf_record.source_key.strip(),
+                'evidencia_ref': uf_record.evidencia_ref.strip(),
+                'responsable_ref': uf_record.responsable_ref.strip(),
+            },
+        )

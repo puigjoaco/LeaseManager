@@ -95,11 +95,33 @@ class RedactReferenceFieldsMixin:
         return data
 
 
-class ValorUFDiarioSerializer(serializers.ModelSerializer):
+class ValorUFDiarioSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('evidencia_ref', 'motivo_carga', 'responsable_ref')
+
     class Meta:
         model = ValorUFDiario
-        fields = ('id', 'fecha', 'valor', 'source_key', 'created_at', 'updated_at')
+        fields = (
+            'id',
+            'fecha',
+            'valor',
+            'source_key',
+            'evidencia_ref',
+            'motivo_carga',
+            'responsable_ref',
+            'created_at',
+            'updated_at',
+        )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, ValorUFDiario)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
 
 
 class AjusteContratoSerializer(serializers.ModelSerializer):

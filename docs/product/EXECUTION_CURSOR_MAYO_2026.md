@@ -23,17 +23,17 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Ninguno. |
-| Fuente exacta | Pendiente de seleccionar desde trazabilidad vigente, PRD, stage cards y auditoria de producto. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | No hay paquete tactico en curso; el siguiente avance debe elegirse desde el estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Sin paquete abierto. |
-| Gate esperado | Definir segun el siguiente frente seguro seleccionado. |
-| Estado al cerrar paquete | PR #302 mergeado en `main` con merge `1fadab8`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
-| Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
-| Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Elegir el siguiente paquete util, seguro y verificable desde trazabilidad vigente; abrir worktree `codex/...` si el cambio no es trivial. |
+| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards vigentes y estado real del repo. |
+| Brecha activa | Ninguna abierta en cursor. Ultimo paquete preparado: Etapa 2 / CobranzaActiva - trazabilidad de UF manual. |
+| Motivo de prioridad | Mantener el siguiente frente gobernado por trazabilidad y worktree limpio, no por memoria de conversacion. |
+| Worktree | Root principal `D:/Proyectos/LeaseManager` cuando main quede sincronizado. |
+| Rama | `main`. |
+| Estado | Esperando siguiente paquete seguro despues de integracion/limpieza. |
+| Gate esperado | Definirlo al abrir el siguiente frente, segun modulo afectado. |
+| Estado al cerrar paquete | UF manual validada localmente: focales, suite impactada, readiness Etapa 1/2, build frontend, acceptance local, higiene y whitespace OK. |
+| Bloqueos relacionados | Integraciones UF reales siguen bajo `BLK-003`; no bloquean preparacion local y solo condicionan cierre evidencial. |
+| Politica de reanudacion | Si existe un worktree `codex/...` sucio, terminarlo o pausarlo aqui antes de abrir otro frente. Si main esta limpio, tomar el siguiente frente desde trazabilidad. |
+| Siguiente accion | Tras merge y limpieza, seleccionar el siguiente paquete seguro por matriz trazable. |
 
 ## Actualizacion
 

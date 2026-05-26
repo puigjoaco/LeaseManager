@@ -16,9 +16,9 @@ from .models import (
 
 @admin.register(ValorUFDiario)
 class ValorUFDiarioAdmin(admin.ModelAdmin):
-    list_display = ('fecha', 'valor', 'source_key')
+    list_display = ('fecha', 'valor', 'source_key', 'responsable_ref')
     list_filter = ('source_key',)
-    search_fields = ('source_key',)
+    search_fields = ('source_key', 'evidencia_ref', 'responsable_ref')
 
 
 @admin.register(AjusteContrato)

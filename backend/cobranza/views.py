@@ -30,6 +30,7 @@ from .models import (
     GarantiaContractual,
     HistorialGarantia,
     IntentoPagoWebPay,
+    MANUAL_UF_LOAD_EVENT_TYPE,
     PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
     PagoMensual,
     RepactacionDeuda,
@@ -80,6 +81,22 @@ def _partial_repayment_exception_trace(instance):
     )
 
 
+def _manual_uf_trace(instance):
+    if not isinstance(instance, ValorUFDiario) or not instance.requiere_auditoria_manual:
+        return ''
+    return '|'.join(
+        [
+            str(instance.pk or ''),
+            str(instance.fecha or ''),
+            str(instance.valor or ''),
+            instance.source_key.strip(),
+            instance.evidencia_ref.strip(),
+            instance.motivo_carga.strip(),
+            instance.responsable_ref.strip(),
+        ]
+    )
+
+
 def create_partial_repayment_exception_event(instance, request):
     if not instance.es_repactacion_parcial:
         return
@@ -100,6 +117,26 @@ def create_partial_repayment_exception_event(instance, request):
     )
 
 
+def create_manual_uf_load_event(instance, request):
+    if not instance.requiere_auditoria_manual:
+        return
+    create_audit_event(
+        event_type=MANUAL_UF_LOAD_EVENT_TYPE,
+        entity_type='valor_uf_diario',
+        entity_id=str(instance.pk),
+        summary=f'Valor UF manual auditado para {instance.fecha.isoformat()}',
+        actor_user=request.user,
+        ip_address=request.META.get('REMOTE_ADDR'),
+        metadata={
+            'fecha': instance.fecha.isoformat(),
+            'valor': str(instance.valor),
+            'source_key': instance.source_key.strip(),
+            'evidencia_ref': instance.evidencia_ref.strip(),
+            'responsable_ref': instance.responsable_ref.strip(),
+        },
+    )
+
+
 class AuditCreateUpdateMixin:
     audit_entity_type = ''
     audit_entity_label = ''
@@ -109,16 +146,22 @@ class AuditCreateUpdateMixin:
             instance = serializer.save()
             if isinstance(instance, RepactacionDeuda):
                 create_partial_repayment_exception_event(instance, self.request)
+            if isinstance(instance, ValorUFDiario):
+                create_manual_uf_load_event(instance, self.request)
         self._create_audit_event(instance=instance, action='created')
 
     def perform_update(self, serializer):
         previous_state = self._extract_state(serializer.instance)
         previous_repayment_trace = _partial_repayment_exception_trace(serializer.instance)
+        previous_manual_uf_trace = _manual_uf_trace(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
             current_repayment_trace = _partial_repayment_exception_trace(instance)
             if isinstance(instance, RepactacionDeuda) and current_repayment_trace and current_repayment_trace != previous_repayment_trace:
                 create_partial_repayment_exception_event(instance, self.request)
+            current_manual_uf_trace = _manual_uf_trace(instance)
+            if isinstance(instance, ValorUFDiario) and current_manual_uf_trace and current_manual_uf_trace != previous_manual_uf_trace:
+                create_manual_uf_load_event(instance, self.request)
         self._create_audit_event(instance=instance, action='updated')
         if previous_state != self._extract_state(instance):
             self._create_audit_event(
@@ -224,6 +267,9 @@ class CobranzaSnapshotView(APIView):
                         'fecha': item.fecha,
                         'valor': item.valor,
                         'source_key': item.source_key,
+                        'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                        'motivo_carga': redact_sensitive_reference(item.motivo_carga),
+                        'responsable_ref': redact_sensitive_reference(item.responsable_ref),
                     }
                     for item in valores_uf
                 ],

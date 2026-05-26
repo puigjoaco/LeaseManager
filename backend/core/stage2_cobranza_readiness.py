@@ -31,9 +31,11 @@ from cobranza.models import (
     EstadoPago,
     GateCobroExterno,
     IntentoPagoWebPay,
+    MANUAL_UF_LOAD_EVENT_TYPE,
     PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
     PagoMensual,
     RepactacionDeuda,
+    ValorUFDiario,
 )
 from cobranza.services import build_account_state_summary
 from contratos.models import (
@@ -100,6 +102,44 @@ def _partial_repayment_exception_event_is_complete(repayment: RepactacionDeuda) 
             continue
         return True
     return False
+
+
+def _manual_uf_load_event_is_complete(uf_value: ValorUFDiario) -> bool:
+    if not uf_value.requiere_auditoria_manual:
+        return True
+    events = AuditEvent.objects.filter(
+        event_type=MANUAL_UF_LOAD_EVENT_TYPE,
+        entity_type='valor_uf_diario',
+        entity_id=str(uf_value.pk),
+    )
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if not event.actor_user_id and not event.actor_identifier.strip():
+            continue
+        if str(metadata.get('evidencia_ref') or '').strip() != uf_value.evidencia_ref.strip():
+            continue
+        if str(metadata.get('responsable_ref') or '').strip() != uf_value.responsable_ref.strip():
+            continue
+        if not _non_sensitive_reference(metadata.get('evidencia_ref') or ''):
+            continue
+        if not _non_sensitive_reference(metadata.get('responsable_ref') or ''):
+            continue
+        return True
+    return False
+
+
+def _collect_uf_value_issues(uf_values) -> dict[str, int]:
+    counts = Counter()
+    for uf_value in uf_values:
+        try:
+            uf_value.full_clean()
+        except ValidationError:
+            counts['invalid_model'] += 1
+        if uf_value.requiere_auditoria_manual:
+            counts['manual_values'] += 1
+            if not _manual_uf_load_event_is_complete(uf_value):
+                counts['manual_without_audit_event'] += 1
+    return dict(sorted(counts.items()))
 
 
 def _collect_repayment_issues(repayments) -> dict[str, int]:
@@ -588,6 +628,8 @@ def collect_stage2_cobranza_readiness(
     payment_overdue_issues = _collect_payment_overdue_issues(payments, reference_date)
     payment_repayment_issues = _collect_payment_repayment_trace_issues(payments)
     payments_total = payments.count()
+    uf_values = ValorUFDiario.objects.all()
+    uf_value_issues = _collect_uf_value_issues(uf_values)
     repayments = RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen')
     repayment_issues = _collect_repayment_issues(repayments)
     invalid_repayments = repayment_issues.get('invalid_model', 0)
@@ -708,6 +750,22 @@ def collect_stage2_cobranza_readiness(
                 'stage2.payment.paid_via_repayment_plan_not_completed',
                 'Existen pagos pagados via repactacion cuyo plan no esta cumplido.',
                 count=payment_repayment_issues['paid_via_repayment_plan_not_completed'],
+            )
+        )
+    if uf_value_issues.get('invalid_model'):
+        issues.append(
+            _issue(
+                'stage2.uf_value.invalid_model',
+                'Existen valores UF que no pasan validacion de dominio/procedencia.',
+                count=uf_value_issues['invalid_model'],
+            )
+        )
+    if uf_value_issues.get('manual_without_audit_event'):
+        issues.append(
+            _issue(
+                'stage2.uf_value.manual_audit_missing',
+                'Existen valores UF cargados manualmente sin evento auditable con actor y refs trazables.',
+                count=uf_value_issues['manual_without_audit_event'],
             )
         )
     if invalid_repayments:
@@ -1190,6 +1248,11 @@ def collect_stage2_cobranza_readiness(
                 'reference_date': reference_date.isoformat(),
                 **payment_overdue_issues,
                 **payment_repayment_issues,
+            },
+            'uf_values': {
+                'total': uf_values.count(),
+                'by_source_key': _count_by(uf_values, 'source_key'),
+                **uf_value_issues,
             },
             'account_states': {
                 'total': account_states.count(),
