@@ -628,7 +628,9 @@ class ContratoSerializer(serializers.ModelSerializer):
         model_attrs.pop('codeudores_solidarios', None)
         for field, value in model_attrs.items():
             setattr(candidate, field, value)
-        candidate._common_expense_primary_property_id = self._primary_property_id(contrato_propiedades)
+        primary_property_id = self._primary_property_id(contrato_propiedades)
+        candidate._common_expense_primary_property_id = primary_property_id
+        candidate._future_contract_primary_property_id = primary_property_id
 
         try:
             candidate.full_clean()

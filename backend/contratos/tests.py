@@ -268,6 +268,23 @@ class ContratosAPITests(APITestCase):
             ],
         }
 
+    def _future_contract_model_candidate(self, mandato, arrendatario, codigo='CTR-FUTURE-MODEL'):
+        contrato = Contrato(
+            codigo_contrato=codigo,
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio=date(2027, 1, 1),
+            fecha_fin_vigente=date(2027, 12, 31),
+            fecha_entrega=date(2027, 1, 1),
+            dia_pago_mensual=5,
+            plazo_notificacion_termino_dias=60,
+            dias_prealerta_admin=90,
+            estado=EstadoContrato.FUTURE,
+            politica_documental=self.contract_policy,
+        )
+        contrato._future_contract_primary_property_id = mandato.propiedad_id
+        return contrato
+
     def test_auth_is_required_for_contract_list_endpoints(self):
         client = self.client_class()
         urls = [
@@ -1864,6 +1881,47 @@ class ContratosAPITests(APITestCase):
 
         response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_future_contract_full_clean_requires_registered_notice_or_termination(self):
+        mandato = self._create_active_mandato(codigo='MAND-105-MODEL', owner_rut='12121210-8')
+        arrendatario = self._create_arrendatario(rut='13131310-7')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-105-MODEL-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        future_contract = self._future_contract_model_candidate(
+            mandato,
+            arrendatario,
+            codigo='CTR-105-MODEL-F',
+        )
+
+        with self.assertRaises(ValidationError) as error_context:
+            future_contract.full_clean()
+
+        self.assertIn('estado', error_context.exception.message_dict)
+
+    def test_future_contract_full_clean_accepts_registered_notice(self):
+        mandato = self._create_active_mandato(codigo='MAND-106-MODEL', owner_rut='14141410-5')
+        arrendatario = self._create_arrendatario(rut='15151510-1')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-106-MODEL-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+        current_contract = Contrato.objects.get(pk=current_response.data['id'])
+        AvisoTermino.objects.create(
+            contrato=current_contract,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='No renovacion',
+            estado=EstadoAvisoTermino.REGISTERED,
+            registrado_por=self.user,
+        )
+
+        future_contract = self._future_contract_model_candidate(
+            mandato,
+            arrendatario,
+            codigo='CTR-106-MODEL-F',
+        )
+
+        future_contract.full_clean()
 
     def test_future_contract_succeeds_after_registered_notice(self):
         mandato = self._create_active_mandato(codigo='MAND-106', owner_rut='14141414-7')

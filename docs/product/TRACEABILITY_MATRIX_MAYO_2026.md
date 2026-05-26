@@ -59,6 +59,13 @@ estado de contacto activo, email o telefono, domicilio de notificaciones y
 contacto de pago activo estructurado desde `Contrato.full_clean()` y API; el
 auditor Etapa 1 conserva la deteccion de snapshots heredados.
 
+Nota 2026-05-26: Contratos mueve el respaldo de cierre para contratos futuros
+a guard de dominio. `Contrato.full_clean()` valida que un contrato futuro
+tenga AvisoTermino registrado sobre el contrato vigente de la propiedad
+principal, terminacion anticipada ejecutada o resolucion guiada no sensible si
+existe conflicto con renovacion ya ejecutada; API y auditor Etapa 1 conservan
+la misma regla para escrituras y snapshots heredados.
+
 Nota 2026-05-26: CobranzaActiva y Canales endurecen los gates externos sin
 abrir integraciones. `restricciones_operativas` de Email/WhatsApp/WebPay
 rechaza valores sensibles y tambien nombres de claves sensibles como

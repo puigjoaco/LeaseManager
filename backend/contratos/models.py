@@ -609,6 +609,78 @@ class Contrato(TimestampedModel):
                 }
             )
 
+    def validate_future_contract_closure_evidence(self):
+        if self.estado != EstadoContrato.FUTURE or not self.fecha_inicio:
+            return
+
+        primary_property_id = getattr(self, '_future_contract_primary_property_id', None)
+        if primary_property_id is None and self.pk:
+            primary_property_id = (
+                self.contrato_propiedades.filter(rol_en_contrato=RolContratoPropiedad.PRIMARY)
+                .values_list('propiedad_id', flat=True)
+                .first()
+            )
+        if primary_property_id is None:
+            return
+
+        current_contract = (
+            Contrato.objects.filter(
+                estado=EstadoContrato.ACTIVE,
+                contrato_propiedades__propiedad_id=primary_property_id,
+                contrato_propiedades__rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            )
+            .exclude(pk=self.pk)
+            .order_by('-fecha_inicio', '-id')
+            .first()
+        )
+        if current_contract:
+            aviso = (
+                AvisoTermino.objects.filter(
+                    contrato=current_contract,
+                    estado=EstadoAvisoTermino.REGISTERED,
+                    fecha_efectiva__lte=self.fecha_inicio,
+                )
+                .order_by('-fecha_efectiva', '-id')
+                .first()
+            )
+            if aviso is None:
+                raise ValidationError(
+                    {'estado': 'Un contrato futuro requiere un AvisoTermino registrado para la propiedad principal.'}
+                )
+            if aviso.has_executed_renewal_conflict(self.fecha_inicio) and (
+                not aviso.has_renewal_conflict_resolution()
+                or not is_non_sensitive_reference(aviso.resolucion_conflicto_renovacion_ref)
+            ):
+                raise ValidationError(
+                    {
+                        'estado': (
+                            'Existe conflicto entre AvisoTermino, renovacion ya ejecutada y contrato futuro; '
+                            'se requiere resolucion guiada con referencia no sensible y motivo trazable.'
+                        )
+                    }
+                )
+            return
+
+        early_terminated_exists = (
+            Contrato.objects.filter(
+                estado=EstadoContrato.EARLY_TERMINATED,
+                fecha_fin_vigente__lte=self.fecha_inicio,
+                contrato_propiedades__propiedad_id=primary_property_id,
+                contrato_propiedades__rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            )
+            .exclude(pk=self.pk)
+            .exists()
+        )
+        if not early_terminated_exists:
+            raise ValidationError(
+                {
+                    'estado': (
+                        'Un contrato futuro requiere un AvisoTermino registrado o una terminacion anticipada '
+                        'ejecutada sobre la propiedad principal.'
+                    )
+                }
+            )
+
     def clean(self):
         super().clean()
         if self.fecha_fin_vigente < self.fecha_inicio:
@@ -670,6 +742,7 @@ class Contrato(TimestampedModel):
             if mandato_errors:
                 raise ValidationError({'mandato_operacion': mandato_errors})
             self.validate_active_operational_channel()
+            self.validate_future_contract_closure_evidence()
             if self.arrendatario_id and self.arrendatario.tipo_arrendatario == TipoArrendatario.COMPANY:
                 self.snapshot_representante_legal = normalize_representante_legal_snapshot(
                     self.snapshot_representante_legal
