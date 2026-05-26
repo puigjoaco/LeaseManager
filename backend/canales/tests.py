@@ -34,7 +34,7 @@ from .models import (
     MensajeSaliente,
     NotificacionCobranzaProgramada,
 )
-from .services import materialize_payment_notification_schedule
+from .services import mark_message_as_sent, materialize_payment_notification_schedule
 
 
 VALID_DOCUMENT_SHA256 = 'c' * 64
@@ -1252,6 +1252,85 @@ class CanalesAPITests(APITestCase):
         )
         self.assertEqual(audit_event.actor_user, self.user)
         self.assertEqual(audit_event.metadata['external_ref'], 'manual-123')
+
+    def test_mark_manual_send_service_creates_audit_event(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-SENDSERVICE')
+        gate = self._create_gate(canal='email')
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        prepared = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'asunto': 'Enviar desde servicio',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+
+        message = MensajeSaliente.objects.get(pk=prepared.data['id'])
+        sent = mark_message_as_sent(
+            message,
+            external_ref='manual-service-001',
+            actor_user=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertEqual(sent.estado, EstadoMensajeSaliente.SENT)
+        self.assertEqual(sent.external_ref, 'manual-service-001')
+        audit_event = AuditEvent.objects.get(
+            event_type='canales.mensaje_saliente.sent_manually',
+            entity_type='mensaje_saliente',
+            entity_id=str(sent.pk),
+        )
+        self.assertEqual(audit_event.actor_user, self.user)
+        self.assertEqual(audit_event.ip_address, '127.0.0.1')
+        self.assertEqual(audit_event.metadata['external_ref'], 'manual-service-001')
+
+    def test_mark_manual_send_service_requires_actor(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-SENDACTOR')
+        gate = self._create_gate(canal='email')
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        prepared = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'asunto': 'Enviar sin actor',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+
+        message = MensajeSaliente.objects.get(pk=prepared.data['id'])
+        with self.assertRaisesRegex(ValueError, 'actor trazable'):
+            mark_message_as_sent(message, external_ref='manual-service-002')
+
+        message.refresh_from_db()
+        self.assertEqual(message.estado, EstadoMensajeSaliente.PREPARED)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='canales.mensaje_saliente.sent_manually',
+                entity_type='mensaje_saliente',
+                entity_id=str(message.pk),
+            ).exists()
+        )
 
     def test_register_manual_send_requires_external_reference(self):
         empresa, contrato = self._create_contract_context(codigo='CH-SENDREF')

@@ -355,17 +355,13 @@ class MensajeRegistrarEnvioView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            message = mark_message_as_sent(message, external_ref=serializer.validated_data.get('external_ref', ''))
+            message = mark_message_as_sent(
+                message,
+                external_ref=serializer.validated_data.get('external_ref', ''),
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
-        create_audit_event(
-            event_type='canales.mensaje_saliente.sent_manually',
-            entity_type='mensaje_saliente',
-            entity_id=str(message.pk),
-            summary='Envio manual registrado',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            metadata={'external_ref': redact_sensitive_reference(message.external_ref)},
-        )
         return Response(MensajeSalienteSerializer(message).data, status=status.HTTP_200_OK)

@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from audit.models import ManualResolution
+from audit.services import create_audit_event
 from core.reference_validation import is_non_sensitive_reference
 from cobranza.models import EstadoPago
 from contratos.models import Arrendatario, Contrato, is_international_phone_number
@@ -278,7 +279,7 @@ def prepare_message(*, canal, canal_mensajeria, contrato=None, arrendatario=None
 
 
 @transaction.atomic
-def mark_message_as_sent(message, external_ref=''):
+def mark_message_as_sent(message, external_ref='', *, actor_user=None, actor_identifier='', ip_address=None):
     if message.estado != EstadoMensajeSaliente.PREPARED:
         raise ValueError('Solo se puede registrar envio manual para mensajes preparados.')
     external_ref = external_ref.strip()
@@ -288,6 +289,9 @@ def mark_message_as_sent(message, external_ref=''):
         raise ValueError(
             'El envio manual requiere external_ref no sensible; no use URLs, tokens, credenciales ni correos.'
         )
+    actor_identifier = (actor_identifier or '').strip()
+    if actor_user is None and not actor_identifier:
+        raise ValueError('El envio manual requiere un actor trazable para auditoria.')
     if message.canal_mensajeria.estado_gate != EstadoGateCanal.OPEN:
         raise ValueError('No se puede registrar envio manual si el gate del canal no esta abierto.')
     if message.canal == CanalOperacion.EMAIL and (reason := email_readiness_blocking_reason(message.canal_mensajeria)):
@@ -309,4 +313,14 @@ def mark_message_as_sent(message, external_ref=''):
     message.external_ref = external_ref
     message.enviado_at = timezone.now()
     message.save(update_fields=['estado', 'external_ref', 'enviado_at', 'updated_at'])
+    create_audit_event(
+        event_type='canales.mensaje_saliente.sent_manually',
+        entity_type='mensaje_saliente',
+        entity_id=str(message.pk),
+        summary='Envio manual registrado',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata={'external_ref': external_ref},
+    )
     return message

@@ -63,7 +63,9 @@ condicionados sin envios reales accidentales.
 - Prueba aislada de correos/WebPay con referencias no sensibles.
 - Evidencia de auditoria por operacion critica; mensajes en estado `enviado`
   deben conservar evento auditable de envio manual con actor y `external_ref`
-  no sensible alineado al mensaje.
+  no sensible alineado al mensaje. El servicio de registro manual crea esa
+  auditoria en la misma transaccion que marca el mensaje como `enviado`, para
+  cubrir tanto el endpoint HTTP como llamadas internas controladas.
 - Registro manual de envio solo con `external_ref` trazable no sensible y
   revalidacion del gate abierto, identidad activa, destinatario y mandato
   operativo activo.
