@@ -24,6 +24,7 @@ from .models import (
     GarantiaContractual,
     HistorialGarantia,
     IntentoPagoWebPay,
+    MANUAL_UF_LOAD_EVENT_TYPE,
     PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
     PagoMensual,
     RepactacionDeuda,
@@ -442,6 +443,84 @@ def save_repayment_plan(
             ip_address=ip_address,
         )
     return repayment, event
+
+
+def manual_uf_trace(uf_value):
+    if not isinstance(uf_value, ValorUFDiario) or not uf_value.requiere_auditoria_manual:
+        return ''
+    return '|'.join(
+        [
+            str(uf_value.pk or ''),
+            str(uf_value.fecha or ''),
+            str(uf_value.valor or ''),
+            str(uf_value.source_key or '').strip(),
+            str(uf_value.evidencia_ref or '').strip(),
+            str(uf_value.motivo_carga or '').strip(),
+            str(uf_value.responsable_ref or '').strip(),
+        ]
+    )
+
+
+def create_manual_uf_load_event(
+    uf_value,
+    *,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    if not uf_value.requiere_auditoria_manual:
+        return None
+    actor_identifier = (actor_identifier or '').strip()
+    if actor_user is None and not actor_identifier:
+        raise ValueError('La carga manual UF requiere un actor trazable para auditoria.')
+    return create_audit_event(
+        event_type=MANUAL_UF_LOAD_EVENT_TYPE,
+        entity_type='valor_uf_diario',
+        entity_id=str(uf_value.pk),
+        summary=f'Valor UF manual auditado para {uf_value.fecha.isoformat()}',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata={
+            'fecha': uf_value.fecha.isoformat(),
+            'valor': str(uf_value.valor),
+            'source_key': uf_value.source_key.strip(),
+            'evidencia_ref': uf_value.evidencia_ref.strip(),
+            'motivo_carga': uf_value.motivo_carga.strip(),
+            'responsable_ref': uf_value.responsable_ref.strip(),
+        },
+    )
+
+
+@transaction.atomic
+def save_uf_value(
+    *,
+    validated_data,
+    uf_value=None,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    uf_value = uf_value or ValorUFDiario()
+    previous_trace = manual_uf_trace(uf_value)
+    for field, value in validated_data.items():
+        setattr(uf_value, field, value)
+
+    uf_value.full_clean()
+    if uf_value.requiere_auditoria_manual and actor_user is None and not (actor_identifier or '').strip():
+        raise ValueError('La carga manual UF requiere un actor trazable para auditoria.')
+
+    uf_value.save()
+    current_trace = manual_uf_trace(uf_value)
+    event = None
+    if current_trace and current_trace != previous_trace:
+        event = create_manual_uf_load_event(
+            uf_value,
+            actor_user=actor_user,
+            actor_identifier=actor_identifier,
+            ip_address=ip_address,
+        )
+    return uf_value, event
 
 
 def sync_payment_overdue_state(payment, reference_date=None):

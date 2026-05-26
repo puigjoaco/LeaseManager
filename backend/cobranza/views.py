@@ -32,7 +32,6 @@ from .models import (
     GarantiaContractual,
     HistorialGarantia,
     IntentoPagoWebPay,
-    MANUAL_UF_LOAD_EVENT_TYPE,
     PagoMensual,
     RepactacionDeuda,
     ValorUFDiario,
@@ -64,43 +63,10 @@ from .services import (
     rebuild_account_state,
     refresh_overdue_payments,
     save_repayment_plan,
+    save_uf_value,
     sync_payment_distribution,
     update_payment_operational_fields,
 )
-
-
-def _manual_uf_trace(instance):
-    if not isinstance(instance, ValorUFDiario) or not instance.requiere_auditoria_manual:
-        return ''
-    return '|'.join(
-        [
-            str(instance.pk or ''),
-            str(instance.fecha or ''),
-            str(instance.valor or ''),
-            instance.source_key.strip(),
-            instance.evidencia_ref.strip(),
-            instance.motivo_carga.strip(),
-            instance.responsable_ref.strip(),
-        ]
-    )
-def create_manual_uf_load_event(instance, request):
-    if not instance.requiere_auditoria_manual:
-        return
-    create_audit_event(
-        event_type=MANUAL_UF_LOAD_EVENT_TYPE,
-        entity_type='valor_uf_diario',
-        entity_id=str(instance.pk),
-        summary=f'Valor UF manual auditado para {instance.fecha.isoformat()}',
-        actor_user=request.user,
-        ip_address=request.META.get('REMOTE_ADDR'),
-        metadata={
-            'fecha': instance.fecha.isoformat(),
-            'valor': str(instance.valor),
-            'source_key': instance.source_key.strip(),
-            'evidencia_ref': instance.evidencia_ref.strip(),
-            'responsable_ref': instance.responsable_ref.strip(),
-        },
-    )
 
 
 def _format_clp_amount(value):
@@ -137,18 +103,12 @@ class AuditCreateUpdateMixin:
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            if isinstance(instance, ValorUFDiario):
-                create_manual_uf_load_event(instance, self.request)
         self._create_audit_event(instance=instance, action='created')
 
     def perform_update(self, serializer):
         previous_state = self._extract_state(serializer.instance)
-        previous_manual_uf_trace = _manual_uf_trace(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
-            current_manual_uf_trace = _manual_uf_trace(instance)
-            if isinstance(instance, ValorUFDiario) and current_manual_uf_trace and current_manual_uf_trace != previous_manual_uf_trace:
-                create_manual_uf_load_event(instance, self.request)
         self._create_audit_event(instance=instance, action='updated')
         if previous_state != self._extract_state(instance):
             self._create_audit_event(
@@ -365,6 +325,18 @@ class ValorUFDiarioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPI
     audit_entity_type = 'valor_uf'
     audit_entity_label = 'valor UF'
 
+    def perform_create(self, serializer):
+        try:
+            instance, _ = save_uf_value(
+                validated_data=serializer.validated_data,
+                actor_user=self.request.user,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
+            )
+        except ValueError as error:
+            raise ValidationError({'source_key': str(error)})
+        serializer.instance = instance
+        self._create_audit_event(instance=instance, action='created')
+
 
 class ValorUFDiarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [OperationalModulePermission]
@@ -372,6 +344,19 @@ class ValorUFDiarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPI
     queryset = ValorUFDiario.objects.all()
     audit_entity_type = 'valor_uf'
     audit_entity_label = 'valor UF'
+
+    def perform_update(self, serializer):
+        try:
+            instance, _ = save_uf_value(
+                uf_value=serializer.instance,
+                validated_data=serializer.validated_data,
+                actor_user=self.request.user,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
+            )
+        except ValueError as error:
+            raise ValidationError({'source_key': str(error)})
+        serializer.instance = instance
+        self._create_audit_event(instance=instance, action='updated')
 
 
 class AjusteContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):

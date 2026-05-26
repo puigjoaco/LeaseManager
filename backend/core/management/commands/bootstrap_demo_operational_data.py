@@ -12,12 +12,11 @@ from audit.services import create_audit_event
 from cobranza.models import (
     CANONICAL_UF_SOURCE_KEYS,
     EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
-    MANUAL_UF_LOAD_EVENT_TYPE,
     MANUAL_UF_SOURCE_KEYS,
     PagoMensual,
     ValorUFDiario,
 )
-from cobranza.services import calculate_monthly_amount, rebuild_account_state, sync_payment_distribution
+from cobranza.services import calculate_monthly_amount, rebuild_account_state, save_uf_value, sync_payment_distribution
 from contratos.models import Arrendatario, Contrato
 
 
@@ -115,21 +114,21 @@ class Command(BaseCommand):
         for uf_date, uf_value in uf_values.items():
             uf_record = ValorUFDiario.objects.filter(fecha=uf_date).first()
             created = uf_record is None
-            if created:
-                uf_record = ValorUFDiario(fecha=uf_date)
-            previous_trace = self._manual_uf_trace(uf_record)
-            uf_record.valor = uf_value
-            uf_record.source_key = source_key
-            uf_record.evidencia_ref = uf_evidence_ref
-            uf_record.motivo_carga = uf_motive
-            uf_record.responsable_ref = uf_responsible_ref
             try:
-                uf_record.full_clean()
-            except ValidationError as error:
+                save_uf_value(
+                    uf_value=uf_record,
+                    validated_data={
+                        'fecha': uf_date,
+                        'valor': uf_value,
+                        'source_key': source_key,
+                        'evidencia_ref': uf_evidence_ref,
+                        'motivo_carga': uf_motive,
+                        'responsable_ref': uf_responsible_ref,
+                    },
+                    actor_identifier='bootstrap_demo_operational_data',
+                )
+            except (ValidationError, ValueError) as error:
                 raise CommandError(f"Valor UF invalido para {uf_date}: {error}") from error
-            uf_record.save()
-            if uf_record.requiere_auditoria_manual and self._manual_uf_trace(uf_record) != previous_trace:
-                self._create_manual_uf_audit_event(uf_record)
             if created:
                 uf_created += 1
             else:
@@ -238,32 +237,6 @@ class Command(BaseCommand):
                 raise CommandError(f"Valor UF invalido: {raw_value}.") from error
             values[uf_date] = uf_amount
         return values
-
-    def _manual_uf_trace(self, uf_record: ValorUFDiario) -> tuple[str, str, str, str]:
-        if not uf_record.pk or not uf_record.requiere_auditoria_manual:
-            return ('', '', '', '')
-        return (
-            str(uf_record.source_key or '').strip(),
-            str(uf_record.evidencia_ref or '').strip(),
-            str(uf_record.motivo_carga or '').strip(),
-            str(uf_record.responsable_ref or '').strip(),
-        )
-
-    def _create_manual_uf_audit_event(self, uf_record: ValorUFDiario) -> None:
-        create_audit_event(
-            event_type=MANUAL_UF_LOAD_EVENT_TYPE,
-            entity_type='valor_uf_diario',
-            entity_id=str(uf_record.pk),
-            summary=f'Valor UF manual auditado para {uf_record.fecha.isoformat()}',
-            actor_identifier='bootstrap_demo_operational_data',
-            metadata={
-                'fecha': uf_record.fecha.isoformat(),
-                'valor': str(uf_record.valor),
-                'source_key': uf_record.source_key.strip(),
-                'evidencia_ref': uf_record.evidencia_ref.strip(),
-                'responsable_ref': uf_record.responsable_ref.strip(),
-            },
-        )
 
     def _create_effective_code_audit_event(self, payment: PagoMensual) -> None:
         effect = payment.monto_efecto_codigo_efectivo_clp

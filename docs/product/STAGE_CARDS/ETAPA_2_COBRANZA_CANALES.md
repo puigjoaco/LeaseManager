@@ -55,8 +55,11 @@ condicionados sin envios reales accidentales.
 - Valores UF manuales solo son aceptables como excepcion auditada: cada
   `ValorUFDiario` con fuente manual debe conservar `evidencia_ref`,
   `motivo_carga`, `responsable_ref` no sensibles y evento auditable
-  `cobranza.valor_uf.manual_loaded` con actor. La readiness bloquea snapshots
-  con procedencia incompleta, referencias sensibles o carga manual sin evento.
+  `cobranza.valor_uf.manual_loaded` con actor. El servicio de guardado de UF
+  crea esa auditoria en la misma transaccion que persiste la carga manual para
+  cubrir API y llamadas internas controladas; la readiness bloquea snapshots
+  con procedencia incompleta, referencias sensibles, carga manual sin evento o
+  motivo desalineado entre el valor UF y su auditoria.
 - Garantias contractuales recibidas parcialmente deben quedar visibles como
   incompletas hasta regularizarse o contar con aceptacion formal mediante
   referencia no sensible; APIs y backoffice exponen brecha, estado de
