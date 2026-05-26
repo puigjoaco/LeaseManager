@@ -434,6 +434,62 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7AuthorizationReadiness.restore_evidence.has_authorization_ref -eq $false) 'Restore debe marcar has_authorization_ref=false si solo tiene responsible_ref.'
         Assert-Condition ($stage7AuthorizationReadiness.public_smoke_evidence.has_authorization_ref -eq $false) 'Smoke debe marcar has_authorization_ref=false si solo tiene responsible_ref.'
 
+        $restoreSensitiveRefPath = Join-Path $stage7AcceptanceDir 'restore_sensitive_authorization_ref.json'
+        $smokeSensitiveRefPath = Join-Path $stage7AcceptanceDir 'smoke_sensitive_environment_ref.json'
+        $finalAcceptanceSensitiveRefPath = Join-Path $stage7AcceptanceDir 'final_acceptance_sensitive_ref.json'
+        $stage7SensitiveRefOutputPath = Join-Path $stage7AcceptanceDir 'stage7_sensitive_release_refs.json'
+
+        [ordered]@{
+            restore_verified = $true
+            source_kind = 'backup_autorizado'
+            authorization_ref = 'https://evidence.example.test/restore?token=dummy'
+            backup_ref = 'backup-snapshot-v1'
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $restoreSensitiveRefPath -Encoding UTF8
+
+        [ordered]@{
+            source_kind = 'public_smoke_autorizado'
+            authorization_ref = 'smoke-authorization-v1'
+            environment_ref = 'ops@example.test'
+            target_ref = 'deployment-target-v1'
+            results = @(
+                [ordered]@{ label = 'admin'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'operator'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'reviewer'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'partner'; ok = $true; authFlow = 'ui-login' }
+            )
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $smokeSensitiveRefPath -Encoding UTF8
+
+        [ordered]@{
+            accepted = $true
+            source_kind = 'aceptacion_final_autorizada'
+            authorization_ref = 'final-authorization-v1'
+            responsible_ref = 'final-owner-v1'
+            scope_ref = 'release-candidate-v1'
+            acceptance_ref = 'https://decision.example.test/signoff?token=dummy'
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $finalAcceptanceSensitiveRefPath -Encoding UTF8
+
+        $stage7SensitiveRefOutput = & $stage7ReadinessScript `
+            -PythonExe $pythonExe `
+            -DatabaseUrl $BackendTestDb `
+            -OutputPath $stage7SensitiveRefOutputPath `
+            -RestoreEvidencePath $restoreSensitiveRefPath `
+            -PublicSmokeEvidencePath $smokeSensitiveRefPath `
+            -FinalAcceptanceEvidencePath $finalAcceptanceSensitiveRefPath `
+            -SkipMigrations | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage7-readiness-gate fallo al validar refs sensibles de release.'
+        if ($stage7SensitiveRefOutput.Trim()) {
+            Write-Host $stage7SensitiveRefOutput
+        }
+
+        $stage7SensitiveRefReadiness = Get-Content -LiteralPath $stage7SensitiveRefOutputPath -Raw | ConvertFrom-Json
+        $stage7SensitiveRefIssueCodes = @($stage7SensitiveRefReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage7SensitiveRefIssueCodes -contains 'stage7.restore_authorization_ref_sensitive') 'Restore con authorization_ref sensible debe tener codigo especifico.'
+        Assert-Condition ($stage7SensitiveRefIssueCodes -contains 'stage7.public_smoke_environment_ref_sensitive') 'Smoke con environment_ref sensible debe tener codigo especifico.'
+        Assert-Condition ($stage7SensitiveRefIssueCodes -contains 'stage7.final_acceptance_ref_sensitive') 'Aceptacion final con acceptance_ref sensible debe tener codigo especifico.'
+        Assert-Condition ($stage7SensitiveRefReadiness.restore_evidence.authorization_ref_sensitive -eq $true) 'Restore debe marcar authorization_ref_sensitive=true.'
+        Assert-Condition ($stage7SensitiveRefReadiness.public_smoke_evidence.environment_ref_sensitive -eq $true) 'Smoke debe marcar environment_ref_sensitive=true.'
+        Assert-Condition ($stage7SensitiveRefReadiness.final_acceptance_evidence.acceptance_ref_sensitive -eq $true) 'Aceptacion final debe marcar acceptance_ref_sensitive=true.'
+
         Step "Readiness wrappers output guards"
         Assert-ReadinessOutputGuard $stage1LocalReadinessScript 'Stage 1 local readiness' 'stage1-local-readiness-should-not-be-versioned.json'
         Assert-ReadinessOutputGuard $stage1SnapshotGateScript 'Stage 1 snapshot gate' 'stage1-snapshot-gate-should-not-be-versioned.json' @{
