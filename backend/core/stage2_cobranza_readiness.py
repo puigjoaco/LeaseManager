@@ -273,18 +273,6 @@ def _collect_whatsapp_fallback_issues(messages) -> dict[str, int]:
 
 def _collect_whatsapp_block_issues(blocked_tenants) -> dict[str, int]:
     counts = Counter()
-    block_alerts = list(
-        ManualResolution.objects.filter(
-            category=WHATSAPP_BLOCK_ALERT_CATEGORY,
-            scope_type='arrendatario',
-            status__in=[
-                ManualResolution.Status.OPEN,
-                ManualResolution.Status.IN_REVIEW,
-                ManualResolution.Status.RESOLVED,
-            ],
-        ).values_list('scope_reference', flat=True)
-    )
-    block_alert_refs = {str(value) for value in block_alerts}
 
     for tenant in blocked_tenants:
         if (
@@ -297,16 +285,57 @@ def _collect_whatsapp_block_issues(blocked_tenants) -> dict[str, int]:
             tenant.whatsapp_bloqueo_evidencia_ref
         ):
             counts['whatsapp_block_evidence_sensitive'] += 1
-        if not AuditEvent.objects.filter(
-            event_type=WHATSAPP_BLOCK_EVENT_TYPE,
-            entity_type='arrendatario',
-            entity_id=str(tenant.pk),
-        ).exists():
+        if not _whatsapp_block_event_is_complete(tenant):
             counts['whatsapp_block_event_missing'] += 1
-        if str(tenant.pk) not in block_alert_refs:
+        if not _whatsapp_block_alert_is_complete(tenant):
             counts['whatsapp_block_alert_missing'] += 1
 
     return dict(sorted(counts.items()))
+
+
+def _whatsapp_block_event_is_complete(tenant: Arrendatario) -> bool:
+    events = AuditEvent.objects.filter(
+        event_type=WHATSAPP_BLOCK_EVENT_TYPE,
+        entity_type='arrendatario',
+        entity_id=str(tenant.pk),
+    )
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if not event.actor_user_id and not event.actor_identifier.strip():
+            continue
+        if str(metadata.get('evidencia_ref') or '').strip() != tenant.whatsapp_bloqueo_evidencia_ref.strip():
+            continue
+        if str(metadata.get('motivo') or '').strip() != tenant.whatsapp_bloqueo_motivo.strip():
+            continue
+        if not _non_sensitive_reference(metadata.get('evidencia_ref') or ''):
+            continue
+        return True
+    return False
+
+
+def _whatsapp_block_alert_is_complete(tenant: Arrendatario) -> bool:
+    alerts = ManualResolution.objects.filter(
+        category=WHATSAPP_BLOCK_ALERT_CATEGORY,
+        scope_type='arrendatario',
+        scope_reference=str(tenant.pk),
+        status__in=[
+            ManualResolution.Status.OPEN,
+            ManualResolution.Status.IN_REVIEW,
+            ManualResolution.Status.RESOLVED,
+        ],
+    )
+    for alert in alerts:
+        metadata = alert.metadata if isinstance(alert.metadata, dict) else {}
+        if not alert.requested_by_id and not str(metadata.get('actor_identifier') or '').strip():
+            continue
+        if str(alert.rationale or '').strip() != tenant.whatsapp_bloqueo_motivo.strip():
+            continue
+        if str(metadata.get('evidencia_ref') or '').strip() != tenant.whatsapp_bloqueo_evidencia_ref.strip():
+            continue
+        if not _non_sensitive_reference(metadata.get('evidencia_ref') or ''):
+            continue
+        return True
+    return False
 
 
 def _sent_message_event_is_complete(event: AuditEvent, message: MensajeSaliente) -> bool:
@@ -1163,7 +1192,7 @@ def collect_stage2_cobranza_readiness(
         issues.append(
             _issue(
                 'stage2.whatsapp.block_event_missing',
-                'Existen bloqueos definitivos WhatsApp sin evento auditable asociado.',
+                'Existen bloqueos definitivos WhatsApp sin evento auditable con actor y evidencia alineada.',
                 count=whatsapp_block_issues['whatsapp_block_event_missing'],
             )
         )
@@ -1171,7 +1200,7 @@ def collect_stage2_cobranza_readiness(
         issues.append(
             _issue(
                 'stage2.whatsapp.block_alert_missing',
-                'Existen bloqueos definitivos WhatsApp sin alerta administrativa trazable.',
+                'Existen bloqueos definitivos WhatsApp sin alerta administrativa trazable y alineada.',
                 count=whatsapp_block_issues['whatsapp_block_alert_missing'],
             )
         )

@@ -47,7 +47,11 @@ from .models import (
     PeriodoContractual,
     RolContratoPropiedad,
     TENANT_REPLACEMENT_EVENT_TYPE,
+    WHATSAPP_BLOCK_ALERT_CATEGORY,
+    WHATSAPP_BLOCK_EVENT_TYPE,
+    WHATSAPP_REHABILITATION_EVENT_TYPE,
 )
+from .services import block_whatsapp_contact, rehabilitate_whatsapp_contact
 
 
 class ContratosAPITests(APITestCase):
@@ -473,18 +477,69 @@ class ContratosAPITests(APITestCase):
         self.assertIsNotNone(arrendatario.whatsapp_bloqueado_at)
         self.assertTrue(
             AuditEvent.objects.filter(
-                event_type='contratos.arrendatario.whatsapp_blocked',
+                event_type=WHATSAPP_BLOCK_EVENT_TYPE,
                 entity_type='arrendatario',
                 entity_id=str(arrendatario.id),
+                actor_user=self.user,
+                metadata__motivo='Proveedor reporto bloqueo definitivo del contacto.',
+                metadata__evidencia_ref='wa-block-controlled-001',
             ).exists()
         )
         alert = ManualResolution.objects.get(
-            category='canales.whatsapp.bloqueo_definitivo',
+            category=WHATSAPP_BLOCK_ALERT_CATEGORY,
             scope_type='arrendatario',
             scope_reference=str(arrendatario.id),
         )
         self.assertEqual(alert.status, ManualResolution.Status.OPEN)
+        self.assertEqual(alert.requested_by, self.user)
+        self.assertEqual(alert.rationale, 'Proveedor reporto bloqueo definitivo del contacto.')
         self.assertEqual(alert.metadata['evidencia_ref'], 'wa-block-controlled-001')
+
+    def test_block_whatsapp_service_creates_trace_event_and_admin_alert(self):
+        arrendatario = self._create_arrendatario(rut='12345683-1')
+        arrendatario.telefono = '+56912345678'
+        arrendatario.whatsapp_opt_in = True
+        arrendatario.whatsapp_opt_in_evidencia_ref = 'optin-before-service-block'
+        arrendatario.full_clean()
+        arrendatario.save()
+
+        tenant, alert, event = block_whatsapp_contact(
+            tenant=arrendatario,
+            motivo='Proveedor reporto bloqueo definitivo desde servicio.',
+            evidencia_ref='wa-block-service-001',
+            actor_user=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertTrue(tenant.whatsapp_bloqueado)
+        self.assertFalse(tenant.whatsapp_opt_in)
+        self.assertEqual(tenant.whatsapp_bloqueo_evidencia_ref, 'wa-block-service-001')
+        self.assertEqual(alert.category, WHATSAPP_BLOCK_ALERT_CATEGORY)
+        self.assertEqual(alert.status, ManualResolution.Status.OPEN)
+        self.assertEqual(alert.requested_by, self.user)
+        self.assertEqual(alert.rationale, 'Proveedor reporto bloqueo definitivo desde servicio.')
+        self.assertEqual(alert.metadata['motivo'], 'Proveedor reporto bloqueo definitivo desde servicio.')
+        self.assertEqual(alert.metadata['evidencia_ref'], 'wa-block-service-001')
+        self.assertEqual(event.event_type, WHATSAPP_BLOCK_EVENT_TYPE)
+        self.assertEqual(event.actor_user, self.user)
+        self.assertEqual(event.ip_address, '127.0.0.1')
+        self.assertEqual(event.metadata['motivo'], 'Proveedor reporto bloqueo definitivo desde servicio.')
+        self.assertEqual(event.metadata['evidencia_ref'], 'wa-block-service-001')
+
+    def test_block_whatsapp_service_requires_actor(self):
+        arrendatario = self._create_arrendatario(rut='12345684-K')
+
+        with self.assertRaisesMessage(ValueError, 'actor trazable'):
+            block_whatsapp_contact(
+                tenant=arrendatario,
+                motivo='Proveedor reporto bloqueo definitivo desde servicio.',
+                evidencia_ref='wa-block-service-002',
+            )
+
+        arrendatario.refresh_from_db()
+        self.assertFalse(arrendatario.whatsapp_bloqueado)
+        self.assertFalse(AuditEvent.objects.filter(event_type=WHATSAPP_BLOCK_EVENT_TYPE).exists())
+        self.assertFalse(ManualResolution.objects.filter(category=WHATSAPP_BLOCK_ALERT_CATEGORY).exists())
 
     def test_rehabilitate_whatsapp_clears_block_without_erasing_block_trace(self):
         arrendatario = self._create_arrendatario(rut='12345680-7')
@@ -514,18 +569,67 @@ class ContratosAPITests(APITestCase):
         self.assertIsNotNone(arrendatario.whatsapp_rehabilitado_at)
         self.assertTrue(
             AuditEvent.objects.filter(
-                event_type='contratos.arrendatario.whatsapp_rehabilitated',
+                event_type=WHATSAPP_REHABILITATION_EVENT_TYPE,
                 entity_type='arrendatario',
                 entity_id=str(arrendatario.id),
+                actor_user=self.user,
+                metadata__rehabilitacion_ref='wa-rehab-controlled-001',
             ).exists()
         )
         alert = ManualResolution.objects.get(
-            category='canales.whatsapp.bloqueo_definitivo',
+            category=WHATSAPP_BLOCK_ALERT_CATEGORY,
             scope_type='arrendatario',
             scope_reference=str(arrendatario.id),
         )
         self.assertEqual(alert.status, ManualResolution.Status.RESOLVED)
+        self.assertEqual(alert.resolved_by, self.user)
         self.assertEqual(alert.metadata['rehabilitacion_ref'], 'wa-rehab-controlled-001')
+
+    def test_rehabilitate_whatsapp_service_resolves_alerts_and_audits(self):
+        arrendatario = self._create_arrendatario(rut='12345685-8')
+        tenant, alert, _ = block_whatsapp_contact(
+            tenant=arrendatario,
+            motivo='Bloqueo definitivo controlado por servicio.',
+            evidencia_ref='wa-block-service-003',
+            actor_identifier='ops-whatsapp-bot',
+        )
+
+        tenant, alerts, event = rehabilitate_whatsapp_contact(
+            tenant=tenant,
+            rehabilitacion_ref='wa-rehab-service-001',
+            actor_identifier='ops-whatsapp-bot',
+            ip_address='127.0.0.1',
+        )
+
+        self.assertFalse(tenant.whatsapp_bloqueado)
+        self.assertEqual(tenant.whatsapp_rehabilitacion_ref, 'wa-rehab-service-001')
+        self.assertEqual(len(alerts), 1)
+        alert.refresh_from_db()
+        self.assertEqual(alert.status, ManualResolution.Status.RESOLVED)
+        self.assertEqual(alert.metadata['rehabilitacion_ref'], 'wa-rehab-service-001')
+        self.assertEqual(alert.metadata['resolved_actor_identifier'], 'ops-whatsapp-bot')
+        self.assertEqual(event.event_type, WHATSAPP_REHABILITATION_EVENT_TYPE)
+        self.assertEqual(event.actor_identifier, 'ops-whatsapp-bot')
+        self.assertEqual(event.ip_address, '127.0.0.1')
+        self.assertEqual(event.metadata['rehabilitacion_ref'], 'wa-rehab-service-001')
+
+    def test_rehabilitate_whatsapp_service_requires_actor(self):
+        arrendatario = self._create_arrendatario(rut='12345686-6')
+        arrendatario.block_whatsapp(
+            motivo='Bloqueo definitivo controlado.',
+            evidencia_ref='wa-block-controlled-006',
+        )
+        arrendatario.save()
+
+        with self.assertRaisesMessage(ValueError, 'actor trazable'):
+            rehabilitate_whatsapp_contact(
+                tenant=arrendatario,
+                rehabilitacion_ref='wa-rehab-service-002',
+            )
+
+        arrendatario.refresh_from_db()
+        self.assertTrue(arrendatario.whatsapp_bloqueado)
+        self.assertFalse(AuditEvent.objects.filter(event_type=WHATSAPP_REHABILITATION_EVENT_TYPE).exists())
 
     def test_rehabilitate_whatsapp_rejects_sensitive_reference(self):
         arrendatario = self._create_arrendatario(rut='12345679-3')

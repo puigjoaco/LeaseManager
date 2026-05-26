@@ -1,12 +1,10 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.utils import timezone
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from audit.models import ManualResolution
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
 from core.reference_validation import redact_sensitive_reference
@@ -22,9 +20,6 @@ from .models import (
     ContratoPropiedad,
     EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
     PeriodoContractual,
-    WHATSAPP_BLOCK_ALERT_CATEGORY,
-    WHATSAPP_BLOCK_EVENT_TYPE,
-    WHATSAPP_REHABILITATION_EVENT_TYPE,
 )
 from .serializers import (
     ArrendatarioSerializer,
@@ -40,7 +35,14 @@ from .serializers import (
     PeriodoContractualReadSerializer,
     raise_drf_validation_error,
 )
-from .services import execute_automatic_contract_renewal, execute_tenant_replacement
+from .services import (
+    block_whatsapp_contact,
+    create_whatsapp_block_trace,
+    execute_automatic_contract_renewal,
+    execute_tenant_replacement,
+    rehabilitate_whatsapp_contact,
+    resolve_whatsapp_block_alerts,
+)
 
 
 class AuditCreateUpdateMixin:
@@ -79,75 +81,6 @@ class AuditCreateUpdateMixin:
             actor_user=self.request.user,
             ip_address=self.request.META.get('REMOTE_ADDR'),
         )
-
-
-def create_whatsapp_block_trace(*, tenant, request):
-    ManualResolution.objects.create(
-        category=WHATSAPP_BLOCK_ALERT_CATEGORY,
-        scope_type='arrendatario',
-        scope_reference=str(tenant.pk),
-        summary='Bloqueo definitivo de WhatsApp requiere seguimiento administrativo.',
-        rationale=tenant.whatsapp_bloqueo_motivo,
-        requested_by=request.user,
-        metadata={
-            'arrendatario_id': tenant.pk,
-            'evidencia_ref': tenant.whatsapp_bloqueo_evidencia_ref,
-            'whatsapp_bloqueado_at': tenant.whatsapp_bloqueado_at.isoformat() if tenant.whatsapp_bloqueado_at else '',
-        },
-    )
-    create_audit_event(
-        event_type=WHATSAPP_BLOCK_EVENT_TYPE,
-        severity='warning',
-        entity_type='arrendatario',
-        entity_id=str(tenant.pk),
-        summary='Se registro bloqueo definitivo de WhatsApp para el arrendatario.',
-        actor_user=request.user,
-        ip_address=request.META.get('REMOTE_ADDR'),
-        metadata={
-            'arrendatario_id': tenant.pk,
-            'evidencia_ref': tenant.whatsapp_bloqueo_evidencia_ref,
-            'whatsapp_bloqueado_at': tenant.whatsapp_bloqueado_at.isoformat() if tenant.whatsapp_bloqueado_at else '',
-        },
-    )
-
-
-def resolve_whatsapp_block_alerts(*, tenant, request, rehabilitacion_ref: str):
-    open_alerts = list(ManualResolution.objects.filter(
-        category=WHATSAPP_BLOCK_ALERT_CATEGORY,
-        scope_type='arrendatario',
-        scope_reference=str(tenant.pk),
-        status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
-    ))
-    resolved_at = timezone.now()
-    for alert in open_alerts:
-        alert.status = ManualResolution.Status.RESOLVED
-        alert.resolved_at = resolved_at
-        alert.resolved_by = request.user
-        metadata = alert.metadata if isinstance(alert.metadata, dict) else {}
-        alert.metadata = {
-            **metadata,
-            'rehabilitacion_ref': rehabilitacion_ref,
-            'whatsapp_rehabilitado_at': tenant.whatsapp_rehabilitado_at.isoformat()
-            if tenant.whatsapp_rehabilitado_at
-            else '',
-        }
-        alert.save(update_fields=['status', 'resolved_at', 'resolved_by', 'metadata'])
-    create_audit_event(
-        event_type=WHATSAPP_REHABILITATION_EVENT_TYPE,
-        entity_type='arrendatario',
-        entity_id=str(tenant.pk),
-        summary='Se registro rehabilitacion manual de WhatsApp para el arrendatario.',
-        actor_user=request.user,
-        ip_address=request.META.get('REMOTE_ADDR'),
-        metadata={
-            'arrendatario_id': tenant.pk,
-            'rehabilitacion_ref': rehabilitacion_ref,
-            'whatsapp_rehabilitado_at': tenant.whatsapp_rehabilitado_at.isoformat()
-            if tenant.whatsapp_rehabilitado_at
-            else '',
-            'alertas_resueltas': len(open_alerts),
-        },
-    )
 
 
 def contract_proration_trace_key(contract):
@@ -388,7 +321,11 @@ class ArrendatarioListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, ge
         with transaction.atomic():
             instance = serializer.save()
             if instance.whatsapp_bloqueado:
-                create_whatsapp_block_trace(tenant=instance, request=self.request)
+                create_whatsapp_block_trace(
+                    tenant=instance,
+                    actor_user=self.request.user,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                )
         self._create_audit_event(instance=instance, action='created')
 
 
@@ -406,19 +343,21 @@ class ArrendatarioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generi
         with transaction.atomic():
             instance = serializer.save()
             if instance.whatsapp_bloqueado and not was_blocked:
-                create_whatsapp_block_trace(tenant=instance, request=self.request)
+                create_whatsapp_block_trace(
+                    tenant=instance,
+                    actor_user=self.request.user,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                )
             if was_blocked and not instance.whatsapp_bloqueado:
                 if not instance.whatsapp_rehabilitacion_ref.strip():
                     raise DRFValidationError(
                         {'whatsapp_rehabilitacion_ref': 'La rehabilitacion manual requiere referencia trazable.'}
                     )
-                if instance.whatsapp_rehabilitado_at is None:
-                    instance.whatsapp_rehabilitado_at = timezone.now()
-                    instance.save(update_fields=['whatsapp_rehabilitado_at', 'updated_at'])
                 resolve_whatsapp_block_alerts(
                     tenant=instance,
-                    request=self.request,
                     rehabilitacion_ref=instance.whatsapp_rehabilitacion_ref,
+                    actor_user=self.request.user,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
                 )
         self._create_audit_event(instance=instance, action='updated')
         if previous_state != self._extract_state(instance):
@@ -441,27 +380,18 @@ class ArrendatarioWhatsappBlockView(ScopedQuerysetMixin, generics.GenericAPIView
         serializer.is_valid(raise_exception=True)
         payload = serializer.validated_data
 
-        with transaction.atomic():
-            try:
-                tenant.block_whatsapp(
-                    motivo=payload['motivo'],
-                    evidencia_ref=payload['evidencia_ref'],
-                )
-            except DjangoValidationError as error:
-                raise_drf_validation_error(error)
-            tenant.save(
-                update_fields=[
-                    'whatsapp_opt_in',
-                    'whatsapp_bloqueado',
-                    'whatsapp_bloqueo_motivo',
-                    'whatsapp_bloqueo_evidencia_ref',
-                    'whatsapp_bloqueado_at',
-                    'whatsapp_rehabilitacion_ref',
-                    'whatsapp_rehabilitado_at',
-                    'updated_at',
-                ]
+        try:
+            tenant, _, _ = block_whatsapp_contact(
+                tenant=tenant,
+                motivo=payload['motivo'],
+                evidencia_ref=payload['evidencia_ref'],
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
             )
-            create_whatsapp_block_trace(tenant=tenant, request=request)
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        except ValueError as error:
+            raise DRFValidationError({'actor': str(error)})
 
         return Response(ArrendatarioSerializer(tenant, context={'request': request}).data)
 
@@ -478,24 +408,17 @@ class ArrendatarioWhatsappRehabilitateView(ScopedQuerysetMixin, generics.Generic
         serializer.is_valid(raise_exception=True)
         payload = serializer.validated_data
 
-        with transaction.atomic():
-            try:
-                tenant.rehabilitate_whatsapp(rehabilitacion_ref=payload['rehabilitacion_ref'])
-            except DjangoValidationError as error:
-                raise_drf_validation_error(error)
-            tenant.save(
-                update_fields=[
-                    'whatsapp_bloqueado',
-                    'whatsapp_rehabilitacion_ref',
-                    'whatsapp_rehabilitado_at',
-                    'updated_at',
-                ]
-            )
-            resolve_whatsapp_block_alerts(
+        try:
+            tenant, _, _ = rehabilitate_whatsapp_contact(
                 tenant=tenant,
-                request=request,
                 rehabilitacion_ref=payload['rehabilitacion_ref'],
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
             )
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        except ValueError as error:
+            raise DRFValidationError({'actor': str(error)})
 
         return Response(ArrendatarioSerializer(tenant, context={'request': request}).data)
 

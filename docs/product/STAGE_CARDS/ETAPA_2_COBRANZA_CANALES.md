@@ -135,12 +135,14 @@ condicionados sin envios reales accidentales.
   sensible heredada y readiness debe bloquearla sin imprimir el valor. La
   readiness tambien debe bloquear opt-ins heredados con telefono local o
   ambiguo. El bloqueo definitivo del contacto debe registrar motivo,
-  evidencia no sensible, fecha, evento auditable y alerta administrativa; la
-  rehabilitacion manual conserva la traza del bloqueo y usa referencia no
-  sensible. Todo mensaje WhatsApp bloqueado o fallido debe quedar con Email
+  evidencia no sensible, fecha, evento auditable y alerta administrativa; el
+  servicio de bloqueo crea la alerta y el evento con actor en la misma
+  transaccion. La rehabilitacion manual conserva la traza del bloqueo, usa
+  referencia no sensible y resuelve alertas desde servicio con auditoria
+  dedicada. Todo mensaje WhatsApp bloqueado o fallido debe quedar con Email
   alternativo preparado/enviado o con alerta critica/fallback trazable; la
-  readiness bloquea snapshots heredados sin esa traza o con bloqueo definitivo
-  sin evento/alerta.
+  readiness bloquea snapshots heredados sin esa traza, con bloqueo definitivo
+  sin evento/alerta, sin actor o con evidencia/motivo desalineados.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
   `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y
   `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`
