@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | N/A; elegir el siguiente frente seguro desde PRD, trazabilidad y stage cards. |
-| Brecha activa | Ninguna en curso. |
-| Motivo de prioridad | El ultimo paquete fue cerrado; el proximo turno debe diagnosticar el repo y seleccionar el siguiente avance trazable. |
-| Worktree | N/A. |
-| Rama | `main`. |
-| Estado | Sin paquete tactico abierto; main debe permanecer limpio. |
-| Gate esperado | N/A hasta seleccionar el siguiente frente. |
+| Frente activo | Etapa 1 / Contratos - renovacion automatica operacional por `PeriodoContractual`. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` regla `AvisoTermino` bloquea renovacion automatica; `docs/AUDITORIA_PRODUCTO_ARQUITECTURA_MAYO_2026.md` escenario PRD 3 parcial; `docs/product/STAGE_CARDS/ETAPA_1_DATOS_REALES.md` renovaciones con tramos. |
+| Brecha activa | Los periodos y reglas de base existen, pero falta flujo operativo/API que ejecute una renovacion automatica trazable y bloqueada por aviso registrado. |
+| Motivo de prioridad | Es la brecha local mas baja y explicita de Contratos que no requiere secretos, `.env`, datos reales ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-contract-auto-renewal`. |
+| Rama | `codex/stage1-contract-auto-renewal`. |
+| Estado | Paquete tactico abierto; mantener `main` limpio. |
+| Gate esperado | Diagnostico local Etapa 1 como preparacion segura, sin declarar cierre real sin fuente autorizada. |
 | Estado al cerrar paquete | PR #294 mergeado en `main` con merge `d6541be`; CI `acceptance` pass; worktree tactico y rama remota eliminados. |
 | Bloqueos relacionados | Fuente `snapshot_controlado` o `real_autorizado` sigue siendo condicion de cierre real de Etapa 1, no de preparacion local. |
 | Politica de reanudacion | Confirmar estado real con `git status --short --branch` y `git worktree list`; si no hay worktree tactico abierto, elegir el siguiente paquete seguro por trazabilidad. |
-| Siguiente accion | Elegir siguiente paquete seguro por trazabilidad, abrir worktree `codex/...` si es no trivial, validar proporcionalmente y cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Implementar renovacion automatica operacional, validar tests/gate proporcionales, cerrar con PR/CI/merge/limpieza y resetear cursor. |
 
 ## Actualizacion
 

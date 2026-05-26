@@ -25,6 +25,7 @@ from operacion.models import (
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
 from .models import (
+    AUTOMATIC_RENEWAL_EVENT_TYPE,
     Arrendatario,
     AvisoTermino,
     ContactoPagoArrendatario,
@@ -1048,6 +1049,128 @@ class ContratosAPITests(APITestCase):
         contrato = Contrato.objects.get(codigo_contrato='CTR-101-REN-POL')
         renewal = contrato.periodos_contractuales.get(numero_periodo=2)
         self.assertEqual(renewal.politica_base_renovacion_ref, 'renewal-base-policy-001')
+
+    def test_automatic_renewal_endpoint_appends_period_and_audit_event(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REN-AUTO', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REN-AUTO')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('contratos-contrato-renovacion-automatica', args=[create_response.data['id']]),
+            {'fecha_fin': '2027-12-31'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        contrato = Contrato.objects.get(pk=create_response.data['id'])
+        self.assertEqual(contrato.fecha_fin_vigente, date(2027, 12, 31))
+        self.assertTrue(contrato.tiene_tramos)
+        renewal = contrato.periodos_contractuales.get(numero_periodo=2)
+        self.assertEqual(renewal.fecha_inicio, date(2027, 1, 1))
+        self.assertEqual(renewal.fecha_fin, date(2027, 12, 31))
+        self.assertEqual(renewal.monto_base, Decimal('1000000.00'))
+        self.assertEqual(renewal.tipo_periodo, 'renovacion')
+        self.assertEqual(renewal.origen_periodo, 'renovacion_automatica')
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=AUTOMATIC_RENEWAL_EVENT_TYPE,
+                entity_type='periodo_contractual',
+                entity_id=str(renewal.pk),
+            ).exists()
+        )
+        self.assertEqual(response.data['periodo_renovacion']['id'], renewal.pk)
+
+    def test_automatic_renewal_endpoint_rejects_registered_notice(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REN-NOT', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REN-NOT')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        contrato = Contrato.objects.get(pk=create_response.data['id'])
+        AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='No renovacion',
+            estado=EstadoAvisoTermino.REGISTERED,
+        )
+
+        response = self.client.post(
+            reverse('contratos-contrato-renovacion-automatica', args=[contrato.pk]),
+            {'fecha_fin': '2027-12-31'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('aviso_termino', response.data)
+
+    def test_automatic_renewal_endpoint_rejects_uncovered_current_end(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REN-GAP', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REN-GAP')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        contrato = Contrato.objects.get(pk=create_response.data['id'])
+        first_period = contrato.periodos_contractuales.get(numero_periodo=1)
+        first_period.fecha_fin = date(2026, 11, 30)
+        first_period.save(update_fields=['fecha_fin', 'updated_at'])
+
+        response = self.client.post(
+            reverse('contratos-contrato-renovacion-automatica', args=[contrato.pk]),
+            {'fecha_fin': '2027-12-31'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('periodos_contractuales', response.data)
+
+    def test_automatic_renewal_endpoint_rejects_changed_base_without_policy(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REN-BASE-AUTO', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REN-BASE-AUTO')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('contratos-contrato-renovacion-automatica', args=[create_response.data['id']]),
+            {
+                'fecha_fin': '2027-12-31',
+                'monto_base': '1100000.00',
+                'moneda_base': 'CLP',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('politica_base_renovacion_ref', response.data)
+
+    def test_automatic_renewal_endpoint_accepts_changed_base_with_policy(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REN-POL-AUTO', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REN-POL-AUTO')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('contratos-contrato-renovacion-automatica', args=[create_response.data['id']]),
+            {
+                'fecha_fin': '2027-12-31',
+                'monto_base': '1100000.00',
+                'moneda_base': 'CLP',
+                'politica_base_renovacion_ref': 'renewal-base-policy-automatic-001',
+                'politica_base_renovacion_motivo': 'Politica documentada autoriza nueva base de renovacion.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        renewal = PeriodoContractual.objects.get(
+            contrato_id=create_response.data['id'],
+            numero_periodo=2,
+        )
+        self.assertEqual(renewal.monto_base, Decimal('1100000.00'))
+        self.assertEqual(renewal.politica_base_renovacion_ref, 'renewal-base-policy-automatic-001')
 
     def test_active_contract_rejects_non_month_boundary_dates(self):
         mandato = self._create_active_mandato(codigo='MAND-101-DATES', owner_rut='11111113-8')

@@ -122,6 +122,12 @@ contra datos reales o snapshot controlado.
   debe conservar referencia no sensible y motivo trazable de la politica
   documentada que autoriza la diferencia; API y auditor Etapa 1 bloquean
   renovaciones heredadas sin esa traza.
+- Renovacion automatica operacional: el endpoint de contrato crea un nuevo
+  `PeriodoContractual` de origen `renovacion_automatica`, extiende
+  `fecha_fin_vigente`, usa por defecto la base del ultimo tramo, bloquea la
+  operacion si existe `AvisoTermino` registrado y deja evento auditable
+  dedicado. El auditor Etapa 1 marca como defectuosas renovaciones automaticas
+  heredadas sin ese evento.
 - Validacion de garantias: montos/estado coherentes, fechas de recepcion y
   cierre consistentes, y saldos recibidos, devueltos o aplicados conciliados
   contra `HistorialGarantia`, incluyendo que devoluciones, retenciones o

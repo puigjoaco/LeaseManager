@@ -337,6 +337,46 @@ class PeriodoContractualWriteSerializer(serializers.Serializer):
         return attrs
 
 
+class ContratoAutomaticRenewalSerializer(serializers.Serializer):
+    fecha_fin = serializers.DateField()
+    monto_base = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
+    moneda_base = serializers.ChoiceField(
+        choices=PeriodoContractual._meta.get_field('moneda_base').choices,
+        required=False,
+    )
+    politica_base_renovacion_ref = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    politica_base_renovacion_motivo = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        policy_ref = str(attrs.get('politica_base_renovacion_ref') or '').strip()
+        policy_reason = str(attrs.get('politica_base_renovacion_motivo') or '').strip()
+        attrs['politica_base_renovacion_ref'] = policy_ref
+        attrs['politica_base_renovacion_motivo'] = policy_reason
+        if bool(policy_ref) != bool(policy_reason):
+            raise serializers.ValidationError(
+                {
+                    'politica_base_renovacion_ref': (
+                        'La politica de base de renovacion requiere referencia y motivo trazable.'
+                    )
+                }
+            )
+        if policy_ref and not is_non_sensitive_reference(policy_ref):
+            raise serializers.ValidationError(
+                {
+                    'politica_base_renovacion_ref': (
+                        'La politica de base de renovacion debe usar una referencia no sensible.'
+                    )
+                }
+            )
+        monto_base = attrs.get('monto_base')
+        moneda_base = attrs.get('moneda_base')
+        if monto_base is not None and moneda_base == MonedaBaseContrato.CLP and monto_base < Decimal('1000.00'):
+            raise serializers.ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
+        if monto_base is not None and moneda_base == MonedaBaseContrato.UF and monto_base <= Decimal('0.00'):
+            raise serializers.ValidationError({'monto_base': 'Un periodo UF debe tener monto positivo.'})
+        return attrs
+
+
 class ContratoSerializer(serializers.ModelSerializer):
     contrato_propiedades = ContratoPropiedadWriteSerializer(many=True, write_only=True, required=False)
     periodos_contractuales = PeriodoContractualWriteSerializer(many=True, write_only=True, required=False)
