@@ -51,6 +51,10 @@ def _non_sensitive_reference(value: str) -> bool:
     return is_non_sensitive_reference(value)
 
 
+def _sensitive_reference(value: str) -> bool:
+    return bool(str(value or '').strip()) and contains_sensitive_reference(value, include_sensitive_keys=True)
+
+
 def _count_invalid(queryset) -> int:
     invalid_count = 0
     for item in queryset:
@@ -202,9 +206,20 @@ def collect_compliance_data_readiness(
         'archived_evidence_ref': _non_sensitive_reference(archived_evidence_ref),
         'legal_review_ref': _non_sensitive_reference(legal_review_ref),
     }
+    final_evidence_sensitive = {
+        'policy_approval_ref': _sensitive_reference(policy_approval_ref),
+        'responsible_ref': _sensitive_reference(responsible_ref),
+        'controls_evidence_ref': _sensitive_reference(controls_evidence_ref),
+        'archived_evidence_ref': _sensitive_reference(archived_evidence_ref),
+        'legal_review_ref': _sensitive_reference(legal_review_ref),
+    }
     source_trace = {
         'source_label': _non_sensitive_reference(source_label),
         'authorization_ref': _non_sensitive_reference(authorization_ref),
+    }
+    source_trace_sensitive = {
+        'source_label': _sensitive_reference(source_label),
+        'authorization_ref': _sensitive_reference(authorization_ref),
     }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_COMPLIANCE_DATA_SOURCE_KINDS
 
@@ -217,20 +232,26 @@ def collect_compliance_data_readiness(
             )
         )
     else:
-        for key, code, message in [
+        for key, missing_code, sensitive_code, missing_message, sensitive_message in [
             (
                 'source_label',
                 'compliance.source_label_missing',
+                'compliance.source_label_sensitive',
                 'Falta etiqueta no sensible de la fuente autorizada para Compliance.DatosPersonalesChile2026.',
+                'La etiqueta de fuente autorizada de Compliance contiene una referencia sensible.',
             ),
             (
                 'authorization_ref',
                 'compliance.authorization_ref_missing',
+                'compliance.authorization_ref_sensitive',
                 'Falta referencia no sensible a la autorizacion de uso de la fuente evidencial de Compliance.',
+                'La referencia de autorizacion de Compliance contiene valores sensibles.',
             ),
         ]:
-            if not source_trace[key]:
-                issues.append(_issue(code, message))
+            if source_trace_sensitive[key]:
+                issues.append(_issue(sensitive_code, sensitive_message))
+            elif not source_trace[key]:
+                issues.append(_issue(missing_code, missing_message))
 
     if missing_active_categories:
         issues.append(
@@ -360,35 +381,47 @@ def collect_compliance_data_readiness(
             )
         )
 
-    for key, code, message in [
+    for key, missing_code, sensitive_code, missing_message, sensitive_message in [
         (
             'policy_approval_ref',
             'compliance.policy_approval_ref_missing',
+            'compliance.policy_approval_ref_sensitive',
             'Falta referencia no sensible a politica de datos personales aprobada.',
+            'La referencia a politica de datos personales aprobada contiene valores sensibles.',
         ),
         (
             'responsible_ref',
             'compliance.responsible_ref_missing',
+            'compliance.responsible_ref_sensitive',
             'Falta referencia no sensible a responsables designados de Compliance.',
+            'La referencia a responsables designados de Compliance contiene valores sensibles.',
         ),
         (
             'controls_evidence_ref',
             'compliance.controls_evidence_ref_missing',
+            'compliance.controls_evidence_ref_sensitive',
             'Falta referencia no sensible a controles implementados y verificados.',
+            'La referencia a controles implementados y verificados contiene valores sensibles.',
         ),
         (
             'archived_evidence_ref',
             'compliance.archived_evidence_ref_missing',
+            'compliance.archived_evidence_ref_sensitive',
             'Falta referencia no sensible a evidencia archivada del checklist formal.',
+            'La referencia a evidencia archivada del checklist formal contiene valores sensibles.',
         ),
         (
             'legal_review_ref',
             'compliance.legal_review_ref_missing',
+            'compliance.legal_review_ref_sensitive',
             'Falta referencia no sensible a validacion legal-operativa vigente.',
+            'La referencia a validacion legal-operativa contiene valores sensibles.',
         ),
     ]:
-        if not final_evidence[key]:
-            issues.append(_issue(code, message))
+        if final_evidence_sensitive[key]:
+            issues.append(_issue(sensitive_code, sensitive_message))
+        elif not final_evidence[key]:
+            issues.append(_issue(missing_code, missing_message))
 
     if effective_date >= COMPLIANCE_DATA_READINESS_DEADLINE and issues:
         issues.append(
@@ -461,7 +494,9 @@ def collect_compliance_data_readiness(
                 'invalid_target_events': audit_events_invalid_target,
             },
             'final_evidence': final_evidence,
+            'final_evidence_sensitive': final_evidence_sensitive,
             'source_trace': source_trace,
+            'source_trace_sensitive': source_trace_sensitive,
             'deadline': {
                 'readiness_required_by': COMPLIANCE_DATA_READINESS_DEADLINE.isoformat(),
                 'as_of_date': effective_date.isoformat(),

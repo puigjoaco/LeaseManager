@@ -106,6 +106,12 @@ eventos `prepared`, `accessed`, `access_denied` o `revoked` deben apuntar a
 `entity_type=exportacion_sensible` y `entity_id` de una exportacion existente;
 readiness reporta eventos huerfanos o mal vinculados sin exponer ids.
 
+Nota 2026-05-26: Compliance datos sensibles clasifica referencias sensibles en
+fuente y evidencia final. `audit_compliance_data_readiness` distingue refs
+faltantes de refs con URLs, tokens, correos o credenciales para
+`SourceLabel`, `AuthorizationRef`, politica aprobada, responsables, controles,
+evidencia archivada y validacion legal-operativa, sin imprimir valores.
+
 Nota 2026-05-26: Patrimonio mueve la identidad unica de propiedades activas a
 guard de escritura. `Propiedad.full_clean()` y la API rechazan nuevas
 propiedades activas con ROL de avaluo normalizado duplicado o identidad

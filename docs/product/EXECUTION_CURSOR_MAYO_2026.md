@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en `main`; ultimo paquete cerrado: Etapa 7 - referencias sensibles en evidencia de release gate. |
+| Frente activo | Etapa 0 - Compliance datos sensibles: clasificacion explicita de refs sensibles en readiness. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `run-stage7-readiness-gate.ps1` clasifique refs sensibles de restore, smoke publico y aceptacion final con codigos especificos sin exponer valores. |
-| Motivo de prioridad | El paquete cerro diagnostico de evidencia sensible en el release gate para no confundir referencias sensibles con faltantes genericos. |
-| Worktree | Ninguno tactico activo. |
-| Rama | `main`. |
-| Estado | Paquete validado, integrado y worktree tactico eliminado. |
-| Gate esperado | Si `main` esta limpio, elegir el siguiente frente seguro por trazabilidad y orden de construccion. No cerrar Operacion productiva sin fuentes/evidencias autorizadas. |
-| Estado al cerrar paquete | PR #349 mergeado en `main` como `4c92f88`; CI acceptance remoto OK; validacion local OK con parser PS, focal gate Etapa 7, acceptance 907 tests, frontend build, higiene y `git diff --check`. |
-| Bloqueos relacionados | Restore autorizado, smoke publico autorizado, Reporting autorizado, observabilidad runtime autorizada y aceptacion final siguen como condicion de cierre externo. |
-| Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si `main` esta limpio, seleccionar el siguiente frente seguro desde trazabilidad. |
-| Siguiente accion | Seleccionar nuevo paquete pequeno, seguro y verificable segun cursor, PRD/stage cards, trazabilidad y bloqueos vigentes. |
+| Brecha activa | `audit_compliance_data_readiness` no debe confundir referencias finales/de fuente sensibles con referencias faltantes genericas. |
+| Motivo de prioridad | Compliance es frente base transversal; distinguir refs sensibles mejora diagnostico y cierre sin usar datos reales ni integraciones. |
+| Worktree | `D:/Proyectos/LeaseManager-compliance-sensitive-readiness-refs` |
+| Rama | `codex/compliance-sensitive-readiness-refs`. |
+| Estado | Implementacion en curso. |
+| Gate esperado | Readiness Compliance sigue `parcial` en local; no cerrar `Compliance.DatosPersonalesChile2026` sin fuente autorizada y evidencia legal-operativa no sensible. |
+| Estado al cerrar paquete | Pendiente de validacion, PR, CI y merge. |
+| Bloqueos relacionados | `BLK-010` sigue como condicion de cierre externo. |
+| Politica de reanudacion | Continuar este worktree hasta validar, abrir PR, mergear, limpiar y luego resetear cursor. |
+| Siguiente accion | Validar tests focales/impactados, gate Compliance local, acceptance proporcional, higiene y PR. |
 
 ## Actualizacion
 
