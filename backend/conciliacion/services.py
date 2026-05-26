@@ -200,6 +200,7 @@ def reconcile_exact_movement(movimiento):
     if movimiento.referencia:
         residual_matches = list(
             CodigoCobroResidual.objects.filter(
+                contrato_origen__mandato_operacion__cuenta_recaudadora=movimiento.conexion_bancaria.cuenta_recaudadora,
                 referencia_visible=movimiento.referencia,
                 saldo_actual=movimiento.monto,
                 estado=EstadoCobroResidual.ACTIVE,
