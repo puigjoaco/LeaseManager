@@ -7,6 +7,11 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-26: El flujo GitHub no debe reutilizar PRs cerrados por nombre de
+rama. `scripts/codex-github-package.ps1` solo considera PR existente si su
+estado es `OPEN`; si `gh pr view <branch>` devuelve un PR `MERGED` o `CLOSED`,
+el paquete crea un PR nuevo para que el merge afecte realmente a `main`.
+
 Nota 2026-05-26: Canales endurece el fallback critico de WhatsApp desde
 servicio. Cuando `prepare_message()` bloquea un mensaje WhatsApp, crea
 `ManualResolution` `canales.whatsapp.fallback_requerido` con actor trazable y

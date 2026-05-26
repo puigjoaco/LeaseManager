@@ -91,7 +91,11 @@ function Get-Pr() {
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($json)) {
         return $null
     }
-    return ($json | ConvertFrom-Json)
+    $pr = $json | ConvertFrom-Json
+    if ($pr.state -ne 'OPEN') {
+        return $null
+    }
+    return $pr
 }
 
 function Resolve-PrBody() {
