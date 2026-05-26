@@ -77,7 +77,7 @@ cerrarse. El estado correcto es: producto base avanzado, no producto final.
 | 11. Cierre mensual con F29 preparado | `resuelto_confirmado_local` | contabilidad + SII draft cubiertos por tests |
 | 12. DDJJ/F22 desde doce cierres | `resuelto_confirmado_local` | preparacion anual cubierta por tests |
 | 13. SII DTE abierto y F29Presentacion cerrada | `implementado_sin_evidencia_real` | gates existen; falta integracion real y politica final |
-| 14. Reverso/asiento complementario posterior a cierre | `parcial` | politica/reapertura existe; falta flujo final de reverso/asiento complementario probado end-to-end |
+| 14. Reverso/asiento complementario posterior a cierre | `implementado_sin_evidencia_real` | reapertura exige politica activa, efecto contable posterior (`reverso` o `asiento_complementario`), motivo, efecto esperado, evidencia no sensible y evento contabilizado bajo regla/matriz activa; falta validacion con fuente autorizada/controlada final |
 | 15. Exportacion sensible fuera de scope rechazada | `resuelto_confirmado_local` | compliance y permisos cubiertos por tests |
 | 16. Empresa fuera de regimen soportado bloqueada | `resuelto_confirmado_local` | validacion fiscal y SII/contabilidad tienen tests |
 | 17. Capacidad podada no reaparece activa | `resuelto_confirmado_local` | matriz de gates y modelo SII soportan estado `podado`; no se detecto capacidad podada activa |

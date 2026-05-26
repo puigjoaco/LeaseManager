@@ -1,7 +1,9 @@
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference, redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from patrimonio.models import Empresa
 
@@ -20,6 +22,7 @@ from .models import (
     PoliticaReversoContable,
     RegimenTributarioEmpresa,
     ReglaContable,
+    TipoEfectoReaperturaCierre,
 )
 
 
@@ -418,3 +421,23 @@ class CierreMensualPrepareSerializer(serializers.Serializer):
         user = _request_user(self)
         if user and getattr(user, 'is_authenticated', False):
             self.fields['empresa_id'].queryset = _scoped_empresa_queryset(user)
+
+
+class CierreMensualReopenSerializer(serializers.Serializer):
+    tipo_efecto = serializers.ChoiceField(choices=TipoEfectoReaperturaCierre.choices)
+    monto_efecto = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=Decimal('0.01'))
+    motivo = serializers.CharField(max_length=255, trim_whitespace=True)
+    efecto_esperado = serializers.CharField(max_length=255, trim_whitespace=True)
+    evidencia_ref = serializers.CharField(max_length=255, trim_whitespace=True)
+
+    def validate(self, attrs):
+        if not is_non_sensitive_reference(attrs['evidencia_ref']):
+            raise serializers.ValidationError(
+                {'evidencia_ref': 'evidencia_ref debe ser una referencia no sensible.'}
+            )
+        for field in ('motivo', 'efecto_esperado'):
+            if contains_sensitive_reference(attrs[field], include_sensitive_keys=True):
+                raise serializers.ValidationError(
+                    {field: f'{field} no debe contener URLs, tokens, credenciales ni correos.'}
+                )
+        return attrs

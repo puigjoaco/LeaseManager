@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from patrimonio.models import Empresa
@@ -62,6 +63,11 @@ class NaturalezaCuenta(models.TextChoices):
 class TipoMovimientoAsiento(models.TextChoices):
     DEBIT = 'debe', 'Debe'
     CREDIT = 'haber', 'Haber'
+
+
+class TipoEfectoReaperturaCierre(models.TextChoices):
+    REVERSAL = 'reverso', 'Reverso'
+    COMPLEMENTARY_ENTRY = 'asiento_complementario', 'Asiento complementario'
 
 
 def has_text(value):
@@ -501,5 +507,61 @@ class CierreMensualContable(TimestampedModel):
         super().clean()
         errors = {}
         _add_non_sensitive_payload_error(errors, 'resumen_obligaciones', self.resumen_obligaciones)
+        if errors:
+            raise ValidationError(errors)
+
+
+class EfectoReaperturaCierreMensual(TimestampedModel):
+    cierre = models.ForeignKey(
+        CierreMensualContable,
+        on_delete=models.CASCADE,
+        related_name='efectos_reapertura',
+    )
+    politica_reverso = models.ForeignKey(
+        PoliticaReversoContable,
+        on_delete=models.PROTECT,
+        related_name='efectos_reapertura',
+    )
+    evento_contable = models.OneToOneField(
+        EventoContable,
+        on_delete=models.PROTECT,
+        related_name='efecto_reapertura_cierre',
+    )
+    tipo_efecto = models.CharField(max_length=32, choices=TipoEfectoReaperturaCierre.choices)
+    monto_efecto = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    motivo = models.CharField(max_length=255)
+    efecto_esperado = models.CharField(max_length=255)
+    evidencia_ref = models.CharField(max_length=255)
+    fecha_aplicacion = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['cierre_id', 'created_at', 'id']
+
+    def __str__(self):
+        return f'{self.cierre_id} - {self.tipo_efecto}'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+        _add_non_sensitive_payload_error(errors, 'motivo', self.motivo)
+        _add_non_sensitive_payload_error(errors, 'efecto_esperado', self.efecto_esperado)
+        if self.cierre_id and self.politica_reverso_id:
+            if self.cierre.empresa_id != self.politica_reverso.empresa_id:
+                errors['politica_reverso'] = 'La politica debe pertenecer a la misma empresa del cierre.'
+            if self.tipo_efecto == TipoEfectoReaperturaCierre.REVERSAL and not self.politica_reverso.usa_reverso:
+                errors['tipo_efecto'] = 'La politica no permite reverso para esta reapertura.'
+            if (
+                self.tipo_efecto == TipoEfectoReaperturaCierre.COMPLEMENTARY_ENTRY
+                and not self.politica_reverso.usa_asiento_complementario
+            ):
+                errors['tipo_efecto'] = 'La politica no permite asiento complementario para esta reapertura.'
+        if self.cierre_id and self.evento_contable_id:
+            if self.cierre.empresa_id != self.evento_contable.empresa_id:
+                errors['evento_contable'] = 'El evento contable debe pertenecer a la misma empresa del cierre.'
         if errors:
             raise ValidationError(errors)

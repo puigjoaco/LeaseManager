@@ -6,6 +6,7 @@ from .models import (
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
     CuentaContable,
+    EfectoReaperturaCierreMensual,
     EventoContable,
     LibroDiario,
     LibroMayor,
@@ -79,6 +80,13 @@ class PoliticaReversoContableAdmin(admin.ModelAdmin):
     list_display = ('empresa', 'tipo_ajuste', 'usa_reverso', 'usa_asiento_complementario', 'permite_reapertura', 'estado')
     list_filter = ('estado', 'usa_reverso', 'permite_reapertura')
     search_fields = ('empresa__razon_social', 'tipo_ajuste')
+
+
+@admin.register(EfectoReaperturaCierreMensual)
+class EfectoReaperturaCierreMensualAdmin(admin.ModelAdmin):
+    list_display = ('cierre', 'tipo_efecto', 'monto_efecto', 'evento_contable', 'fecha_aplicacion')
+    list_filter = ('tipo_efecto',)
+    search_fields = ('cierre__empresa__razon_social', 'evidencia_ref', 'evento_contable__idempotency_key')
 
 
 @admin.register(ObligacionTributariaMensual)

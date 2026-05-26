@@ -23,6 +23,7 @@ from .models import (
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
     CuentaContable,
+    EfectoReaperturaCierreMensual,
     EventoContable,
     LibroDiario,
     LibroMayor,
@@ -31,7 +32,12 @@ from .models import (
     PoliticaReversoContable,
     TipoMovimientoAsiento,
 )
-from .services import DEFAULT_REGIME_CODE, MONTHLY_CLOSE_REOPEN_POLICY_TYPE, ensure_default_regime
+from .services import (
+    DEFAULT_REGIME_CODE,
+    MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
+    MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE,
+    ensure_default_regime,
+)
 
 
 class ContabilidadAPITests(APITestCase):
@@ -137,6 +143,15 @@ class ContabilidadAPITests(APITestCase):
             ventana_operativa='periodo-siguiente-controlado',
             estado='activa',
         )
+
+    def _reopen_effect_payload(self, suffix='1'):
+        return {
+            'tipo_efecto': 'reverso',
+            'monto_efecto': '100000.00',
+            'motivo': f'reapertura-controlada-{suffix}',
+            'efecto_esperado': f'reverso-posterior-controlado-{suffix}',
+            'evidencia_ref': f'stage5-reopen-evidence-{suffix}',
+        }
 
     def _create_rule_matrix(
         self,
@@ -1175,6 +1190,13 @@ class ContabilidadAPITests(APITestCase):
         config.tasa_ppm_vigente = '10.00'
         config.save(update_fields=['tasa_ppm_vigente'])
         self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        self._create_rule_matrix(
+            empresa,
+            MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE,
+            accounts['cxc'],
+            accounts['bancos'],
+            vigencia_desde='2026-02-01',
+        )
 
         contrato, cuenta = self._create_contract_with_company_admin(empresa, codigo='LED-MONTH')
         self.client.post(
@@ -1228,6 +1250,13 @@ class ContabilidadAPITests(APITestCase):
         config.tasa_ppm_vigente = '10.00'
         config.save(update_fields=['tasa_ppm_vigente'])
         self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        self._create_rule_matrix(
+            empresa,
+            MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE,
+            accounts['cxc'],
+            accounts['bancos'],
+            vigencia_desde='2026-02-01',
+        )
 
         contrato, cuenta = self._create_contract_with_company_admin(empresa, codigo='LED-WORKFLOW')
         generate = self.client.post(
@@ -1324,6 +1353,7 @@ class ContabilidadAPITests(APITestCase):
         self._allow_monthly_close_reopen(empresa)
         reopen = self.client.post(
             reverse('contabilidad-cierre-reopen', args=[close.id]),
+            self._reopen_effect_payload('workflow'),
             format='json',
         )
         self.assertEqual(reopen.status_code, status.HTTP_200_OK)
@@ -1332,9 +1362,14 @@ class ContabilidadAPITests(APITestCase):
         libro_mayor.refresh_from_db()
         balance.refresh_from_db()
         self.assertEqual(close.estado, 'reabierto')
+        self.assertEqual(close.resumen_obligaciones['reapertura']['tipo_efecto'], 'reverso')
         self.assertEqual(libro_diario.estado_snapshot, 'reabierto')
         self.assertEqual(libro_mayor.estado_snapshot, 'reabierto')
         self.assertEqual(balance.estado_snapshot, 'reabierto')
+        self.assertEqual(EfectoReaperturaCierreMensual.objects.filter(cierre=close).count(), 1)
+        reopen_event = EventoContable.objects.get(evento_tipo=MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE)
+        self.assertEqual(reopen_event.estado_contable, 'contabilizado')
+        self.assertEqual(str(reopen_event.fecha_operativa), '2026-02-01')
 
     def test_prepare_and_approve_and_reopen_monthly_close(self):
         empresa = self._create_active_empresa(nombre='ApproveCo', rut='56565656-5')
@@ -1343,6 +1378,13 @@ class ContabilidadAPITests(APITestCase):
         config.tasa_ppm_vigente = '10.00'
         config.save(update_fields=['tasa_ppm_vigente'])
         self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        self._create_rule_matrix(
+            empresa,
+            MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE,
+            accounts['cxc'],
+            accounts['bancos'],
+            vigencia_desde='2026-02-01',
+        )
 
         response = self.client.post(
             reverse('contabilidad-evento-list'),
@@ -1378,10 +1420,62 @@ class ContabilidadAPITests(APITestCase):
         self._allow_monthly_close_reopen(empresa)
         reopen = self.client.post(
             reverse('contabilidad-cierre-reopen', args=[prepare.data['id']]),
+            self._reopen_effect_payload('approve'),
             format='json',
         )
         self.assertEqual(reopen.status_code, status.HTTP_200_OK)
         self.assertEqual(reopen.data['estado'], 'reabierto')
+        self.assertEqual(reopen.data['resumen_obligaciones']['reapertura']['tipo_efecto'], 'reverso')
+        self.assertEqual(EfectoReaperturaCierreMensual.objects.count(), 1)
+
+    def test_reopen_monthly_close_requires_posted_reopen_effect(self):
+        empresa = self._create_active_empresa(nombre='ReopenEffectCo', rut='58585858-3')
+        accounts = self._setup_contabilidad(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        config.tasa_ppm_vigente = '10.00'
+        config.save(update_fields=['tasa_ppm_vigente'])
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'close-reopen-effect-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'close-reopen-effect-1',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        prepare = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        approve = self.client.post(
+            reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
+            format='json',
+        )
+        self.assertEqual(approve.status_code, status.HTTP_200_OK)
+        self._allow_monthly_close_reopen(empresa)
+
+        denied = self.client.post(
+            reverse('contabilidad-cierre-reopen', args=[prepare.data['id']]),
+            self._reopen_effect_payload('missing-rule'),
+            format='json',
+        )
+
+        self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('regla y matriz activas', str(denied.data['detail']))
+        self.assertFalse(EfectoReaperturaCierreMensual.objects.exists())
+        self.assertEqual(CierreMensualContable.objects.get(pk=prepare.data['id']).estado, 'aprobado')
 
     def test_reopen_monthly_close_requires_active_reopen_policy(self):
         empresa = self._create_active_empresa(nombre='ReopenPolicyCo', rut='56565656-7')
@@ -1390,6 +1484,13 @@ class ContabilidadAPITests(APITestCase):
         config.tasa_ppm_vigente = '10.00'
         config.save(update_fields=['tasa_ppm_vigente'])
         self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        self._create_rule_matrix(
+            empresa,
+            MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE,
+            accounts['cxc'],
+            accounts['bancos'],
+            vigencia_desde='2026-02-01',
+        )
 
         response = self.client.post(
             reverse('contabilidad-evento-list'),
@@ -1433,6 +1534,7 @@ class ContabilidadAPITests(APITestCase):
 
         denied = self.client.post(
             reverse('contabilidad-cierre-reopen', args=[prepare.data['id']]),
+            self._reopen_effect_payload('denied'),
             format='json',
         )
         self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
@@ -1444,6 +1546,7 @@ class ContabilidadAPITests(APITestCase):
         self._allow_monthly_close_reopen(empresa)
         reopened = self.client.post(
             reverse('contabilidad-cierre-reopen', args=[prepare.data['id']]),
+            self._reopen_effect_payload('allowed'),
             format='json',
         )
         self.assertEqual(reopened.status_code, status.HTTP_200_OK)
