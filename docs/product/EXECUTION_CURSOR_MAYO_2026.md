@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 0 - Compliance: eventos de exportacion sensible con actor trazable. |
+| Frente activo | Ninguno abierto en main; ultimo paquete trabajado: Etapa 0 - Compliance: eventos de exportacion sensible vinculados a exportacion existente. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `audit_compliance_data_readiness` clasifique eventos de exportacion sensible `prepared`/`accessed`/`access_denied`/`revoked` sin `actor_user` como `compliance.audit_actor_missing`. |
+| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `audit_compliance_data_readiness` clasifique eventos de exportacion sensible `prepared`/`accessed`/`access_denied`/`revoked` con `entity_type` incorrecto, `entity_id` vacio o `entity_id` sin `ExportacionSensible` existente como `compliance.audit_target_invalid`. |
 | Motivo de prioridad | Paquete local, verificable y sin dependencia de `.env`, datos reales, secretos ni integraciones externas. |
-| Worktree | Ninguno pendiente despues de merge/limpieza; durante el paquete se uso `D:/Proyectos/LeaseManager-compliance-export-audit-actor`. |
-| Rama | `main` despues de merge/limpieza; durante el paquete se uso `codex/compliance-export-audit-actor`. |
+| Worktree | Ninguno pendiente despues de merge/limpieza; durante el paquete se uso `D:/Proyectos/LeaseManager-compliance-export-audit-target`. |
+| Rama | `main` despues de merge/limpieza; durante el paquete se uso `codex/compliance-export-audit-target`. |
 | Estado | Paquete validado localmente y listo para cierre con PR/merge/limpieza. |
 | Gate esperado | Si `main` esta limpio, elegir el siguiente frente por trazabilidad. Si aparece un worktree tactico sucio, terminarlo o pausarlo aqui antes de abrir otro frente. |
-| Estado al cerrar paquete | No cierra Compliance.DatosPersonalesChile2026; mejora trazabilidad local de eventos de exportaciones sensibles. |
+| Estado al cerrar paquete | No cierra Compliance.DatosPersonalesChile2026; mejora trazabilidad local de eventos de auditoria de exportaciones sensibles. |
 | Bloqueos relacionados | Politica aprobada, responsables, controles, evidencia archivada, validacion legal-operativa y fuente autorizada siguen siendo condiciones de cierre, no requisitos para este paquete. |
 | Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; con `main` limpio, tomar el siguiente paquete local seguro segun trazabilidad. |
 | Siguiente accion | Cerrar PR/merge/limpieza de este paquete; luego diagnosticar `main` y elegir el siguiente frente util sin depender de secretos, datos reales ni integraciones externas. |

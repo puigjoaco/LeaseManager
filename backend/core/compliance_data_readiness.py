@@ -30,6 +30,12 @@ NO_PHYSICAL_PURGE_CATEGORIES = {
     CategoriaDato.DOCUMENT,
     CategoriaDato.SECRET,
 }
+EXPORT_AUDIT_EVENT_TYPES = [
+    'compliance.exportacion_sensible.prepared',
+    'compliance.exportacion_sensible.accessed',
+    'compliance.exportacion_sensible.access_denied',
+    'compliance.exportacion_sensible.revoked',
+]
 
 
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
@@ -70,15 +76,20 @@ def _audit_event_has_sensitive_metadata(event: AuditEvent) -> bool:
 
 
 def _export_audit_events_missing_actor(events) -> int:
-    return events.filter(
-        event_type__in=[
-            'compliance.exportacion_sensible.prepared',
-            'compliance.exportacion_sensible.accessed',
-            'compliance.exportacion_sensible.access_denied',
-            'compliance.exportacion_sensible.revoked',
-        ],
-        actor_user__isnull=True,
-    ).count()
+    return events.filter(actor_user__isnull=True).count()
+
+
+def _export_audit_events_with_invalid_target(events, export_ids) -> int:
+    canonical_ids = {str(export_id) for export_id in export_ids}
+    invalid_count = 0
+    for event in events.only('entity_type', 'entity_id'):
+        if (
+            event.entity_type != 'exportacion_sensible'
+            or not event.entity_id
+            or event.entity_id not in canonical_ids
+        ):
+            invalid_count += 1
+    return invalid_count
 
 
 def _is_sha256_hex_digest(value: str) -> bool:
@@ -174,11 +185,15 @@ def collect_compliance_data_readiness(
 
     exports = ExportacionSensible.objects.select_related('created_by')
     export_issues = _collect_export_issues(exports, now)
-    export_audit_events = AuditEvent.objects.filter(entity_type='exportacion_sensible')
+    export_audit_events = AuditEvent.objects.filter(event_type__in=EXPORT_AUDIT_EVENT_TYPES)
     sensitive_audit_metadata_events = sum(
         1 for event in export_audit_events if _audit_event_has_sensitive_metadata(event)
     )
     audit_events_missing_actor = _export_audit_events_missing_actor(export_audit_events)
+    audit_events_invalid_target = _export_audit_events_with_invalid_target(
+        export_audit_events,
+        exports.values_list('pk', flat=True),
+    )
 
     final_evidence = {
         'policy_approval_ref': _non_sensitive_reference(policy_approval_ref),
@@ -336,6 +351,14 @@ def collect_compliance_data_readiness(
                 count=audit_events_missing_actor,
             )
         )
+    if audit_events_invalid_target:
+        issues.append(
+            _issue(
+                'compliance.audit_target_invalid',
+                'Existen eventos de auditoria de exportacion sensible sin entidad de exportacion trazable.',
+                count=audit_events_invalid_target,
+            )
+        )
 
     for key, code, message in [
         (
@@ -435,6 +458,7 @@ def collect_compliance_data_readiness(
                 ).count(),
                 'sensitive_metadata_events': sensitive_audit_metadata_events,
                 'actor_missing_events': audit_events_missing_actor,
+                'invalid_target_events': audit_events_invalid_target,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,
