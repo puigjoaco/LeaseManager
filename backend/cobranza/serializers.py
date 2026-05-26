@@ -159,7 +159,8 @@ class AjusteContratoSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class PagoMensualSerializer(serializers.ModelSerializer):
+class PagoMensualSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('resolucion_pago_excepcional_ref', 'resolucion_pago_excepcional_motivo')
     distribuciones_detail = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -182,6 +183,8 @@ class PagoMensualSerializer(serializers.ModelSerializer):
             'estado_pago',
             'dias_mora',
             'codigo_conciliacion_efectivo',
+            'resolucion_pago_excepcional_ref',
+            'resolucion_pago_excepcional_motivo',
             'distribuciones_detail',
             'created_at',
             'updated_at',

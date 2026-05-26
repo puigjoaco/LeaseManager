@@ -28,6 +28,7 @@ from cobranza.models import (
     EstadoIntentoPagoWebPay,
     EstadoPago,
     EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+    EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
     GateCobroExterno,
     IntentoPagoWebPay,
     MANUAL_UF_LOAD_EVENT_TYPE,
@@ -314,6 +315,66 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.payment.effective_code_event_missing', issue_codes)
         self.assertEqual(result['sections']['payments']['effective_code_event_missing'], 1)
+
+    def test_exceptional_payment_without_resolution_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(estado_pago=EstadoPago.FORGIVEN)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.exceptional_resolution_missing', issue_codes)
+        self.assertEqual(result['sections']['payments']['exceptional_resolution_missing'], 1)
+
+    def test_exceptional_payment_without_audit_event_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(
+            estado_pago=EstadoPago.FORGIVEN,
+            resolucion_pago_excepcional_ref='payment-forgiven-resolution-2026-01',
+            resolucion_pago_excepcional_motivo='Condonacion aprobada por acuerdo operativo controlado.',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.exceptional_resolution_event_missing', issue_codes)
+        self.assertEqual(result['sections']['payments']['exceptional_resolution_event_missing'], 1)
+
+    def test_exceptional_payment_with_audit_event_is_accepted(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(
+            estado_pago=EstadoPago.FORGIVEN,
+            resolucion_pago_excepcional_ref='payment-forgiven-resolution-2026-01',
+            resolucion_pago_excepcional_motivo='Condonacion aprobada por acuerdo operativo controlado.',
+        )
+        AuditEvent.objects.create(
+            event_type=EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
+            entity_type='pago_mensual',
+            entity_id=str(fixture['payment'].pk),
+            summary='Pago excepcional resuelto.',
+            actor_identifier='stage2-operator',
+            metadata={
+                'estado_pago': EstadoPago.FORGIVEN,
+                'resolucion_pago_excepcional_ref': 'payment-forgiven-resolution-2026-01',
+                'resolucion_pago_excepcional_motivo': 'Condonacion aprobada por acuerdo operativo controlado.',
+            },
+        )
+        rebuild_account_state(fixture['tenant'], reference_date=self.READINESS_REFERENCE_DATE)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage2_cobranza'])
+        self.assertNotIn('stage2.payment.exceptional_resolution_missing', issue_codes)
+        self.assertNotIn('stage2.payment.exceptional_resolution_event_missing', issue_codes)
 
     def test_manual_uf_with_audit_event_can_pass_readiness(self):
         self._create_payment_matrix()

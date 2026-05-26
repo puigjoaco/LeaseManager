@@ -36,6 +36,7 @@ from .models import (
     EstadoIntentoPagoWebPay,
     EstadoPago,
     EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+    EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
     GateCobroExterno,
     GarantiaContractual,
     IntentoPagoWebPay,
@@ -656,6 +657,90 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(update.status_code, status.HTTP_200_OK)
         self.assertEqual(update.data['estado_pago'], EstadoPago.OVERDUE)
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.state_changed').exists())
+
+    def test_payment_update_rejects_forgiven_without_trace(self):
+        payment = self._generate_monthly_payment(codigo='CON-FORGIVE-NOTRACE')
+
+        response = self.client.patch(
+            reverse('cobranza-pago-detail', args=[payment.pk]),
+            {'estado_pago': EstadoPago.FORGIVEN},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('resolucion_pago_excepcional_ref', response.data)
+        self.assertIn('resolucion_pago_excepcional_motivo', response.data)
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+
+    def test_payment_update_allows_forgiven_with_trace_and_audit(self):
+        payment = self._generate_monthly_payment(codigo='CON-FORGIVE-TRACE')
+
+        response = self.client.patch(
+            reverse('cobranza-pago-detail', args=[payment.pk]),
+            {
+                'estado_pago': EstadoPago.FORGIVEN,
+                'resolucion_pago_excepcional_ref': 'payment-forgiven-resolution-2026-01',
+                'resolucion_pago_excepcional_motivo': 'Condonacion aprobada por acuerdo operativo controlado.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['estado_pago'], EstadoPago.FORGIVEN)
+        self.assertEqual(response.data['resolucion_pago_excepcional_ref'], 'payment-forgiven-resolution-2026-01')
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
+                entity_type='pago_mensual',
+                entity_id=str(payment.pk),
+                actor_user=self.user,
+                metadata__estado_pago=EstadoPago.FORGIVEN,
+                metadata__resolucion_pago_excepcional_ref='payment-forgiven-resolution-2026-01',
+            ).exists()
+        )
+
+    def test_payment_update_allows_paid_by_termination_with_trace(self):
+        payment = self._generate_monthly_payment(codigo='CON-TERM-TRACE')
+
+        response = self.client.patch(
+            reverse('cobranza-pago-detail', args=[payment.pk]),
+            {
+                'estado_pago': EstadoPago.PAID_BY_TERMINATION,
+                'monto_pagado_clp': str(payment.monto_calculado_clp),
+                'fecha_deteccion_sistema': '2026-01-08',
+                'resolucion_pago_excepcional_ref': 'termination-payment-resolution-2026-01',
+                'resolucion_pago_excepcional_motivo': 'Cierre por acuerdo de termino controlado.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['estado_pago'], EstadoPago.PAID_BY_TERMINATION)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
+                entity_type='pago_mensual',
+                entity_id=str(payment.pk),
+                metadata__estado_pago=EstadoPago.PAID_BY_TERMINATION,
+            ).exists()
+        )
+
+    def test_payment_exceptional_resolution_rejects_sensitive_reference(self):
+        payment = self._generate_monthly_payment(codigo='CON-FORGIVE-SENSITIVE')
+
+        response = self.client.patch(
+            reverse('cobranza-pago-detail', args=[payment.pk]),
+            {
+                'estado_pago': EstadoPago.FORGIVEN,
+                'resolucion_pago_excepcional_ref': 'https://example.test/resolution?token=secret',
+                'resolucion_pago_excepcional_motivo': 'Condonacion aprobada.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('resolucion_pago_excepcional_ref', response.data)
 
     def test_webpay_prepare_blocks_when_gate_is_not_open(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-BLOCK')

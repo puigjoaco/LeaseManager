@@ -86,6 +86,12 @@ condicionados sin envios reales accidentales.
   cero, debe existir evento auditable `cobranza.pago_mensual.effective_code_applied`
   con actor, codigo y montos alineados. La readiness bloquea snapshots con
   efecto descuadrado o sin evento.
+- Los pagos mensuales cerrados como `pagado_por_acuerdo_termino` o
+  `condonado` solo son aceptables con referencia trazable no sensible, motivo
+  auditable y evento dedicado
+  `cobranza.pago_mensual.exceptional_state_resolved` con actor y resolucion
+  alineada. La readiness bloquea snapshots heredados sin esa resolucion o sin
+  evento.
 - Mensajes salientes con `DocumentoEmitido` cuya politica documental exige
   firma o notaria solo pueden prepararse o marcarse enviados si el documento
   ya esta `formalizado`; el dominio conserva el mismo guard para escrituras
@@ -137,8 +143,9 @@ condicionados sin envios reales accidentales.
   UF manual sin evento auditable, refs sensibles en gates, `external_ref`, `return_url_ref` o
   `provider_payload` sensible, intentos WebPay confirmados desalineados con el
   pago mensual, pagos pendientes vencidos, mora desactualizada, efecto de
-  codigo efectivo descuadrado o sin evento auditable, y estados de cuenta con
-  score faltante o desalineado, sin enviar mensajes ni conectar
+  codigo efectivo descuadrado o sin evento auditable, pagos por acuerdo de
+  termino o condonados sin resolucion trazable o sin evento auditable, y
+  estados de cuenta con score faltante o desalineado, sin enviar mensajes ni conectar
   proveedores externos. Para cierre debe ejecutarse
   con `--source-kind
   snapshot_controlado` o `--source-kind real_autorizado`; la fuente local no

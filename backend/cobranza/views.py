@@ -29,6 +29,7 @@ from .models import (
     EstadoCuentaArrendatario,
     EstadoPago,
     EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+    EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
     GateCobroExterno,
     GarantiaContractual,
     HistorialGarantia,
@@ -163,6 +164,26 @@ def create_effective_code_applied_event(payment, request):
             'monto_facturable_clp': _format_clp_amount(payment.monto_facturable_clp),
             'monto_calculado_clp': _format_clp_amount(payment.monto_calculado_clp),
             'monto_efecto_codigo_efectivo_clp': _format_clp_amount(effect),
+        },
+    )
+
+
+def create_exceptional_payment_state_event(payment, request, previous_state):
+    if payment.estado_pago not in {EstadoPago.PAID_BY_TERMINATION, EstadoPago.FORGIVEN}:
+        return
+    create_audit_event(
+        event_type=EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
+        entity_type='pago_mensual',
+        entity_id=str(payment.pk),
+        summary=f'Pago mensual cerrado excepcionalmente como {payment.estado_pago}',
+        actor_user=request.user,
+        ip_address=request.META.get('REMOTE_ADDR'),
+        metadata={
+            'contrato_id': payment.contrato_id,
+            'previous_state': previous_state,
+            'estado_pago': payment.estado_pago,
+            'resolucion_pago_excepcional_ref': payment.resolucion_pago_excepcional_ref.strip(),
+            'resolucion_pago_excepcional_motivo': payment.resolucion_pago_excepcional_motivo.strip(),
         },
     )
 
@@ -331,6 +352,12 @@ class CobranzaSnapshotView(APIView):
                         'repactacion_deuda': item.repactacion_deuda_id,
                         'dias_mora': item.dias_mora,
                         'fecha_pago_webpay': item.fecha_pago_webpay,
+                        'resolucion_pago_excepcional_ref': redact_sensitive_reference(
+                            item.resolucion_pago_excepcional_ref
+                        ),
+                        'resolucion_pago_excepcional_motivo': redact_sensitive_reference(
+                            item.resolucion_pago_excepcional_motivo
+                        ),
                     }
                     for item in pagos
                 ],
@@ -465,7 +492,6 @@ class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
         if next_state in {
             EstadoPago.PAID,
             EstadoPago.PAID_VIA_REPAYMENT,
-            EstadoPago.PAID_BY_TERMINATION,
         }:
             raise ValidationError(
                 {
@@ -489,12 +515,15 @@ class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
                     'fecha_deteccion_sistema',
                     'estado_pago',
                     'repactacion_deuda',
+                    'resolucion_pago_excepcional_ref',
+                    'resolucion_pago_excepcional_motivo',
                     'dias_mora',
                     'updated_at',
                 ]
             )
         self._create_audit_event(instance=instance, action='updated')
         if previous_state != self._extract_state(instance):
+            create_exceptional_payment_state_event(instance, self.request, previous_state or '')
             self._create_audit_event(
                 instance=instance,
                 action='state_changed',
