@@ -227,10 +227,16 @@ class RepresentacionComunidadReadSerializer(serializers.ModelSerializer):
             'vigente_desde',
             'vigente_hasta',
             'activo',
+            'evidencia_ref',
             'observaciones',
             'created_at',
             'updated_at',
         )
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['evidencia_ref'] = redact_sensitive_reference(data.get('evidencia_ref'))
+        return data
 
 
 class OwnerBaseSerializer(serializers.ModelSerializer):
@@ -413,6 +419,7 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
         allow_null=True,
         write_only=True,
     )
+    representante_evidencia_ref = serializers.CharField(required=False, allow_blank=True, write_only=True)
     representacion_vigente = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -422,6 +429,7 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
             'nombre',
             'representante_modo',
             'representante_socio_id',
+            'representante_evidencia_ref',
             'representacion_vigente',
             'estado',
             'participaciones',
@@ -461,9 +469,11 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
         estado = attrs.get('estado', getattr(self.instance, 'estado', EstadoPatrimonial.DRAFT))
         representante_modo = attrs.pop('representante_modo', None)
         representante = attrs.pop('representante_socio_obj', None)
+        representante_evidencia_ref = attrs.pop('representante_evidencia_ref', None)
         explicit_representation_change = (
             'representante_modo' in getattr(self, 'initial_data', {})
             or 'representante_socio_id' in getattr(self, 'initial_data', {})
+            or 'representante_evidencia_ref' in getattr(self, 'initial_data', {})
         )
 
         current_representation = self.instance.representacion_vigente() if self.instance else None
@@ -471,10 +481,23 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
             representante_modo = current_representation.modo_representacion
         if self.instance and representante is None and current_representation:
             representante = current_representation.socio_representante
+        if self.instance and representante_evidencia_ref is None and current_representation:
+            representante_evidencia_ref = current_representation.evidencia_ref
 
         attrs['_representante_modo'] = representante_modo
         attrs['_representante_socio'] = representante
+        attrs['_representante_evidencia_ref'] = representante_evidencia_ref
         attrs['_sync_representacion'] = explicit_representation_change or (self.instance is None and representante is not None)
+
+        if representante_modo == ModoRepresentacionComunidad.DESIGNATED:
+            if not (representante_evidencia_ref or '').strip():
+                raise serializers.ValidationError(
+                    {'representante_evidencia_ref': 'La representacion designada requiere evidencia formal trazable.'}
+                )
+            if not is_non_sensitive_reference(representante_evidencia_ref):
+                raise serializers.ValidationError(
+                    {'representante_evidencia_ref': 'La evidencia de representacion designada debe ser no sensible.'}
+                )
 
         if estado == EstadoPatrimonial.ACTIVE:
             if representante is None or representante_modo is None:
@@ -501,23 +524,27 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
                 raise serializers.ValidationError({'estado': errors})
         return attrs
 
-    def _sync_representacion(self, comunidad, *, representante_modo=None, representante=None):
+    def _sync_representacion(self, comunidad, *, representante_modo=None, representante=None, evidencia_ref=''):
         if representante_modo is None and representante is None:
             return
 
         comunidad.representaciones.filter(activo=True).update(activo=False)
-        RepresentacionComunidad.objects.create(
+        representation = RepresentacionComunidad(
             comunidad=comunidad,
             modo_representacion=representante_modo,
             socio_representante=representante,
             vigente_desde=timezone.localdate(),
             activo=True,
+            evidencia_ref=evidencia_ref or '',
         )
+        representation.full_clean()
+        representation.save()
 
     def create(self, validated_data):
         participaciones = validated_data.pop('participaciones', None)
         representante_modo = validated_data.pop('_representante_modo', None)
         representante = validated_data.pop('_representante_socio', None)
+        representante_evidencia_ref = validated_data.pop('_representante_evidencia_ref', '')
         sync_representacion = validated_data.pop('_sync_representacion', False)
         with transaction.atomic():
             requested_state = validated_data.get('estado', EstadoPatrimonial.DRAFT)
@@ -526,7 +553,12 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
             instance = ComunidadPatrimonial.objects.create(**validated_data)
             self._sync_participaciones(instance, participaciones)
             if sync_representacion:
-                self._sync_representacion(instance, representante_modo=representante_modo, representante=representante)
+                self._sync_representacion(
+                    instance,
+                    representante_modo=representante_modo,
+                    representante=representante,
+                    evidencia_ref=representante_evidencia_ref,
+                )
             if requested_state == EstadoPatrimonial.ACTIVE:
                 instance.estado = EstadoPatrimonial.ACTIVE
                 instance.save(update_fields=['estado', 'updated_at'])
@@ -536,6 +568,7 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
         participaciones = validated_data.pop('participaciones', None)
         representante_modo = validated_data.pop('_representante_modo', None)
         representante = validated_data.pop('_representante_socio', None)
+        representante_evidencia_ref = validated_data.pop('_representante_evidencia_ref', '')
         sync_representacion = validated_data.pop('_sync_representacion', False)
         with transaction.atomic():
             requested_state = validated_data.get('estado', instance.estado)
@@ -544,7 +577,12 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
             instance = serializers.ModelSerializer.update(self, instance, validated_data)
             self._sync_participaciones(instance, participaciones)
             if sync_representacion:
-                self._sync_representacion(instance, representante_modo=representante_modo, representante=representante)
+                self._sync_representacion(
+                    instance,
+                    representante_modo=representante_modo,
+                    representante=representante,
+                    evidencia_ref=representante_evidencia_ref,
+                )
             if requested_state == EstadoPatrimonial.ACTIVE:
                 instance.estado = EstadoPatrimonial.ACTIVE
                 instance.save(update_fields=['estado', 'updated_at'])

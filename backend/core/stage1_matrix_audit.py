@@ -60,6 +60,7 @@ from operacion.models import (
 from patrimonio.models import (
     ComunidadPatrimonial,
     Empresa,
+    ModoRepresentacionComunidad,
     ParticipacionPatrimonial,
     Propiedad,
     RepresentacionComunidad,
@@ -580,6 +581,31 @@ def _audit_community_representation_window_overlaps(issues: list[dict[str, Any]]
         community_representations.append(representation)
 
 
+def _audit_designated_community_representation_evidence(issues: list[dict[str, Any]]) -> None:
+    representations = RepresentacionComunidad.objects.filter(
+        activo=True,
+        modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+    ).select_related('comunidad', 'socio_representante')
+    for representation in representations:
+        evidence_ref = (representation.evidencia_ref or '').strip()
+        if not evidence_ref:
+            _issue(
+                issues,
+                code='stage1.representacion.designada_evidencia_faltante',
+                entity='RepresentacionComunidad',
+                entity_id=representation.pk,
+                message='Representacion designada activa sin evidencia formal trazable no sensible.',
+            )
+        elif not is_non_sensitive_reference(evidence_ref):
+            _issue(
+                issues,
+                code='stage1.representacion.designada_evidencia_sensible',
+                entity='RepresentacionComunidad',
+                entity_id=representation.pk,
+                message='Representacion designada activa con evidencia que parece sensible; registrar solo una referencia no secreta.',
+            )
+
+
 def _audit_participation_transfers(issues: list[dict[str, Any]]) -> None:
     ended_participations = ParticipacionPatrimonial.objects.filter(
         activo=True,
@@ -748,6 +774,7 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
         entity='ServicioPropiedad',
     )
     _audit_community_representation_window_overlaps(issues)
+    _audit_designated_community_representation_evidence(issues)
     _audit_participation_transfers(issues)
 
     for empresa in Empresa.objects.filter(estado='activa'):

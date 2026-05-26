@@ -290,6 +290,7 @@ class RepresentacionComunidad(TimestampedModel):
     vigente_desde = models.DateField(default=timezone.localdate)
     vigente_hasta = models.DateField(null=True, blank=True)
     activo = models.BooleanField(default=True)
+    evidencia_ref = models.CharField(max_length=255, blank=True)
     observaciones = models.TextField(blank=True)
 
     class Meta:
@@ -304,6 +305,15 @@ class RepresentacionComunidad(TimestampedModel):
             raise ValidationError({'vigente_hasta': 'La vigencia final no puede ser anterior a la inicial.'})
         if self.activo and not self.socio_representante.activo:
             raise ValidationError({'socio_representante': 'La representacion activa requiere un socio activo.'})
+        if self.modo_representacion == ModoRepresentacionComunidad.DESIGNATED:
+            if not (self.evidencia_ref or '').strip():
+                raise ValidationError(
+                    {'evidencia_ref': 'La representacion designada requiere evidencia formal trazable.'}
+                )
+            if not is_non_sensitive_reference(self.evidencia_ref):
+                raise ValidationError(
+                    {'evidencia_ref': 'La evidencia de representacion designada debe ser no sensible.'}
+                )
         if self.modo_representacion == ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT:
             if not self.comunidad.participaciones_activas().filter(participante_socio=self.socio_representante).exists():
                 raise ValidationError(

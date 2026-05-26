@@ -543,7 +543,7 @@ type Comunidad = {
   nombre: string
   estado: string
   participaciones_detail: unknown[]
-  representacion_vigente: { modo_representacion: string; socio_representante_nombre: string } | null
+  representacion_vigente: { modo_representacion: string; socio_representante_nombre: string; evidencia_ref?: string } | null
 }
 type Propiedad = {
   id: number
