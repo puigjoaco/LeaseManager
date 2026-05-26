@@ -36,10 +36,11 @@ from .serializers import (
     ContratoAutomaticRenewalSerializer,
     ContratoPropiedadReadSerializer,
     ContratoSerializer,
+    ContratoTenantReplacementSerializer,
     PeriodoContractualReadSerializer,
     raise_drf_validation_error,
 )
-from .services import execute_automatic_contract_renewal
+from .services import execute_automatic_contract_renewal, execute_tenant_replacement
 
 
 class AuditCreateUpdateMixin:
@@ -640,6 +641,57 @@ class ContratoAutomaticRenewalView(ScopedQuerysetMixin, generics.GenericAPIView)
             {
                 'contrato': ContratoSerializer(renewed_contract, context={'request': request}).data,
                 'periodo_renovacion': PeriodoContractualReadSerializer(renewal_period).data,
+            },
+            status=201,
+        )
+
+
+class ContratoTenantReplacementView(ScopedQuerysetMixin, generics.GenericAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = ContratoTenantReplacementSerializer
+    queryset = Contrato.objects.select_related(
+        'mandato_operacion',
+        'arrendatario',
+        'identidad_envio_override',
+        'politica_documental',
+    ).prefetch_related('contrato_propiedades', 'periodos_contractuales')
+    property_scope_paths = ('mandato_operacion__propiedad_id',)
+
+    def post(self, request, pk):
+        contract = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+
+        try:
+            aviso, future_contract = execute_tenant_replacement(
+                contract=contract,
+                arrendatario=payload['arrendatario'],
+                codigo_contrato=payload['codigo_contrato'],
+                fecha_inicio=payload['fecha_inicio'],
+                fecha_fin_vigente=payload['fecha_fin_vigente'],
+                causal_aviso=payload['causal_aviso'],
+                monto_base=payload.get('monto_base'),
+                moneda_base=payload.get('moneda_base', ''),
+                dia_pago_mensual=payload.get('dia_pago_mensual'),
+                plazo_notificacion_termino_dias=payload.get('plazo_notificacion_termino_dias'),
+                dias_prealerta_admin=payload.get('dias_prealerta_admin'),
+                politica_documental=payload.get('politica_documental'),
+                identidad_envio_override=payload.get('identidad_envio_override'),
+                tiene_gastos_comunes=payload.get('tiene_gastos_comunes'),
+                snapshot_representante_legal=payload.get('snapshot_representante_legal'),
+                resolucion_conflicto_renovacion_ref=payload.get('resolucion_conflicto_renovacion_ref', ''),
+                resolucion_conflicto_renovacion_motivo=payload.get('resolucion_conflicto_renovacion_motivo', ''),
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+
+        return Response(
+            {
+                'aviso_termino': AvisoTerminoSerializer(aviso, context={'request': request}).data,
+                'contrato_nuevo': ContratoSerializer(future_contract, context={'request': request}).data,
             },
             status=201,
         )

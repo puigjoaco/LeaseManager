@@ -134,6 +134,13 @@ bloquea `AvisoTermino` registrado, conserva la regla de politica cuando cambia
 base y registra auditoria dedicada; el auditor Etapa 1 bloquea renovaciones
 automaticas heredadas sin ese evento.
 
+Nota 2026-05-25: Contratos incorpora flujo operacional de cambio de
+arrendatario. El endpoint crea `AvisoTermino` registrado y contrato futuro con
+nuevo arrendatario en una transaccion, conserva contrato/deuda historica sin
+reescritura, copia propiedades contractuales, crea periodo inicial de origen
+`cambio_arrendatario` y registra evento auditable; el auditor Etapa 1 bloquea
+futuros heredados con arrendatario distinto si falta esa traza.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas. |

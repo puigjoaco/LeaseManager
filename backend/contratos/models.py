@@ -25,6 +25,7 @@ NOTICE_DEADLINE_END_OF_DAY = time(23, 59, 59)
 RENEWAL_PERIOD_KIND = 'renovacion'
 AUTOMATIC_RENEWAL_ORIGIN = 'renovacion_automatica'
 AUTOMATIC_RENEWAL_EVENT_TYPE = 'contratos.contrato.automatic_renewal_executed'
+TENANT_REPLACEMENT_EVENT_TYPE = 'contratos.contrato.tenant_replacement_executed'
 INTERNATIONAL_PHONE_RE = re.compile(r'^\+[1-9]\d{7,14}$')
 WHATSAPP_BLOCK_ALERT_CATEGORY = 'canales.whatsapp.bloqueo_definitivo'
 WHATSAPP_BLOCK_EVENT_TYPE = 'contratos.arrendatario.whatsapp_blocked'
