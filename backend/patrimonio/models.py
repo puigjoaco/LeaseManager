@@ -1,4 +1,6 @@
 from decimal import Decimal
+import re
+import unicodedata
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -80,6 +82,16 @@ def _has_duplicate_effective_participants(participaciones):
             return True
         seen.add(key)
     return False
+
+
+def normalize_property_identity_text(value):
+    normalized = unicodedata.normalize('NFKD', (value or '').strip())
+    ascii_value = normalized.encode('ascii', 'ignore').decode('ascii')
+    return ' '.join(ascii_value.upper().split())
+
+
+def normalize_property_rol_avaluo(value):
+    return re.sub(r'[^0-9A-Z]', '', normalize_property_identity_text(value))
 
 
 class Socio(TimestampedModel):
@@ -540,6 +552,7 @@ class Propiedad(TimestampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
         owner_count = sum(
             bool(owner_id) for owner_id in (self.empresa_owner_id, self.comunidad_owner_id, self.socio_owner_id)
         )
@@ -561,6 +574,52 @@ class Propiedad(TimestampedModel):
                 )
         elif self.socio_owner_id and not self.socio_owner.activo:
             raise ValidationError({'estado': 'La propiedad activa requiere un socio activo.'})
+
+        rol_key = normalize_property_rol_avaluo(self.rol_avaluo)
+        if rol_key:
+            duplicate_rol_properties = Propiedad.objects.filter(estado=EstadoPatrimonial.ACTIVE)
+            if self.pk:
+                duplicate_rol_properties = duplicate_rol_properties.exclude(pk=self.pk)
+            for propiedad in duplicate_rol_properties.only('rol_avaluo'):
+                if normalize_property_rol_avaluo(propiedad.rol_avaluo) == rol_key:
+                    errors['rol_avaluo'] = (
+                        'La propiedad activa no puede duplicar un ROL de avaluo normalizado ya activo.'
+                    )
+                    break
+
+        identity_key = (
+            normalize_property_identity_text(self.direccion),
+            normalize_property_identity_text(self.comuna),
+            normalize_property_identity_text(self.region),
+            normalize_property_identity_text(self.tipo_inmueble),
+            normalize_property_identity_text(self.codigo_propiedad),
+        )
+        if all(identity_key):
+            duplicate_identity_properties = Propiedad.objects.filter(estado=EstadoPatrimonial.ACTIVE)
+            if self.pk:
+                duplicate_identity_properties = duplicate_identity_properties.exclude(pk=self.pk)
+            for propiedad in duplicate_identity_properties.only(
+                'direccion',
+                'comuna',
+                'region',
+                'tipo_inmueble',
+                'codigo_propiedad',
+            ):
+                existing_identity = (
+                    normalize_property_identity_text(propiedad.direccion),
+                    normalize_property_identity_text(propiedad.comuna),
+                    normalize_property_identity_text(propiedad.region),
+                    normalize_property_identity_text(propiedad.tipo_inmueble),
+                    normalize_property_identity_text(propiedad.codigo_propiedad),
+                )
+                if existing_identity == identity_key:
+                    errors['codigo_propiedad'] = (
+                        'La propiedad activa no puede duplicar direccion, comuna, region, tipo y codigo operativo.'
+                    )
+                    break
+
+        if errors:
+            raise ValidationError(errors)
 
 
 class ServicioPropiedad(TimestampedModel):
