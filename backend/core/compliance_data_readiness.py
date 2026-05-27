@@ -134,23 +134,31 @@ def _has_aligned_export_event(export: ExportacionSensible, event_type: str) -> b
     return any(event.actor_user_id and _export_audit_metadata_is_aligned(event, export) for event in events)
 
 
-def _revoked_event_has_valid_reason(event: AuditEvent) -> bool:
+def _revoked_event_reason_state(event: AuditEvent) -> str:
     reason = str((event.metadata or {}).get('revocation_reason') or '').strip()
-    return bool(reason) and not contains_sensitive_reference(reason, include_sensitive_keys=True)
+    if not reason:
+        return 'missing'
+    if contains_sensitive_reference(reason, include_sensitive_keys=True):
+        return 'sensitive'
+    return 'valid'
 
 
-def _has_aligned_revoked_export_event_with_reason(export: ExportacionSensible) -> bool:
+def _revoked_export_reason_issue(export: ExportacionSensible) -> str:
     events = AuditEvent.objects.filter(
         event_type=EXPORT_REVOKED_EVENT_TYPE,
         entity_type=EXPORT_AUDIT_ENTITY_TYPE,
         entity_id=str(export.pk),
     )
-    return any(
-        event.actor_user_id
-        and _export_audit_metadata_is_aligned(event, export)
-        and _revoked_event_has_valid_reason(event)
+    states = [
+        _revoked_event_reason_state(event)
         for event in events
-    )
+        if event.actor_user_id and _export_audit_metadata_is_aligned(event, export)
+    ]
+    if 'valid' in states:
+        return ''
+    if 'sensitive' in states:
+        return 'revoked_audit_reason_sensitive'
+    return 'revoked_audit_reason_missing'
 
 
 def _export_audit_events_with_unaligned_metadata(events, exports_by_id) -> int:
@@ -234,10 +242,10 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
             EXPORT_REVOKED_EVENT_TYPE,
         ):
             counts['revoked_audit_event_unaligned'] += 1
-        elif export.estado == EstadoExportacionSensible.REVOKED and not _has_aligned_revoked_export_event_with_reason(
-            export
-        ):
-            counts['revoked_audit_reason_missing'] += 1
+        elif export.estado == EstadoExportacionSensible.REVOKED:
+            reason_issue = _revoked_export_reason_issue(export)
+            if reason_issue:
+                counts[reason_issue] += 1
     return dict(sorted(counts.items()))
 
 
@@ -460,6 +468,11 @@ def collect_compliance_data_readiness(
             'compliance.export_revoked_audit_reason_missing',
             'Toda exportacion sensible revocada requiere motivo no sensible en el evento revoked.',
         ),
+        (
+            'revoked_audit_reason_sensitive',
+            'compliance.export_revoked_audit_reason_sensitive',
+            'Existen exportaciones sensibles revocadas con motivo sensible heredado en el evento revoked.',
+        ),
     ]:
         if export_issues.get(key):
             issues.append(_issue(code, message, count=export_issues[key]))
@@ -594,6 +607,7 @@ def collect_compliance_data_readiness(
                 'revoked_audit_event_missing': export_issues.get('revoked_audit_event_missing', 0),
                 'revoked_audit_event_unaligned': export_issues.get('revoked_audit_event_unaligned', 0),
                 'revoked_audit_reason_missing': export_issues.get('revoked_audit_reason_missing', 0),
+                'revoked_audit_reason_sensitive': export_issues.get('revoked_audit_reason_sensitive', 0),
             },
             'audit': {
                 'export_events_total': export_audit_events.count(),

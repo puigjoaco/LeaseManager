@@ -474,6 +474,7 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertNotIn('compliance.export_revoked_audit_event_unaligned', issue_codes)
         self.assertIn('compliance.export_revoked_audit_reason_missing', issue_codes)
         self.assertEqual(result['sections']['exports']['revoked_audit_reason_missing'], 1)
+        self.assertEqual(result['sections']['exports']['revoked_audit_reason_sensitive'], 0)
 
     def test_revoked_export_with_sensitive_revocation_reason_is_blocking(self):
         self._create_policies()
@@ -486,9 +487,11 @@ class ComplianceDataReadinessTests(TestCase):
         issue_codes = {issue['code'] for issue in result['issues']}
 
         self.assertFalse(result['ready_for_compliance_data'])
-        self.assertIn('compliance.export_revoked_audit_reason_missing', issue_codes)
+        self.assertIn('compliance.export_revoked_audit_reason_sensitive', issue_codes)
+        self.assertNotIn('compliance.export_revoked_audit_reason_missing', issue_codes)
         self.assertIn('compliance.audit_sensitive_metadata', issue_codes)
-        self.assertEqual(result['sections']['exports']['revoked_audit_reason_missing'], 1)
+        self.assertEqual(result['sections']['exports']['revoked_audit_reason_missing'], 0)
+        self.assertEqual(result['sections']['exports']['revoked_audit_reason_sensitive'], 1)
         self.assertNotIn('audit.example.test', json.dumps(result))
 
     def test_revoked_export_with_non_sensitive_reason_can_pass_readiness(self):
@@ -504,6 +507,7 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertTrue(result['ready_for_compliance_data'])
         self.assertEqual(result['issues'], [])
         self.assertEqual(result['sections']['exports']['revoked_audit_reason_missing'], 0)
+        self.assertEqual(result['sections']['exports']['revoked_audit_reason_sensitive'], 0)
 
     def test_access_denied_events_are_counted_without_blocking(self):
         self._create_policies()
