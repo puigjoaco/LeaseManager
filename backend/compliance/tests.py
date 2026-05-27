@@ -23,9 +23,11 @@ from .models import (
     EstadoExportacionSensible,
     EXPIRED_EXPORT_STATE_ERROR,
     ExportacionSensible,
+    MAX_EXPORT_WINDOW_ERROR,
     PAYLOAD_HASH_FORMAT_ERROR,
     PoliticaRetencionDatos,
     SECRET_EXPORT_ERROR,
+    SENSITIVE_EXPORT_MAX_DAYS,
 )
 from .services import (
     ACTIVE_RETENTION_POLICY_ERROR,
@@ -536,6 +538,27 @@ class ComplianceAPITests(APITestCase):
         with self.assertRaises(ValidationError) as hold_context:
             export.full_clean()
         self.assertEqual(hold_context.exception.message_dict['hold_activo'][0], EXPIRED_EXPORT_STATE_ERROR)
+
+    def test_export_model_rejects_window_over_30_days_without_hold(self):
+        encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = ExportacionSensible(
+            categoria_dato=CategoriaDato.FINANCIAL,
+            export_kind='financiero_mensual',
+            scope_resumen={'anio': 2026, 'mes': 5},
+            motivo='Revision mensual',
+            encrypted_payload=encrypted_payload,
+            payload_hash=payload_hash,
+            encrypted_ref=f'export://financiero_mensual/{payload_hash[:12]}',
+            expires_at=timezone.now() + timedelta(days=SENSITIVE_EXPORT_MAX_DAYS + 1),
+            created_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            export.full_clean()
+        self.assertEqual(context.exception.message_dict['expires_at'][0], MAX_EXPORT_WINDOW_ERROR)
+
+        export.hold_activo = True
+        export.full_clean()
 
     def test_prepare_export_requires_matching_categoria_for_export_kind(self):
         self._create_context('CMP-CAT')

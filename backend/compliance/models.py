@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -44,6 +46,8 @@ RETENTION_NO_PHYSICAL_PURGE_CATEGORIES = {
 SECRET_EXPORT_ERROR = 'No se permite preparar exportaciones operativas sobre categoria secreto.'
 EXPIRED_EXPORT_STATE_ERROR = 'La exportacion expirada debe representar una exportacion ya vencida sin hold activo.'
 PAYLOAD_HASH_FORMAT_ERROR = 'payload_hash debe ser un digest SHA-256 hexadecimal de 64 caracteres.'
+SENSITIVE_EXPORT_MAX_DAYS = 30
+MAX_EXPORT_WINDOW_ERROR = 'Las exportaciones sensibles sin hold no pueden exceder 30 dias de vigencia.'
 
 
 class PoliticaRetencionDatos(TimestampedModel):
@@ -109,6 +113,13 @@ class ExportacionSensible(TimestampedModel):
         reference_time = self.created_at or timezone.now()
         if not self.hold_activo and self.estado == EstadoExportacionSensible.PREPARED and self.expires_at <= reference_time:
             errors['expires_at'] = 'La exportacion preparada debe expirar en el futuro.'
+        if (
+            not self.hold_activo
+            and self.estado == EstadoExportacionSensible.PREPARED
+            and self.expires_at
+            and self.expires_at - reference_time > timedelta(days=SENSITIVE_EXPORT_MAX_DAYS)
+        ):
+            errors['expires_at'] = MAX_EXPORT_WINDOW_ERROR
         if self.estado == EstadoExportacionSensible.EXPIRED:
             if self.hold_activo:
                 errors['hold_activo'] = EXPIRED_EXPORT_STATE_ERROR

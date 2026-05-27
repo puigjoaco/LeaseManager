@@ -21,12 +21,13 @@ from .models import (
     EstadoExportacionSensible,
     EstadoRegistro,
     ExportacionSensible,
+    SENSITIVE_EXPORT_MAX_DAYS,
     PoliticaRetencionDatos,
     SECRET_EXPORT_ERROR,
 )
 
 
-MAX_EXPORT_DAYS = 30
+MAX_EXPORT_DAYS = SENSITIVE_EXPORT_MAX_DAYS
 SENSITIVE_EXPORT_METADATA_ERROR = 'La metadata visible de exportacion no puede contener referencias sensibles.'
 ACTIVE_RETENTION_POLICY_ERROR = 'No existe una politica de retencion activa para la categoria indicada.'
 PAYLOAD_HASH_MISMATCH_ERROR = 'La integridad de la exportacion no coincide con su payload_hash.'
