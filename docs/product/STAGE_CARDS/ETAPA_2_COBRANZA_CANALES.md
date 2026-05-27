@@ -46,6 +46,11 @@ condicionados sin envios reales accidentales.
   fuera de plazo. La readiness debe bloquear snapshots con arrendatarios
   cobrables sin estado, con resumen operativo desactualizado o con score
   faltante/desalineado.
+- El score de pago excluye pagos cuyo vencimiento cae antes del
+  `fecha_registro_operativo` del contrato, porque esos meses no tienen
+  registro operativo valido para medir cumplimiento. El resumen operativo
+  conserva `score_meses_sin_registro_operativo` para que readiness detecte
+  estados heredados que hayan contado esos meses.
 - Los valores UF deben declarar una fuente canonica de la cadena
   `UF.BancoCentral`, `UF.CMF`, `UF.MiIndicador` o
   `UF.CargaManualExtraordinaria`. La API rechaza nuevas fuentes libres, el

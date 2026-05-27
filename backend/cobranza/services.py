@@ -547,6 +547,13 @@ def _payment_required_amount_for_score(payment):
     return required
 
 
+def _payment_has_operational_record_for_score(payment):
+    contrato = getattr(payment, 'contrato', None)
+    if not contrato:
+        return True
+    return not contrato.blocks_automatic_past_billing(payment.anio, payment.mes)
+
+
 def _payment_is_evaluated_for_score(payment, reference_date):
     if payment.estado_pago != EstadoPago.PENDING:
         return True
@@ -571,7 +578,11 @@ def calculate_payment_score(payments, reference_date=None):
     reference_date = reference_date or timezone.localdate()
     evaluated = 0
     on_time = 0
+    without_operational_record = 0
     for payment in payments:
+        if not _payment_has_operational_record_for_score(payment):
+            without_operational_record += 1
+            continue
         if not _payment_is_evaluated_for_score(payment, reference_date):
             continue
         evaluated += 1
@@ -589,6 +600,7 @@ def calculate_payment_score(payments, reference_date=None):
         'score_meses_evaluados': evaluated,
         'score_pagos_en_plazo': on_time,
         'score_pagos_fuera_plazo': late_or_unpaid,
+        'score_meses_sin_registro_operativo': without_operational_record,
     }
 
 
@@ -921,7 +933,7 @@ def build_account_state_summary(arrendatario, access: ScopeAccess | None = None,
         EstadoPago.IN_REPAYMENT,
     }
     payments = scope_queryset_for_access(
-        PagoMensual.objects.select_related('repactacion_deuda').filter(contrato__arrendatario=arrendatario),
+        PagoMensual.objects.select_related('contrato', 'repactacion_deuda').filter(contrato__arrendatario=arrendatario),
         access,
         property_paths=('contrato__mandato_operacion__propiedad_id',),
     )

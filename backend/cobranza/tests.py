@@ -2289,6 +2289,49 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(state.resumen_operativo['score_meses_evaluados'], 2)
         self.assertEqual(state.resumen_operativo['score_pagos_en_plazo'], 1)
         self.assertEqual(state.resumen_operativo['score_pagos_fuera_plazo'], 1)
+        self.assertEqual(state.resumen_operativo['score_meses_sin_registro_operativo'], 0)
+
+    def test_rebuild_account_state_score_excludes_months_without_operational_record(self):
+        contrato = self._create_active_contract(codigo='CON-STATE-SCORE-OPS', monto_base='100000.00', code='111')
+        contrato.fecha_registro_operativo = date(2026, 2, 10)
+        contrato.save(update_fields=['fecha_registro_operativo', 'updated_at'])
+        period = contrato.periodos_contractuales.get()
+        PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=period,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp='100000.00',
+            monto_calculado_clp='100111.00',
+            monto_efecto_codigo_efectivo_clp='111.00',
+            fecha_vencimiento=date(2026, 1, 5),
+            estado_pago=EstadoPago.OVERDUE,
+            dias_mora=65,
+            codigo_conciliacion_efectivo='111',
+        )
+        PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=period,
+            mes=3,
+            anio=2026,
+            monto_facturable_clp='100000.00',
+            monto_calculado_clp='100111.00',
+            monto_efecto_codigo_efectivo_clp='111.00',
+            monto_pagado_clp='100111.00',
+            fecha_vencimiento=date(2026, 3, 5),
+            fecha_deposito_banco=date(2026, 3, 5),
+            estado_pago=EstadoPago.PAID,
+            codigo_conciliacion_efectivo='111',
+        )
+
+        state = rebuild_account_state(contrato.arrendatario, reference_date=date(2026, 3, 6))
+
+        self.assertEqual(state.score_pago, 100)
+        self.assertEqual(state.resumen_operativo['score_pago_porcentaje'], 100)
+        self.assertEqual(state.resumen_operativo['score_meses_evaluados'], 1)
+        self.assertEqual(state.resumen_operativo['score_pagos_en_plazo'], 1)
+        self.assertEqual(state.resumen_operativo['score_pagos_fuera_plazo'], 0)
+        self.assertEqual(state.resumen_operativo['score_meses_sin_registro_operativo'], 1)
 
     def test_payment_score_with_repayment_requires_full_monthly_due(self):
         payment = self._generate_monthly_payment(codigo='CON-STATE-SCORE-REP')
