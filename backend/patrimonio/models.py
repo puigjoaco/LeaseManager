@@ -337,9 +337,14 @@ class RepresentacionComunidad(TimestampedModel):
                     {'evidencia_ref': 'La evidencia de representacion designada debe ser no sensible.'}
                 )
         if self.modo_representacion == ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT:
-            if not self.comunidad.participaciones_activas().filter(participante_socio=self.socio_representante).exists():
+            if not _participant_is_effective_during_representation(self):
                 raise ValidationError(
-                    {'socio_representante': 'La representacion patrimonial debe pertenecer a las participaciones activas.'}
+                    {
+                        'socio_representante': (
+                            'La representacion patrimonial debe pertenecer a las participaciones '
+                            'activas durante su ventana de vigencia.'
+                        )
+                    }
                 )
         if self.activo and self.comunidad_id and self.vigente_desde:
             overlapping_representations = RepresentacionComunidad.objects.filter(
@@ -481,6 +486,20 @@ class ParticipacionPatrimonial(TimestampedModel):
                         )
                     }
                 )
+
+
+def _participant_is_effective_during_representation(representacion):
+    if not representacion.comunidad_id or not representacion.socio_representante_id:
+        return False
+    participations = representacion.comunidad.participaciones.filter(
+        activo=True,
+        participante_socio_id=representacion.socio_representante_id,
+    )
+    return _overlapping_effective_windows(
+        participations,
+        representacion.vigente_desde,
+        representacion.vigente_hasta,
+    ).exists()
 
 
 class Propiedad(TimestampedModel):

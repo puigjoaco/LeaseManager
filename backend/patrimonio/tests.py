@@ -1502,6 +1502,83 @@ class PatrimonioAPITests(APITestCase):
         self.assertEqual(comunidad.representacion_vigente().socio_representante_id, socio_actual.id)
         self.assertEqual(comunidad.representaciones.filter(activo=True).count(), 2)
 
+    def test_scheduled_patrimonial_representation_uses_future_participation_window(self):
+        socio_actual = self._create_socio('Socio Actual Ventana', '11111111-1')
+        socio_futuro = self._create_socio('Socio Futuro Ventana', '22222222-2')
+        today = timezone.localdate()
+        future_date = today + timedelta(days=30)
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Ventana', estado=EstadoPatrimonial.ACTIVE)
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_actual,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde=today,
+            vigente_hasta=future_date - timedelta(days=1),
+            activo=True,
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_futuro,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde=future_date,
+            activo=True,
+        )
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+            socio_representante=socio_actual,
+            vigente_desde=today,
+            vigente_hasta=future_date - timedelta(days=1),
+            activo=True,
+        )
+        future_representation = RepresentacionComunidad(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+            socio_representante=socio_futuro,
+            vigente_desde=future_date,
+            activo=True,
+        )
+
+        future_representation.full_clean()
+        future_representation.save()
+        comunidad.full_clean()
+
+        self.assertEqual(comunidad.representacion_vigente().socio_representante_id, socio_actual.id)
+        self.assertEqual(comunidad.representaciones.filter(activo=True).count(), 2)
+
+    def test_scheduled_patrimonial_representation_rejects_missing_participation_window(self):
+        socio_actual = self._create_socio('Socio Actual Sin Ventana', '11111111-1')
+        socio_futuro = self._create_socio('Socio Futuro Sin Ventana', '22222222-2')
+        today = timezone.localdate()
+        future_date = today + timedelta(days=30)
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Sin Ventana')
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_actual,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde=today,
+            activo=True,
+        )
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+            socio_representante=socio_actual,
+            vigente_desde=today,
+            vigente_hasta=future_date - timedelta(days=1),
+            activo=True,
+        )
+        future_representation = RepresentacionComunidad(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+            socio_representante=socio_futuro,
+            vigente_desde=future_date,
+            activo=True,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            future_representation.full_clean()
+        self.assertIn('socio_representante', error.exception.message_dict)
+
     def test_overlapping_active_representation_window_is_rejected(self):
         socio_actual = self._create_socio('Socio Actual Solape', '11111111-1')
         socio_futuro = self._create_socio('Socio Futuro Solape', '22222222-2')

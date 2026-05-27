@@ -41,6 +41,10 @@ contra datos reales o snapshot controlado.
   representaciones activas historicas, actuales o futuras solo si sus ventanas
   efectivas no se solapan; el dominio y el auditor bloquean cualquier snapshot
   con mas de una representacion vigente para la misma fecha.
+- Representaciones patrimoniales futuras: si el representante programado no es
+  participante vigente hoy, debe existir una participacion activa cuya ventana
+  se solape con la ventana futura de la representacion; no debe marcarse
+  invalida una planificacion futura correctamente alineada.
 - Representaciones designadas de comunidad: si una comunidad usa un
   representante `designado` fuera de las participaciones patrimoniales, debe
   conservar `evidencia_ref` formal trazable no sensible. API, snapshot,

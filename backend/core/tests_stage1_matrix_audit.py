@@ -898,6 +898,37 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_future_patrimonial_representation_with_future_participation_can_pass(self):
+        self._create_valid_stage1_matrix()
+        comunidad = ComunidadPatrimonial.objects.get(nombre='Comunidad Controlada')
+        current_representation = RepresentacionComunidad.objects.get(comunidad=comunidad)
+        future_socio = Socio.objects.create(nombre='Socio Futuro Controlado', rut='55555555-5', activo=True)
+        future_date = timezone.localdate() + timedelta(days=30)
+        window_end = future_date - timedelta(days=1)
+        current_representation.vigente_hasta = window_end
+        current_representation.save(update_fields=['vigente_hasta', 'updated_at'])
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=future_socio,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde=future_date,
+            activo=True,
+        )
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+            socio_representante=future_socio,
+            vigente_desde=future_date,
+            activo=True,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage1_close'])
+        self.assertNotIn('stage1.representacion.validacion_modelo', issue_codes)
+        self.assertEqual(result['summary']['representaciones_comunidad'], 2)
+
     def test_designated_community_representation_without_evidence_is_blocking(self):
         self._create_valid_stage1_matrix()
         representation = RepresentacionComunidad.objects.get(comunidad__nombre='Comunidad Controlada')
