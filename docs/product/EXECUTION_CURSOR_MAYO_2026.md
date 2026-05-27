@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | SII / superficies administrativas. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. Ultimo paquete cerrado: PR #393 `Redact Canales admin refs`, merge `8a2acc1`. |
-| Motivo de prioridad | No aplica mientras no exista paquete abierto; el siguiente frente se selecciona desde el estado real del repo y la trazabilidad vigente. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Sin paquete abierto; `main` quedo actualizado tras PR #393. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | PR #393 integrado en `main`; CI acceptance remoto paso y el worktree tactico fue eliminado. |
+| Brecha activa | El admin Django de SII expone y busca referencias tributarias crudas en capacidades y DTE, y no registra vistas administrativas redactadas para F29, Proceso Renta, DDJJ ni F22. |
+| Motivo de prioridad | Tras cerrar superficies admin de modulos previos, SII es el siguiente frente en orden con refs/payloads tributarios sensibles ya cubiertos por API/snapshot/readiness pero no por admin. |
+| Worktree | `D:/Proyectos/LeaseManager-stage4-sii-admin-redaction`. |
+| Rama | `codex/stage4-sii-admin-redaction`. |
+| Estado | Paquete implementado y validado localmente; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Etapa 4 local diagnostica/parcial; no cierre sin fuente autorizada, ambiente SII/regla fiscal/evidencia externa. |
+| Estado al cerrar paquete | Validacion local completada: prueba focal SII admin, suite SII/readiness Etapa 4, `manage.py check`, `makemigrations --check --dry-run`, gate Etapa 4 local diagnostico/parcial, `npm ci`, `npm run build`, `npm run lint`, acceptance workflows e higiene previa. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; si no hay paquete abierto, diagnosticar el siguiente frente seguro por orden y trazabilidad antes de crear un worktree `codex/...`. |
+| Politica de reanudacion | Si se reanuda esta sesion, continuar este worktree antes de abrir otro paquete. |
+| Siguiente accion | Ejecutar higiene final, commit, PR, CI, merge, limpieza del worktree tactico y reset del cursor. |
 
 ## Actualizacion
 

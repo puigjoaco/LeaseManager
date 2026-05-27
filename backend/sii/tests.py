@@ -1,5 +1,6 @@
 import json
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import connection
@@ -18,6 +19,14 @@ from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoM
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 
+from .admin import (
+    CapacidadTributariaSIIAdmin,
+    DDJJPreparacionAnualAdmin,
+    DTEEmitidoAdmin,
+    F22PreparacionAnualAdmin,
+    F29PreparacionMensualAdmin,
+    ProcesoRentaAnualAdmin,
+)
 from .models import CapacidadTributariaSII, DDJJPreparacionAnual, DTEEmitido, EstadoGateSII, F22PreparacionAnual, F29PreparacionMensual, ProcesoRentaAnual
 
 
@@ -951,6 +960,169 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('secret-api-key-value', body)
         self.assertEqual(ddjj.estado_preparacion, 'aprobado_para_presentacion')
         self.assertEqual(f22.estado_preparacion, 'aprobado_para_presentacion')
+
+    def test_sii_admin_redacts_sensitive_tax_refs_and_payloads(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
+        dte_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DTEEmision',
+            certificado_ref='https://sii.example.test/cert?token=secret',
+            evidencia_ref='https://sii.example.test/evidence?token=secret',
+            prueba_flujo_ref='https://sii.example.test/flow?token=secret',
+            autorizacion_ambiente_ref='https://sii.example.test/env?token=secret',
+            regla_fiscal_ref='https://sii.example.test/rule?token=secret',
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={'access_token': 'opaque-token-value', 'safe_ref': 'controlled-result'},
+        )
+        f29_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F29Preparacion',
+            **self._sii_readiness_fields('f29'),
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={},
+        )
+        ddjj_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DDJJPreparacion',
+            **self._sii_readiness_fields('ddjj'),
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={},
+        )
+        f22_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F22Preparacion',
+            **self._sii_readiness_fields('f22'),
+            ambiente='certificacion',
+            estado_gate='condicionado',
+            ultimo_resultado={},
+        )
+        distribution = pago.distribuciones_cobro.get()
+        dte = DTEEmitido.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=dte_capability,
+            contrato=pago.contrato,
+            pago_mensual=pago,
+            distribucion_cobro_mensual=distribution,
+            arrendatario=pago.contrato.arrendatario,
+            tipo_dte='34',
+            monto_neto_clp=distribution.monto_facturable_clp,
+            fecha_emision='2026-01-08',
+            estado_dte='aceptado',
+            sii_track_id='https://sii.example.test/track?token=secret',
+            ultimo_estado_sii='Aceptado controlado',
+            observaciones='Observacion con https://sii.example.test/obs?token=secret',
+        )
+        close, _ = self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        f29 = F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_formulario={'callback': 'https://sii.example.test/f29?token=secret'},
+            borrador_ref='https://sii.example.test/f29?token=secret',
+            observaciones='Observacion con https://sii.example.test/f29?token=secret',
+        )
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'callback': 'https://sii.example.test/anual?token=secret'},
+            paquete_ddjj_ref='https://sii.example.test/ddjj?token=secret',
+            borrador_f22_ref='https://sii.example.test/f22?token=secret',
+        )
+        ddjj = DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_paquete={'api_key': 'secret-api-key-value'},
+            paquete_ref='https://sii.example.test/ddjj?token=secret',
+            observaciones='Observacion con https://sii.example.test/ddjj?token=secret',
+        )
+        f22 = F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_f22={'access_token': 'secret-f22-token-value'},
+            borrador_ref='https://sii.example.test/f22?token=secret',
+            observaciones='Observacion con https://sii.example.test/f22?token=secret',
+        )
+        site = AdminSite()
+
+        capability_admin = CapacidadTributariaSIIAdmin(CapacidadTributariaSII, site)
+        dte_admin = DTEEmitidoAdmin(DTEEmitido, site)
+        f29_admin = F29PreparacionMensualAdmin(F29PreparacionMensual, site)
+        process_admin = ProcesoRentaAnualAdmin(ProcesoRentaAnual, site)
+        ddjj_admin = DDJJPreparacionAnualAdmin(DDJJPreparacionAnual, site)
+        f22_admin = F22PreparacionAnualAdmin(F22PreparacionAnual, site)
+
+        for raw_field in (
+            'certificado_ref',
+            'evidencia_ref',
+            'prueba_flujo_ref',
+            'autorizacion_ambiente_ref',
+            'regla_fiscal_ref',
+            'ultimo_resultado',
+        ):
+            self.assertNotIn(raw_field, capability_admin.fields)
+            self.assertNotIn(raw_field, capability_admin.search_fields)
+        self.assertEqual(capability_admin.certificado_ref_redacted(dte_capability), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(capability_admin.evidencia_ref_redacted(dte_capability), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(capability_admin.prueba_flujo_ref_redacted(dte_capability), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            capability_admin.autorizacion_ambiente_ref_redacted(dte_capability),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(capability_admin.regla_fiscal_ref_redacted(dte_capability), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            capability_admin.ultimo_resultado_redacted(dte_capability)['access_token'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(capability_admin.ultimo_resultado_redacted(dte_capability)['safe_ref'], 'controlled-result')
+
+        self.assertNotIn('sii_track_id', dte_admin.fields)
+        self.assertNotIn('observaciones', dte_admin.fields)
+        self.assertNotIn('sii_track_id', dte_admin.search_fields)
+        self.assertEqual(dte_admin.sii_track_id_redacted(dte), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(dte_admin.observaciones_redacted(dte), REDACTED_SENSITIVE_REFERENCE)
+
+        self.assertNotIn('resumen_formulario', f29_admin.fields)
+        self.assertNotIn('borrador_ref', f29_admin.fields)
+        self.assertNotIn('observaciones', f29_admin.fields)
+        self.assertEqual(f29_admin.resumen_formulario_redacted(f29)['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f29_admin.borrador_ref_redacted(f29), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f29_admin.observaciones_redacted(f29), REDACTED_SENSITIVE_REFERENCE)
+
+        self.assertNotIn('resumen_anual', process_admin.fields)
+        self.assertNotIn('paquete_ddjj_ref', process_admin.fields)
+        self.assertNotIn('borrador_f22_ref', process_admin.fields)
+        self.assertEqual(process_admin.resumen_anual_redacted(process)['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(process_admin.paquete_ddjj_ref_redacted(process), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(process_admin.borrador_f22_ref_redacted(process), REDACTED_SENSITIVE_REFERENCE)
+
+        self.assertNotIn('resumen_paquete', ddjj_admin.fields)
+        self.assertNotIn('paquete_ref', ddjj_admin.fields)
+        self.assertEqual(ddjj_admin.resumen_paquete_redacted(ddjj)['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(ddjj_admin.paquete_ref_redacted(ddjj), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(ddjj_admin.observaciones_redacted(ddjj), REDACTED_SENSITIVE_REFERENCE)
+
+        self.assertNotIn('resumen_f22', f22_admin.fields)
+        self.assertNotIn('borrador_ref', f22_admin.fields)
+        self.assertEqual(f22_admin.resumen_f22_redacted(f22)['access_token'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f22_admin.borrador_ref_redacted(f22), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f22_admin.observaciones_redacted(f22), REDACTED_SENSITIVE_REFERENCE)
+
+        for model_admin in (capability_admin, dte_admin, f29_admin, process_admin, ddjj_admin, f22_admin):
+            self.assertFalse(model_admin.has_add_permission(None))
 
     def test_generate_dte_draft_rejects_conditioned_gate(self):
         empresa, pago = self._setup_paid_payment()

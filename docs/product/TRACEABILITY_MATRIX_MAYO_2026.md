@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: SII cierra superficie admin para refs y payloads
+tributarios sensibles heredados. Los admins de capacidades SII, DTE, F29,
+ProcesoRentaAnual, DDJJ y F22 reemplazan certificados, evidencias, tracking,
+borradores, paquetes, resumenes y observaciones crudas por vistas redactadas,
+eliminan busquedas por campos sensibles y mantienen el alta manual cerrada
+desde backoffice.
+
 Nota 2026-05-27: Canales cierra superficie admin para refs, payloads,
 restricciones y motivos sensibles heredados. Los admins de gates de mensajeria,
 mensajes salientes, configuraciones de notificacion y recordatorios programados

@@ -44,6 +44,14 @@ produccion por defecto.
   credenciales, correos y claves sensibles como `api_key`, `access_token` o
   `credential`; readiness Etapa 4 detecta snapshots heredados sin exponer esos
   valores.
+- El admin Django de SII mantiene cerrada la superficie administrativa:
+  `CapacidadTributariaSIIAdmin`, `DTEEmitidoAdmin`,
+  `F29PreparacionMensualAdmin`, `ProcesoRentaAnualAdmin`,
+  `DDJJPreparacionAnualAdmin` y `F22PreparacionAnualAdmin` muestran versiones
+  redactadas de refs, payloads y observaciones sensibles heredadas, no buscan
+  por campos crudos como `certificado_ref`, `evidencia_ref`,
+  `sii_track_id`, `borrador_ref` o `paquete_ref`, y mantienen el alta manual
+  deshabilitada desde backoffice.
 - DTE, F29, DDJJ/F22 y procesos anuales rechazan por dominio nuevas escrituras
   asociadas a empresas sin `ConfiguracionFiscalEmpresa` activa propia.
 - Los eventos de auditoria de cambios de estado DTE registran `sii_track_id`

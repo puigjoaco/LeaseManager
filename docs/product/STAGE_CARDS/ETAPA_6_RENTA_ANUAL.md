@@ -40,6 +40,10 @@ cierres mensuales.
   empresas sin `ConfiguracionFiscalEmpresa` activa propia.
 - Los payloads anuales y referencias de DDJJ/F22 heredadas se entregan a
   reporting con redaccion antes de exponerse al backoffice.
+- El admin Django de SII expone ProcesoRentaAnual, DDJJ y F22 solo con
+  versiones redactadas de refs finales, payloads anuales y observaciones
+  heredadas, sin busquedas por los campos crudos ni alta manual desde
+  backoffice.
 - `audit_stage6_renta_anual_readiness` clasifica como bloqueantes los payloads
   anuales heredados con URLs, tokens, credenciales, correos o claves sensibles
   en `resumen_anual`, `resumen_paquete` o `resumen_f22`, sin imprimir esos
