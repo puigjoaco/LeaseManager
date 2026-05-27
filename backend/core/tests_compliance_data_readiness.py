@@ -12,6 +12,14 @@ from django.test import TestCase
 from django.utils import timezone
 
 from audit.models import AuditEvent
+from compliance.audit import (
+    EXPORT_ACCESS_DENIED_EVENT_TYPE,
+    EXPORT_ACCESSED_EVENT_TYPE,
+    EXPORT_AUDIT_ENTITY_TYPE,
+    EXPORT_PREPARED_EVENT_TYPE,
+    EXPORT_REVOKED_EVENT_TYPE,
+    build_export_audit_metadata,
+)
 from compliance.models import (
     CategoriaDato,
     EstadoExportacionSensible,
@@ -45,12 +53,15 @@ class ComplianceDataReadinessTests(TestCase):
 
     def _create_prepared_audit_event(self, export, user=None):
         AuditEvent.objects.create(
-            event_type='compliance.exportacion_sensible.prepared',
-            entity_type='exportacion_sensible',
+            event_type=EXPORT_PREPARED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
             entity_id=str(export.pk),
             summary='Exportacion sensible preparada y cifrada',
             actor_user=user,
-            metadata={'export_kind': export.export_kind, 'scope_resumen': {'periodo_ref': 'periodo-controlado-v1'}},
+            metadata=build_export_audit_metadata(
+                export,
+                extra_metadata={'estado': EstadoExportacionSensible.PREPARED},
+            ),
         )
 
     def _create_valid_export(self):
@@ -316,6 +327,28 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertFalse(result['ready_for_compliance_data'])
         self.assertIn('compliance.export_prepared_audit_event_missing', {issue['code'] for issue in result['issues']})
 
+    def test_prepared_audit_event_unaligned_is_blocking(self):
+        self._create_policies()
+        export = self._create_raw_export()
+        AuditEvent.objects.create(
+            event_type=EXPORT_PREPARED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+            entity_id=str(export.pk),
+            summary='Exportacion sensible preparada y cifrada',
+            actor_user=export.created_by,
+            metadata={'export_kind': export.export_kind, 'payload_hash': 'b' * 64},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertNotIn('compliance.export_prepared_audit_event_missing', issue_codes)
+        self.assertIn('compliance.export_prepared_audit_event_unaligned', issue_codes)
+        self.assertIn('compliance.audit_metadata_unaligned', issue_codes)
+        self.assertEqual(result['sections']['exports']['prepared_audit_event_unaligned'], 1)
+        self.assertEqual(result['sections']['audit']['metadata_unaligned_events'], 1)
+
     def test_revoked_export_without_revoked_audit_event_is_blocking(self):
         self._create_policies()
         export = self._create_valid_export()
@@ -328,16 +361,42 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertIn('compliance.export_revoked_audit_event_missing', issue_codes)
         self.assertEqual(result['sections']['exports']['revoked_audit_event_missing'], 1)
 
+    def test_revoked_audit_event_unaligned_is_blocking(self):
+        self._create_policies()
+        export = self._create_valid_export()
+        ExportacionSensible.objects.filter(pk=export.pk).update(estado=EstadoExportacionSensible.REVOKED)
+        export.refresh_from_db()
+        AuditEvent.objects.create(
+            event_type=EXPORT_REVOKED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+            entity_id=str(export.pk),
+            summary='Exportacion sensible revocada',
+            actor_user=export.created_by,
+            metadata=build_export_audit_metadata(
+                export,
+                extra_metadata={'estado': EstadoExportacionSensible.PREPARED},
+            ),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertNotIn('compliance.export_revoked_audit_event_missing', issue_codes)
+        self.assertIn('compliance.export_revoked_audit_event_unaligned', issue_codes)
+        self.assertIn('compliance.audit_metadata_unaligned', issue_codes)
+        self.assertEqual(result['sections']['exports']['revoked_audit_event_unaligned'], 1)
+
     def test_access_denied_events_are_counted_without_blocking(self):
         self._create_policies()
         export = self._create_valid_export()
         AuditEvent.objects.create(
-            event_type='compliance.exportacion_sensible.access_denied',
-            entity_type='exportacion_sensible',
+            event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
             entity_id=str(export.pk),
             summary='Acceso a exportacion sensible denegado',
             actor_user=export.created_by,
-            metadata={'export_kind': export.export_kind, 'estado': EstadoExportacionSensible.REVOKED},
+            metadata=build_export_audit_metadata(export),
         )
 
         result = self._collect_with_final_refs()
@@ -349,8 +408,8 @@ class ComplianceDataReadinessTests(TestCase):
         self._create_policies()
         export = self._create_raw_export()
         AuditEvent.objects.create(
-            event_type='compliance.exportacion_sensible.prepared',
-            entity_type='exportacion_sensible',
+            event_type=EXPORT_PREPARED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
             entity_id=str(export.pk),
             summary='Exportacion sensible preparada y cifrada',
             actor_user=export.created_by,
@@ -367,8 +426,8 @@ class ComplianceDataReadinessTests(TestCase):
         self._create_policies()
         export = self._create_raw_export()
         AuditEvent.objects.create(
-            event_type='compliance.exportacion_sensible.prepared',
-            entity_type='exportacion_sensible',
+            event_type=EXPORT_PREPARED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
             entity_id=str(export.pk),
             summary='Exportacion sensible preparada y cifrada',
             actor_user=None,
@@ -386,15 +445,15 @@ class ComplianceDataReadinessTests(TestCase):
         self._create_policies()
         export = self._create_valid_export()
         AuditEvent.objects.create(
-            event_type='compliance.exportacion_sensible.accessed',
-            entity_type='exportacion_sensible',
+            event_type=EXPORT_ACCESSED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
             entity_id='999999',
             summary='Contenido de exportacion sensible accedido',
             actor_user=export.created_by,
             metadata={'export_kind': export.export_kind},
         )
         AuditEvent.objects.create(
-            event_type='compliance.exportacion_sensible.revoked',
+            event_type=EXPORT_REVOKED_EVENT_TYPE,
             entity_type='otra_entidad',
             entity_id=str(export.pk),
             summary='Exportacion sensible revocada',

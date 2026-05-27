@@ -8,6 +8,15 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from audit.models import AuditEvent
+from compliance.audit import (
+    EXPORT_ACCESSED_EVENT_TYPE,
+    EXPORT_ACCESS_DENIED_EVENT_TYPE,
+    EXPORT_AUDIT_ENTITY_TYPE,
+    EXPORT_AUDIT_EVENT_TYPES,
+    EXPORT_PREPARED_EVENT_TYPE,
+    EXPORT_REVOKED_EVENT_TYPE,
+    build_export_audit_metadata,
+)
 from compliance.models import (
     CategoriaDato,
     EstadoExportacionSensible,
@@ -30,12 +39,6 @@ NO_PHYSICAL_PURGE_CATEGORIES = {
     CategoriaDato.DOCUMENT,
     CategoriaDato.SECRET,
 }
-EXPORT_AUDIT_EVENT_TYPES = [
-    'compliance.exportacion_sensible.prepared',
-    'compliance.exportacion_sensible.accessed',
-    'compliance.exportacion_sensible.access_denied',
-    'compliance.exportacion_sensible.revoked',
-]
 
 
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
@@ -88,12 +91,60 @@ def _export_audit_events_with_invalid_target(events, export_ids) -> int:
     invalid_count = 0
     for event in events.only('entity_type', 'entity_id'):
         if (
-            event.entity_type != 'exportacion_sensible'
+            event.entity_type != EXPORT_AUDIT_ENTITY_TYPE
             or not event.entity_id
             or event.entity_id not in canonical_ids
         ):
             invalid_count += 1
     return invalid_count
+
+
+def _metadata_value_matches(actual, expected) -> bool:
+    if isinstance(expected, bool):
+        return actual is expected
+    if isinstance(expected, (dict, list)):
+        return actual == expected
+    return str(actual or '').strip() == str(expected or '').strip()
+
+
+def _expected_export_audit_metadata(event: AuditEvent, export: ExportacionSensible) -> dict[str, Any]:
+    state_override = {}
+    if event.event_type == EXPORT_PREPARED_EVENT_TYPE:
+        state_override['estado'] = EstadoExportacionSensible.PREPARED
+    elif event.event_type == EXPORT_REVOKED_EVENT_TYPE:
+        state_override['estado'] = EstadoExportacionSensible.REVOKED
+    return build_export_audit_metadata(export, extra_metadata=state_override)
+
+
+def _export_audit_metadata_is_aligned(event: AuditEvent, export: ExportacionSensible) -> bool:
+    expected_metadata = _expected_export_audit_metadata(event, export)
+    metadata = event.metadata or {}
+    return all(
+        _metadata_value_matches(metadata.get(key), expected)
+        for key, expected in expected_metadata.items()
+    )
+
+
+def _has_aligned_export_event(export: ExportacionSensible, event_type: str) -> bool:
+    events = AuditEvent.objects.filter(
+        event_type=event_type,
+        entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+        entity_id=str(export.pk),
+    )
+    return any(event.actor_user_id and _export_audit_metadata_is_aligned(event, export) for event in events)
+
+
+def _export_audit_events_with_unaligned_metadata(events, exports_by_id) -> int:
+    unaligned_count = 0
+    for event in events:
+        if event.entity_type != EXPORT_AUDIT_ENTITY_TYPE or not event.entity_id:
+            continue
+        export = exports_by_id.get(event.entity_id)
+        if export is None:
+            continue
+        if not _export_audit_metadata_is_aligned(event, export):
+            unaligned_count += 1
+    return unaligned_count
 
 
 def _is_sha256_hex_digest(value: str) -> bool:
@@ -144,17 +195,24 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
         if export.estado == EstadoExportacionSensible.EXPIRED and (export.hold_activo or export.expires_at > now):
             counts['expired_state_inconsistent'] += 1
         if not AuditEvent.objects.filter(
-            event_type='compliance.exportacion_sensible.prepared',
-            entity_type='exportacion_sensible',
+            event_type=EXPORT_PREPARED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
             entity_id=str(export.pk),
         ).exists():
             counts['prepared_audit_event_missing'] += 1
+        elif not _has_aligned_export_event(export, EXPORT_PREPARED_EVENT_TYPE):
+            counts['prepared_audit_event_unaligned'] += 1
         if export.estado == EstadoExportacionSensible.REVOKED and not AuditEvent.objects.filter(
-            event_type='compliance.exportacion_sensible.revoked',
-            entity_type='exportacion_sensible',
+            event_type=EXPORT_REVOKED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
             entity_id=str(export.pk),
         ).exists():
             counts['revoked_audit_event_missing'] += 1
+        elif export.estado == EstadoExportacionSensible.REVOKED and not _has_aligned_export_event(
+            export,
+            EXPORT_REVOKED_EVENT_TYPE,
+        ):
+            counts['revoked_audit_event_unaligned'] += 1
     return dict(sorted(counts.items()))
 
 
@@ -194,9 +252,14 @@ def collect_compliance_data_readiness(
         1 for event in export_audit_events if _audit_event_has_sensitive_metadata(event)
     )
     audit_events_missing_actor = _export_audit_events_missing_actor(export_audit_events)
+    exports_by_id = {str(export.pk): export for export in exports}
     audit_events_invalid_target = _export_audit_events_with_invalid_target(
         export_audit_events,
-        exports.values_list('pk', flat=True),
+        exports_by_id.keys(),
+    )
+    audit_events_unaligned_metadata = _export_audit_events_with_unaligned_metadata(
+        export_audit_events,
+        exports_by_id,
     )
 
     final_evidence = {
@@ -348,9 +411,19 @@ def collect_compliance_data_readiness(
             'Toda exportacion sensible requiere evento de auditoria prepared trazable.',
         ),
         (
+            'prepared_audit_event_unaligned',
+            'compliance.export_prepared_audit_event_unaligned',
+            'Toda exportacion sensible requiere evento prepared con actor y metadata alineada.',
+        ),
+        (
             'revoked_audit_event_missing',
             'compliance.export_revoked_audit_event_missing',
             'Toda exportacion sensible revocada requiere evento de auditoria revoked trazable.',
+        ),
+        (
+            'revoked_audit_event_unaligned',
+            'compliance.export_revoked_audit_event_unaligned',
+            'Toda exportacion sensible revocada requiere evento revoked con actor y metadata alineada.',
         ),
     ]:
         if export_issues.get(key):
@@ -378,6 +451,14 @@ def collect_compliance_data_readiness(
                 'compliance.audit_target_invalid',
                 'Existen eventos de auditoria de exportacion sensible sin entidad de exportacion trazable.',
                 count=audit_events_invalid_target,
+            )
+        )
+    if audit_events_unaligned_metadata:
+        issues.append(
+            _issue(
+                'compliance.audit_metadata_unaligned',
+                'Existen eventos de auditoria de exportacion sensible con metadata desalineada frente a la exportacion.',
+                count=audit_events_unaligned_metadata,
             )
         )
 
@@ -473,25 +554,28 @@ def collect_compliance_data_readiness(
                 'prepared_expiry_too_long': export_issues.get('prepared_expiry_too_long', 0),
                 'expired_state_inconsistent': export_issues.get('expired_state_inconsistent', 0),
                 'prepared_audit_event_missing': export_issues.get('prepared_audit_event_missing', 0),
+                'prepared_audit_event_unaligned': export_issues.get('prepared_audit_event_unaligned', 0),
                 'revoked_audit_event_missing': export_issues.get('revoked_audit_event_missing', 0),
+                'revoked_audit_event_unaligned': export_issues.get('revoked_audit_event_unaligned', 0),
             },
             'audit': {
                 'export_events_total': export_audit_events.count(),
                 'prepared_events': export_audit_events.filter(
-                    event_type='compliance.exportacion_sensible.prepared'
+                    event_type=EXPORT_PREPARED_EVENT_TYPE
                 ).count(),
                 'accessed_events': export_audit_events.filter(
-                    event_type='compliance.exportacion_sensible.accessed'
+                    event_type=EXPORT_ACCESSED_EVENT_TYPE
                 ).count(),
                 'revoked_events': export_audit_events.filter(
-                    event_type='compliance.exportacion_sensible.revoked'
+                    event_type=EXPORT_REVOKED_EVENT_TYPE
                 ).count(),
                 'access_denied_events': export_audit_events.filter(
-                    event_type='compliance.exportacion_sensible.access_denied'
+                    event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE
                 ).count(),
                 'sensitive_metadata_events': sensitive_audit_metadata_events,
                 'actor_missing_events': audit_events_missing_actor,
                 'invalid_target_events': audit_events_invalid_target,
+                'metadata_unaligned_events': audit_events_unaligned_metadata,
             },
             'final_evidence': final_evidence,
             'final_evidence_sensitive': final_evidence_sensitive,

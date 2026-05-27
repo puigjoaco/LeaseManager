@@ -8,6 +8,13 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
+from compliance.audit import (
+    EXPORT_ACCESSED_EVENT_TYPE,
+    EXPORT_ACCESS_DENIED_EVENT_TYPE,
+    EXPORT_AUDIT_ENTITY_TYPE,
+    EXPORT_PREPARED_EVENT_TYPE,
+    EXPORT_REVOKED_EVENT_TYPE,
+)
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from reporting.tests import ReportingAPITests
 
@@ -96,7 +103,23 @@ class ComplianceAPITests(APITestCase):
         content = self.client.get(reverse('compliance-export-content', args=[export.id]))
         self.assertEqual(content.status_code, status.HTTP_200_OK)
         self.assertEqual(content.data['id'], export.id)
-        self.assertTrue(AuditEvent.objects.filter(event_type='compliance.exportacion_sensible.accessed').exists())
+        prepared_event = AuditEvent.objects.get(
+            event_type=EXPORT_PREPARED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+            entity_id=str(export.id),
+        )
+        accessed_event = AuditEvent.objects.get(
+            event_type=EXPORT_ACCESSED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+            entity_id=str(export.id),
+        )
+        self.assertEqual(prepared_event.actor_user_id, self.user.id)
+        self.assertEqual(prepared_event.metadata['export_kind'], export.export_kind)
+        self.assertEqual(prepared_event.metadata['categoria_dato'], export.categoria_dato)
+        self.assertEqual(prepared_event.metadata['payload_hash'], export.payload_hash)
+        self.assertEqual(prepared_event.metadata['estado'], EstadoExportacionSensible.PREPARED)
+        self.assertEqual(accessed_event.actor_user_id, self.user.id)
+        self.assertEqual(accessed_event.metadata['payload_hash'], export.payload_hash)
 
     def test_export_content_rejects_payload_hash_mismatch(self):
         self._create_context('HASH-MISMATCH')
@@ -125,14 +148,15 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(denied.data['detail'], PAYLOAD_HASH_MISMATCH_ERROR)
         self.assertTrue(
             AuditEvent.objects.filter(
-                event_type='compliance.exportacion_sensible.access_denied',
-                entity_type='exportacion_sensible',
+                event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+                entity_type=EXPORT_AUDIT_ENTITY_TYPE,
                 entity_id=str(export.id),
+                metadata__payload_hash=export.payload_hash,
             ).exists()
         )
         self.assertFalse(
             AuditEvent.objects.filter(
-                event_type='compliance.exportacion_sensible.accessed',
+                event_type=EXPORT_ACCESSED_EVENT_TYPE,
                 entity_id=str(export.id),
             ).exists()
         )
@@ -163,14 +187,15 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(denied.data['detail'], PAYLOAD_UNREADABLE_ERROR)
         self.assertTrue(
             AuditEvent.objects.filter(
-                event_type='compliance.exportacion_sensible.access_denied',
-                entity_type='exportacion_sensible',
+                event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+                entity_type=EXPORT_AUDIT_ENTITY_TYPE,
                 entity_id=str(export.id),
+                metadata__payload_hash=export.payload_hash,
             ).exists()
         )
         self.assertFalse(
             AuditEvent.objects.filter(
-                event_type='compliance.exportacion_sensible.accessed',
+                event_type=EXPORT_ACCESSED_EVENT_TYPE,
                 entity_id=str(export.id),
             ).exists()
         )
@@ -371,9 +396,10 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(revoked.data['estado'], 'revocada')
         self.assertTrue(
             AuditEvent.objects.filter(
-                event_type='compliance.exportacion_sensible.revoked',
-                entity_type='exportacion_sensible',
+                event_type=EXPORT_REVOKED_EVENT_TYPE,
+                entity_type=EXPORT_AUDIT_ENTITY_TYPE,
                 entity_id=str(prepared.data['id']),
+                metadata__estado=EstadoExportacionSensible.REVOKED,
             ).exists()
         )
 
@@ -381,15 +407,15 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(
             AuditEvent.objects.filter(
-                event_type='compliance.exportacion_sensible.access_denied',
-                entity_type='exportacion_sensible',
+                event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+                entity_type=EXPORT_AUDIT_ENTITY_TYPE,
                 entity_id=str(prepared.data['id']),
                 metadata__estado=EstadoExportacionSensible.REVOKED,
             ).exists()
         )
         self.assertFalse(
             AuditEvent.objects.filter(
-                event_type='compliance.exportacion_sensible.accessed',
+                event_type=EXPORT_ACCESSED_EVENT_TYPE,
                 entity_id=str(prepared.data['id']),
             ).exists()
         )
@@ -419,10 +445,11 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(export.estado, 'expirada')
         self.assertTrue(
             AuditEvent.objects.filter(
-                event_type='compliance.exportacion_sensible.access_denied',
-                entity_type='exportacion_sensible',
+                event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+                entity_type=EXPORT_AUDIT_ENTITY_TYPE,
                 entity_id=str(export.id),
                 metadata__estado=EstadoExportacionSensible.EXPIRED,
+                metadata__payload_hash=export.payload_hash,
             ).exists()
         )
 
@@ -452,13 +479,14 @@ class ComplianceAPITests(APITestCase):
 
         self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(denied.data['detail'], 'La exportacion expiro y ya no puede descargarse.')
-        self.assertFalse(AuditEvent.objects.filter(event_type='compliance.exportacion_sensible.accessed').exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type=EXPORT_ACCESSED_EVENT_TYPE).exists())
         self.assertTrue(
             AuditEvent.objects.filter(
-                event_type='compliance.exportacion_sensible.access_denied',
-                entity_type='exportacion_sensible',
+                event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+                entity_type=EXPORT_AUDIT_ENTITY_TYPE,
                 entity_id=str(export.id),
                 metadata__estado=EstadoExportacionSensible.EXPIRED,
+                metadata__payload_hash=export.payload_hash,
             ).exists()
         )
 
