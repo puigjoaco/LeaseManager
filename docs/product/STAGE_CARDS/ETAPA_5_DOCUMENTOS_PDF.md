@@ -26,12 +26,22 @@ firma y notaria trazables.
   deriva `checksum` y `storage_ref` desde el contenido, rechaza contenido
   sensible, registra auditoria `documentos.documento_emitido.generated_pdf` y
   deja cerrado el endpoint generico para `origen=generado_sistema`.
+- La auditoria de PDF generado debe conservar actor y metadata alineada con el
+  documento emitido: `checksum`, `storage_ref`, version de plantilla, tipo
+  documental y expediente. Readiness debe reportar
+  `documents.generated_pdf_audit_unaligned` para eventos heredados incompletos
+  o desalineados.
 - Antes de emitir un PDF generado por sistema, el mismo contenido debe haber
   pasado por `documentos-emitidos/previsualizar-pdf/`, que deriva el mismo
   checksum/storage esperado y registra auditoria
   `documentos.documento_emitido.previewed_pdf` sin persistir documento. La
   emision generada queda bloqueada si no existe preview auditada del mismo
   expediente, tipo documental, version de plantilla, checksum y storage_ref.
+- La auditoria de preview PDF debe conservar actor y metadata alineada con el
+  contenido previsualizado: `checksum`, `storage_ref`, version de plantilla,
+  tipo documental y expediente. Readiness debe reportar
+  `documents.generated_pdf_preview_unaligned` para previews heredadas
+  incompletas o desalineadas.
 - Cada documento emitido debe tener politica activa para su tipo documental;
   el dominio/API rechaza nuevas escrituras sin esa politica y evita desactivar
   politicas ya usadas por documentos existentes.

@@ -27,7 +27,12 @@ from .formalization_audit import (
     build_formalization_audit_metadata,
 )
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria, TipoDocumental
-from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PDF_PREVIEW_ENTITY_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
+from .pdf_generation import (
+    GENERATED_PDF_AUDIT_EVENT_TYPE,
+    PDF_PREVIEW_ENTITY_TYPE,
+    PREVIEW_PDF_AUDIT_EVENT_TYPE,
+    build_generated_pdf_audit_metadata,
+)
 from .readiness import collect_document_readiness
 
 
@@ -178,6 +183,42 @@ def create_correction_audit(document, *, actor_user=None, metadata_overrides=Non
         entity_type=CORRECTION_AUDIT_ENTITY_TYPE,
         entity_id=str(document.pk),
         summary='Version correctiva de documento',
+        actor_user=document.usuario if actor_user is None else actor_user,
+        actor_identifier=actor_identifier,
+        metadata=metadata,
+    )
+
+
+def create_generated_pdf_audit(document, *, actor_user=None, metadata_overrides=None, actor_identifier=''):
+    metadata = build_generated_pdf_audit_metadata(document)
+    metadata.update(metadata_overrides or {})
+    return AuditEvent.objects.create(
+        event_type=GENERATED_PDF_AUDIT_EVENT_TYPE,
+        entity_type='documento_emitido',
+        entity_id=str(document.pk),
+        summary='Documento PDF generado por sistema',
+        actor_user=document.usuario if actor_user is None else actor_user,
+        actor_identifier=actor_identifier,
+        metadata=metadata,
+    )
+
+
+def create_pdf_preview_audit(document, *, actor_user=None, metadata_overrides=None, actor_identifier=''):
+    metadata = {
+        'checksum_sha256': document.checksum,
+        'storage_ref': document.storage_ref,
+        'version_plantilla': document.version_plantilla,
+        'tipo_documental': document.tipo_documental,
+        'expediente_id': str(document.expediente_id),
+        'line_count': 1,
+        'pdf_size_bytes': 100,
+    }
+    metadata.update(metadata_overrides or {})
+    return AuditEvent.objects.create(
+        event_type=PREVIEW_PDF_AUDIT_EVENT_TYPE,
+        entity_type=PDF_PREVIEW_ENTITY_TYPE,
+        entity_id=document.checksum,
+        summary='Vista previa PDF generada sin persistir documento.',
         actor_user=document.usuario if actor_user is None else actor_user,
         actor_identifier=actor_identifier,
         metadata=metadata,
@@ -502,39 +543,11 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertEqual(result['sections']['documents']['generated_without_audit'], 1)
         self.assertEqual(result['sections']['documents']['generated_without_preview'], 1)
 
-        AuditEvent.objects.create(
-            event_type=GENERATED_PDF_AUDIT_EVENT_TYPE,
-            entity_type='documento_emitido',
-            entity_id=str(document.pk),
-            summary='Documento PDF generado por sistema',
-            metadata={'checksum_sha256': document.checksum},
-        )
-
-        result = collect_document_readiness(
-            final_policy_ref='policy-final-docs-v1',
-            responsible_ref='responsables-docs-v1',
-            controlled_pdf_ref='pdf-controlled-proof-v1',
-            source_label='documents-controlled-v1',
-            authorization_ref='documents-authorization-v1',
-            source_kind='snapshot_controlado',
-        )
-
-        self.assertFalse(result['ready_for_stage5_documents'])
-        self.assertIn('documents.generated_pdf_preview_missing', {issue['code'] for issue in result['issues']})
-        self.assertEqual(result['sections']['documents']['generated_without_audit'], 0)
-        self.assertEqual(result['sections']['documents']['generated_without_preview'], 1)
-
-        AuditEvent.objects.create(
-            event_type=PREVIEW_PDF_AUDIT_EVENT_TYPE,
-            entity_type=PDF_PREVIEW_ENTITY_TYPE,
-            entity_id=document.checksum,
-            summary='Vista previa PDF generada sin persistir documento.',
-            metadata={
-                'checksum_sha256': document.checksum,
-                'storage_ref': document.storage_ref,
-                'version_plantilla': document.version_plantilla,
-                'tipo_documental': document.tipo_documental,
-                'expediente_id': document.expediente_id,
+        create_generated_pdf_audit(
+            document,
+            metadata_overrides={
+                'expediente_id': 'expediente-desalineado',
+                'storage_ref': 'storage/docs/otra-referencia.pdf',
             },
         )
 
@@ -547,11 +560,58 @@ class DocumentReadinessAuditTests(TestCase):
             source_kind='snapshot_controlado',
         )
 
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertNotIn('documents.generated_pdf_audit_missing', {issue['code'] for issue in result['issues']})
+        self.assertIn('documents.generated_pdf_audit_unaligned', {issue['code'] for issue in result['issues']})
+        self.assertIn('documents.generated_pdf_preview_missing', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['documents']['generated_without_audit'], 0)
+        self.assertEqual(result['sections']['documents']['generated_with_unaligned_audit'], 1)
+        self.assertEqual(result['sections']['documents']['generated_without_preview'], 1)
+
+        create_pdf_preview_audit(
+            document,
+            metadata_overrides={
+                'checksum_sha256': VALID_SHA256_ALT,
+                'storage_ref': 'storage/docs/preview-desalineado.pdf',
+            },
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertNotIn('documents.generated_pdf_preview_missing', {issue['code'] for issue in result['issues']})
+        self.assertIn('documents.generated_pdf_preview_unaligned', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['documents']['generated_without_preview'], 0)
+        self.assertEqual(result['sections']['documents']['generated_with_unaligned_preview'], 1)
+
+        create_generated_pdf_audit(document)
+        create_pdf_preview_audit(document)
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
         self.assertTrue(result['ready_for_stage5_documents'])
         self.assertEqual(result['sections']['documents']['generated_without_audit'], 0)
+        self.assertEqual(result['sections']['documents']['generated_with_unaligned_audit'], 0)
         self.assertEqual(result['sections']['documents']['generated_without_preview'], 0)
+        self.assertEqual(result['sections']['documents']['generated_with_unaligned_preview'], 0)
         self.assertNotIn('documents.generated_pdf_audit_missing', {issue['code'] for issue in result['issues']})
+        self.assertNotIn('documents.generated_pdf_audit_unaligned', {issue['code'] for issue in result['issues']})
         self.assertNotIn('documents.generated_pdf_preview_missing', {issue['code'] for issue in result['issues']})
+        self.assertNotIn('documents.generated_pdf_preview_unaligned', {issue['code'] for issue in result['issues']})
 
     def test_formalized_document_without_formalization_audit_is_blocking(self):
         create_all_active_policies()
