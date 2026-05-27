@@ -75,6 +75,10 @@ sistema igual a saldo banco.
 - Las respuestas API y snapshot de Conciliacion redactan refs bancarias
   sensibles ya persistidas, incluida `referencia` de movimientos, antes de
   exponerlas al backoffice.
+- El admin Django de Conciliacion no expone ni busca refs bancarias crudas de
+  conexiones, movimientos, cuadraturas ni transferencias intercuenta; solo
+  muestra versiones redactadas y mantiene cerrada el alta manual de esas
+  entidades desde backoffice.
 - `audit_stage3_conciliacion_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 3.

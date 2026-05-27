@@ -1,6 +1,7 @@
 import json
 from decimal import Decimal
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -14,9 +15,16 @@ from contabilidad.models import AsientoContable, ConfiguracionFiscalEmpresa, Cue
 from contabilidad.services import ensure_default_regime
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
+from .admin import (
+    ConexionBancariaAdmin,
+    CuadraturaBancariaAdmin,
+    MovimientoBancarioImportadoAdmin,
+    TransferenciaIntercuentaAdmin,
+)
 from .models import (
     CuadraturaBancaria,
     ConexionBancaria,
@@ -269,6 +277,118 @@ class ConciliacionAPITests(APITestCase):
         }
         payload.update(overrides)
         return payload
+
+    def test_conciliacion_admin_redacts_sensitive_bank_refs(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-ADM-CONC')
+        conexion = self._create_connection(cuenta)
+        ConexionBancaria.objects.filter(pk=conexion.pk).update(
+            credencial_ref='https://bank.example.test/credential?token=secret',
+            evidencia_gate_ref='https://bank.example.test/gate?token=secret',
+            prueba_conectividad_ref='https://bank.example.test/connectivity?token=secret',
+            prueba_movimientos_ref='https://bank.example.test/movements?token=secret',
+            prueba_saldos_ref='https://bank.example.test/balances?token=secret',
+        )
+        conexion.refresh_from_db()
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto=Decimal('100111.00'),
+            descripcion_origen='Movimiento con refs heredadas',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='https://bank.example.test/import?token=secret',
+            numero_documento='DOC-ADM-CONC',
+            saldo_reportado=Decimal('100111.00'),
+            referencia='https://bank.example.test/reference?token=secret',
+            transaction_id_banco='https://bank.example.test/tx?token=secret',
+            estado_conciliacion=EstadoConciliacionMovimiento.PENDING,
+        )
+        cuadratura = CuadraturaBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            periodo_economico='2026-01',
+            fecha_cuadratura='2026-01-31',
+            saldo_sistema_clp=Decimal('100111.00'),
+            saldo_banco_clp=Decimal('100111.00'),
+            estado='cuadrada',
+            evidencia_cuadratura_ref='https://bank.example.test/balance?token=secret',
+            responsable_ref='owner@example.test',
+            rationale='Cuadratura en https://bank.example.test/balance?token=secret',
+        )
+        cuenta_destino = self._create_secondary_account('REC-ADM-CONC')
+        conexion_destino = self._create_connection(cuenta_destino, provider='banco_estado_admin')
+        movimiento_origen = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-10',
+            tipo_movimiento='cargo',
+            monto=Decimal('50000.00'),
+            descripcion_origen='Transferencia enviada',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='internal-transfer-origin',
+            estado_conciliacion=EstadoConciliacionMovimiento.MANUAL_REQUIRED,
+        )
+        movimiento_destino = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion_destino,
+            fecha_movimiento='2026-01-10',
+            tipo_movimiento='abono',
+            monto=Decimal('50000.00'),
+            descripcion_origen='Transferencia recibida',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='internal-transfer-destination',
+            estado_conciliacion=EstadoConciliacionMovimiento.PENDING,
+        )
+        transferencia = TransferenciaIntercuenta.objects.create(
+            movimiento_origen=movimiento_origen,
+            movimiento_destino=movimiento_destino,
+            periodo_economico='2026-01',
+            criterio_conciliacion='Criterio con https://bank.example.test/transfer?token=secret',
+            evidencia_transferencia_ref='https://bank.example.test/transfer?token=secret',
+            responsable_ref='ops@example.test',
+            rationale='Rationale en https://bank.example.test/transfer?token=secret',
+        )
+        site = AdminSite()
+
+        connection_admin = ConexionBancariaAdmin(ConexionBancaria, site)
+        movement_admin = MovimientoBancarioImportadoAdmin(MovimientoBancarioImportado, site)
+        balance_admin = CuadraturaBancariaAdmin(CuadraturaBancaria, site)
+        transfer_admin = TransferenciaIntercuentaAdmin(TransferenciaIntercuenta, site)
+
+        self.assertNotIn('credencial_ref', connection_admin.fields)
+        self.assertNotIn('evidencia_gate_ref', connection_admin.fields)
+        self.assertNotIn('evidencia_gate_ref', connection_admin.search_fields)
+        self.assertEqual(connection_admin.credencial_ref_redacted(conexion), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(connection_admin.evidencia_gate_ref_redacted(conexion), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(connection_admin.prueba_conectividad_ref_redacted(conexion), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(connection_admin.has_add_permission(None))
+
+        for raw_field in ('evidencia_importacion_ref', 'referencia', 'transaction_id_banco'):
+            self.assertNotIn(raw_field, movement_admin.fields)
+            self.assertNotIn(raw_field, movement_admin.search_fields)
+        self.assertEqual(movement_admin.evidencia_importacion_ref_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(movement_admin.referencia_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(movement_admin.transaction_id_banco_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(movement_admin.has_add_permission(None))
+
+        for raw_field in ('evidencia_cuadratura_ref', 'responsable_ref', 'rationale'):
+            self.assertNotIn(raw_field, balance_admin.fields)
+            self.assertNotIn(raw_field, balance_admin.search_fields)
+        self.assertEqual(balance_admin.evidencia_cuadratura_ref_redacted(cuadratura), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(balance_admin.responsable_ref_redacted(cuadratura), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(balance_admin.rationale_redacted(cuadratura), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(balance_admin.has_add_permission(None))
+
+        for raw_field in (
+            'criterio_conciliacion',
+            'evidencia_transferencia_ref',
+            'responsable_ref',
+            'rationale',
+        ):
+            self.assertNotIn(raw_field, transfer_admin.fields)
+            self.assertNotIn(raw_field, transfer_admin.search_fields)
+        self.assertEqual(transfer_admin.criterio_conciliacion_redacted(transferencia), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(transfer_admin.evidencia_transferencia_ref_redacted(transferencia), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(transfer_admin.responsable_ref_redacted(transferencia), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(transfer_admin.rationale_redacted(transferencia), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(transfer_admin.has_add_permission(None))
 
     def test_auth_is_required_for_conciliacion_endpoints(self):
         client = self.client_class()
