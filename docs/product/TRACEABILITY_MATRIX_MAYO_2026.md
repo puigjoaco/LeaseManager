@@ -117,6 +117,14 @@ error. La superficie anonima usa `publicSafeApiErrorMessage()` para permitir
 solo detalles HTTP acotados y no sensibles, y reemplaza nombres de variables o
 configuracion por estados publicos genericos.
 
+Nota 2026-05-26: Documentos ajusta la firma de codeudor al alcance real del
+contrato. `DocumentoEmitido.validate_formalization()` exige
+`firma_codeudor_registrada` cuando la politica lo pide y el expediente apunta a
+un contrato con `CodeudorSolidario` activo; contratos sin codeudor activo no se
+bloquean solo por el flag de politica. Readiness reporta
+`documents.codebtor_signature_missing` para formalizados heredados que incumplan
+esa condicion.
+
 Nota 2026-05-26: Patrimonio mueve la identidad unica de propiedades activas a
 guard de escritura. `Propiedad.full_clean()` y la API rechazan nuevas
 propiedades activas con ROL de avaluo normalizado duplicado o identidad

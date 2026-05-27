@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
-from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
+from contratos.models import Arrendatario, CodeudorSolidario, Contrato, ContratoPropiedad, PeriodoContractual
 from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
@@ -1017,7 +1017,17 @@ class DocumentosAPITests(APITestCase):
         self.assertFalse(AuditEvent.objects.filter(event_type='documentos.documento_emitido.formalized').exists())
 
     def test_codeudor_signature_is_enforced_by_policy(self):
-        expediente = self._create_expediente(entidad_id='5')
+        empresa = self._create_active_company('Docs Codeudor', '76111111-1', ('11111111-1', '22222222-2'))
+        context = self._create_contract_context(empresa, 'DOC-CODEB', '55555555-5')
+        CodeudorSolidario.objects.create(
+            contrato=context['contrato'],
+            snapshot_identidad={'nombre': 'Codeudor Controlado', 'rut': '12345678-5'},
+        )
+        expediente = self._create_expediente(
+            entidad_tipo='contrato',
+            entidad_id=str(context['contrato'].id),
+            owner_operativo=f"mandato:{context['mandato'].id}",
+        )
         self._create_politica(requiere_codeudor=True)
         documento = self._create_documento(
             expediente['id'],
@@ -1031,6 +1041,31 @@ class DocumentosAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_codeudor_signature_policy_does_not_block_contract_without_codeudor(self):
+        empresa = self._create_active_company('Docs Sin Codeudor', '76222222-2', ('33333333-3', '44444444-4'))
+        context = self._create_contract_context(empresa, 'DOC-NOCODEB', '66666666-6')
+        expediente = self._create_expediente(
+            entidad_tipo='contrato',
+            entidad_id=str(context['contrato'].id),
+            owner_operativo=f"mandato:{context['mandato'].id}",
+        )
+        self._create_politica(requiere_codeudor=True)
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[documento['id']]),
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
+            format='json',
+        )
+
+        self.assertEqual(formalize.status_code, status.HTTP_200_OK)
+        self.assertFalse(formalize.data['firma_codeudor_registrada'])
+        self.assertEqual(formalize.data['estado'], EstadoDocumento.FORMALIZED)
 
     def test_contract_expediente_rejects_owner_operativo_from_another_mandate(self):
         company_a = self._create_active_company('Docs API A', '88888888-8', ('11111111-1', '22222222-2'))

@@ -40,6 +40,10 @@ firma y notaria trazables.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
   desde el endpoint dedicado `formalizar/`, no desde create/update generico,
   para conservar la auditoria especifica del acto de formalizacion.
+- Si la politica exige firma de codeudor, la formalizacion debe verificar si el
+  expediente corresponde a un contrato con `CodeudorSolidario` activo. En ese
+  caso la firma del codeudor es obligatoria; contratos sin codeudor activo no
+  quedan bloqueados solo por el flag de politica.
 - Toda formalizacion debe conservar `evidencia_formalizacion_ref` no sensible.
   El dominio/API rechaza referencias faltantes o sensibles, snapshot/backoffice
   redactan valores heredados sensibles y readiness bloquea documentos
@@ -62,6 +66,9 @@ firma y notaria trazables.
 - La readiness documental debe distinguir documentos formalizados con politica
   notarial sin recepcion registrada, sin comprobante, con comprobante de tipo
   incorrecto, de otro expediente o en estado no permitido.
+- La readiness documental debe reportar `documents.codebtor_signature_missing`
+  cuando encuentre documentos formalizados de contratos con codeudor activo y
+  politica que exige codeudor, pero sin firma de codeudor registrada.
 - Auditoria local `audit_document_readiness` debe consolidar politicas activas
   por tipo documental, metadata PDF, evidencia controlada, responsables y
   faltantes antes de declarar cierre.
