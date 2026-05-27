@@ -84,6 +84,9 @@ contables desde hechos conciliados.
   `-AuthorizationRef`, `-Stage3EvidenceRef`, `-LedgerProofRef`,
   `-ReportsProofRef`, `-ResponsibleRef` y `-RequireReady`.
 - Reportes con origen trazable.
+- Reporting financiero mensual expone `control_cierre_mensual` como vista de
+  control local de cierre contable, banco cuadrado, obligaciones PPM/F29 y
+  bloqueadores del periodo por empresa.
 - Diferencias registradas o corregidas.
 
 ## Salida

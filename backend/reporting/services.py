@@ -38,10 +38,11 @@ from contabilidad.models import (
     LibroMayor,
     ObligacionTributariaMensual,
 )
+from contabilidad.services import summarize_company_period_bank_square
 from contratos.models import AvisoTermino, Contrato, EstadoAvisoTermino
 from operacion.models import CuentaRecaudadora, IdentidadDeEnvio, MandatoOperacion
 from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio
-from sii.models import DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, ProcesoRentaAnual
+from sii.models import DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, F29PreparacionMensual, ProcesoRentaAnual
 
 REPORTING_CACHE_TTL_SECONDS = 15
 SOCIO_SCOPE_PATHS = (
@@ -61,6 +62,13 @@ ANNUAL_STATES_REQUIRING_REF = {
     EstadoPreparacionTributaria.APPROVED,
     EstadoPreparacionTributaria.PRESENTED,
     EstadoPreparacionTributaria.OBSERVED,
+    EstadoPreparacionTributaria.RECTIFIED,
+}
+MONTHLY_CONTROL_READY_TAX_STATES = {
+    EstadoPreparacionTributaria.NOT_APPLICABLE,
+    EstadoPreparacionTributaria.PREPARED,
+    EstadoPreparacionTributaria.APPROVED,
+    EstadoPreparacionTributaria.PRESENTED,
     EstadoPreparacionTributaria.RECTIFIED,
 }
 BANK_UNCLASSIFIED_STATES = {
@@ -217,6 +225,7 @@ def _assert_financial_monthly_traceability(
     obligations,
     closures,
     dtes,
+    f29s,
 ):
     period_distributions = scope_queryset_for_access(
         DistribucionCobroMensual.objects.filter(pago_mensual__anio=anio, pago_mensual__mes=mes),
@@ -234,6 +243,7 @@ def _assert_financial_monthly_traceability(
     company_ids.update(_values_set(events, 'empresa_id'))
     company_ids.update(_values_set(obligations, 'empresa_id'))
     company_ids.update(_values_set(dtes, 'empresa_id'))
+    company_ids.update(_values_set(f29s, 'empresa_id'))
 
     if company_ids:
         approved_company_ids = _values_set(
@@ -287,6 +297,7 @@ def _assert_financial_monthly_traceability(
             'ObligacionTributariaMensual',
             'CierreMensualContable',
             'DTEEmitido',
+            'F29PreparacionMensual',
         ],
         checks={
             'periodo': _period_label(anio, mes),
@@ -294,6 +305,112 @@ def _assert_financial_monthly_traceability(
             'eventos_con_asiento': asientos.count(),
         },
     )
+
+
+def _build_monthly_close_control(*, anio, mes, empresa_id, access, events, obligations, closures, dtes, f29s):
+    period_distributions = scope_queryset_for_access(
+        DistribucionCobroMensual.objects.filter(pago_mensual__anio=anio, pago_mensual__mes=mes),
+        access,
+        company_paths=('beneficiario_empresa_owner_id',),
+        property_paths=('pago_mensual__contrato__mandato_operacion__propiedad_id',),
+    )
+    if empresa_id is not None:
+        period_distributions = period_distributions.filter(beneficiario_empresa_owner_id=empresa_id)
+
+    company_ids = set()
+    if empresa_id is not None:
+        company_ids.add(empresa_id)
+    company_ids.update(_values_set(period_distributions, 'beneficiario_empresa_owner_id'))
+    company_ids.update(_values_set(events, 'empresa_id'))
+    company_ids.update(_values_set(obligations, 'empresa_id'))
+    company_ids.update(_values_set(closures, 'empresa_id'))
+    company_ids.update(_values_set(dtes, 'empresa_id'))
+    company_ids.update(_values_set(f29s, 'empresa_id'))
+    if not company_ids:
+        return []
+
+    scoped_companies = scope_queryset_for_access(
+        Empresa.objects.filter(id__in=company_ids),
+        access,
+        company_paths=('id',),
+    )
+    companies_by_id = {company.id: company for company in scoped_companies}
+    active_configs = scope_queryset_for_access(
+        ConfiguracionFiscalEmpresa.objects.filter(
+            empresa_id__in=companies_by_id,
+            estado=EstadoRegistro.ACTIVE,
+        ),
+        access,
+        company_paths=('empresa_id',),
+    )
+    configs_by_company = {config.empresa_id: config for config in active_configs}
+    closures_by_company = {close.empresa_id: close for close in closures.order_by('empresa_id')}
+    f29_by_company = {draft.empresa_id: draft for draft in f29s.order_by('empresa_id')}
+    obligations_by_company: dict[int, list[ObligacionTributariaMensual]] = {}
+    for obligation in obligations.order_by('empresa_id', 'obligacion_tipo'):
+        obligations_by_company.setdefault(obligation.empresa_id, []).append(obligation)
+
+    rows = []
+    for company_id in sorted(companies_by_id):
+        company = companies_by_id[company_id]
+        close = closures_by_company.get(company_id)
+        config = configs_by_company.get(company_id)
+        company_obligations = obligations_by_company.get(company_id, [])
+        f29 = f29_by_company.get(company_id)
+        bank_square = summarize_company_period_bank_square(company, anio, mes)
+
+        obligations_required = bool(config and (config.aplica_ppm or config.afecta_iva_arriendo))
+        pending_obligations = [
+            obligation
+            for obligation in company_obligations
+            if obligation.estado_preparacion not in MONTHLY_CONTROL_READY_TAX_STATES
+        ]
+        f29_required = obligations_required
+        f29_state = (
+            f29.estado_preparacion
+            if f29 is not None
+            else ('faltante' if f29_required else EstadoPreparacionTributaria.NOT_APPLICABLE)
+        )
+
+        blockers = []
+        if config is None:
+            blockers.append('configuracion_fiscal_faltante')
+        if close is None or close.estado != EstadoCierreMensual.APPROVED:
+            blockers.append('cierre_contable_no_aprobado')
+        if bank_square['cuadraturas_bancarias_faltantes']:
+            blockers.append('cuadratura_bancaria_faltante')
+        if bank_square['cuadraturas_bancarias_no_cuadradas']:
+            blockers.append('banco_no_cuadrado')
+        if obligations_required and not company_obligations:
+            blockers.append('obligaciones_mensuales_faltantes')
+        if pending_obligations:
+            blockers.append('obligaciones_mensuales_pendientes')
+        if f29_required and f29 is None:
+            blockers.append('f29_faltante')
+        elif f29_required and f29.estado_preparacion not in MONTHLY_CONTROL_READY_TAX_STATES:
+            blockers.append('f29_no_preparado')
+
+        rows.append(
+            {
+                'empresa_id': company_id,
+                'cierre_contable_estado': close.estado if close else 'faltante',
+                'cierre_contable_aprobado': bool(close and close.estado == EstadoCierreMensual.APPROVED),
+                'banco_cuadrado': (
+                    bank_square['cuadraturas_bancarias_faltantes'] == 0
+                    and bank_square['cuadraturas_bancarias_no_cuadradas'] == 0
+                ),
+                **bank_square,
+                'configuracion_fiscal_activa': config is not None,
+                'obligaciones_requeridas': obligations_required,
+                'obligaciones_total': len(company_obligations),
+                'obligaciones_pendientes': len(pending_obligations),
+                'f29_requerido': f29_required,
+                'f29_estado': f29_state,
+                'estado_control': 'listo' if not blockers else 'bloqueado',
+                'bloqueadores_periodo': blockers,
+            }
+        )
+    return rows
 
 
 def _assert_period_books_traceability(*, empresa_id, periodo, libro_diario, libro_mayor, balance):
@@ -772,6 +889,14 @@ def build_financial_monthly_summary(anio, mes, empresa_id=None, access: ScopeAcc
     if empresa_id is not None:
         dtes = dtes.filter(empresa_id=empresa_id)
 
+    f29s = scope_queryset_for_access(
+        F29PreparacionMensual.objects.filter(anio=anio, mes=mes),
+        access,
+        company_paths=('empresa_id',),
+    )
+    if empresa_id is not None:
+        f29s = f29s.filter(empresa_id=empresa_id)
+
     trazabilidad = _assert_financial_monthly_traceability(
         anio=anio,
         mes=mes,
@@ -781,6 +906,18 @@ def build_financial_monthly_summary(anio, mes, empresa_id=None, access: ScopeAcc
         obligations=obligations,
         closures=closures,
         dtes=dtes,
+        f29s=f29s,
+    )
+    control_cierre_mensual = _build_monthly_close_control(
+        anio=anio,
+        mes=mes,
+        empresa_id=empresa_id,
+        access=access,
+        events=events,
+        obligations=obligations,
+        closures=closures,
+        dtes=dtes,
+        f29s=f29s,
     )
 
     return {
@@ -795,6 +932,7 @@ def build_financial_monthly_summary(anio, mes, empresa_id=None, access: ScopeAcc
         'monto_eventos_total_clp': _decimal_str(event_total),
         'asientos_contables': AsientoContable.objects.filter(evento_contable__in=events).count(),
         'dtes_emitidos': dtes.count(),
+        'control_cierre_mensual': control_cierre_mensual,
         'obligaciones': [
             {
                 'tipo': obligation.obligacion_tipo,

@@ -25,12 +25,12 @@ nueva.
 | Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
 | Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete cerrado: Etapa 5 ahora exige banco cuadrado para cierres mensuales con movimientos bancarios del periodo. |
+| Motivo de prioridad | Paquete cerrado: Reporting financiero mensual expone `control_cierre_mensual` con cierre contable, banco cuadrado, obligaciones mensuales, F29 y bloqueadores por empresa. |
 | Worktree | N/A tras merge y limpieza. |
 | Rama | N/A tras merge y limpieza. |
-| Estado | Paquete validado y listo para quedar integrado: `prepare_monthly_close`, `approve_monthly_close` y readiness Etapa 5 bloquean cierres sin `CuadraturaBancaria` cuadrada por cuenta con movimientos del periodo. |
+| Estado | Paquete validado y listo para quedar integrado: API/backoffice de Reporting muestran control mensual contable/tributario sin llamar bancos, SII ni datos reales. |
 | Gate esperado | N/A hasta abrir proximo paquete. |
-| Estado al cerrar paquete | Validaciones locales completas: focal 6 tests, suite impactada Contabilidad/Etapa 5/Reporting 85 tests, `manage.py check`, `makemigrations --check --dry-run`, gate Etapa 5 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance 955 tests. |
+| Estado al cerrar paquete | Validaciones locales completas: focal 2 tests, suite impactada Reporting/Etapa 7 40 tests, `manage.py check`, `makemigrations --check --dry-run`, gates Etapa 5 y Etapa 7 locales parciales esperados, `npm ci`, `npm run build`, `npm run lint`, acceptance 956 tests, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
 | Siguiente accion | Tras merge y limpieza, diagnosticar estado real y seleccionar siguiente paquete pequeno, local y verificable por trazabilidad. |
