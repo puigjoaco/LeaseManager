@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 0 / Gobierno - higiene de artefactos locales. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `.codex-spreadsheet/` aparece como artefacto local no versionado y ensucia `git status` del root limpio. |
-| Motivo de prioridad | Mantener `main` limpio y evitar que artefactos locales de herramienta compitan con el cursor operativo o parezcan trabajo de producto. |
-| Worktree | `D:/Proyectos/LeaseManager-governance-ignore-local-artifacts`. |
-| Rama | `codex/governance-ignore-local-artifacts`. |
-| Estado | Implementado localmente; `.codex-spreadsheet/` queda ignorado sin borrar el artefacto existente. |
-| Gate esperado | Higiene repo, `git diff --check` y validacion proporcional sin tocar secretos ni datos reales. |
-| Estado al cerrar paquete | Validacion local proporcional OK: `git check-ignore -v .codex-spreadsheet/`, `scripts/assert-repo-hygiene.ps1` y `git diff --check`. Pendiente PR, CI, merge y limpieza. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete cerrado: `.codex-spreadsheet/` queda ignorado como artefacto local de herramienta y ya no ensucia `git status` del root limpio. |
+| Worktree | N/A tras merge y limpieza. |
+| Rama | N/A tras merge y limpieza. |
+| Estado | Paquete validado e integrado en PR #418, merge `f1dbdd2`. |
+| Gate esperado | N/A hasta abrir proximo paquete. |
+| Estado al cerrar paquete | Validacion local proporcional OK: `git check-ignore -v .codex-spreadsheet/`, `scripts/assert-repo-hygiene.ps1` y `git diff --check`; CI GitHub acceptance pass. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Validar que `.codex-spreadsheet/` quede ignorado, actualizar evidencia y cerrar paquete con PR/CI/merge/limpieza. |
+| Siguiente accion | Diagnosticar estado real y seleccionar el siguiente paquete pequeno, local y verificable por trazabilidad. |
 
 ## Actualizacion
 
