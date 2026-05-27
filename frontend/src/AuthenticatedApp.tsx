@@ -1319,6 +1319,19 @@ type ReportingFinancialSummary = {
   monto_eventos_total_clp: string
   asientos_contables: number
   dtes_emitidos: number
+  control_cierre_mensual: Array<{
+    empresa_id: number
+    cierre_contable_estado: string
+    cierre_contable_aprobado: boolean
+    banco_cuadrado: boolean
+    cuentas_bancarias_con_movimientos: number
+    obligaciones_total: number
+    obligaciones_pendientes: number
+    f29_requerido: boolean
+    f29_estado: string
+    estado_control: string
+    bloqueadores_periodo: string[]
+  }>
   obligaciones: Array<{ tipo: string; monto_calculado: string; estado_preparacion: string }>
   cierres: Array<{ empresa_id: number; estado: string; fecha_preparacion: string | null; fecha_aprobacion: string | null }>
 }

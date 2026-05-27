@@ -42,7 +42,14 @@ from contratos.models import (
 )
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
-from sii.models import CapacidadTributariaSII, DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, ProcesoRentaAnual
+from sii.models import (
+    CapacidadTributariaSII,
+    DDJJPreparacionAnual,
+    DTEEmitido,
+    F22PreparacionAnual,
+    F29PreparacionMensual,
+    ProcesoRentaAnual,
+)
 from core.models import Role, Scope, UserScopeAssignment
 
 
@@ -399,6 +406,7 @@ class ReportingAPITests(APITestCase):
 
     def test_financial_monthly_summary_aggregates_payments_events_and_obligations(self):
         _, empresa, _, _, contrato, periodo = self._create_context('FIN', owner_kind='empresa', with_facturadora=True)
+        self._activate_fiscal_config(empresa)
         pago = PagoMensual.objects.create(
             contrato=contrato,
             periodo_contractual=periodo,
@@ -441,7 +449,7 @@ class ReportingAPITests(APITestCase):
             monto_calculado='10011.10',
             estado_preparacion='preparado',
         )
-        CierreMensualContable.objects.create(
+        close = CierreMensualContable.objects.create(
             empresa=empresa,
             anio=2026,
             mes=1,
@@ -466,13 +474,96 @@ class ReportingAPITests(APITestCase):
             fecha_emision='2026-01-10',
             estado_dte='borrador',
         )
+        f29_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F29Preparacion',
+            certificado_ref='cert-f29-1',
+            ambiente='certificacion',
+            estado_gate='condicionado',
+        )
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion='preparado',
+            resumen_formulario={'periodo': '2026-01', 'obligaciones': ['PPM']},
+        )
         response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
         self.assertIn('CierreMensualContable', response.data['trazabilidad']['fuentes'])
+        self.assertIn('F29PreparacionMensual', response.data['trazabilidad']['fuentes'])
         self.assertEqual(response.data['eventos_contables_posteados'], 1)
         self.assertEqual(len(response.data['obligaciones']), 1)
         self.assertEqual(len(response.data['cierres']), 1)
+        self.assertEqual(response.data['control_cierre_mensual'][0]['estado_control'], 'listo')
+        self.assertEqual(response.data['control_cierre_mensual'][0]['f29_estado'], 'preparado')
+        self.assertEqual(response.data['control_cierre_mensual'][0]['bloqueadores_periodo'], [])
+
+    def test_financial_monthly_summary_exposes_monthly_close_control_blockers(self):
+        _, empresa, _, _, contrato, periodo = self._create_context('FINCTRL', owner_kind='empresa', with_facturadora=True)
+        self._activate_fiscal_config(empresa)
+        pago = PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp='100000.00',
+            monto_calculado_clp='100111.00',
+            monto_pagado_clp='100111.00',
+            fecha_vencimiento='2026-01-05',
+            estado_pago='pagado',
+            codigo_conciliacion_efectivo='111',
+        )
+        sync_payment_distribution(pago)
+        event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='manual',
+            entidad_origen_id='ctrl-1',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100111.00',
+            payload_resumen={},
+            idempotency_key='rep-fin-control-1',
+            estado_contable='contabilizado',
+        )
+        AsientoContable.objects.create(
+            evento_contable=event,
+            fecha_contable='2026-01-10',
+            periodo_contable='2026-01',
+            estado='contabilizado',
+            debe_total='100111.00',
+            haber_total='100111.00',
+        )
+        ObligacionTributariaMensual.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            obligacion_tipo='PPM',
+            base_imponible='100111.00',
+            monto_calculado='10011.10',
+            estado_preparacion='preparado',
+        )
+        CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='aprobado',
+        )
+
+        response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        control = response.data['control_cierre_mensual'][0]
+        self.assertEqual(control['estado_control'], 'bloqueado')
+        self.assertTrue(control['cierre_contable_aprobado'])
+        self.assertTrue(control['banco_cuadrado'])
+        self.assertTrue(control['f29_requerido'])
+        self.assertEqual(control['f29_estado'], 'faltante')
+        self.assertEqual(control['bloqueadores_periodo'], ['f29_faltante'])
 
     def test_financial_monthly_summary_blocks_without_approved_close(self):
         _, empresa, _, _, contrato, periodo = self._create_context('FINBLOCK', owner_kind='empresa', with_facturadora=True)
