@@ -52,8 +52,10 @@ contra datos reales o snapshot controlado.
 - Transferencia, reemplazo o redistribucion de participaciones: el flujo
   operacional debe cerrar la participacion origen, crear destinos vigentes
   desde la fecha efectiva, conservar el 100% del owner y registrar auditoria
-  dedicada con motivo y evidencia no sensible. El auditor Etapa 1 bloquea
-  sucesiones heredadas con sucesor inmediato sin evento auditable.
+  dedicada con actor, owner, fecha efectiva, destinos, porcentaje, motivo y
+  evidencia no sensible. El auditor Etapa 1 bloquea sucesiones heredadas con
+  sucesor inmediato sin evento auditable o con auditoria incompleta,
+  desalineada o sensible.
 - Validacion de transiciones de estado patrimonial: socios, empresas y
   comunidades no pueden desactivarse si sostienen propiedades,
   representaciones o participaciones activas vigentes.

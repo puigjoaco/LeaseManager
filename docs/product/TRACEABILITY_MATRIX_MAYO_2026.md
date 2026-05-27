@@ -294,6 +294,13 @@ y evidencia no sensible, y registra auditoria
 `patrimonio.participacion.transfer_executed`. El auditor Etapa 1 bloquea
 sucesiones heredadas con sucesor inmediato sin evento auditable.
 
+Nota 2026-05-26: El auditor Etapa 1 ya no acepta cualquier evento de
+transferencia patrimonial como evidencia suficiente. Para sucesiones inmediatas
+exige actor y metadata alineada a owner, participacion origen, participante
+origen, fecha efectiva, destinos, porcentaje transferido, motivo y evidencia no
+sensible; reporta `stage1.participacion.transferencia_auditoria_desalineada`
+cuando un snapshot conserva auditoria incompleta, reciclada o sensible.
+
 Nota 2026-05-25: Conciliacion bloquea snapshots heredados donde un abono
 parcial o complementario queda `conciliado_exacto` contra un `PagoMensual` sin
 resolucion manual auditada. Los pagos parciales o en varios abonos siguen
