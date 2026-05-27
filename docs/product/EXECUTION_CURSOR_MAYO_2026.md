@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 3 - Banco y conciliacion. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `CuadraturaBancaria.rationale` y `TransferenciaIntercuenta.criterio_conciliacion/rationale` pueden conservar o exponer texto heredado sensible por API, snapshot y readiness aunque admin ya lo redacta. |
-| Motivo de prioridad | Cerrar una inconsistencia local de seguridad/trazabilidad en contexto bancario antes de usar esos registros como evidencia de conciliacion. |
-| Worktree | `D:/Proyectos/LeaseManager-stage3-bank-context-redaction`. |
-| Rama | `codex/stage3-bank-context-redaction`. |
-| Estado | Validado localmente; pendiente PR, CI, merge y limpieza. |
-| Gate esperado | Etapa 3 local debe seguir como diagnostico parcial: `classification=parcial`, `ready_for_stage3_conciliacion=false`, sin fuente bancaria autorizada. |
-| Estado al cerrar paquete | Focal 7 tests OK; suite impactada 115 tests OK; `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 3 `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 966 tests OK. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete cerrado: Etapa 3 valida/redacta contexto sensible de cuadraturas y transferencias intercuenta. |
+| Worktree | N/A tras merge y limpieza. |
+| Rama | N/A tras merge y limpieza. |
+| Estado | Paquete validado e integrado en PR #424, merge `6c25bb0`. |
+| Gate esperado | N/A hasta abrir proximo paquete. |
+| Estado al cerrar paquete | Focal 7 tests OK; suite impactada 115 tests OK; `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 3 `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 966 tests OK, CI GitHub acceptance OK, higiene repo y `git diff --check` OK. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta validar, integrar y limpiar; no abrir otro frente mientras siga activo. |
-| Siguiente accion | Ejecutar higiene/diff, abrir PR, esperar CI, mergear, sincronizar main y limpiar worktree/rama. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
+| Siguiente accion | Diagnosticar estado real y seleccionar el siguiente paquete pequeno, local y verificable por trazabilidad. |
 
 ## Actualizacion
 
