@@ -6,7 +6,7 @@ from django.utils import timezone
 from audit.models import ManualResolution
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
 from cobranza.services import sync_payment_distribution, sync_payment_state
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 from .models import (
     CategoriaMovimiento,
@@ -30,6 +30,8 @@ def require_manual_resolution_rationale(rationale):
     clean_rationale = str(rationale or '').strip()
     if not clean_rationale:
         raise ValueError('La resolucion manual requiere un motivo auditable.')
+    if contains_sensitive_reference(clean_rationale):
+        raise ValueError('La resolucion manual no puede contener URLs, tokens, correos ni credenciales bancarias.')
     return clean_rationale
 
 
@@ -308,6 +310,8 @@ def resolve_unknown_income_manual_resolution(
     evidencia_regularizacion_ref = str(evidencia_regularizacion_ref or '').strip()
     if not criterio_aplicado:
         raise ValueError('La regularizacion manual requiere criterio aplicado.')
+    if contains_sensitive_reference(criterio_aplicado):
+        raise ValueError('La regularizacion manual no puede contener criterio sensible.')
     if not is_non_sensitive_reference(evidencia_regularizacion_ref):
         raise ValueError('La regularizacion manual requiere evidencia no sensible.')
 
@@ -465,6 +469,8 @@ def resolve_charge_movement_manual_resolution(
         raise ValueError('La entidad afectada debe coincidir con la empresa duena de la cuenta recaudadora.')
     if not criterio_reparto:
         raise ValueError('La clasificacion manual requiere criterio de reparto.')
+    if contains_sensitive_reference(criterio_reparto):
+        raise ValueError('La clasificacion manual no puede contener criterio sensible.')
     if not is_non_sensitive_reference(evidencia_clasificacion_ref):
         raise ValueError('La clasificacion manual requiere evidencia no sensible.')
 
@@ -579,6 +585,8 @@ def resolve_internal_transfer_manual_resolution(
 
     if not criterio_conciliacion:
         raise ValueError('La transferencia interna requiere criterio de conciliacion.')
+    if contains_sensitive_reference(criterio_conciliacion):
+        raise ValueError('La transferencia interna no puede contener criterio sensible.')
     if not is_non_sensitive_reference(evidencia_transferencia_ref):
         raise ValueError('La transferencia interna requiere evidencia no sensible.')
     if not is_non_sensitive_reference(responsable_ref):

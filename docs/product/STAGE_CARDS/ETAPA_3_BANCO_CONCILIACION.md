@@ -49,17 +49,19 @@ sistema igual a saldo banco.
 - Ingresos desconocidos resueltos manualmente requieren pago mensual target,
   contrato, periodo economico canonico `YYYY-MM` alineado al mes/anio del
   `PagoMensual`, criterio aplicado, `evidencia_regularizacion_ref` no sensible
-  y `rationale`/motivo auditable; la API y el servicio no permiten nuevos
-  cierres sin ese contexto, y la readiness bloquea resoluciones heredadas
-  resueltas sin motivo, sin contexto, con periodo/target inconsistente o con
-  evidencia sensible.
+  y `rationale`/motivo auditable no sensible; la API y el servicio no permiten
+  nuevos cierres sin ese contexto ni con criterio/motivo sensible, y la
+  readiness bloquea resoluciones heredadas resueltas sin motivo, sin contexto,
+  con periodo/target inconsistente, con evidencia sensible o con
+  criterio/motivo sensible.
 - Cargos bancarios resueltos manualmente requieren `CategoriaMovimiento`,
   entidad afectada, periodo economico canonico `YYYY-MM`, criterio de reparto,
-  `evidencia_clasificacion_ref` no sensible y motivo auditable; la API y el
-  servicio no permiten nuevos cierres sin ese contexto, y la readiness bloquea
-  cargos conciliados exactos sin resolucion manual resuelta, resoluciones
-  heredadas resueltas sin ese contexto, con periodo/target inconsistente o con
-  evidencia sensible.
+  `evidencia_clasificacion_ref` no sensible y motivo auditable no sensible; la
+  API y el servicio no permiten nuevos cierres sin ese contexto ni con
+  criterio/motivo sensible, y la readiness bloquea cargos conciliados exactos
+  sin resolucion manual resuelta, resoluciones heredadas resueltas sin ese
+  contexto, con periodo/target inconsistente, con evidencia sensible o con
+  criterio/motivo sensible.
 - Transferencias internas/intercuenta se registran como par cargo/abono en
   `TransferenciaIntercuenta`, con cuenta origen/destino, owner origen/destino,
   periodo economico canonico `YYYY-MM`, criterio de conciliacion no sensible,
