@@ -124,7 +124,7 @@ class ConfiguracionNotificacionContratoSerializer(RedactReferenceFieldsMixin, se
 
 class MensajeSalienteSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
     redacted_payload_fields = ('provider_payload',)
-    redacted_reference_fields = ('external_ref',)
+    redacted_reference_fields = ('external_ref', 'motivo_bloqueo')
 
     class Meta:
         model = MensajeSaliente

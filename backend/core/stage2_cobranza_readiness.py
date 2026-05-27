@@ -400,6 +400,8 @@ def _collect_message_issues(messages) -> dict[str, int]:
             message.full_clean()
         except ValidationError:
             counts['invalid_model'] += 1
+        if message.motivo_bloqueo.strip() and contains_sensitive_reference(message.motivo_bloqueo):
+            counts['block_reason_sensitive'] += 1
         if message.estado == EstadoMensajeSaliente.SENT:
             if not message.external_ref.strip():
                 counts['sent_without_external_ref'] += 1
@@ -1401,6 +1403,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.message.sent_audit_event_incomplete',
                 'Existen mensajes enviados cuyo evento auditable no conserva actor y external_ref trazable alineado.',
                 count=message_issues['sent_audit_event_incomplete'],
+            )
+        )
+    if message_issues.get('block_reason_sensitive'):
+        issues.append(
+            _issue(
+                'stage2.message.block_reason_sensitive',
+                'Existen mensajes salientes con motivo de bloqueo sensible heredado.',
+                count=message_issues['block_reason_sensitive'],
             )
         )
     if message_issues.get('prepared_or_sent_not_ready'):

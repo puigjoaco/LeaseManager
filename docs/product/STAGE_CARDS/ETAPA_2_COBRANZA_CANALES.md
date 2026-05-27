@@ -174,10 +174,12 @@ condicionados sin envios reales accidentales.
   cobranza y `storage_ref` documental expuesto por snapshot de Canales, sin
   abrir integraciones externas. Los mensajes
   salientes rechazan nuevas escrituras con `provider_payload` que contenga
-  URLs, tokens, credenciales, correos o claves sensibles y tambien rechazan
-  mensajes enviados sin `external_ref` no sensible, sin timestamp de envio,
-  sin evento auditable de envio manual o con evento sin actor/`external_ref`
-  trazable alineado.
+  URLs, tokens, credenciales, correos o claves sensibles. Los motivos de
+  bloqueo de mensajes salientes tampoco pueden contener referencias sensibles,
+  y API/snapshot deben redactar motivos heredados antes de exponerlos. Los
+  mensajes enviados tambien se rechazan sin `external_ref` no sensible, sin
+  timestamp de envio, sin evento auditable de envio manual o con evento sin
+  actor/`external_ref` trazable alineado.
 - El admin Django de Canales tambien mantiene esa superficie cerrada:
   `CanalMensajeriaAdmin`, `MensajeSalienteAdmin`,
   `ConfiguracionNotificacionContratoAdmin` y
@@ -199,7 +201,8 @@ condicionados sin envios reales accidentales.
   UF manual sin evento auditable, refs sensibles en gates, `external_ref`, `return_url_ref` o
   `provider_payload` sensible, intentos WebPay confirmados desalineados con el
   pago mensual, pagos pendientes vencidos, mora desactualizada, efecto de
-  codigo efectivo descuadrado o sin evento auditable, pagos por acuerdo de
+  codigo efectivo descuadrado o sin evento auditable, motivos de bloqueo de
+  mensajes salientes sensibles heredados, pagos por acuerdo de
   termino o condonados sin resolucion trazable o sin evento auditable, y
   estados de cuenta con score faltante o desalineado, sin enviar mensajes ni conectar
   proveedores externos. Para cierre debe ejecutarse
