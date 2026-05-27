@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: Auditoria cierra superficie admin cruda. `AuditEventAdmin` y
+`ManualResolutionAdmin` reemplazan identificadores, resumenes, rationales,
+request ids y metadata por vistas redactadas, eliminan busquedas por campos
+sensibles y mantienen cerradas alta/borrado manual desde Django admin para no
+saltar los flujos auditados del backoffice.
+
 Nota 2026-05-27: Compliance cierra superficie admin de politicas de retencion.
 `PoliticaRetencionDatosAdmin` ya no expone ni busca `evento_inicio` crudo,
 muestra una version redactada de politicas heredadas con URLs, tokens o
