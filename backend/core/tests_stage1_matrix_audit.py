@@ -1632,6 +1632,22 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.arrendatario.contacto_operativo_faltante', issue_codes)
         self.assertIn('stage1.arrendatario.domicilio_notificaciones_faltante', issue_codes)
 
+    def test_active_contract_with_whatsapp_opt_in_and_local_phone_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        Arrendatario.objects.filter(pk=contrato.arrendatario_id).update(
+            telefono='912345678',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='wa-optin-controlled-001',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.arrendatario.whatsapp_telefono_invalido', issue_codes)
+        self.assertIn('stage1.arrendatario.validacion_modelo', issue_codes)
+
     def test_active_contract_without_structured_payment_contact_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         contrato.arrendatario.contactos_pago.all().delete()

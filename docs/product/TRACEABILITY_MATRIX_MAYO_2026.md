@@ -456,6 +456,12 @@ WhatsApp solo opere con telefonos en formato internacional. El modelo rechaza
 opt-in nuevo con numero local o ambiguo, Canales bloquea preparacion/envio con
 datos heredados invalidos y readiness Etapa 2 reporta `stage2.whatsapp.phone_invalid`.
 
+Nota 2026-05-27: Etapa 1 explicita la misma brecha en su auditor de matriz. Un
+contrato vigente o futuro cuyo arrendatario tenga opt-in WhatsApp con telefono
+local o ambiguo queda clasificado con
+`stage1.arrendatario.whatsapp_telefono_invalido`, sin depender solo de la
+validacion generica del modelo.
+
 Nota 2026-05-24: Canales registra traza explicita de fallback cuando WhatsApp
 queda bloqueado, y readiness Etapa 2 reporta
 `stage2.whatsapp.fallback_trace_missing` para mensajes heredados bloqueados o
