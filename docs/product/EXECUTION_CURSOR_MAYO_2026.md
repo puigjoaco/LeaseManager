@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Patrimonio / representaciones futuras. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `RepresentacionComunidad` valida representantes patrimoniales solo contra participaciones vigentes hoy, por lo que una representacion futura puede quedar invalida aunque el socio tenga participacion activa durante esa ventana futura. |
-| Motivo de prioridad | Etapa 1/Patrimonio es el siguiente frente temprano por trazabilidad; la correccion es local, verificable y no requiere fuentes externas. |
-| Worktree | `D:/Proyectos/LeaseManager-patrimonio-future-representation-participant`. |
-| Rama | `codex/patrimonio-future-representation-participant`. |
-| Estado | Paquete abierto para alinear representaciones patrimoniales futuras con participaciones efectivas en la misma ventana. |
-| Gate esperado | Focal Patrimonio/auditor; suite `patrimonio core.tests_stage1_matrix_audit`; `manage.py check`; `makemigrations --check --dry-run`; frontend build/lint; acceptance; higiene repo. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete previo cerrado: PR #409 `Allow future community representation participants`, merge `854bc59`. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Main sincronizado tras PR #409; pendiente seleccionar siguiente frente seguro por trazabilidad. |
+| Gate esperado | N/A hasta abrir proximo paquete. |
+| Estado al cerrar paquete | PR #409 integrado con CI acceptance verde; worktree tactico removido. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Implementar y validar representaciones futuras con participante patrimonial vigente en la ventana programada. |
+| Siguiente accion | Diagnosticar estado real y seleccionar siguiente paquete pequeno, local y verificable por trazabilidad. |
 
 ## Actualizacion
 
