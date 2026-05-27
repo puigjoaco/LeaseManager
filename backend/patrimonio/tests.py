@@ -349,6 +349,33 @@ class PatrimonioAPITests(APITestCase):
         self.assertEqual(len(response.data['participaciones_detail']), 2)
         self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.empresa.created').exists())
 
+    def test_empresa_update_rejects_direct_participation_rewrite(self):
+        create_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        empresa = Empresa.objects.get(pk=create_response.data['id'])
+        original_participation_ids = set(empresa.participaciones.values_list('id', flat=True))
+        replacement = self._create_socio('Socio Rewrite Empresa', '33333333-3')
+
+        response = self.client.patch(
+            reverse('patrimonio-empresa-detail', args=[empresa.id]),
+            {
+                'participaciones': [
+                    {
+                        'participante_tipo': 'socio',
+                        'participante_id': replacement.id,
+                        'porcentaje': '100.00',
+                        'vigente_desde': timezone.localdate().isoformat(),
+                        'activo': True,
+                    }
+                ]
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('participaciones', response.data)
+        self.assertEqual(set(empresa.participaciones.values_list('id', flat=True)), original_participation_ids)
+
     def test_empresa_active_rejects_invalid_participation_totals(self):
         socio_1 = self._create_socio('Socio Uno', '11111111-1')
         socio_2 = self._create_socio('Socio Dos', '22222222-2')
@@ -652,6 +679,58 @@ class PatrimonioAPITests(APITestCase):
             response.data['representacion_vigente']['evidencia_ref'],
             'community-designated-representative-act-001',
         )
+
+    def test_comunidad_update_rejects_direct_participation_rewrite(self):
+        socio_a = self._create_socio('Socio Comunidad Rewrite A', '14141414-9')
+        socio_b = self._create_socio('Socio Comunidad Rewrite B', '15151515-7')
+        replacement = self._create_socio('Socio Comunidad Rewrite Nuevo', '16161616-5')
+        create_response = self.client.post(
+            reverse('patrimonio-comunidad-list'),
+            self._comunidad_payload(
+                representante_modo=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+                representante_socio_id=socio_a.id,
+                participaciones=[
+                    {
+                        'participante_tipo': 'socio',
+                        'participante_id': socio_a.id,
+                        'porcentaje': '50.00',
+                        'vigente_desde': '2026-01-01',
+                        'activo': True,
+                    },
+                    {
+                        'participante_tipo': 'socio',
+                        'participante_id': socio_b.id,
+                        'porcentaje': '50.00',
+                        'vigente_desde': '2026-01-01',
+                        'activo': True,
+                    },
+                ],
+            ),
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        comunidad = ComunidadPatrimonial.objects.get(pk=create_response.data['id'])
+        original_participation_ids = set(comunidad.participaciones.values_list('id', flat=True))
+
+        response = self.client.patch(
+            reverse('patrimonio-comunidad-detail', args=[comunidad.id]),
+            {
+                'participaciones': [
+                    {
+                        'participante_tipo': 'socio',
+                        'participante_id': replacement.id,
+                        'porcentaje': '100.00',
+                        'vigente_desde': timezone.localdate().isoformat(),
+                        'activo': True,
+                    }
+                ]
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('participaciones', response.data)
+        self.assertEqual(set(comunidad.participaciones.values_list('id', flat=True)), original_participation_ids)
 
     def test_comunidad_designated_representative_requires_traceable_evidence(self):
         socio_1 = self._create_socio('Socio Evidencia Uno', '11111111-1')
