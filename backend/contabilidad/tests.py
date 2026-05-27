@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
+from django.contrib.admin.sites import AdminSite
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -17,6 +18,16 @@ from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoC
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
+from .admin import (
+    BalanceComprobacionAdmin,
+    CierreMensualContableAdmin,
+    EfectoReaperturaCierreMensualAdmin,
+    EventoContableAdmin,
+    LibroDiarioAdmin,
+    LibroMayorAdmin,
+    MovimientoAsientoAdmin,
+    ObligacionTributariaMensualAdmin,
+)
 from .models import (
     AsientoContable,
     BalanceComprobacion,
@@ -523,6 +534,151 @@ class ContabilidadAPITests(APITestCase):
         self.assertNotIn('ledger.example.test', rendered)
         self.assertNotIn('storage.example.test', rendered)
         self.assertNotIn('secret-api-key-value', rendered)
+
+    def test_accounting_admin_redacts_sensitive_payloads_and_refs(self):
+        empresa = self._create_active_empresa(nombre='AdminRedactLedgerCo', rut='74747474-4')
+        accounts = self._setup_contabilidad(empresa)
+        event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='manual',
+            entidad_origen_id='admin-redaction-1',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base=Decimal('100000.00'),
+            payload_resumen={'callback': 'https://ledger.example.test/event?token=secret'},
+            idempotency_key='admin-redaction-event-1',
+            estado_contable=EstadoEventoContable.POSTED,
+        )
+        asiento = AsientoContable.objects.create(
+            evento_contable=event,
+            fecha_contable='2026-01-10',
+            periodo_contable='2026-01',
+            estado='contabilizado',
+            debe_total=Decimal('100000.00'),
+            haber_total=Decimal('100000.00'),
+            moneda_funcional='CLP',
+        )
+        movimiento = MovimientoAsiento.objects.create(
+            asiento_contable=asiento,
+            cuenta_contable=accounts['bancos'],
+            tipo_movimiento=TipoMovimientoAsiento.DEBIT,
+            monto=Decimal('100000.00'),
+            glosa='Centro heredado sensible',
+            centro_resultado_ref='https://ledger.example.test/center?token=secret',
+        )
+        obligacion = ObligacionTributariaMensual.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            obligacion_tipo='PPM',
+            base_imponible=Decimal('100000.00'),
+            monto_calculado=Decimal('10000.00'),
+            estado_preparacion='preparado',
+            detalle_calculo={'api_key': 'secret-api-key-value'},
+        )
+        libro_diario = LibroDiario.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            storage_ref='https://storage.example.test/diario.pdf?token=secret',
+            resumen={'authorization': 'Bearer inherited-ledger-value'},
+        )
+        libro_mayor = LibroMayor.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            storage_ref='https://storage.example.test/mayor.pdf?token=secret',
+            resumen={'callback': 'https://storage.example.test/mayor?token=secret'},
+        )
+        balance = BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            storage_ref='https://storage.example.test/balance.pdf?token=secret',
+            resumen={'api_key': 'secret-api-key-value'},
+        )
+        cierre = CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='aprobado',
+            resumen_obligaciones={'callback': 'https://close.example.test/summary?token=secret'},
+        )
+        policy = self._allow_monthly_close_reopen(empresa)
+        effect_event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo=MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE,
+            entidad_origen_tipo='cierre_mensual_contable',
+            entidad_origen_id=str(cierre.pk),
+            fecha_operativa='2026-02-01',
+            moneda='CLP',
+            monto_base=Decimal('100000.00'),
+            payload_resumen={'callback': 'https://close.example.test/reopen?token=secret'},
+            idempotency_key='admin-redaction-reopen-event-1',
+            estado_contable=EstadoEventoContable.POSTED,
+        )
+        effect = EfectoReaperturaCierreMensual.objects.create(
+            cierre=cierre,
+            politica_reverso=policy,
+            evento_contable=effect_event,
+            tipo_efecto='reverso',
+            monto_efecto=Decimal('100000.00'),
+            motivo='Motivo en https://close.example.test/reopen?token=secret',
+            efecto_esperado='Esperado con token=secret',
+            evidencia_ref='https://close.example.test/evidence?token=secret',
+        )
+        site = AdminSite()
+
+        event_admin = EventoContableAdmin(EventoContable, site)
+        movement_admin = MovimientoAsientoAdmin(MovimientoAsiento, site)
+        obligation_admin = ObligacionTributariaMensualAdmin(ObligacionTributariaMensual, site)
+        diario_admin = LibroDiarioAdmin(LibroDiario, site)
+        mayor_admin = LibroMayorAdmin(LibroMayor, site)
+        balance_admin = BalanceComprobacionAdmin(BalanceComprobacion, site)
+        close_admin = CierreMensualContableAdmin(CierreMensualContable, site)
+        effect_admin = EfectoReaperturaCierreMensualAdmin(EfectoReaperturaCierreMensual, site)
+
+        self.assertNotIn('payload_resumen', event_admin.fields)
+        self.assertEqual(event_admin.payload_resumen_redacted(event)['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(event_admin.has_add_permission(None))
+
+        self.assertNotIn('centro_resultado_ref', movement_admin.fields)
+        self.assertEqual(movement_admin.centro_resultado_ref_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(movement_admin.has_add_permission(None))
+
+        self.assertNotIn('detalle_calculo', obligation_admin.fields)
+        self.assertEqual(obligation_admin.detalle_calculo_redacted(obligacion)['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(obligation_admin.has_add_permission(None))
+
+        for admin_instance, obj in (
+            (diario_admin, libro_diario),
+            (mayor_admin, libro_mayor),
+            (balance_admin, balance),
+        ):
+            self.assertNotIn('storage_ref', admin_instance.fields)
+            self.assertNotIn('resumen', admin_instance.fields)
+            self.assertEqual(admin_instance.storage_ref_redacted(obj), REDACTED_SENSITIVE_REFERENCE)
+            self.assertFalse(admin_instance.has_add_permission(None))
+
+        self.assertEqual(diario_admin.resumen_redacted(libro_diario)['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(mayor_admin.resumen_redacted(libro_mayor)['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(balance_admin.resumen_redacted(balance)['api_key'], REDACTED_SENSITIVE_REFERENCE)
+
+        self.assertNotIn('resumen_obligaciones', close_admin.fields)
+        self.assertEqual(
+            close_admin.resumen_obligaciones_redacted(cierre)['callback'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertFalse(close_admin.has_add_permission(None))
+
+        for raw_field in ('motivo', 'efecto_esperado', 'evidencia_ref'):
+            self.assertNotIn(raw_field, effect_admin.fields)
+            self.assertNotIn(raw_field, effect_admin.search_fields)
+        self.assertEqual(effect_admin.motivo_redacted(effect), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(effect_admin.efecto_esperado_redacted(effect), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(effect_admin.evidencia_ref_redacted(effect), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(effect_admin.has_add_permission(None))
 
     def test_create_and_patch_configuracion_fiscal_with_tasa_ppm_vigente(self):
         empresa = self._create_active_empresa(nombre='FiscalCo', rut='78787878-7')
