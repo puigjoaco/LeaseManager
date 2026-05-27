@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | Conciliacion. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | PR #387 cerrado: admin Django de Cobranza redacta refs, motivos y payloads sensibles heredados en UF manual, pagos, WebPay, garantias y repactaciones. |
-| Worktree | Ninguno. |
-| Rama | `main`. |
-| Estado | Sin paquete abierto. |
-| Gate esperado | N/A. |
-| Estado al cerrar paquete | PR #387 mergeado en `main` con merge commit `4f047cd`; CI remoto `acceptance` OK; evidencia, stage card y trazabilidad actualizadas. |
+| Brecha activa | El admin Django de Conciliacion expone y busca refs bancarias crudas de conexiones, movimientos, cuadraturas y transferencias intercuenta. |
+| Motivo de prioridad | Etapa 3 exige redaccion de refs bancarias sensibles en backoffice; APIs/snapshots/readiness ya cubren nuevas escrituras y exposicion HTTP, falta cerrar la superficie admin local. |
+| Worktree | `D:/Proyectos/LeaseManager-stage3-conciliacion-admin-redaction`. |
+| Rama | `codex/stage3-conciliacion-admin-redaction`. |
+| Estado | Validacion local completa; pendiente PR, CI, merge y limpieza. |
+| Gate esperado | Etapa 3 local diagnostica/parcial, sin declarar cierre de etapa. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Diagnosticar `main` y abrir un worktree tactico solo para el siguiente paquete concreto. |
+| Siguiente accion | Redactar refs bancarias en admin de Conciliacion, cubrir con prueba focal, validar impacto y cerrar con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 

@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: Conciliacion cierra superficie admin para referencias
+bancarias sensibles heredadas. Los admins de conexiones bancarias, movimientos
+importados, cuadraturas y transferencias intercuenta reemplazan refs,
+responsables, criterios o motivos crudos por vistas redactadas, eliminan
+busquedas por campos sensibles y mantienen el alta manual cerrada desde
+backoffice.
+
 Nota 2026-05-27: CobranzaActiva cierra superficie admin para referencias y
 payloads sensibles heredados. Los admins de UF manual, pagos mensuales, gates
 WebPay, intentos WebPay, garantias y repactaciones reemplazan refs, motivos y
