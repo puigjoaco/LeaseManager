@@ -12,6 +12,7 @@ from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
+from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria
 from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
 
@@ -628,7 +629,7 @@ class DocumentosAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('estado', response.data)
-        self.assertFalse(AuditEvent.objects.filter(event_type='documentos.documento_emitido.formalized').exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type=FORMALIZATION_AUDIT_EVENT_TYPE).exists())
 
     def test_document_cannot_be_patched_as_formalized_from_generic_endpoint(self):
         expediente = self._create_expediente(entidad_id='2B')
@@ -649,7 +650,7 @@ class DocumentosAPITests(APITestCase):
         self.assertIn('estado', response.data)
         stored = DocumentoEmitido.objects.get(pk=documento['id'])
         self.assertEqual(stored.estado, EstadoDocumento.ISSUED)
-        self.assertFalse(AuditEvent.objects.filter(event_type='documentos.documento_emitido.formalized').exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type=FORMALIZATION_AUDIT_EVENT_TYPE).exists())
 
     def test_document_with_notary_policy_requires_notary_receipt(self):
         expediente = self._create_expediente(entidad_id='3')
@@ -769,7 +770,18 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(formalize.status_code, status.HTTP_200_OK)
         self.assertEqual(formalize.data['estado'], EstadoDocumento.FORMALIZED)
         self.assertEqual(formalize.data['evidencia_formalizacion_ref'], FORMALIZATION_REF)
-        self.assertTrue(AuditEvent.objects.filter(event_type='documentos.documento_emitido.formalized').exists())
+        event = AuditEvent.objects.get(
+            event_type=FORMALIZATION_AUDIT_EVENT_TYPE,
+            entity_type='documento_emitido',
+            entity_id=str(formalize.data['id']),
+        )
+        self.assertEqual(event.actor_user, self.user)
+        self.assertEqual(event.metadata['evidencia_formalizacion_ref'], FORMALIZATION_REF)
+        self.assertTrue(event.metadata['firma_arrendador_registrada'])
+        self.assertTrue(event.metadata['firma_arrendatario_registrada'])
+        self.assertFalse(event.metadata['firma_codeudor_registrada'])
+        self.assertTrue(event.metadata['recepcion_notarial_registrada'])
+        self.assertEqual(event.metadata['comprobante_notarial_id'], str(receipt['id']))
 
     def test_formalized_document_cannot_be_mutated_from_generic_endpoint(self):
         expediente = self._create_expediente(entidad_id='4D')
@@ -1014,7 +1026,7 @@ class DocumentosAPITests(APITestCase):
         self.assertIn('estado', formalize.data)
         stored = DocumentoEmitido.objects.get(pk=documento['id'])
         self.assertEqual(stored.estado, EstadoDocumento.DRAFT)
-        self.assertFalse(AuditEvent.objects.filter(event_type='documentos.documento_emitido.formalized').exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type=FORMALIZATION_AUDIT_EVENT_TYPE).exists())
 
     def test_codeudor_signature_is_enforced_by_policy(self):
         empresa = self._create_active_company('Docs Codeudor', '76111111-1', ('11111111-1', '22222222-2'))

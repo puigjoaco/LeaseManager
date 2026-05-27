@@ -58,6 +58,10 @@ firma y notaria trazables.
   y conservar `correccion_ref` no sensible con evento de auditoria dedicado.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   documentos formalizados sin evento `documentos.documento_emitido.formalized`.
+- Ese evento de formalizacion debe conservar actor y metadata alineada con la
+  evidencia, firmas, recepcion y comprobante notarial del documento. Readiness
+  debe reportar `documents.formalization_audit_unaligned` para snapshots
+  heredados con auditoria incompleta o desalineada.
 - Auditoria local `audit_document_readiness` debe bloquear versiones
   correctivas heredadas invalidas o sin evento
   `documentos.documento_emitido.corrective_version_created`.
