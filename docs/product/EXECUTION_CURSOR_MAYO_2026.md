@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Patrimonio, bloqueo de reescritura directa de participaciones. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Empresas/comunidades existentes pueden recibir `participaciones` por update generico; el serializer borra y recrea filas, saltando el flujo auditado de transferencia patrimonial. |
-| Motivo de prioridad | Frente temprano del orden de construccion; protege historia patrimonial y evita perder evidencia sin datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-owner-participation-rewrite-guard`. |
-| Rama | `codex/stage1-owner-participation-rewrite-guard`. |
-| Estado | En desarrollo. |
-| Gate esperado | Focal Patrimonio, suite Patrimonio + auditor Etapa 1, `manage.py check`, migraciones dry-run, gate Etapa 1 local, frontend build/lint, acceptance, higiene y diff-check. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | PR #367 cerrado: Patrimonio bloquea reescritura directa de participaciones en owners existentes y conserva el flujo auditado de transferencia. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Sin paquete abierto. |
+| Gate esperado | N/A. |
+| Estado al cerrar paquete | PR #367 mergeado en `main` con merge commit `fc7af4e`; CI acceptance remoto OK; evidencia/trazabilidad/stage card actualizadas. |
 | Bloqueos relacionados | Ningun bloqueo externo nuevo; Etapa 1 no queda cerrada sin fuente autorizada/snapshot controlado. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Bloquear updates genericos de participaciones en owners existentes, mantener create inicial y flujo `participaciones/transferir/`, validar y cerrar PR. |
+| Siguiente accion | Diagnosticar `main` y abrir un nuevo worktree `codex/...` solo para el siguiente paquete concreto. |
 
 ## Actualizacion
 
