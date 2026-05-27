@@ -2,6 +2,7 @@ from datetime import date, datetime
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.urls import reverse
@@ -26,6 +27,12 @@ from operacion.models import (
 )
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
+from .admin import (
+    CanalMensajeriaAdmin,
+    ConfiguracionNotificacionContratoAdmin,
+    MensajeSalienteAdmin,
+    NotificacionCobranzaProgramadaAdmin,
+)
 from .models import (
     CanalMensajeria,
     ConfiguracionNotificacionContrato,
@@ -640,6 +647,99 @@ class CanalesAPITests(APITestCase):
             self.assertNotIn('storage.example.test', body)
             self.assertNotIn('token', body)
             self.assertNotIn('secret', body)
+
+    def test_channel_admin_redacts_sensitive_refs_and_payloads(self):
+        _, contrato = self._create_contract_context(codigo='CH-ADMIN-REDACT')
+        payment = self._create_payment_for_contract(contrato)
+        gate = CanalMensajeria.objects.create(
+            canal='email',
+            provider_key='gmail_api',
+            estado_gate=EstadoGateCanal.OPEN,
+            evidencia_ref='https://mail.example.test/token/secret',
+            restricciones_operativas={
+                'prueba_aislada_ref': 'email-readiness-controlled',
+                'credencial_validada_ref': 'email-ref-validado-v1',
+                'callback_ref': 'https://mail.example.test/proof?token=secret',
+                'api_key': 'controlled-provider-reference',
+                'headers': {'authorization': 'Bearer inherited-channel-value'},
+            },
+        )
+        configuration = ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[5],
+            activa=True,
+            evidencia_configuracion_ref='https://evidence.example.test/token/secret',
+        )
+        message = MensajeSaliente.objects.create(
+            canal='email',
+            canal_mensajeria=gate,
+            contrato=contrato,
+            destinatario='tenant@example.com',
+            asunto='Cobro mensual',
+            cuerpo='Mensaje heredado',
+            estado=EstadoMensajeSaliente.SENT,
+            motivo_bloqueo='Bloqueo por https://provider.example.test/token/secret',
+            external_ref='https://provider.example.test/token/secret',
+            usuario=self.user,
+            provider_payload={
+                'provider_message_id': 'MSG-SAFE-ADMIN',
+                'callback': 'https://provider.example.test/token/secret',
+                'api_key': 'controlled-provider-reference',
+                'headers': {'authorization': 'Bearer inherited-channel-value'},
+            },
+            enviado_at=timezone.now(),
+        )
+        notification = NotificacionCobranzaProgramada.objects.create(
+            pago_mensual=payment,
+            configuracion=configuration,
+            canal='email',
+            dia_notificacion=5,
+            fecha_programada=date(2026, 1, 5),
+            estado='omitida',
+            mensaje_saliente=message,
+            motivo_estado='Omitida por https://provider.example.test/token/secret',
+        )
+        site = AdminSite()
+
+        gate_admin = CanalMensajeriaAdmin(CanalMensajeria, site)
+        message_admin = MensajeSalienteAdmin(MensajeSaliente, site)
+        config_admin = ConfiguracionNotificacionContratoAdmin(ConfiguracionNotificacionContrato, site)
+        notification_admin = NotificacionCobranzaProgramadaAdmin(NotificacionCobranzaProgramada, site)
+
+        self.assertNotIn('evidencia_ref', gate_admin.fields)
+        self.assertNotIn('restricciones_operativas', gate_admin.fields)
+        self.assertEqual(gate_admin.evidencia_ref_redacted(gate), REDACTED_SENSITIVE_REFERENCE)
+        restrictions = gate_admin.restricciones_operativas_redacted(gate)
+        self.assertEqual(restrictions['prueba_aislada_ref'], 'email-readiness-controlled')
+        self.assertEqual(restrictions['credencial_validada_ref'], 'email-ref-validado-v1')
+        self.assertEqual(restrictions['callback_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(restrictions['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(restrictions['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+
+        self.assertNotIn('external_ref', message_admin.fields)
+        self.assertNotIn('provider_payload', message_admin.fields)
+        self.assertNotIn('motivo_bloqueo', message_admin.fields)
+        self.assertNotIn('external_ref', message_admin.search_fields)
+        self.assertEqual(message_admin.external_ref_redacted(message), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(message_admin.motivo_bloqueo_redacted(message), REDACTED_SENSITIVE_REFERENCE)
+        payload = message_admin.provider_payload_redacted(message)
+        self.assertEqual(payload['provider_message_id'], 'MSG-SAFE-ADMIN')
+        self.assertEqual(payload['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(payload['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(payload['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+
+        self.assertNotIn('evidencia_configuracion_ref', config_admin.fields)
+        self.assertNotIn('evidencia_configuracion_ref', config_admin.search_fields)
+        self.assertEqual(
+            config_admin.evidencia_configuracion_ref_redacted(configuration),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+
+        self.assertNotIn('motivo_estado', notification_admin.fields)
+        self.assertEqual(notification_admin.motivo_estado_redacted(notification), REDACTED_SENSITIVE_REFERENCE)
+        for model_admin in (gate_admin, message_admin, config_admin, notification_admin):
+            self.assertFalse(model_admin.has_add_permission(None))
 
     def test_message_rejects_sensitive_provider_payload_on_full_clean(self):
         _, contrato = self._create_contract_context(codigo='CH-PAYLOAD-GUARD')
