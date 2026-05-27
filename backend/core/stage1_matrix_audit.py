@@ -44,6 +44,7 @@ from contratos.models import (
     TENANT_REPLACEMENT_EVENT_TYPE,
     RolContratoPropiedad,
     TipoArrendatario,
+    is_international_phone_number,
     normalize_representante_legal_snapshot,
 )
 from operacion.models import (
@@ -1351,6 +1352,15 @@ def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Con
             entity='Arrendatario',
             entity_id=tenant.pk,
             message='Contrato vigente o futuro requiere email o telefono operativo del arrendatario.',
+        )
+
+    if tenant.whatsapp_opt_in and not is_international_phone_number(tenant.telefono):
+        _issue(
+            issues,
+            code='stage1.arrendatario.whatsapp_telefono_invalido',
+            entity='Arrendatario',
+            entity_id=tenant.pk,
+            message='Arrendatario con WhatsApp operativo requiere telefono en formato internacional.',
         )
 
     if not (tenant.domicilio_notificaciones or '').strip():

@@ -129,7 +129,8 @@ contra datos reales o snapshot controlado.
   evidencia opcional no sensible.
 - Validacion de telefonos para mensajeria: si un arrendatario usa WhatsApp
   operativo, el telefono debe estar en formato internacional; numeros locales
-  o ambiguos quedan bloqueados para Canales.
+  o ambiguos quedan bloqueados para Canales y clasificados por el auditor
+  Etapa 1 en snapshots heredados.
 - Override explicito de `IdentidadDeEnvio` por contrato: si existe, debe estar
   activo y pertenecer a la entidad facturadora o al administrador operativo
   autorizado por el mandato; Canales lo usa antes de la asignacion del mandato
