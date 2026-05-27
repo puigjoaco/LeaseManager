@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import heroImage from './assets/hero.png'
-import { apiRequest, API_BASE_URL, fallbackHealth, TOKEN_STORAGE_KEY } from './backoffice/api'
+import { apiRequest, API_BASE_URL, fallbackHealth, publicSafeApiErrorMessage, TOKEN_STORAGE_KEY } from './backoffice/api'
 import { Metric } from './backoffice/shared'
 import { toneFor } from './backoffice/shared-utils'
 import './App.css'
@@ -313,7 +313,7 @@ export default function App() {
       setToken(response.token)
       setPassword('')
     } catch (error) {
-      setLoginError(error instanceof Error ? error.message : 'No se pudo autenticar.')
+      setLoginError(publicSafeApiErrorMessage(error, 'No se pudo autenticar. Intenta nuevamente.'))
     } finally {
       setIsLoggingIn(false)
     }
@@ -341,7 +341,7 @@ export default function App() {
           <div className="section-heading">
             <div>
               <h2>Continuar sesión</h2>
-              <p>{!API_BASE_URL ? 'El frontend ya está arriba, pero todavía no tiene un backend configurado para este entorno.' : 'Usa las credenciales del backend canónico.'}</p>
+              <p>{!API_BASE_URL ? 'El acceso no está disponible temporalmente para este entorno.' : 'Usa las credenciales del backend canónico.'}</p>
             </div>
           </div>
           <form className="login-form" onSubmit={handleLogin}>
@@ -362,7 +362,7 @@ export default function App() {
               {isLoggingIn ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
-          {!API_BASE_URL ? <p className="form-message error-text">Falta conectar el backend canónico para este entorno. Configura VITE_API_BASE_URL para habilitar el acceso.</p> : null}
+          {!API_BASE_URL ? <p className="form-message error-text">No se pudo habilitar el acceso en este entorno.</p> : null}
           {loginError ? <p className="form-message error-text">{loginError}</p> : null}
           <div className="metric-grid compact-grid">
             <Metric label="API" value={health.status} tone={toneFor(health.status)} />

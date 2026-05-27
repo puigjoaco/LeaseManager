@@ -26,6 +26,10 @@ export const fallbackHealth: HealthPayloadLike = {
   services: { database: { status: 'down' }, redis: { status: 'down' } },
 }
 
+const PUBLIC_SAFE_DETAIL_STATUSES = new Set([400, 401, 403, 429])
+const SENSITIVE_PUBLIC_ERROR_PATTERN =
+  /(:\/\/|@|stack|traceback|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial|database|relation|column|settings|vite[_-]?)/i
+
 export class ApiError extends Error {
   status: number
 
@@ -35,12 +39,23 @@ export class ApiError extends Error {
   }
 }
 
+export function publicSafeApiErrorMessage(error: unknown, fallback: string) {
+  if (
+    error instanceof ApiError
+    && PUBLIC_SAFE_DETAIL_STATUSES.has(error.status)
+    && !SENSITIVE_PUBLIC_ERROR_PATTERN.test(error.message)
+  ) {
+    return error.message
+  }
+  return fallback
+}
+
 export async function apiRequest<T>(
   path: string,
   options: { method?: RequestMethod; token?: string | null; body?: unknown } = {},
 ) {
   if (!API_BASE_URL) {
-    throw new ApiError(500, 'VITE_API_BASE_URL no está configurado para este entorno.')
+    throw new ApiError(503, 'Servicio no disponible para este entorno.')
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {

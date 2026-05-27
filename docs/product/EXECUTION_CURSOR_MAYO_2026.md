@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno abierto en `main`; ultimo paquete cerrado: Etapa 0 - Compliance refs sensibles en readiness. |
+| Frente activo | Etapa 0 - PlataformaBase: errores publicos seguros en login. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna pendiente en cursor. El ultimo paquete hizo que `audit_compliance_data_readiness` clasifique refs sensibles de fuente/evidencia final con codigos especificos y banderas booleanas sin exponer valores. |
-| Motivo de prioridad | El paquete cerro diagnostico de evidencia sensible en Compliance para no confundir referencias sensibles con faltantes genericos. |
-| Worktree | Ninguno tactico activo. |
-| Rama | `main`. |
-| Estado | Paquete validado, integrado y worktree tactico eliminado. |
-| Gate esperado | Si `main` esta limpio, elegir el siguiente frente seguro por trazabilidad y orden de construccion. No cerrar Compliance ni etapas posteriores sin fuentes/evidencias autorizadas. |
-| Estado al cerrar paquete | PR #351 mergeado en `main` como `01bc426`; CI acceptance remoto OK; validacion local OK con parser PS, focal Compliance, suite impactada, gate Compliance local, acceptance 908 tests, frontend build, higiene y `git diff --check`. |
-| Bloqueos relacionados | `BLK-010` sigue como condicion de cierre externo. |
-| Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si `main` esta limpio, seleccionar el siguiente frente seguro desde trazabilidad. |
-| Siguiente accion | Seleccionar nuevo paquete pequeno, seguro y verificable segun cursor, PRD/stage cards, trazabilidad y bloqueos vigentes. |
+| Brecha activa | El login publico no debe renderizar `error.message` interno ni nombres de variables/configuracion cuando falla autenticacion, backend o carga publica. |
+| Motivo de prioridad | PRD exige errores publicos seguros y superficies anonimas sin detalles internos. |
+| Worktree | `D:/Proyectos/LeaseManager-public-login-safe-errors` |
+| Rama | `codex/public-login-safe-errors`. |
+| Estado | Implementacion en curso. |
+| Gate esperado | Build frontend, acceptance local y CI; no cambia gates externos ni usa datos reales. |
+| Estado al cerrar paquete | Pendiente de validacion, PR, CI y merge. |
+| Bloqueos relacionados | Ningun bloqueo externo nuevo; mejora local de baseline. |
+| Politica de reanudacion | Continuar este worktree hasta validar, abrir PR, mergear, limpiar y luego resetear cursor. |
+| Siguiente accion | Validar frontend build/lint si aplica, acceptance, higiene y PR. |
 
 ## Actualizacion
 

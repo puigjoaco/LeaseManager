@@ -112,6 +112,11 @@ faltantes de refs con URLs, tokens, correos o credenciales para
 `SourceLabel`, `AuthorizationRef`, politica aprobada, responsables, controles,
 evidencia archivada y validacion legal-operativa, sin imprimir valores.
 
+Nota 2026-05-26: El login publico deja de renderizar mensajes internos de
+error. La superficie anonima usa `publicSafeApiErrorMessage()` para permitir
+solo detalles HTTP acotados y no sensibles, y reemplaza nombres de variables o
+configuracion por estados publicos genericos.
+
 Nota 2026-05-26: Patrimonio mueve la identidad unica de propiedades activas a
 guard de escritura. `Propiedad.full_clean()` y la API rechazan nuevas
 propiedades activas con ROL de avaluo normalizado duplicado o identidad
