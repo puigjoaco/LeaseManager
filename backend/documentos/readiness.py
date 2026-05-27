@@ -141,6 +141,7 @@ def collect_document_readiness(
     )
     formalized_without_notary_reception = 0
     formalized_without_notary_receipt = 0
+    formalized_without_required_codebtor_signature = 0
     notary_receipts_wrong_type = 0
     notary_receipts_wrong_expediente = 0
     notary_receipts_invalid_state = 0
@@ -177,6 +178,8 @@ def collect_document_readiness(
                 invalid_formalized_documents += 1
             if not _has_formalization_audit(document):
                 formalized_without_formalization_audit += 1
+            if document.requires_codebtor_signature() and not document.firma_codeudor_registrada:
+                formalized_without_required_codebtor_signature += 1
             if document.tipo_documental in notary_required_policies:
                 if not document.recepcion_notarial_registrada:
                     formalized_without_notary_reception += 1
@@ -352,6 +355,14 @@ def collect_document_readiness(
                 count=formalized_without_notary_receipt,
             )
         )
+    if formalized_without_required_codebtor_signature:
+        issues.append(
+            _issue(
+                'documents.codebtor_signature_missing',
+                'Existen documentos formalizados de contratos con codeudor activo sin firma de codeudor requerida.',
+                count=formalized_without_required_codebtor_signature,
+            )
+        )
     if notary_receipts_wrong_type:
         issues.append(
             _issue(
@@ -459,6 +470,7 @@ def collect_document_readiness(
                 'generated_without_audit': generated_documents_without_audit,
                 'formalized_without_notary_reception': formalized_without_notary_reception,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,
+                'formalized_without_required_codebtor_signature': formalized_without_required_codebtor_signature,
                 'notary_receipts_wrong_type': notary_receipts_wrong_type,
                 'notary_receipts_wrong_expediente': notary_receipts_wrong_expediente,
                 'notary_receipts_invalid_state': notary_receipts_invalid_state,

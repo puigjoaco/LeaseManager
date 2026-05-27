@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin worktree tactico activo; ultimo paquete cerrado: Etapa 0 - PlataformaBase, errores publicos seguros en login. |
+| Frente activo | Etapa 5 - Documentos: firma de codeudor condicionada a codeudor activo del contrato. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna brecha abierta en curso. El paquete #353 cerro la superficie publica de login para no renderizar `error.message` interno ni nombres de variables/configuracion. |
-| Motivo de prioridad | Paquete cerrado por PRD de errores publicos seguros y baseline anonimo sin detalles internos. |
-| Worktree | Ninguno; solo debe existir el worktree principal despues de limpiar `D:/Proyectos/LeaseManager-public-login-safe-errors`. |
-| Rama | `main`. |
-| Estado | Paquete #353 validado, integrado y limpiado. |
-| Gate esperado | Para el siguiente paquete: diagnosticar desde trazabilidad y ejecutar validaciones proporcionales. |
-| Estado al cerrar paquete | PR #353 mergeado en `main` con merge commit `2fc5b78`; CI acceptance remoto OK. |
-| Bloqueos relacionados | Ningun bloqueo externo nuevo; mejora local de baseline. |
-| Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Confirmar `main` limpio y elegir el proximo frente desbloqueado por trazabilidad. |
+| Brecha activa | PRD: si existe `CodeudorSolidario`, la politica documental define si su firma es obligatoria y el documento no se formaliza si falta. La regla debe mirar codeudores activos del contrato, no solo el flag global de politica. |
+| Motivo de prioridad | Mejora local y verificable de Documentos sin storage real, secretos ni integraciones externas; evita formalizaciones indebidas y falsos bloqueos en contratos sin codeudor. |
+| Worktree | `D:/Proyectos/LeaseManager-document-codebtor-signature-scope` |
+| Rama | `codex/document-codebtor-signature-scope`. |
+| Estado | Implementacion en curso. |
+| Gate esperado | Tests focales de Documentos/readiness, `manage.py check`, migraciones dry-run, build frontend si aplica, acceptance, CI. |
+| Estado al cerrar paquete | Pendiente de validacion, PR, CI, merge y limpieza. |
+| Bloqueos relacionados | Ningun bloqueo externo nuevo; no cierra Documentos sin fuente autorizada/prueba PDF controlada. |
+| Politica de reanudacion | Continuar este worktree hasta validar, abrir PR, mergear, limpiar y luego resetear cursor. |
+| Siguiente accion | Implementar helper de alcance de firma de codeudor, tests y evidencia/trazabilidad. |
 
 ## Actualizacion
 

@@ -12,6 +12,9 @@ from django.test import TestCase
 from django.utils import timezone
 
 from audit.models import AuditEvent
+from contratos.models import Arrendatario, CodeudorSolidario, Contrato, ContratoPropiedad, PeriodoContractual
+from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
+from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria, TipoDocumental
 from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PDF_PREVIEW_ENTITY_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
@@ -46,6 +49,101 @@ def create_all_active_policies():
             defaults['requiere_firma_arrendador'] = True
             defaults['requiere_firma_arrendatario'] = True
         PoliticaFirmaYNotaria.objects.create(**defaults)
+
+
+def create_contract_context(suffix='DOC-READINESS'):
+    socio_1 = Socio.objects.create(nombre=f'{suffix} Socio 1', rut='11111111-1', activo=True)
+    socio_2 = Socio.objects.create(nombre=f'{suffix} Socio 2', rut='22222222-2', activo=True)
+    empresa = Empresa.objects.create(razon_social=f'Empresa {suffix}', rut='76123456-0', estado='activa')
+    ParticipacionPatrimonial.objects.create(
+        participante_socio=socio_1,
+        empresa_owner=empresa,
+        porcentaje='60.00',
+        vigente_desde='2026-01-01',
+        activo=True,
+    )
+    ParticipacionPatrimonial.objects.create(
+        participante_socio=socio_2,
+        empresa_owner=empresa,
+        porcentaje='40.00',
+        vigente_desde='2026-01-01',
+        activo=True,
+    )
+    propiedad = Propiedad.objects.create(
+        direccion=f'Av {suffix} 123',
+        comuna='Temuco',
+        region='La Araucania',
+        tipo_inmueble=TipoInmueble.LOCAL,
+        codigo_propiedad=suffix,
+        estado='activa',
+        empresa_owner=empresa,
+    )
+    cuenta = CuentaRecaudadora.objects.create(
+        empresa_owner=empresa,
+        institucion='Banco Uno',
+        numero_cuenta=f'ACC-{suffix}',
+        tipo_cuenta='corriente',
+        titular_nombre=empresa.razon_social,
+        titular_rut=empresa.rut,
+        moneda_operativa='CLP',
+        estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+    )
+    mandato = MandatoOperacion.objects.create(
+        propiedad=propiedad,
+        propietario_empresa_owner=empresa,
+        administrador_empresa_owner=empresa,
+        recaudador_empresa_owner=empresa,
+        entidad_facturadora=empresa,
+        cuenta_recaudadora=cuenta,
+        tipo_relacion_operativa='mandato_externo',
+        autoriza_recaudacion=True,
+        autoriza_facturacion=True,
+        autoriza_comunicacion=True,
+        autoridad_operativa_nombre='Representante Operativo',
+        autoridad_operativa_rut='12345678-5',
+        autoridad_operativa_evidencia_ref='mandate-authority-act-001',
+        estado=EstadoMandatoOperacion.ACTIVE,
+        vigencia_desde='2026-01-01',
+    )
+    arrendatario = Arrendatario.objects.create(
+        tipo_arrendatario='persona_natural',
+        nombre_razon_social=f'Arrendatario {suffix}',
+        rut='55555555-5',
+        email=f'{suffix.lower()}@example.com',
+        telefono='999',
+        domicilio_notificaciones=f'Dir {suffix}',
+        estado_contacto='activo',
+    )
+    contrato = Contrato.objects.create(
+        codigo_contrato=f'CTR-{suffix}',
+        mandato_operacion=mandato,
+        arrendatario=arrendatario,
+        fecha_inicio='2026-01-01',
+        fecha_fin_vigente='2026-12-31',
+        fecha_entrega='2026-01-01',
+        dia_pago_mensual=5,
+        plazo_notificacion_termino_dias=60,
+        dias_prealerta_admin=90,
+        estado='vigente',
+    )
+    ContratoPropiedad.objects.create(
+        contrato=contrato,
+        propiedad=propiedad,
+        rol_en_contrato='principal',
+        porcentaje_distribucion_interna='100.00',
+        codigo_conciliacion_efectivo_snapshot='111',
+    )
+    PeriodoContractual.objects.create(
+        contrato=contrato,
+        numero_periodo=1,
+        fecha_inicio='2026-01-01',
+        fecha_fin='2026-12-31',
+        monto_base='100000.00',
+        moneda_base='CLP',
+        tipo_periodo='inicial',
+        origen_periodo='manual',
+    )
+    return {'contrato': contrato, 'mandato': mandato}
 
 
 class DocumentReadinessAuditTests(TestCase):
@@ -560,6 +658,60 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertIn('documents.formalization_evidence_sensitive', {issue['code'] for issue in result['issues']})
         self.assertEqual(result['sections']['documents']['formalized_with_sensitive_evidence'], 1)
         self.assertNotIn(sensitive_ref, rendered)
+
+    def test_formalized_contract_with_active_codebtor_requires_codebtor_signature(self):
+        create_all_active_policies()
+        PoliticaFirmaYNotaria.objects.filter(tipo_documental=TipoDocumental.MAIN_CONTRACT).update(
+            requiere_codeudor=True,
+        )
+        user = create_user('docs-readiness-codebtor-signature')
+        context = create_contract_context('DOC-CODEBTOR-READINESS')
+        CodeudorSolidario.objects.create(
+            contrato=context['contrato'],
+            snapshot_identidad={'nombre': 'Codeudor Readiness', 'rut': '12345678-5'},
+        )
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='contrato',
+            entidad_id=str(context['contrato'].pk),
+            estado='abierto',
+            owner_operativo=f"mandato:{context['mandato'].pk}",
+        )
+        document = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.FORMALIZED,
+            storage_ref='storage/docs/formalized-codebtor-missing.pdf',
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+            firma_codeudor_registrada=False,
+            evidencia_formalizacion_ref=FORMALIZATION_REF,
+        )
+        AuditEvent.objects.create(
+            event_type='documentos.documento_emitido.formalized',
+            entity_type='documento_emitido',
+            entity_id=str(document.pk),
+            summary='Documento formalizado',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.codebtor_signature_missing', issue_codes)
+        self.assertIn('documents.formalized_invalid', issue_codes)
+        self.assertEqual(result['sections']['documents']['formalized_without_required_codebtor_signature'], 1)
 
     def test_invalid_notary_receipts_are_reported_with_specific_codes(self):
         create_all_active_policies()

@@ -1,5 +1,6 @@
 import re
 
+from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -67,6 +68,15 @@ def is_pdf_storage_ref(value):
 def is_valid_pdf_checksum(value):
     normalized = str(value or '').strip()
     return bool(DOCUMENT_CHECKSUM_PATTERN.fullmatch(normalized))
+
+
+def _contract_id_from_expediente(expediente):
+    if not expediente or expediente.entidad_tipo != 'contrato':
+        return None
+    try:
+        return int(str(expediente.entidad_id).strip())
+    except (TypeError, ValueError):
+        return None
 
 
 class ExpedienteDocumental(TimestampedModel):
@@ -189,6 +199,19 @@ class DocumentoEmitido(TimestampedModel):
     def get_active_policy(self):
         return PoliticaFirmaYNotaria.objects.filter(tipo_documental=self.tipo_documental, estado=EstadoPoliticaFirma.ACTIVE).first()
 
+    def contract_has_active_codebtor(self):
+        if not self.expediente_id:
+            return False
+        contrato_id = _contract_id_from_expediente(self.expediente)
+        if contrato_id is None:
+            return False
+        codebtor_model = apps.get_model('contratos', 'CodeudorSolidario')
+        return codebtor_model.objects.filter(contrato_id=contrato_id, estado='activo').exists()
+
+    def requires_codebtor_signature(self, policy=None):
+        effective_policy = policy or self.get_active_policy()
+        return bool(effective_policy and effective_policy.requiere_codeudor and self.contract_has_active_codebtor())
+
     def clean(self):
         super().clean()
         if self.checksum and not is_valid_pdf_checksum(self.checksum):
@@ -266,7 +289,7 @@ class DocumentoEmitido(TimestampedModel):
             raise ValidationError({'estado': 'Falta registrar la firma del arrendador.'})
         if policy.requiere_firma_arrendatario and not self.firma_arrendatario_registrada:
             raise ValidationError({'estado': 'Falta registrar la firma del arrendatario.'})
-        if policy.requiere_codeudor and not self.firma_codeudor_registrada:
+        if self.requires_codebtor_signature(policy) and not self.firma_codeudor_registrada:
             raise ValidationError({'estado': 'Falta registrar la firma del codeudor.'})
         if policy.requiere_notaria:
             if not self.recepcion_notarial_registrada:
