@@ -45,8 +45,9 @@ firma y notaria trazables.
 - Cada documento emitido debe tener politica activa para su tipo documental;
   el dominio/API rechaza nuevas escrituras sin esa politica y evita desactivar
   politicas ya usadas por documentos existentes.
-- APIs y snapshot documental deben redactar `storage_ref` sensible heredado
-  antes de exponer documentos al backoffice.
+- APIs, snapshot documental y admin/backoffice deben redactar `storage_ref`,
+  `evidencia_formalizacion_ref` y `correccion_ref` sensibles heredados antes
+  de exponer documentos.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
   desde el endpoint dedicado `formalizar/`, no desde create/update generico,
   para conservar la auditoria especifica del acto de formalizacion.
