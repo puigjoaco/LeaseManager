@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | PlataformaBase / Core migration pipeline. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete previo cerrado: PR #403 `Redact core admin surfaces`, merge `3540699`. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Main sincronizado tras PR #403; pendiente seleccionar el siguiente frente seguro por trazabilidad. |
-| Gate esperado | N/A hasta abrir el proximo paquete. |
-| Estado al cerrar paquete | PR #403 integrado con CI acceptance verde; worktree tactico removido. |
+| Brecha activa | `core.tests_migration_pipeline` falla en resoluciones de comunidad mixta porque la participacion empresa creada por el pipeline no satisface la validacion vigente de `participante_empresa`. |
+| Motivo de prioridad | Recupera una suite Core amplia como gate util y evita que una validacion patrimonial reciente deje roto el flujo controlado de migracion local. |
+| Worktree | `D:/Proyectos/LeaseManager-core-migration-company-participant`. |
+| Rama | `codex/core-migration-company-participant`. |
+| Estado | Implementado y validado localmente; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Tests focales de `core.tests_migration_pipeline`, suite `core`, `manage.py check`, migraciones dry-run, frontend build/lint si aplica, acceptance local, higiene. |
+| Estado al cerrar paquete | Pendiente de merge. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Diagnosticar el estado real y seleccionar el siguiente paquete pequeno, verificable y no dependiente de fuentes externas no autorizadas. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza antes de abrir otro paquete. |
+| Siguiente accion | Commit, PR, CI, merge y limpieza del worktree tactico. |
 
 ## Actualizacion
 
