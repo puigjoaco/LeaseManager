@@ -24,6 +24,11 @@ DTE_EXTERNAL_STATES = {
     EstadoDTE.REJECTED,
     EstadoDTE.CANCELED,
 }
+DTE_STATUS_QUERY_STATES = {
+    EstadoDTE.ACCEPTED,
+    EstadoDTE.REJECTED,
+    EstadoDTE.CANCELED,
+}
 
 TAX_STATUS_REQUIRING_REF = {
     EstadoPreparacionTributaria.APPROVED,
@@ -87,6 +92,13 @@ def get_active_dte_capability(empresa):
     return ensure_sii_capability_ready(capability, CapacidadSII.DTE_EMISION)
 
 
+def get_active_dte_status_capability(empresa):
+    capability = empresa.capacidades_sii.filter(capacidad_key=CapacidadSII.DTE_CONSULTA).first()
+    if not capability:
+        raise ValueError('La empresa no tiene configurada la capacidad DTEConsultaEstado.')
+    return ensure_sii_capability_ready(capability, CapacidadSII.DTE_CONSULTA)
+
+
 def validate_company_fiscal_readiness(empresa):
     config = getattr(empresa, 'configuracion_fiscal', None)
     if not config or config.estado != 'activa':
@@ -139,12 +151,15 @@ def register_dte_status(dte, *, estado_dte, sii_track_id='', ultimo_estado_sii='
     next_track_id = input_track_id or dte.sii_track_id
     next_sii_status = str(ultimo_estado_sii or '').strip() or dte.ultimo_estado_sii
     if estado_dte in DTE_EXTERNAL_STATES:
-        ensure_sii_capability_ready(dte.capacidad_tributaria, dte.capacidad_tributaria.capacidad_key)
         if not next_track_id:
             raise ValueError('Actualizar estado SII controlado requiere sii_track_id trazable.')
         _ensure_non_sensitive_reference(next_track_id, 'sii_track_id')
-        if estado_dte in {EstadoDTE.ACCEPTED, EstadoDTE.REJECTED, EstadoDTE.CANCELED} and not next_sii_status:
+        if estado_dte in DTE_STATUS_QUERY_STATES and not next_sii_status:
             raise ValueError('Actualizar aceptacion/rechazo/anulacion requiere ultimo_estado_sii trazable.')
+        if estado_dte in DTE_STATUS_QUERY_STATES:
+            get_active_dte_status_capability(dte.empresa)
+        else:
+            ensure_sii_capability_ready(dte.capacidad_tributaria, dte.capacidad_tributaria.capacidad_key)
 
     dte.estado_dte = estado_dte
     if input_track_id:
