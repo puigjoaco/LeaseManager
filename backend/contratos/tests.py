@@ -2,6 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -51,6 +52,7 @@ from .models import (
     WHATSAPP_BLOCK_EVENT_TYPE,
     WHATSAPP_REHABILITATION_EVENT_TYPE,
 )
+from .admin import AvisoTerminoAdmin, ContratoAdmin, PeriodoContractualAdmin
 from .services import block_whatsapp_contact, rehabilitate_whatsapp_contact
 
 
@@ -416,6 +418,97 @@ class ContratosAPITests(APITestCase):
         rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
         self.assertNotIn('wa.example.test', rendered)
         self.assertNotIn('token=secret', rendered)
+
+    def test_contract_lifecycle_admin_redacts_sensitive_refs(self):
+        mandato = self._create_active_mandato(codigo='MAND-ADMIN-REFS', owner_rut='30303030-3')
+        arrendatario = self._create_arrendatario(rut='40404040-4')
+        contrato = Contrato.objects.create(
+            codigo_contrato='CTR-ADMIN-REFS',
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            fecha_entrega=date(2026, 1, 1),
+            entrega_llaves_autorizacion_ref='https://contracts.example.test/key?token=secret',
+            entrega_llaves_autorizacion_motivo='Autorizacion en https://contracts.example.test/key?token=secret',
+            terminacion_anticipada_prorrata_ref='https://contracts.example.test/prorrata?token=secret',
+            terminacion_anticipada_prorrata_motivo='Prorrata en https://contracts.example.test/prorrata?token=secret',
+            dia_pago_mensual=5,
+            plazo_notificacion_termino_dias=60,
+            dias_prealerta_admin=90,
+            estado=EstadoContrato.ACTIVE,
+            politica_documental=self.contract_policy,
+        )
+        periodo = PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=1,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin=date(2026, 12, 31),
+            monto_base=Decimal('1000000.00'),
+            moneda_base='CLP',
+            tipo_periodo='renovacion',
+            origen_periodo='manual_controlado',
+            politica_base_renovacion_ref='https://contracts.example.test/renewal?token=secret',
+            politica_base_renovacion_motivo='Politica en https://contracts.example.test/renewal?token=secret',
+        )
+        aviso = AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='No renovacion',
+            estado=EstadoAvisoTermino.REGISTERED,
+            resolucion_conflicto_renovacion_ref='https://contracts.example.test/conflict?token=secret',
+            resolucion_conflicto_renovacion_motivo='Resolucion en https://contracts.example.test/conflict?token=secret',
+            registrado_por=self.user,
+        )
+
+        site = AdminSite()
+        contrato_admin = ContratoAdmin(Contrato, site)
+        periodo_admin = PeriodoContractualAdmin(PeriodoContractual, site)
+        aviso_admin = AvisoTerminoAdmin(AvisoTermino, site)
+
+        self.assertNotIn('entrega_llaves_autorizacion_ref', contrato_admin.fields)
+        self.assertNotIn('entrega_llaves_autorizacion_motivo', contrato_admin.fields)
+        self.assertNotIn('terminacion_anticipada_prorrata_ref', contrato_admin.fields)
+        self.assertNotIn('terminacion_anticipada_prorrata_motivo', contrato_admin.fields)
+        self.assertNotIn('politica_base_renovacion_ref', periodo_admin.fields)
+        self.assertNotIn('politica_base_renovacion_motivo', periodo_admin.fields)
+        self.assertNotIn('resolucion_conflicto_renovacion_ref', aviso_admin.fields)
+        self.assertNotIn('resolucion_conflicto_renovacion_motivo', aviso_admin.fields)
+        self.assertFalse(contrato_admin.has_add_permission(None))
+        self.assertFalse(periodo_admin.has_add_permission(None))
+        self.assertFalse(aviso_admin.has_add_permission(None))
+        self.assertEqual(
+            contrato_admin.entrega_llaves_autorizacion_ref_redacted(contrato),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            contrato_admin.entrega_llaves_autorizacion_motivo_redacted(contrato),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            contrato_admin.terminacion_anticipada_prorrata_ref_redacted(contrato),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            contrato_admin.terminacion_anticipada_prorrata_motivo_redacted(contrato),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            periodo_admin.politica_base_renovacion_ref_redacted(periodo),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            periodo_admin.politica_base_renovacion_motivo_redacted(periodo),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            aviso_admin.resolucion_conflicto_renovacion_ref_redacted(aviso),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            aviso_admin.resolucion_conflicto_renovacion_motivo_redacted(aviso),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
 
     def test_create_arrendatario_rejects_opt_in_when_whatsapp_blocked(self):
         payload = {
