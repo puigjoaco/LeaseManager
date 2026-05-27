@@ -769,6 +769,7 @@ type EstadoCuenta = {
     score_meses_evaluados?: number
     score_pagos_en_plazo?: number
     score_pagos_fuera_plazo?: number
+    score_meses_sin_registro_operativo?: number
     saldo_total_clp?: string
   }
   score_pago: number | null

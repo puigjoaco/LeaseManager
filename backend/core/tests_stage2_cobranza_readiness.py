@@ -718,6 +718,75 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.account_state.stale_score', issue_codes)
         self.assertEqual(result['sections']['account_states']['stale_score'], 1)
 
+    def test_account_state_score_excludes_payments_without_operational_record(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        contract = fixture['contract']
+        contract.fecha_registro_operativo = date(2026, 2, 10)
+        contract.save(update_fields=['fecha_registro_operativo', 'updated_at'])
+        payment_without_record = fixture['payment']
+        payment_without_record.estado_pago = EstadoPago.PAID
+        payment_without_record.monto_pagado_clp = payment_without_record.monto_calculado_clp
+        payment_without_record.fecha_deposito_banco = date(2026, 1, 6)
+        payment_without_record.save(
+            update_fields=[
+                'estado_pago',
+                'monto_pagado_clp',
+                'fecha_deposito_banco',
+                'updated_at',
+            ]
+        )
+        operational_payment = PagoMensual.objects.create(
+            contrato=contract,
+            periodo_contractual=payment_without_record.periodo_contractual,
+            mes=3,
+            anio=2026,
+            monto_facturable_clp=Decimal('250000.00'),
+            monto_calculado_clp=Decimal('250001.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('1.00'),
+            monto_pagado_clp=Decimal('250001.00'),
+            fecha_vencimiento=date(2026, 3, 5),
+            fecha_deposito_banco=date(2026, 3, 5),
+            estado_pago=EstadoPago.PAID,
+            codigo_conciliacion_efectivo='001',
+        )
+        AuditEvent.objects.create(
+            event_type=EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
+            entity_type='pago_mensual',
+            entity_id=str(operational_payment.pk),
+            summary='Efecto de codigo efectivo aplicado.',
+            actor_identifier='stage2-operator',
+            metadata={
+                'contrato_id': contract.pk,
+                'anio': operational_payment.anio,
+                'mes': operational_payment.mes,
+                'codigo_conciliacion_efectivo': operational_payment.codigo_conciliacion_efectivo,
+                'monto_facturable_clp': str(operational_payment.monto_facturable_clp),
+                'monto_calculado_clp': str(operational_payment.monto_calculado_clp),
+                'monto_efecto_codigo_efectivo_clp': str(operational_payment.monto_efecto_codigo_efectivo_clp),
+            },
+        )
+        rebuild_account_state(fixture['tenant'], reference_date=date(2026, 3, 6))
+
+        result = collect_stage2_cobranza_readiness(
+            source_kind='snapshot_controlado',
+            source_label='stage2-controlled-v1',
+            authorization_ref='stage2-authorization-v1',
+            stage1_evidence_ref='stage1-snapshot-controlled-v1',
+            email_proof_ref='email-proof-controlled-v1',
+            webpay_proof_ref='webpay-proof-controlled-v1',
+            responsible_ref='stage2-responsibles-v1',
+            reference_date=date(2026, 3, 6),
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+        state = EstadoCuentaArrendatario.objects.get(arrendatario=fixture['tenant'])
+
+        self.assertNotIn('stage2.account_state.stale_score', issue_codes)
+        self.assertEqual(state.score_pago, 100)
+        self.assertEqual(state.resumen_operativo['score_meses_evaluados'], 1)
+        self.assertEqual(state.resumen_operativo['score_meses_sin_registro_operativo'], 1)
+
     def test_pending_past_due_payment_is_blocking(self):
         self._create_payment_matrix()
         self._create_valid_email_gate()
