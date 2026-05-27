@@ -124,6 +124,39 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertIn('retention_policies', result['sections'])
         self.assertNotIn('://', json.dumps(result))
 
+    def test_bootstrap_demo_compliance_policies_validates_before_persisting(self):
+        output = StringIO()
+
+        with self.assertRaises(CommandError) as sensitive_context:
+            call_command(
+                'bootstrap_demo_compliance_policies',
+                event_start='https://policy.example.test/source?token=secret',
+                stdout=output,
+            )
+        self.assertIn('campos=evento_inicio', str(sensitive_context.exception))
+        self.assertNotIn('policy.example.test', str(sensitive_context.exception))
+        self.assertEqual(PoliticaRetencionDatos.objects.count(), 0)
+
+        with self.assertRaises(CommandError) as years_context:
+            call_command(
+                'bootstrap_demo_compliance_policies',
+                min_years=0,
+                stdout=output,
+            )
+        self.assertIn('campos=plazo_minimo_anos', str(years_context.exception))
+        self.assertEqual(PoliticaRetencionDatos.objects.count(), 0)
+
+    def test_bootstrap_demo_compliance_policies_creates_valid_canonical_set(self):
+        output = StringIO()
+
+        call_command('bootstrap_demo_compliance_policies', stdout=output)
+
+        result = collect_compliance_data_readiness()
+        self.assertEqual(PoliticaRetencionDatos.objects.count(), len(CategoriaDato))
+        self.assertEqual(result['sections']['retention_policies']['missing_active_categories'], [])
+        self.assertEqual(result['sections']['retention_policies']['hold_missing_categories'], [])
+        self.assertEqual(result['sections']['retention_policies']['physical_purge_enabled_for_restricted_categories'], 0)
+
     def test_valid_authorized_controls_and_refs_can_pass_readiness(self):
         self._create_policies()
         self._create_valid_export()
