@@ -605,6 +605,7 @@ class CanalesAPITests(APITestCase):
             asunto='Cobro mensual',
             cuerpo='Mensaje heredado',
             estado=EstadoMensajeSaliente.SENT,
+            motivo_bloqueo='Bloqueo heredado por https://provider.example.test/token/secret',
             external_ref='https://provider.example.test/token/secret',
             usuario=self.user,
             provider_payload={
@@ -642,9 +643,11 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
         self.assertEqual(gates_response.data[0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(messages_response.data[0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(messages_response.data[0]['motivo_bloqueo'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(notifications_response.data[0]['motivo_estado'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['gates'][0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['mensajes'][0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['mensajes'][0]['motivo_bloqueo'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(
             snapshot_response.data['notificaciones_cobranza'][0]['motivo_estado'],
             REDACTED_SENSITIVE_REFERENCE,
@@ -790,6 +793,27 @@ class CanalesAPITests(APITestCase):
             message.full_clean()
 
         self.assertIn('provider_payload', error.exception.message_dict)
+
+    def test_message_rejects_sensitive_block_reason_on_full_clean(self):
+        _, contrato = self._create_contract_context(codigo='CH-BLOCK-REASON-GUARD')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+
+        message = MensajeSaliente(
+            canal='email',
+            canal_mensajeria=gate,
+            contrato=contrato,
+            destinatario='tenant@example.com',
+            asunto='Bloqueo heredado',
+            cuerpo='Mensaje bloqueado',
+            estado=EstadoMensajeSaliente.BLOCKED,
+            motivo_bloqueo='Bloqueado por https://provider.example.test/token/secret',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            message.full_clean()
+
+        self.assertIn('motivo_bloqueo', error.exception.message_dict)
 
     def test_prepared_message_full_clean_requires_open_gate_and_identity(self):
         _, contrato = self._create_contract_context(codigo='CH-PREP-DOMAIN')

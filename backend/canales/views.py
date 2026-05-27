@@ -110,7 +110,7 @@ class ChannelsSnapshotView(APIView):
                         'asunto': item.asunto,
                         'cuerpo': item.cuerpo,
                         'estado': item.estado,
-                        'motivo_bloqueo': item.motivo_bloqueo,
+                        'motivo_bloqueo': redact_sensitive_reference(item.motivo_bloqueo),
                         'external_ref': redact_sensitive_reference(item.external_ref),
                     }
                     for item in scope_mensaje_queryset(MensajeSaliente.objects.all().order_by('-id'), request.user)

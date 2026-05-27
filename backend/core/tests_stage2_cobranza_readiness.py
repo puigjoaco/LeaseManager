@@ -1543,6 +1543,32 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertNotIn('mail.example.test', json.dumps(result))
         self.assertNotIn('callback?token=secret', json.dumps(result))
 
+    def test_message_with_sensitive_block_reason_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        MensajeSaliente.objects.create(
+            canal=CanalOperacion.EMAIL,
+            canal_mensajeria=email_gate,
+            identidad_envio=fixture['identity'],
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario=fixture['tenant'].email,
+            asunto='Motivo sensible heredado',
+            cuerpo='No debe exponer motivo sensible.',
+            estado=EstadoMensajeSaliente.BLOCKED,
+            motivo_bloqueo='Bloqueado por https://mail.example.test/callback?token=secret',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.message.block_reason_sensitive', issue_codes)
+        self.assertEqual(result['sections']['messages']['block_reason_sensitive'], 1)
+        self.assertNotIn('mail.example.test', json.dumps(result))
+        self.assertNotIn('callback?token=secret', json.dumps(result))
+
     def test_blocked_whatsapp_without_fallback_trace_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()

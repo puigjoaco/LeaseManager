@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 2 - Canales/Cobranza. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete cerrado: Compliance readiness separa motivos sensibles heredados en revocaciones de exportaciones sensibles. |
-| Worktree | N/A tras merge y limpieza. |
-| Rama | N/A tras merge y limpieza. |
-| Estado | Paquete validado e integrado en PR #430, merge `6382305`. |
-| Gate esperado | N/A hasta abrir proximo paquete. |
-| Estado al cerrar paquete | Focal 3 tests OK; suite impactada Compliance/readiness 82 tests OK; `manage.py check`, `makemigrations --check --dry-run`, gate local Compliance `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 973 tests OK, CI GitHub acceptance OK, higiene repo y `git diff --check` OK. |
-| Bloqueos relacionados | `BLK-010` sigue abierto como condicion de cierre legal-operativo. Sin bloqueo externo nuevo. |
+| Brecha activa | `MensajeSaliente.motivo_bloqueo` no queda clasificado/redactado explicitamente como superficie sensible heredada en API/snapshot/readiness Etapa 2. |
+| Motivo de prioridad | Cerrar una fuga local de Canales sin depender de Email/WhatsApp/WebPay reales. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-message-block-reason-redaction`. |
+| Rama | `codex/stage2-message-block-reason-redaction`. |
+| Estado | Validado localmente; pendiente PR, CI, merge y limpieza. |
+| Gate esperado | Etapa 2 local: `classification=parcial`, `ready_for_stage2_cobranza=false`, sin cierre evidencial. |
+| Estado al cerrar paquete | Pendiente de registrar merge y dejar el cursor sin paquete activo. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; falta fuente autorizada/pruebas externas solo como condicion de cierre Etapa 2. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Diagnosticar estado real y seleccionar el siguiente paquete pequeno, local y verificable por trazabilidad. |
+| Siguiente accion | Publicar PR, esperar CI, mergear, limpiar worktree y cerrar el cursor. |
 
 ## Actualizacion
 

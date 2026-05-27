@@ -334,6 +334,8 @@ class MensajeSaliente(TimestampedModel):
                 errors['enviado_at'] = 'Mensaje enviado requiere timestamp de envio.'
         if contains_sensitive_reference(self.provider_payload, include_sensitive_keys=True):
             errors['provider_payload'] = 'provider_payload no debe contener URLs, tokens, credenciales ni correos.'
+        if self.motivo_bloqueo.strip() and contains_sensitive_reference(self.motivo_bloqueo):
+            errors['motivo_bloqueo'] = 'motivo_bloqueo no debe contener URLs, tokens, credenciales ni correos.'
         if self.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}:
             if self.canal_mensajeria.estado_gate != EstadoGateCanal.OPEN:
                 errors['canal_mensajeria'] = 'Mensaje preparado/enviado requiere gate de canal abierto.'
