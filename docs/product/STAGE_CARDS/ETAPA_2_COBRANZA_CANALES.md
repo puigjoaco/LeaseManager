@@ -65,6 +65,12 @@ condicionados sin envios reales accidentales.
   cubrir API y llamadas internas controladas; la readiness bloquea snapshots
   con procedencia incompleta, referencias sensibles, carga manual sin evento o
   motivo desalineado entre el valor UF y su auditoria.
+- Los pagos mensuales calculados desde periodo o ajuste en UF deben persistir
+  la traza exacta usada: `moneda_calculo=UF`, `uf_fecha_usada`,
+  `uf_valor_usado` y `uf_source_key`. La fecha UF usada debe coincidir con
+  `fecha_vencimiento`, y readiness bloquea pagos heredados sin traza, con
+  valor/fuente distinta al `ValorUFDiario` de esa fecha o con traza UF en pagos
+  que no dependen de UF.
 - Garantias contractuales recibidas parcialmente deben quedar visibles como
   incompletas hasta regularizarse o contar con aceptacion formal mediante
   referencia no sensible; APIs y backoffice exponen brecha, estado de

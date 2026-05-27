@@ -16,6 +16,7 @@ from audit.models import AuditEvent
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from cobranza.models import (
     AjusteContrato,
+    CANONICAL_UF_SOURCE_KEYS,
     DistribucionCobroMensual,
     GarantiaContractual,
     HistorialGarantia,
@@ -1712,7 +1713,37 @@ def _audit_payment_distribution_consistency(issues: list[dict[str, Any]]) -> Non
                 mes_inicio__lte=month_start,
                 mes_fin__gte=month_start,
             ).exists()
-        if uf_required and not ValorUFDiario.objects.filter(fecha=month_start).exists():
+        uf_date = getattr(payment, 'uf_fecha_usada', None)
+        uf_value_used = getattr(payment, 'uf_valor_usado', None)
+        uf_source_key = str(getattr(payment, 'uf_source_key', '') or '').strip()
+        expected_uf_date = payment.fecha_vencimiento
+        uf_record = ValorUFDiario.objects.filter(fecha=expected_uf_date).first() if expected_uf_date else None
+        if uf_required:
+            if not (uf_date and uf_value_used is not None and uf_source_key):
+                _issue(
+                    issues,
+                    code='stage1.pago_mensual.uf_traza_faltante',
+                    entity='PagoMensual',
+                    entity_id=payment.pk,
+                    message='Pago mensual existente calculado en UF no conserva fecha, valor y fuente UF usados.',
+                )
+            if uf_date and expected_uf_date and uf_date != expected_uf_date:
+                _issue(
+                    issues,
+                    code='stage1.pago_mensual.uf_fecha_desalineada',
+                    entity='PagoMensual',
+                    entity_id=payment.pk,
+                    message='Pago mensual existente conserva una fecha UF distinta a la fecha de vencimiento.',
+                )
+            if uf_source_key and uf_source_key not in CANONICAL_UF_SOURCE_KEYS:
+                _issue(
+                    issues,
+                    code='stage1.pago_mensual.uf_fuente_no_canonica',
+                    entity='PagoMensual',
+                    entity_id=payment.pk,
+                    message='Pago mensual existente conserva una fuente UF fuera de la cadena canonica.',
+                )
+        if uf_required and not uf_record:
             _issue(
                 issues,
                 code='stage1.pago_mensual.uf_valor_faltante',
@@ -1720,9 +1751,26 @@ def _audit_payment_distribution_consistency(issues: list[dict[str, Any]]) -> Non
                 entity_id=payment.pk,
                 message=(
                     'Pago mensual existente requiere UF, pero no existe ValorUFDiario '
-                    f'para {month_start.isoformat()}.'
+                    f'para {expected_uf_date.isoformat()}.'
                 ),
             )
+        elif uf_required and uf_record:
+            if uf_value_used is not None and Decimal(uf_value_used) != Decimal(uf_record.valor):
+                _issue(
+                    issues,
+                    code='stage1.pago_mensual.uf_valor_desalineado',
+                    entity='PagoMensual',
+                    entity_id=payment.pk,
+                    message='Pago mensual existente conserva un valor UF distinto al ValorUFDiario de la fecha usada.',
+                )
+            if uf_source_key and uf_source_key != uf_record.source_key:
+                _issue(
+                    issues,
+                    code='stage1.pago_mensual.uf_fuente_desalineada',
+                    entity='PagoMensual',
+                    entity_id=payment.pk,
+                    message='Pago mensual existente conserva una fuente UF distinta al ValorUFDiario de la fecha usada.',
+                )
 
         if not distributions:
             _issue(

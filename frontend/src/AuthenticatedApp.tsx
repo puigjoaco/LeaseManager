@@ -707,6 +707,10 @@ type PagoMensual = {
   monto_facturable_clp: string
   monto_calculado_clp: string
   monto_efecto_codigo_efectivo_clp: string
+  moneda_calculo: string
+  uf_fecha_usada: string | null
+  uf_valor_usado: string | null
+  uf_source_key: string
   monto_pagado_clp: string
   fecha_vencimiento: string
   fecha_deposito_banco: string | null

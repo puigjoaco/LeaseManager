@@ -78,6 +78,10 @@ class PagoMensualAdmin(admin.ModelAdmin):
         'monto_facturable_clp',
         'monto_calculado_clp',
         'monto_efecto_codigo_efectivo_clp',
+        'moneda_calculo',
+        'uf_fecha_usada',
+        'uf_valor_usado',
+        'uf_source_key',
         'monto_pagado_clp',
         'fecha_vencimiento',
         'fecha_deposito_banco',
@@ -97,8 +101,18 @@ class PagoMensualAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    list_display = ('contrato', 'anio', 'mes', 'monto_calculado_clp', 'estado_pago', 'fecha_pago_webpay', 'dias_mora')
-    list_filter = ('estado_pago', 'anio', 'mes')
+    list_display = (
+        'contrato',
+        'anio',
+        'mes',
+        'monto_calculado_clp',
+        'moneda_calculo',
+        'uf_fecha_usada',
+        'estado_pago',
+        'fecha_pago_webpay',
+        'dias_mora',
+    )
+    list_filter = ('estado_pago', 'moneda_calculo', 'anio', 'mes')
     search_fields = ('contrato__codigo_contrato',)
 
     def resolucion_pago_excepcional_ref_redacted(self, obj):

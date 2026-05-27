@@ -1404,6 +1404,7 @@ class Stage1MatrixAuditTests(TestCase):
 
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.pago_mensual.uf_traza_faltante', issue_codes)
         self.assertIn('stage1.pago_mensual.uf_valor_faltante', issue_codes)
 
     def test_uf_payment_with_monthly_uf_value_can_pass_stage1_matrix_gate(self):
@@ -1412,11 +1413,25 @@ class Stage1MatrixAuditTests(TestCase):
         periodo.moneda_base = MonedaBaseContrato.UF
         periodo.monto_base = Decimal('10.00')
         periodo.save(update_fields=['moneda_base', 'monto_base', 'updated_at'])
-        ValorUFDiario.objects.create(fecha=date(2026, 1, 1), valor=Decimal('35000.0000'), source_key='UF.BancoCentral')
+        ValorUFDiario.objects.create(fecha=date(2026, 1, 5), valor=Decimal('35000.0000'), source_key='UF.BancoCentral')
         payment = self._create_payment_for(contrato)
         payment.monto_facturable_clp = Decimal('350000.00')
         payment.monto_calculado_clp = Decimal('350001.00')
-        payment.save(update_fields=['monto_facturable_clp', 'monto_calculado_clp', 'updated_at'])
+        payment.moneda_calculo = MonedaBaseContrato.UF
+        payment.uf_fecha_usada = date(2026, 1, 5)
+        payment.uf_valor_usado = Decimal('35000.0000')
+        payment.uf_source_key = 'UF.BancoCentral'
+        payment.save(
+            update_fields=[
+                'monto_facturable_clp',
+                'monto_calculado_clp',
+                'moneda_calculo',
+                'uf_fecha_usada',
+                'uf_valor_usado',
+                'uf_source_key',
+                'updated_at',
+            ]
+        )
         DistribucionCobroMensual.objects.create(
             pago_mensual=payment,
             beneficiario_empresa_owner=contrato.mandato_operacion.entidad_facturadora,
@@ -1433,6 +1448,7 @@ class Stage1MatrixAuditTests(TestCase):
 
         self.assertTrue(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertNotIn('stage1.pago_mensual.uf_traza_faltante', issue_codes)
         self.assertNotIn('stage1.pago_mensual.uf_valor_faltante', issue_codes)
 
     def test_invalid_uf_value_is_blocking_even_when_month_exists(self):
@@ -1441,11 +1457,25 @@ class Stage1MatrixAuditTests(TestCase):
         periodo.moneda_base = MonedaBaseContrato.UF
         periodo.monto_base = Decimal('10.00')
         periodo.save(update_fields=['moneda_base', 'monto_base', 'updated_at'])
-        ValorUFDiario.objects.create(fecha=date(2026, 1, 1), valor=Decimal('0.0000'), source_key='UF.BancoCentral')
+        ValorUFDiario.objects.create(fecha=date(2026, 1, 5), valor=Decimal('0.0000'), source_key='UF.BancoCentral')
         payment = self._create_payment_for(contrato)
         payment.monto_facturable_clp = Decimal('350000.00')
         payment.monto_calculado_clp = Decimal('350001.00')
-        payment.save(update_fields=['monto_facturable_clp', 'monto_calculado_clp', 'updated_at'])
+        payment.moneda_calculo = MonedaBaseContrato.UF
+        payment.uf_fecha_usada = date(2026, 1, 5)
+        payment.uf_valor_usado = Decimal('0.0000')
+        payment.uf_source_key = 'UF.BancoCentral'
+        payment.save(
+            update_fields=[
+                'monto_facturable_clp',
+                'monto_calculado_clp',
+                'moneda_calculo',
+                'uf_fecha_usada',
+                'uf_valor_usado',
+                'uf_source_key',
+                'updated_at',
+            ]
+        )
         DistribucionCobroMensual.objects.create(
             pago_mensual=payment,
             beneficiario_empresa_owner=contrato.mandato_operacion.entidad_facturadora,
