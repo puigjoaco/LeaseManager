@@ -100,9 +100,39 @@ def build_generated_pdf_payload(*, tipo_documental, version_plantilla, titulo, l
     }
 
 
-def _preview_metadata_matches(metadata, *, expediente, tipo_documental, version_plantilla, storage_ref):
+def _event_has_actor(event):
+    return bool(event.actor_user_id or str(event.actor_identifier or '').strip())
+
+
+def build_pdf_preview_audit_metadata(*, payload, expediente, tipo_documental, version_plantilla, lineas):
+    return {
+        'checksum_sha256': payload['checksum'],
+        'storage_ref': payload['storage_ref'],
+        'pdf_size_bytes': len(payload['pdf_bytes']),
+        'version_plantilla': version_plantilla,
+        'tipo_documental': tipo_documental,
+        'expediente_id': str(expediente.pk),
+        'line_count': len(lineas),
+    }
+
+
+def build_generated_pdf_audit_metadata(document, *, pdf_size_bytes=None):
+    metadata = {
+        'checksum_sha256': str(document.checksum or '').strip(),
+        'storage_ref': str(document.storage_ref or '').strip(),
+        'version_plantilla': str(document.version_plantilla or '').strip(),
+        'tipo_documental': document.tipo_documental,
+        'expediente_id': str(document.expediente_id),
+    }
+    if pdf_size_bytes is not None:
+        metadata['pdf_size_bytes'] = int(pdf_size_bytes)
+    return metadata
+
+
+def _preview_metadata_matches(metadata, *, expediente, tipo_documental, version_plantilla, checksum, storage_ref):
     return (
-        str(metadata.get('expediente_id')) == str(expediente.pk)
+        str(metadata.get('checksum_sha256') or '').strip() == str(checksum or '').strip()
+        and str(metadata.get('expediente_id')) == str(expediente.pk)
         and metadata.get('tipo_documental') == tipo_documental
         and metadata.get('version_plantilla') == version_plantilla
         and metadata.get('storage_ref') == storage_ref
@@ -115,11 +145,14 @@ def has_matching_pdf_preview(*, expediente, tipo_documental, version_plantilla, 
         entity_type=PDF_PREVIEW_ENTITY_TYPE,
         entity_id=checksum,
     ):
+        if not _event_has_actor(event):
+            continue
         if _preview_metadata_matches(
             event.metadata or {},
             expediente=expediente,
             tipo_documental=tipo_documental,
             version_plantilla=version_plantilla,
+            checksum=checksum,
             storage_ref=storage_ref,
         ):
             return True
@@ -149,15 +182,13 @@ def preview_generated_pdf_document(
         summary='Vista previa PDF generada sin persistir documento.',
         actor_user=actor_user,
         ip_address=ip_address,
-        metadata={
-            'checksum_sha256': payload['checksum'],
-            'storage_ref': payload['storage_ref'],
-            'pdf_size_bytes': len(payload['pdf_bytes']),
-            'version_plantilla': version_plantilla,
-            'tipo_documental': tipo_documental,
-            'expediente_id': expediente.pk,
-            'line_count': len(lineas),
-        },
+        metadata=build_pdf_preview_audit_metadata(
+            payload=payload,
+            expediente=expediente,
+            tipo_documental=tipo_documental,
+            version_plantilla=version_plantilla,
+            lineas=lineas,
+        ),
     )
     return payload
 
@@ -215,12 +246,6 @@ def emit_generated_pdf_document(
         summary='Documento PDF generado por sistema con checksum derivado del contenido.',
         actor_user=actor_user,
         ip_address=ip_address,
-        metadata={
-            'checksum_sha256': checksum,
-            'storage_ref': document.storage_ref,
-            'pdf_size_bytes': len(pdf_bytes),
-            'version_plantilla': version_plantilla,
-            'tipo_documental': tipo_documental,
-        },
+        metadata=build_generated_pdf_audit_metadata(document, pdf_size_bytes=len(pdf_bytes)),
     )
     return document, pdf_bytes

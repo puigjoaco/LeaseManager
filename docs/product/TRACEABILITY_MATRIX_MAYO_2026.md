@@ -244,6 +244,14 @@ documento y registra `documentos.documento_emitido.previewed_pdf`; la emision
 generada exige una preview auditada del mismo contenido y readiness reporta
 `documents.generated_pdf_preview_missing` para snapshots heredados.
 
+Nota 2026-05-26: Documentos alinea la auditoria de PDF generado y preview con
+el contenido emitido. Los eventos `documentos.documento_emitido.generated_pdf`
+y `documentos.documento_emitido.previewed_pdf` conservan actor y metadata de
+checksum, `storage_ref`, version, tipo documental y expediente; readiness
+reporta `documents.generated_pdf_audit_unaligned` y
+`documents.generated_pdf_preview_unaligned` para eventos heredados incompletos
+o desalineados.
+
 Nota 2026-05-26: Documentos exige `evidencia_formalizacion_ref` no sensible al
 formalizar documentos. API/modelo rechazan formalizaciones sin referencia o con
 referencia sensible, list/detail/snapshot/backoffice redactan evidencia

@@ -26,7 +26,12 @@ from .models import (
     is_pdf_storage_ref,
     is_valid_pdf_checksum,
 )
-from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PDF_PREVIEW_ENTITY_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
+from .pdf_generation import (
+    GENERATED_PDF_AUDIT_EVENT_TYPE,
+    PDF_PREVIEW_ENTITY_TYPE,
+    PREVIEW_PDF_AUDIT_EVENT_TYPE,
+    build_generated_pdf_audit_metadata,
+)
 
 
 REQUIRED_POLICY_TYPES = set(TipoDocumental.values)
@@ -99,10 +104,14 @@ def _metadata_value_matches(actual, expected):
     return str(actual or '').strip() == str(expected or '').strip()
 
 
+def _audit_event_has_actor(event):
+    return bool(event.actor_user_id or str(event.actor_identifier or '').strip())
+
+
 def _formalization_audit_is_aligned(document):
     expected_metadata = build_formalization_audit_metadata(document)
     for event in _formalization_audit_events(document):
-        if not event.actor_user_id and not str(event.actor_identifier or '').strip():
+        if not _audit_event_has_actor(event):
             continue
         metadata = event.metadata or {}
         if all(
@@ -128,7 +137,7 @@ def _correction_audit_events(document):
 def _correction_audit_is_aligned(document):
     expected_metadata = build_correction_audit_metadata(document)
     for event in _correction_audit_events(document):
-        if not event.actor_user_id and not str(event.actor_identifier or '').strip():
+        if not _audit_event_has_actor(event):
             continue
         metadata = event.metadata or {}
         if all(
@@ -140,25 +149,58 @@ def _correction_audit_is_aligned(document):
 
 
 def _has_generated_pdf_audit(document):
+    return _generated_pdf_audit_events(document).exists()
+
+
+def _generated_pdf_audit_events(document):
     return AuditEvent.objects.filter(
         event_type=GENERATED_PDF_AUDIT_EVENT_TYPE,
         entity_type='documento_emitido',
         entity_id=str(document.pk),
-    ).exists()
+    )
+
+
+def _generated_pdf_audit_is_aligned(document):
+    expected_metadata = build_generated_pdf_audit_metadata(document)
+    for event in _generated_pdf_audit_events(document):
+        if not _audit_event_has_actor(event):
+            continue
+        metadata = event.metadata or {}
+        if all(
+            _metadata_value_matches(metadata.get(key), expected)
+            for key, expected in expected_metadata.items()
+        ):
+            return True
+    return False
 
 
 def _has_generated_pdf_preview(document):
-    for event in AuditEvent.objects.filter(
+    return _generated_pdf_preview_events(document).exists()
+
+
+def _generated_pdf_preview_events(document):
+    return AuditEvent.objects.filter(
         event_type=PREVIEW_PDF_AUDIT_EVENT_TYPE,
         entity_type=PDF_PREVIEW_ENTITY_TYPE,
         entity_id=str(document.checksum or '').strip(),
-    ):
+    )
+
+
+def _generated_pdf_preview_is_aligned(document):
+    expected_metadata = {
+        'checksum_sha256': document.checksum,
+        'expediente_id': document.expediente_id,
+        'tipo_documental': document.tipo_documental,
+        'version_plantilla': document.version_plantilla,
+        'storage_ref': document.storage_ref,
+    }
+    for event in _generated_pdf_preview_events(document):
+        if not _audit_event_has_actor(event):
+            continue
         metadata = event.metadata or {}
-        if (
-            str(metadata.get('expediente_id')) == str(document.expediente_id)
-            and metadata.get('tipo_documental') == document.tipo_documental
-            and metadata.get('version_plantilla') == document.version_plantilla
-            and metadata.get('storage_ref') == document.storage_ref
+        if all(
+            _metadata_value_matches(metadata.get(key), expected)
+            for key, expected in expected_metadata.items()
         ):
             return True
     return False
@@ -200,7 +242,9 @@ def collect_document_readiness(
     formalized_without_formalization_audit = 0
     formalized_with_unaligned_formalization_audit = 0
     generated_documents_without_preview = 0
+    generated_documents_with_unaligned_preview = 0
     generated_documents_without_audit = 0
+    generated_documents_with_unaligned_audit = 0
     corrective_versions_without_audit = 0
     corrective_versions_with_unaligned_audit = 0
     invalid_corrective_versions = 0
@@ -219,8 +263,12 @@ def collect_document_readiness(
         if document.origen == OrigenDocumento.GENERATED:
             if not _has_generated_pdf_preview(document):
                 generated_documents_without_preview += 1
+            elif not _generated_pdf_preview_is_aligned(document):
+                generated_documents_with_unaligned_preview += 1
             if not _has_generated_pdf_audit(document):
                 generated_documents_without_audit += 1
+            elif not _generated_pdf_audit_is_aligned(document):
+                generated_documents_with_unaligned_audit += 1
         if document.estado == EstadoDocumento.FORMALIZED:
             if not str(document.evidencia_formalizacion_ref or '').strip():
                 formalized_without_evidence += 1
@@ -389,12 +437,28 @@ def collect_document_readiness(
                 count=generated_documents_without_audit,
             )
         )
+    if generated_documents_with_unaligned_audit:
+        issues.append(
+            _issue(
+                'documents.generated_pdf_audit_unaligned',
+                'Existen documentos generados por sistema cuya auditoria PDF no conserva actor y metadata alineada.',
+                count=generated_documents_with_unaligned_audit,
+            )
+        )
     if generated_documents_without_preview:
         issues.append(
             _issue(
                 'documents.generated_pdf_preview_missing',
                 'Existen documentos generados por sistema sin vista previa auditada del mismo contenido.',
                 count=generated_documents_without_preview,
+            )
+        )
+    if generated_documents_with_unaligned_preview:
+        issues.append(
+            _issue(
+                'documents.generated_pdf_preview_unaligned',
+                'Existen documentos generados por sistema cuya vista previa auditada no conserva actor y metadata alineada.',
+                count=generated_documents_with_unaligned_preview,
             )
         )
     if formalized_without_notary_reception:
@@ -541,7 +605,9 @@ def collect_document_readiness(
                 'formalized_without_evidence': formalized_without_evidence,
                 'formalized_with_sensitive_evidence': formalized_with_sensitive_evidence,
                 'generated_without_preview': generated_documents_without_preview,
+                'generated_with_unaligned_preview': generated_documents_with_unaligned_preview,
                 'generated_without_audit': generated_documents_without_audit,
+                'generated_with_unaligned_audit': generated_documents_with_unaligned_audit,
                 'formalized_without_notary_reception': formalized_without_notary_reception,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,
                 'formalized_without_required_codebtor_signature': formalized_without_required_codebtor_signature,

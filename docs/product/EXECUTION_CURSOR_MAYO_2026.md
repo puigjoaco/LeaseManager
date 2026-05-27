@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin worktree tactico activo; ultimo paquete cerrado: Etapa 5 - Documentos, auditoria de versiones correctivas alineada con origen y correccion. |
+| Frente activo | Etapa 5 - Documentos, alineacion de auditoria de PDF generado y preview. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna brecha abierta en curso. El paquete #359 cerro la regla local: las versiones correctivas registran actor y metadata alineada, y readiness detecta eventos heredados sin actor o desalineados. |
-| Motivo de prioridad | Paquete cerrado por trazabilidad documental local, sin storage real ni integraciones externas. |
-| Worktree | Ninguno; solo debe existir el worktree principal despues de limpiar `D:/Proyectos/LeaseManager-document-correction-audit-alignment`. |
-| Rama | `main`. |
-| Estado | Paquete #359 validado, integrado y limpiado. |
-| Gate esperado | Para el siguiente paquete: diagnosticar desde trazabilidad y ejecutar validaciones proporcionales. |
-| Estado al cerrar paquete | PR #359 mergeado en `main` con merge commit `31cafd9`; CI acceptance remoto OK. |
+| Brecha activa | Los eventos de auditoria de PDF generado y preview ya existen, pero readiness debe distinguir evento ausente de evento heredado sin actor o metadata desalineada. |
+| Motivo de prioridad | Cierra una brecha documental local sobre evidencia verificable, sin storage real ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-document-generated-pdf-audit-alignment`. |
+| Rama | `codex/document-generated-pdf-audit-alignment`. |
+| Estado | En desarrollo y validacion local. |
+| Gate esperado | Focal Documentos, suite `documentos`, `manage.py check`, migraciones dry-run, gate local Etapa 5 Documentos, frontend build/lint, acceptance, higiene y diff-check. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Ningun bloqueo externo nuevo; no cierra Documentos sin fuente autorizada/prueba PDF controlada. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Confirmar `main` limpio y elegir el proximo frente desbloqueado por trazabilidad. |
+| Siguiente accion | Terminar validacion, PR, CI, merge y limpieza del paquete activo. |
 
 ## Actualizacion
 

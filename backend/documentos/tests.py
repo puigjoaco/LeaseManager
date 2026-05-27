@@ -100,13 +100,18 @@ class DocumentosAPITests(APITestCase):
 
         preview = self.client.post(reverse('documentos-documento-previsualizar-pdf'), payload, format='json')
         self.assertEqual(preview.status_code, status.HTTP_200_OK)
-        self.assertTrue(
-            AuditEvent.objects.filter(
-                event_type=PREVIEW_PDF_AUDIT_EVENT_TYPE,
-                entity_type='documento_pdf_preview',
-                entity_id=preview.data['preview_ref'],
-            ).exists()
+        preview_event = AuditEvent.objects.get(
+            event_type=PREVIEW_PDF_AUDIT_EVENT_TYPE,
+            entity_type='documento_pdf_preview',
+            entity_id=preview.data['preview_ref'],
         )
+        self.assertEqual(preview_event.actor_user_id, self.user.id)
+        self.assertEqual(preview_event.metadata['checksum_sha256'], preview.data['pdf_sha256'])
+        self.assertEqual(preview_event.metadata['storage_ref'], preview.data['storage_ref_preview'])
+        self.assertEqual(preview_event.metadata['version_plantilla'], payload['version_plantilla'])
+        self.assertEqual(preview_event.metadata['tipo_documental'], payload['tipo_documental'])
+        self.assertEqual(preview_event.metadata['expediente_id'], str(expediente['id']))
+        self.assertEqual(preview_event.metadata['line_count'], len(payload['lineas']))
 
         response = self.client.post(reverse('documentos-documento-generar-pdf'), payload, format='json')
 
@@ -122,14 +127,18 @@ class DocumentosAPITests(APITestCase):
         self.assertTrue(document.storage_ref.startswith('storage/generated-documents/contrato_principal/contrato-v1-'))
         self.assertTrue(document.storage_ref.endswith('.pdf'))
         self.assertGreater(response.data['pdf_size_bytes'], 100)
-        self.assertTrue(
-            AuditEvent.objects.filter(
-                event_type=GENERATED_PDF_AUDIT_EVENT_TYPE,
-                entity_type='documento_emitido',
-                entity_id=str(document.pk),
-                metadata__checksum_sha256=document.checksum,
-            ).exists()
+        generated_event = AuditEvent.objects.get(
+            event_type=GENERATED_PDF_AUDIT_EVENT_TYPE,
+            entity_type='documento_emitido',
+            entity_id=str(document.pk),
         )
+        self.assertEqual(generated_event.actor_user_id, self.user.id)
+        self.assertEqual(generated_event.metadata['checksum_sha256'], document.checksum)
+        self.assertEqual(generated_event.metadata['storage_ref'], document.storage_ref)
+        self.assertEqual(generated_event.metadata['version_plantilla'], document.version_plantilla)
+        self.assertEqual(generated_event.metadata['tipo_documental'], document.tipo_documental)
+        self.assertEqual(generated_event.metadata['expediente_id'], str(expediente['id']))
+        self.assertEqual(generated_event.metadata['pdf_size_bytes'], response.data['pdf_size_bytes'])
 
     def test_generate_pdf_requires_matching_preview(self):
         expediente = self._create_expediente(entidad_id='generated-without-preview')
