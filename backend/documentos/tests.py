@@ -1,5 +1,6 @@
-from django.core.exceptions import ValidationError
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -12,6 +13,7 @@ from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
+from .admin import DocumentoEmitidoAdmin
 from .correction_audit import CORRECTION_AUDIT_EVENT_TYPE
 from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria
@@ -228,6 +230,35 @@ class DocumentosAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('origen', response.data)
+
+    def test_document_admin_redacts_sensitive_document_refs(self):
+        expediente = self._create_expediente(entidad_id='admin-redaction')
+        self._create_politica()
+        document = DocumentoEmitido.objects.create(
+            expediente_id=expediente['id'],
+            tipo_documental='contrato_principal',
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=self.user,
+            origen='carga_externa_controlada',
+            estado='emitido',
+            storage_ref='https://storage.example.test/contracts/doc.pdf?token=secret',
+            evidencia_formalizacion_ref='https://evidence.example.test/formalizacion?token=secret',
+            correccion_ref='https://corrections.example.test/ref?token=secret',
+        )
+        model_admin = DocumentoEmitidoAdmin(DocumentoEmitido, AdminSite())
+
+        for raw_field in ('storage_ref', 'evidencia_formalizacion_ref', 'correccion_ref'):
+            self.assertNotIn(raw_field, model_admin.fields)
+            self.assertNotIn(raw_field, model_admin.search_fields)
+        self.assertFalse(model_admin.has_add_permission(None))
+        self.assertEqual(model_admin.storage_ref_redacted(document), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            model_admin.evidencia_formalizacion_ref_redacted(document),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(model_admin.correccion_ref_redacted(document), REDACTED_SENSITIVE_REFERENCE)
 
     def _create_active_company(self, nombre, rut, socio_ruts):
         socio_1 = Socio.objects.create(nombre=f'{nombre} Socio 1', rut=socio_ruts[0], activo=True)

@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | Documentos.PDF. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | PR #377 cerrado: Compliance admin redacta/oculta metadata sensible de exportaciones. |
-| Worktree | Ninguno. |
-| Rama | `main`. |
-| Estado | Sin paquete abierto. |
-| Gate esperado | N/A. |
-| Estado al cerrar paquete | PR #377 mergeado en main con merge commit `106a248`; CI acceptance remoto OK; evidencia y trazabilidad actualizadas. |
-| Bloqueos relacionados | Ningun bloqueo externo nuevo. BLK-010 sigue abierto solo para cierre Compliance evidencial. |
+| Brecha activa | Admin Django de `DocumentoEmitido` puede exponer `storage_ref`/`correccion_ref` sensibles heredadas por formulario default y busqueda. |
+| Motivo de prioridad | Stage card Etapa 5 Documentos exige que APIs/snapshot/backoffice redacten `storage_ref` y refs correctivas sensibles antes de exponerlas. |
+| Worktree | `D:/Proyectos/LeaseManager-document-admin-redaction`. |
+| Rama | `codex/document-admin-redaction`. |
+| Estado | Paquete abierto. |
+| Gate esperado | Documentos local parcial: `classification=parcial`, `ready_for_stage5_documents=false`, sin cierre evidencial. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; las fuentes autorizadas siguen siendo condicion de cierre documental, no de este hardening local. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Diagnosticar `main` y abrir un nuevo worktree `codex/...` solo para el siguiente paquete concreto. |
+| Siguiente accion | Redactar/ocultar refs documentales sensibles en admin, agregar tests, evidencia y trazabilidad; cerrar con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 
