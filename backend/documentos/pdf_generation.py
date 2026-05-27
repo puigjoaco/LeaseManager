@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from audit.models import AuditEvent
 from audit.services import create_audit_event
+from core.reference_validation import redact_sensitive_reference
 
 from .models import DocumentoEmitido, EstadoDocumento, OrigenDocumento
 
@@ -107,7 +108,7 @@ def _event_has_actor(event):
 def build_pdf_preview_audit_metadata(*, payload, expediente, tipo_documental, version_plantilla, lineas):
     return {
         'checksum_sha256': payload['checksum'],
-        'storage_ref': payload['storage_ref'],
+        'storage_ref': redact_sensitive_reference(payload['storage_ref']),
         'pdf_size_bytes': len(payload['pdf_bytes']),
         'version_plantilla': version_plantilla,
         'tipo_documental': tipo_documental,
@@ -119,7 +120,7 @@ def build_pdf_preview_audit_metadata(*, payload, expediente, tipo_documental, ve
 def build_generated_pdf_audit_metadata(document, *, pdf_size_bytes=None):
     metadata = {
         'checksum_sha256': str(document.checksum or '').strip(),
-        'storage_ref': str(document.storage_ref or '').strip(),
+        'storage_ref': redact_sensitive_reference(document.storage_ref),
         'version_plantilla': str(document.version_plantilla or '').strip(),
         'tipo_documental': document.tipo_documental,
         'expediente_id': str(document.expediente_id),
@@ -135,7 +136,7 @@ def _preview_metadata_matches(metadata, *, expediente, tipo_documental, version_
         and str(metadata.get('expediente_id')) == str(expediente.pk)
         and metadata.get('tipo_documental') == tipo_documental
         and metadata.get('version_plantilla') == version_plantilla
-        and metadata.get('storage_ref') == storage_ref
+        and metadata.get('storage_ref') == redact_sensitive_reference(storage_ref)
     )
 
 

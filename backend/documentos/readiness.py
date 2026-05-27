@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from audit.models import AuditEvent
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import is_non_sensitive_reference, redact_sensitive_reference
 
 from .correction_audit import (
     CORRECTION_AUDIT_ENTITY_TYPE,
@@ -108,6 +108,12 @@ def _audit_event_has_actor(event):
     return bool(event.actor_user_id or str(event.actor_identifier or '').strip())
 
 
+def _metadata_has_sensitive_reference(metadata, field_names):
+    if not isinstance(metadata, dict):
+        return False
+    return any(_sensitive_reference(metadata.get(field_name)) for field_name in field_names)
+
+
 def _formalization_audit_is_aligned(document):
     expected_metadata = build_formalization_audit_metadata(document)
     for event in _formalization_audit_events(document):
@@ -192,7 +198,7 @@ def _generated_pdf_preview_is_aligned(document):
         'expediente_id': document.expediente_id,
         'tipo_documental': document.tipo_documental,
         'version_plantilla': document.version_plantilla,
-        'storage_ref': document.storage_ref,
+        'storage_ref': redact_sensitive_reference(document.storage_ref),
     }
     for event in _generated_pdf_preview_events(document):
         if not _audit_event_has_actor(event):
@@ -241,12 +247,16 @@ def collect_document_readiness(
     notary_receipts_invalid_state = 0
     formalized_without_formalization_audit = 0
     formalized_with_unaligned_formalization_audit = 0
+    formalization_audit_sensitive_metadata = 0
     generated_documents_without_preview = 0
     generated_documents_with_unaligned_preview = 0
+    generated_preview_sensitive_metadata = 0
     generated_documents_without_audit = 0
     generated_documents_with_unaligned_audit = 0
+    generated_audit_sensitive_metadata = 0
     corrective_versions_without_audit = 0
     corrective_versions_with_unaligned_audit = 0
+    corrective_audit_sensitive_metadata = 0
     invalid_corrective_versions = 0
 
     for document in documents:
@@ -263,12 +273,20 @@ def collect_document_readiness(
         if document.origen == OrigenDocumento.GENERATED:
             if not _has_generated_pdf_preview(document):
                 generated_documents_without_preview += 1
-            elif not _generated_pdf_preview_is_aligned(document):
-                generated_documents_with_unaligned_preview += 1
+            else:
+                preview_events = list(_generated_pdf_preview_events(document))
+                if any(_metadata_has_sensitive_reference(event.metadata or {}, ('storage_ref',)) for event in preview_events):
+                    generated_preview_sensitive_metadata += 1
+                if not _generated_pdf_preview_is_aligned(document):
+                    generated_documents_with_unaligned_preview += 1
             if not _has_generated_pdf_audit(document):
                 generated_documents_without_audit += 1
-            elif not _generated_pdf_audit_is_aligned(document):
-                generated_documents_with_unaligned_audit += 1
+            else:
+                generated_events = list(_generated_pdf_audit_events(document))
+                if any(_metadata_has_sensitive_reference(event.metadata or {}, ('storage_ref',)) for event in generated_events):
+                    generated_audit_sensitive_metadata += 1
+                if not _generated_pdf_audit_is_aligned(document):
+                    generated_documents_with_unaligned_audit += 1
         if document.estado == EstadoDocumento.FORMALIZED:
             if not str(document.evidencia_formalizacion_ref or '').strip():
                 formalized_without_evidence += 1
@@ -280,8 +298,15 @@ def collect_document_readiness(
                 invalid_formalized_documents += 1
             if not _has_formalization_audit(document):
                 formalized_without_formalization_audit += 1
-            elif not _formalization_audit_is_aligned(document):
-                formalized_with_unaligned_formalization_audit += 1
+            else:
+                formalization_events = list(_formalization_audit_events(document))
+                if any(
+                    _metadata_has_sensitive_reference(event.metadata or {}, ('evidencia_formalizacion_ref',))
+                    for event in formalization_events
+                ):
+                    formalization_audit_sensitive_metadata += 1
+                if not _formalization_audit_is_aligned(document):
+                    formalized_with_unaligned_formalization_audit += 1
             if document.requires_codebtor_signature() and not document.firma_codeudor_registrada:
                 formalized_without_required_codebtor_signature += 1
             if document.tipo_documental in notary_required_policies:
@@ -304,8 +329,15 @@ def collect_document_readiness(
                 invalid_corrective_versions += 1
             if not _has_correction_audit(document):
                 corrective_versions_without_audit += 1
-            elif not _correction_audit_is_aligned(document):
-                corrective_versions_with_unaligned_audit += 1
+            else:
+                correction_events = list(_correction_audit_events(document))
+                if any(
+                    _metadata_has_sensitive_reference(event.metadata or {}, ('storage_ref', 'correccion_ref'))
+                    for event in correction_events
+                ):
+                    corrective_audit_sensitive_metadata += 1
+                if not _correction_audit_is_aligned(document):
+                    corrective_versions_with_unaligned_audit += 1
 
     checks = {
         'final_policy_ref': _non_sensitive_reference(final_policy_ref),
@@ -445,6 +477,14 @@ def collect_document_readiness(
                 count=generated_documents_with_unaligned_audit,
             )
         )
+    if generated_audit_sensitive_metadata:
+        issues.append(
+            _issue(
+                'documents.generated_pdf_audit_sensitive_metadata',
+                'Existen auditorias de PDF generado con metadata sensible.',
+                count=generated_audit_sensitive_metadata,
+            )
+        )
     if generated_documents_without_preview:
         issues.append(
             _issue(
@@ -459,6 +499,14 @@ def collect_document_readiness(
                 'documents.generated_pdf_preview_unaligned',
                 'Existen documentos generados por sistema cuya vista previa auditada no conserva actor y metadata alineada.',
                 count=generated_documents_with_unaligned_preview,
+            )
+        )
+    if generated_preview_sensitive_metadata:
+        issues.append(
+            _issue(
+                'documents.generated_pdf_preview_sensitive_metadata',
+                'Existen auditorias de preview PDF con metadata sensible.',
+                count=generated_preview_sensitive_metadata,
             )
         )
     if formalized_without_notary_reception:
@@ -525,6 +573,14 @@ def collect_document_readiness(
                 count=formalized_with_unaligned_formalization_audit,
             )
         )
+    if formalization_audit_sensitive_metadata:
+        issues.append(
+            _issue(
+                'documents.formalization_audit_sensitive_metadata',
+                'Existen auditorias de formalizacion documental con metadata sensible.',
+                count=formalization_audit_sensitive_metadata,
+            )
+        )
     if invalid_corrective_versions:
         issues.append(
             _issue(
@@ -547,6 +603,14 @@ def collect_document_readiness(
                 'documents.corrective_version_audit_unaligned',
                 'Existen versiones correctivas documentales cuyo evento de auditoria no conserva actor y metadata de correccion alineada.',
                 count=corrective_versions_with_unaligned_audit,
+            )
+        )
+    if corrective_audit_sensitive_metadata:
+        issues.append(
+            _issue(
+                'documents.corrective_version_audit_sensitive_metadata',
+                'Existen auditorias de versiones correctivas con metadata sensible.',
+                count=corrective_audit_sensitive_metadata,
             )
         )
 
@@ -606,8 +670,10 @@ def collect_document_readiness(
                 'formalized_with_sensitive_evidence': formalized_with_sensitive_evidence,
                 'generated_without_preview': generated_documents_without_preview,
                 'generated_with_unaligned_preview': generated_documents_with_unaligned_preview,
+                'generated_preview_sensitive_metadata': generated_preview_sensitive_metadata,
                 'generated_without_audit': generated_documents_without_audit,
                 'generated_with_unaligned_audit': generated_documents_with_unaligned_audit,
+                'generated_audit_sensitive_metadata': generated_audit_sensitive_metadata,
                 'formalized_without_notary_reception': formalized_without_notary_reception,
                 'formalized_without_notary_receipt': formalized_without_notary_receipt,
                 'formalized_without_required_codebtor_signature': formalized_without_required_codebtor_signature,
@@ -616,10 +682,12 @@ def collect_document_readiness(
                 'notary_receipts_invalid_state': notary_receipts_invalid_state,
                 'formalized_without_formalization_audit': formalized_without_formalization_audit,
                 'formalized_with_unaligned_formalization_audit': formalized_with_unaligned_formalization_audit,
+                'formalization_audit_sensitive_metadata': formalization_audit_sensitive_metadata,
                 'corrective_versions': documents.filter(documento_origen__isnull=False).count(),
                 'invalid_corrective_versions': invalid_corrective_versions,
                 'corrective_versions_without_audit': corrective_versions_without_audit,
                 'corrective_versions_with_unaligned_audit': corrective_versions_with_unaligned_audit,
+                'corrective_audit_sensitive_metadata': corrective_audit_sensitive_metadata,
             },
             'final_evidence': checks,
             'source_trace': source_trace,

@@ -583,6 +583,13 @@ API bloquean escrituras directas de futuros con arrendatario distinto que no
 usen ese flujo o no conserven esa traza, y el auditor Etapa 1 bloquea futuros
 heredados con arrendatario distinto si falta esa traza.
 
+Nota 2026-05-27: Documentos endurece metadata de auditoria documental. Los
+builders de auditoria de PDF generado, preview PDF, formalizacion y version
+correctiva redactan defensivamente referencias sensibles, y readiness Etapa 5
+clasifica eventos heredados con metadata sensible mediante codigos especificos
+sin exponer `storage_ref`, evidencia de formalizacion ni referencias de
+correccion.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos. |

@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from audit.models import AuditEvent
 from contratos.models import Arrendatario, CodeudorSolidario, Contrato, ContratoPropiedad, PeriodoContractual
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
@@ -26,7 +27,14 @@ from .formalization_audit import (
     FORMALIZATION_AUDIT_EVENT_TYPE,
     build_formalization_audit_metadata,
 )
-from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria, TipoDocumental
+from .models import (
+    DocumentoEmitido,
+    EstadoDocumento,
+    ExpedienteDocumental,
+    OrigenDocumento,
+    PoliticaFirmaYNotaria,
+    TipoDocumental,
+)
 from .pdf_generation import (
     GENERATED_PDF_AUDIT_EVENT_TYPE,
     PDF_PREVIEW_ENTITY_TYPE,
@@ -226,6 +234,54 @@ def create_pdf_preview_audit(document, *, actor_user=None, metadata_overrides=No
 
 
 class DocumentReadinessAuditTests(TestCase):
+    def test_document_audit_builders_redact_sensitive_references(self):
+        create_all_active_policies()
+        user = create_user('docs-readiness-builder-redaction')
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='builder-redaction',
+            owner_operativo='manual:builder-redaction',
+        )
+        origin = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.FORMALIZED,
+            storage_ref='storage/docs/origin-builder.pdf',
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+            evidencia_formalizacion_ref='https://docs.example.test/formalizacion?token=secret',
+        )
+        correction = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v2',
+            checksum=VALID_SHA256_ALT,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.ISSUED,
+            storage_ref='https://storage.example.test/correction.pdf?token=secret',
+            documento_origen=origin,
+            correccion_ref='https://docs.example.test/correction?token=secret',
+        )
+
+        self.assertEqual(
+            build_formalization_audit_metadata(origin)['evidencia_formalizacion_ref'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        correction_metadata = build_correction_audit_metadata(correction)
+        self.assertEqual(correction_metadata['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(correction_metadata['correccion_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            build_generated_pdf_audit_metadata(correction)['storage_ref'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+
     def test_empty_database_reports_missing_policies_and_final_evidence(self):
         result = collect_document_readiness()
 
@@ -242,6 +298,87 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertIn('documents.final_policy_ref_missing', issue_codes)
         self.assertIn('documents.controlled_pdf_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
+
+    def test_sensitive_document_audit_metadata_is_blocking(self):
+        create_all_active_policies()
+        user = create_user('docs-readiness-sensitive-audit-metadata')
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='sensitive-audit-metadata',
+            owner_operativo='manual:sensitive-audit-metadata',
+        )
+        generated = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen=OrigenDocumento.GENERATED,
+            estado=EstadoDocumento.ISSUED,
+            storage_ref='https://storage.example.test/generated.pdf?token=secret',
+        )
+        create_generated_pdf_audit(
+            generated,
+            metadata_overrides={'storage_ref': 'https://storage.example.test/generated.pdf?token=secret'},
+        )
+        create_pdf_preview_audit(
+            generated,
+            metadata_overrides={'storage_ref': 'https://storage.example.test/generated.pdf?token=secret'},
+        )
+        formalized = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum=VALID_SHA256_ALT,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.FORMALIZED,
+            storage_ref='storage/docs/formalized-sensitive-audit.pdf',
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+            evidencia_formalizacion_ref='https://docs.example.test/formalizacion?token=secret',
+        )
+        create_formalization_audit(
+            formalized,
+            metadata_overrides={
+                'evidencia_formalizacion_ref': 'https://docs.example.test/formalizacion?token=secret',
+            },
+        )
+        correction = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v2',
+            checksum='c' * 64,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.ISSUED,
+            storage_ref='https://storage.example.test/correction.pdf?token=secret',
+            documento_origen=formalized,
+            correccion_ref='https://docs.example.test/correction?token=secret',
+        )
+        create_correction_audit(
+            correction,
+            metadata_overrides={
+                'storage_ref': 'https://storage.example.test/correction.pdf?token=secret',
+                'correccion_ref': 'https://docs.example.test/correction?token=secret',
+            },
+        )
+
+        result = collect_document_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('documents.generated_pdf_audit_sensitive_metadata', issue_codes)
+        self.assertIn('documents.generated_pdf_preview_sensitive_metadata', issue_codes)
+        self.assertIn('documents.formalization_audit_sensitive_metadata', issue_codes)
+        self.assertIn('documents.corrective_version_audit_sensitive_metadata', issue_codes)
+        self.assertEqual(result['sections']['documents']['generated_audit_sensitive_metadata'], 1)
+        self.assertEqual(result['sections']['documents']['generated_preview_sensitive_metadata'], 1)
+        self.assertEqual(result['sections']['documents']['formalization_audit_sensitive_metadata'], 1)
+        self.assertEqual(result['sections']['documents']['corrective_audit_sensitive_metadata'], 1)
+        self.assertNotIn('storage.example.test', json.dumps(result))
 
     def test_all_policies_and_non_sensitive_refs_can_pass_authorized_readiness(self):
         create_all_active_policies()

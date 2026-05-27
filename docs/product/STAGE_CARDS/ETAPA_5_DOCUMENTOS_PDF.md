@@ -31,6 +31,9 @@ firma y notaria trazables.
   documental y expediente. Readiness debe reportar
   `documents.generated_pdf_audit_unaligned` para eventos heredados incompletos
   o desalineados.
+- La metadata de auditoria de PDF generado no puede conservar `storage_ref`
+  sensible; los builders defensivos la redactan y readiness reporta
+  `documents.generated_pdf_audit_sensitive_metadata` para eventos heredados.
 - Antes de emitir un PDF generado por sistema, el mismo contenido debe haber
   pasado por `documentos-emitidos/previsualizar-pdf/`, que deriva el mismo
   checksum/storage esperado y registra auditoria
@@ -42,6 +45,9 @@ firma y notaria trazables.
   tipo documental y expediente. Readiness debe reportar
   `documents.generated_pdf_preview_unaligned` para previews heredadas
   incompletas o desalineadas.
+- La metadata de auditoria de preview PDF no puede conservar `storage_ref`
+  sensible; readiness reporta
+  `documents.generated_pdf_preview_sensitive_metadata` sin exponer valores.
 - Cada documento emitido debe tener politica activa para su tipo documental;
   el dominio/API rechaza nuevas escrituras sin esa politica y evita desactivar
   politicas ya usadas por documentos existentes.
@@ -73,6 +79,9 @@ firma y notaria trazables.
   evidencia, firmas, recepcion y comprobante notarial del documento. Readiness
   debe reportar `documents.formalization_audit_unaligned` para snapshots
   heredados con auditoria incompleta o desalineada.
+- La metadata de formalizacion redacta defensivamente
+  `evidencia_formalizacion_ref` sensible y readiness reporta
+  `documents.formalization_audit_sensitive_metadata` para eventos heredados.
 - Auditoria local `audit_document_readiness` debe bloquear versiones
   correctivas heredadas invalidas o sin evento
   `documentos.documento_emitido.corrective_version_created`.
@@ -81,6 +90,10 @@ firma y notaria trazables.
   `storage_ref` y `correccion_ref`. Readiness debe reportar
   `documents.corrective_version_audit_unaligned` para auditorias incompletas o
   desalineadas.
+- La metadata de version correctiva redacta defensivamente `storage_ref` y
+  `correccion_ref` sensibles; readiness reporta
+  `documents.corrective_version_audit_sensitive_metadata` para eventos
+  heredados.
 - Si la politica exige notaria, el comprobante notarial debe pertenecer al
   mismo expediente y estar emitido, formalizado o archivado.
 - La readiness documental debe distinguir documentos formalizados con politica
