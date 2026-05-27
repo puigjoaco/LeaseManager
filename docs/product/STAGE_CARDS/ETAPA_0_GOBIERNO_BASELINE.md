@@ -19,6 +19,8 @@ evidencia respalda el root limpio.
 - Fuente de verdad sin ambiguedad.
 - Worktree policy documentada.
 - Cursor operativo vigente para reanudaciones, worktrees y metatareas cerradas.
+- Artefactos locales de herramienta quedan fuera del versionado y no deben
+  ensuciar `git status` del root limpio ni confundirse con paquete activo.
 - Superficies publicas con errores seguros, sin mensajes internos ni nombres de
   configuracion expuestos.
 - CI deterministica verde.

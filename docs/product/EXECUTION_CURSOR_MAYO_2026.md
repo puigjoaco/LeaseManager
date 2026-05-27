@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 0 / Gobierno - higiene de artefactos locales. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete cerrado: los estados finales DTE revalidan capacidad `DTEConsultaEstado` separada de `DTEEmision`. |
-| Worktree | N/A tras merge y limpieza. |
-| Rama | N/A tras merge y limpieza. |
-| Estado | Paquete validado y listo para quedar integrado: servicio SII y readiness Etapa 4 exigen consulta de estado DTE para `aceptado`, `rechazado` o `anulado`. |
-| Gate esperado | N/A hasta abrir proximo paquete. |
-| Estado al cerrar paquete | Validaciones locales completas: focal API 2 tests, focal readiness 2 tests, suite impactada SII/Etapa 4 60 tests, `manage.py check`, `makemigrations --check --dry-run`, gate Etapa 4 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance 959 tests. |
+| Brecha activa | `.codex-spreadsheet/` aparece como artefacto local no versionado y ensucia `git status` del root limpio. |
+| Motivo de prioridad | Mantener `main` limpio y evitar que artefactos locales de herramienta compitan con el cursor operativo o parezcan trabajo de producto. |
+| Worktree | `D:/Proyectos/LeaseManager-governance-ignore-local-artifacts`. |
+| Rama | `codex/governance-ignore-local-artifacts`. |
+| Estado | Implementado localmente; `.codex-spreadsheet/` queda ignorado sin borrar el artefacto existente. |
+| Gate esperado | Higiene repo, `git diff --check` y validacion proporcional sin tocar secretos ni datos reales. |
+| Estado al cerrar paquete | Validacion local proporcional OK: `git check-ignore -v .codex-spreadsheet/`, `scripts/assert-repo-hygiene.ps1` y `git diff --check`. Pendiente PR, CI, merge y limpieza. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Tras merge y limpieza, diagnosticar estado real y seleccionar siguiente paquete pequeno, local y verificable por trazabilidad. |
+| Siguiente accion | Validar que `.codex-spreadsheet/` quede ignorado, actualizar evidencia y cerrar paquete con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 

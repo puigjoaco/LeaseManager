@@ -28,5 +28,6 @@ migration/bundles/github-*.png
 migration/bundles/*.png
 screenshots/
 local-evidence/
+.codex-spreadsheet/
 backend/test-*.sqlite3
 backend/test-*.db
