@@ -170,8 +170,9 @@ condicionados sin envios reales accidentales.
 - APIs y snapshots de Canales/Cobranza redactan refs sensibles ya persistidas
   antes de devolver gates, mensajes salientes o intentos WebPay al backoffice;
   esto cubre `evidencia_ref`, `restricciones_operativas`, `external_ref`,
-  `return_url_ref`, `provider_payload` y `storage_ref` documental expuesto por
-  snapshot de Canales, sin abrir integraciones externas. Los mensajes
+  `return_url_ref`, `provider_payload`, `motivo_estado` de notificaciones de
+  cobranza y `storage_ref` documental expuesto por snapshot de Canales, sin
+  abrir integraciones externas. Los mensajes
   salientes rechazan nuevas escrituras con `provider_payload` que contenga
   URLs, tokens, credenciales, correos o claves sensibles y tambien rechazan
   mensajes enviados sin `external_ref` no sensible, sin timestamp de envio,

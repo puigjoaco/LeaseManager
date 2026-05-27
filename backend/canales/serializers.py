@@ -161,7 +161,9 @@ class MensajeSalienteSerializer(RedactReferenceFieldsMixin, serializers.ModelSer
         )
 
 
-class NotificacionCobranzaProgramadaSerializer(serializers.ModelSerializer):
+class NotificacionCobranzaProgramadaSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('motivo_estado',)
+
     class Meta:
         model = NotificacionCobranzaProgramada
         fields = (
