@@ -7,6 +7,11 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: Compliance cierra superficie admin de politicas de retencion.
+`PoliticaRetencionDatosAdmin` ya no expone ni busca `evento_inicio` crudo,
+muestra una version redactada de politicas heredadas con URLs, tokens o
+credenciales y mantiene cerrada el alta manual desde admin.
+
 Nota 2026-05-27: Compliance valida el bootstrap demo de politicas de
 retencion antes de persistir. `bootstrap_demo_compliance_policies` construye
 candidatos `PoliticaRetencionDatos`, ejecuta `full_clean()` sobre todo el set

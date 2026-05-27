@@ -19,7 +19,7 @@ from compliance.audit import (
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from reporting.tests import ReportingAPITests
 
-from .admin import ExportacionSensibleAdmin
+from .admin import ExportacionSensibleAdmin, PoliticaRetencionDatosAdmin
 from .models import (
     CategoriaDato,
     EstadoExportacionSensible,
@@ -431,6 +431,24 @@ class ComplianceAPITests(APITestCase):
         self.assertIn(REDACTED_SENSITIVE_REFERENCE, rendered_scope)
         self.assertNotIn('provider.example.test', rendered_scope)
         self.assertNotIn('legacy-key', rendered_scope)
+
+    def test_retention_policy_admin_redacts_sensitive_event_start(self):
+        policy = PoliticaRetencionDatos.objects.create(
+            categoria_dato=CategoriaDato.FINANCIAL,
+            evento_inicio='https://audit.example.test/policy?token=secret',
+            plazo_minimo_anos=6,
+            permite_borrado_logico=True,
+            permite_purga_fisica=False,
+            requiere_hold=False,
+            estado='activa',
+        )
+        model_admin = PoliticaRetencionDatosAdmin(PoliticaRetencionDatos, AdminSite())
+
+        self.assertNotIn('evento_inicio', model_admin.fields)
+        self.assertNotIn('evento_inicio', model_admin.search_fields)
+        self.assertFalse(model_admin.has_add_permission(None))
+        self.assertEqual(model_admin.evento_inicio_redacted(policy), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('audit.example.test', model_admin.evento_inicio_redacted(policy))
 
     def test_export_can_be_revoked(self):
         self._create_context('REV')

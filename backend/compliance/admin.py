@@ -9,9 +9,28 @@ from .models import ExportacionSensible, PoliticaRetencionDatos
 
 @admin.register(PoliticaRetencionDatos)
 class PoliticaRetencionDatosAdmin(admin.ModelAdmin):
-    list_display = ('categoria_dato', 'plazo_minimo_anos', 'requiere_hold', 'estado')
+    list_display = ('categoria_dato', 'evento_inicio_redacted', 'plazo_minimo_anos', 'requiere_hold', 'estado')
     list_filter = ('estado', 'requiere_hold')
-    search_fields = ('categoria_dato', 'evento_inicio')
+    search_fields = ('categoria_dato',)
+    fields = (
+        'categoria_dato',
+        'evento_inicio_redacted',
+        'plazo_minimo_anos',
+        'permite_borrado_logico',
+        'permite_purga_fisica',
+        'requiere_hold',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = ('evento_inicio_redacted', 'created_at', 'updated_at')
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.display(description='Evento inicio redacted')
+    def evento_inicio_redacted(self, obj):
+        return redact_sensitive_reference(obj.evento_inicio) or ''
 
 
 @admin.register(ExportacionSensible)
