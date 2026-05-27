@@ -65,6 +65,11 @@ firma y notaria trazables.
 - Auditoria local `audit_document_readiness` debe bloquear versiones
   correctivas heredadas invalidas o sin evento
   `documentos.documento_emitido.corrective_version_created`.
+- Ese evento de version correctiva debe conservar actor y metadata alineada con
+  documento origen, expediente, tipo, version de plantilla, checksum,
+  `storage_ref` y `correccion_ref`. Readiness debe reportar
+  `documents.corrective_version_audit_unaligned` para auditorias incompletas o
+  desalineadas.
 - Si la politica exige notaria, el comprobante notarial debe pertenecer al
   mismo expediente y estar emitido, formalizado o archivado.
 - La readiness documental debe distinguir documentos formalizados con politica

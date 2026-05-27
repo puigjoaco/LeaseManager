@@ -16,6 +16,11 @@ from contratos.models import Arrendatario, CodeudorSolidario, Contrato, Contrato
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
+from .correction_audit import (
+    CORRECTION_AUDIT_ENTITY_TYPE,
+    CORRECTION_AUDIT_EVENT_TYPE,
+    build_correction_audit_metadata,
+)
 from .formalization_audit import (
     FORMALIZATION_AUDIT_ENTITY_TYPE,
     FORMALIZATION_AUDIT_EVENT_TYPE,
@@ -159,6 +164,20 @@ def create_formalization_audit(document, *, actor_user=None, metadata_overrides=
         entity_type=FORMALIZATION_AUDIT_ENTITY_TYPE,
         entity_id=str(document.pk),
         summary='Documento formalizado',
+        actor_user=document.usuario if actor_user is None else actor_user,
+        actor_identifier=actor_identifier,
+        metadata=metadata,
+    )
+
+
+def create_correction_audit(document, *, actor_user=None, metadata_overrides=None, actor_identifier=''):
+    metadata = build_correction_audit_metadata(document)
+    metadata.update(metadata_overrides or {})
+    return AuditEvent.objects.create(
+        event_type=CORRECTION_AUDIT_EVENT_TYPE,
+        entity_type=CORRECTION_AUDIT_ENTITY_TYPE,
+        entity_id=str(document.pk),
+        summary='Version correctiva de documento',
         actor_user=document.usuario if actor_user is None else actor_user,
         actor_identifier=actor_identifier,
         metadata=metadata,
@@ -938,10 +957,12 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertEqual(result['sections']['documents']['corrective_versions_without_audit'], 1)
 
         AuditEvent.objects.create(
-            event_type='documentos.documento_emitido.corrective_version_created',
-            entity_type='documento_emitido',
+            event_type=CORRECTION_AUDIT_EVENT_TYPE,
+            entity_type=CORRECTION_AUDIT_ENTITY_TYPE,
             entity_id=str(correction.pk),
             summary='Version correctiva de documento',
+            actor_user=user,
+            metadata={'documento_origen_id': str(origin.pk)},
         )
 
         result = collect_document_readiness(
@@ -953,9 +974,25 @@ class DocumentReadinessAuditTests(TestCase):
             source_kind='snapshot_controlado',
         )
 
-        self.assertTrue(result['ready_for_stage5_documents'])
+        self.assertFalse(result['ready_for_stage5_documents'])
         self.assertEqual(result['sections']['documents']['corrective_versions'], 1)
         self.assertNotIn('documents.corrective_version_audit_missing', {issue['code'] for issue in result['issues']})
+        self.assertIn('documents.corrective_version_audit_unaligned', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['documents']['corrective_versions_with_unaligned_audit'], 1)
+
+        create_correction_audit(correction)
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
+        self.assertTrue(result['ready_for_stage5_documents'])
+        self.assertNotIn('documents.corrective_version_audit_unaligned', {issue['code'] for issue in result['issues']})
 
     def test_invalid_corrective_version_is_blocking(self):
         create_all_active_policies()
@@ -990,12 +1027,7 @@ class DocumentReadinessAuditTests(TestCase):
             documento_origen=origin,
             correccion_ref='correction-ticket-invalid-origin',
         )
-        AuditEvent.objects.create(
-            event_type='documentos.documento_emitido.corrective_version_created',
-            entity_type='documento_emitido',
-            entity_id=str(correction.pk),
-            summary='Version correctiva de documento',
-        )
+        create_correction_audit(correction)
 
         result = collect_document_readiness(
             final_policy_ref='policy-final-docs-v1',
