@@ -1,3 +1,6 @@
+import json
+
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -5,7 +8,24 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import PlatformSetting, Role, Scope, UserScopeAssignment
+from .admin import (
+    OperationalRuntimeSignalAdmin,
+    PlatformSettingAdmin,
+    RoleScopeAdmin,
+    ScopeAdmin,
+    UserScopeAssignmentAdmin,
+)
+from .models import (
+    OperationalRuntimeSignal,
+    PlatformSetting,
+    Role,
+    RoleScope,
+    RuntimeSignalKey,
+    RuntimeSignalSourceKind,
+    RuntimeSignalStatus,
+    Scope,
+    UserScopeAssignment,
+)
 from .permissions import get_effective_role_codes
 from .reference_validation import (
     REDACTED_SENSITIVE_REFERENCE,
@@ -118,6 +138,102 @@ class EffectiveRoleUtilityTests(TestCase):
         UserScopeAssignment.objects.create(user=user, role=reviewer_role, scope=None, is_primary=True)
 
         self.assertEqual(get_effective_role_codes(user), {'Socio', 'RevisorFiscalExterno'})
+
+
+class CoreAdminRedactionTests(TestCase):
+    def test_core_admin_redacts_sensitive_platform_payloads_and_runtime_refs(self):
+        user = get_user_model().objects.create_user(username='core-admin-redaction', password='secret123')
+        scope = Scope.objects.create(
+            code='scope-sensitive',
+            name='Scope sensible',
+            scope_type=Scope.ScopeType.COMPANY,
+            external_reference='https://scope.example.test/company?token=secret',
+            metadata={
+                'safe_ref': 'controlled-scope',
+                'callback_url': 'https://scope.example.test/callback?token=secret',
+                'headers': {'authorization': 'Bearer inherited-value'},
+            },
+        )
+        role = Role.objects.create(code='OperadorSeguro', name='Operador seguro')
+        role_scope = RoleScope.objects.create(
+            role=role,
+            scope=scope,
+            permission_set=[
+                {'code': 'read'},
+                {'api_key': 'opaque-key-value'},
+            ],
+        )
+        assignment = UserScopeAssignment.objects.create(
+            user=user,
+            role=role,
+            scope=scope,
+            metadata={
+                'safe_ref': 'controlled-assignment',
+                'callback': 'https://assignment.example.test/callback?token=secret',
+            },
+        )
+        setting = PlatformSetting.objects.create(
+            key='provider-runtime',
+            value={'safe_ref': 'controlled-setting', 'access_token': 'opaque-token-value'},
+            description='Setting de proveedor',
+            is_secret_reference=True,
+        )
+        signal = OperationalRuntimeSignal.objects.create(
+            signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+            status=RuntimeSignalStatus.OK,
+            source_kind=RuntimeSignalSourceKind.REAL_AUTORIZADO,
+            value={'healthy': True, 'callback': 'https://runtime.example.test/hook?token=secret'},
+            evidence_ref='https://runtime.example.test/evidence?token=secret',
+            source_label='source-token-value',
+            authorization_ref='Bearer inherited-authorization',
+            notes='Nota heredada con https://runtime.example.test/note?token=secret',
+        )
+
+        site = AdminSite()
+        scope_admin = ScopeAdmin(Scope, site)
+        role_scope_admin = RoleScopeAdmin(RoleScope, site)
+        assignment_admin = UserScopeAssignmentAdmin(UserScopeAssignment, site)
+        setting_admin = PlatformSettingAdmin(PlatformSetting, site)
+        signal_admin = OperationalRuntimeSignalAdmin(OperationalRuntimeSignal, site)
+
+        for raw_field in ('external_reference', 'metadata'):
+            self.assertNotIn(raw_field, scope_admin.fields)
+            self.assertNotIn(raw_field, scope_admin.search_fields)
+        self.assertNotIn('permission_set', role_scope_admin.fields)
+        self.assertNotIn('metadata', assignment_admin.fields)
+        self.assertNotIn('value', setting_admin.fields)
+        for raw_field in ('value', 'evidence_ref', 'source_label', 'authorization_ref', 'notes'):
+            self.assertNotIn(raw_field, signal_admin.fields)
+            self.assertNotIn(raw_field, signal_admin.search_fields)
+
+        self.assertFalse(setting_admin.has_add_permission(None))
+        self.assertFalse(signal_admin.has_add_permission(None))
+
+        self.assertEqual(scope_admin.external_reference_redacted(scope), REDACTED_SENSITIVE_REFERENCE)
+        scope_metadata = json.loads(scope_admin.metadata_redacted(scope))
+        self.assertEqual(scope_metadata['safe_ref'], 'controlled-scope')
+        self.assertEqual(scope_metadata['callback_url'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(scope_metadata['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+
+        permission_set = json.loads(role_scope_admin.permission_set_redacted(role_scope))
+        self.assertEqual(permission_set[0]['code'], 'read')
+        self.assertEqual(permission_set[1]['api_key'], REDACTED_SENSITIVE_REFERENCE)
+
+        assignment_metadata = json.loads(assignment_admin.metadata_redacted(assignment))
+        self.assertEqual(assignment_metadata['safe_ref'], 'controlled-assignment')
+        self.assertEqual(assignment_metadata['callback'], REDACTED_SENSITIVE_REFERENCE)
+
+        setting_value = json.loads(setting_admin.value_redacted(setting))
+        self.assertEqual(setting_value['safe_ref'], 'controlled-setting')
+        self.assertEqual(setting_value['access_token'], REDACTED_SENSITIVE_REFERENCE)
+
+        signal_value = json.loads(signal_admin.value_redacted(signal))
+        self.assertTrue(signal_value['healthy'])
+        self.assertEqual(signal_value['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(signal_admin.evidence_ref_redacted(signal), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(signal_admin.source_label_redacted(signal), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(signal_admin.authorization_ref_redacted(signal), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(signal_admin.notes_redacted(signal), REDACTED_SENSITIVE_REFERENCE)
 
 
 class ReferenceValidationTests(TestCase):
