@@ -35,6 +35,7 @@ from contabilidad.services import (
     get_active_monthly_close_reopen_policy,
     get_company_period_events,
     get_company_period_unresolved_bank_movements,
+    summarize_company_period_bank_square,
     summarize_asiento_movement_integrity,
 )
 from conciliacion.models import TransferenciaIntercuenta
@@ -140,6 +141,11 @@ def _ledger_close_issues(closes) -> dict[str, int]:
 
         if get_company_period_unresolved_bank_movements(close.empresa, close.anio, close.mes).exists():
             counts['conciliation_unresolved'] += 1
+        bank_square = summarize_company_period_bank_square(close.empresa, close.anio, close.mes)
+        if bank_square['cuadraturas_bancarias_faltantes']:
+            counts['bank_square_missing'] += 1
+        if bank_square['cuadraturas_bancarias_no_cuadradas']:
+            counts['bank_square_not_square'] += 1
         if get_company_period_events(close.empresa, close.anio, close.mes).exclude(
             estado_contable=EstadoEventoContable.POSTED
         ).exists():
@@ -569,6 +575,16 @@ def collect_stage5_contabilidad_readiness(
             'conciliation_unresolved',
             'stage5.close_conciliation_unresolved',
             'Existen cierres con movimientos bancarios no resueltos en el periodo.',
+        ),
+        (
+            'bank_square_missing',
+            'stage5.close_bank_square_missing',
+            'Existen cierres con movimientos bancarios del periodo sin CuadraturaBancaria.',
+        ),
+        (
+            'bank_square_not_square',
+            'stage5.close_bank_square_not_square',
+            'Existen cierres con cuadraturas bancarias no cuadradas o con diferencia.',
         ),
         (
             'events_pending',

@@ -13,8 +13,10 @@ from django.utils import timezone
 
 from conciliacion.models import (
     ConexionBancaria,
+    CuadraturaBancaria,
     EstadoConciliacionMovimiento,
     EstadoConexionBancaria,
+    EstadoCuadraturaBancaria,
     MovimientoBancarioImportado,
     OrigenImportacionMovimiento,
     TipoMovimientoBancario,
@@ -152,6 +154,42 @@ class Stage5ContabilidadReadinessTests(TestCase):
             titular_rut=empresa.rut,
             moneda_operativa='CLP',
             estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+    def _create_bank_movement(self, empresa, suffix='square'):
+        account = self._create_company_bank_account(empresa, suffix)
+        connection = ConexionBancaria.objects.create(
+            cuenta_recaudadora=account,
+            provider_key=f'stage5-bank-{suffix}',
+            credencial_ref=f'bank-credential-{suffix}',
+            evidencia_gate_ref=f'bank-gate-{suffix}',
+            prueba_conectividad_ref=f'bank-connectivity-{suffix}',
+            prueba_movimientos_ref=f'bank-movements-{suffix}',
+            estado_conexion=EstadoConexionBancaria.ACTIVE,
+            primaria_movimientos=True,
+        )
+        movement = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=connection,
+            fecha_movimiento=date(2026, 1, 15),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=Decimal('100000.00'),
+            descripcion_origen='Pago conciliado con banco controlado',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref=f'bank-import-{suffix}',
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+        )
+        return account, movement
+
+    def _create_squared_bank_reconciliation(self, account, suffix='square'):
+        return CuadraturaBancaria.objects.create(
+            cuenta_recaudadora=account,
+            periodo_economico='2026-01',
+            fecha_cuadratura=date(2026, 1, 31),
+            saldo_sistema_clp=Decimal('100000.00'),
+            saldo_banco_clp=Decimal('100000.00'),
+            estado=EstadoCuadraturaBancaria.SQUARED,
+            evidencia_cuadratura_ref=f'bank-square-evidence-{suffix}',
+            responsable_ref=f'bank-square-owner-{suffix}',
         )
 
     def _create_internal_transfer_pair(self, origin_empresa, destination_empresa):
@@ -361,6 +399,49 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage5_contabilidad'])
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('stage5.source_kind_not_authorized', issue_codes)
+
+    def test_close_with_bank_movement_without_cuadratura_is_blocking(self):
+        empresa = self._create_valid_local_matrix()
+        self._create_bank_movement(empresa, suffix='missing-square')
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.close_bank_square_missing', issue_codes)
+
+    def test_close_with_bank_movement_and_non_square_cuadratura_is_blocking(self):
+        empresa = self._create_valid_local_matrix()
+        account, _ = self._create_bank_movement(empresa, suffix='open-difference')
+        CuadraturaBancaria.objects.create(
+            cuenta_recaudadora=account,
+            periodo_economico='2026-01',
+            fecha_cuadratura=date(2026, 1, 31),
+            saldo_sistema_clp=Decimal('100000.00'),
+            saldo_banco_clp=Decimal('100500.00'),
+            estado=EstadoCuadraturaBancaria.OPEN_DIFFERENCE,
+            evidencia_cuadratura_ref='bank-square-evidence-open-difference',
+            responsable_ref='bank-square-owner-open-difference',
+            rationale='Diferencia controlada pendiente de regularizacion.',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.close_bank_square_not_square', issue_codes)
+
+    def test_close_with_bank_movement_and_squared_cuadratura_clears_bank_square_gap(self):
+        empresa = self._create_valid_local_matrix()
+        account, _ = self._create_bank_movement(empresa, suffix='square-ok')
+        self._create_squared_bank_reconciliation(account, suffix='square-ok')
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage5_contabilidad'])
+        self.assertNotIn('stage5.close_bank_square_missing', issue_codes)
+        self.assertNotIn('stage5.close_bank_square_not_square', issue_codes)
 
     def test_company_internal_transfer_without_accounting_events_is_blocking(self):
         origin_empresa = self._create_active_empresa(nombre='Transfer Origin SpA', rut='72727272-7')

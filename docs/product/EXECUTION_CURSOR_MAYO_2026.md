@@ -25,12 +25,12 @@ nueva.
 | Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
 | Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete cerrado: Reporting completa las metricas PRD del dashboard operativo. |
+| Motivo de prioridad | Paquete cerrado: Etapa 5 ahora exige banco cuadrado para cierres mensuales con movimientos bancarios del periodo. |
 | Worktree | N/A tras merge y limpieza. |
 | Rama | N/A tras merge y limpieza. |
-| Estado | Paquete validado y listo para quedar integrado: `build_operational_dashboard` expone los contadores PRD desde el payload base usado por Overview y el backoffice muestra los bloqueadores operativos sin depender de fuentes externas. |
+| Estado | Paquete validado y listo para quedar integrado: `prepare_monthly_close`, `approve_monthly_close` y readiness Etapa 5 bloquean cierres sin `CuadraturaBancaria` cuadrada por cuenta con movimientos del periodo. |
 | Gate esperado | N/A hasta abrir proximo paquete. |
-| Estado al cerrar paquete | Validaciones locales completas: focal 1 test, suite Reporting 25 tests, suite impactada Reporting/permisos/scope 43 tests, `manage.py check`, `makemigrations --check --dry-run`, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance 951 tests, higiene y `git diff --check`. |
+| Estado al cerrar paquete | Validaciones locales completas: focal 6 tests, suite impactada Contabilidad/Etapa 5/Reporting 85 tests, `manage.py check`, `makemigrations --check --dry-run`, gate Etapa 5 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance 955 tests. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
 | Siguiente accion | Tras merge y limpieza, diagnosticar estado real y seleccionar siguiente paquete pequeno, local y verificable por trazabilidad. |

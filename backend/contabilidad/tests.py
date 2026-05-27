@@ -11,7 +11,12 @@ from rest_framework.test import APITestCase
 
 from audit.models import ManualResolution
 from cobranza.models import EstadoPago, GarantiaContractual, PagoMensual
-from conciliacion.models import ConexionBancaria, MovimientoBancarioImportado
+from conciliacion.models import (
+    ConexionBancaria,
+    CuadraturaBancaria,
+    EstadoCuadraturaBancaria,
+    MovimientoBancarioImportado,
+)
 from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
@@ -281,6 +286,18 @@ class ContabilidadAPITests(APITestCase):
             origen_periodo='manual',
         )
         return contrato, cuenta
+
+    def _create_squared_bank_reconciliation(self, cuenta, amount='0.00', suffix='close'):
+        return CuadraturaBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            periodo_economico='2026-01',
+            fecha_cuadratura=date(2026, 1, 31),
+            saldo_sistema_clp=amount,
+            saldo_banco_clp=amount,
+            estado=EstadoCuadraturaBancaria.SQUARED,
+            evidencia_cuadratura_ref=f'bank-square-evidence-{suffix}',
+            responsable_ref=f'bank-square-owner-{suffix}',
+        )
 
     def test_manual_event_without_fiscal_setup_stays_in_review(self):
         empresa = self._create_active_empresa()
@@ -1412,6 +1429,53 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('Conciliacion no cerrada', response.data['detail'])
 
+    def test_prepare_monthly_close_requires_bank_square_when_bank_movements_exist(self):
+        empresa = self._create_active_empresa(nombre='BankSquareCo', rut='45454545-6')
+        accounts = self._setup_contabilidad(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        config.tasa_ppm_vigente = '10.00'
+        config.save(update_fields=['tasa_ppm_vigente'])
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        contrato, cuenta = self._create_contract_with_company_admin(empresa, codigo='LED-BANK-SQUARE')
+        self.client.post(
+            reverse('cobranza-pago-generate'),
+            {'contrato_id': contrato.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        conexion = ConexionBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            provider_key='banco_de_chile',
+            credencial_ref='cred-bank-square',
+            evidencia_gate_ref='bank-gate-square',
+            prueba_conectividad_ref='bank-connectivity-square',
+            prueba_movimientos_ref='bank-movements-square',
+            estado_conexion='activa',
+            primaria_movimientos=True,
+        )
+        movimiento = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            {
+                'conexion_bancaria': conexion.id,
+                'fecha_movimiento': '2026-01-08',
+                'tipo_movimiento': 'abono',
+                'monto': '100111.00',
+                'descripcion_origen': 'Pago exacto sin cuadratura bancaria',
+                'origen_importacion': 'manual_controlada',
+                'evidencia_importacion_ref': 'manual-import-no-bank-square',
+            },
+            format='json',
+        )
+        self.assertEqual(movimiento.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Banco no cuadrado', response.data['detail'])
+
     def test_prepare_monthly_close_creates_ppm_obligation_and_snapshots(self):
         empresa = self._create_active_empresa(nombre='MonthlyCo', rut='45454545-4')
         accounts = self._setup_contabilidad(empresa)
@@ -1456,6 +1520,7 @@ class ContabilidadAPITests(APITestCase):
             },
             format='json',
         )
+        self._create_squared_bank_reconciliation(cuenta, amount='100111.00', suffix='close')
 
         response = self.client.post(
             reverse('contabilidad-cierre-prepare'),
@@ -1468,6 +1533,7 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(close.estado, 'preparado')
         self.assertEqual(close.resumen_obligaciones['conciliacion']['movimientos_bancarios_periodo'], 1)
         self.assertEqual(close.resumen_obligaciones['conciliacion']['movimientos_bancarios_no_resueltos'], 0)
+        self.assertEqual(close.resumen_obligaciones['conciliacion']['cuadraturas_bancarias_cuadradas'], 1)
         self.assertEqual(str(obligation.base_imponible), '100111.00')
         self.assertEqual(str(obligation.monto_calculado), '10011.10')
         self.assertEqual(obligation.estado_preparacion, 'preparado')
@@ -1539,6 +1605,7 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(str(asiento.debe_total), '100111.00')
         self.assertEqual(str(asiento.haber_total), '100111.00')
         self.assertEqual(asiento.movimientos.count(), 2)
+        self._create_squared_bank_reconciliation(cuenta, amount='100111.00', suffix='workflow')
 
         prepare = self.client.post(
             reverse('contabilidad-cierre-prepare'),
