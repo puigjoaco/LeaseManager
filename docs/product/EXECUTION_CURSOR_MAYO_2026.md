@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | SII / superficies administrativas. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | El admin Django de SII expone y busca referencias tributarias crudas en capacidades y DTE, y no registra vistas administrativas redactadas para F29, Proceso Renta, DDJJ ni F22. |
-| Motivo de prioridad | Tras cerrar superficies admin de modulos previos, SII es el siguiente frente en orden con refs/payloads tributarios sensibles ya cubiertos por API/snapshot/readiness pero no por admin. |
-| Worktree | `D:/Proyectos/LeaseManager-stage4-sii-admin-redaction`. |
-| Rama | `codex/stage4-sii-admin-redaction`. |
-| Estado | Paquete implementado y validado localmente; pendiente commit, PR, CI, merge y limpieza. |
-| Gate esperado | Etapa 4 local diagnostica/parcial; no cierre sin fuente autorizada, ambiente SII/regla fiscal/evidencia externa. |
-| Estado al cerrar paquete | Validacion local completada: prueba focal SII admin, suite SII/readiness Etapa 4, `manage.py check`, `makemigrations --check --dry-run`, gate Etapa 4 local diagnostico/parcial, `npm ci`, `npm run build`, `npm run lint`, acceptance workflows e higiene previa. |
+| Brecha activa | Pendiente de seleccionar segun trazabilidad vigente y estado real del repo. |
+| Motivo de prioridad | El paquete anterior quedo cerrado; el siguiente frente debe elegirse en la proxima apertura operativa. |
+| Worktree | N/A. |
+| Rama | `main`. |
+| Estado | Sin paquete activo; ultimo paquete integrado en PR #395 (`Redact SII admin refs`). |
+| Gate esperado | Definir al abrir el siguiente paquete. |
+| Estado al cerrar paquete | PR #395 integrado en `main` con merge `1d16303`; admin SII redacta refs/payloads tributarios en Capacidad, DTE, F29, Proceso Renta, DDJJ y F22, sin busquedas crudas ni altas manuales. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si se reanuda esta sesion, continuar este worktree antes de abrir otro paquete. |
-| Siguiente accion | Ejecutar higiene final, commit, PR, CI, merge, limpieza del worktree tactico y reset del cursor. |
+| Politica de reanudacion | Si no hay worktree tactico sucio, elegir el siguiente frente util y seguro desde trazabilidad vigente. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; seleccionar el siguiente paquete pequeno, verificable y cerrable. |
 
 ## Actualizacion
 
