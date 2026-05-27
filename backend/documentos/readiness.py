@@ -6,6 +6,11 @@ from django.utils import timezone
 from audit.models import AuditEvent
 from core.reference_validation import is_non_sensitive_reference
 
+from .formalization_audit import (
+    FORMALIZATION_AUDIT_ENTITY_TYPE,
+    FORMALIZATION_AUDIT_EVENT_TYPE,
+    build_formalization_audit_metadata,
+)
 from .models import (
     DocumentoEmitido,
     EstadoDocumento,
@@ -72,11 +77,35 @@ def _count_by(queryset, field_name):
 
 
 def _has_formalization_audit(document):
+    return _formalization_audit_events(document).exists()
+
+
+def _formalization_audit_events(document):
     return AuditEvent.objects.filter(
-        event_type='documentos.documento_emitido.formalized',
-        entity_type='documento_emitido',
+        event_type=FORMALIZATION_AUDIT_EVENT_TYPE,
+        entity_type=FORMALIZATION_AUDIT_ENTITY_TYPE,
         entity_id=str(document.pk),
-    ).exists()
+    )
+
+
+def _metadata_value_matches(actual, expected):
+    if isinstance(expected, bool):
+        return actual is expected
+    return str(actual or '').strip() == str(expected or '').strip()
+
+
+def _formalization_audit_is_aligned(document):
+    expected_metadata = build_formalization_audit_metadata(document)
+    for event in _formalization_audit_events(document):
+        if not event.actor_user_id and not str(event.actor_identifier or '').strip():
+            continue
+        metadata = event.metadata or {}
+        if all(
+            _metadata_value_matches(metadata.get(key), expected)
+            for key, expected in expected_metadata.items()
+        ):
+            return True
+    return False
 
 
 def _has_correction_audit(document):
@@ -146,6 +175,7 @@ def collect_document_readiness(
     notary_receipts_wrong_expediente = 0
     notary_receipts_invalid_state = 0
     formalized_without_formalization_audit = 0
+    formalized_with_unaligned_formalization_audit = 0
     generated_documents_without_preview = 0
     generated_documents_without_audit = 0
     corrective_versions_without_audit = 0
@@ -178,6 +208,8 @@ def collect_document_readiness(
                 invalid_formalized_documents += 1
             if not _has_formalization_audit(document):
                 formalized_without_formalization_audit += 1
+            elif not _formalization_audit_is_aligned(document):
+                formalized_with_unaligned_formalization_audit += 1
             if document.requires_codebtor_signature() and not document.firma_codeudor_registrada:
                 formalized_without_required_codebtor_signature += 1
             if document.tipo_documental in notary_required_policies:
@@ -395,6 +427,14 @@ def collect_document_readiness(
                 count=formalized_without_formalization_audit,
             )
         )
+    if formalized_with_unaligned_formalization_audit:
+        issues.append(
+            _issue(
+                'documents.formalization_audit_unaligned',
+                'Existen documentos formalizados cuyo evento de auditoria no conserva actor y metadata de formalizacion alineada.',
+                count=formalized_with_unaligned_formalization_audit,
+            )
+        )
     if invalid_corrective_versions:
         issues.append(
             _issue(
@@ -475,6 +515,7 @@ def collect_document_readiness(
                 'notary_receipts_wrong_expediente': notary_receipts_wrong_expediente,
                 'notary_receipts_invalid_state': notary_receipts_invalid_state,
                 'formalized_without_formalization_audit': formalized_without_formalization_audit,
+                'formalized_with_unaligned_formalization_audit': formalized_with_unaligned_formalization_audit,
                 'corrective_versions': documents.filter(documento_origen__isnull=False).count(),
                 'invalid_corrective_versions': invalid_corrective_versions,
                 'corrective_versions_without_audit': corrective_versions_without_audit,

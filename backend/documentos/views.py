@@ -8,6 +8,7 @@ from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
 from core.reference_validation import redact_sensitive_reference
 
+from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE, build_formalization_audit_metadata
 from .scope import scope_documento_queryset, scope_expediente_queryset
 from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria
 from .pdf_generation import emit_generated_pdf_document, preview_generated_pdf_document
@@ -270,11 +271,12 @@ class DocumentoFormalizarView(APIView):
         except DjangoValidationError as error:
             return Response(serialize_validation_error(error), status=status.HTTP_400_BAD_REQUEST)
         create_audit_event(
-            event_type='documentos.documento_emitido.formalized',
+            event_type=FORMALIZATION_AUDIT_EVENT_TYPE,
             entity_type='documento_emitido',
             entity_id=str(document.pk),
             summary='Documento formalizado',
             actor_user=request.user,
+            metadata=build_formalization_audit_metadata(document),
             ip_address=request.META.get('REMOTE_ADDR'),
         )
         if previous_state != document.estado:

@@ -16,6 +16,11 @@ from contratos.models import Arrendatario, CodeudorSolidario, Contrato, Contrato
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
+from .formalization_audit import (
+    FORMALIZATION_AUDIT_ENTITY_TYPE,
+    FORMALIZATION_AUDIT_EVENT_TYPE,
+    build_formalization_audit_metadata,
+)
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria, TipoDocumental
 from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PDF_PREVIEW_ENTITY_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
 from .readiness import collect_document_readiness
@@ -144,6 +149,20 @@ def create_contract_context(suffix='DOC-READINESS'):
         origen_periodo='manual',
     )
     return {'contrato': contrato, 'mandato': mandato}
+
+
+def create_formalization_audit(document, *, actor_user=None, metadata_overrides=None, actor_identifier=''):
+    metadata = build_formalization_audit_metadata(document)
+    metadata.update(metadata_overrides or {})
+    return AuditEvent.objects.create(
+        event_type=FORMALIZATION_AUDIT_EVENT_TYPE,
+        entity_type=FORMALIZATION_AUDIT_ENTITY_TYPE,
+        entity_id=str(document.pk),
+        summary='Documento formalizado',
+        actor_user=document.usuario if actor_user is None else actor_user,
+        actor_identifier=actor_identifier,
+        metadata=metadata,
+    )
 
 
 class DocumentReadinessAuditTests(TestCase):
@@ -553,10 +572,12 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertEqual(result['sections']['documents']['formalized_without_formalization_audit'], 1)
 
         AuditEvent.objects.create(
-            event_type='documentos.documento_emitido.formalized',
-            entity_type='documento_emitido',
+            event_type=FORMALIZATION_AUDIT_EVENT_TYPE,
+            entity_type=FORMALIZATION_AUDIT_ENTITY_TYPE,
             entity_id=str(document.pk),
             summary='Documento formalizado',
+            actor_user=user,
+            metadata={'evidencia_formalizacion_ref': 'otra-evidencia-controlada'},
         )
 
         result = collect_document_readiness(
@@ -568,8 +589,24 @@ class DocumentReadinessAuditTests(TestCase):
             source_kind='snapshot_controlado',
         )
 
-        self.assertTrue(result['ready_for_stage5_documents'])
+        self.assertFalse(result['ready_for_stage5_documents'])
         self.assertNotIn('documents.formalization_audit_missing', {issue['code'] for issue in result['issues']})
+        self.assertIn('documents.formalization_audit_unaligned', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['sections']['documents']['formalized_with_unaligned_formalization_audit'], 1)
+
+        create_formalization_audit(document)
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+
+        self.assertTrue(result['ready_for_stage5_documents'])
+        self.assertNotIn('documents.formalization_audit_unaligned', {issue['code'] for issue in result['issues']})
 
     def test_formalized_document_without_evidence_is_blocking(self):
         create_all_active_policies()
@@ -593,12 +630,7 @@ class DocumentReadinessAuditTests(TestCase):
             firma_arrendador_registrada=True,
             firma_arrendatario_registrada=True,
         )
-        AuditEvent.objects.create(
-            event_type='documentos.documento_emitido.formalized',
-            entity_type='documento_emitido',
-            entity_id=str(document.pk),
-            summary='Documento formalizado',
-        )
+        create_formalization_audit(document)
 
         result = collect_document_readiness(
             final_policy_ref='policy-final-docs-v1',
@@ -637,12 +669,7 @@ class DocumentReadinessAuditTests(TestCase):
             firma_arrendatario_registrada=True,
             evidencia_formalizacion_ref=sensitive_ref,
         )
-        AuditEvent.objects.create(
-            event_type='documentos.documento_emitido.formalized',
-            entity_type='documento_emitido',
-            entity_id=str(document.pk),
-            summary='Documento formalizado',
-        )
+        create_formalization_audit(document)
 
         result = collect_document_readiness(
             final_policy_ref='policy-final-docs-v1',
@@ -691,12 +718,7 @@ class DocumentReadinessAuditTests(TestCase):
             firma_codeudor_registrada=False,
             evidencia_formalizacion_ref=FORMALIZATION_REF,
         )
-        AuditEvent.objects.create(
-            event_type='documentos.documento_emitido.formalized',
-            entity_type='documento_emitido',
-            entity_id=str(document.pk),
-            summary='Documento formalizado',
-        )
+        create_formalization_audit(document)
 
         result = collect_document_readiness(
             final_policy_ref='policy-final-docs-v1',
@@ -842,12 +864,7 @@ class DocumentReadinessAuditTests(TestCase):
             ),
         ]
         for document in documents:
-            AuditEvent.objects.create(
-                event_type='documentos.documento_emitido.formalized',
-                entity_type='documento_emitido',
-                entity_id=str(document.pk),
-                summary='Documento formalizado',
-            )
+            create_formalization_audit(document)
 
         result = collect_document_readiness(
             final_policy_ref='policy-final-docs-v1',
@@ -892,12 +909,7 @@ class DocumentReadinessAuditTests(TestCase):
             firma_arrendatario_registrada=True,
             evidencia_formalizacion_ref=FORMALIZATION_REF,
         )
-        AuditEvent.objects.create(
-            event_type='documentos.documento_emitido.formalized',
-            entity_type='documento_emitido',
-            entity_id=str(origin.pk),
-            summary='Documento formalizado',
-        )
+        create_formalization_audit(origin)
         correction = DocumentoEmitido.objects.create(
             expediente=expediente,
             tipo_documental=TipoDocumental.MAIN_CONTRACT,

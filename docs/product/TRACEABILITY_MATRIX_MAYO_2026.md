@@ -251,6 +251,12 @@ heredada sensible y `audit_document_readiness` reporta
 `documents.formalization_evidence_missing` o
 `documents.formalization_evidence_sensitive` para snapshots heredados.
 
+Nota 2026-05-26: Documentos alinea la auditoria de formalizacion con el acto
+formalizado. El endpoint `formalizar/` registra actor y metadata no sensible de
+evidencia, firmas, recepcion y comprobante notarial; readiness reporta
+`documents.formalization_audit_unaligned` cuando un snapshot conserva evento
+sin actor o metadata desalineada.
+
 Nota 2026-05-26: Documentos separa en readiness las brechas notariales
 heredadas. `audit_document_readiness` reporta documentos formalizados con
 politica notarial sin recepcion, sin comprobante, con comprobante de tipo
