@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import connection
@@ -13,7 +14,9 @@ from rest_framework.test import APITestCase
 
 from audit.models import AuditEvent
 from core.models import Role, Scope, UserScopeAssignment
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 
+from .admin import RepresentacionComunidadAdmin
 from .models import (
     ComunidadPatrimonial,
     Empresa,
@@ -325,6 +328,34 @@ class PatrimonioAPITests(APITestCase):
             comunidad_snapshot['representacion_vigente']['evidencia_ref'],
             '<redacted-sensitive-reference>',
         )
+
+    def test_representation_admin_redacts_sensitive_designated_evidence(self):
+        socio_participante = self._create_socio('Socio Comunidad Admin', '11111111-1')
+        socio_designado = self._create_socio('Representante Admin', '22222222-2')
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Admin', estado=EstadoPatrimonial.ACTIVE)
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_participante,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        representacion = RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio_designado,
+            vigente_desde='2026-01-01',
+            activo=True,
+            evidencia_ref='https://example.test/acta?token=secret',
+        )
+
+        model_admin = RepresentacionComunidadAdmin(RepresentacionComunidad, AdminSite())
+
+        self.assertNotIn('evidencia_ref', model_admin.list_display)
+        self.assertNotIn('evidencia_ref', model_admin.search_fields)
+        self.assertNotIn('evidencia_ref', model_admin.fields)
+        self.assertEqual(model_admin.evidencia_ref_redacted(representacion), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(model_admin.has_add_permission(None))
 
     def test_create_socio_normalizes_rut_and_rejects_duplicate(self):
         payload = {
