@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | CobranzaActiva. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | El admin Django de Cobranza puede exponer refs/payloads/motivos crudos de UF manual, gates WebPay, intentos WebPay, pagos excepcionales, garantias y repactaciones. |
-| Motivo de prioridad | Etapa 2 exige refs no sensibles y exposicion backoffice redactada; dominio/API/readiness ya bloquean nuevas escrituras sensibles, falta cerrar superficie admin local. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-cobranza-admin-redaction`. |
-| Rama | `codex/stage2-cobranza-admin-redaction`. |
-| Estado | Paquete abierto. |
-| Gate esperado | Etapa 2 local diagnostica/parcial, sin declarar cierre de etapa. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | PR #387 cerrado: admin Django de Cobranza redacta refs, motivos y payloads sensibles heredados en UF manual, pagos, WebPay, garantias y repactaciones. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Sin paquete abierto. |
+| Gate esperado | N/A. |
+| Estado al cerrar paquete | PR #387 mergeado en `main` con merge commit `4f047cd`; CI remoto `acceptance` OK; evidencia, stage card y trazabilidad actualizadas. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Redactar refs/payloads/motivos de Cobranza en admin, cubrir con prueba focal, validar impacto y cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Diagnosticar `main` y abrir un worktree tactico solo para el siguiente paquete concreto. |
 
 ## Actualizacion
 
