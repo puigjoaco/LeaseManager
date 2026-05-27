@@ -463,6 +463,13 @@ type Dashboard = {
   contratos_futuros?: number
   pagos_pendientes?: number
   pagos_atrasados?: number
+  movimientos_sin_clasificar?: number
+  diferencias_banco_sistema?: number
+  contratos_por_vencer?: number
+  avisos_termino_registrados?: number
+  garantias_incompletas?: number
+  fallas_integracion?: number
+  cierres_bloqueados?: number
   resoluciones_manuales_abiertas?: number
   dtes_borrador?: number
   mensajes_preparados?: number

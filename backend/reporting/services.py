@@ -2,12 +2,26 @@ from decimal import Decimal
 
 from django.core.cache import cache
 from django.db.models import Count, Q, Sum
+from django.utils import timezone
 
 from audit.models import ManualResolution
 from audit.scope_filters import scope_manual_resolution_queryset
-from canales.models import MensajeSaliente
-from cobranza.models import DistribucionCobroMensual, EstadoCuentaArrendatario, PagoMensual
-from conciliacion.models import IngresoDesconocido
+from canales.models import EstadoMensajeSaliente, MensajeSaliente
+from cobranza.models import (
+    DistribucionCobroMensual,
+    EstadoCuentaArrendatario,
+    EstadoIntentoPagoWebPay,
+    GarantiaContractual,
+    IntentoPagoWebPay,
+    PagoMensual,
+)
+from conciliacion.models import (
+    CuadraturaBancaria,
+    EstadoConciliacionMovimiento,
+    EstadoCuadraturaBancaria,
+    IngresoDesconocido,
+    MovimientoBancarioImportado,
+)
 from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 from contabilidad.models import (
@@ -24,7 +38,7 @@ from contabilidad.models import (
     LibroMayor,
     ObligacionTributariaMensual,
 )
-from contratos.models import Contrato
+from contratos.models import AvisoTermino, Contrato, EstadoAvisoTermino
 from operacion.models import CuentaRecaudadora, IdentidadDeEnvio, MandatoOperacion
 from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio
 from sii.models import DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, ProcesoRentaAnual
@@ -48,6 +62,20 @@ ANNUAL_STATES_REQUIRING_REF = {
     EstadoPreparacionTributaria.PRESENTED,
     EstadoPreparacionTributaria.OBSERVED,
     EstadoPreparacionTributaria.RECTIFIED,
+}
+BANK_UNCLASSIFIED_STATES = {
+    EstadoConciliacionMovimiento.PENDING,
+    EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+    EstadoConciliacionMovimiento.MANUAL_REQUIRED,
+}
+BANK_DIFFERENCE_STATES = {
+    EstadoCuadraturaBancaria.OPEN_DIFFERENCE,
+    EstadoCuadraturaBancaria.EXPLAINED_DIFFERENCE,
+}
+CLOSE_BLOCKED_STATES = {
+    EstadoCierreMensual.DRAFT,
+    EstadoCierreMensual.PREPARED,
+    EstadoCierreMensual.REOPENED,
 }
 
 
@@ -86,6 +114,65 @@ def _annual_summary_fiscal_year_mismatch(summary, anio_tributario) -> bool:
 
 def _values_set(queryset, field: str) -> set[int]:
     return {value for value in queryset.values_list(field, flat=True).distinct() if value is not None}
+
+
+def _count_contracts_near_expiry(contracts, reference_date) -> int:
+    total = 0
+    for contract in (
+        contracts.filter(estado='vigente')
+        .only('id', 'fecha_fin_vigente', 'dias_prealerta_admin')
+        .distinct()
+    ):
+        days_until_end = (contract.fecha_fin_vigente - reference_date).days
+        if 0 <= days_until_end <= int(contract.dias_prealerta_admin or 0):
+            total += 1
+    return total
+
+
+def _count_incomplete_guarantees(guarantees) -> int:
+    total = 0
+    for guarantee in guarantees.only(
+        'id',
+        'monto_pactado',
+        'monto_recibido',
+        'monto_devuelto',
+        'monto_aplicado',
+        'aceptacion_parcial_ref',
+    ).distinct():
+        if guarantee.garantia_incompleta:
+            total += 1
+    return total
+
+
+def _operational_dashboard_blocker_counts(
+    *,
+    contratos,
+    movimientos_bancarios,
+    cuadraturas,
+    avisos_termino,
+    garantias,
+    mensajes,
+    intentos_webpay,
+    cierres,
+):
+    return {
+        'movimientos_sin_clasificar': movimientos_bancarios.filter(
+            estado_conciliacion__in=BANK_UNCLASSIFIED_STATES,
+        ).count(),
+        'diferencias_banco_sistema': cuadraturas.filter(
+            Q(estado__in=BANK_DIFFERENCE_STATES) | ~Q(diferencia_clp=Decimal('0.00')),
+        ).count(),
+        'contratos_por_vencer': _count_contracts_near_expiry(contratos, timezone.localdate()),
+        'avisos_termino_registrados': avisos_termino.filter(
+            estado=EstadoAvisoTermino.REGISTERED,
+        ).count(),
+        'garantias_incompletas': _count_incomplete_guarantees(garantias),
+        'fallas_integracion': (
+            mensajes.filter(estado=EstadoMensajeSaliente.FAILED).count()
+            + intentos_webpay.filter(estado=EstadoIntentoPagoWebPay.FAILED).count()
+        ),
+        'cierres_bloqueados': cierres.filter(estado__in=CLOSE_BLOCKED_STATES).count(),
+    }
 
 
 def _active_fiscal_company_ids(company_ids: set[int]) -> set[int]:
@@ -404,6 +491,18 @@ def build_operational_dashboard(
             'resoluciones_manuales_abiertas': ManualResolution.objects.filter(status='open').count(),
             'dtes_borrador': DTEEmitido.objects.filter(estado_dte='borrador').count(),
         }
+        payload.update(
+            _operational_dashboard_blocker_counts(
+                contratos=Contrato.objects.all(),
+                movimientos_bancarios=MovimientoBancarioImportado.objects.all(),
+                cuadraturas=CuadraturaBancaria.objects.all(),
+                avisos_termino=AvisoTermino.objects.all(),
+                garantias=GarantiaContractual.objects.all(),
+                mensajes=MensajeSaliente.objects.all(),
+                intentos_webpay=IntentoPagoWebPay.objects.all(),
+                cierres=CierreMensualContable.objects.all(),
+            )
+        )
         if include_secondary:
             payload.update(
                 {
@@ -446,6 +545,36 @@ def build_operational_dashboard(
             ManualResolution.objects.filter(status='open'),
             access,
         )
+        movimientos_bancarios = scope_queryset_for_access(
+            MovimientoBancarioImportado.objects.all(),
+            access,
+            bank_account_paths=('conexion_bancaria__cuenta_recaudadora_id',),
+        )
+        cuadraturas = scope_queryset_for_access(
+            CuadraturaBancaria.objects.all(),
+            access,
+            bank_account_paths=('cuenta_recaudadora_id',),
+        )
+        avisos_termino = scope_queryset_for_access(
+            AvisoTermino.objects.all(),
+            access,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+        )
+        garantias = scope_queryset_for_access(
+            GarantiaContractual.objects.all(),
+            access,
+            property_paths=('contrato__mandato_operacion__propiedad_id',),
+        )
+        intentos_webpay = scope_queryset_for_access(
+            IntentoPagoWebPay.objects.all(),
+            access,
+            property_paths=('pago_mensual__contrato__mandato_operacion__propiedad_id',),
+        )
+        cierres = scope_queryset_for_access(
+            CierreMensualContable.objects.all(),
+            access,
+            company_paths=('empresa_id',),
+        )
 
         propiedades_counts = propiedades.aggregate(
             activas=Count('id', filter=Q(estado='activa'), distinct=True),
@@ -469,6 +598,18 @@ def build_operational_dashboard(
             'resoluciones_manuales_abiertas': resoluciones_abiertas.count(),
             'dtes_borrador': dtes_borrador.count(),
         }
+        payload.update(
+            _operational_dashboard_blocker_counts(
+                contratos=contratos,
+                movimientos_bancarios=movimientos_bancarios,
+                cuadraturas=cuadraturas,
+                avisos_termino=avisos_termino,
+                garantias=garantias,
+                mensajes=mensajes,
+                intentos_webpay=intentos_webpay,
+                cierres=cierres,
+            )
+        )
         if include_secondary:
             payload.update(
                 {
@@ -481,11 +622,6 @@ def build_operational_dashboard(
                 IngresoDesconocido.objects.filter(estado='pendiente_revision'),
                 access,
                 bank_account_paths=('cuenta_recaudadora_id',),
-            )
-            cierres = scope_queryset_for_access(
-                CierreMensualContable.objects.all(),
-                access,
-                company_paths=('empresa_id',),
             )
             cierres_counts = cierres.aggregate(
                 preparados=Count('id', filter=Q(estado='preparado'), distinct=True),

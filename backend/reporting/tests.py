@@ -1,29 +1,45 @@
 import json
+from datetime import timedelta
 
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from audit.models import ManualResolution
-from canales.models import CanalMensajeria, MensajeSaliente
-from cobranza.models import EstadoCuentaArrendatario, PagoMensual
+from canales.models import CanalMensajeria, EstadoMensajeSaliente, MensajeSaliente
+from cobranza.models import EstadoCuentaArrendatario, GarantiaContractual, PagoMensual
 from cobranza.services import sync_payment_distribution
-from conciliacion.models import ConexionBancaria, IngresoDesconocido, MovimientoBancarioImportado
+from conciliacion.models import (
+    ConexionBancaria,
+    CuadraturaBancaria,
+    EstadoCuadraturaBancaria,
+    IngresoDesconocido,
+    MovimientoBancarioImportado,
+)
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from contabilidad.models import (
     AsientoContable,
     BalanceComprobacion,
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
+    EstadoCierreMensual,
     EventoContable,
     LibroDiario,
     LibroMayor,
     ObligacionTributariaMensual,
 )
 from contabilidad.services import ensure_default_regime
-from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
+from contratos.models import (
+    Arrendatario,
+    AvisoTermino,
+    Contrato,
+    ContratoPropiedad,
+    EstadoAvisoTermino,
+    PeriodoContractual,
+)
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 from sii.models import CapacidadTributariaSII, DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, ProcesoRentaAnual
@@ -232,6 +248,8 @@ class ReportingAPITests(APITestCase):
 
     def test_operational_dashboard_summarizes_cross_module_counts(self):
         _, empresa, _, cuenta, contrato, periodo = self._create_context('DASH')
+        contrato.fecha_fin_vigente = timezone.localdate() + timedelta(days=30)
+        contrato.save(update_fields=['fecha_fin_vigente', 'updated_at'])
         PagoMensual.objects.create(
             contrato=contrato,
             periodo_contractual=periodo,
@@ -266,14 +284,53 @@ class ReportingAPITests(APITestCase):
             descripcion_origen='Ingreso',
             estado='pendiente_revision',
         )
-        CanalMensajeria.objects.create(canal='email', provider_key='gmail_api', estado_gate='condicionado')
+        CuadraturaBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            periodo_economico='2026-01',
+            fecha_cuadratura='2026-01-31',
+            saldo_sistema_clp='100000.00',
+            saldo_banco_clp='90000.00',
+            diferencia_clp='-10000.00',
+            estado=EstadoCuadraturaBancaria.OPEN_DIFFERENCE,
+            evidencia_cuadratura_ref='bank-square-evidence-dash',
+            responsable_ref='ops-bank-square-dash',
+            rationale='Diferencia en revision operativa.',
+        )
+        AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=contrato.fecha_fin_vigente,
+            causal='termino programado',
+            estado=EstadoAvisoTermino.REGISTERED,
+            registrado_por=self.user,
+        )
+        GarantiaContractual.objects.create(
+            contrato=contrato,
+            monto_pactado='100000.00',
+            monto_recibido='50000.00',
+        )
+        CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado=EstadoCierreMensual.PREPARED,
+        )
+        canal = CanalMensajeria.objects.create(canal='email', provider_key='gmail_api', estado_gate='condicionado')
         MensajeSaliente.objects.create(
             canal='email',
-            canal_mensajeria=CanalMensajeria.objects.first(),
+            canal_mensajeria=canal,
             contrato=contrato,
             arrendatario=contrato.arrendatario,
             destinatario='x@y.com',
             estado='bloqueado',
+            usuario=self.user,
+        )
+        MensajeSaliente.objects.create(
+            canal='email',
+            canal_mensajeria=canal,
+            contrato=contrato,
+            arrendatario=contrato.arrendatario,
+            destinatario='failed@example.com',
+            estado=EstadoMensajeSaliente.FAILED,
             usuario=self.user,
         )
 
@@ -289,8 +346,25 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['mandatos_total'], 1)
         self.assertEqual(response.data['contratos_vigentes'], 1)
         self.assertEqual(response.data['pagos_pendientes'], 1)
+        self.assertEqual(response.data['movimientos_sin_clasificar'], 1)
+        self.assertEqual(response.data['diferencias_banco_sistema'], 1)
+        self.assertEqual(response.data['contratos_por_vencer'], 1)
+        self.assertEqual(response.data['avisos_termino_registrados'], 1)
+        self.assertEqual(response.data['garantias_incompletas'], 1)
+        self.assertEqual(response.data['fallas_integracion'], 1)
+        self.assertEqual(response.data['cierres_bloqueados'], 1)
         self.assertEqual(response.data['ingresos_desconocidos_abiertos'], 1)
         self.assertEqual(response.data['mensajes_bloqueados'], 1)
+
+        summary_response = self.client.get(f"{reverse('reporting-dashboard-operativo')}?mode=summary&refresh=1")
+        self.assertEqual(summary_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(summary_response.data['movimientos_sin_clasificar'], 1)
+        self.assertEqual(summary_response.data['diferencias_banco_sistema'], 1)
+        self.assertEqual(summary_response.data['contratos_por_vencer'], 1)
+        self.assertEqual(summary_response.data['garantias_incompletas'], 1)
+        self.assertEqual(summary_response.data['fallas_integracion'], 1)
+        self.assertEqual(summary_response.data['cierres_bloqueados'], 1)
+        self.assertNotIn('socios_total', summary_response.data)
 
     def test_operational_dashboard_refresh_bypasses_cached_summary(self):
         self._create_context('CACHE1')

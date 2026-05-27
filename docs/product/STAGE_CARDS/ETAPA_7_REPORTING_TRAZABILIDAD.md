@@ -42,6 +42,10 @@ documentos o procesos tributarios trazables.
   financiero mensual, libros por periodo, tributario anual, prueba API,
   visualizacion backoffice y responsables sin ejecutar smoke publico ni leer
   datos reales.
+- El dashboard operativo expone en API y backoffice los contadores PRD de
+  pagos pendientes, movimientos sin clasificar, diferencias banco/sistema,
+  contratos por vencer, avisos de termino, garantias incompletas, fallas de
+  integracion y cierres bloqueados, respetando scope de acceso.
 - `audit_stage7_reporting_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Reporting.

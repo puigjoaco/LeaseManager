@@ -14,6 +14,12 @@ de pagos usa `ValorUFDiario` de la fecha de vencimiento, Etapa 1 audita pagos
 existentes dependientes de UF contra esa traza exacta y readiness Etapa 2
 bloquea trazas faltantes, desalineadas o sobrantes.
 
+Nota 2026-05-27: Reporting completa las metricas PRD del dashboard operativo.
+`build_operational_dashboard` y el backoffice muestran pagos pendientes,
+movimientos sin clasificar, diferencias banco/sistema, contratos por vencer,
+avisos de termino, garantias incompletas, fallas de integracion y cierres
+bloqueados, respetando scope de acceso y sin usar fuentes externas.
+
 Nota 2026-05-27: Patrimonio permite planificar representaciones
 patrimoniales futuras contra participaciones futuras alineadas. La validacion
 de `RepresentacionComunidad` ya no exige que el representante sea participante
