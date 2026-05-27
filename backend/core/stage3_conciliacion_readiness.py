@@ -27,7 +27,7 @@ from conciliacion.models import (
     bank_provider_sync_blocking_reason,
     has_text,
 )
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 
 AUTHORIZED_STAGE3_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
@@ -92,6 +92,10 @@ ECONOMIC_PERIOD_RE = re.compile(r'^\d{4}-(0[1-9]|1[0-2])$')
 
 def _non_sensitive_reference(value: str) -> bool:
     return is_non_sensitive_reference(value)
+
+
+def _contains_sensitive(value) -> bool:
+    return has_text(value) and contains_sensitive_reference(value)
 
 
 def _valid_economic_period(value) -> bool:
@@ -490,6 +494,8 @@ def _collect_manual_resolution_issues(
     for resolution in resolutions:
         if resolution.status == ManualResolution.Status.RESOLVED and not has_text(resolution.rationale):
             counts['resolved_without_rationale'] += 1
+        if resolution.status == ManualResolution.Status.RESOLVED and _contains_sensitive(resolution.rationale):
+            counts['resolved_sensitive_rationale'] += 1
         if resolution.status == ManualResolution.Status.SUPERSEDED:
             metadata = resolution.metadata if isinstance(resolution.metadata, dict) else {}
             missing_trace = any(
@@ -528,6 +534,8 @@ def _collect_manual_resolution_issues(
                     counts['unknown_income_resolution_target_mismatch'] += 1
                 if not _non_sensitive_reference(metadata.get('evidencia_regularizacion_ref')):
                     counts['unknown_income_resolution_evidence_sensitive'] += 1
+                if _contains_sensitive(metadata.get('criterio_aplicado')):
+                    counts['unknown_income_resolution_context_sensitive'] += 1
         if (
             resolution.status == ManualResolution.Status.RESOLVED
             and resolution.category == 'conciliacion.movimiento_cargo'
@@ -549,6 +557,8 @@ def _collect_manual_resolution_issues(
                         counts['charge_classification_target_mismatch'] += 1
                     if not _non_sensitive_reference(metadata.get('evidencia_clasificacion_ref')):
                         counts['charge_classification_evidence_sensitive'] += 1
+                    if _contains_sensitive(metadata.get('criterio_reparto')):
+                        counts['charge_classification_context_sensitive'] += 1
             elif metadata.get('categoria_movimiento') == CategoriaMovimiento.INTERNAL_TRANSFER:
                 missing_context = any(
                     not has_text(metadata.get(field_name))
@@ -565,6 +575,8 @@ def _collect_manual_resolution_issues(
                         counts['internal_transfer_evidence_sensitive'] += 1
                     if not _non_sensitive_reference(metadata.get('responsable_ref')):
                         counts['internal_transfer_evidence_sensitive'] += 1
+                    if _contains_sensitive(metadata.get('criterio_conciliacion')):
+                        counts['internal_transfer_context_sensitive'] += 1
             else:
                 counts['charge_classification_context_missing'] += 1
     return dict(sorted(counts.items()))
@@ -937,6 +949,14 @@ def collect_stage3_conciliacion_readiness(
                 count=manual_resolution_issues['resolved_without_rationale'],
             )
         )
+    if manual_resolution_issues.get('resolved_sensitive_rationale'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.rationale_sensitive',
+                'Existen resoluciones manuales de conciliacion cerradas con motivo sensible.',
+                count=manual_resolution_issues['resolved_sensitive_rationale'],
+            )
+        )
     if manual_resolution_issues.get('superseded_without_trace'):
         issues.append(
             _issue(
@@ -967,6 +987,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.manual_resolution.unknown_income_resolution_evidence_sensitive',
                 'Existen ingresos desconocidos resueltos con evidencia de regularizacion sensible.',
                 count=manual_resolution_issues['unknown_income_resolution_evidence_sensitive'],
+            )
+        )
+    if manual_resolution_issues.get('unknown_income_resolution_context_sensitive'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.unknown_income_resolution_context_sensitive',
+                'Existen ingresos desconocidos resueltos con criterio de regularizacion sensible.',
+                count=manual_resolution_issues['unknown_income_resolution_context_sensitive'],
             )
         )
     if manual_resolution_issues.get('unknown_income_resolution_period_invalid'):
@@ -1001,6 +1029,14 @@ def collect_stage3_conciliacion_readiness(
                 count=manual_resolution_issues['charge_classification_evidence_sensitive'],
             )
         )
+    if manual_resolution_issues.get('charge_classification_context_sensitive'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.charge_classification_context_sensitive',
+                'Existen cargos bancarios resueltos con criterio de reparto sensible.',
+                count=manual_resolution_issues['charge_classification_context_sensitive'],
+            )
+        )
     if manual_resolution_issues.get('charge_classification_period_invalid'):
         issues.append(
             _issue(
@@ -1031,6 +1067,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.manual_resolution.internal_transfer_evidence_sensitive',
                 'Existen transferencias internas resueltas con evidencia o responsable sensible.',
                 count=manual_resolution_issues['internal_transfer_evidence_sensitive'],
+            )
+        )
+    if manual_resolution_issues.get('internal_transfer_context_sensitive'):
+        issues.append(
+            _issue(
+                'stage3.manual_resolution.internal_transfer_context_sensitive',
+                'Existen transferencias internas resueltas con criterio de conciliacion sensible.',
+                count=manual_resolution_issues['internal_transfer_context_sensitive'],
             )
         )
     if manual_resolution_issues.get('internal_transfer_period_invalid'):

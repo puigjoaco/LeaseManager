@@ -568,7 +568,7 @@ class Stage3ConciliacionReadinessTests(TestCase):
                 'entidad_destino_tipo': transfer.entidad_destino_tipo,
                 'entidad_destino_id': transfer.entidad_destino_id,
                 'periodo_economico': '2026-01',
-                'criterio_conciliacion': 'Par cargo/abono exacto entre cuentas recaudadoras.',
+                'criterio_conciliacion': 'Criterio en https://bank.example.test/transfer?token=secret',
                 'evidencia_transferencia_ref': 'internal-transfer-controlled-2026-01',
                 'responsable_ref': 'stage3-transfer-owner',
             },
@@ -579,7 +579,9 @@ class Stage3ConciliacionReadinessTests(TestCase):
 
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.internal_transfer.sensitive_reference', issue_codes)
+        self.assertIn('stage3.manual_resolution.internal_transfer_context_sensitive', issue_codes)
         self.assertEqual(result['sections']['internal_transfers']['sensitive_reference'], 1)
+        self.assertEqual(result['sections']['manual_resolutions']['internal_transfer_context_sensitive'], 1)
 
     def test_resolved_internal_transfer_without_context_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER-CONTEXT')
@@ -1081,6 +1083,34 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.manual_resolution.rationale_missing', issue_codes)
         self.assertEqual(result['sections']['manual_resolutions']['resolved_without_rationale'], 1)
 
+    def test_resolved_manual_resolution_with_sensitive_rationale_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-REASON-SENSITIVE')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Regularizacion historica con motivo sensible',
+            rationale='Motivo con https://bank.example.test/income?token=secret',
+            metadata={
+                'resolved_with': 'payment_manual_assignment',
+                'resolved_payment_id': payment.pk,
+                'resolved_contract_id': payment.contrato_id,
+                'periodo_economico': '2026-01',
+                'criterio_aplicado': 'Saldo exacto contra pago mensual.',
+                'evidencia_regularizacion_ref': 'unknown-income-controlled-ref',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.rationale_sensitive', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['resolved_sensitive_rationale'], 1)
+
     def test_superseded_manual_resolution_without_trace_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-SUPERSEDED-TRACE')
         conexion = self._create_ready_connection(cuenta)
@@ -1149,6 +1179,34 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.manual_resolution.unknown_income_resolution_evidence_sensitive', issue_codes)
         self.assertEqual(result['sections']['manual_resolutions']['unknown_income_resolution_evidence_sensitive'], 1)
+
+    def test_resolved_unknown_income_with_sensitive_context_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-UNKNOWN-CONTEXT-SENSITIVE')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Ingreso con criterio sensible',
+            rationale='Regularizado con criterio heredado.',
+            metadata={
+                'resolved_with': 'payment_manual_assignment',
+                'resolved_payment_id': payment.pk,
+                'resolved_contract_id': payment.contrato_id,
+                'periodo_economico': '2026-01',
+                'criterio_aplicado': 'Saldo exacto en https://bank.example.test/income?token=secret',
+                'evidencia_regularizacion_ref': 'unknown-income-controlled-ref',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.unknown_income_resolution_context_sensitive', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['unknown_income_resolution_context_sensitive'], 1)
 
     def test_resolved_unknown_income_with_invalid_period_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-UNKNOWN-PERIOD')
@@ -1256,6 +1314,35 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.manual_resolution.charge_classification_evidence_sensitive', issue_codes)
         self.assertEqual(result['sections']['manual_resolutions']['charge_classification_evidence_sensitive'], 1)
+
+    def test_resolved_charge_manual_resolution_with_sensitive_context_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-CHARGE-CONTEXT-SENSITIVE')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        charge = self._create_reconciled_charge_movement(conexion)
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(charge.pk),
+            summary='Cargo con criterio sensible',
+            rationale='Clasificado con criterio heredado.',
+            metadata={
+                'categoria_movimiento': 'comision_bancaria',
+                'entidad_afectada_tipo': 'empresa',
+                'entidad_afectada_id': cuenta.empresa_owner_id,
+                'periodo_economico': '2026-01',
+                'criterio_reparto': 'Cargo revisado en https://bank.example.test/fee?token=secret',
+                'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.charge_classification_context_sensitive', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['charge_classification_context_sensitive'], 1)
 
     def test_resolved_charge_manual_resolution_with_invalid_period_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-CHARGE-PERIOD')

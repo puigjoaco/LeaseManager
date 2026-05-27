@@ -186,6 +186,20 @@ class ResolveUnknownIncomeSerializer(serializers.Serializer):
             )
         return value
 
+    def validate_criterio_aplicado(self, value):
+        if contains_sensitive_reference(value):
+            raise serializers.ValidationError(
+                'criterio_aplicado no puede contener URLs, tokens, correos ni credenciales bancarias.'
+            )
+        return value
+
+    def validate_rationale(self, value):
+        if contains_sensitive_reference(value):
+            raise serializers.ValidationError(
+                'rationale no puede contener URLs, tokens, correos ni credenciales bancarias.'
+            )
+        return value
+
 
 class ResolveChargeMovementSerializer(serializers.Serializer):
     categoria_movimiento = serializers.ChoiceField(
@@ -248,6 +262,20 @@ class ResolveChargeMovementSerializer(serializers.Serializer):
         if not is_non_sensitive_reference(value):
             raise serializers.ValidationError(
                 'evidencia_clasificacion_ref debe ser una referencia no sensible, no una URL, token o credencial.'
+            )
+        return value
+
+    def validate_criterio_reparto(self, value):
+        if contains_sensitive_reference(value):
+            raise serializers.ValidationError(
+                'criterio_reparto no puede contener URLs, tokens, correos ni credenciales bancarias.'
+            )
+        return value
+
+    def validate_rationale(self, value):
+        if contains_sensitive_reference(value):
+            raise serializers.ValidationError(
+                'rationale no puede contener URLs, tokens, correos ni credenciales bancarias.'
             )
         return value
 

@@ -1294,6 +1294,48 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
         self.assertEqual(resolution.status, 'open')
 
+    def test_manual_resolution_charge_rejects_sensitive_context(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CARGO-CONTEXT-SENSITIVE')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                fecha_movimiento='2026-01-09',
+                tipo_movimiento='cargo',
+                monto='50000.00',
+                descripcion_origen='Cargo bancario con contexto sensible',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.movimiento_cargo',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-charge-movement', args=[resolution.pk]),
+            self._charge_classification_payload(
+                cuenta,
+                criterio_reparto='Criterio revisado en https://bank.example.test/fee?token=secret',
+                rationale='Motivo recibido desde ops@example.test con token bancario.',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('criterio_reparto', resolve.data)
+        self.assertIn('rationale', resolve.data)
+
+        movimiento.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
+        self.assertEqual(resolution.status, 'open')
+
     def test_manual_resolution_can_register_internal_transfer_pair(self):
         cuenta_origen, _, _ = self._create_contract_and_payment(codigo='REC-TRANSFER')
         cuenta_destino = self._create_secondary_account('REC-TRANSFER')
@@ -1840,6 +1882,48 @@ class ConciliacionAPITests(APITestCase):
 
         self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('evidencia_regularizacion_ref', resolve.data)
+
+        movimiento.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        self.assertEqual(resolution.status, 'open')
+
+    def test_manual_resolution_unknown_income_rejects_sensitive_context(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL-CONTEXT-SENSITIVE', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                monto='777777.00',
+                descripcion_origen='Abono con contexto sensible',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        pago.monto_calculado_clp = '777777.00'
+        pago.save(update_fields=['monto_calculado_clp'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-unknown-income', args=[resolution.pk]),
+            self._unknown_income_resolution_payload(
+                pago,
+                criterio_aplicado='Criterio revisado en https://bank.example.test/income?token=secret',
+                rationale='Motivo recibido desde ops@example.test con token bancario.',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('criterio_aplicado', resolve.data)
+        self.assertIn('rationale', resolve.data)
 
         movimiento.refresh_from_db()
         resolution.refresh_from_db()

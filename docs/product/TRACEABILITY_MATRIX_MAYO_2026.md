@@ -111,6 +111,12 @@ responsables, criterios o motivos crudos por vistas redactadas, eliminan
 busquedas por campos sensibles y mantienen el alta manual cerrada desde
 backoffice.
 
+Nota 2026-05-27: Conciliacion exige contexto no sensible en resoluciones
+manuales. Los cierres de ingresos desconocidos, cargos bancarios y
+transferencias internas rechazan criterios o motivos con URLs, correos, tokens
+o credenciales, y readiness Etapa 3 clasifica snapshots heredados con esos
+valores sin imprimirlos.
+
 Nota 2026-05-27: CobranzaActiva cierra superficie admin para referencias y
 payloads sensibles heredados. Los admins de UF manual, pagos mensuales, gates
 WebPay, intentos WebPay, garantias y repactaciones reemplazan refs, motivos y
