@@ -48,6 +48,7 @@ EXPIRED_EXPORT_STATE_ERROR = 'La exportacion expirada debe representar una expor
 PAYLOAD_HASH_FORMAT_ERROR = 'payload_hash debe ser un digest SHA-256 hexadecimal de 64 caracteres.'
 SENSITIVE_EXPORT_MAX_DAYS = 30
 MAX_EXPORT_WINDOW_ERROR = 'Las exportaciones sensibles sin hold no pueden exceder 30 dias de vigencia.'
+ENCRYPTED_REF_SENSITIVE_ERROR = 'encrypted_ref debe ser una referencia no sensible, no una URL, token o credencial.'
 
 
 class PoliticaRetencionDatos(TimestampedModel):
@@ -134,5 +135,7 @@ class ExportacionSensible(TimestampedModel):
             errors['motivo'] = 'El motivo no puede contener URLs, correos, tokens, bearer, claves ni credenciales.'
         if contains_sensitive_reference(self.scope_resumen, include_sensitive_keys=True):
             errors['scope_resumen'] = 'El scope de exportacion no puede contener referencias sensibles.'
+        if self.encrypted_ref and contains_sensitive_reference(self.encrypted_ref, include_sensitive_keys=True):
+            errors['encrypted_ref'] = ENCRYPTED_REF_SENSITIVE_ERROR
         if errors:
             raise ValidationError(errors)
