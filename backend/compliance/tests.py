@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.urls import reverse
@@ -18,6 +19,7 @@ from compliance.audit import (
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from reporting.tests import ReportingAPITests
 
+from .admin import ExportacionSensibleAdmin
 from .models import (
     CategoriaDato,
     EstadoExportacionSensible,
@@ -398,6 +400,37 @@ class ComplianceAPITests(APITestCase):
         with self.assertRaises(ValidationError) as context:
             export.full_clean()
         self.assertEqual(context.exception.message_dict['encrypted_ref'][0], ENCRYPTED_REF_SENSITIVE_ERROR)
+
+    def test_export_admin_redacts_sensitive_export_fields(self):
+        encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = ExportacionSensible.objects.create(
+            categoria_dato=CategoriaDato.FINANCIAL,
+            export_kind='financiero_mensual',
+            scope_resumen={
+                'periodo': '2026-01',
+                'callback': 'https://provider.example.test/export?token=secret',
+                'api_key': 'legacy-key',
+            },
+            motivo='Revision con Bearer inherited-token',
+            encrypted_payload=encrypted_payload,
+            payload_hash=payload_hash,
+            encrypted_ref='https://exports.example.test/file.pdf?token=secret',
+            expires_at=timezone.now() + timedelta(days=1),
+            created_by=self.user,
+        )
+        model_admin = ExportacionSensibleAdmin(ExportacionSensible, AdminSite())
+
+        for raw_field in ('scope_resumen', 'motivo', 'encrypted_payload', 'encrypted_ref'):
+            self.assertNotIn(raw_field, model_admin.fields)
+        self.assertNotIn('encrypted_ref', model_admin.search_fields)
+        self.assertFalse(model_admin.has_add_permission(None))
+        self.assertEqual(model_admin.motivo_redacted(export), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(model_admin.encrypted_ref_redacted(export), REDACTED_SENSITIVE_REFERENCE)
+
+        rendered_scope = model_admin.scope_resumen_redacted(export)
+        self.assertIn(REDACTED_SENSITIVE_REFERENCE, rendered_scope)
+        self.assertNotIn('provider.example.test', rendered_scope)
+        self.assertNotIn('legacy-key', rendered_scope)
 
     def test_export_can_be_revoked(self):
         self._create_context('REV')
