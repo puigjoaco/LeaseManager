@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Canales / superficies administrativas. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. Ultimo paquete cerrado: PR #391 `Redact Contabilidad admin refs`, merge `35797d6`. |
-| Motivo de prioridad | No aplica mientras no exista paquete abierto; el siguiente frente se selecciona desde el estado real del repo y la trazabilidad vigente. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Sin paquete abierto; `main` quedo actualizado tras PR #391. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | PR #391 integrado en `main`; CI acceptance remoto paso y el worktree tactico fue eliminado. |
+| Brecha activa | El admin Django de Canales aun expone/busca referencias y payloads sensibles heredados en gates, mensajes salientes, configuraciones y notificaciones programadas. |
+| Motivo de prioridad | La trazabilidad de Etapa 2 ya exige redaccion de Canales/Cobranza en APIs/snapshots y Cobranza admin esta cerrado; falta cerrar la superficie administrativa local de Canales sin usar integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-canales-admin-redaction`. |
+| Rama | `codex/stage2-canales-admin-redaction`. |
+| Estado | Paquete implementado y validado localmente; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Etapa 2 local diagnostica/parcial; no cierre sin fuente autorizada, evidencia Etapa 1 y pruebas externas controladas. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; si no hay paquete abierto, diagnosticar el siguiente frente seguro por orden y trazabilidad antes de crear un worktree `codex/...`. |
+| Politica de reanudacion | Si se reanuda esta sesion, continuar este worktree antes de abrir otro paquete. |
+| Siguiente accion | Ejecutar higiene final, crear commit, abrir PR, esperar CI, mergear y limpiar worktree. |
 
 ## Actualizacion
 

@@ -166,6 +166,14 @@ condicionados sin envios reales accidentales.
   mensajes enviados sin `external_ref` no sensible, sin timestamp de envio,
   sin evento auditable de envio manual o con evento sin actor/`external_ref`
   trazable alineado.
+- El admin Django de Canales tambien mantiene esa superficie cerrada:
+  `CanalMensajeriaAdmin`, `MensajeSalienteAdmin`,
+  `ConfiguracionNotificacionContratoAdmin` y
+  `NotificacionCobranzaProgramadaAdmin` muestran versiones redactadas de refs,
+  payloads, restricciones y motivos sensibles heredados, no buscan por campos
+  crudos como `external_ref` o `evidencia_configuracion_ref`, preservan claves
+  canonicas de referencia no sensible del gate y mantienen el alta manual
+  deshabilitada desde backoffice.
 - El admin Django de Cobranza tambien debe mantener esa superficie cerrada:
   `ValorUFDiarioAdmin`, `PagoMensualAdmin`, `GateCobroExternoAdmin`,
   `IntentoPagoWebPayAdmin`, `GarantiaContractualAdmin` y
