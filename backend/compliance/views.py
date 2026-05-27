@@ -5,6 +5,13 @@ from rest_framework.views import APIView
 from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission
 
+from .audit import (
+    EXPORT_ACCESSED_EVENT_TYPE,
+    EXPORT_ACCESS_DENIED_EVENT_TYPE,
+    EXPORT_PREPARED_EVENT_TYPE,
+    EXPORT_REVOKED_EVENT_TYPE,
+    create_export_audit_event,
+)
 from .models import ExportacionSensible, PoliticaRetencionDatos
 from .serializers import (
     ExportacionPrepareSerializer,
@@ -96,14 +103,12 @@ class ExportacionPrepareView(APIView):
             created_by=request.user,
             hold_activo=data.get('hold_activo', False),
         )
-        create_audit_event(
-            event_type='compliance.exportacion_sensible.prepared',
-            entity_type='exportacion_sensible',
-            entity_id=str(export.pk),
+        create_export_audit_event(
+            event_type=EXPORT_PREPARED_EVENT_TYPE,
+            export=export,
             summary='Exportacion sensible preparada y cifrada',
             actor_user=request.user,
             ip_address=request.META.get('REMOTE_ADDR'),
-            metadata={'export_kind': export.export_kind, 'scope_resumen': export.scope_resumen},
         )
         return Response(ExportacionSensibleSerializer(export).data, status=status.HTTP_201_CREATED)
 
@@ -116,21 +121,18 @@ class ExportacionContentView(APIView):
         try:
             payload = get_export_payload(export)
         except ValueError as error:
-            create_audit_event(
-                event_type='compliance.exportacion_sensible.access_denied',
-                entity_type='exportacion_sensible',
-                entity_id=str(export.pk),
+            create_export_audit_event(
+                event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+                export=export,
                 summary='Acceso a exportacion sensible denegado',
                 severity='warning',
                 actor_user=request.user,
                 ip_address=request.META.get('REMOTE_ADDR'),
-                metadata={'export_kind': export.export_kind, 'estado': export.estado},
             )
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
-        create_audit_event(
-            event_type='compliance.exportacion_sensible.accessed',
-            entity_type='exportacion_sensible',
-            entity_id=str(export.pk),
+        create_export_audit_event(
+            event_type=EXPORT_ACCESSED_EVENT_TYPE,
+            export=export,
             summary='Contenido de exportacion sensible accedido',
             actor_user=request.user,
             ip_address=request.META.get('REMOTE_ADDR'),
@@ -152,10 +154,9 @@ class ExportacionRevokeView(APIView):
     def post(self, request, pk):
         export = generics.get_object_or_404(ExportacionSensible, pk=pk)
         export = revoke_export(export)
-        create_audit_event(
-            event_type='compliance.exportacion_sensible.revoked',
-            entity_type='exportacion_sensible',
-            entity_id=str(export.pk),
+        create_export_audit_event(
+            event_type=EXPORT_REVOKED_EVENT_TYPE,
+            export=export,
             summary='Exportacion sensible revocada',
             actor_user=request.user,
             ip_address=request.META.get('REMOTE_ADDR'),
