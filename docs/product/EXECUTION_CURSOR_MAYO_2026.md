@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Documentos.PDF. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Admin Django de `DocumentoEmitido` puede exponer `storage_ref`/`correccion_ref` sensibles heredadas por formulario default y busqueda. |
-| Motivo de prioridad | Stage card Etapa 5 Documentos exige que APIs/snapshot/backoffice redacten `storage_ref` y refs correctivas sensibles antes de exponerlas. |
-| Worktree | `D:/Proyectos/LeaseManager-document-admin-redaction`. |
-| Rama | `codex/document-admin-redaction`. |
-| Estado | Paquete abierto. |
-| Gate esperado | Documentos local parcial: `classification=parcial`, `ready_for_stage5_documents=false`, sin cierre evidencial. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; las fuentes autorizadas siguen siendo condicion de cierre documental, no de este hardening local. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | PR #379 cerrado: `DocumentoEmitidoAdmin` ya no expone ni busca refs documentales sensibles heredadas y muestra refs redactadas. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Sin paquete abierto. |
+| Gate esperado | N/A. |
+| Estado al cerrar paquete | PR #379 mergeado en `main` con merge commit `2f60744`; CI remoto `acceptance` OK; evidencia, stage card y trazabilidad actualizadas. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Redactar/ocultar refs documentales sensibles en admin, agregar tests, evidencia y trazabilidad; cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Diagnosticar `main` y abrir un worktree tactico solo para el siguiente paquete concreto. |
 
 ## Actualizacion
 
