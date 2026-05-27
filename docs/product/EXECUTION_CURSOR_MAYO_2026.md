@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Patrimonio, bloqueo de inactivacion con estructura patrimonial vigente. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Empresas y comunidades pueden pasar a inactivas conservando participaciones o representaciones propias activas vigentes, dejando ownership vigente bajo un owner cerrado. |
-| Motivo de prioridad | Frente temprano Etapa 1; alinea PRD/stage card de salida operativa ordenada sin usar fuentes externas ni secretos. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-owner-inactivation-structure-guard`. |
-| Rama | `codex/stage1-owner-inactivation-structure-guard`. |
-| Estado | En desarrollo. |
-| Gate esperado | Focal Patrimonio + auditor Etapa 1, suite Patrimonio/core, `manage.py check`, migraciones dry-run, gate Etapa 1 local, frontend build/lint, acceptance, higiene y diff-check. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Ningun bloqueo externo nuevo; Etapa 1 no queda cerrada sin fuente autorizada/snapshot controlado. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | PR #371 cerrado: Patrimonio bloquea inactivacion de owners con estructura patrimonial vigente. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Sin paquete abierto. |
+| Gate esperado | N/A. |
+| Estado al cerrar paquete | PR #371 mergeado en main con merge commit `06c2624`; CI acceptance remoto OK; evidencia, trazabilidad y stage card actualizadas. |
+| Bloqueos relacionados | Ningun bloqueo externo nuevo. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Bloquear inactivacion de owners con estructura patrimonial vigente, detectar snapshots heredados y cerrar PR con evidencia. |
+| Siguiente accion | Diagnosticar `main` y abrir un nuevo worktree `codex/...` solo para el siguiente paquete concreto. |
 
 ## Actualizacion
 
