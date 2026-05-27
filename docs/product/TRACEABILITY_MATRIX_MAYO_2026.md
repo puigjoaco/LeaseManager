@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: Contabilidad cierra superficie admin para refs y payloads
+sensibles heredados. Los admins de eventos contables, movimientos de asiento,
+obligaciones, libros, balances, cierres y efectos de reapertura reemplazan
+payloads, `storage_ref`, `centro_resultado_ref`, motivos y evidencias crudas
+por vistas redactadas, eliminan busquedas por campos sensibles y cierran el
+alta manual de artefactos generados.
+
 Nota 2026-05-27: Conciliacion cierra superficie admin para referencias
 bancarias sensibles heredadas. Los admins de conexiones bancarias, movimientos
 importados, cuadraturas y transferencias intercuenta reemplazan refs,

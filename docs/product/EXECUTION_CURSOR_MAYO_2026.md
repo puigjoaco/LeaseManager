@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Contabilidad. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. Ultimo paquete cerrado: PR #389 `Redact Conciliacion admin refs`, merge `329260d`. |
-| Motivo de prioridad | No aplica mientras no exista paquete abierto; el siguiente frente se selecciona desde el estado real del repo y la trazabilidad vigente. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Sin paquete abierto; `main` quedo actualizado tras PR #389. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | PR #389 integrado en `main`; CI acceptance remoto paso y el worktree tactico fue eliminado. |
+| Brecha activa | El admin Django de Contabilidad expone o busca refs/payloads crudos en efectos de reapertura, libros, mayores y balances, mientras las APIs ya redactan esas superficies. |
+| Motivo de prioridad | Etapa 5 exige no exponer URLs, tokens, credenciales, correos ni referencias sensibles en `storage_ref`, payloads, motivos o evidencias; el backoffice admin local sigue siendo una superficie abierta. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-contabilidad-admin-redaction`. |
+| Rama | `codex/stage5-contabilidad-admin-redaction`. |
+| Estado | Validacion local completa; pendiente PR, CI, merge y limpieza. |
+| Gate esperado | Etapa 5 local diagnostica/parcial, sin declarar cierre de etapa. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; si no hay paquete abierto, diagnosticar el siguiente frente seguro por orden y trazabilidad antes de crear un worktree `codex/...`. |
+| Siguiente accion | Redactar refs/payloads contables en admin, cubrir con prueba focal, validar impacto y cerrar con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 
