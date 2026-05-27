@@ -13,6 +13,13 @@ type DashboardLike = {
   contratos_vigentes?: number
   pagos_pendientes?: number
   pagos_atrasados?: number
+  movimientos_sin_clasificar?: number
+  diferencias_banco_sistema?: number
+  contratos_por_vencer?: number
+  avisos_termino_registrados?: number
+  garantias_incompletas?: number
+  fallas_integracion?: number
+  cierres_bloqueados?: number
   resoluciones_manuales_abiertas?: number
   dtes_borrador?: number
   mensajes_preparados?: number
@@ -98,6 +105,16 @@ export function OverviewWorkspace({
         <Metric label="Pagos pendientes" value={count(dashboard?.pagos_pendientes)} tone="warning" />
         <Metric label="Pagos atrasados" value={count(dashboard?.pagos_atrasados)} tone="danger" />
         <Metric
+          label="Mov. sin clasificar"
+          value={count(dashboard?.movimientos_sin_clasificar)}
+          tone={dashboard?.movimientos_sin_clasificar ? 'warning' : 'positive'}
+        />
+        <Metric
+          label="Diferencias banco"
+          value={count(dashboard?.diferencias_banco_sistema)}
+          tone={dashboard?.diferencias_banco_sistema ? 'danger' : 'positive'}
+        />
+        <Metric
           label="Resoluciones abiertas"
           value={count(manualResolutionCount)}
           tone={manualResolutionCount ? 'warning' : 'positive'}
@@ -127,6 +144,16 @@ export function OverviewWorkspace({
             <div className="list-row"><span>Identidades de envío</span><strong>{count(dashboard?.identidades_total ?? counts.identidades)}</strong></div>
             <div className="list-row"><span>Mandatos</span><strong>{count(dashboard?.mandatos_total ?? counts.mandatos)}</strong></div>
             <div className="list-row"><span>Mensajes preparados</span><strong>{count(dashboard?.mensajes_preparados)}</strong></div>
+          </div>
+        </section>
+        <section className="panel">
+          <div className="section-heading"><div><h2>Bloqueadores operativos</h2><p>Alertas PRD para priorizar cierre y continuidad.</p></div></div>
+          <div className="list-stack">
+            <div className="list-row"><span>Contratos por vencer</span><strong>{count(dashboard?.contratos_por_vencer)}</strong></div>
+            <div className="list-row"><span>Avisos de término</span><strong>{count(dashboard?.avisos_termino_registrados)}</strong></div>
+            <div className="list-row"><span>Garantías incompletas</span><strong>{count(dashboard?.garantias_incompletas)}</strong></div>
+            <div className="list-row"><span>Fallas de integración</span><strong>{count(dashboard?.fallas_integracion)}</strong></div>
+            <div className="list-row"><span>Cierres bloqueados</span><strong>{count(dashboard?.cierres_bloqueados)}</strong></div>
           </div>
         </section>
         <section className="panel">
