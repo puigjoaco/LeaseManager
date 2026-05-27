@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Contratos. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | El admin Django de ciclo contractual (`Contrato`, `PeriodoContractual`, `AvisoTermino`) puede exponer refs/motivos contractuales crudos en formularios por defecto. |
-| Motivo de prioridad | Etapa 1 exige refs contractuales no sensibles y exposicion backoffice controlada; las API/snapshots ya redactan, falta cerrar superficie admin local. |
-| Worktree | `D:/Proyectos/LeaseManager-contract-admin-redaction`. |
-| Rama | `codex/contract-admin-redaction`. |
-| Estado | Paquete abierto. |
-| Gate esperado | Etapa 1 local diagnostica/no evidencial, sin declarar cierre de etapa. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | PR #385 cerrado: admin Django de Contratos redacta refs/motivos contractuales de ciclo contractual. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Sin paquete abierto. |
+| Gate esperado | N/A. |
+| Estado al cerrar paquete | PR #385 mergeado en `main` con merge commit `74204cf`; CI remoto `acceptance` OK; evidencia, stage card y trazabilidad actualizadas. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Redactar refs/motivos contractuales en admin, cubrir con prueba focal, validar impacto y cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Diagnosticar `main` y abrir un worktree tactico solo para el siguiente paquete concreto. |
 
 ## Actualizacion
 
