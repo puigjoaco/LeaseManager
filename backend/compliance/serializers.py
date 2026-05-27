@@ -118,3 +118,14 @@ class ExportacionPrepareSerializer(serializers.Serializer):
         if errors:
             raise serializers.ValidationError(errors)
         return attrs
+
+
+class ExportacionRevokeSerializer(serializers.Serializer):
+    motivo = serializers.CharField(max_length=500, trim_whitespace=True)
+
+    def validate_motivo(self, value):
+        if contains_sensitive_reference(value, include_sensitive_keys=True):
+            raise serializers.ValidationError(
+                'El motivo de revocacion no puede contener URLs, correos, tokens, bearer, claves ni credenciales.'
+            )
+        return value
