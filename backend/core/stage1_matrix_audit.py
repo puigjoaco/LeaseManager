@@ -603,6 +603,62 @@ def _audit_designated_community_representation_evidence(issues: list[dict[str, A
             )
 
 
+def _metadata_str(value: Any) -> str:
+    return '' if value is None else str(value).strip()
+
+
+def _metadata_id_matches(value: Any, expected: int | None) -> bool:
+    return bool(expected is not None and _metadata_str(value) == str(expected))
+
+
+def _metadata_decimal_matches(value: Any, expected: Decimal) -> bool:
+    try:
+        return Decimal(str(value)) == expected
+    except Exception:
+        return False
+
+
+def _metadata_ids_match(values: Any, expected_ids: set[int]) -> bool:
+    if not isinstance(values, list):
+        return False
+    return {str(value) for value in values} == {str(value) for value in expected_ids}
+
+
+def _participation_transfer_event_is_aligned(
+    event: AuditEvent,
+    *,
+    participation: ParticipacionPatrimonial,
+    successors: list[ParticipacionPatrimonial],
+    effective_date: date,
+) -> bool:
+    metadata = event.metadata if isinstance(event.metadata, dict) else {}
+    owner_tipo = 'empresa' if participation.empresa_owner_id else 'comunidad'
+    owner_id = participation.empresa_owner_id or participation.comunidad_owner_id
+    successor_ids = {item.pk for item in successors}
+    transferred_percentage = sum((item.porcentaje for item in successors), Decimal('0.00'))
+    reason = _metadata_str(metadata.get('reason'))
+    evidence_ref = _metadata_str(metadata.get('evidence_ref'))
+
+    return all(
+        (
+            event.actor_user_id is not None,
+            event.entity_type == 'participacion_patrimonial',
+            event.entity_id == str(participation.pk),
+            metadata.get('owner_tipo') == owner_tipo,
+            _metadata_id_matches(metadata.get('owner_id'), owner_id),
+            _metadata_id_matches(metadata.get('origin_participation_id'), participation.pk),
+            metadata.get('origin_participant_type') == participation.participante_tipo,
+            _metadata_id_matches(metadata.get('origin_participant_id'), participation.participante_id),
+            metadata.get('effective_date') == effective_date.isoformat(),
+            bool(reason),
+            bool(evidence_ref) and is_non_sensitive_reference(evidence_ref),
+            _metadata_ids_match(metadata.get('target_participation_ids'), successor_ids),
+            _metadata_id_matches(metadata.get('target_count'), len(successors)),
+            _metadata_decimal_matches(metadata.get('transferred_percentage'), transferred_percentage),
+        )
+    )
+
+
 def _audit_participation_transfers(issues: list[dict[str, Any]]) -> None:
     ended_participations = ParticipacionPatrimonial.objects.filter(
         activo=True,
@@ -623,14 +679,21 @@ def _audit_participation_transfers(issues: list[dict[str, Any]]) -> None:
             successor_filter['empresa_owner_id'] = participation.empresa_owner_id
         else:
             successor_filter['comunidad_owner_id'] = participation.comunidad_owner_id
-        has_successors = ParticipacionPatrimonial.objects.filter(**successor_filter).exclude(pk=participation.pk).exists()
-        if not has_successors:
+        successors = list(
+            ParticipacionPatrimonial.objects.filter(**successor_filter).exclude(pk=participation.pk).order_by('id')
+        )
+        if not successors:
             continue
-        has_audit = AuditEvent.objects.filter(
-            event_type=PARTICIPATION_TRANSFER_EVENT_TYPE,
-            metadata__origin_participation_id=participation.pk,
-        ).exists()
-        if not has_audit:
+        audit_events = list(
+            AuditEvent.objects.filter(event_type=PARTICIPATION_TRANSFER_EVENT_TYPE)
+            .filter(
+                Q(entity_id=str(participation.pk))
+                | Q(metadata__origin_participation_id=participation.pk)
+                | Q(metadata__origin_participation_id=str(participation.pk))
+            )
+            .order_by('-created_at')
+        )
+        if not audit_events:
             _issue(
                 issues,
                 code='stage1.participacion.transferencia_sin_auditoria',
@@ -639,6 +702,26 @@ def _audit_participation_transfers(issues: list[dict[str, Any]]) -> None:
                 message=(
                     'Participacion patrimonial terminada con sucesor inmediato sin evento auditado de '
                     'transferencia/reemplazo; debe usar el flujo guiado para conservar trazabilidad.'
+                ),
+            )
+            continue
+        if not any(
+            _participation_transfer_event_is_aligned(
+                event,
+                participation=participation,
+                successors=successors,
+                effective_date=next_effective_date,
+            )
+            for event in audit_events
+        ):
+            _issue(
+                issues,
+                code='stage1.participacion.transferencia_auditoria_desalineada',
+                entity='ParticipacionPatrimonial',
+                entity_id=participation.pk,
+                message=(
+                    'Participacion patrimonial terminada con evento de transferencia incompleto o desalineado; '
+                    'la auditoria debe conservar actor, owner, fecha efectiva, destinos, porcentaje, motivo y evidencia no sensible.'
                 ),
             )
 
