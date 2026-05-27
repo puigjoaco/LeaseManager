@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | PlataformaBase / Core admin redaction. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `backend/core/admin.py` registra modelos base con admin generico, exponiendo valores, metadata y refs runtime heredadas por fuera de vistas redactadas. |
-| Motivo de prioridad | Cierra superficie transversal de PlataformaBase antes de seguir con dominios dependientes. |
-| Worktree | `D:/Proyectos/LeaseManager-core-admin-redaction`. |
-| Rama | `codex/core-admin-redaction`. |
-| Estado | Implementado y validado localmente; pendiente commit, PR, CI, merge y limpieza. |
-| Gate esperado | Tests focales de core admin, suite impactada de Core, `manage.py check`, migraciones dry-run, frontend build/lint, acceptance local, higiene. |
-| Estado al cerrar paquete | Pendiente de merge. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete previo cerrado: PR #403 `Redact core admin surfaces`, merge `3540699`. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Main sincronizado tras PR #403; pendiente seleccionar el siguiente frente seguro por trazabilidad. |
+| Gate esperado | N/A hasta abrir el proximo paquete. |
+| Estado al cerrar paquete | PR #403 integrado con CI acceptance verde; worktree tactico removido. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza antes de abrir otro paquete. |
-| Siguiente accion | Commit, PR, CI, merge y limpieza del worktree tactico. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
+| Siguiente accion | Diagnosticar el estado real y seleccionar el siguiente paquete pequeno, verificable y no dependiente de fuentes externas no autorizadas. |
 
 ## Actualizacion
 
