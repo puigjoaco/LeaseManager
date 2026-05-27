@@ -301,6 +301,12 @@ origen, fecha efectiva, destinos, porcentaje transferido, motivo y evidencia no
 sensible; reporta `stage1.participacion.transferencia_auditoria_desalineada`
 cuando un snapshot conserva auditoria incompleta, reciclada o sensible.
 
+Nota 2026-05-26: Patrimonio cierra la ruta de reescritura directa de
+participaciones en empresas/comunidades existentes. Los serializers rechazan
+`participaciones` en updates genericos para no borrar/recrear historia con
+`bulk_create`; la creacion inicial sigue permitida y los cambios posteriores
+deben pasar por `participaciones/transferir/`, que conserva auditoria.
+
 Nota 2026-05-25: Conciliacion bloquea snapshots heredados donde un abono
 parcial o complementario queda `conciliado_exacto` contra un `PagoMensual` sin
 resolucion manual auditada. Los pagos parciales o en varios abonos siguen

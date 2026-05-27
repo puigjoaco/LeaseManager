@@ -55,7 +55,9 @@ contra datos reales o snapshot controlado.
   dedicada con actor, owner, fecha efectiva, destinos, porcentaje, motivo y
   evidencia no sensible. El auditor Etapa 1 bloquea sucesiones heredadas con
   sucesor inmediato sin evento auditable o con auditoria incompleta,
-  desalineada o sensible.
+  desalineada o sensible. Las empresas y comunidades existentes no aceptan
+  reescritura directa de `participaciones` por update generico; cualquier
+  cambio de ownership debe usar el flujo auditado.
 - Validacion de transiciones de estado patrimonial: socios, empresas y
   comunidades no pueden desactivarse si sostienen propiedades,
   representaciones o participaciones activas vigentes.

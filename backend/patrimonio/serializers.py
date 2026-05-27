@@ -245,6 +245,17 @@ class OwnerBaseSerializer(serializers.ModelSerializer):
 
     owner_label = ''
 
+    def _reject_direct_participation_rewrite(self):
+        if self.instance and 'participaciones' in getattr(self, 'initial_data', {}):
+            raise serializers.ValidationError(
+                {
+                    'participaciones': (
+                        'Las participaciones de un owner existente no se reescriben por update generico; '
+                        'use el flujo auditado participaciones/transferir/.'
+                    )
+                }
+            )
+
     def get_participaciones_detail(self, obj):
         return ParticipacionPatrimonialReadSerializer(
             obj.participaciones.all(),
@@ -393,6 +404,7 @@ class EmpresaSerializer(OwnerBaseSerializer):
         return normalized
 
     def validate(self, attrs):
+        self._reject_direct_participation_rewrite()
         participaciones = self._get_participaciones_payload(attrs)
         self._validate_no_duplicate_participantes(participaciones)
         self._validate_allowed_participants(Empresa, participaciones)
@@ -461,6 +473,7 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
         return RepresentacionComunidadReadSerializer(representacion).data
 
     def validate(self, attrs):
+        self._reject_direct_participation_rewrite()
         participaciones = self._get_participaciones_payload(attrs)
         self._validate_no_duplicate_participantes(participaciones)
         self._validate_allowed_participants(ComunidadPatrimonial, participaciones)

@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | Patrimonio, bloqueo de reescritura directa de participaciones. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | PR #365 cerrado; el siguiente frente debe seleccionarse desde el estado real del repo y la trazabilidad vigente. |
-| Worktree | Ninguno. |
-| Rama | `main`. |
-| Estado | Paquete anterior cerrado y worktree tactico eliminado. |
-| Gate esperado | No aplica hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | PR #365 mergeado en `main` con merge commit `8af4cac`; CI acceptance remoto OK; evidencia/trazabilidad actualizadas. |
+| Brecha activa | Empresas/comunidades existentes pueden recibir `participaciones` por update generico; el serializer borra y recrea filas, saltando el flujo auditado de transferencia patrimonial. |
+| Motivo de prioridad | Frente temprano del orden de construccion; protege historia patrimonial y evita perder evidencia sin datos reales ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-owner-participation-rewrite-guard`. |
+| Rama | `codex/stage1-owner-participation-rewrite-guard`. |
+| Estado | En desarrollo. |
+| Gate esperado | Focal Patrimonio, suite Patrimonio + auditor Etapa 1, `manage.py check`, migraciones dry-run, gate Etapa 1 local, frontend build/lint, acceptance, higiene y diff-check. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Ningun bloqueo externo nuevo; Etapa 1 no queda cerrada sin fuente autorizada/snapshot controlado. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Diagnosticar `main`, revisar trazabilidad vigente y abrir el siguiente worktree `codex/...` solo para el proximo paquete concreto. |
+| Siguiente accion | Bloquear updates genericos de participaciones en owners existentes, mantener create inicial y flujo `participaciones/transferir/`, validar y cerrar PR. |
 
 ## Actualizacion
 
