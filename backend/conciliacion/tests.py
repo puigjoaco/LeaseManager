@@ -497,6 +497,29 @@ class ConciliacionAPITests(APITestCase):
         self.assertIn('evidencia_cuadratura_ref', response.data)
         self.assertFalse(CuadraturaBancaria.objects.filter(cuenta_recaudadora=cuenta).exists())
 
+    def test_balance_square_rejects_sensitive_rationale(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BALANCE-RATIONALE')
+
+        response = self.client.post(
+            reverse('conciliacion-cuadratura-list'),
+            {
+                'cuenta_recaudadora': cuenta.pk,
+                'periodo_economico': '2026-01',
+                'fecha_cuadratura': '2026-01-31',
+                'saldo_sistema_clp': '1000000.00',
+                'saldo_banco_clp': '999990.00',
+                'estado': 'diferencia_explicada',
+                'evidencia_cuadratura_ref': 'balance-square-controlled-2026-01',
+                'responsable_ref': 'stage3-balance-owner',
+                'rationale': 'Diferencia revisada en https://bank.example.test/balance?token=secret',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('rationale', response.data)
+        self.assertFalse(CuadraturaBancaria.objects.filter(cuenta_recaudadora=cuenta).exists())
+
     def test_active_bank_connection_requires_readiness_references(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BANK-GATE')
 
@@ -592,6 +615,7 @@ class ConciliacionAPITests(APITestCase):
             estado='cuadrada',
             evidencia_cuadratura_ref='https://bank.example.test/balance?token=secret',
             responsable_ref='stage3-balance-owner',
+            rationale='Cuadratura revisada en https://bank.example.test/balance?token=secret',
         )
 
         response = self.client.get(reverse('conciliacion-snapshot'))
@@ -600,8 +624,34 @@ class ConciliacionAPITests(APITestCase):
         rendered = json.dumps(response.data, default=str)
         self.assertEqual(
             response.data['cuadraturas_bancarias'][0]['evidencia_cuadratura_ref'],
-            '<redacted-sensitive-reference>',
+            REDACTED_SENSITIVE_REFERENCE,
         )
+        self.assertEqual(
+            response.data['cuadraturas_bancarias'][0]['rationale'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertNotIn('bank.example.test', rendered)
+        self.assertNotIn('secret', rendered)
+
+    def test_balance_square_list_redacts_existing_sensitive_rationale(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-LIST-BALANCE-REDACT')
+        CuadraturaBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            periodo_economico='2026-01',
+            fecha_cuadratura='2026-01-31',
+            saldo_sistema_clp='1000000.00',
+            saldo_banco_clp='1000000.00',
+            estado='cuadrada',
+            evidencia_cuadratura_ref='balance-square-controlled-2026-01',
+            responsable_ref='stage3-balance-owner',
+            rationale='Cuadratura revisada en https://bank.example.test/balance?token=secret',
+        )
+
+        response = self.client.get(reverse('conciliacion-cuadratura-list'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rendered = json.dumps(response.data, default=str)
+        self.assertEqual(response.data[0]['rationale'], REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('bank.example.test', rendered)
         self.assertNotIn('secret', rendered)
 
@@ -1374,6 +1424,118 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movimiento_destino.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
         self.assertEqual(resolution.status, 'open')
         self.assertFalse(TransferenciaIntercuenta.objects.exists())
+
+    def test_manual_resolution_internal_transfer_rejects_sensitive_context(self):
+        cuenta_origen, _, _ = self._create_contract_and_payment(codigo='REC-TRANSFER-CONTEXT-SENSITIVE')
+        cuenta_destino = self._create_secondary_account('REC-TRANSFER-CONTEXT-SENSITIVE')
+        conexion_origen = self._create_connection(cuenta_origen, provider='banco_origen_context_sensitive')
+        conexion_destino = self._create_connection(cuenta_destino, provider='banco_destino_context_sensitive')
+        create_debit = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion_origen,
+                fecha_movimiento='2026-01-10',
+                tipo_movimiento='cargo',
+                monto='50000.00',
+                descripcion_origen='Transferencia enviada con contexto sensible',
+            ),
+            format='json',
+        )
+        create_credit = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion_destino,
+                fecha_movimiento='2026-01-10',
+                tipo_movimiento='abono',
+                monto='50000.00',
+                descripcion_origen='Transferencia recibida con contexto sensible',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_debit.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_credit.status_code, status.HTTP_201_CREATED)
+        movimiento_origen = MovimientoBancarioImportado.objects.get(pk=create_debit.data['id'])
+        movimiento_destino = MovimientoBancarioImportado.objects.get(pk=create_credit.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.movimiento_cargo',
+            scope_reference=str(movimiento_origen.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-internal-transfer', args=[resolution.pk]),
+            self._internal_transfer_payload(
+                movimiento_destino,
+                criterio_conciliacion='Criterio en https://bank.example.test/transfer?token=secret',
+                rationale='Motivo enviado por ops@example.test con token bancario.',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('criterio_conciliacion', resolve.data)
+        self.assertIn('rationale', resolve.data)
+        movimiento_origen.refresh_from_db()
+        movimiento_destino.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento_origen.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
+        self.assertEqual(movimiento_destino.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        self.assertEqual(resolution.status, 'open')
+        self.assertFalse(TransferenciaIntercuenta.objects.exists())
+
+    def test_internal_transfer_list_and_snapshot_redact_existing_sensitive_context(self):
+        cuenta_origen, _, _ = self._create_contract_and_payment(codigo='REC-TRANSFER-REDACT')
+        cuenta_destino = self._create_secondary_account('REC-TRANSFER-REDACT')
+        conexion_origen = self._create_connection(cuenta_origen, provider='banco_origen_redact')
+        conexion_destino = self._create_connection(cuenta_destino, provider='banco_destino_redact')
+        movimiento_origen = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion_origen,
+            fecha_movimiento='2026-01-10',
+            tipo_movimiento='cargo',
+            monto=Decimal('50000.00'),
+            descripcion_origen='Transferencia enviada heredada',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='internal-transfer-origin',
+            estado_conciliacion=EstadoConciliacionMovimiento.MANUAL_REQUIRED,
+        )
+        movimiento_destino = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion_destino,
+            fecha_movimiento='2026-01-10',
+            tipo_movimiento='abono',
+            monto=Decimal('50000.00'),
+            descripcion_origen='Transferencia recibida heredada',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='internal-transfer-destination',
+            estado_conciliacion=EstadoConciliacionMovimiento.PENDING,
+        )
+        transferencia = TransferenciaIntercuenta.objects.create(
+            movimiento_origen=movimiento_origen,
+            movimiento_destino=movimiento_destino,
+            periodo_economico='2026-01',
+            criterio_conciliacion='Criterio en https://bank.example.test/transfer?token=secret',
+            evidencia_transferencia_ref='internal-transfer-controlled-2026-01',
+            responsable_ref='stage3-transfer-owner',
+            rationale='Motivo en https://bank.example.test/transfer?token=secret',
+        )
+
+        list_response = self.client.get(reverse('conciliacion-transferencia-list'))
+        snapshot_response = self.client.get(reverse('conciliacion-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        rendered = json.dumps({'list': list_response.data, 'snapshot': snapshot_response.data}, default=str)
+        self.assertEqual(list_response.data[0]['id'], transferencia.pk)
+        self.assertEqual(list_response.data[0]['criterio_conciliacion'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(list_response.data[0]['rationale'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            snapshot_response.data['transferencias_intercuenta'][0]['criterio_conciliacion'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            snapshot_response.data['transferencias_intercuenta'][0]['rationale'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertNotIn('bank.example.test', rendered)
+        self.assertNotIn('secret', rendered)
 
     def test_retry_match_rejects_already_reconciled_movement(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-LOCKED', amount='100111.00')

@@ -62,19 +62,22 @@ sistema igual a saldo banco.
   evidencia sensible.
 - Transferencias internas/intercuenta se registran como par cargo/abono en
   `TransferenciaIntercuenta`, con cuenta origen/destino, owner origen/destino,
-  periodo economico canonico `YYYY-MM`, criterio de conciliacion, evidencia no
-  sensible, responsable y motivo auditable; la API y el servicio no permiten
+  periodo economico canonico `YYYY-MM`, criterio de conciliacion no sensible,
+  evidencia no sensible, responsable y motivo auditable no sensible; la API y
+  el servicio no permiten
   resolver una transferencia si los movimientos no son de cuentas distintas,
   no tienen monto opuesto equivalente o conservan targets de pago/codigo
-  residual, y la readiness bloquea pares heredados invalidos o refs sensibles.
+  residual, y la readiness bloquea pares heredados invalidos, con criterio o
+  motivo sensible, o refs sensibles.
 - Resoluciones manuales abiertas que quedan obsoletas por match exacto o por
   otra resolucion manual no se marcan como resueltas manualmente: se cierran
   como `superseded` con motivo, metadata de origen/target y evento de
   auditoria alineado; la readiness bloquea supersesiones sin metadata, motivo
   o evento suficiente.
 - Las respuestas API y snapshot de Conciliacion redactan refs bancarias
-  sensibles ya persistidas, incluida `referencia` de movimientos, antes de
-  exponerlas al backoffice.
+  sensibles ya persistidas, incluida `referencia` de movimientos,
+  `rationale` de cuadraturas y criterio/motivo de transferencias intercuenta,
+  antes de exponerlas al backoffice.
 - El admin Django de Conciliacion no expone ni busca refs bancarias crudas de
   conexiones, movimientos, cuadraturas ni transferencias intercuenta; solo
   muestra versiones redactadas y mantiene cerrada el alta manual de esas
@@ -96,12 +99,12 @@ sistema igual a saldo banco.
 - La cuadratura sistema/banco se registra por cuenta recaudadora y periodo en
   `CuadraturaBancaria`, con saldo sistema, saldo banco, diferencia calculada,
   fecha de cuadratura alineada al periodo economico, evidencia no sensible y
-  responsable no sensible.
+  responsable no sensible; cualquier motivo registrado debe ser no sensible.
 - Las diferencias banco/sistema quedan registradas con motivo auditable, pero
   no habilitan cierre: readiness bloquea cuadraturas faltantes por
-  cuenta/periodo con movimientos, invalidas, con referencias sensibles, con
-  periodo/fecha desalineados, con diferencia distinta de cero o sin estado
-  `cuadrada`.
+  cuenta/periodo con movimientos, invalidas, con referencias o motivos
+  sensibles, con periodo/fecha desalineados, con diferencia distinta de cero o
+  sin estado `cuadrada`.
 - Saldo sistema igual a saldo banco antes de habilitar cierre.
 
 ## Salida

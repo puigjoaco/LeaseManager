@@ -39,8 +39,13 @@ CONNECTION_REFERENCE_FIELDS = (
     'prueba_saldos_ref',
 )
 MOVEMENT_REFERENCE_FIELDS = ('evidencia_importacion_ref', 'referencia', 'transaction_id_banco')
-BALANCE_SQUARE_REFERENCE_FIELDS = ('evidencia_cuadratura_ref', 'responsable_ref')
-TRANSFER_REFERENCE_FIELDS = ('evidencia_transferencia_ref', 'responsable_ref')
+BALANCE_SQUARE_REFERENCE_FIELDS = ('evidencia_cuadratura_ref', 'responsable_ref', 'rationale')
+TRANSFER_REFERENCE_FIELDS = (
+    'criterio_conciliacion',
+    'evidencia_transferencia_ref',
+    'responsable_ref',
+    'rationale',
+)
 STAGE3_MANUAL_RESOLUTION_CATEGORIES = (
     'conciliacion.ingreso_desconocido',
     'conciliacion.movimiento_cargo',

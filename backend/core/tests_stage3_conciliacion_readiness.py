@@ -535,6 +535,52 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.manual_resolution.internal_transfer_evidence_sensitive', issue_codes)
         self.assertEqual(result['sections']['internal_transfers']['sensitive_reference'], 1)
 
+    def test_internal_transfer_sensitive_context_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER-CONTEXT-SENSITIVE')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        self._create_square_balance(cuenta)
+        transfer, movimiento_origen, movimiento_destino = self._create_internal_transfer_pair(
+            cuenta,
+            conexion,
+            suffix='CTX-SENSITIVE',
+        )
+        TransferenciaIntercuenta.objects.filter(pk=transfer.pk).update(
+            criterio_conciliacion='Criterio en https://bank.example.test/transfer?token=secret',
+            rationale='Motivo en https://bank.example.test/transfer?token=secret',
+        )
+        transfer.refresh_from_db()
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento_origen.pk),
+            summary='Transferencia interna con contexto sensible',
+            rationale='Transferencia interna registrada con metadata controlada.',
+            metadata={
+                'categoria_movimiento': 'transferencia_interna',
+                'resolved_with': 'internal_transfer',
+                'transferencia_intercuenta_id': transfer.pk,
+                'movimiento_origen_id': movimiento_origen.pk,
+                'movimiento_destino_id': movimiento_destino.pk,
+                'entidad_origen_tipo': transfer.entidad_origen_tipo,
+                'entidad_origen_id': transfer.entidad_origen_id,
+                'entidad_destino_tipo': transfer.entidad_destino_tipo,
+                'entidad_destino_id': transfer.entidad_destino_id,
+                'periodo_economico': '2026-01',
+                'criterio_conciliacion': 'Par cargo/abono exacto entre cuentas recaudadoras.',
+                'evidencia_transferencia_ref': 'internal-transfer-controlled-2026-01',
+                'responsable_ref': 'stage3-transfer-owner',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.internal_transfer.sensitive_reference', issue_codes)
+        self.assertEqual(result['sections']['internal_transfers']['sensitive_reference'], 1)
+
     def test_resolved_internal_transfer_without_context_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER-CONTEXT')
         conexion = self._create_ready_connection(cuenta)
@@ -750,6 +796,29 @@ class Stage3ConciliacionReadinessTests(TestCase):
             estado=EstadoCuadraturaBancaria.SQUARED,
             evidencia_cuadratura_ref='https://bank.example.test/balance?token=secret',
             responsable_ref='stage3-balance-owner',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.balance_square.sensitive_reference', issue_codes)
+        self.assertEqual(result['sections']['balance_squares']['sensitive_reference'], 1)
+
+    def test_balance_square_sensitive_rationale_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-BALANCE-RATIONALE')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        CuadraturaBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            periodo_economico='2026-01',
+            fecha_cuadratura=date(2026, 1, 31),
+            saldo_sistema_clp=Decimal('1000000.00'),
+            saldo_banco_clp=Decimal('1000000.00'),
+            estado=EstadoCuadraturaBancaria.SQUARED,
+            evidencia_cuadratura_ref='balance-square-stage3',
+            responsable_ref='stage3-balance-owner',
+            rationale='Cuadratura revisada en https://bank.example.test/balance?token=secret',
         )
 
         result = self._collect_with_final_refs()
