@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: CobranzaActiva cierra superficie admin para referencias y
+payloads sensibles heredados. Los admins de UF manual, pagos mensuales, gates
+WebPay, intentos WebPay, garantias y repactaciones reemplazan refs, motivos y
+payloads crudos por vistas redactadas, eliminan busquedas por campos sensibles
+y mantienen el alta manual cerrada desde backoffice.
+
 Nota 2026-05-27: Patrimonio bloquea la inactivacion de empresas y comunidades
 que aun conservan participaciones o representaciones propias activas vigentes.
 La salida operativa exige transferir o cerrar esa estructura antes de marcar el

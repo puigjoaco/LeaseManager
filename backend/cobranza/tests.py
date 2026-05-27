@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection
@@ -46,6 +47,14 @@ from .models import (
     RepactacionDeuda,
     ValorUFDiario,
     WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
+)
+from .admin import (
+    GateCobroExternoAdmin,
+    GarantiaContractualAdmin,
+    IntentoPagoWebPayAdmin,
+    PagoMensualAdmin,
+    RepactacionDeudaAdmin,
+    ValorUFDiarioAdmin,
 )
 from .services import (
     confirm_webpay_intent_manually,
@@ -194,6 +203,134 @@ class CobranzaAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         return PagoMensual.objects.get(pk=response.data['id'])
+
+    def test_cobranza_admin_redacts_sensitive_refs(self):
+        payment = self._generate_monthly_payment(codigo='CON-ADM-COB')
+        PagoMensual.objects.filter(pk=payment.pk).update(
+            estado_pago=EstadoPago.FORGIVEN,
+            resolucion_pago_excepcional_ref='https://billing.example.test/payment?token=secret',
+            resolucion_pago_excepcional_motivo='Resolucion en https://billing.example.test/payment?token=secret',
+        )
+        payment.refresh_from_db()
+        uf_value = ValorUFDiario.objects.create(
+            fecha=date(2026, 1, 1),
+            valor=Decimal('35000.0000'),
+            source_key='UF.CargaManualExtraordinaria',
+            evidencia_ref='https://billing.example.test/uf?token=secret',
+            motivo_carga='Carga desde https://billing.example.test/uf?token=secret',
+            responsable_ref='mailto:ops@example.test',
+        )
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='https://billing.example.test/gate?token=secret',
+            restricciones_operativas={
+                'api_key': 'secret-value',
+                'safe_ref': 'webpay-controlled-ref',
+            },
+        )
+        intent = IntentoPagoWebPay.objects.create(
+            pago_mensual=payment,
+            gate_cobro=gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=Decimal('100000.00'),
+            buy_order='BO-ADMIN-COB',
+            session_id='SESSION-ADMIN-COB',
+            return_url_ref='https://billing.example.test/return?token=secret',
+            estado=EstadoIntentoPagoWebPay.CONFIRMED_MANUAL,
+            motivo_bloqueo='Bloqueo en https://billing.example.test/block?token=secret',
+            external_ref='https://billing.example.test/external?token=secret',
+            fecha_pago_webpay=date(2026, 1, 6),
+            provider_payload={
+                'access_token': 'secret-value',
+                'callback': 'https://billing.example.test/callback?token=secret',
+                'result_ref': 'webpay-controlled-result',
+            },
+        )
+        guarantee = GarantiaContractual.objects.create(
+            contrato=payment.contrato,
+            monto_pactado=Decimal('100000.00'),
+            monto_recibido=Decimal('50000.00'),
+            monto_devuelto=Decimal('0.00'),
+            monto_aplicado=Decimal('0.00'),
+            estado_garantia=EstadoGarantia.HELD,
+            fecha_recepcion=date(2026, 1, 1),
+            aceptacion_parcial_ref='https://billing.example.test/guarantee?token=secret',
+            resolucion_exceso_garantia='clasificar',
+            resolucion_exceso_garantia_ref='https://billing.example.test/excess?token=secret',
+            resolucion_exceso_garantia_motivo='Exceso en https://billing.example.test/excess?token=secret',
+        )
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=payment.contrato.arrendatario,
+            contrato_origen=payment.contrato,
+            deuda_total_original=Decimal('50000.00'),
+            cantidad_cuotas=4,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('40000.00'),
+            estado='activa',
+            excepcion_parcial_ref='https://billing.example.test/repayment?token=secret',
+            excepcion_parcial_motivo='Excepcion en https://billing.example.test/repayment?token=secret',
+        )
+
+        site = AdminSite()
+        uf_admin = ValorUFDiarioAdmin(ValorUFDiario, site)
+        payment_admin = PagoMensualAdmin(PagoMensual, site)
+        gate_admin = GateCobroExternoAdmin(GateCobroExterno, site)
+        intent_admin = IntentoPagoWebPayAdmin(IntentoPagoWebPay, site)
+        guarantee_admin = GarantiaContractualAdmin(GarantiaContractual, site)
+        repayment_admin = RepactacionDeudaAdmin(RepactacionDeuda, site)
+
+        self.assertNotIn('evidencia_ref', uf_admin.fields)
+        self.assertNotIn('responsable_ref', uf_admin.search_fields)
+        self.assertEqual(uf_admin.evidencia_ref_redacted(uf_value), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(uf_admin.motivo_carga_redacted(uf_value), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(uf_admin.responsable_ref_redacted(uf_value), REDACTED_SENSITIVE_REFERENCE)
+
+        self.assertNotIn('resolucion_pago_excepcional_ref', payment_admin.fields)
+        self.assertEqual(
+            payment_admin.resolucion_pago_excepcional_ref_redacted(payment),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            payment_admin.resolucion_pago_excepcional_motivo_redacted(payment),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+
+        self.assertNotIn('evidencia_ref', gate_admin.fields)
+        self.assertNotIn('restricciones_operativas', gate_admin.fields)
+        self.assertNotIn('evidencia_ref', gate_admin.search_fields)
+        self.assertEqual(gate_admin.evidencia_ref_redacted(gate), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            gate_admin.restricciones_operativas_redacted(gate)['api_key'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(gate_admin.restricciones_operativas_redacted(gate)['safe_ref'], 'webpay-controlled-ref')
+
+        self.assertNotIn('external_ref', intent_admin.fields)
+        self.assertNotIn('external_ref', intent_admin.search_fields)
+        self.assertEqual(intent_admin.return_url_ref_redacted(intent), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(intent_admin.motivo_bloqueo_redacted(intent), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(intent_admin.external_ref_redacted(intent), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(intent_admin.provider_payload_redacted(intent)['access_token'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(intent_admin.provider_payload_redacted(intent)['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(intent_admin.provider_payload_redacted(intent)['result_ref'], 'webpay-controlled-result')
+
+        self.assertNotIn('aceptacion_parcial_ref', guarantee_admin.fields)
+        self.assertEqual(guarantee_admin.aceptacion_parcial_ref_redacted(guarantee), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            guarantee_admin.resolucion_exceso_garantia_ref_redacted(guarantee),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            guarantee_admin.resolucion_exceso_garantia_motivo_redacted(guarantee),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+
+        self.assertNotIn('excepcion_parcial_ref', repayment_admin.fields)
+        self.assertEqual(repayment_admin.excepcion_parcial_ref_redacted(repayment), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(repayment_admin.excepcion_parcial_motivo_redacted(repayment), REDACTED_SENSITIVE_REFERENCE)
+        for admin_instance in (uf_admin, payment_admin, gate_admin, intent_admin, guarantee_admin, repayment_admin):
+            self.assertFalse(admin_instance.has_add_permission(None))
 
     def test_refresh_mora_marks_pending_payment_overdue_and_updates_account_state(self):
         payment = self._generate_monthly_payment(codigo='CON-MORA-REFRESH')
