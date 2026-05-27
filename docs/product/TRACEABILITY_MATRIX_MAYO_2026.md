@@ -257,6 +257,13 @@ evidencia, firmas, recepcion y comprobante notarial; readiness reporta
 `documents.formalization_audit_unaligned` cuando un snapshot conserva evento
 sin actor o metadata desalineada.
 
+Nota 2026-05-26: Documentos alinea tambien la auditoria de versiones
+correctivas. El evento `documentos.documento_emitido.corrective_version_created`
+conserva actor y metadata de origen, expediente, tipo, version, checksum,
+`storage_ref` y `correccion_ref`; readiness reporta
+`documents.corrective_version_audit_unaligned` para snapshots heredados con
+evento incompleto o desalineado.
+
 Nota 2026-05-26: Documentos separa en readiness las brechas notariales
 heredadas. `audit_document_readiness` reporta documentos formalizados con
 politica notarial sin recepcion, sin comprobante, con comprobante de tipo

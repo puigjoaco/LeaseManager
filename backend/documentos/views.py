@@ -8,6 +8,7 @@ from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
 from core.reference_validation import redact_sensitive_reference
 
+from .correction_audit import build_correction_audit_metadata
 from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE, build_formalization_audit_metadata
 from .scope import scope_documento_queryset, scope_expediente_queryset
 from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria
@@ -40,6 +41,7 @@ class AuditCreateUpdateMixin:
                 instance=instance,
                 action='corrective_version_created',
                 summary=f'Version correctiva de documento {instance.documento_origen_id}',
+                metadata=build_correction_audit_metadata(instance),
             )
         return instance
 
@@ -60,13 +62,14 @@ class AuditCreateUpdateMixin:
             return instance.estado
         return None
 
-    def _create_audit_event(self, *, instance, action, summary=''):
+    def _create_audit_event(self, *, instance, action, summary='', metadata=None):
         create_audit_event(
             event_type=f'documentos.{self.audit_entity_type}.{action}',
             entity_type=self.audit_entity_type,
             entity_id=str(instance.pk),
             summary=summary or f'{self.audit_entity_label} {action}',
             actor_user=self.request.user,
+            metadata=metadata,
             ip_address=self.request.META.get('REMOTE_ADDR'),
         )
 

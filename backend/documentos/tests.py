@@ -12,6 +12,7 @@ from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
+from .correction_audit import CORRECTION_AUDIT_EVENT_TYPE
 from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria
 from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
@@ -868,13 +869,19 @@ class DocumentosAPITests(APITestCase):
 
         self.assertEqual(correction['documento_origen'], documento['id'])
         self.assertEqual(correction['correccion_ref'], 'correction-ticket-doc-001')
-        self.assertTrue(
-            AuditEvent.objects.filter(
-                event_type='documentos.documento_emitido.corrective_version_created',
-                entity_type='documento_emitido',
-                entity_id=str(correction['id']),
-            ).exists()
+        event = AuditEvent.objects.get(
+            event_type=CORRECTION_AUDIT_EVENT_TYPE,
+            entity_type='documento_emitido',
+            entity_id=str(correction['id']),
         )
+        self.assertEqual(event.actor_user, self.user)
+        self.assertEqual(event.metadata['documento_origen_id'], str(documento['id']))
+        self.assertEqual(event.metadata['expediente_id'], str(expediente['id']))
+        self.assertEqual(event.metadata['tipo_documental'], 'contrato_principal')
+        self.assertEqual(event.metadata['version_plantilla'], 'v2')
+        self.assertEqual(event.metadata['checksum'], VALID_SHA256_ALT)
+        self.assertEqual(event.metadata['storage_ref'], 'storage/contracts/contrato-1-v2.pdf')
+        self.assertEqual(event.metadata['correccion_ref'], 'correction-ticket-doc-001')
         snapshot = self.client.get(reverse('documentos-snapshot'))
         self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
         correction_snapshot = next(
