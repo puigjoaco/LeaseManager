@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.utils.dateparse import parse_date
 
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from operacion.models import CuentaRecaudadora
 
 
@@ -78,6 +78,12 @@ def has_text(value):
 def _add_non_sensitive_reference_error(errors, instance, field_name, message):
     value = getattr(instance, field_name, '')
     if has_text(value) and not is_non_sensitive_reference(value):
+        errors[field_name] = message
+
+
+def _add_sensitive_text_error(errors, instance, field_name, message):
+    value = getattr(instance, field_name, '')
+    if has_text(value) and contains_sensitive_reference(value):
         errors[field_name] = message
 
 
@@ -521,6 +527,12 @@ class CuadraturaBancaria(TimestampedModel):
                 errors['estado'] = 'Una cuadratura con diferencia no puede quedar marcada como cuadrada.'
             if not has_text(self.rationale):
                 errors['rationale'] = 'Una diferencia banco/sistema requiere motivo o explicacion auditable.'
+        _add_sensitive_text_error(
+            errors,
+            self,
+            'rationale',
+            'rationale no puede contener URLs, tokens, correos ni credenciales bancarias.',
+        )
 
         if errors:
             raise ValidationError(errors)
@@ -604,6 +616,12 @@ class TransferenciaIntercuenta(TimestampedModel):
             errors['periodo_economico'] = 'periodo_economico debe usar formato YYYY-MM.'
         if not has_text(self.criterio_conciliacion):
             errors['criterio_conciliacion'] = 'La transferencia interna requiere criterio de conciliacion.'
+        _add_sensitive_text_error(
+            errors,
+            self,
+            'criterio_conciliacion',
+            'criterio_conciliacion no puede contener URLs, tokens, correos ni credenciales bancarias.',
+        )
         if not is_non_sensitive_reference(self.evidencia_transferencia_ref):
             errors['evidencia_transferencia_ref'] = (
                 'evidencia_transferencia_ref debe ser una referencia no sensible.'
@@ -612,6 +630,12 @@ class TransferenciaIntercuenta(TimestampedModel):
             errors['responsable_ref'] = 'responsable_ref debe ser una referencia no sensible.'
         if not has_text(self.rationale):
             errors['rationale'] = 'La transferencia interna requiere motivo auditable.'
+        _add_sensitive_text_error(
+            errors,
+            self,
+            'rationale',
+            'rationale no puede contener URLs, tokens, correos ni credenciales bancarias.',
+        )
 
         try:
             origin = self.movimiento_origen

@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from cobranza.models import PagoMensual
 from conciliacion.models import CategoriaMovimiento, MovimientoBancarioImportado
-from core.reference_validation import is_non_sensitive_reference, redact_sensitive_payload
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference, redact_sensitive_payload
 from core.scope_access import scope_queryset_for_user
 from patrimonio.models import Empresa, ModoRepresentacionComunidad, Socio
 from patrimonio.validators import validate_rut
@@ -329,7 +329,21 @@ class ResolveInternalTransferSerializer(serializers.Serializer):
             )
         return value
 
+    def validate_criterio_conciliacion(self, value):
+        if contains_sensitive_reference(value):
+            raise serializers.ValidationError(
+                'criterio_conciliacion no puede contener URLs, tokens, correos ni credenciales bancarias.'
+            )
+        return value
+
     def validate_responsable_ref(self, value):
         if not is_non_sensitive_reference(value):
             raise serializers.ValidationError('responsable_ref debe ser una referencia no sensible.')
+        return value
+
+    def validate_rationale(self, value):
+        if contains_sensitive_reference(value):
+            raise serializers.ValidationError(
+                'rationale no puede contener URLs, tokens, correos ni credenciales bancarias.'
+            )
         return value

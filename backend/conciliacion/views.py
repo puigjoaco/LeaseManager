@@ -176,7 +176,7 @@ class ConciliacionSnapshotView(APIView):
                         'estado': item.estado,
                         'evidencia_cuadratura_ref': redact_sensitive_reference(item.evidencia_cuadratura_ref),
                         'responsable_ref': redact_sensitive_reference(item.responsable_ref),
-                        'rationale': item.rationale,
+                        'rationale': redact_sensitive_reference(item.rationale),
                     }
                     for item in cuadraturas
                 ],
@@ -190,10 +190,10 @@ class ConciliacionSnapshotView(APIView):
                         'entidad_origen_id': item.entidad_origen_id,
                         'entidad_destino_tipo': item.entidad_destino_tipo,
                         'entidad_destino_id': item.entidad_destino_id,
-                        'criterio_conciliacion': item.criterio_conciliacion,
+                        'criterio_conciliacion': redact_sensitive_reference(item.criterio_conciliacion),
                         'evidencia_transferencia_ref': redact_sensitive_reference(item.evidencia_transferencia_ref),
                         'responsable_ref': redact_sensitive_reference(item.responsable_ref),
-                        'rationale': item.rationale,
+                        'rationale': redact_sensitive_reference(item.rationale),
                     }
                     for item in transferencias
                 ],

@@ -176,7 +176,7 @@ class IngresoDesconocidoSerializer(serializers.ModelSerializer):
 
 
 class CuadraturaBancariaSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('evidencia_cuadratura_ref', 'responsable_ref')
+    redacted_reference_fields = ('evidencia_cuadratura_ref', 'responsable_ref', 'rationale')
 
     class Meta:
         model = CuadraturaBancaria
@@ -216,7 +216,12 @@ class CuadraturaBancariaSerializer(RedactReferenceFieldsMixin, serializers.Model
 
 
 class TransferenciaIntercuentaSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('evidencia_transferencia_ref', 'responsable_ref')
+    redacted_reference_fields = (
+        'criterio_conciliacion',
+        'evidencia_transferencia_ref',
+        'responsable_ref',
+        'rationale',
+    )
 
     class Meta:
         model = TransferenciaIntercuenta
