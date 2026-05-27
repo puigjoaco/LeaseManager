@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | Patrimonio, bloqueo de inactivacion con estructura patrimonial vigente. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | PR #369 cerrado: Operacion redacta evidencia operativa sensible heredada de cuentas recaudadoras en API y snapshot. |
-| Worktree | Ninguno. |
-| Rama | `main`. |
-| Estado | Sin paquete abierto. |
-| Gate esperado | N/A. |
-| Estado al cerrar paquete | PR #369 mergeado en `main` con merge commit `7dbe2d7`; CI acceptance remoto OK; evidencia/trazabilidad/stage card actualizadas. |
+| Brecha activa | Empresas y comunidades pueden pasar a inactivas conservando participaciones o representaciones propias activas vigentes, dejando ownership vigente bajo un owner cerrado. |
+| Motivo de prioridad | Frente temprano Etapa 1; alinea PRD/stage card de salida operativa ordenada sin usar fuentes externas ni secretos. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-owner-inactivation-structure-guard`. |
+| Rama | `codex/stage1-owner-inactivation-structure-guard`. |
+| Estado | En desarrollo. |
+| Gate esperado | Focal Patrimonio + auditor Etapa 1, suite Patrimonio/core, `manage.py check`, migraciones dry-run, gate Etapa 1 local, frontend build/lint, acceptance, higiene y diff-check. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Ningun bloqueo externo nuevo; Etapa 1 no queda cerrada sin fuente autorizada/snapshot controlado. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Diagnosticar `main` y abrir un nuevo worktree `codex/...` solo para el siguiente paquete concreto. |
+| Siguiente accion | Bloquear inactivacion de owners con estructura patrimonial vigente, detectar snapshots heredados y cerrar PR con evidencia. |
 
 ## Actualizacion
 

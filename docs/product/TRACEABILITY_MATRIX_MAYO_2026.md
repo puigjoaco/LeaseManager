@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: Patrimonio bloquea la inactivacion de empresas y comunidades
+que aun conservan participaciones o representaciones propias activas vigentes.
+La salida operativa exige transferir o cerrar esa estructura antes de marcar el
+owner como inactivo, y el auditor Etapa 1 detecta snapshots heredados que
+conserven ownership vigente bajo owners cerrados.
+
 Nota 2026-05-27: Operacion redacta `evidencia_operativa_ref` sensible heredada
 en cuentas recaudadoras tanto en list/detail API como en snapshot operativo. La
 validacion de escritura sigue rechazando nuevas evidencias sensibles y el

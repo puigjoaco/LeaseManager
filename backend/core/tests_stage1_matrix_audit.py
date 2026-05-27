@@ -985,6 +985,58 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_inactive_company_with_active_own_participations_is_blocking(self):
+        self._create_valid_stage1_matrix()
+        socio = Socio.objects.create(nombre='Socio Empresa Cerrada', rut='71717171-8', activo=True)
+        empresa = Empresa.objects.create(
+            razon_social='Empresa Cerrada Con Ownership',
+            rut='70707070-0',
+            estado=EstadoPatrimonial.INACTIVE,
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio,
+            empresa_owner=empresa,
+            porcentaje='100.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.empresa.validacion_modelo', issue_codes)
+
+    def test_inactive_community_with_active_structure_is_blocking(self):
+        self._create_valid_stage1_matrix()
+        socio = Socio.objects.create(nombre='Socio Comunidad Cerrada', rut='72727272-6', activo=True)
+        comunidad = ComunidadPatrimonial.objects.create(
+            nombre='Comunidad Cerrada Con Estructura',
+            estado=EstadoPatrimonial.INACTIVE,
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+            socio_representante=socio,
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.comunidad.validacion_modelo', issue_codes)
+
     def test_evidence_grade_source_requires_traceable_source_label(self):
         self._create_valid_stage1_matrix()
 

@@ -410,7 +410,7 @@ class EmpresaSerializer(OwnerBaseSerializer):
         self._validate_allowed_participants(Empresa, participaciones)
         self._validate_activation_requirements(attrs, participaciones)
         estado = attrs.get('estado', getattr(self.instance, 'estado', EstadoPatrimonial.DRAFT))
-        if self.instance and estado != EstadoPatrimonial.ACTIVE:
+        if self.instance and estado == EstadoPatrimonial.INACTIVE:
             errors = self.instance.inactive_state_dependency_errors()
             if errors:
                 raise serializers.ValidationError({'estado': errors})
@@ -531,7 +531,7 @@ class ComunidadPatrimonialSerializer(OwnerBaseSerializer):
                 )
             if not representante.activo:
                 raise serializers.ValidationError({'representacion_vigente': 'La representacion activa requiere un socio activo.'})
-        elif self.instance:
+        elif self.instance and estado == EstadoPatrimonial.INACTIVE:
             errors = self.instance.inactive_state_dependency_errors()
             if errors:
                 raise serializers.ValidationError({'estado': errors})
