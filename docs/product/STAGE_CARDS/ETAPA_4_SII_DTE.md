@@ -22,10 +22,10 @@ produccion por defecto.
   automatizable v1 bloquea la apertura de capacidades SII y readiness de
   snapshots; no se automatiza tributacion oficial fuera de ese boundary.
 - Cada artefacto tributario debe usar la capacidad SII exacta de su flujo:
-  DTE con `DTEEmision`, F29 con `F29Preparacion`, DDJJ con
-  `DDJJPreparacion` y F22 con `F22Preparacion`; la readiness debe bloquear
-  snapshots heredados con capacidad de otra familia aunque sea de la misma
-  empresa.
+  DTE con `DTEEmision`, consulta de estado DTE con `DTEConsultaEstado`, F29
+  con `F29Preparacion`, DDJJ con `DDJJPreparacion` y F22 con
+  `F22Preparacion`; la readiness debe bloquear snapshots heredados con
+  capacidad de otra familia aunque sea de la misma empresa.
 - Comunidades y personas naturales tratadas segun regla validada.
 - Certificado/ambiente aislado autorizado.
 - Regla fiscal respaldada por SII, normativa o experto.
@@ -57,7 +57,9 @@ produccion por defecto.
 - Los eventos de auditoria de cambios de estado DTE registran `sii_track_id`
   redactado si existe una referencia sensible heredada.
 - Los borradores DTE/F29/anuales y los cambios de estado externo revalidan el
-  gate antes de avanzar.
+  gate antes de avanzar. Los DTE marcados `enviado_manual_controlado`
+  revalidan `DTEEmision`; los estados finales `aceptado`, `rechazado` o
+  `anulado` revalidan `DTEConsultaEstado` abierta y lista.
 - F29, DDJJ y F22 en estado preparado, aprobado, observado o rectificado deben
   mantener una capacidad SII abierta y lista; el readiness bloquea artefactos
   heredados avanzados con capacidad condicionada, cerrada o invalida.

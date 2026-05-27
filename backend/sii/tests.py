@@ -156,13 +156,13 @@ class SiiAPITests(APITestCase):
         sync_payment_distribution(pago)
         return empresa, pago
 
-    def _activate_capability(self, empresa, estado_gate='abierto'):
+    def _activate_capability(self, empresa, estado_gate='abierto', capacidad_key='DTEEmision', prefix='dte'):
         return self.client.post(
             reverse('sii-capacidad-list'),
             {
                 'empresa': empresa.id,
-                'capacidad_key': 'DTEEmision',
-                **self._sii_readiness_fields('dte'),
+                'capacidad_key': capacidad_key,
+                **self._sii_readiness_fields(prefix),
                 'ambiente': 'certificacion',
                 'estado_gate': estado_gate,
                 'ultimo_resultado': {},
@@ -1276,6 +1276,53 @@ class SiiAPITests(APITestCase):
 
         self.assertEqual(update.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('sii_track_id', update.data['detail'])
+
+    def test_update_final_dte_status_requires_status_query_capability(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa, estado_gate='abierto')
+        generated = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+
+        update = self.client.post(
+            reverse('sii-dte-status', args=[generated.data['id']]),
+            {
+                'estado_dte': 'aceptado',
+                'sii_track_id': 'dte-status-track-001',
+                'ultimo_estado_sii': 'Aceptado',
+            },
+            format='json',
+        )
+
+        self.assertEqual(update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('DTEConsultaEstado', update.data['detail'])
+
+    def test_update_final_dte_status_accepts_ready_status_query_capability(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa, estado_gate='abierto')
+        self._activate_capability(
+            empresa,
+            estado_gate='abierto',
+            capacidad_key='DTEConsultaEstado',
+            prefix='dte-status',
+        )
+        generated = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+
+        update = self.client.post(
+            reverse('sii-dte-status', args=[generated.data['id']]),
+            {
+                'estado_dte': 'aceptado',
+                'sii_track_id': 'dte-status-track-002',
+                'ultimo_estado_sii': 'Aceptado',
+            },
+            format='json',
+        )
+
+        self.assertEqual(update.status_code, status.HTTP_200_OK)
+        self.assertEqual(update.data['estado_dte'], 'aceptado')
+        self.assertEqual(update.data['ultimo_estado_sii'], 'Aceptado')
 
     def test_sii_status_updates_reject_sensitive_references(self):
         empresa, pago = self._setup_paid_payment()

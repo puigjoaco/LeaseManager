@@ -214,6 +214,7 @@ class Stage4SiiReadinessTests(TestCase):
         empresa = self._create_active_empresa()
         self._activate_fiscal_config(empresa)
         dte_capability = self._open_capability(empresa, CapacidadSII.DTE_EMISION, 'dte')
+        self._open_capability(empresa, CapacidadSII.DTE_CONSULTA, 'dte-status')
         f29_capability = self._open_capability(empresa, CapacidadSII.F29_PREPARACION, 'f29')
         payment = self._create_paid_payment(empresa)
         distribution = payment.distribuciones_cobro.get()
@@ -265,6 +266,7 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertIn('stage4.source_kind_not_authorized', issue_codes)
         self.assertIn('stage4.fiscal_config_missing', issue_codes)
         self.assertIn('stage4.dte.open_capability_missing', issue_codes)
+        self.assertIn('stage4.dte_status.open_capability_missing', issue_codes)
         self.assertIn('stage4.f29_missing', issue_codes)
         self.assertIn('stage4.environment_proof_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
@@ -428,6 +430,23 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertIn('stage4.f29_capability_not_ready', issue_codes)
         self.assertEqual(result['sections']['dte']['external_capability_not_ready'], 1)
         self.assertEqual(result['sections']['f29']['capability_not_ready'], 1)
+
+    def test_final_dte_status_without_status_query_capability_is_blocking(self):
+        self._create_valid_local_matrix()
+        CapacidadTributariaSII.objects.filter(capacidad_key=CapacidadSII.DTE_CONSULTA).delete()
+        DTEEmitido.objects.update(
+            estado_dte=EstadoDTE.ACCEPTED,
+            sii_track_id='dte-final-track-001',
+            ultimo_estado_sii='Aceptado',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertIn('stage4.dte_status.open_capability_missing', issue_codes)
+        self.assertIn('stage4.dte_status_query_capability_not_ready', issue_codes)
+        self.assertEqual(result['sections']['dte']['status_query_capability_not_ready'], 1)
 
     def test_artifacts_with_wrong_sii_capability_kind_are_blocking(self):
         empresa = self._create_valid_local_matrix()
@@ -602,7 +621,7 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertIn('stage4.capability_sensitive_reference', issue_codes)
         self.assertIn('stage4.dte_sensitive_tracking_ref', issue_codes)
         self.assertIn('stage4.f29_sensitive_ref', issue_codes)
-        self.assertEqual(result['sections']['capabilities']['open_sensitive_refs'], 2)
+        self.assertEqual(result['sections']['capabilities']['open_sensitive_refs'], 3)
         self.assertEqual(result['sections']['dte']['sensitive_tracking_ref'], 1)
         self.assertEqual(result['sections']['f29']['sensitive_ref'], 1)
         self.assertNotIn('api_key', json.dumps(result))

@@ -36,6 +36,7 @@ DTE_FINAL_STATES = {
     EstadoDTE.REJECTED,
     EstadoDTE.CANCELED,
 }
+DTE_STATUS_QUERY_STATES = DTE_FINAL_STATES
 
 TAX_REF_REQUIRED_STATES = {
     EstadoPreparacionTributaria.APPROVED,
@@ -109,7 +110,7 @@ def _capability_ready_for_tax_state(capability) -> bool:
     return True
 
 
-def _collect_dte_issues(dtes) -> dict[str, int]:
+def _collect_dte_issues(dtes, dte_status_capabilities_by_company: dict[int, CapacidadTributariaSII]) -> dict[str, int]:
     counts = Counter()
     for dte in dtes:
         try:
@@ -119,8 +120,12 @@ def _collect_dte_issues(dtes) -> dict[str, int]:
 
         if dte.estado_dte in DTE_EXTERNAL_STATES and not has_text(dte.sii_track_id):
             counts['external_tracking_missing'] += 1
-        if dte.estado_dte in DTE_EXTERNAL_STATES and not _capability_ready_for_tax_state(dte.capacidad_tributaria):
+        if dte.estado_dte == EstadoDTE.SENT_MANUAL and not _capability_ready_for_tax_state(dte.capacidad_tributaria):
             counts['external_capability_not_ready'] += 1
+        if dte.estado_dte in DTE_STATUS_QUERY_STATES and not _capability_ready_for_tax_state(
+            dte_status_capabilities_by_company.get(dte.empresa_id)
+        ):
+            counts['status_query_capability_not_ready'] += 1
         if has_text(dte.sii_track_id) and not is_non_sensitive_reference(dte.sii_track_id):
             counts['sensitive_tracking_ref'] += 1
         if dte.estado_dte in DTE_FINAL_STATES and not has_text(dte.ultimo_estado_sii):
@@ -237,6 +242,7 @@ def collect_stage4_sii_readiness(
     open_capabilities = capabilities.filter(estado_gate=EstadoGateSII.OPEN)
     invalid_open_capabilities = _count_invalid(open_capabilities)
     open_dte_capabilities = open_capabilities.filter(capacidad_key=CapacidadSII.DTE_EMISION)
+    open_dte_status_capabilities = open_capabilities.filter(capacidad_key=CapacidadSII.DTE_CONSULTA)
     open_f29_capabilities = open_capabilities.filter(capacidad_key=CapacidadSII.F29_PREPARACION)
     production_open_capabilities = open_capabilities.filter(ambiente=AmbienteSII.PRODUCTION)
     open_capabilities_without_fiscal_config = _count_without_active_fiscal_config(
@@ -255,7 +261,11 @@ def collect_stage4_sii_readiness(
         'distribucion_cobro_mensual',
         'arrendatario',
     )
-    dte_issues = _collect_dte_issues(dtes)
+    dte_status_capabilities_by_company = {
+        capability.empresa_id: capability
+        for capability in capabilities.filter(capacidad_key=CapacidadSII.DTE_CONSULTA)
+    }
+    dte_issues = _collect_dte_issues(dtes, dte_status_capabilities_by_company)
     dtes_without_fiscal_config = _count_without_active_fiscal_config(dtes, active_fiscal_company_ids)
 
     f29_drafts = F29PreparacionMensual.objects.select_related('empresa', 'capacidad_tributaria', 'cierre_mensual')
@@ -340,6 +350,13 @@ def collect_stage4_sii_readiness(
                 'Etapa 4 requiere capacidad DTEEmision abierta y trazable para cierre.',
             )
         )
+    if open_dte_status_capabilities.count() == 0:
+        issues.append(
+            _issue(
+                'stage4.dte_status.open_capability_missing',
+                'Etapa 4 requiere capacidad DTEConsultaEstado abierta y trazable para consultar estados DTE.',
+            )
+        )
     if open_f29_capabilities.count() == 0:
         issues.append(
             _issue(
@@ -398,8 +415,16 @@ def collect_stage4_sii_readiness(
         issues.append(
             _issue(
                 'stage4.dte_capability_not_ready',
-                'Existen DTE en estado externo sin capacidad SII abierta y lista.',
+                'Existen DTE enviados manualmente sin capacidad DTEEmision abierta y lista.',
                 count=dte_issues['external_capability_not_ready'],
+            )
+        )
+    if dte_issues.get('status_query_capability_not_ready'):
+        issues.append(
+            _issue(
+                'stage4.dte_status_query_capability_not_ready',
+                'Existen DTE aceptados, rechazados o anulados sin capacidad DTEConsultaEstado abierta y lista.',
+                count=dte_issues['status_query_capability_not_ready'],
             )
         )
     if dte_issues.get('sensitive_tracking_ref'):
@@ -617,6 +642,7 @@ def collect_stage4_sii_readiness(
                 'by_capability': _count_by(capabilities, 'capacidad_key'),
                 'open_total': open_capabilities.count(),
                 'open_dte': open_dte_capabilities.count(),
+                'open_dte_status': open_dte_status_capabilities.count(),
                 'open_f29': open_f29_capabilities.count(),
                 'open_production': production_open_capabilities.count(),
                 'invalid_open': invalid_open_capabilities,
