@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Compliance / exportaciones sensibles. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | La revocacion de `ExportacionSensible` queda auditada, pero no exige motivo no sensible ni readiness bloqueante para eventos `revoked` heredados sin motivo. |
-| Motivo de prioridad | Frente temprano local: fortalece auditoria de acciones criticas sobre datos personales sin requerir `.env`, secretos, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-export-revoke-reason`. |
-| Rama | `codex/compliance-export-revoke-reason`. |
-| Estado | Paquete abierto para exigir motivo de revocacion no sensible en API, auditoria y readiness. |
-| Gate esperado | Focal Compliance/readiness; suite `compliance core.tests_compliance_data_readiness`; `manage.py check`; `makemigrations --check --dry-run`; frontend build; acceptance; higiene repo. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete previo cerrado: PR #407 `Require sensitive export revocation reason`, merge `4d7a8af`. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Main sincronizado tras PR #407; pendiente seleccionar el siguiente frente seguro por trazabilidad. |
+| Gate esperado | N/A hasta abrir el proximo paquete. |
+| Estado al cerrar paquete | PR #407 integrado con CI acceptance verde; worktree tactico removido. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Implementar y validar motivo auditable no sensible para revocacion de exportaciones sensibles. |
+| Siguiente accion | Diagnosticar el estado real y seleccionar el siguiente paquete pequeno, verificable y no dependiente de fuentes externas no autorizadas. |
 
 ## Actualizacion
 
