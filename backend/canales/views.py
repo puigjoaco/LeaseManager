@@ -148,7 +148,7 @@ class ChannelsSnapshotView(APIView):
                         'fecha_programada': item.fecha_programada,
                         'estado': item.estado,
                         'mensaje_saliente': item.mensaje_saliente_id,
-                        'motivo_estado': item.motivo_estado,
+                        'motivo_estado': redact_sensitive_reference(item.motivo_estado),
                     }
                     for item in scope_notificacion_cobranza_queryset(
                         NotificacionCobranzaProgramada.objects.select_related(

@@ -565,6 +565,7 @@ class CanalesAPITests(APITestCase):
 
     def test_channel_apis_redact_inherited_sensitive_references(self):
         _, contrato = self._create_contract_context(codigo='CH-API-REDACT')
+        payment = self._create_payment_for_contract(contrato)
         gate = CanalMensajeria.objects.create(
             canal='email',
             provider_key='gmail_api',
@@ -613,18 +614,41 @@ class CanalesAPITests(APITestCase):
                 'attempts': [{'response_ref': 'controlled-response-1'}],
             },
         )
+        configuration = ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[5],
+            activa=True,
+            evidencia_configuracion_ref='notification-config-controlled',
+        )
+        NotificacionCobranzaProgramada.objects.create(
+            pago_mensual=payment,
+            configuracion=configuration,
+            canal='email',
+            dia_notificacion=5,
+            fecha_programada=date(2026, 1, 5),
+            estado='omitida',
+            motivo_estado='Omitida por https://provider.example.test/token/secret',
+        )
 
         gates_response = self.client.get(reverse('canales-gate-list'))
         messages_response = self.client.get(reverse('canales-mensaje-list'))
+        notifications_response = self.client.get(reverse('canales-notificacion-cobranza-list'))
         snapshot_response = self.client.get(reverse('canales-snapshot'))
 
         self.assertEqual(gates_response.status_code, status.HTTP_200_OK)
         self.assertEqual(messages_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(notifications_response.status_code, status.HTTP_200_OK)
         self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
         self.assertEqual(gates_response.data[0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(messages_response.data[0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(notifications_response.data[0]['motivo_estado'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['gates'][0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['mensajes'][0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            snapshot_response.data['notificaciones_cobranza'][0]['motivo_estado'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
         gate_restrictions = gates_response.data[0]['restricciones_operativas']
         self.assertEqual(gate_restrictions['prueba_aislada_ref'], 'email-readiness-controlled')
         self.assertEqual(gate_restrictions['credencial_validada_ref'], 'email-ref-validado-v1')
@@ -640,7 +664,7 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(payload['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(payload['attempts'][0]['response_ref'], 'controlled-response-1')
 
-        for response in (gates_response, messages_response, snapshot_response):
+        for response in (gates_response, messages_response, notifications_response, snapshot_response):
             body = response.content.decode()
             self.assertNotIn('mail.example.test', body)
             self.assertNotIn('provider.example.test', body)
