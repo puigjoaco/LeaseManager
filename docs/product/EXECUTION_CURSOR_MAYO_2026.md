@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Patrimonio. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Admin Django de `RepresentacionComunidad` puede exponer o buscar `evidencia_ref` sensible heredada. |
-| Motivo de prioridad | Stage card Etapa 1 exige que API, snapshot y backoffice redacten evidencia sensible heredada de representaciones designadas antes de exponerla. |
-| Worktree | `D:/Proyectos/LeaseManager-patrimony-admin-redaction`. |
-| Rama | `codex/patrimony-admin-redaction`. |
-| Estado | Paquete abierto. |
-| Gate esperado | Etapa 1 local no evidencial; no cierre de etapa sin snapshot o fuente autorizada. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | PR #383 cerrado: admin Django de Patrimonio redacta evidencia sensible de representaciones designadas. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Sin paquete abierto. |
+| Gate esperado | N/A. |
+| Estado al cerrar paquete | PR #383 mergeado en `main` con merge commit `b86ba02`; CI remoto `acceptance` OK; evidencia, stage card y trazabilidad actualizadas. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Redactar evidencia sensible de representaciones en admin, agregar tests, evidencia y trazabilidad; cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Diagnosticar `main` y abrir un worktree tactico solo para el siguiente paquete concreto. |
 
 ## Actualizacion
 
