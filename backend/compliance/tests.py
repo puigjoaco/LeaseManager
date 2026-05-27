@@ -21,6 +21,7 @@ from reporting.tests import ReportingAPITests
 from .models import (
     CategoriaDato,
     EstadoExportacionSensible,
+    ENCRYPTED_REF_SENSITIVE_ERROR,
     EXPIRED_EXPORT_STATE_ERROR,
     ExportacionSensible,
     MAX_EXPORT_WINDOW_ERROR,
@@ -288,7 +289,7 @@ class ComplianceAPITests(APITestCase):
             motivo='Revision mensual',
             encrypted_payload=encrypted_payload,
             payload_hash=payload_hash,
-            encrypted_ref=f'export://financiero_mensual/{payload_hash[:12]}',
+            encrypted_ref=f'export-ref-financiero_mensual-{payload_hash[:12]}',
             expires_at=timezone.now() + timedelta(days=1),
             created_by=self.user,
         )
@@ -306,7 +307,7 @@ class ComplianceAPITests(APITestCase):
             motivo='Revision restringida',
             encrypted_payload=encrypted_payload,
             payload_hash=payload_hash,
-            encrypted_ref=f'export://resumen_restringido/{payload_hash[:12]}',
+            encrypted_ref=f'export-ref-resumen_restringido-{payload_hash[:12]}',
             expires_at=timezone.now() + timedelta(days=1),
             created_by=self.user,
         )
@@ -335,7 +336,7 @@ class ComplianceAPITests(APITestCase):
             motivo='Revision mensual',
             encrypted_payload=encrypted_payload,
             payload_hash='z' * 64,
-            encrypted_ref='export://financiero_mensual/hash-no-hex',
+            encrypted_ref='export-ref-financiero_mensual-hash-no-hex',
             expires_at=timezone.now() + timedelta(days=1),
             created_by=self.user,
         )
@@ -357,7 +358,7 @@ class ComplianceAPITests(APITestCase):
             motivo='Revision con Bearer inherited-token',
             encrypted_payload=encrypted_payload,
             payload_hash=payload_hash,
-            encrypted_ref=f'export://financiero_mensual/{payload_hash[:12]}',
+            encrypted_ref='https://exports.example.test/file.pdf?token=secret',
             expires_at=timezone.now() + timedelta(days=1),
             created_by=self.user,
         )
@@ -372,11 +373,31 @@ class ComplianceAPITests(APITestCase):
             self.assertEqual(export_data['scope_resumen']['periodo'], '2026-01')
             self.assertEqual(export_data['scope_resumen']['callback'], REDACTED_SENSITIVE_REFERENCE)
             self.assertEqual(export_data['scope_resumen']['api_key'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(export_data['encrypted_ref'], REDACTED_SENSITIVE_REFERENCE)
 
         rendered = str(list_response.data) + str(detail_response.data)
         self.assertNotIn('token=secret', rendered)
         self.assertNotIn('legacy-key', rendered)
         self.assertNotIn('inherited-token', rendered)
+        self.assertNotIn('exports.example.test', rendered)
+
+    def test_export_model_rejects_sensitive_encrypted_ref(self):
+        encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = ExportacionSensible(
+            categoria_dato=CategoriaDato.FINANCIAL,
+            export_kind='financiero_mensual',
+            scope_resumen={'anio': 2026, 'mes': 5},
+            motivo='Revision mensual',
+            encrypted_payload=encrypted_payload,
+            payload_hash=payload_hash,
+            encrypted_ref='https://exports.example.test/file.pdf?token=secret',
+            expires_at=timezone.now() + timedelta(days=1),
+            created_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            export.full_clean()
+        self.assertEqual(context.exception.message_dict['encrypted_ref'][0], ENCRYPTED_REF_SENSITIVE_ERROR)
 
     def test_export_can_be_revoked(self):
         self._create_context('REV')
@@ -523,7 +544,7 @@ class ComplianceAPITests(APITestCase):
             motivo='Revision mensual',
             encrypted_payload=encrypted_payload,
             payload_hash=payload_hash,
-            encrypted_ref=f'export://financiero_mensual/{payload_hash[:12]}',
+            encrypted_ref=f'export-ref-financiero_mensual-{payload_hash[:12]}',
             expires_at=timezone.now() + timedelta(days=1),
             estado=EstadoExportacionSensible.EXPIRED,
             created_by=self.user,
@@ -548,7 +569,7 @@ class ComplianceAPITests(APITestCase):
             motivo='Revision mensual',
             encrypted_payload=encrypted_payload,
             payload_hash=payload_hash,
-            encrypted_ref=f'export://financiero_mensual/{payload_hash[:12]}',
+            encrypted_ref=f'export-ref-financiero_mensual-{payload_hash[:12]}',
             expires_at=timezone.now() + timedelta(days=SENSITIVE_EXPORT_MAX_DAYS + 1),
             created_by=self.user,
         )

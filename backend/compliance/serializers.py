@@ -75,6 +75,7 @@ class ExportacionSensibleSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data['scope_resumen'] = redact_sensitive_payload(data.get('scope_resumen') or {})
         data['motivo'] = redact_sensitive_reference(data.get('motivo'))
+        data['encrypted_ref'] = redact_sensitive_reference(data.get('encrypted_ref'))
         return data
 
 

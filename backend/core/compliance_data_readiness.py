@@ -165,6 +165,8 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
             include_sensitive_keys=True,
         ):
             counts['sensitive_visible_metadata'] += 1
+        if contains_sensitive_reference(export.encrypted_ref, include_sensitive_keys=True):
+            counts['encrypted_ref_sensitive'] += 1
         if export.categoria_dato == CategoriaDato.SECRET:
             counts['secret_category_exports'] += 1
         if not export.created_by_id:
@@ -361,6 +363,11 @@ def collect_compliance_data_readiness(
             'Existen exportaciones con motivo o scope visible que contiene referencias sensibles.',
         ),
         (
+            'encrypted_ref_sensitive',
+            'compliance.export_encrypted_ref_sensitive',
+            'Existen exportaciones con encrypted_ref sensible heredado.',
+        ),
+        (
             'secret_category_exports',
             'compliance.export_secret_category',
             'No debe existir exportacion operativa sobre categoria secreto.',
@@ -544,6 +551,7 @@ def collect_compliance_data_readiness(
                 'by_category': _count_by(exports, 'categoria_dato'),
                 'invalid_model': export_issues.get('invalid_model', 0),
                 'sensitive_visible_metadata': export_issues.get('sensitive_visible_metadata', 0),
+                'encrypted_ref_sensitive': export_issues.get('encrypted_ref_sensitive', 0),
                 'secret_category_exports': export_issues.get('secret_category_exports', 0),
                 'created_by_missing': export_issues.get('created_by_missing', 0),
                 'integrity_fields_missing': export_issues.get('integrity_fields_missing', 0),

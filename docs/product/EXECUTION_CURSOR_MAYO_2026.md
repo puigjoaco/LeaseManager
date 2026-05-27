@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | Compliance.DatosPersonalesChile2026. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | PR #373 cerrado: Compliance bloquea nuevas exportaciones sensibles sin hold con vigencia mayor a 30 dias. |
-| Worktree | Ninguno. |
-| Rama | `main`. |
-| Estado | Sin paquete abierto. |
-| Gate esperado | N/A. |
-| Estado al cerrar paquete | PR #373 mergeado en main con merge commit `c71e5aa`; CI acceptance remoto OK; evidencia y trazabilidad actualizadas. |
-| Bloqueos relacionados | Ningun bloqueo externo nuevo. BLK-010 sigue abierto solo para cierre Compliance evidencial. |
+| Brecha activa | `ExportacionSensible.encrypted_ref` no valida ni redacta referencias sensibles heredadas aunque se expone en API/backoffice. |
+| Motivo de prioridad | PRD exige que datos/payloads/tokens queden fuera de superficies visibles; esta referencia debe ser trazable no sensible como el resto de evidencia controlada. |
+| Worktree | `D:/Proyectos/LeaseManager-compliance-encrypted-ref-redaction`. |
+| Rama | `codex/compliance-encrypted-ref-redaction`. |
+| Estado | Paquete abierto. |
+| Gate esperado | Compliance local parcial: `classification=parcial`, `ready_for_compliance_data=false`, sin cierre evidencial. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | BLK-010 sigue siendo condicion de cierre Compliance, no bloquea esta preparacion local. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Diagnosticar `main` y abrir un nuevo worktree `codex/...` solo para el siguiente paquete concreto. |
+| Siguiente accion | Implementar validacion/redaccion/readiness de `encrypted_ref`, evidencia y trazabilidad; cerrar con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 

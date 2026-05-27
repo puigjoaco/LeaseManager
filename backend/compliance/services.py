@@ -41,6 +41,10 @@ EXPORT_KIND_CATEGORY_MAP = {
 }
 
 
+def build_encrypted_export_ref(export_kind, payload_hash):
+    return f'export-ref-{export_kind}-{payload_hash[:12]}'
+
+
 def _choice_value(value):
     return getattr(value, 'value', value)
 
@@ -143,7 +147,7 @@ def prepare_sensitive_export(*, categoria_dato, export_kind, scope_resumen, moti
         motivo=motivo,
         encrypted_payload=encrypted_payload,
         payload_hash=payload_hash,
-        encrypted_ref=f'export://{export_kind}/{payload_hash[:12]}',
+        encrypted_ref=build_encrypted_export_ref(export_kind, payload_hash),
         expires_at=expires_at,
         hold_activo=hold_activo,
         created_by=created_by,
