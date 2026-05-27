@@ -134,6 +134,25 @@ def _has_aligned_export_event(export: ExportacionSensible, event_type: str) -> b
     return any(event.actor_user_id and _export_audit_metadata_is_aligned(event, export) for event in events)
 
 
+def _revoked_event_has_valid_reason(event: AuditEvent) -> bool:
+    reason = str((event.metadata or {}).get('revocation_reason') or '').strip()
+    return bool(reason) and not contains_sensitive_reference(reason, include_sensitive_keys=True)
+
+
+def _has_aligned_revoked_export_event_with_reason(export: ExportacionSensible) -> bool:
+    events = AuditEvent.objects.filter(
+        event_type=EXPORT_REVOKED_EVENT_TYPE,
+        entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+        entity_id=str(export.pk),
+    )
+    return any(
+        event.actor_user_id
+        and _export_audit_metadata_is_aligned(event, export)
+        and _revoked_event_has_valid_reason(event)
+        for event in events
+    )
+
+
 def _export_audit_events_with_unaligned_metadata(events, exports_by_id) -> int:
     unaligned_count = 0
     for event in events:
@@ -215,6 +234,10 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
             EXPORT_REVOKED_EVENT_TYPE,
         ):
             counts['revoked_audit_event_unaligned'] += 1
+        elif export.estado == EstadoExportacionSensible.REVOKED and not _has_aligned_revoked_export_event_with_reason(
+            export
+        ):
+            counts['revoked_audit_reason_missing'] += 1
     return dict(sorted(counts.items()))
 
 
@@ -432,6 +455,11 @@ def collect_compliance_data_readiness(
             'compliance.export_revoked_audit_event_unaligned',
             'Toda exportacion sensible revocada requiere evento revoked con actor y metadata alineada.',
         ),
+        (
+            'revoked_audit_reason_missing',
+            'compliance.export_revoked_audit_reason_missing',
+            'Toda exportacion sensible revocada requiere motivo no sensible en el evento revoked.',
+        ),
     ]:
         if export_issues.get(key):
             issues.append(_issue(code, message, count=export_issues[key]))
@@ -565,6 +593,7 @@ def collect_compliance_data_readiness(
                 'prepared_audit_event_unaligned': export_issues.get('prepared_audit_event_unaligned', 0),
                 'revoked_audit_event_missing': export_issues.get('revoked_audit_event_missing', 0),
                 'revoked_audit_event_unaligned': export_issues.get('revoked_audit_event_unaligned', 0),
+                'revoked_audit_reason_missing': export_issues.get('revoked_audit_reason_missing', 0),
             },
             'audit': {
                 'export_events_total': export_audit_events.count(),

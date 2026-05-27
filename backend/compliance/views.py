@@ -15,6 +15,7 @@ from .audit import (
 from .models import ExportacionSensible, PoliticaRetencionDatos
 from .serializers import (
     ExportacionPrepareSerializer,
+    ExportacionRevokeSerializer,
     ExportacionSensibleSerializer,
     PoliticaRetencionDatosSerializer,
 )
@@ -153,6 +154,8 @@ class ExportacionRevokeView(APIView):
 
     def post(self, request, pk):
         export = generics.get_object_or_404(ExportacionSensible, pk=pk)
+        serializer = ExportacionRevokeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         export = revoke_export(export)
         create_export_audit_event(
             event_type=EXPORT_REVOKED_EVENT_TYPE,
@@ -160,5 +163,6 @@ class ExportacionRevokeView(APIView):
             summary='Exportacion sensible revocada',
             actor_user=request.user,
             ip_address=request.META.get('REMOTE_ADDR'),
+            extra_metadata={'revocation_reason': serializer.validated_data['motivo']},
         )
         return Response(ExportacionSensibleSerializer(export).data, status=status.HTTP_200_OK)

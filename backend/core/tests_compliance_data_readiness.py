@@ -64,6 +64,22 @@ class ComplianceDataReadinessTests(TestCase):
             ),
         )
 
+    def _create_revoked_audit_event(self, export, *, reason='Rotacion controlada de evidencia'):
+        AuditEvent.objects.create(
+            event_type=EXPORT_REVOKED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+            entity_id=str(export.pk),
+            summary='Exportacion sensible revocada',
+            actor_user=export.created_by,
+            metadata=build_export_audit_metadata(
+                export,
+                extra_metadata={
+                    'estado': EstadoExportacionSensible.REVOKED,
+                    'revocation_reason': reason,
+                },
+            ),
+        )
+
     def _create_valid_export(self):
         user = self._create_user()
         export = prepare_sensitive_export(
@@ -432,6 +448,62 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertIn('compliance.export_revoked_audit_event_unaligned', issue_codes)
         self.assertIn('compliance.audit_metadata_unaligned', issue_codes)
         self.assertEqual(result['sections']['exports']['revoked_audit_event_unaligned'], 1)
+
+    def test_revoked_export_without_revocation_reason_is_blocking(self):
+        self._create_policies()
+        export = self._create_valid_export()
+        ExportacionSensible.objects.filter(pk=export.pk).update(estado=EstadoExportacionSensible.REVOKED)
+        export.refresh_from_db()
+        AuditEvent.objects.create(
+            event_type=EXPORT_REVOKED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+            entity_id=str(export.pk),
+            summary='Exportacion sensible revocada',
+            actor_user=export.created_by,
+            metadata=build_export_audit_metadata(
+                export,
+                extra_metadata={'estado': EstadoExportacionSensible.REVOKED},
+            ),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertNotIn('compliance.export_revoked_audit_event_missing', issue_codes)
+        self.assertNotIn('compliance.export_revoked_audit_event_unaligned', issue_codes)
+        self.assertIn('compliance.export_revoked_audit_reason_missing', issue_codes)
+        self.assertEqual(result['sections']['exports']['revoked_audit_reason_missing'], 1)
+
+    def test_revoked_export_with_sensitive_revocation_reason_is_blocking(self):
+        self._create_policies()
+        export = self._create_valid_export()
+        ExportacionSensible.objects.filter(pk=export.pk).update(estado=EstadoExportacionSensible.REVOKED)
+        export.refresh_from_db()
+        self._create_revoked_audit_event(export, reason='https://audit.example.test/revoke?token=secret')
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_revoked_audit_reason_missing', issue_codes)
+        self.assertIn('compliance.audit_sensitive_metadata', issue_codes)
+        self.assertEqual(result['sections']['exports']['revoked_audit_reason_missing'], 1)
+        self.assertNotIn('audit.example.test', json.dumps(result))
+
+    def test_revoked_export_with_non_sensitive_reason_can_pass_readiness(self):
+        self._create_policies()
+        export = self._create_valid_export()
+        ExportacionSensible.objects.filter(pk=export.pk).update(estado=EstadoExportacionSensible.REVOKED)
+        export.refresh_from_db()
+        self._create_revoked_audit_event(export)
+
+        result = self._collect_with_final_refs()
+
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertTrue(result['ready_for_compliance_data'])
+        self.assertEqual(result['issues'], [])
+        self.assertEqual(result['sections']['exports']['revoked_audit_reason_missing'], 0)
 
     def test_access_denied_events_are_counted_without_blocking(self):
         self._create_policies()

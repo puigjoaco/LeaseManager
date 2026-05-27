@@ -465,7 +465,11 @@ class ComplianceAPITests(APITestCase):
         )
         self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
 
-        revoked = self.client.post(reverse('compliance-export-revoke', args=[prepared.data['id']]), format='json')
+        revoked = self.client.post(
+            reverse('compliance-export-revoke', args=[prepared.data['id']]),
+            {'motivo': 'Rotacion controlada de evidencia'},
+            format='json',
+        )
         self.assertEqual(revoked.status_code, status.HTTP_200_OK)
         self.assertEqual(revoked.data['estado'], 'revocada')
         self.assertTrue(
@@ -474,6 +478,7 @@ class ComplianceAPITests(APITestCase):
                 entity_type=EXPORT_AUDIT_ENTITY_TYPE,
                 entity_id=str(prepared.data['id']),
                 metadata__estado=EstadoExportacionSensible.REVOKED,
+                metadata__revocation_reason='Rotacion controlada de evidencia',
             ).exists()
         )
 
@@ -490,6 +495,46 @@ class ComplianceAPITests(APITestCase):
         self.assertFalse(
             AuditEvent.objects.filter(
                 event_type=EXPORT_ACCESSED_EVENT_TYPE,
+                entity_id=str(prepared.data['id']),
+            ).exists()
+        )
+
+    def test_export_revoke_requires_non_sensitive_reason(self):
+        self._create_context('REV-REASON')
+        self._create_policy('operativo')
+
+        prepared = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'operativo',
+                'export_kind': 'dashboard_operativo',
+                'motivo': 'Revision interna',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+
+        missing_reason = self.client.post(
+            reverse('compliance-export-revoke', args=[prepared.data['id']]),
+            {},
+            format='json',
+        )
+        self.assertEqual(missing_reason.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('motivo', missing_reason.data)
+
+        sensitive_reason = self.client.post(
+            reverse('compliance-export-revoke', args=[prepared.data['id']]),
+            {'motivo': 'https://audit.example.test/revoke?token=secret'},
+            format='json',
+        )
+        self.assertEqual(sensitive_reason.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('motivo', sensitive_reason.data)
+
+        export = ExportacionSensible.objects.get(pk=prepared.data['id'])
+        self.assertEqual(export.estado, EstadoExportacionSensible.PREPARED)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=EXPORT_REVOKED_EVENT_TYPE,
                 entity_id=str(prepared.data['id']),
             ).exists()
         )
