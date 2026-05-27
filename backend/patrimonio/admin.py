@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from core.reference_validation import redact_sensitive_reference
+
 from .models import (
     ComunidadPatrimonial,
     Empresa,
@@ -54,10 +56,28 @@ class RepresentacionComunidadAdmin(admin.ModelAdmin):
         'activo',
         'vigente_desde',
         'vigente_hasta',
-        'evidencia_ref',
+        'evidencia_ref_redacted',
     )
     list_filter = ('modo_representacion', 'activo')
-    search_fields = ('comunidad__nombre', 'socio_representante__nombre', 'socio_representante__rut', 'evidencia_ref')
+    search_fields = ('comunidad__nombre', 'socio_representante__nombre', 'socio_representante__rut')
+    fields = (
+        'comunidad',
+        'modo_representacion',
+        'socio_representante',
+        'activo',
+        'vigente_desde',
+        'vigente_hasta',
+        'evidencia_ref_redacted',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = ('evidencia_ref_redacted', 'created_at', 'updated_at')
+
+    def has_add_permission(self, request):
+        return False
+
+    def evidencia_ref_redacted(self, obj):
+        return redact_sensitive_reference(obj.evidencia_ref) or ''
 
 
 @admin.register(Propiedad)

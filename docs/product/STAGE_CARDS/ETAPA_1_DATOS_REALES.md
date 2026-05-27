@@ -44,8 +44,8 @@ contra datos reales o snapshot controlado.
 - Representaciones designadas de comunidad: si una comunidad usa un
   representante `designado` fuera de las participaciones patrimoniales, debe
   conservar `evidencia_ref` formal trazable no sensible. API, snapshot,
-  backoffice y auditor Etapa 1 bloquean o redactan datos heredados sin esa
-  traza.
+  admin/backoffice y auditor Etapa 1 bloquean o redactan datos heredados sin
+  esa traza.
 - Validacion de participantes patrimoniales activos: una participacion activa
   solo puede apuntar a un socio activo o a una empresa participante activa con
   participaciones completas.
