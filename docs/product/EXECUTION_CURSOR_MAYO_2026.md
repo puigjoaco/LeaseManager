@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Compliance datos sensibles / bootstrap de politicas de retencion. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Pendiente de seleccionar segun trazabilidad vigente y estado real del repo. |
-| Motivo de prioridad | El paquete anterior quedo cerrado; el siguiente frente debe elegirse en la proxima apertura operativa. |
-| Worktree | N/A. |
-| Rama | `main`. |
-| Estado | Sin paquete activo; ultimo paquete integrado en PR #395 (`Redact SII admin refs`). |
-| Gate esperado | Definir al abrir el siguiente paquete. |
-| Estado al cerrar paquete | PR #395 integrado en `main` con merge `1d16303`; admin SII redacta refs/payloads tributarios en Capacidad, DTE, F29, Proceso Renta, DDJJ y F22, sin busquedas crudas ni altas manuales. |
+| Brecha activa | `bootstrap_demo_compliance_policies` aplica `PoliticaRetencionDatos` con `update_or_create` sin validar `full_clean()` antes de persistir, permitiendo parametros invalidos o sensibles por bootstrap. |
+| Motivo de prioridad | Compliance es el frente mas bajo aun parcial y esta brecha es local, verificable y no depende de secretos ni datos reales. |
+| Worktree | `D:/Proyectos/LeaseManager-compliance-policy-bootstrap-validation`. |
+| Rama | `codex/compliance-policy-bootstrap-validation`. |
+| Estado | Paquete implementado y validado localmente; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Compliance local diagnostico/parcial; no cierre sin fuente autorizada y evidencia legal-operativa. |
+| Estado al cerrar paquete | Validacion local completada: prueba focal de bootstrap Compliance, suite impactada Compliance/readiness, `manage.py check`, `makemigrations --check --dry-run`, gate Compliance local diagnostico/parcial, `npm ci`, `npm run build`, `npm run lint`, acceptance workflows e higiene previa. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no hay worktree tactico sucio, elegir el siguiente frente util y seguro desde trazabilidad vigente. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; seleccionar el siguiente paquete pequeno, verificable y cerrable. |
+| Politica de reanudacion | Si se reanuda esta sesion, continuar este worktree antes de abrir otro paquete. |
+| Siguiente accion | Ejecutar higiene final, commit, PR, CI, merge, limpieza del worktree tactico y reset del cursor. |
 
 ## Actualizacion
 

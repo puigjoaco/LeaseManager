@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: Compliance valida el bootstrap demo de politicas de
+retencion antes de persistir. `bootstrap_demo_compliance_policies` construye
+candidatos `PoliticaRetencionDatos`, ejecuta `full_clean()` sobre todo el set
+canonico y solo aplica cambios dentro de una transaccion si no hay campos
+invalidos o sensibles, evitando escrituras parciales desde parametros de
+bootstrap.
+
 Nota 2026-05-27: SII cierra superficie admin para refs y payloads
 tributarios sensibles heredados. Los admins de capacidades SII, DTE, F29,
 ProcesoRentaAnual, DDJJ y F22 reemplazan certificados, evidencias, tracking,
