@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 0 - PlataformaBase: errores publicos seguros en login. |
+| Frente activo | Sin worktree tactico activo; ultimo paquete cerrado: Etapa 0 - PlataformaBase, errores publicos seguros en login. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | El login publico no debe renderizar `error.message` interno ni nombres de variables/configuracion cuando falla autenticacion, backend o carga publica. |
-| Motivo de prioridad | PRD exige errores publicos seguros y superficies anonimas sin detalles internos. |
-| Worktree | `D:/Proyectos/LeaseManager-public-login-safe-errors` |
-| Rama | `codex/public-login-safe-errors`. |
-| Estado | Implementacion en curso. |
-| Gate esperado | Build frontend, acceptance local y CI; no cambia gates externos ni usa datos reales. |
-| Estado al cerrar paquete | Pendiente de validacion, PR, CI y merge. |
+| Brecha activa | Ninguna brecha abierta en curso. El paquete #353 cerro la superficie publica de login para no renderizar `error.message` interno ni nombres de variables/configuracion. |
+| Motivo de prioridad | Paquete cerrado por PRD de errores publicos seguros y baseline anonimo sin detalles internos. |
+| Worktree | Ninguno; solo debe existir el worktree principal despues de limpiar `D:/Proyectos/LeaseManager-public-login-safe-errors`. |
+| Rama | `main`. |
+| Estado | Paquete #353 validado, integrado y limpiado. |
+| Gate esperado | Para el siguiente paquete: diagnosticar desde trazabilidad y ejecutar validaciones proporcionales. |
+| Estado al cerrar paquete | PR #353 mergeado en `main` con merge commit `2fc5b78`; CI acceptance remoto OK. |
 | Bloqueos relacionados | Ningun bloqueo externo nuevo; mejora local de baseline. |
-| Politica de reanudacion | Continuar este worktree hasta validar, abrir PR, mergear, limpiar y luego resetear cursor. |
-| Siguiente accion | Validar frontend build/lint si aplica, acceptance, higiene y PR. |
+| Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
+| Siguiente accion | Confirmar `main` limpio y elegir el proximo frente desbloqueado por trazabilidad. |
 
 ## Actualizacion
 
