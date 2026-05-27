@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Compliance datos sensibles. |
-| Fuente exacta | `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, `docs/product/BLOCKERS_MAYO_2026.md`, `backend/core/compliance_data_readiness.py`, tests de Compliance readiness y estado real del repositorio. |
-| Brecha activa | Revocaciones heredadas de exportaciones sensibles con `revocation_reason` sensible quedan mezcladas como motivo faltante y metadata sensible generica; el readiness debe clasificarlas con codigo especifico sin exponer valores. |
-| Motivo de prioridad | Paquete pequeno y local que mejora precision de cierre Compliance sin depender de `.env`, secretos, DB historica, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-revocation-reason-readiness`. |
-| Rama | `codex/compliance-revocation-reason-readiness`. |
-| Estado | Validado localmente; pendiente commit, PR, CI, merge y limpieza. |
-| Gate esperado | Compliance readiness local `classification=parcial`, `ready_for_compliance_data=false` sin fuente autorizada; tests focales e impactados en verde. |
-| Estado al cerrar paquete | Focal 3 tests OK; suite impactada Compliance/readiness 82 tests OK; `manage.py check`, `makemigrations --check --dry-run`, gate local Compliance `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 973 tests OK. |
-| Bloqueos relacionados | `BLK-010` sigue abierto como condicion de cierre legal-operativo; no bloquea esta preparacion local. |
+| Frente activo | Sin paquete activo. |
+| Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete cerrado: Compliance readiness separa motivos sensibles heredados en revocaciones de exportaciones sensibles. |
+| Worktree | N/A tras merge y limpieza. |
+| Rama | N/A tras merge y limpieza. |
+| Estado | Paquete validado e integrado en PR #430, merge `6382305`. |
+| Gate esperado | N/A hasta abrir proximo paquete. |
+| Estado al cerrar paquete | Focal 3 tests OK; suite impactada Compliance/readiness 82 tests OK; `manage.py check`, `makemigrations --check --dry-run`, gate local Compliance `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 973 tests OK, CI GitHub acceptance OK, higiene repo y `git diff --check` OK. |
+| Bloqueos relacionados | `BLK-010` sigue abierto como condicion de cierre legal-operativo. Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
 | Siguiente accion | Diagnosticar estado real y seleccionar el siguiente paquete pequeno, local y verificable por trazabilidad. |
 
