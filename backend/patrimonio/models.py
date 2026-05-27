@@ -175,6 +175,10 @@ class Empresa(TimestampedModel):
         errors = []
         if self.propiedades.filter(estado=EstadoPatrimonial.ACTIVE).exists():
             errors.append('La empresa con propiedades activas debe permanecer activa.')
+        if _currently_effective(self.participaciones).exists():
+            errors.append(
+                'La empresa con participaciones patrimoniales propias activas vigentes debe permanecer activa.'
+            )
         if _currently_effective(self.participaciones_patrimoniales_como_participante).exists():
             errors.append('La empresa participante de participaciones activas vigentes debe permanecer activa.')
         return errors
@@ -187,7 +191,7 @@ class Empresa(TimestampedModel):
             )
         if self.estado == EstadoPatrimonial.ACTIVE and self.tiene_participantes_activos_duplicados():
             raise ValidationError({'estado': 'La empresa activa no puede repetir participantes actualmente vigentes.'})
-        if self.estado != EstadoPatrimonial.ACTIVE:
+        if self.estado == EstadoPatrimonial.INACTIVE:
             errors = self.inactive_state_dependency_errors()
             if errors:
                 raise ValidationError({'estado': errors})
@@ -250,6 +254,12 @@ class ComunidadPatrimonial(TimestampedModel):
         errors = []
         if self.propiedades.filter(estado=EstadoPatrimonial.ACTIVE).exists():
             errors.append('La comunidad con propiedades activas debe permanecer activa.')
+        if _currently_effective(self.participaciones).exists():
+            errors.append(
+                'La comunidad con participaciones patrimoniales propias activas vigentes debe permanecer activa.'
+            )
+        if _currently_effective(self.representaciones).exists():
+            errors.append('La comunidad con representaciones activas vigentes debe permanecer activa.')
         return errors
 
     def clean(self):
@@ -272,7 +282,7 @@ class ComunidadPatrimonial(TimestampedModel):
                 raise ValidationError(
                     {'estado': 'La representacion patrimonial activa debe pertenecer a las participaciones activas.'}
                 )
-        else:
+        elif self.estado == EstadoPatrimonial.INACTIVE:
             errors = self.inactive_state_dependency_errors()
             if errors:
                 raise ValidationError({'estado': errors})

@@ -60,7 +60,9 @@ contra datos reales o snapshot controlado.
   cambio de ownership debe usar el flujo auditado.
 - Validacion de transiciones de estado patrimonial: socios, empresas y
   comunidades no pueden desactivarse si sostienen propiedades,
-  representaciones o participaciones activas vigentes.
+  representaciones o participaciones activas vigentes, incluyendo la estructura
+  patrimonial propia de empresas/comunidades que debe transferirse o cerrarse
+  antes de la salida operativa.
 - La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
   historicos no constituyen evidencia operativa de Etapa 1.
 - Validacion de no duplicar propiedades activas por rol de avaluo normalizado

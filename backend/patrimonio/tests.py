@@ -1070,17 +1070,73 @@ class PatrimonioAPITests(APITestCase):
         self.assertIn('codigo_propiedad', duplicate_response.data)
 
     def test_empresa_update_emits_update_and_state_change_audit_events(self):
-        create_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')
+        create_response = self.client.post(
+            reverse('patrimonio-empresa-list'),
+            self._empresa_payload(estado=EstadoPatrimonial.DRAFT),
+            format='json',
+        )
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
 
         patch_response = self.client.patch(
             reverse('patrimonio-empresa-detail', args=[create_response.data['id']]),
-            {'estado': EstadoPatrimonial.INACTIVE},
+            {'estado': EstadoPatrimonial.ACTIVE},
             format='json',
         )
         self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
         self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.empresa.updated').exists())
         self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.empresa.state_changed').exists())
+
+    def test_empresa_deactivation_rejects_active_own_participations(self):
+        create_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('patrimonio-empresa-detail', args=[create_response.data['id']]),
+            {'estado': EstadoPatrimonial.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        self.assertFalse(AuditEvent.objects.filter(event_type='patrimonio.empresa.state_changed').exists())
+
+    def test_comunidad_deactivation_rejects_active_structure(self):
+        socio_a = self._create_socio('Socio Comunidad Estructura A', '15151515-7')
+        socio_b = self._create_socio('Socio Comunidad Estructura B', '16161616-5')
+        create_response = self.client.post(
+            reverse('patrimonio-comunidad-list'),
+            self._comunidad_payload(
+                representante_modo=ModoRepresentacionComunidad.PATRIMONIAL_PARTICIPANT,
+                representante_socio_id=socio_a.id,
+                participaciones=[
+                    {
+                        'participante_tipo': 'socio',
+                        'participante_id': socio_a.id,
+                        'porcentaje': '50.00',
+                        'vigente_desde': '2026-01-01',
+                        'activo': True,
+                    },
+                    {
+                        'participante_tipo': 'socio',
+                        'participante_id': socio_b.id,
+                        'porcentaje': '50.00',
+                        'vigente_desde': '2026-01-01',
+                        'activo': True,
+                    },
+                ],
+            ),
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('patrimonio-comunidad-detail', args=[create_response.data['id']]),
+            {'estado': EstadoPatrimonial.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
 
     def test_socio_deactivation_rejects_active_patrimonial_dependencies(self):
         socio = self._create_socio('Socio Con Dependencia', '14141414-9')
