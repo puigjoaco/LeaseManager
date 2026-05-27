@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Compliance.DatosPersonalesChile2026, alineacion de auditoria de exportaciones sensibles. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Los eventos de auditoria de exportaciones sensibles validan actor/target o existencia, pero readiness debe detectar eventos heredados cuya metadata no calza con la exportacion real. |
-| Motivo de prioridad | Frente bajo del orden de construccion, mejora seguridad/compliance local, no requiere datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-export-audit-alignment`. |
-| Rama | `codex/compliance-export-audit-alignment`. |
-| Estado | En desarrollo. |
-| Gate esperado | Focal Compliance, suite compliance/readiness, `manage.py check`, migraciones dry-run, gate Compliance local, frontend build/lint, acceptance, higiene y diff-check. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Ningun bloqueo externo nuevo; no cierra Compliance sin fuente autorizada/evidencia legal-operativa. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | PR #363 cerrado; el siguiente frente debe seleccionarse desde el estado real del repo y la trazabilidad vigente. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Paquete anterior cerrado y worktree tactico eliminado. |
+| Gate esperado | No aplica hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | PR #363 mergeado en `main` con merge commit `d4499fc`; CI acceptance remoto OK; evidencia/trazabilidad actualizadas. |
+| Bloqueos relacionados | Ningun bloqueo externo nuevo; Compliance no queda cerrado sin fuente autorizada/evidencia legal-operativa. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Implementar metadata auditada alineada para exportaciones sensibles, validar y cerrar PR. |
+| Siguiente accion | Diagnosticar `main`, revisar trazabilidad vigente y abrir el siguiente worktree `codex/...` solo para el proximo paquete concreto. |
 
 ## Actualizacion
 
