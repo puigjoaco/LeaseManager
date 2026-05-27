@@ -19,6 +19,10 @@ contables desde hechos conciliados.
 - Preparar o aprobar cierre mensual bloquea si existen movimientos bancarios
   del periodo para cuentas de la empresa en `pendiente`,
   `ingreso_desconocido` o `manual_requerida`.
+- Preparar o aprobar cierre mensual exige `CuadraturaBancaria` cuadrada para
+  cada cuenta recaudadora de la empresa que tenga movimientos bancarios en el
+  periodo; la readiness detecta cierres heredados sin cuadratura o con
+  diferencia abierta.
 - Reglas contables vigentes.
 - Un mismo hecho economico no puede generar doble contabilizacion efectiva:
   si ya existe un `EventoContable` contabilizado para la misma empresa, tipo y

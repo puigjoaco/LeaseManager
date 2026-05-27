@@ -8,7 +8,9 @@ from django.utils import timezone
 
 from cobranza.models import HistorialGarantia, TipoMovimientoGarantia
 from conciliacion.models import (
+    CuadraturaBancaria,
     EstadoConciliacionMovimiento,
+    EstadoCuadraturaBancaria,
     EstadoIngresoDesconocido,
     MovimientoBancarioImportado,
     TransferenciaIntercuenta,
@@ -612,6 +614,42 @@ def get_company_period_unresolved_bank_movements(empresa, anio, mes):
     )
 
 
+def summarize_company_period_bank_square(empresa, anio, mes):
+    periodo = f'{anio:04d}-{mes:02d}'
+    account_ids = set(
+        get_company_period_bank_movements(empresa, anio, mes)
+        .values_list('conexion_bancaria__cuenta_recaudadora_id', flat=True)
+        .distinct()
+    )
+    account_ids.discard(None)
+    if not account_ids:
+        return {
+            'cuentas_bancarias_con_movimientos': 0,
+            'cuadraturas_bancarias_cuadradas': 0,
+            'cuadraturas_bancarias_faltantes': 0,
+            'cuadraturas_bancarias_no_cuadradas': 0,
+        }
+
+    quadratures = list(
+        CuadraturaBancaria.objects.filter(
+            cuenta_recaudadora_id__in=account_ids,
+            periodo_economico=periodo,
+        ).only('cuenta_recaudadora_id', 'estado', 'diferencia_clp')
+    )
+    quadrature_account_ids = {item.cuenta_recaudadora_id for item in quadratures}
+    squared_account_ids = {
+        item.cuenta_recaudadora_id
+        for item in quadratures
+        if item.estado == EstadoCuadraturaBancaria.SQUARED and item.diferencia_clp == Decimal('0.00')
+    }
+    return {
+        'cuentas_bancarias_con_movimientos': len(account_ids),
+        'cuadraturas_bancarias_cuadradas': len(squared_account_ids),
+        'cuadraturas_bancarias_faltantes': len(account_ids - quadrature_account_ids),
+        'cuadraturas_bancarias_no_cuadradas': len(quadrature_account_ids - squared_account_ids),
+    }
+
+
 def assert_company_period_conciliacion_ready(empresa, anio, mes):
     unresolved = get_company_period_unresolved_bank_movements(empresa, anio, mes)
     count = unresolved.count()
@@ -619,9 +657,20 @@ def assert_company_period_conciliacion_ready(empresa, anio, mes):
         raise ValueError(
             f'Conciliacion no cerrada para el periodo: existen {count} movimientos bancarios sin resolver.'
         )
+    bank_square = summarize_company_period_bank_square(empresa, anio, mes)
+    missing_or_invalid = (
+        bank_square['cuadraturas_bancarias_faltantes']
+        + bank_square['cuadraturas_bancarias_no_cuadradas']
+    )
+    if missing_or_invalid:
+        raise ValueError(
+            'Banco no cuadrado para el periodo: existen '
+            f'{missing_or_invalid} cuentas con movimientos sin cuadratura bancaria cuadrada.'
+        )
     return {
         'movimientos_bancarios_periodo': get_company_period_bank_movements(empresa, anio, mes).count(),
         'movimientos_bancarios_no_resueltos': 0,
+        **bank_square,
     }
 
 
