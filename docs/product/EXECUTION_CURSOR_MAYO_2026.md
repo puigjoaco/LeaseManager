@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 3 - Banco y conciliacion. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Resoluciones manuales de ingreso desconocido y cargo bancario validan evidencia no sensible, pero sus criterios y motivos pueden aceptar o conservar texto heredado sensible sin clasificacion readiness especifica. |
-| Motivo de prioridad | Completar la politica de contexto no sensible en resoluciones manuales que alimentan conciliacion y hechos contables. |
-| Worktree | `D:/Proyectos/LeaseManager-stage3-manual-resolution-context-safety`. |
-| Rama | `codex/stage3-manual-resolution-context-safety`. |
-| Estado | Validado localmente; pendiente PR, CI, merge y limpieza. |
-| Gate esperado | Etapa 3 local debe seguir como diagnostico parcial: `classification=parcial`, `ready_for_stage3_conciliacion=false`, sin fuente bancaria autorizada. |
-| Estado al cerrar paquete | Focal 7 tests OK; suite impactada 120 tests OK; `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 3 `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 971 tests OK, higiene repo y `git diff --check` OK; CI GitHub pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete cerrado: Etapa 3 bloquea criterios y motivos sensibles en resoluciones manuales. |
+| Worktree | N/A tras merge y limpieza. |
+| Rama | N/A tras merge y limpieza. |
+| Estado | Paquete validado e integrado en PR #426, merge `9e6d782`. |
+| Gate esperado | N/A hasta abrir proximo paquete. |
+| Estado al cerrar paquete | Focal 7 tests OK; suite impactada 120 tests OK; `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 3 `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 971 tests OK, CI GitHub acceptance OK, higiene repo y `git diff --check` OK. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta validar, integrar y limpiar; no abrir otro frente mientras siga activo. |
-| Siguiente accion | Ejecutar higiene final, abrir PR, esperar CI, mergear y limpiar worktree. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
+| Siguiente accion | Diagnosticar estado real y seleccionar el siguiente paquete pequeno, local y verificable por trazabilidad. |
 
 ## Actualizacion
 
