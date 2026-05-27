@@ -73,14 +73,15 @@ contra datos reales o snapshot controlado.
   operativo activo asignado por su mandato; `Contrato.full_clean()`, la API y
   el auditor Etapa 1 bloquean contratos nuevos o heredados sin esa cobertura.
 - Validacion de que las identidades de envio activas usen `credencial_ref`
-  trazable no sensible; la API debe redactar referencias sensibles heredadas.
+  trazable no sensible; API y admin/backoffice deben redactar referencias
+  sensibles heredadas antes de exponerlas.
 - Validacion de transiciones operativas: cuentas recaudadoras, mandatos,
   identidades de envio y asignaciones de canal no pueden pausarse,
   suspenderse o inactivarse si dejan contratos vigentes/futuros, mandatos o
   canales activos sin cobertura operativa.
 - Validacion de cuentas recaudadoras activas: una cuenta activa debe declarar
   uso operativo, modo `manual_controlado` o `gate_bancario`, y evidencia
-  operativa trazable no sensible; la API y snapshot/backoffice redactan
+  operativa trazable no sensible; API, snapshot y admin/backoffice redactan
   referencias sensibles heredadas antes de exponerlas, y el auditor Etapa 1
   detecta faltantes o referencias sensibles heredadas.
 - Validacion de que cada contrato vigente o futuro este cubierto por la
@@ -94,8 +95,8 @@ contra datos reales o snapshot controlado.
 - Autoridad operativa de mandato: un `MandatoOperacion` activo que autoriza
   comunicacion o facturacion de documentos debe conservar nombre, RUT valido
   normalizado y evidencia trazable no sensible de su representante/autoridad;
-  API, snapshot, backoffice y auditor Etapa 1 detectan faltantes, RUT invalido
-  o referencias sensibles.
+  API, snapshot, admin/backoffice y auditor Etapa 1 detectan faltantes, RUT
+  invalido o referencias sensibles.
 - Validacion de que cada propiedad principal o vinculada de contratos vigentes
   o futuros este activa.
 - Servicios y gastos comunes estructurados: `ServicioPropiedad` registra tipo

@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
@@ -32,6 +33,7 @@ from .models import (
     ModoOperacionCuentaRecaudadora,
     MonedaOperativa,
 )
+from .admin import CuentaRecaudadoraAdmin, IdentidadDeEnvioAdmin, MandatoOperacionAdmin
 
 
 class OperacionModelTests(TestCase):
@@ -470,6 +472,70 @@ class OperacionAPITests(APITestCase):
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
         self.assertEqual(list_response.data[0]['credencial_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(detail_response.data['credencial_ref'], REDACTED_SENSITIVE_REFERENCE)
+
+    def test_operation_admin_redacts_sensitive_operational_refs(self):
+        propietario = self._create_socio('Propietario Admin', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo Admin', '88888888-8')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-ADM-001')
+        cuenta = CuentaRecaudadora.objects.create(
+            empresa_owner=admin_company,
+            institucion='Banco Uno',
+            numero_cuenta='ADM-001',
+            tipo_cuenta='corriente',
+            titular_nombre=admin_company.razon_social,
+            titular_rut=admin_company.rut,
+            moneda_operativa=MonedaOperativa.CLP,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.BANK_GATE,
+            evidencia_operativa_ref='https://bank.example.test/token/secret',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+        identidad = IdentidadDeEnvio.objects.create(
+            empresa_owner=admin_company,
+            canal=CanalOperacion.EMAIL,
+            remitente_visible=admin_company.razon_social,
+            direccion_o_numero='admin-sensitive@example.com',
+            credencial_ref='https://mail.example.test/token/secret',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+        mandato = MandatoOperacion.objects.create(
+            propiedad=propiedad,
+            propietario_socio_owner=propietario,
+            administrador_empresa_owner=admin_company,
+            recaudador_empresa_owner=admin_company,
+            cuenta_recaudadora=cuenta,
+            tipo_relacion_operativa='mandato_externo',
+            autoriza_recaudacion=True,
+            autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='https://drive.example.test/token/secret',
+            vigencia_desde='2026-01-01',
+            estado=EstadoMandatoOperacion.ACTIVE,
+        )
+
+        site = AdminSite()
+        cuenta_admin = CuentaRecaudadoraAdmin(CuentaRecaudadora, site)
+        identidad_admin = IdentidadDeEnvioAdmin(IdentidadDeEnvio, site)
+        mandato_admin = MandatoOperacionAdmin(MandatoOperacion, site)
+
+        self.assertNotIn('evidencia_operativa_ref', cuenta_admin.search_fields)
+        self.assertNotIn('evidencia_operativa_ref', cuenta_admin.fields)
+        self.assertEqual(cuenta_admin.evidencia_operativa_ref_redacted(cuenta), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(cuenta_admin.has_add_permission(None))
+
+        self.assertNotIn('credencial_ref', identidad_admin.search_fields)
+        self.assertNotIn('credencial_ref', identidad_admin.fields)
+        self.assertEqual(identidad_admin.credencial_ref_redacted(identidad), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(identidad_admin.has_add_permission(None))
+
+        self.assertNotIn('autoridad_operativa_evidencia_ref', mandato_admin.search_fields)
+        self.assertNotIn('autoridad_operativa_evidencia_ref', mandato_admin.fields)
+        self.assertEqual(
+            mandato_admin.autoridad_operativa_evidencia_ref_redacted(mandato),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertFalse(mandato_admin.has_add_permission(None))
 
     def test_active_mandato_accepts_distinct_owner_admin_and_facturadora_when_authorized(self):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
