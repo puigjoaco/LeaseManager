@@ -151,6 +151,7 @@ class CuentaRecaudadoraSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data['owner_tipo'] = instance.owner_tipo
         data['owner_id'] = instance.owner_id
+        data['evidencia_operativa_ref'] = redact_sensitive_reference(data.get('evidencia_operativa_ref'))
         return data
 
     def validate(self, attrs):
