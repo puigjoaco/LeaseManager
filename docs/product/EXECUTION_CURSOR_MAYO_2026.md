@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | PlataformaBase / Auditoria admin redaction. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `backend/audit/admin.py` registra `AuditEvent` y `ManualResolution` con admin crudo, exponiendo metadata/rationale/resumen sensible heredado por fuera de serializers. |
-| Motivo de prioridad | Cierra superficie transversal de auditoria, consistente con el hardening admin reciente de dominios y Compliance. |
-| Worktree | `D:/Proyectos/LeaseManager-audit-admin-redaction`. |
-| Rama | `codex/audit-admin-redaction`. |
-| Estado | Implementado y validado localmente; pendiente commit, PR, CI, merge y limpieza. |
-| Gate esperado | Tests focales de auditoria admin, suite `audit`, `manage.py check`, migraciones dry-run, acceptance local, build frontend e higiene. |
-| Estado al cerrar paquete | Admin de auditoria explicito implementado; `AuditEvent` y `ManualResolution` no exponen campos crudos sensibles en Django admin, no permiten alta/borrado manual y quedaron cubiertos por pruebas/evidencia local. |
+| Brecha activa | Pendiente de seleccionar segun trazabilidad vigente y estado real del repo. |
+| Motivo de prioridad | El paquete anterior quedo cerrado; el siguiente frente debe elegirse en la proxima apertura operativa. |
+| Worktree | N/A. |
+| Rama | `main`. |
+| Estado | Sin paquete activo; ultimo paquete integrado en PR #401 (`Redact audit admin surfaces`). |
+| Gate esperado | Definir al abrir el siguiente paquete. |
+| Estado al cerrar paquete | PR #401 integrado en `main` con merge `2706f35`; el admin de auditoria redacta eventos y resoluciones manuales heredadas, elimina busquedas por campos sensibles y mantiene cerrado alta/borrado manual. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza antes de abrir otro paquete. |
-| Siguiente accion | Crear commit, abrir PR, esperar CI, mergear y limpiar worktree. |
+| Politica de reanudacion | Si no hay worktree tactico sucio, elegir el siguiente frente util y seguro desde trazabilidad vigente. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; seleccionar el siguiente paquete pequeno, verificable y cerrable. |
 
 ## Actualizacion
 
