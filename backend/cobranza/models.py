@@ -261,6 +261,16 @@ class PagoMensual(TimestampedModel):
     monto_facturable_clp = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'))
     monto_calculado_clp = models.DecimalField(max_digits=14, decimal_places=2)
     monto_efecto_codigo_efectivo_clp = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'))
+    moneda_calculo = models.CharField(max_length=8, choices=MonedaBaseContrato.choices, default=MonedaBaseContrato.CLP)
+    uf_fecha_usada = models.DateField(null=True, blank=True)
+    uf_valor_usado = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0.0001'))],
+    )
+    uf_source_key = models.CharField(max_length=64, blank=True, default='')
     monto_pagado_clp = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'))
     fecha_vencimiento = models.DateField()
     fecha_deposito_banco = models.DateField(null=True, blank=True)
@@ -353,6 +363,16 @@ class PagoMensual(TimestampedModel):
         if self.periodo_contractual.contrato_id != self.contrato_id:
             raise ValidationError({'periodo_contractual': 'El periodo contractual debe pertenecer al mismo contrato.'})
 
+        self.uf_source_key = (self.uf_source_key or '').strip()
+        if self.uf_source_key and self.uf_source_key not in CANONICAL_UF_SOURCE_KEYS:
+            errors = {
+                'uf_source_key': (
+                    'La fuente UF usada debe ser canonica: UF.BancoCentral, UF.CMF, '
+                    'UF.MiIndicador o UF.CargaManualExtraordinaria.'
+                )
+            }
+            raise ValidationError(errors)
+
         repayment_states = {EstadoPago.IN_REPAYMENT, EstadoPago.PAID_VIA_REPAYMENT}
         if self.estado_pago in repayment_states:
             if not self.repactacion_deuda_id:
@@ -420,6 +440,29 @@ class PagoMensual(TimestampedModel):
                     'La fecha de vencimiento debe coincidir con el dia de pago mensual del contrato '
                     'para el mes operativo.'
                 )
+        uf_required = self.periodo_contractual.moneda_base == MonedaBaseContrato.UF
+        if not uf_required:
+            uf_required = AjusteContrato.objects.filter(
+                contrato=self.contrato,
+                activo=True,
+                moneda=MonedaBaseContrato.UF,
+                mes_inicio__lte=month_start,
+                mes_fin__gte=month_start,
+            ).exists()
+        has_uf_trace = bool(self.uf_fecha_usada or self.uf_valor_usado is not None or self.uf_source_key)
+        if uf_required:
+            if self.moneda_calculo != MonedaBaseContrato.UF:
+                errors['moneda_calculo'] = 'Los pagos calculados con UF deben persistir moneda_calculo UF.'
+            if not self.uf_fecha_usada:
+                errors['uf_fecha_usada'] = 'Los pagos calculados con UF deben persistir la fecha UF usada.'
+            elif due_date and self.uf_fecha_usada != due_date:
+                errors['uf_fecha_usada'] = 'La fecha UF usada debe coincidir con la fecha de vencimiento del pago.'
+            if self.uf_valor_usado is None:
+                errors['uf_valor_usado'] = 'Los pagos calculados con UF deben persistir el valor UF usado.'
+            if not self.uf_source_key:
+                errors['uf_source_key'] = 'Los pagos calculados con UF deben persistir la fuente UF usada.'
+        elif self.moneda_calculo == MonedaBaseContrato.UF or has_uf_trace:
+            errors['moneda_calculo'] = 'Solo los pagos dependientes de UF pueden persistir traza UF.'
         if self.estado_pago in {EstadoPago.PAID, EstadoPago.PAID_VIA_REPAYMENT, EstadoPago.PAID_BY_TERMINATION}:
             if self.monto_pagado_clp <= 0:
                 errors['monto_pagado_clp'] = 'Los estados de pago efectivo requieren monto pagado mayor que cero.'

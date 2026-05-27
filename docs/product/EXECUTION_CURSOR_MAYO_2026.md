@@ -25,15 +25,15 @@ nueva.
 | Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
 | Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete previo cerrado: PR #411 `Exclude non-operational months from payment score`, merge `a74ec33`. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Main sincronizado tras PR #411; pendiente seleccionar siguiente frente seguro por trazabilidad. |
+| Motivo de prioridad | Paquete cerrado: CobranzaActiva persiste y audita la traza UF exacta usada por pagos mensuales dependientes de UF. |
+| Worktree | N/A tras merge y limpieza. |
+| Rama | N/A tras merge y limpieza. |
+| Estado | Paquete validado y listo para quedar integrado: `PagoMensual` conserva moneda, fecha, valor y fuente UF; Etapa 1 y readiness Etapa 2 bloquean trazas faltantes/desalineadas. |
 | Gate esperado | N/A hasta abrir proximo paquete. |
-| Estado al cerrar paquete | PR #411 integrado con CI acceptance verde; worktree tactico removido. |
+| Estado al cerrar paquete | Validaciones locales completas: focal 9 tests, suite impactada 279 tests, acceptance 951 tests, checks backend/frontend, gates locales Etapa 1/2, higiene y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Diagnosticar estado real y seleccionar siguiente paquete pequeno, local y verificable por trazabilidad. |
+| Siguiente accion | Tras merge y limpieza, diagnosticar estado real y seleccionar siguiente paquete pequeno, local y verificable por trazabilidad. |
 
 ## Actualizacion
 

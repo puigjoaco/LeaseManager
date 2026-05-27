@@ -720,6 +720,28 @@ class CobranzaAPITests(APITestCase):
             payment.full_clean()
         self.assertIn('fecha_vencimiento', error.exception.message_dict)
 
+    def test_payment_full_clean_requires_uf_trace_for_uf_period(self):
+        contrato = self._create_active_contract(codigo='CON-PAY-UF-TRACE', moneda='UF', monto_base='10.00', code='111')
+        periodo = contrato.periodos_contractuales.get(numero_periodo=1)
+        payment = PagoMensual(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp=Decimal('350000.00'),
+            monto_calculado_clp=Decimal('350111.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('111.00'),
+            fecha_vencimiento=date(2026, 1, 5),
+            codigo_conciliacion_efectivo='111',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            payment.full_clean()
+        self.assertIn('moneda_calculo', error.exception.message_dict)
+        self.assertIn('uf_fecha_usada', error.exception.message_dict)
+        self.assertIn('uf_valor_usado', error.exception.message_dict)
+        self.assertIn('uf_source_key', error.exception.message_dict)
+
     def test_payment_full_clean_rejects_paid_state_without_traceable_payment(self):
         contrato = self._create_active_contract(codigo='CON-PAY-CLOSE', monto_base='100000.00', code='111')
         periodo = contrato.periodos_contractuales.get(numero_periodo=1)
@@ -752,14 +774,15 @@ class CobranzaAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('2026-01-05', response.data['detail'])
 
     def test_generate_uf_payment_applies_adjustments_before_effective_code(self):
         contrato = self._create_active_contract(codigo='CON-UF-OK', moneda='UF', monto_base='10.00', code='123')
         ValorUFDiario.objects.create(
-            fecha='2026-01-01',
+            fecha=date(2026, 1, 5),
             valor='35000.0000',
             source_key='UF.CargaManualExtraordinaria',
-            evidencia_ref='uf-manual-evidence-2026-01-01',
+            evidencia_ref='uf-manual-evidence-2026-01-05',
             motivo_carga='Carga manual controlada para prueba local.',
             responsable_ref='ops-uf-responsible-001',
         )
@@ -782,6 +805,10 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['monto_facturable_clp'], '355000.00')
         self.assertEqual(response.data['monto_calculado_clp'], '355123.00')
+        self.assertEqual(response.data['moneda_calculo'], 'UF')
+        self.assertEqual(response.data['uf_fecha_usada'], '2026-01-05')
+        self.assertEqual(response.data['uf_valor_usado'], '35000.0000')
+        self.assertEqual(response.data['uf_source_key'], 'UF.CargaManualExtraordinaria')
 
     def test_generate_payment_is_idempotent_for_same_contract_and_month(self):
         contrato = self._create_active_contract(codigo='CON-IDEM', monto_base='100000.00', code='111')

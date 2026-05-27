@@ -221,9 +221,11 @@ contra datos reales o snapshot controlado.
   arrendatario distinto al vigente si no existe el evento auditable que vincula
   contrato anterior, aviso y contrato nuevo.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
-  de periodo o ajuste en UF, debe existir `ValorUFDiario` para el primer dia
-  del mes operativo. Si el valor UF fue cargado manualmente, debe conservar
-  `evidencia_ref`, `motivo_carga` y `responsable_ref` no sensibles.
+  de periodo o ajuste en UF, debe conservar `moneda_calculo`, fecha, valor y
+  fuente UF usados. La fecha UF debe coincidir con `fecha_vencimiento` y debe
+  existir `ValorUFDiario` canonico para esa fecha exacta. Si el valor UF fue
+  cargado manualmente, debe conservar `evidencia_ref`, `motivo_carga` y
+  `responsable_ref` no sensibles.
 - Verificacion segura sin fuente autorizada:
 
 ```powershell

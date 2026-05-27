@@ -7,7 +7,7 @@ type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
 type ValorUFItem = { id: number; fecha: string; valor: string; source_key: string; evidencia_ref: string; motivo_carga: string; responsable_ref: string }
 type AjusteContratoItem = { id: number; contrato: number; tipo_ajuste: string; monto: string; moneda: string; mes_inicio: string; mes_fin: string; activo: boolean }
-type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_efecto_codigo_efectivo_clp: string; monto_pagado_clp: string; fecha_vencimiento: string; estado_pago: string; dias_mora: number; resolucion_pago_excepcional_ref: string; resolucion_pago_excepcional_motivo: string }
+type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_efecto_codigo_efectivo_clp: string; moneda_calculo: string; uf_fecha_usada: string | null; uf_valor_usado: string | null; uf_source_key: string; monto_pagado_clp: string; fecha_vencimiento: string; estado_pago: string; dias_mora: number; resolucion_pago_excepcional_ref: string; resolucion_pago_excepcional_motivo: string }
 type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; brecha_garantia_clp: string; exceso_garantia_clp: string; garantia_incompleta: boolean; garantia_parcial_aceptada: boolean; aceptacion_parcial_ref: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string; tiene_resolucion_exceso_garantia: boolean; estado_garantia: string }
 type HistorialGarantiaItem = { id: number; contrato_id: number; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string }
 type EstadoCuentaItem = { id: number; arrendatario: number; score_pago: number | null; resumen_operativo: { pagos_abiertos?: number; pagos_atrasados?: number; score_meses_evaluados?: number; score_pagos_en_plazo?: number; score_pagos_fuera_plazo?: number; score_meses_sin_registro_operativo?: number; saldo_total_clp?: string } }
@@ -244,6 +244,7 @@ export function CobranzaWorkspace({
         { label: 'Facturable', render: (row) => row.monto_facturable_clp },
         { label: 'Calculado', render: (row) => row.monto_calculado_clp },
         { label: 'Efecto código', render: (row) => row.monto_efecto_codigo_efectivo_clp },
+        { label: 'UF usada', render: (row) => row.moneda_calculo === 'UF' ? `${row.uf_valor_usado || '-'} · ${row.uf_fecha_usada || '-'} · ${row.uf_source_key || '-'}` : row.moneda_calculo },
         { label: 'Pagado', render: (row) => row.monto_pagado_clp },
         { label: 'Vence', render: (row) => row.fecha_vencimiento },
         { label: 'Estado', render: (row) => <Badge label={row.estado_pago} tone={toneFor(row.estado_pago)} /> },

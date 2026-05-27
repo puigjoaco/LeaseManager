@@ -478,6 +478,10 @@ class PagoMensualGenerateView(APIView):
                 monto_facturable_clp=calculation['monto_facturable_clp'],
                 monto_calculado_clp=calculation['monto_calculado_clp'],
                 monto_efecto_codigo_efectivo_clp=calculation['monto_efecto_codigo_efectivo_clp'],
+                moneda_calculo=calculation['moneda_calculo'],
+                uf_fecha_usada=calculation['uf_fecha_usada'],
+                uf_valor_usado=calculation['uf_valor_usado'],
+                uf_source_key=calculation['uf_source_key'],
                 fecha_vencimiento=calculation['fecha_vencimiento'],
                 codigo_conciliacion_efectivo=calculation['codigo_conciliacion_efectivo'],
             )

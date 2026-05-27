@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -27,6 +28,7 @@ from canales.services import (
     whatsapp_gate_has_approved_template,
 )
 from cobranza.models import (
+    AjusteContrato,
     CANONICAL_UF_SOURCE_KEYS,
     CodigoCobroResidual,
     EstadoCuentaArrendatario,
@@ -48,6 +50,7 @@ from contratos.models import (
     Arrendatario,
     Contrato,
     EstadoContrato,
+    MonedaBaseContrato,
     WHATSAPP_BLOCK_ALERT_CATEGORY,
     WHATSAPP_BLOCK_EVENT_TYPE,
     is_international_phone_number,
@@ -633,6 +636,51 @@ def _collect_payment_repayment_trace_issues(payments) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _payment_requires_uf_trace(payment: PagoMensual) -> bool:
+    if payment.periodo_contractual.moneda_base == MonedaBaseContrato.UF:
+        return True
+    month_start = date(int(payment.anio), int(payment.mes), 1)
+    return AjusteContrato.objects.filter(
+        contrato=payment.contrato,
+        activo=True,
+        moneda=MonedaBaseContrato.UF,
+        mes_inicio__lte=month_start,
+        mes_fin__gte=month_start,
+    ).exists()
+
+
+def _collect_payment_uf_trace_issues(payments) -> dict[str, int]:
+    counts = Counter()
+    for payment in payments:
+        if not _payment_requires_uf_trace(payment):
+            if payment.moneda_calculo == MonedaBaseContrato.UF or payment.uf_fecha_usada or payment.uf_valor_usado is not None or payment.uf_source_key:
+                counts['uf_trace_on_non_uf_payment'] += 1
+            continue
+
+        if (
+            payment.moneda_calculo != MonedaBaseContrato.UF
+            or not payment.uf_fecha_usada
+            or payment.uf_valor_usado is None
+            or not str(payment.uf_source_key or '').strip()
+        ):
+            counts['uf_trace_missing'] += 1
+            continue
+
+        if payment.uf_fecha_usada != payment.fecha_vencimiento:
+            counts['uf_date_mismatch'] += 1
+        uf_record = ValorUFDiario.objects.filter(fecha=payment.fecha_vencimiento).first()
+        if not uf_record:
+            counts['uf_value_missing_for_effective_date'] += 1
+            continue
+        if payment.uf_valor_usado != uf_record.valor:
+            counts['uf_value_mismatch'] += 1
+        if payment.uf_source_key not in CANONICAL_UF_SOURCE_KEYS:
+            counts['uf_source_not_canonical'] += 1
+        elif payment.uf_source_key != uf_record.source_key:
+            counts['uf_source_mismatch'] += 1
+    return dict(sorted(counts.items()))
+
+
 def _collect_account_state_issues(account_states, required_tenant_ids: set[int], reference_date) -> dict[str, int]:
     counts = Counter()
     existing_tenant_ids: set[int] = set()
@@ -801,6 +849,7 @@ def collect_stage2_cobranza_readiness(
     payment_effective_code_issues = _collect_payment_effective_code_issues(payments)
     payment_exceptional_resolution_issues = _collect_payment_exceptional_resolution_issues(payments)
     payment_repayment_issues = _collect_payment_repayment_trace_issues(payments)
+    payment_uf_trace_issues = _collect_payment_uf_trace_issues(payments)
     payments_total = payments.count()
     uf_values = ValorUFDiario.objects.all()
     uf_value_issues = _collect_uf_value_issues(uf_values)
@@ -956,6 +1005,55 @@ def collect_stage2_cobranza_readiness(
                 'stage2.payment.paid_via_repayment_plan_not_completed',
                 'Existen pagos pagados via repactacion cuyo plan no esta cumplido.',
                 count=payment_repayment_issues['paid_via_repayment_plan_not_completed'],
+            )
+        )
+    if payment_uf_trace_issues.get('uf_trace_missing'):
+        issues.append(
+            _issue(
+                'stage2.payment.uf_trace_missing',
+                'Existen pagos calculados en UF sin moneda, fecha, valor o fuente UF persistidos.',
+                count=payment_uf_trace_issues['uf_trace_missing'],
+            )
+        )
+    if payment_uf_trace_issues.get('uf_date_mismatch'):
+        issues.append(
+            _issue(
+                'stage2.payment.uf_date_mismatch',
+                'Existen pagos con fecha UF usada distinta a la fecha de vencimiento del cobro.',
+                count=payment_uf_trace_issues['uf_date_mismatch'],
+            )
+        )
+    if payment_uf_trace_issues.get('uf_value_missing_for_effective_date'):
+        issues.append(
+            _issue(
+                'stage2.payment.uf_value_missing_for_effective_date',
+                'Existen pagos en UF sin ValorUFDiario para la fecha efectiva del cobro.',
+                count=payment_uf_trace_issues['uf_value_missing_for_effective_date'],
+            )
+        )
+    if payment_uf_trace_issues.get('uf_value_mismatch'):
+        issues.append(
+            _issue(
+                'stage2.payment.uf_value_mismatch',
+                'Existen pagos con valor UF persistido distinto al ValorUFDiario de la fecha efectiva.',
+                count=payment_uf_trace_issues['uf_value_mismatch'],
+            )
+        )
+    if payment_uf_trace_issues.get('uf_source_not_canonical') or payment_uf_trace_issues.get('uf_source_mismatch'):
+        issues.append(
+            _issue(
+                'stage2.payment.uf_source_invalid',
+                'Existen pagos con fuente UF no canonica o distinta al ValorUFDiario de la fecha efectiva.',
+                count=payment_uf_trace_issues.get('uf_source_not_canonical', 0)
+                + payment_uf_trace_issues.get('uf_source_mismatch', 0),
+            )
+        )
+    if payment_uf_trace_issues.get('uf_trace_on_non_uf_payment'):
+        issues.append(
+            _issue(
+                'stage2.payment.uf_trace_on_non_uf_payment',
+                'Existen pagos que conservan traza UF sin depender de UF en periodo ni ajustes.',
+                count=payment_uf_trace_issues['uf_trace_on_non_uf_payment'],
             )
         )
     if uf_value_issues.get('invalid_model'):
@@ -1464,6 +1562,7 @@ def collect_stage2_cobranza_readiness(
                 **payment_effective_code_issues,
                 **payment_exceptional_resolution_issues,
                 **payment_repayment_issues,
+                **payment_uf_trace_issues,
             },
             'uf_values': {
                 'total': uf_values.count(),

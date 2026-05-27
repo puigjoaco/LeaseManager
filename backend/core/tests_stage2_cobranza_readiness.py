@@ -305,6 +305,68 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.uf_value.source_not_canonical', issue_codes)
         self.assertEqual(result['sections']['uf_values']['source_not_canonical'], 1)
 
+    def test_uf_payment_without_persisted_trace_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        period = fixture['payment'].periodo_contractual
+        period.moneda_base = MonedaBaseContrato.UF
+        period.monto_base = Decimal('10.00')
+        period.save(update_fields=['moneda_base', 'monto_base', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.uf_trace_missing', issue_codes)
+        self.assertEqual(result['sections']['payments']['uf_trace_missing'], 1)
+
+    def test_uf_payment_with_persisted_trace_can_pass_readiness(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        period = fixture['payment'].periodo_contractual
+        period.moneda_base = MonedaBaseContrato.UF
+        period.monto_base = Decimal('10.00')
+        period.save(update_fields=['moneda_base', 'monto_base', 'updated_at'])
+        ValorUFDiario.objects.create(
+            fecha=date(2026, 1, 5),
+            valor=Decimal('35000.0000'),
+            source_key='UF.BancoCentral',
+        )
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(
+            moneda_calculo=MonedaBaseContrato.UF,
+            uf_fecha_usada=date(2026, 1, 5),
+            uf_valor_usado=Decimal('35000.0000'),
+            uf_source_key='UF.BancoCentral',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage2_cobranza'])
+        self.assertNotIn('stage2.payment.uf_trace_missing', issue_codes)
+        self.assertNotIn('stage2.payment.uf_value_mismatch', issue_codes)
+        self.assertEqual(result['sections']['payments'].get('uf_trace_missing'), None)
+
+    def test_non_uf_payment_with_persisted_trace_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(
+            moneda_calculo=MonedaBaseContrato.UF,
+            uf_fecha_usada=date(2026, 1, 5),
+            uf_valor_usado=Decimal('35000.0000'),
+            uf_source_key='UF.BancoCentral',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.payment.uf_trace_on_non_uf_payment', issue_codes)
+        self.assertEqual(result['sections']['payments']['uf_trace_on_non_uf_payment'], 1)
+
     def test_effective_code_effect_mismatch_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()

@@ -6,6 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from audit.models import ManualResolution
 from audit.services import create_audit_event
+from contratos.models import MonedaBaseContrato
 from core.reference_validation import is_non_sensitive_reference
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 
@@ -40,10 +41,14 @@ def get_operational_month_start(anio, mes):
 
 def get_uf_value_for_month(anio, mes):
     month_start = get_operational_month_start(anio, mes)
-    uf_value = ValorUFDiario.objects.filter(fecha=month_start).first()
+    return get_uf_value_for_date(month_start).valor
+
+
+def get_uf_value_for_date(effective_date):
+    uf_value = ValorUFDiario.objects.filter(fecha=effective_date).first()
     if not uf_value:
-        raise ValueError(f'No existe valor UF cargado para {month_start.isoformat()}.')
-    return uf_value.valor
+        raise ValueError(f'No existe valor UF cargado para {effective_date.isoformat()}.')
+    return uf_value
 
 
 def get_period_for_month(contrato, anio, mes):
@@ -87,11 +92,12 @@ def calculate_monthly_amount(contrato, anio, mes):
     if not primary_property:
         raise ValueError('El contrato no tiene una propiedad principal configurada.')
 
+    due_date = date(int(anio), int(mes), contrato.dia_pago_mensual)
     uf_value = None
     base_amount = period.monto_base
     if period.moneda_base == 'UF':
-        uf_value = get_uf_value_for_month(anio, mes)
-        base_amount = base_amount * uf_value
+        uf_value = get_uf_value_for_date(due_date)
+        base_amount = base_amount * uf_value.valor
 
     month_start = get_operational_month_start(anio, mes)
     adjustments = AjusteContrato.objects.filter(
@@ -106,8 +112,8 @@ def calculate_monthly_amount(contrato, anio, mes):
         adjustment_amount = adjustment.monto
         if adjustment.moneda == 'UF':
             if uf_value is None:
-                uf_value = get_uf_value_for_month(anio, mes)
-            adjustment_amount = adjustment_amount * uf_value
+                uf_value = get_uf_value_for_date(due_date)
+            adjustment_amount = adjustment_amount * uf_value.valor
         total_amount += adjustment_amount
 
     truncated = truncate_to_clp(total_amount)
@@ -123,8 +129,12 @@ def calculate_monthly_amount(contrato, anio, mes):
         'monto_facturable_clp': truncated,
         'monto_calculado_clp': final_amount,
         'monto_efecto_codigo_efectivo_clp': effective_code_effect,
+        'moneda_calculo': MonedaBaseContrato.UF if uf_value else MonedaBaseContrato.CLP,
+        'uf_fecha_usada': uf_value.fecha if uf_value else None,
+        'uf_valor_usado': uf_value.valor if uf_value else None,
+        'uf_source_key': uf_value.source_key if uf_value else '',
         'codigo_conciliacion_efectivo': effective_code,
-        'fecha_vencimiento': date(int(anio), int(mes), contrato.dia_pago_mensual),
+        'fecha_vencimiento': due_date,
     }
 
 
