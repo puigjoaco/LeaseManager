@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Conciliacion. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | El admin Django de Conciliacion expone y busca refs bancarias crudas de conexiones, movimientos, cuadraturas y transferencias intercuenta. |
-| Motivo de prioridad | Etapa 3 exige redaccion de refs bancarias sensibles en backoffice; APIs/snapshots/readiness ya cubren nuevas escrituras y exposicion HTTP, falta cerrar la superficie admin local. |
-| Worktree | `D:/Proyectos/LeaseManager-stage3-conciliacion-admin-redaction`. |
-| Rama | `codex/stage3-conciliacion-admin-redaction`. |
-| Estado | Validacion local completa; pendiente PR, CI, merge y limpieza. |
-| Gate esperado | Etapa 3 local diagnostica/parcial, sin declarar cierre de etapa. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. Ultimo paquete cerrado: PR #389 `Redact Conciliacion admin refs`, merge `329260d`. |
+| Motivo de prioridad | No aplica mientras no exista paquete abierto; el siguiente frente se selecciona desde el estado real del repo y la trazabilidad vigente. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Sin paquete abierto; `main` quedo actualizado tras PR #389. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | PR #389 integrado en `main`; CI acceptance remoto paso y el worktree tactico fue eliminado. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Redactar refs bancarias en admin de Conciliacion, cubrir con prueba focal, validar impacto y cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; si no hay paquete abierto, diagnosticar el siguiente frente seguro por orden y trazabilidad antes de crear un worktree `codex/...`. |
 
 ## Actualizacion
 
