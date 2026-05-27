@@ -1,6 +1,8 @@
+import json
 import os
 from unittest.mock import patch
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -14,6 +16,7 @@ from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import ComunidadPatrimonial, Empresa, ModoRepresentacionComunidad, Propiedad, Socio, TipoInmueble
 
+from .admin import AuditEventAdmin, ManualResolutionAdmin
 from .models import AuditEvent, ManualResolution
 
 
@@ -122,6 +125,65 @@ class AuditAPITests(APITestCase):
         body = response.content.decode()
         self.assertNotIn('audit.example.test', body)
         self.assertNotIn('opaque-key-value', body)
+
+    def test_audit_admin_redacts_sensitive_event_and_resolution_fields(self):
+        event = AuditEvent.objects.create(
+            actor_identifier='service-account-token-value',
+            event_type='audit.metadata.test',
+            entity_type='empresa',
+            entity_id='https://audit.example.test/entities/1?token=secret',
+            summary='Evento heredado en https://audit.example.test/event?token=secret',
+            metadata={
+                'safe_ref': 'controlled-event',
+                'callback_url': 'https://audit.example.test/callback?token=secret',
+                'headers': {'authorization': 'Bearer inherited-value'},
+            },
+            request_id='request-token-value',
+        )
+        resolution = ManualResolution.objects.create(
+            category='migration.propiedad.owner_manual_required',
+            scope_type='legacy_propiedad',
+            scope_reference='https://audit.example.test/resolution?token=secret',
+            summary='Resolucion heredada en https://audit.example.test/summary?token=secret',
+            rationale='Rationale heredado con bearer token',
+            metadata={
+                'safe_ref': 'controlled-resolution',
+                'api_key': 'opaque-key-value',
+                'nested': {'callback': 'https://audit.example.test/nested?token=secret'},
+            },
+        )
+
+        event_admin = AuditEventAdmin(AuditEvent, AdminSite())
+        resolution_admin = ManualResolutionAdmin(ManualResolution, AdminSite())
+
+        for raw_field in ('actor_identifier', 'entity_id', 'summary', 'metadata', 'request_id', 'ip_address'):
+            self.assertNotIn(raw_field, event_admin.fields)
+            self.assertNotIn(raw_field, event_admin.search_fields)
+        for raw_field in ('scope_reference', 'summary', 'rationale', 'metadata'):
+            self.assertNotIn(raw_field, resolution_admin.fields)
+            self.assertNotIn(raw_field, resolution_admin.search_fields)
+
+        self.assertFalse(event_admin.has_add_permission(None))
+        self.assertFalse(event_admin.has_delete_permission(None, event))
+        self.assertFalse(resolution_admin.has_add_permission(None))
+        self.assertFalse(resolution_admin.has_delete_permission(None, resolution))
+
+        self.assertEqual(event_admin.actor_identifier_redacted(event), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(event_admin.entity_id_redacted(event), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(event_admin.summary_redacted(event), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(event_admin.request_id_redacted(event), REDACTED_SENSITIVE_REFERENCE)
+        event_metadata = json.loads(event_admin.metadata_redacted(event))
+        self.assertEqual(event_metadata['safe_ref'], 'controlled-event')
+        self.assertEqual(event_metadata['callback_url'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(event_metadata['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+
+        self.assertEqual(resolution_admin.scope_reference_redacted(resolution), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(resolution_admin.summary_redacted(resolution), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(resolution_admin.rationale_redacted(resolution), REDACTED_SENSITIVE_REFERENCE)
+        resolution_metadata = json.loads(resolution_admin.metadata_redacted(resolution))
+        self.assertEqual(resolution_metadata['safe_ref'], 'controlled-resolution')
+        self.assertEqual(resolution_metadata['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(resolution_metadata['nested']['callback'], REDACTED_SENSITIVE_REFERENCE)
 
     def test_unknown_income_resolution_cannot_be_marked_resolved_via_generic_patch(self):
         resolution = ManualResolution.objects.create(
