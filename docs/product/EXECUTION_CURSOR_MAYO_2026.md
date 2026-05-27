@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 - auditoria de telefono WhatsApp operativo. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | El modelo y Canales bloquean opt-in WhatsApp con telefono no internacional, pero el auditor Etapa 1 no emite un codigo especifico para snapshots heredados con esa condicion. |
-| Motivo de prioridad | La stage card Etapa 1 exige validacion de telefonos para mensajeria; el cierre debe distinguir la brecha de datos heredados sin depender solo de `stage1.arrendatario.validacion_modelo`. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-whatsapp-phone-audit`. |
-| Rama | `codex/stage1-whatsapp-phone-audit`. |
-| Estado | Implementado y validado localmente; pendiente PR/CI/merge. |
-| Gate esperado | Diagnostico Etapa 1 local debe permanecer no evidencial/parcial salvo fuente autorizada; el nuevo caso debe clasificar snapshot heredado defectuoso. |
-| Estado al cerrar paquete | Focal 1 test OK; suite impactada 223 tests OK; `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 1 diagnostico, `npm ci`, `npm run build`, `npm run lint` y acceptance local 960 tests OK. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete cerrado: Etapa 1 clasifica explicitamente opt-in WhatsApp heredado con telefono local o ambiguo mediante `stage1.arrendatario.whatsapp_telefono_invalido`. |
+| Worktree | N/A tras merge y limpieza. |
+| Rama | N/A tras merge y limpieza. |
+| Estado | Paquete validado e integrado en PR #420, merge `58a116a`. |
+| Gate esperado | N/A hasta abrir proximo paquete. |
+| Estado al cerrar paquete | Focal 1 test OK; suite impactada 223 tests OK; `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 1 diagnostico, `npm ci`, `npm run build`, `npm run lint`, acceptance local 960 tests OK y CI GitHub acceptance pass. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Publicar PR, esperar CI, mergear y limpiar worktree/ramas. |
+| Siguiente accion | Diagnosticar estado real y seleccionar el siguiente paquete pequeno, local y verificable por trazabilidad. |
 
 ## Actualizacion
 
