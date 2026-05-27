@@ -19,6 +19,8 @@ evidencia respalda el root limpio.
 - Fuente de verdad sin ambiguedad.
 - Worktree policy documentada.
 - Cursor operativo vigente para reanudaciones, worktrees y metatareas cerradas.
+- Superficies publicas con errores seguros, sin mensajes internos ni nombres de
+  configuracion expuestos.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.
