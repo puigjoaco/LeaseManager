@@ -94,6 +94,22 @@ def _resolve_participants_from_metadata(metadata):
     return resolved
 
 
+def _validate_resolution_participant(resolved_participant, item):
+    if not item.get('activo', True):
+        return
+    socio = resolved_participant.get('participante_socio_obj')
+    if socio and not socio.activo:
+        raise ValueError('La participacion activa requiere un socio participante activo.')
+    empresa = resolved_participant.get('participante_empresa_obj')
+    if empresa and (
+        empresa.estado != EstadoPatrimonial.ACTIVE
+        or not empresa.participaciones_completas()
+    ):
+        raise ValueError(
+            'La participacion activa requiere una empresa participante activa con participaciones completas.'
+        )
+
+
 def resolve_default_current_community_representative():
     configured_rut = os.environ.get(CURRENT_COMMUNITY_REPRESENTATIVE_RUT_ENV, '').strip()
     if not configured_rut:
@@ -140,6 +156,8 @@ def resolve_migration_property_owner_manual_resolution(
         ]
     else:
         participant_rows = _resolve_participants_from_metadata(metadata)
+    for resolved_participant, item in participant_rows:
+        _validate_resolution_participant(resolved_participant, item)
 
     representante = Socio.objects.get(pk=representante_socio_id) if representante_socio_id else None
     if representante is None and representante_modo == ModoRepresentacionComunidad.DESIGNATED:

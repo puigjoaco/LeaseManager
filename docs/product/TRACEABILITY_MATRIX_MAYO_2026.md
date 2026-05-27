@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: PlataformaBase recupera `core.tests_migration_pipeline`
+para comunidades mixtas con empresa participante. La resolucion manual de
+owners valida de forma controlada que una empresa participante activa tenga
+participaciones completas antes de crear comunidad/propiedad, y las fixtures
+del flujo actual representan esa estructura patrimonial antes de reimportar
+contratos.
+
 Nota 2026-05-27: PlataformaBase/Core cierra superficie admin cruda.
 `ScopeAdmin`, `RoleScopeAdmin`, `UserScopeAssignmentAdmin`,
 `PlatformSettingAdmin` y `OperationalRuntimeSignalAdmin` reemplazan metadata,

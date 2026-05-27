@@ -44,6 +44,58 @@ class MigrationPipelineTests(TestCase):
         self._migration_env_patcher.start()
         self.addCleanup(self._migration_env_patcher.stop)
 
+    def _add_complete_company_ownership(self, bundle, *, company_legacy_id='emp-inmo-puig'):
+        bundle['patrimonio']['socios'].extend(
+            [
+                {
+                    'legacy_id': f'{company_legacy_id}-owner-1',
+                    'rut': '44.444.444-4',
+                    'nombre': 'Socio Empresa Uno',
+                    'email': '',
+                    'telefono': '',
+                    'domicilio': '',
+                    'activo': True,
+                },
+                {
+                    'legacy_id': f'{company_legacy_id}-owner-2',
+                    'rut': '55.555.555-5',
+                    'nombre': 'Socio Empresa Dos',
+                    'email': '',
+                    'telefono': '',
+                    'domicilio': '',
+                    'activo': True,
+                },
+            ]
+        )
+        bundle['patrimonio']['participaciones'].extend(
+            [
+                {
+                    'legacy_id': f'{company_legacy_id}-ownership-1',
+                    'owner_kind': 'empresa',
+                    'owner_legacy_id': company_legacy_id,
+                    'participante_kind': 'socio',
+                    'participante_legacy_id': f'{company_legacy_id}-owner-1',
+                    'socio_legacy_id': f'{company_legacy_id}-owner-1',
+                    'porcentaje': '50.00',
+                    'vigente_desde': '2026-01-01',
+                    'vigente_hasta': None,
+                    'activo': True,
+                },
+                {
+                    'legacy_id': f'{company_legacy_id}-ownership-2',
+                    'owner_kind': 'empresa',
+                    'owner_legacy_id': company_legacy_id,
+                    'participante_kind': 'socio',
+                    'participante_legacy_id': f'{company_legacy_id}-owner-2',
+                    'socio_legacy_id': f'{company_legacy_id}-owner-2',
+                    'porcentaje': '50.00',
+                    'vigente_desde': '2026-01-01',
+                    'vigente_hasta': None,
+                    'activo': True,
+                },
+            ]
+        )
+
     def test_current_migration_flow_requires_explicit_current_context(self):
         with patch.dict(
             os.environ,
@@ -54,6 +106,52 @@ class MigrationPipelineTests(TestCase):
         ):
             with self.assertRaisesMessage(ValueError, 'MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT'):
                 run_current_migration_flow({})
+
+    def test_manual_community_resolution_rejects_incomplete_company_participant(self):
+        representative = Socio.objects.create(nombre='Representante Canonico', rut='17.366.287-4', activo=True)
+        Empresa.objects.create(razon_social='Empresa Incompleta', rut='76.311.245-4', estado='activa')
+        resolution = ManualResolution.objects.create(
+            category='migration.propiedad.owner_manual_required',
+            scope_type='legacy_propiedad',
+            scope_reference='prop-incomplete-company',
+            summary='Owner manual',
+            metadata={
+                'candidate_owner_model': 'comunidad',
+                'codigo_propiedad': 'Q-1014',
+                'direccion': 'Edificio Q Dpto 1014',
+                'comuna': 'Temuco',
+                'region': 'La Araucania',
+                'tipo_inmueble': 'otro',
+                'canonical_estado': 'activa',
+                'participantes': [
+                    {
+                        'participante_tipo': 'empresa',
+                        'participante_rut': '76.311.245-4',
+                        'porcentaje': '100.00',
+                        'activo': True,
+                        'vigente_desde': '2017-03-16',
+                        'vigente_hasta': None,
+                    }
+                ],
+            },
+        )
+
+        with self.assertRaisesMessage(
+            ValueError,
+            'La participacion activa requiere una empresa participante activa con participaciones completas.',
+        ):
+            resolve_migration_property_owner_manual_resolution(
+                resolution=resolution,
+                nombre_comunidad='Edificio Q Dpto 1014',
+                representante_socio_id=representative.pk,
+                representante_modo=ModoRepresentacionComunidad.DESIGNATED,
+                region='La Araucania',
+            )
+
+        self.assertEqual(ComunidadPatrimonial.objects.count(), 0)
+        self.assertEqual(Propiedad.objects.count(), 0)
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.status, ManualResolution.Status.OPEN)
 
     def test_transform_legacy_bundle_separates_deterministic_and_unresolved_items(self):
         legacy_rows = {
@@ -2356,6 +2454,8 @@ class MigrationPipelineTests(TestCase):
             },
         }
 
+        self._add_complete_company_ownership(bundle)
+
         first_report = import_bundle(bundle)
         self.assertEqual(first_report.created.get('manual_resolutions', 0), 1)
         resolution_result = resolve_current_community_manual_resolutions()
@@ -2516,6 +2616,8 @@ class MigrationPipelineTests(TestCase):
             },
         }
 
+        self._add_complete_company_ownership(bundle)
+
         result = run_current_migration_flow(bundle)
 
         self.assertEqual(result['community_resolution']['resolved'], 1)
@@ -2674,6 +2776,8 @@ class MigrationPipelineTests(TestCase):
                 ]
             },
         }
+
+        self._add_complete_company_ownership(bundle)
 
         first_report = import_bundle(bundle)
         self.assertEqual(first_report.created.get('manual_resolutions', 0), 1)
