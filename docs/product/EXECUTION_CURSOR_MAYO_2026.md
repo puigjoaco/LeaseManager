@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | Operacion, redaccion de evidencia operativa de cuentas recaudadoras. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | PR #367 cerrado: Patrimonio bloquea reescritura directa de participaciones en owners existentes y conserva el flujo auditado de transferencia. |
-| Worktree | Ninguno. |
-| Rama | `main`. |
-| Estado | Sin paquete abierto. |
-| Gate esperado | N/A. |
-| Estado al cerrar paquete | PR #367 mergeado en `main` con merge commit `fc7af4e`; CI acceptance remoto OK; evidencia/trazabilidad/stage card actualizadas. |
+| Brecha activa | `CuentaRecaudadora` bloquea nuevas evidencias sensibles, pero refs sensibles heredadas pueden exponerse sin redaccion en list/detail y snapshot operativo. |
+| Motivo de prioridad | Frente temprano de Etapa 1; protege referencias bancarias heredadas sin usar `.env`, DB historicas, datos reales ni integraciones. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-account-evidence-redaction`. |
+| Rama | `codex/stage1-account-evidence-redaction`. |
+| Estado | En desarrollo. |
+| Gate esperado | Focal Operacion, suite Operacion + auditor Etapa 1, `manage.py check`, migraciones dry-run, gate Etapa 1 local, frontend build/lint, acceptance, higiene y diff-check. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Ningun bloqueo externo nuevo; Etapa 1 no queda cerrada sin fuente autorizada/snapshot controlado. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Diagnosticar `main` y abrir un nuevo worktree `codex/...` solo para el siguiente paquete concreto. |
+| Siguiente accion | Redactar `evidencia_operativa_ref` en respuestas de cuentas/snapshot, cubrir legado sensible con tests y cerrar PR. |
 
 ## Actualizacion
 

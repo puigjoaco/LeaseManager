@@ -182,7 +182,7 @@ class OperationSnapshotView(APIView):
                         'moneda_operativa': cuenta.moneda_operativa,
                         'uso_operativo': cuenta.uso_operativo,
                         'modo_operativo': cuenta.modo_operativo,
-                        'evidencia_operativa_ref': cuenta.evidencia_operativa_ref,
+                        'evidencia_operativa_ref': redact_sensitive_reference(cuenta.evidencia_operativa_ref),
                         'estado_operativo': cuenta.estado_operativo,
                         'owner_tipo': cuenta.owner_tipo,
                         'owner_id': cuenta.owner_id,

@@ -7,6 +7,11 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: Operacion redacta `evidencia_operativa_ref` sensible heredada
+en cuentas recaudadoras tanto en list/detail API como en snapshot operativo. La
+validacion de escritura sigue rechazando nuevas evidencias sensibles y el
+auditor Etapa 1 conserva la deteccion de snapshots heredados defectuosos.
+
 Nota 2026-05-26: El flujo GitHub no debe reutilizar PRs cerrados por nombre de
 rama. `scripts/codex-github-package.ps1` solo considera PR existente si su
 estado es `OPEN`; si `gh pr view <branch>` devuelve un PR `MERGED` o `CLOSED`,

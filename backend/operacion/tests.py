@@ -354,6 +354,51 @@ class OperacionAPITests(APITestCase):
         self.assertIn('modo_operativo', response.data)
         self.assertIn('evidencia_operativa_ref', response.data)
 
+    def test_account_api_redacts_inherited_sensitive_operational_evidence(self):
+        empresa = self._create_active_empresa('AdminCo Heredada', '88888888-8')
+        cuenta = CuentaRecaudadora.objects.create(
+            empresa_owner=empresa,
+            institucion='Banco Uno',
+            numero_cuenta='999003',
+            tipo_cuenta='corriente',
+            titular_nombre=empresa.razon_social,
+            titular_rut=empresa.rut,
+            moneda_operativa=MonedaOperativa.CLP,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.BANK_GATE,
+            evidencia_operativa_ref='https://bank.example.test/token/secret',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+        list_response = self.client.get(reverse('operacion-cuenta-list'))
+        detail_response = self.client.get(reverse('operacion-cuenta-detail', args=[cuenta.id]))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['evidencia_operativa_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['evidencia_operativa_ref'], REDACTED_SENSITIVE_REFERENCE)
+
+    def test_operation_snapshot_redacts_inherited_sensitive_account_evidence(self):
+        empresa = self._create_active_empresa('AdminCo Snapshot', '88888888-8')
+        CuentaRecaudadora.objects.create(
+            empresa_owner=empresa,
+            institucion='Banco Uno',
+            numero_cuenta='999004',
+            tipo_cuenta='corriente',
+            titular_nombre=empresa.razon_social,
+            titular_rut=empresa.rut,
+            moneda_operativa=MonedaOperativa.CLP,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.BANK_GATE,
+            evidencia_operativa_ref='https://bank.example.test/token/secret',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+        response = self.client.get(reverse('operacion-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['cuentas'][0]['evidencia_operativa_ref'], REDACTED_SENSITIVE_REFERENCE)
+
     def test_create_identity_validates_email_when_channel_is_email(self):
         socio = self._create_socio('Operador Uno', '33333333-3')
         invalid_response = self.client.post(
