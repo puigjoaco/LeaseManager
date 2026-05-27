@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-27: PlataformaBase/Core cierra superficie admin cruda.
+`ScopeAdmin`, `RoleScopeAdmin`, `UserScopeAssignmentAdmin`,
+`PlatformSettingAdmin` y `OperationalRuntimeSignalAdmin` reemplazan metadata,
+permission sets, valores y refs runtime por vistas redactadas, eliminan
+busquedas por campos sensibles y mantienen cerrada el alta manual de settings y
+signals runtime desde Django admin.
+
 Nota 2026-05-27: Auditoria cierra superficie admin cruda. `AuditEventAdmin` y
 `ManualResolutionAdmin` reemplazan identificadores, resumenes, rationales,
 request ids y metadata por vistas redactadas, eliminan busquedas por campos

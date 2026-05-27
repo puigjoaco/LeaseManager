@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | PlataformaBase / Core admin redaction. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Pendiente de seleccionar segun trazabilidad vigente y estado real del repo. |
-| Motivo de prioridad | El paquete anterior quedo cerrado; el siguiente frente debe elegirse en la proxima apertura operativa. |
-| Worktree | N/A. |
-| Rama | `main`. |
-| Estado | Sin paquete activo; ultimo paquete integrado en PR #401 (`Redact audit admin surfaces`). |
-| Gate esperado | Definir al abrir el siguiente paquete. |
-| Estado al cerrar paquete | PR #401 integrado en `main` con merge `2706f35`; el admin de auditoria redacta eventos y resoluciones manuales heredadas, elimina busquedas por campos sensibles y mantiene cerrado alta/borrado manual. |
+| Brecha activa | `backend/core/admin.py` registra modelos base con admin generico, exponiendo valores, metadata y refs runtime heredadas por fuera de vistas redactadas. |
+| Motivo de prioridad | Cierra superficie transversal de PlataformaBase antes de seguir con dominios dependientes. |
+| Worktree | `D:/Proyectos/LeaseManager-core-admin-redaction`. |
+| Rama | `codex/core-admin-redaction`. |
+| Estado | Implementado y validado localmente; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Tests focales de core admin, suite impactada de Core, `manage.py check`, migraciones dry-run, frontend build/lint, acceptance local, higiene. |
+| Estado al cerrar paquete | Pendiente de merge. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no hay worktree tactico sucio, elegir el siguiente frente util y seguro desde trazabilidad vigente. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; seleccionar el siguiente paquete pequeno, verificable y cerrable. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza antes de abrir otro paquete. |
+| Siguiente accion | Commit, PR, CI, merge y limpieza del worktree tactico. |
 
 ## Actualizacion
 
