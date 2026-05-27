@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Compliance.DatosPersonalesChile2026. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Admin Django de `ExportacionSensible` puede exponer metadata/payload/ref sensible heredada por formulario default. |
-| Motivo de prioridad | PRD y ADR de secretos exigen que payloads, tokens y refs sensibles no queden visibles en superficies operativas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-admin-redaction`. |
-| Rama | `codex/compliance-admin-redaction`. |
-| Estado | Paquete abierto. |
-| Gate esperado | Compliance local parcial: `classification=parcial`, `ready_for_compliance_data=false`, sin cierre evidencial. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | BLK-010 sigue siendo condicion de cierre Compliance, no bloquea este hardening local. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | PR #377 cerrado: Compliance admin redacta/oculta metadata sensible de exportaciones. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Sin paquete abierto. |
+| Gate esperado | N/A. |
+| Estado al cerrar paquete | PR #377 mergeado en main con merge commit `106a248`; CI acceptance remoto OK; evidencia y trazabilidad actualizadas. |
+| Bloqueos relacionados | Ningun bloqueo externo nuevo. BLK-010 sigue abierto solo para cierre Compliance evidencial. |
 | Politica de reanudacion | Si no hay worktree tactico sucio, seleccionar el siguiente paquete pequeno, seguro y trazable desde el estado real del repo. |
-| Siguiente accion | Redactar/ocultar metadata sensible de exportaciones en admin, agregar tests, evidencia y trazabilidad; cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Diagnosticar `main` y abrir un nuevo worktree `codex/...` solo para el siguiente paquete concreto. |
 
 ## Actualizacion
 
