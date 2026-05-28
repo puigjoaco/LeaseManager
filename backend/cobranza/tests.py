@@ -454,6 +454,16 @@ class CobranzaAPITests(APITestCase):
         account_state.refresh_from_db()
         self.assertEqual(account_state.score_pago, 0)
 
+    def test_account_state_admin_rebuild_fields_are_read_only(self):
+        account_state_admin = EstadoCuentaArrendatarioAdmin(EstadoCuentaArrendatario, AdminSite())
+
+        self.assertIn('resumen_operativo', account_state_admin.fields)
+        self.assertIn('score_pago', account_state_admin.fields)
+        self.assertIn('resumen_operativo', account_state_admin.readonly_fields)
+        self.assertIn('score_pago', account_state_admin.readonly_fields)
+        self.assertNotIn('observaciones', account_state_admin.fields)
+        self.assertIn('observaciones_redacted', account_state_admin.readonly_fields)
+
     def _create_contract_for_company_and_arrendatario(self, *, empresa, arrendatario, codigo='CON-SHARED', owner_kind='empresa', comunidad=None):
         propietario_socio = None
         empresa_owner = empresa if owner_kind == 'empresa' else None

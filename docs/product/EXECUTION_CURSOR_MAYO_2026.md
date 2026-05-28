@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | Etapa 2 / CobranzaActiva - estado de cuenta solo lectura en admin. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna registrada en curso. |
-| Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
-| Worktree | N/A. |
-| Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: PR #505 `Make account state score rebuild-only`, merge `45bc24b95240633c712e6f34a5f8d2319115578c`. |
-| Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | PR #505 integrado en `main`; Etapa 2 permanece parcial sin cierre falso. |
+| Brecha activa | `EstadoCuentaArrendatarioAdmin` expone `resumen_operativo` y `score_pago` como campos editables, aunque ambos deben salir del rebuild de estado de cuenta. |
+| Motivo de prioridad | Cierra la superficie admin que quedo abierta despues de hacer `score_pago` rebuild-only por API. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-account-state-admin-readonly`. |
+| Rama | `codex/stage2-account-state-admin-readonly`. |
+| Estado | Paquete abierto. |
+| Gate esperado | Etapa 2 local debe seguir `classification=parcial`, `ready_for_stage2_cobranza=false` sin Email/WebPay reales. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta cerrar PR o pausar aqui explicitamente. |
+| Siguiente accion | Convertir resumen/score de estado de cuenta en solo lectura admin, cubrir tests, evidencia y trazabilidad. |
 
 ## Actualizacion
 
