@@ -30,7 +30,7 @@ nueva.
 | Rama | N/A. |
 | Estado | Paquete Etapa 2 `stage2-webpay-block-reason-redaction` integrado en PR #434, merge `33b6338`. |
 | Gate esperado | N/A hasta abrir el siguiente frente. |
-| Estado al cerrar paquete | Cerrado con CI remoto `acceptance` en verde; limpieza de worktrees pendiente en cierre operativo. |
+| Estado al cerrar paquete | Cerrado con CI remoto `acceptance` en verde; worktrees y ramas tacticas limpiadas. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
 | Siguiente accion | Desde `main` limpio, tomar el siguiente frente seguro segun trazabilidad y abrirlo explicitamente en este cursor. |
