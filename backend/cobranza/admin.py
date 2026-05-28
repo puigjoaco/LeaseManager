@@ -349,11 +349,25 @@ class RepactacionDeudaAdmin(admin.ModelAdmin):
 
 @admin.register(CodigoCobroResidual)
 class CodigoCobroResidualAdmin(admin.ModelAdmin):
+    fields = (
+        'referencia_visible',
+        'arrendatario',
+        'contrato_origen',
+        'saldo_actual',
+        'estado',
+        'fecha_activacion',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
     list_display = ('referencia_visible', 'arrendatario', 'contrato_origen', 'saldo_actual', 'estado')
     list_filter = ('estado',)
     search_fields = ('referencia_visible', 'arrendatario__nombre_razon_social', 'contrato_origen__codigo_contrato')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 

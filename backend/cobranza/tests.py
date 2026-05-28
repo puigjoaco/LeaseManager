@@ -32,6 +32,7 @@ from .models import (
     AjusteContrato,
     DistribucionCobroMensual,
     CodigoCobroResidual,
+    EstadoCobroResidual,
     EstadoCuentaArrendatario,
     EstadoGarantia,
     EstadoGateCobroExterno,
@@ -348,6 +349,11 @@ class CobranzaAPITests(APITestCase):
         self.assertNotIn('excepcion_parcial_ref', repayment_admin.fields)
         self.assertEqual(repayment_admin.excepcion_parcial_ref_redacted(repayment), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(repayment_admin.excepcion_parcial_motivo_redacted(repayment), REDACTED_SENSITIVE_REFERENCE)
+        self.assertIn('saldo_actual', residual_admin.fields)
+        self.assertIn('estado', residual_admin.fields)
+        self.assertIn('saldo_actual', residual_admin.readonly_fields)
+        self.assertIn('estado', residual_admin.readonly_fields)
+        self.assertFalse(residual_admin.has_delete_permission(None))
         for admin_instance in (
             uf_admin,
             payment_admin,
@@ -2269,7 +2275,7 @@ class CobranzaAPITests(APITestCase):
                     residual.full_clean()
                 self.assertIn('saldo_actual', error.exception.message_dict)
 
-    def test_update_residual_code_rejects_paid_state_with_balance(self):
+    def test_update_residual_code_rejects_generic_mutation_after_creation(self):
         contrato = self._create_active_contract(codigo='CON-RES-UPD', monto_base='100000.00', code='111')
         residual = CodigoCobroResidual.objects.create(
             referencia_visible='CCR-ABC234',
@@ -2282,12 +2288,16 @@ class CobranzaAPITests(APITestCase):
 
         response = self.client.patch(
             reverse('cobranza-residual-detail', args=[residual.id]),
-            {'estado': 'pagada'},
+            {'estado': 'pagada', 'saldo_actual': '0.00'},
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
         self.assertIn('saldo_actual', response.data)
+        residual.refresh_from_db()
+        self.assertEqual(residual.estado, EstadoCobroResidual.ACTIVE)
+        self.assertEqual(residual.saldo_actual, Decimal('25000.00'))
 
     def test_repactacion_rejects_contract_arrendatario_mismatch(self):
         contrato = self._create_active_contract(codigo='CON-REP', monto_base='100000.00', code='111')

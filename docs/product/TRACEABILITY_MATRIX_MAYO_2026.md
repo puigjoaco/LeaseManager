@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: CobranzaActiva/Etapa 2 cierra mutaciones genericas de
+codigos residuales ya generados. `CodigoCobroResidualSerializer` conserva la
+creacion con referencia `CCR-XXXXXX`, pero rechaza cambios posteriores de
+referencia, arrendatario, contrato origen, saldo, estado o fecha de activacion;
+`CodigoCobroResidualAdmin` muestra esos campos solo como lectura y deshabilita
+borrado manual para que el cierre de deuda residual pase por flujos auditados
+especificos.
+
 Nota 2026-05-28: CobranzaActiva/Etapa 2 cierra bypass admin del estado de
 cuenta. `EstadoCuentaArrendatarioAdmin` conserva visibles `resumen_operativo` y
 `score_pago`, pero ambos quedan en `readonly_fields`; el estado operativo sigue
