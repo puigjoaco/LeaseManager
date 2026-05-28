@@ -1775,6 +1775,62 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertNotIn('stage2.whatsapp.fallback_trace_missing', issue_codes)
         self.assertNotIn('without_fallback_trace', result['sections']['messages'])
 
+    def test_failed_whatsapp_with_fallback_resolution_is_traced(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        whatsapp_gate = CanalMensajeria.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            provider_key='twilio',
+            estado_gate=EstadoGateCanal.CONDITIONED,
+            evidencia_ref='whatsapp-gate-v1',
+        )
+        message = MensajeSaliente.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            canal_mensajeria=whatsapp_gate,
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario='+56912345678',
+            asunto='Aviso WhatsApp',
+            cuerpo='Cobranza controlada',
+            estado=EstadoMensajeSaliente.FAILED,
+            motivo_bloqueo='WhatsApp fallo con fallback trazado.',
+        )
+        ManualResolution.objects.create(
+            category=WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
+            scope_type='canales',
+            scope_reference=str(message.pk),
+            summary='Fallback Email requerido',
+            metadata={
+                'actor_identifier': 'stage2-operator',
+                'canal': 'whatsapp',
+                'fallback_canal_base': 'email',
+                'blocking_reason': message.motivo_bloqueo,
+                'contrato_id': fixture['contract'].id,
+                'message_id': message.id,
+            },
+        )
+        AuditEvent.objects.create(
+            event_type=WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
+            entity_type='mensaje_saliente',
+            entity_id=str(message.pk),
+            summary='Fallback WhatsApp requerido',
+            actor_identifier='stage2-operator',
+            metadata={
+                'canal': 'whatsapp',
+                'fallback_canal_base': 'email',
+                'blocking_reason': message.motivo_bloqueo,
+                'message_id': message.id,
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage2_cobranza'])
+        self.assertNotIn('stage2.whatsapp.fallback_trace_missing', issue_codes)
+        self.assertNotIn('without_fallback_trace', result['sections']['messages'])
+
     def test_blocked_whatsapp_with_untraced_fallback_resolution_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()
