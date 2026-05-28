@@ -688,7 +688,8 @@ class CanalesAPITests(APITestCase):
                 'credencial_validada_ref': 'email-ref-validado-v1',
                 'callback_ref': 'https://mail.example.test/proof?token=secret',
                 'api_key': 'controlled-provider-reference',
-                'headers': {'authorization': 'Bearer inherited-channel-value'},
+                'headers': {'authorization': 'opaque-inherited-channel-value'},
+                'private_key': 'opaque-inherited-private-key',
             },
         )
         configuration = ConfiguracionNotificacionContrato.objects.create(
@@ -743,6 +744,7 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(restrictions['callback_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(restrictions['api_key'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(restrictions['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(restrictions['private_key'], REDACTED_SENSITIVE_REFERENCE)
 
         self.assertNotIn('external_ref', message_admin.fields)
         self.assertNotIn('provider_payload', message_admin.fields)

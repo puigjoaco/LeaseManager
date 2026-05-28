@@ -3,6 +3,7 @@ from django.contrib import admin
 from core.reference_validation import (
     REDACTED_SENSITIVE_REFERENCE,
     SENSITIVE_REFERENCE_PATTERN,
+    key_looks_sensitive,
     redact_sensitive_payload,
     redact_sensitive_reference,
 )
@@ -36,7 +37,7 @@ def _redact_channel_restrictions(value, *, _sensitive_key=False):
             key_is_sensitive = (
                 isinstance(key, str)
                 and key not in allowed_sensitive_keys
-                and bool(SENSITIVE_REFERENCE_PATTERN.search(key))
+                and key_looks_sensitive(key)
             )
             redacted[key] = _redact_channel_restrictions(
                 item,

@@ -14,6 +14,11 @@ cuando el valor sea opaco, reutiliza esa regla en senales runtime y conserva
 refs operativas no sensibles como `AuthorizationRef` sin convertirlas en
 secretos por nombre de valor.
 
+Nota 2026-05-28: Canales/Admin reutiliza el detector transversal de claves
+sensibles. `CanalMensajeriaAdmin` redacta `restricciones_operativas`
+heredadas con claves `authorization` o `private_key` aunque sus valores sean
+opacos, preservando solo claves canonicas de referencia no sensible del gate.
+
 Nota 2026-05-27: Gobierno ignora artefactos locales `.codex-spreadsheet/`.
 Estos archivos son salida local de herramienta, no evidencia, snapshot ni
 fuente de producto; deben permanecer fuera de versionado para que `main` quede
