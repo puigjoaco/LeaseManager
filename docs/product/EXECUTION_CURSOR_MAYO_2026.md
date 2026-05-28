@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 0 - PlataformaBase/Auth. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Auth expone `User.metadata` sin redaccion defensiva en `CurrentUserSerializer`; login demo devuelve una `signature` interna derivada de metadata cruda. |
-| Motivo de prioridad | Superficie base temprana: metadata de usuario puede contener referencias operativas y debe seguir el mismo criterio de redaccion defensiva aplicado a auditoria/admin. |
-| Worktree | `D:/Proyectos/LeaseManager-platform-user-metadata-redaction`. |
-| Rama | `codex/platform-user-metadata-redaction`. |
-| Estado | En desarrollo. |
-| Gate esperado | Acceptance local y CI remoto deben permanecer verdes; no requiere fuentes externas. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Pendiente seleccionar el siguiente frente seguro desde trazabilidad y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Etapa 0 `platform-user-metadata-redaction` integrado en PR #439, merge `e73ae18`. |
+| Gate esperado | N/A hasta abrir el siguiente frente. |
+| Estado al cerrar paquete | Cerrado con CI remoto `acceptance` en verde; worktree y rama tactica de implementacion limpiados. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar solo este worktree hasta PR/CI/merge/limpieza o pausar aqui con estado explicito. |
-| Siguiente accion | Redactar metadata de usuario expuesta, ocultar signature interna y validar con pruebas de Auth. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
+| Siguiente accion | Desde `main` limpio, tomar el siguiente frente seguro segun trazabilidad y abrirlo explicitamente en este cursor. |
 
 ## Actualizacion
 
