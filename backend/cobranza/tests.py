@@ -439,6 +439,21 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(update_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('observaciones', update_response.data)
 
+    def test_account_state_score_cannot_be_patched_directly(self):
+        payment = self._generate_monthly_payment(codigo='CON-STATE-SCORE-PATCH')
+        account_state = rebuild_account_state(payment.contrato.arrendatario)
+
+        response = self.client.patch(
+            reverse('cobranza-estado-cuenta-detail', args=[account_state.pk]),
+            {'score_pago': 1},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('score_pago', response.data)
+        account_state.refresh_from_db()
+        self.assertEqual(account_state.score_pago, 0)
+
     def _create_contract_for_company_and_arrendatario(self, *, empresa, arrendatario, codigo='CON-SHARED', owner_kind='empresa', comunidad=None):
         propietario_socio = None
         empresa_owner = empresa if owner_kind == 'empresa' else None

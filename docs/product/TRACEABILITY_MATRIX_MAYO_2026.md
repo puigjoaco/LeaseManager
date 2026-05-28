@@ -15,6 +15,11 @@ especializadas, convertir una resolucion comun a esas categorias ni retargetear
 servicios auditados de ingreso desconocido, cargo bancario y transferencia
 interna.
 
+Nota 2026-05-28: CobranzaActiva/Etapa 2 cierra edicion manual del score de
+estado de cuenta. `EstadoCuentaArrendatarioSerializer` rechaza `score_pago` en
+PATCH del endpoint de detalle; el valor operativo debe salir del rebuild de
+estado de cuenta sobre pagos, repactaciones y codigos residuales activos.
+
 Nota 2026-05-28: Canales/Etapa 2 agrega ruta interna controlada para
 mensajes WhatsApp fallidos. `mark_whatsapp_message_as_failed()` solo acepta
 mensajes preparados, exige actor trazable y motivo no sensible, cambia el
