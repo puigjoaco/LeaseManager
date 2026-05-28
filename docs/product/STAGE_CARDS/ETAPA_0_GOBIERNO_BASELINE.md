@@ -33,6 +33,9 @@ evidencia respalda el root limpio.
   no se descargan, no se revocan, una exportacion ya revocada no se revoca de
   nuevo y las exportaciones preparadas vencidas sin hold se normalizan a
   `expirada` antes de rechazar operaciones terminales incompatibles.
+- Compliance no expone `evento_inicio` sensible heredado de politicas de
+  retencion en API ni admin: nuevas escrituras siguen bloqueadas por dominio y
+  los valores heredados se representan redactados.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.

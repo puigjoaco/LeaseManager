@@ -50,6 +50,11 @@ class PoliticaRetencionDatosSerializer(serializers.ModelSerializer):
             raise_drf_validation_error(error)
         return attrs
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['evento_inicio'] = redact_sensitive_reference(data.get('evento_inicio'))
+        return data
+
 
 class ExportacionSensibleSerializer(serializers.ModelSerializer):
     class Meta:

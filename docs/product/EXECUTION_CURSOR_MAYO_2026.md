@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | `compliance-policy-api-redaction`. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Canales/Cobranza `stage2-gate-restrictions-redaction` integrado en PR #463, merge `73a490f`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con CI remoto acceptance en verde; rama remota tactica eliminada. |
+| Brecha activa | API de politicas de retencion de Compliance expone `evento_inicio` heredado crudo aunque admin y dominio ya lo tratan como sensible. |
+| Motivo de prioridad | Primer frente incompleto por trazabilidad con brecha local cerrable sin datos externos: superficie API de Compliance datos sensibles. |
+| Worktree | `D:/Proyectos/LeaseManager-compliance-policy-api-redaction`. |
+| Rama | `codex/compliance-policy-api-redaction`. |
+| Estado | Validado localmente; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Compliance local sigue `parcial`; el paquete solo cierra redaccion API y no declara cierre de Compliance. |
+| Estado al cerrar paquete | Pendiente PR, CI, merge y limpieza. Validacion local completa en verde. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta validacion, PR, CI, merge y limpieza antes de abrir otro frente. |
+| Siguiente accion | Validar serializer, tests focales/impactados, gate Compliance local, acceptance, higiene y PR. |
 
 ## Actualizacion
 
