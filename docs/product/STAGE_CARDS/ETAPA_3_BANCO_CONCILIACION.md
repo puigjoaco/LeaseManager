@@ -70,13 +70,14 @@ sistema igual a saldo banco.
 - Transferencias internas/intercuenta se registran como par cargo/abono en
   `TransferenciaIntercuenta`, con cuenta origen/destino, owner origen/destino,
   periodo economico canonico `YYYY-MM`, criterio de conciliacion no sensible,
-  evidencia no sensible, responsable y motivo auditable no sensible; la API y
-  el servicio no permiten
+  evidencia no sensible, responsable, motivo auditable no sensible y traza a
+  los `EventoContable` de salida/entrada generados para el par; la API y el
+  servicio no permiten
   resolver una transferencia si los movimientos no son de cuentas distintas,
   no tienen monto opuesto equivalente o conservan targets de pago/codigo
   residual, y la readiness bloquea pares heredados invalidos, con metadata
-  resuelta desalineada contra `TransferenciaIntercuenta`, con criterio o motivo
-  sensible, o refs sensibles.
+  resuelta desalineada contra `TransferenciaIntercuenta`, sin eventos
+  contables alineados, con criterio o motivo sensible, o refs sensibles.
 - Resoluciones manuales abiertas que quedan obsoletas por match exacto o por
   otra resolucion manual no se marcan como resueltas manualmente: se cierran
   como `superseded` con motivo, metadata de origen/target y evento de

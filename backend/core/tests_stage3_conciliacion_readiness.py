@@ -325,6 +325,77 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self._create_square_balance(cuenta_destino)
         return transfer, movimiento_origen, movimiento_destino
 
+    def _create_internal_transfer_accounting_metadata(self, transfer, **overrides):
+        origin = transfer.movimiento_origen
+        destination = transfer.movimiento_destino
+        origin_account = origin.conexion_bancaria.cuenta_recaudadora
+        destination_account = destination.conexion_bancaria.cuenta_recaudadora
+        events = []
+        if origin_account.empresa_owner_id:
+            events.append(
+                EventoContable.objects.create(
+                    empresa=origin_account.empresa_owner,
+                    evento_tipo='TransferenciaIntercuentaSalida',
+                    entidad_origen_tipo='transferencia_intercuenta',
+                    entidad_origen_id=str(transfer.pk),
+                    fecha_operativa=origin.fecha_movimiento,
+                    moneda='CLP',
+                    monto_base=origin.monto,
+                    payload_resumen={
+                        'transferencia_intercuenta_id': transfer.pk,
+                        'movimiento_origen_id': origin.pk,
+                        'direccion_transferencia': 'salida',
+                    },
+                    idempotency_key=f'TransferenciaIntercuentaSalida:{transfer.pk}:{origin_account.empresa_owner_id}',
+                )
+            )
+        if destination_account.empresa_owner_id:
+            events.append(
+                EventoContable.objects.create(
+                    empresa=destination_account.empresa_owner,
+                    evento_tipo='TransferenciaIntercuentaEntrada',
+                    entidad_origen_tipo='transferencia_intercuenta',
+                    entidad_origen_id=str(transfer.pk),
+                    fecha_operativa=destination.fecha_movimiento,
+                    moneda='CLP',
+                    monto_base=destination.monto,
+                    payload_resumen={
+                        'transferencia_intercuenta_id': transfer.pk,
+                        'movimiento_destino_id': destination.pk,
+                        'direccion_transferencia': 'entrada',
+                    },
+                    idempotency_key=(
+                        f'TransferenciaIntercuentaEntrada:{transfer.pk}:{destination_account.empresa_owner_id}'
+                    ),
+                )
+            )
+        metadata = {
+            'evento_contable_ids': [event.pk for event in events],
+            'empresa_evento_ids': [event.empresa_id for event in events if event.empresa_id],
+        }
+        metadata.update(overrides)
+        return metadata
+
+    def _internal_transfer_resolution_metadata(self, transfer, **overrides):
+        metadata = {
+            'categoria_movimiento': 'transferencia_interna',
+            'resolved_with': 'internal_transfer',
+            'transferencia_intercuenta_id': transfer.pk,
+            'movimiento_origen_id': transfer.movimiento_origen_id,
+            'movimiento_destino_id': transfer.movimiento_destino_id,
+            'entidad_origen_tipo': transfer.entidad_origen_tipo,
+            'entidad_origen_id': transfer.entidad_origen_id,
+            'entidad_destino_tipo': transfer.entidad_destino_tipo,
+            'entidad_destino_id': transfer.entidad_destino_id,
+            'periodo_economico': transfer.periodo_economico,
+            'criterio_conciliacion': transfer.criterio_conciliacion,
+            'evidencia_transferencia_ref': transfer.evidencia_transferencia_ref,
+            'responsable_ref': transfer.responsable_ref,
+            **self._create_internal_transfer_accounting_metadata(transfer),
+        }
+        metadata.update(overrides)
+        return metadata
+
     def test_empty_database_reports_partial_without_sensitive_values(self):
         result = collect_stage3_conciliacion_readiness()
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -492,21 +563,7 @@ class Stage3ConciliacionReadinessTests(TestCase):
             scope_reference=str(movimiento_origen.pk),
             summary='Transferencia interna registrada',
             rationale='Transferencia interna validada por cartola controlada.',
-            metadata={
-                'categoria_movimiento': 'transferencia_interna',
-                'resolved_with': 'internal_transfer',
-                'transferencia_intercuenta_id': transfer.pk,
-                'movimiento_origen_id': movimiento_origen.pk,
-                'movimiento_destino_id': movimiento_destino.pk,
-                'entidad_origen_tipo': transfer.entidad_origen_tipo,
-                'entidad_origen_id': transfer.entidad_origen_id,
-                'entidad_destino_tipo': transfer.entidad_destino_tipo,
-                'entidad_destino_id': transfer.entidad_destino_id,
-                'periodo_economico': '2026-01',
-                'criterio_conciliacion': 'Par cargo/abono exacto entre cuentas recaudadoras.',
-                'evidencia_transferencia_ref': 'internal-transfer-controlled-2026-01',
-                'responsable_ref': 'stage3-transfer-owner',
-            },
+            metadata=self._internal_transfer_resolution_metadata(transfer),
         )
 
         result = self._collect_with_final_refs()
@@ -533,21 +590,37 @@ class Stage3ConciliacionReadinessTests(TestCase):
             scope_reference=str(movimiento_origen.pk),
             summary='Transferencia interna registrada con metadata heredada desalineada',
             rationale='Transferencia interna validada por cartola controlada.',
-            metadata={
-                'categoria_movimiento': 'transferencia_interna',
-                'resolved_with': 'internal_transfer',
-                'transferencia_intercuenta_id': transfer.pk,
-                'movimiento_origen_id': movimiento_origen.pk,
-                'movimiento_destino_id': movimiento_destino.pk,
-                'entidad_origen_tipo': transfer.entidad_origen_tipo,
-                'entidad_origen_id': transfer.entidad_origen_id,
-                'entidad_destino_tipo': transfer.entidad_destino_tipo,
-                'entidad_destino_id': transfer.entidad_destino_id,
-                'periodo_economico': transfer.periodo_economico,
-                'criterio_conciliacion': transfer.criterio_conciliacion,
-                'evidencia_transferencia_ref': 'internal-transfer-other-controlled-ref',
-                'responsable_ref': transfer.responsable_ref,
-            },
+            metadata=self._internal_transfer_resolution_metadata(
+                transfer,
+                evidencia_transferencia_ref='internal-transfer-other-controlled-ref',
+            ),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.internal_transfer_target_mismatch', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['internal_transfer_target_mismatch'], 1)
+
+    def test_resolved_internal_transfer_without_accounting_event_trace_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER-EVENT-MISMATCH')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        self._create_square_balance(cuenta)
+        transfer, movimiento_origen, _movimiento_destino = self._create_internal_transfer_pair(
+            cuenta,
+            conexion,
+            suffix='EVENT-MISMATCH',
+        )
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento_origen.pk),
+            summary='Transferencia interna sin eventos contables trazables',
+            rationale='Transferencia interna registrada con metadata heredada.',
+            metadata=self._internal_transfer_resolution_metadata(transfer, evento_contable_ids=[999999]),
         )
 
         result = self._collect_with_final_refs()
@@ -577,21 +650,10 @@ class Stage3ConciliacionReadinessTests(TestCase):
             scope_reference=str(movimiento_origen.pk),
             summary='Transferencia interna con evidencia sensible',
             rationale='Transferencia interna registrada con metadata heredada.',
-            metadata={
-                'categoria_movimiento': 'transferencia_interna',
-                'resolved_with': 'internal_transfer',
-                'transferencia_intercuenta_id': transfer.pk,
-                'movimiento_origen_id': movimiento_origen.pk,
-                'movimiento_destino_id': movimiento_destino.pk,
-                'entidad_origen_tipo': transfer.entidad_origen_tipo,
-                'entidad_origen_id': transfer.entidad_origen_id,
-                'entidad_destino_tipo': transfer.entidad_destino_tipo,
-                'entidad_destino_id': transfer.entidad_destino_id,
-                'periodo_economico': '2026-01',
-                'criterio_conciliacion': 'Par cargo/abono exacto entre cuentas recaudadoras.',
-                'evidencia_transferencia_ref': 'https://bank.example.test/transfer?token=secret',
-                'responsable_ref': 'stage3-transfer-owner',
-            },
+            metadata=self._internal_transfer_resolution_metadata(
+                transfer,
+                evidencia_transferencia_ref='https://bank.example.test/transfer?token=secret',
+            ),
         )
 
         result = self._collect_with_final_refs()
@@ -624,21 +686,10 @@ class Stage3ConciliacionReadinessTests(TestCase):
             scope_reference=str(movimiento_origen.pk),
             summary='Transferencia interna con contexto sensible',
             rationale='Transferencia interna registrada con metadata controlada.',
-            metadata={
-                'categoria_movimiento': 'transferencia_interna',
-                'resolved_with': 'internal_transfer',
-                'transferencia_intercuenta_id': transfer.pk,
-                'movimiento_origen_id': movimiento_origen.pk,
-                'movimiento_destino_id': movimiento_destino.pk,
-                'entidad_origen_tipo': transfer.entidad_origen_tipo,
-                'entidad_origen_id': transfer.entidad_origen_id,
-                'entidad_destino_tipo': transfer.entidad_destino_tipo,
-                'entidad_destino_id': transfer.entidad_destino_id,
-                'periodo_economico': '2026-01',
-                'criterio_conciliacion': 'Criterio en https://bank.example.test/transfer?token=secret',
-                'evidencia_transferencia_ref': 'internal-transfer-controlled-2026-01',
-                'responsable_ref': 'stage3-transfer-owner',
-            },
+            metadata=self._internal_transfer_resolution_metadata(
+                transfer,
+                criterio_conciliacion='Criterio en https://bank.example.test/transfer?token=secret',
+            ),
         )
 
         result = self._collect_with_final_refs()
