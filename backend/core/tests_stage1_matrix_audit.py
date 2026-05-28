@@ -413,6 +413,51 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertNotIn('stage1.participacion.transferencia_sin_auditoria', issue_codes)
         self.assertNotIn('stage1.participacion.transferencia_auditoria_desalineada', issue_codes)
 
+    def test_participation_transfer_with_sensitive_reason_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        empresa = contrato.mandato_operacion.propietario_empresa_owner
+        origin = ParticipacionPatrimonial.objects.filter(empresa_owner=empresa, porcentaje=Decimal('40.00')).first()
+        successor = Socio.objects.create(nombre='Socio Sucesor Motivo Sensible', rut='44444444-4', activo=True)
+        actor = get_user_model().objects.create_user(username='stage1-transfer-sensitive-reason')
+        effective_date = timezone.localdate()
+        origin.vigente_hasta = effective_date - timedelta(days=1)
+        origin.save(update_fields=['vigente_hasta', 'updated_at'])
+        target = ParticipacionPatrimonial.objects.create(
+            participante_socio=successor,
+            empresa_owner=empresa,
+            porcentaje='40.00',
+            vigente_desde=effective_date,
+            activo=True,
+        )
+        AuditEvent.objects.create(
+            event_type=PARTICIPATION_TRANSFER_EVENT_TYPE,
+            entity_type='participacion_patrimonial',
+            entity_id=str(origin.pk),
+            summary='Transferencia patrimonial con motivo sensible.',
+            actor_user=actor,
+            metadata={
+                'owner_tipo': 'empresa',
+                'owner_id': empresa.pk,
+                'origin_participation_id': origin.pk,
+                'origin_participant_type': origin.participante_tipo,
+                'origin_participant_id': origin.participante_id,
+                'effective_date': effective_date.isoformat(),
+                'reason': 'Decision en https://docs.example.test/transfer?token=secret',
+                'target_participation_ids': [target.pk],
+                'target_count': 1,
+                'transferred_percentage': '40.00',
+                'evidence_ref': 'participation-transfer-audit-test',
+            },
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.participacion.transferencia_motivo_sensible', issue_codes)
+        self.assertNotIn('stage1.participacion.transferencia_sin_auditoria', issue_codes)
+
     def test_participation_transfer_with_unaligned_audit_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         empresa = contrato.mandato_operacion.propietario_empresa_owner

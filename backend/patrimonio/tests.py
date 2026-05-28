@@ -1256,6 +1256,49 @@ class PatrimonioAPITests(APITestCase):
         self.assertEqual(audit_event.metadata['target_count'], 2)
         self.assertEqual(audit_event.metadata['transferred_percentage'], '40.00')
 
+    def test_participation_transfer_endpoint_rejects_sensitive_reason(self):
+        origin = self._create_socio('Socio Origen Motivo', '14141414-9')
+        remaining = self._create_socio('Socio Continuador Motivo', '15151515-7')
+        target = self._create_socio('Socio Destino Motivo', '16161616-5')
+        empresa = Empresa.objects.create(razon_social='Empresa Motivo Sensible', rut='99999999-9', estado=EstadoPatrimonial.ACTIVE)
+        origin_participation = ParticipacionPatrimonial.objects.create(
+            participante_socio=origin,
+            empresa_owner=empresa,
+            porcentaje='40.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=remaining,
+            empresa_owner=empresa,
+            porcentaje='60.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+
+        response = self.client.post(
+            reverse('patrimonio-participacion-transferir'),
+            {
+                'owner_tipo': 'empresa',
+                'owner_id': empresa.id,
+                'participante_origen_tipo': 'socio',
+                'participante_origen_id': origin.id,
+                'fecha_efectiva': timezone.localdate().isoformat(),
+                'transferencias': [
+                    {'participante_tipo': 'socio', 'participante_id': target.id, 'porcentaje': '40.00'},
+                ],
+                'motivo': 'Decision respaldada en https://docs.example.test/transfer?token=secret',
+                'evidencia_ref': 'participation-transfer-sensitive-reason-001',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('detail', response.data)
+        origin_participation.refresh_from_db()
+        self.assertIsNone(origin_participation.vigente_hasta)
+        self.assertFalse(AuditEvent.objects.filter(event_type='patrimonio.participacion.transfer_executed').exists())
+
     def test_participation_transfer_endpoint_rejects_percentage_mismatch(self):
         origin = self._create_socio('Socio Origen Mismatch', '14141414-9')
         remaining = self._create_socio('Socio Continuador Mismatch', '15151515-7')
