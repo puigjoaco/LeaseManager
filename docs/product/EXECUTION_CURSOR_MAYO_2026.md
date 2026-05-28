@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Conciliacion / Ingresos desconocidos - redaccion de sugerencias asistidas. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `IngresoDesconocido.sugerencia_asistida` se expone como payload crudo en API/snapshot/admin y readiness Etapa 3 no clasifica sugerencias heredadas con claves o valores sensibles. |
-| Motivo de prioridad | Frente local seguro de Etapa 3: cierra una superficie de exposicion en Conciliacion sin banco real, `.env`, datos reales, DB historicas, backfills, deploys ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage3-unknown-income-suggestion-redaction`. |
-| Rama | `codex/stage3-unknown-income-suggestion-redaction`. |
-| Estado | Abierto para redactar sugerencias asistidas de ingresos desconocidos, cubrir admin/API/snapshot/readiness y actualizar trazabilidad/evidencia. |
-| Gate esperado | Test focal Conciliacion/readiness, suite impactada Stage3/Conciliacion, `manage.py check`, migraciones dry-run, gate Etapa 3 local, frontend build/lint, acceptance local, higiene repo y CI remoto. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Conciliacion `stage3-unknown-income-suggestion-redaction` integrado en PR #461, merge `5ad4605`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con CI remoto acceptance en verde; worktree y rama tactica de implementacion limpiados. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge o pausar explicitamente aqui si aparece un bloqueo real. |
-| Siguiente accion | Redactar `sugerencia_asistida` en serializer/snapshot/admin de ingresos desconocidos, clasificar payloads sensibles en readiness y validar con pruebas proporcionales. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
+| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
 
 ## Actualizacion
 
