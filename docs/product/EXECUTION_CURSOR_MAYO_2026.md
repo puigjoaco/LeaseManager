@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 / Contratos - redaccion y validacion de motivos contractuales sensibles. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Motivos heredados de entrega de llaves, prorrata de terminacion anticipada, politica de renovacion y resolucion de conflicto de renovacion pueden exponerse o aceptarse sin redaccion/validacion sensible uniforme fuera del admin. |
-| Motivo de prioridad | Paquete local seguro en la etapa mas baja: cierra superficie de API/snapshot/modelo para reglas contractuales ya exigidas por la stage card sin depender de secretos, `.env`, datos reales ni integraciones. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-contract-motive-redaction`. |
-| Rama | `codex/stage1-contract-motive-redaction`. |
-| Estado | Abierto para validar/redactar motivos contractuales sensibles, cubrir tests y evidencia. |
-| Gate esperado | Tests focales de Contratos/Etapa 1, suite impactada Contratos + auditor Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build/lint, acceptance local, higiene repo y CI remoto. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Etapa 1/Contratos `stage1-contract-motive-redaction` integrado en PR #453, merge `6403fda`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con CI remoto acceptance en verde; worktree y rama tactica de implementacion limpiados. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge o pausar explicitamente aqui si aparece un bloqueo real. |
-| Siguiente accion | Implementar validacion/redaccion, actualizar stage card/trazabilidad/evidencia y cerrar paquete. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
+| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
 
 ## Actualizacion
 
