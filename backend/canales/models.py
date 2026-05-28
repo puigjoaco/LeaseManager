@@ -525,12 +525,19 @@ class NotificacionCobranzaProgramada(TimestampedModel):
         if self.mensaje_saliente_id:
             if self.mensaje_saliente.canal != self.canal:
                 errors['mensaje_saliente'] = 'El mensaje asociado debe usar el mismo canal.'
-            if (
-                self.pago_mensual_id
-                and self.mensaje_saliente.contrato_id
-                and self.mensaje_saliente.contrato_id != self.pago_mensual.contrato_id
-            ):
-                errors['mensaje_saliente'] = 'El mensaje asociado debe pertenecer al mismo contrato.'
+            if self.pago_mensual_id:
+                message_contract = resolve_message_contract_context(
+                    contrato=self.mensaje_saliente.contrato,
+                    documento_emitido=self.mensaje_saliente.documento_emitido,
+                )
+                if not message_contract or message_contract.pk != self.pago_mensual.contrato_id:
+                    errors['mensaje_saliente'] = 'El mensaje asociado debe pertenecer al contrato del pago mensual.'
+                expected_tenant_id = self.pago_mensual.contrato.arrendatario_id
+                if (
+                    self.mensaje_saliente.arrendatario_id
+                    and self.mensaje_saliente.arrendatario_id != expected_tenant_id
+                ):
+                    errors['mensaje_saliente'] = 'El mensaje asociado debe pertenecer al arrendatario del pago mensual.'
             if self.estado == EstadoNotificacionCobranza.PREPARED and (
                 self.mensaje_saliente.estado not in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.BLOCKED}
             ):

@@ -112,8 +112,11 @@ condicionados sin envios reales accidentales.
   `PagoMensual` crea la programacion local de forma idempotente, el snapshot de
   Canales la expone al backoffice y readiness bloquea pagos cobrables sin
   recordatorios programados, con programacion heredada invalida o ligada a una
-  configuracion inactiva. Un recordatorio omitido requiere motivo operativo no
-  sensible. Esta programacion no envia Email, WhatsApp ni proveedores externos.
+  configuracion inactiva. Un recordatorio preparado requiere mensaje saliente
+  alineado al contrato del pago mensual y, si declara arrendatario, al mismo
+  arrendatario del pago; readiness bloquea snapshots heredados con esa traza
+  desalineada. Un recordatorio omitido requiere motivo operativo no sensible.
+  Esta programacion no envia Email, WhatsApp ni proveedores externos.
 - Los pagos mensuales abiertos vencidos deben refrescarse contra una fecha de
   corte operativa: un pago `pendiente` vencido pasa a `atrasado`, `dias_mora`
   se recalcula, y el estado de cuenta del arrendatario queda sincronizado. La

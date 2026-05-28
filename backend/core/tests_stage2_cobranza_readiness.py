@@ -631,6 +631,44 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.notification_schedule.invalid_model', issue_codes)
         self.assertEqual(result['sections']['notification_schedules']['invalid_model'], 1)
 
+    def test_prepared_notification_with_unaligned_message_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        other_tenant = Arrendatario.objects.create(
+            tipo_arrendatario=TipoArrendatario.NATURAL,
+            nombre_razon_social='Arrendatario Stage2 Alternativo',
+            rut='44444444-4',
+            email='other-stage2@example.com',
+            telefono='+56911112222',
+            domicilio_notificaciones='Domicilio alternativo',
+            estado_contacto=EstadoContactoArrendatario.ACTIVE,
+        )
+        message = MensajeSaliente.objects.create(
+            canal=CanalOperacion.EMAIL,
+            canal_mensajeria=email_gate,
+            identidad_envio=fixture['identity'],
+            arrendatario=other_tenant,
+            destinatario=other_tenant.email,
+            asunto='Aviso',
+            cuerpo='Cobranza controlada sin contrato del pago',
+            estado=EstadoMensajeSaliente.PREPARED,
+        )
+        notification = NotificacionCobranzaProgramada.objects.filter(
+            pago_mensual=fixture['payment'],
+            dia_notificacion=5,
+        ).get()
+        notification.estado = 'preparada'
+        notification.mensaje_saliente = message
+        notification.save(update_fields=['estado', 'mensaje_saliente', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.notification_schedule.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['notification_schedules']['invalid_model'], 1)
+
     def test_notification_schedule_with_inactive_config_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()
