@@ -19,6 +19,13 @@ sensibles. `CanalMensajeriaAdmin` redacta `restricciones_operativas`
 heredadas con claves `authorization` o `private_key` aunque sus valores sean
 opacos, preservando solo claves canonicas de referencia no sensible del gate.
 
+Nota 2026-05-28: Canales/Cobranza aplica la misma redaccion a API y snapshot
+de gates operativos. `CanalMensajeria` conserva claves canonicas de referencia
+no sensible como `credencial_validada_ref`, pero API/snapshot redactan claves
+sensibles no autorizadas como `api_key` aunque el valor sea opaco; WebPay
+expone `GateCobroExterno.restricciones_operativas` solo como payload redactado
+en API y snapshot de Cobranza.
+
 Nota 2026-05-28: Conciliacion redacta sugerencias asistidas de ingresos
 desconocidos. API, snapshot y admin Django exponen
 `IngresoDesconocido.sugerencia_asistida` solo mediante payload redactado, y

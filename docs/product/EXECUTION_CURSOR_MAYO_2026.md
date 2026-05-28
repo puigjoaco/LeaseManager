@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 2 - Canales/Cobranza. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Conciliacion `stage3-unknown-income-suggestion-redaction` integrado en PR #461, merge `5ad4605`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con CI remoto acceptance en verde; worktree y rama tactica de implementacion limpiados. |
+| Brecha activa | Redaccion consistente de `restricciones_operativas` en gates de Canales y Cobranza. |
+| Motivo de prioridad | Stage cards y trazabilidad exigen que API, snapshot y admin expongan restricciones operativas heredadas solo como payload redactado; Canales preservaba claves canonicas pero no redactaba claves sensibles no autorizadas en API/snapshot, y Cobranza no redactaba/incluia restricciones de gate en todas las superficies. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-gate-restrictions-redaction`. |
+| Rama | `codex/stage2-gate-restrictions-redaction`. |
+| Estado | En implementacion. |
+| Gate esperado | Tests focales Canales/Cobranza, suite impactada Etapa 2, `manage.py check`, migraciones dry-run, gate Etapa 2 local, frontend build/lint si aplica, acceptance local, higiene repo, diff check y CI remoto. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza o pausar explicitamente en este cursor. |
+| Siguiente accion | Completar implementacion, validar y cerrar el paquete. |
 
 ## Actualizacion
 

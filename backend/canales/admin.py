@@ -1,20 +1,14 @@
 from django.contrib import admin
 
-from core.reference_validation import (
-    REDACTED_SENSITIVE_REFERENCE,
-    SENSITIVE_REFERENCE_PATTERN,
-    key_looks_sensitive,
-    redact_sensitive_payload,
-    redact_sensitive_reference,
-)
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 
 from .models import (
-    CHANNEL_GATE_ALLOWED_SENSITIVE_REF_KEYS,
     CanalMensajeria,
     ConfiguracionNotificacionContrato,
     MensajeSaliente,
     NotificacionCobranzaProgramada,
 )
+from .redaction import redact_channel_gate_restrictions
 
 
 def _redacted_attr(obj, field_name):
@@ -23,32 +17,6 @@ def _redacted_attr(obj, field_name):
 
 def _redacted_payload_attr(obj, field_name):
     return redact_sensitive_payload(getattr(obj, field_name, None))
-
-
-def _redact_channel_restrictions(value, *, _sensitive_key=False):
-    allowed_sensitive_keys = set(CHANNEL_GATE_ALLOWED_SENSITIVE_REF_KEYS)
-    if isinstance(value, str):
-        if _sensitive_key or SENSITIVE_REFERENCE_PATTERN.search(value):
-            return REDACTED_SENSITIVE_REFERENCE
-        return value
-    if isinstance(value, dict):
-        redacted = {}
-        for key, item in value.items():
-            key_is_sensitive = (
-                isinstance(key, str)
-                and key not in allowed_sensitive_keys
-                and key_looks_sensitive(key)
-            )
-            redacted[key] = _redact_channel_restrictions(
-                item,
-                _sensitive_key=_sensitive_key or key_is_sensitive,
-            )
-        return redacted
-    if isinstance(value, (list, tuple, set)):
-        return [_redact_channel_restrictions(item, _sensitive_key=_sensitive_key) for item in value]
-    if _sensitive_key and value is not None:
-        return REDACTED_SENSITIVE_REFERENCE
-    return value
 
 
 @admin.register(CanalMensajeria)
@@ -74,7 +42,7 @@ class CanalMensajeriaAdmin(admin.ModelAdmin):
 
     @admin.display(description='restricciones_operativas')
     def restricciones_operativas_redacted(self, obj):
-        return _redact_channel_restrictions(obj.restricciones_operativas or {})
+        return redact_channel_gate_restrictions(obj.restricciones_operativas or {})
 
     @admin.display(description='evidencia_ref')
     def evidencia_ref_redacted(self, obj):

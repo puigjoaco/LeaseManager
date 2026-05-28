@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from audit.services import create_audit_event
 from canales.services import materialize_payment_notification_schedule
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import (
     ScopedQuerysetMixin,
     ensure_queryset_scope,
@@ -195,6 +195,7 @@ class CobranzaSnapshotView(APIView):
                         'capacidad_key': item.capacidad_key,
                         'provider_key': item.provider_key,
                         'estado_gate': item.estado_gate,
+                        'restricciones_operativas': redact_sensitive_payload(item.restricciones_operativas),
                         'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
                     }
                     for item in GateCobroExterno.objects.order_by('capacidad_key', 'provider_key', 'id')

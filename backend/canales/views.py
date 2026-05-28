@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
-from core.reference_validation import redact_sensitive_payload_values, redact_sensitive_reference
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from contratos.models import Arrendatario, Contrato
 from documentos.scope import scope_documento_queryset
@@ -12,6 +12,7 @@ from documentos.models import DocumentoEmitido
 from operacion.models import IdentidadDeEnvio
 
 from .models import CanalMensajeria, ConfiguracionNotificacionContrato, MensajeSaliente, NotificacionCobranzaProgramada
+from .redaction import redact_channel_gate_restrictions
 from .scope import scope_mensaje_queryset, scope_notificacion_cobranza_queryset
 from .serializers import (
     CanalMensajeriaSerializer,
@@ -95,7 +96,7 @@ class ChannelsSnapshotView(APIView):
                         'canal': item.canal,
                         'provider_key': item.provider_key,
                         'estado_gate': item.estado_gate,
-                        'restricciones_operativas': redact_sensitive_payload_values(item.restricciones_operativas),
+                        'restricciones_operativas': redact_channel_gate_restrictions(item.restricciones_operativas),
                         'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
                     }
                     for item in CanalMensajeria.objects.order_by('canal', 'provider_key', 'id')
