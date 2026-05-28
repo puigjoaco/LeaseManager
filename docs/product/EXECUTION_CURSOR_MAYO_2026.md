@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 4 / SII. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `stage4-sii-observations-redaction`: observaciones tributarias de DTE/F29/DDJJ/F22 deben rechazar nuevas referencias sensibles, exponerse redactadas y quedar clasificadas por readiness Etapa 4. |
-| Motivo de prioridad | Superficie SII local y verificable: el admin ya redacta observaciones heredadas, pero dominio, servicios, API/snapshot y readiness no cierran la misma regla. |
-| Worktree | `D:/Proyectos/LeaseManager-stage4-sii-observations-redaction`. |
-| Rama | `codex/stage4-sii-observations-redaction`. |
-| Estado | Validado localmente; pendiente PR, CI, merge y limpieza. |
-| Gate esperado | Gate local Etapa 4 como diagnostico: `classification=parcial`, `ready_for_stage4_sii=false`; no cierra SII sin fuente autorizada. |
-| Estado al cerrar paquete | Implementacion, pruebas proporcionales, evidencia y trazabilidad completas localmente; pendiente PR, CI, merge y limpieza. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete `stage4-sii-observations-redaction` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Etapa 4/SII `stage4-sii-observations-redaction` integrado en PR #477, merge `1bf2d9d`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; rama remota tactica eliminada o pendiente de poda remota. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree tactico hasta cerrarlo, pausarlo explicitamente o limpiarlo tras merge. |
-| Siguiente accion | Crear PR del paquete, esperar CI, mergear si pasa y limpiar worktree/rama; luego cerrar el cursor. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
+| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
 
 ## Actualizacion
 
