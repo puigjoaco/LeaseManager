@@ -28,6 +28,13 @@ correos, tokens o credenciales; API, snapshot y admin Django redactan
 justificaciones sensibles heredadas y el auditor Etapa 1 las clasifica como
 `stage1.historial_garantia.validacion_modelo`.
 
+Nota 2026-05-28: Cobranza/Etapa 1 redacta motivos sensibles de resolucion de
+exceso de garantia. `GarantiaContractual.clean()` ya rechazaba nuevas
+resoluciones con referencias sensibles y el auditor Etapa 1 las clasificaba
+como `stage1.garantia.exceso_resolucion_sensible`; API list/detail y snapshot
+ahora tambien redactan `resolucion_exceso_garantia_motivo` heredado antes de
+exponerlo.
+
 Nota 2026-05-27: CobranzaActiva persiste traza UF exacta en pagos mensuales.
 `PagoMensual` guarda moneda de calculo, fecha UF usada, valor UF usado y
 fuente canonica; la fecha debe coincidir con `fecha_vencimiento`. La generacion
