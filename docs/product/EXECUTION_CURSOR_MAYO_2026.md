@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 / Contratos - redaccion admin de refs de arrendatario y contacto de pago. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `ArrendatarioAdmin` y `ContactoPagoArrendatarioAdmin` aun pueden exponer refs/motivos sensibles heredados mediante campos crudos por defecto del admin Django. |
-| Motivo de prioridad | Primer frente local seguro en Contratos tras confirmar `main` limpio y sin paquete activo; no requiere secretos, `.env`, datos reales ni integraciones. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-contract-tenant-admin-redaction`. |
-| Rama | `codex/stage1-contract-tenant-admin-redaction`. |
-| Estado | Abierto para cerrar superficie admin de refs WhatsApp/contactos de pago con tests y evidencia. |
-| Gate esperado | Tests focales de admin Contratos, suite impactada Contratos/Etapa 1, `manage.py check`, `makemigrations --check --dry-run`, readiness local Etapa 1, frontend build/lint, acceptance local, higiene repo y CI remoto. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Pendiente seleccionar el siguiente frente seguro desde trazabilidad y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Etapa 1 `stage1-contract-tenant-admin-redaction` integrado en PR #445, merge `7ad5fe6`. |
+| Gate esperado | N/A hasta abrir el siguiente frente. |
+| Estado al cerrar paquete | Cerrado con CI remoto `acceptance` en verde; worktree y rama tactica de implementacion limpiados. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge o pausar explicitamente aqui si aparece un bloqueo real. |
-| Siguiente accion | Implementar redaccion admin, cubrir con tests, actualizar stage card/trazabilidad/evidencia y cerrar paquete. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
+| Siguiente accion | Desde `main` limpio, tomar el siguiente frente seguro segun trazabilidad y abrirlo explicitamente en este cursor. |
 
 ## Actualizacion
 
