@@ -7,7 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
-from core.reference_validation import is_non_sensitive_reference, redact_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from documentos.models import PoliticaFirmaYNotaria
 from operacion.models import IdentidadDeEnvio, MandatoOperacion
@@ -91,6 +91,9 @@ class ArrendatarioSerializer(serializers.ModelSerializer):
         data['whatsapp_opt_in_evidencia_ref'] = redact_sensitive_reference(
             data.get('whatsapp_opt_in_evidencia_ref')
         )
+        data['whatsapp_bloqueo_motivo'] = redact_sensitive_reference(
+            data.get('whatsapp_bloqueo_motivo')
+        )
         data['whatsapp_bloqueo_evidencia_ref'] = redact_sensitive_reference(
             data.get('whatsapp_bloqueo_evidencia_ref')
         )
@@ -149,6 +152,11 @@ class ArrendatarioSerializer(serializers.ModelSerializer):
 class ArrendatarioWhatsappBlockSerializer(serializers.Serializer):
     motivo = serializers.CharField(max_length=500, trim_whitespace=True)
     evidencia_ref = serializers.CharField(max_length=255, trim_whitespace=True)
+
+    def validate_motivo(self, value):
+        if contains_sensitive_reference(value):
+            raise serializers.ValidationError('El motivo de bloqueo WhatsApp no debe contener referencias sensibles.')
+        return value
 
     def validate_evidencia_ref(self, value):
         if not is_non_sensitive_reference(value):

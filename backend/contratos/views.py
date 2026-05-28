@@ -170,7 +170,9 @@ class ContractsSnapshotView(APIView):
                             item.whatsapp_opt_in_evidencia_ref
                         ),
                         'whatsapp_bloqueado': item.whatsapp_bloqueado,
-                        'whatsapp_bloqueo_motivo': item.whatsapp_bloqueo_motivo or '',
+                        'whatsapp_bloqueo_motivo': redact_sensitive_reference(
+                            item.whatsapp_bloqueo_motivo
+                        ),
                         'whatsapp_bloqueo_evidencia_ref': redact_sensitive_reference(
                             item.whatsapp_bloqueo_evidencia_ref
                         ),

@@ -2019,6 +2019,52 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertEqual(result['sections']['channel_identities']['whatsapp_block_event_missing'], 1)
         self.assertEqual(result['sections']['channel_identities']['whatsapp_block_alert_missing'], 1)
 
+    def test_whatsapp_block_sensitive_motive_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        tenant = fixture['tenant']
+        sensitive_motive = 'Bloqueo reportado en https://wa.example.test/block?token=secret'
+        Arrendatario.objects.filter(pk=tenant.pk).update(
+            whatsapp_bloqueado=True,
+            whatsapp_bloqueo_motivo=sensitive_motive,
+            whatsapp_bloqueo_evidencia_ref='wa-block-readiness-sensitive-motive',
+            whatsapp_bloqueado_at=timezone.now(),
+        )
+        AuditEvent.objects.create(
+            event_type='contratos.arrendatario.whatsapp_blocked',
+            entity_type='arrendatario',
+            entity_id=str(tenant.pk),
+            summary='Bloqueo definitivo WhatsApp heredado con motivo sensible.',
+            actor_identifier='stage2-operator',
+            metadata={
+                'motivo': sensitive_motive,
+                'evidencia_ref': 'wa-block-readiness-sensitive-motive',
+            },
+        )
+        ManualResolution.objects.create(
+            category='canales.whatsapp.bloqueo_definitivo',
+            scope_type='arrendatario',
+            scope_reference=str(tenant.pk),
+            summary='Bloqueo definitivo WhatsApp requiere seguimiento administrativo.',
+            rationale=sensitive_motive,
+            metadata={
+                'actor_identifier': 'stage2-operator',
+                'evidencia_ref': 'wa-block-readiness-sensitive-motive',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.block_motive_sensitive', issue_codes)
+        self.assertNotIn('stage2.whatsapp.block_event_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.block_alert_missing', issue_codes)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_block_motive_sensitive'], 1)
+        self.assertNotIn('wa.example.test', json.dumps(result))
+        self.assertNotIn('token=secret', json.dumps(result))
+
     def test_whatsapp_block_sensitive_evidence_and_rehabilitation_ref_are_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()

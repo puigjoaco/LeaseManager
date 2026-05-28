@@ -155,7 +155,10 @@ condicionados sin envios reales accidentales.
   servicio de preparacion crea esa alerta con actor y evento dedicado cuando
   bloquea WhatsApp. La readiness bloquea snapshots heredados sin esa traza, sin
   actor, sin evento dedicado, con motivo/contexto desalineado, con bloqueo
-  definitivo sin evento/alerta o con evidencia/motivo desalineados.
+  definitivo sin evento/alerta, con evidencia/motivo desalineados o con
+  motivo heredado sensible. El modelo y el endpoint de bloqueo rechazan nuevos
+  motivos con URLs, correos, tokens o credenciales, y APIs/snapshots redactan
+  motivos heredados sensibles antes de exponerlos al backoffice.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
   `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y
   `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`

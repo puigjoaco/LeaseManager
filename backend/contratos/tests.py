@@ -380,6 +380,18 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('whatsapp_opt_in_evidencia_ref', response.data)
 
+    def test_arrendatario_rejects_sensitive_whatsapp_block_motive_on_full_clean(self):
+        arrendatario = self._create_arrendatario(rut='44444445-2')
+        arrendatario.whatsapp_bloqueado = True
+        arrendatario.whatsapp_bloqueo_motivo = 'Bloqueo reportado en https://wa.example.test/block?token=secret'
+        arrendatario.whatsapp_bloqueo_evidencia_ref = 'wa-block-controlled-sensitive-motive'
+        arrendatario.whatsapp_bloqueado_at = timezone.now()
+
+        with self.assertRaises(ValidationError) as context:
+            arrendatario.full_clean()
+
+        self.assertIn('whatsapp_bloqueo_motivo', context.exception.message_dict)
+
     def test_arrendatario_apis_redact_inherited_sensitive_whatsapp_opt_in_evidence(self):
         tenant = Arrendatario.objects.create(
             tipo_arrendatario='persona_natural',
@@ -392,6 +404,7 @@ class ContratosAPITests(APITestCase):
             whatsapp_opt_in=True,
             whatsapp_opt_in_evidencia_ref='https://wa.example.test/optin?token=secret',
             whatsapp_bloqueado=False,
+            whatsapp_bloqueo_motivo='Bloqueo reportado en https://wa.example.test/block?token=secret',
             whatsapp_bloqueo_evidencia_ref='https://wa.example.test/block?token=secret',
             whatsapp_rehabilitacion_ref='https://wa.example.test/rehab?token=secret',
         )
@@ -410,9 +423,15 @@ class ContratosAPITests(APITestCase):
             REDACTED_SENSITIVE_REFERENCE,
         )
         self.assertEqual(list_response.data[0]['whatsapp_bloqueo_evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(list_response.data[0]['whatsapp_bloqueo_motivo'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(detail_response.data['whatsapp_rehabilitacion_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['whatsapp_bloqueo_motivo'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(
             snapshot_response.data['arrendatarios'][0]['whatsapp_bloqueo_evidencia_ref'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            snapshot_response.data['arrendatarios'][0]['whatsapp_bloqueo_motivo'],
             REDACTED_SENSITIVE_REFERENCE,
         )
         rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
@@ -543,6 +562,37 @@ class ContratosAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('evidencia_ref', response.data)
+
+    def test_block_whatsapp_rejects_sensitive_motive(self):
+        arrendatario = self._create_arrendatario(rut='12345675-0')
+
+        response = self.client.post(
+            reverse('contratos-arrendatario-whatsapp-bloquear', args=[arrendatario.id]),
+            {
+                'motivo': 'Bloqueo reportado en https://wa.example.test/block?token=secret',
+                'evidencia_ref': 'wa-block-controlled-sensitive-motive',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('motivo', response.data)
+
+    def test_block_whatsapp_service_rejects_sensitive_motive(self):
+        arrendatario = self._create_arrendatario(rut='12345674-2')
+
+        with self.assertRaises(ValidationError):
+            block_whatsapp_contact(
+                tenant=arrendatario,
+                motivo='Bloqueo reportado en https://wa.example.test/block?token=secret',
+                evidencia_ref='wa-block-service-sensitive-motive',
+                actor_user=self.user,
+            )
+
+        arrendatario.refresh_from_db()
+        self.assertFalse(arrendatario.whatsapp_bloqueado)
+        self.assertFalse(AuditEvent.objects.filter(event_type=WHATSAPP_BLOCK_EVENT_TYPE).exists())
+        self.assertFalse(ManualResolution.objects.filter(category=WHATSAPP_BLOCK_ALERT_CATEGORY).exists())
 
     def test_block_whatsapp_records_trace_event_and_admin_alert(self):
         arrendatario = self._create_arrendatario(rut='12345677-7')

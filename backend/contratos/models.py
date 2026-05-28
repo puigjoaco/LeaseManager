@@ -179,6 +179,14 @@ class Arrendatario(TimestampedModel):
                 raise ValidationError(
                     {'whatsapp_bloqueo_motivo': 'El bloqueo definitivo de WhatsApp requiere motivo trazable.'}
                 )
+            if contains_sensitive_reference(self.whatsapp_bloqueo_motivo):
+                raise ValidationError(
+                    {
+                        'whatsapp_bloqueo_motivo': (
+                            'El motivo de bloqueo WhatsApp no debe contener referencias sensibles.'
+                        )
+                    }
+                )
             if not self.whatsapp_bloqueo_evidencia_ref.strip():
                 raise ValidationError(
                     {
