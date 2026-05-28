@@ -526,7 +526,7 @@ class GarantiaMovimientoSerializer(serializers.Serializer):
 
 
 class RepactacionDeudaSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('excepcion_parcial_ref',)
+    redacted_reference_fields = ('excepcion_parcial_ref', 'excepcion_parcial_motivo')
 
     class Meta:
         model = RepactacionDeuda

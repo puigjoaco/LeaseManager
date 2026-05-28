@@ -2214,6 +2214,37 @@ class CobranzaAPITests(APITestCase):
         self.assertIn('excepcion_parcial_ref', response.data)
         self.assertIn('excepcion_parcial_motivo', response.data)
 
+    def test_partial_repayment_apis_and_snapshot_redact_sensitive_exception_motive(self):
+        contrato = self._create_active_contract(codigo='CON-REP-PARTIAL-RED', monto_base='100000.00', code='111')
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=contrato.arrendatario,
+            contrato_origen=contrato,
+            deuda_total_original=Decimal('50000.00'),
+            cantidad_cuotas=4,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('40000.00'),
+            estado='activa',
+            excepcion_parcial_ref='partial-repayment-exception-2026-01',
+            excepcion_parcial_motivo='Excepcion parcial heredada en https://example.test/approval?token=secret',
+        )
+
+        list_response = self.client.get(reverse('cobranza-repactacion-list'))
+        detail_response = self.client.get(reverse('cobranza-repactacion-detail', args=[repayment.id]))
+        snapshot_response = self.client.get(reverse('cobranza-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['excepcion_parcial_motivo'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['excepcion_parcial_motivo'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            snapshot_response.data['repactaciones'][0]['excepcion_parcial_motivo'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
+        self.assertNotIn('example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+
     def test_partial_repayment_records_exception_audit_event(self):
         contrato = self._create_active_contract(codigo='CON-REP-PARTIAL-OK', monto_base='100000.00', code='111')
 

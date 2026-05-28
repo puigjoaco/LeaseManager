@@ -35,6 +35,13 @@ como `stage1.garantia.exceso_resolucion_sensible`; API list/detail y snapshot
 ahora tambien redactan `resolucion_exceso_garantia_motivo` heredado antes de
 exponerlo.
 
+Nota 2026-05-28: CobranzaActiva redacta motivos sensibles de excepcion parcial
+en repactaciones. `RepactacionDeuda.clean()` ya rechazaba nuevos motivos con
+URLs, correos, tokens o credenciales; API list/detail y snapshot de Cobranza
+ahora redactan `excepcion_parcial_motivo` heredado antes de exponerlo, y
+readiness Etapa 2 conserva la clasificacion de esos snapshots como
+`stage2.repayment.invalid_model` sin filtrar valores.
+
 Nota 2026-05-27: CobranzaActiva persiste traza UF exacta en pagos mensuales.
 `PagoMensual` guarda moneda de calculo, fecha UF usada, valor UF usado y
 fuente canonica; la fecha debe coincidir con `fecha_vencimiento`. La generacion

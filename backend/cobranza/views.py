@@ -181,6 +181,11 @@ class CobranzaSnapshotView(APIView):
             access,
             property_paths=('pago_mensual__contrato__mandato_operacion__propiedad_id',),
         )
+        repactaciones = scope_queryset_for_access(
+            RepactacionDeuda.objects.select_related('arrendatario', 'contrato_origen').order_by('-id'),
+            access,
+            property_paths=('contrato_origen__mandato_operacion__propiedad_id',),
+        )
 
         return Response(
             {
@@ -271,6 +276,23 @@ class CobranzaSnapshotView(APIView):
                         'fecha_pago_webpay': item.fecha_pago_webpay,
                     }
                     for item in intentos_webpay
+                ],
+                'repactaciones': [
+                    {
+                        'id': item.id,
+                        'arrendatario': item.arrendatario_id,
+                        'contrato_origen': item.contrato_origen_id,
+                        'deuda_total_original': item.deuda_total_original,
+                        'cantidad_cuotas': item.cantidad_cuotas,
+                        'monto_cuota': item.monto_cuota,
+                        'saldo_pendiente': item.saldo_pendiente,
+                        'estado': item.estado,
+                        'excepcion_parcial_ref': redact_sensitive_reference(item.excepcion_parcial_ref),
+                        'excepcion_parcial_motivo': redact_sensitive_reference(item.excepcion_parcial_motivo),
+                        'es_repactacion_parcial': item.es_repactacion_parcial,
+                        'tiene_excepcion_parcial': item.tiene_excepcion_parcial,
+                    }
+                    for item in repactaciones
                 ],
                 'garantias': [
                     {

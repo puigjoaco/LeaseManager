@@ -25,8 +25,10 @@ condicionados sin envios reales accidentales.
 - Repactaciones parciales solo pueden existir con excepcion formal, referencia
   no sensible, motivo auditable y evento auditable dedicado. El servicio de
   guardado de repactaciones crea esa auditoria en la misma transaccion que
-  persiste el plan parcial y exige actor trazable; la readiness bloquea
-  snapshots heredados sin esa traza o con motivo desalineado en el evento.
+  persiste el plan parcial y exige actor trazable; API y snapshot redactan
+  motivos heredados sensibles antes de exponerlos, y la readiness bloquea
+  snapshots heredados sin esa traza, con motivo sensible o con motivo
+  desalineado en el evento.
 - Pagos originales en estado `en_repactacion` o `pagado_via_repactacion`
   deben conservar enlace a una `RepactacionDeuda` del mismo contrato y
   arrendatario. Un pago `en_repactacion` requiere plan activo; un pago
