@@ -52,6 +52,7 @@ from .models import (
 )
 from .admin import (
     AjusteContratoAdmin,
+    CodigoCobroResidualAdmin,
     EstadoCuentaArrendatarioAdmin,
     GateCobroExternoAdmin,
     GarantiaContractualAdmin,
@@ -292,6 +293,7 @@ class CobranzaAPITests(APITestCase):
         guarantee_admin = GarantiaContractualAdmin(GarantiaContractual, site)
         history_admin = HistorialGarantiaAdmin(HistorialGarantia, site)
         repayment_admin = RepactacionDeudaAdmin(RepactacionDeuda, site)
+        residual_admin = CodigoCobroResidualAdmin(CodigoCobroResidual, site)
 
         self.assertNotIn('evidencia_ref', uf_admin.fields)
         self.assertNotIn('responsable_ref', uf_admin.search_fields)
@@ -354,6 +356,7 @@ class CobranzaAPITests(APITestCase):
             guarantee_admin,
             history_admin,
             repayment_admin,
+            residual_admin,
         ):
             self.assertFalse(admin_instance.has_add_permission(None))
 
@@ -425,6 +428,7 @@ class CobranzaAPITests(APITestCase):
         account_state_admin = EstadoCuentaArrendatarioAdmin(EstadoCuentaArrendatario, AdminSite())
         self.assertNotIn('observaciones', account_state_admin.fields)
         self.assertEqual(account_state_admin.observaciones_redacted(account_state), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(account_state_admin.has_add_permission(None))
 
         update_response = self.client.patch(
             reverse('cobranza-estado-cuenta-detail', args=[account_state.pk]),
