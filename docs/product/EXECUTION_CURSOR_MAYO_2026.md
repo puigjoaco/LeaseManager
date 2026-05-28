@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 3 / Conciliacion - superficie generica de resoluciones manuales especializadas. |
+| Frente activo | Ningun paquete tactico abierto. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Las resoluciones manuales especializadas de Conciliacion ya bloquean cierre generico, pero el endpoint generico aun puede crear categorias especializadas o retargetear scope/metadata, saltando los servicios auditados. |
-| Motivo de prioridad | Cierra una superficie local de Conciliacion/Auditoria sin banco externo: las resoluciones de ingresos desconocidos y cargos deben nacer y mutar por servicios especializados. |
-| Worktree | `D:/Proyectos/LeaseManager-stage3-specialized-resolution-surface`. |
-| Rama | `codex/stage3-specialized-resolution-surface`. |
-| Estado | Paquete abierto. |
-| Gate esperado | Etapa 3 local debe seguir `classification=parcial`, `ready_for_stage3_conciliacion=false` sin llamadas a bancos reales. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Pendiente de seleccionar desde trazabilidad, stage cards y orden de construccion. |
+| Motivo de prioridad | No aplica mientras no haya paquete abierto. |
+| Worktree | `D:/Proyectos/LeaseManager`. |
+| Rama | `main`. |
+| Estado | PR #503 integrado en `main` (`ec8236c`); cursor listo para seleccionar el siguiente paquete. |
+| Gate esperado | Ejecutar el gate proporcional del siguiente frente seleccionado. |
+| Estado al cerrar paquete | PR #503 cerro la superficie generica de resoluciones manuales especializadas de Etapa 3 sin banco externo. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta cerrar PR o pausar aqui explicitamente. |
-| Siguiente accion | Bloquear creacion/retarget generico de resoluciones especializadas, cubrir tests, evidencia y trazabilidad. |
+| Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si no hay worktree tactico sucio, seleccionar el siguiente frente seguro desde trazabilidad y orden de construccion. |
+| Siguiente accion | Abrir un nuevo paquete pequeno, trazable y validable segun la proxima brecha real del repo. |
 
 ## Actualizacion
 
