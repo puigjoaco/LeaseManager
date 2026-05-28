@@ -42,6 +42,10 @@ def require_economic_period(periodo_economico):
     return clean_period
 
 
+def _movement_economic_period(movimiento):
+    return f'{movimiento.fecha_movimiento.year:04d}-{movimiento.fecha_movimiento.month:02d}'
+
+
 def get_open_manual_resolution(movimiento, category):
     return ManualResolution.objects.filter(
         category=category,
@@ -467,6 +471,8 @@ def resolve_charge_movement_manual_resolution(
         raise ValueError('La clasificacion manual requiere entidad afectada.') from error
     if entidad_afectada_id != empresa.pk:
         raise ValueError('La entidad afectada debe coincidir con la empresa duena de la cuenta recaudadora.')
+    if periodo_economico != _movement_economic_period(movimiento):
+        raise ValueError('El periodo economico del cargo debe coincidir con el mes del movimiento bancario.')
     if not criterio_reparto:
         raise ValueError('La clasificacion manual requiere criterio de reparto.')
     if contains_sensitive_reference(criterio_reparto):

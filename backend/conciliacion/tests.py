@@ -1367,6 +1367,47 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
         self.assertEqual(resolution.status, 'open')
 
+    def test_manual_resolution_charge_requires_period_matching_movement_month(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CARGO-PERIOD')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                fecha_movimiento='2026-01-09',
+                tipo_movimiento='cargo',
+                monto='50000.00',
+                descripcion_origen='Cargo bancario con periodo economico desalineado',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.movimiento_cargo',
+            scope_reference=str(movimiento.pk),
+        )
+
+        resolve = self.client.post(
+            reverse('manual-resolution-resolve-charge-movement', args=[resolution.pk]),
+            self._charge_classification_payload(cuenta, periodo_economico='2026-02'),
+            format='json',
+        )
+
+        self.assertEqual(resolve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            resolve.data['detail'],
+            'El periodo economico del cargo debe coincidir con el mes del movimiento bancario.',
+        )
+
+        movimiento.refresh_from_db()
+        resolution.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.MANUAL_REQUIRED)
+        self.assertEqual(resolution.status, 'open')
+        self.assertFalse(EventoContable.objects.exists())
+
     def test_manual_resolution_charge_rejects_sensitive_classification_evidence(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CARGO-SENSITIVE')
         conexion = self._create_connection(cuenta)

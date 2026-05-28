@@ -192,6 +192,8 @@ def _charge_classification_target_matches(resolution: ManualResolution, metadata
         return False
     if movement.estado_conciliacion != EstadoConciliacionMovimiento.EXACT_MATCH:
         return False
+    if str(metadata.get('periodo_economico') or '').strip() != _period_from_date(movement.fecha_movimiento):
+        return False
 
     empresa_id = movement.conexion_bancaria.cuenta_recaudadora.empresa_owner_id
     if empresa_id is None:
