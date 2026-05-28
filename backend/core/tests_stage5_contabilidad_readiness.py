@@ -494,6 +494,40 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertEqual(result['sections']['internal_transfers']['accounting_event_gaps'], 0)
         self.assertNotIn('stage5.internal_transfer_accounting_event_missing', issue_codes)
 
+    def test_company_internal_transfer_misaligned_accounting_event_is_blocking(self):
+        origin_empresa = self._create_active_empresa(nombre='Transfer Mismatch Origin SpA', rut='71717171-7')
+        origin_debit, origin_credit = self._setup_contabilidad(origin_empresa)
+        self._create_rule_matrix(origin_empresa, 'TransferenciaIntercuentaSalida', origin_credit, origin_debit)
+        self._create_posted_event_and_asiento(origin_empresa, origin_debit, origin_credit)
+        self._create_approved_close_snapshots(origin_empresa)
+        self._allow_monthly_close_reopen(origin_empresa)
+
+        destination_empresa = self._create_active_empresa(nombre='Transfer Mismatch Destination SpA', rut='70707070-7')
+        destination_debit, destination_credit = self._setup_contabilidad(destination_empresa)
+        self._create_rule_matrix(
+            destination_empresa,
+            'TransferenciaIntercuentaEntrada',
+            destination_debit,
+            destination_credit,
+        )
+        self._create_posted_event_and_asiento(destination_empresa, destination_debit, destination_credit)
+        self._create_approved_close_snapshots(destination_empresa)
+        self._allow_monthly_close_reopen(destination_empresa)
+
+        transfer = self._create_internal_transfer_pair(origin_empresa, destination_empresa)
+        events = create_internal_transfer_events(transfer)
+        EventoContable.objects.filter(
+            pk=events[0].pk,
+            evento_tipo='TransferenciaIntercuentaSalida',
+        ).update(monto_base=Decimal('240000.00'))
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.internal_transfer_accounting_event_missing', issue_codes)
+        self.assertEqual(result['sections']['internal_transfers']['accounting_event_gaps'], 1)
+
     def test_authorized_source_requires_source_trace_refs(self):
         self._create_valid_local_matrix()
 
