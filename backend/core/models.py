@@ -1,9 +1,10 @@
-import re
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+
+from .reference_validation import SENSITIVE_REFERENCE_PATTERN as SENSITIVE_EVIDENCE_REF_PATTERN
+from .reference_validation import contains_sensitive_reference
 
 
 class Scope(models.Model):
@@ -99,12 +100,6 @@ def _numeric_value(value):
     return None
 
 
-SENSITIVE_EVIDENCE_REF_PATTERN = re.compile(
-    r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
-    re.IGNORECASE,
-)
-
-
 AUTHORIZED_RUNTIME_SIGNAL_MODEL_SOURCE_KINDS = {
     RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
     RuntimeSignalSourceKind.REAL_AUTORIZADO,
@@ -117,17 +112,7 @@ def _non_sensitive_reference(value):
 
 
 def _contains_sensitive_reference(value):
-    if isinstance(value, str):
-        return bool(SENSITIVE_EVIDENCE_REF_PATTERN.search(value))
-    if isinstance(value, dict):
-        return any(
-            (isinstance(key, str) and SENSITIVE_EVIDENCE_REF_PATTERN.search(key))
-            or _contains_sensitive_reference(item)
-            for key, item in value.items()
-        )
-    if isinstance(value, (list, tuple)):
-        return any(_contains_sensitive_reference(item) for item in value)
-    return False
+    return contains_sensitive_reference(value, include_sensitive_keys=True)
 
 
 class OperationalRuntimeSignal(models.Model):
