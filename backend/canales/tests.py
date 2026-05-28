@@ -42,8 +42,10 @@ from .models import (
     NotificacionCobranzaProgramada,
 )
 from .services import (
+    WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
     WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
     mark_message_as_sent,
+    mark_whatsapp_message_as_failed,
     materialize_payment_notification_schedule,
 )
 
@@ -1605,6 +1607,116 @@ class CanalesAPITests(APITestCase):
                 event_type='canales.mensaje_saliente.sent_manually',
                 entity_type='mensaje_saliente',
                 entity_id=str(message.pk),
+            ).exists()
+        )
+
+    def test_mark_whatsapp_message_as_failed_creates_fallback_trace(self):
+        empresa, contrato = self._create_contract_context(
+            codigo='CH-WA-FAIL',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='optin-controlled-fail',
+        )
+        gate = self._create_gate(canal='whatsapp', restricciones_operativas={'templates_aprobados': True})
+        identidad = self._create_identity(empresa, canal='whatsapp')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='whatsapp',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        with patch(
+            'canales.services.timezone.localtime',
+            return_value=datetime(2026, 5, 21, 10, 0, tzinfo=ZoneInfo('America/Santiago')),
+        ):
+            prepared = self.client.post(
+                reverse('canales-mensaje-preparar'),
+                {
+                    'canal': 'whatsapp',
+                    'canal_mensajeria': gate['id'],
+                    'contrato': contrato.id,
+                    'cuerpo': 'Recordatorio',
+                },
+                format='json',
+            )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(prepared.data['estado'], EstadoMensajeSaliente.PREPARED)
+
+        message = MensajeSaliente.objects.get(pk=prepared.data['id'])
+        failed = mark_whatsapp_message_as_failed(
+            message,
+            failure_reason='provider-timeout-controlled',
+            actor_user=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertEqual(failed.estado, EstadoMensajeSaliente.FAILED)
+        self.assertEqual(failed.motivo_bloqueo, 'provider-timeout-controlled')
+        fallback = ManualResolution.objects.get(
+            category=WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
+            scope_reference=str(failed.pk),
+        )
+        self.assertEqual(fallback.requested_by, self.user)
+        self.assertEqual(fallback.metadata['fallback_canal_base'], 'email')
+        self.assertEqual(fallback.metadata['canal'], 'whatsapp')
+        self.assertEqual(fallback.metadata['blocking_reason'], failed.motivo_bloqueo)
+        self.assertEqual(fallback.metadata['message_id'], failed.pk)
+        event = AuditEvent.objects.get(
+            event_type=WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
+            entity_type='mensaje_saliente',
+            entity_id=str(failed.pk),
+        )
+        self.assertEqual(event.actor_user, self.user)
+        self.assertEqual(event.ip_address, '127.0.0.1')
+        self.assertEqual(event.metadata['blocking_reason'], failed.motivo_bloqueo)
+
+    def test_mark_whatsapp_message_as_failed_requires_actor_and_non_sensitive_reason(self):
+        empresa, contrato = self._create_contract_context(
+            codigo='CH-WA-FAIL-GUARD',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='optin-controlled-fail-guard',
+        )
+        gate = self._create_gate(canal='whatsapp', restricciones_operativas={'templates_aprobados': True})
+        identidad = self._create_identity(empresa, canal='whatsapp')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='whatsapp',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        with patch(
+            'canales.services.timezone.localtime',
+            return_value=datetime(2026, 5, 21, 10, 0, tzinfo=ZoneInfo('America/Santiago')),
+        ):
+            prepared = self.client.post(
+                reverse('canales-mensaje-preparar'),
+                {
+                    'canal': 'whatsapp',
+                    'canal_mensajeria': gate['id'],
+                    'contrato': contrato.id,
+                    'cuerpo': 'Recordatorio',
+                },
+                format='json',
+            )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+        message = MensajeSaliente.objects.get(pk=prepared.data['id'])
+
+        with self.assertRaisesRegex(ValueError, 'actor trazable'):
+            mark_whatsapp_message_as_failed(message, failure_reason='provider-timeout-controlled')
+        with self.assertRaisesRegex(ValueError, 'motivo no sensible'):
+            mark_whatsapp_message_as_failed(
+                message,
+                failure_reason='https://provider.example.test/callback?token=secret',
+                actor_user=self.user,
+            )
+
+        message.refresh_from_db()
+        self.assertEqual(message.estado, EstadoMensajeSaliente.PREPARED)
+        self.assertFalse(
+            ManualResolution.objects.filter(
+                category=WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
+                scope_reference=str(message.pk),
             ).exists()
         )
 

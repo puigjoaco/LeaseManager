@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 2 / Canales - traza de fallback para mensajes WhatsApp fallidos. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete Etapa 2 / Cobranza `stage2-cobranza-admin-closed-surface` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad y orden de construccion. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 2 / Cobranza integrado en PR #499, merge `7e539f0`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con pruebas focales, suite impactada, gate local Etapa 2, acceptance local, CI remoto acceptance, evidencia, trazabilidad e higiene en verde; el worktree tactico fue eliminado. |
+| Brecha activa | La readiness Etapa 2 exige fallback trazable para mensajes WhatsApp `bloqueado` o `fallido`; el servicio de preparacion ya crea la traza para bloqueos, pero falta una ruta interna controlada para marcar fallos con actor, motivo no sensible y fallback trazable. |
+| Motivo de prioridad | Cierra una brecha local de Canales/Cobranza sin proveedores externos: evita que el estado `fallido` quede como mutacion directa sin resolucion ni evento alineado. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-whatsapp-failed-fallback-trace`. |
+| Rama | `codex/stage2-whatsapp-failed-fallback-trace`. |
+| Estado | Paquete abierto. |
+| Gate esperado | Etapa 2 local debe seguir `classification=parcial`, `ready_for_stage2_cobranza=false` sin llamadas a Email, WhatsApp ni WebPay reales. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el proximo paquete pequeno, seguro y verificable desde `TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards y orden de construccion. |
-| Siguiente accion | Abrir el proximo paquete util en worktree `codex/...` y registrar aqui el frente activo antes de editar. |
+| Politica de reanudacion | Continuar este worktree hasta cerrar PR o pausar aqui explicitamente. |
+| Siguiente accion | Implementar servicio interno de fallo WhatsApp, tests focales/readiness, evidencia y trazabilidad. |
 
 ## Actualizacion
 

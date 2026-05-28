@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: Canales/Etapa 2 agrega ruta interna controlada para
+mensajes WhatsApp fallidos. `mark_whatsapp_message_as_failed()` solo acepta
+mensajes preparados, exige actor trazable y motivo no sensible, cambia el
+estado a `fallido` y crea `ManualResolution`
+`canales.whatsapp.fallback_requerido` mas evento
+`canales.whatsapp.fallback_required` alineado al motivo/contexto, para que la
+readiness no dependa de mutaciones directas del estado.
+
 Nota 2026-05-28: Conciliacion/Etapa 3 exige traza contable para transferencias
 internas resueltas manualmente. Readiness valida que la resolucion manual
 conserve `evento_contable_ids`, `empresa_evento_ids` y

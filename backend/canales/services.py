@@ -120,7 +120,7 @@ def ensure_whatsapp_fallback_resolution(
 ):
     return ensure_manual_resolution(
         WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
-        'WhatsApp bloqueado requiere fallback por Email o alerta critica trazable.',
+        'WhatsApp bloqueado o fallido requiere fallback por Email o alerta critica trazable.',
         payload={
             'scope_reference': str(message.pk),
             'message_id': message.pk,
@@ -376,6 +376,44 @@ def prepare_message(
 
     message.estado = EstadoMensajeSaliente.PREPARED
     message.save()
+    return message
+
+
+@transaction.atomic
+def mark_whatsapp_message_as_failed(
+    message,
+    failure_reason='',
+    *,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    if message.canal != CanalOperacion.WHATSAPP:
+        raise ValueError('Solo se puede registrar fallo controlado para mensajes WhatsApp.')
+    if message.estado != EstadoMensajeSaliente.PREPARED:
+        raise ValueError('Solo se puede registrar fallo controlado para mensajes WhatsApp preparados.')
+    failure_reason = failure_reason.strip()
+    if not failure_reason:
+        raise ValueError('El fallo WhatsApp requiere un motivo trazable.')
+    if not is_non_sensitive_reference(failure_reason):
+        raise ValueError(
+            'El fallo WhatsApp requiere un motivo no sensible; no use URLs, tokens, credenciales ni correos.'
+        )
+    actor_identifier = (actor_identifier or '').strip()
+    if actor_user is None and not actor_identifier:
+        raise ValueError('El fallo WhatsApp requiere un actor trazable para auditoria.')
+
+    message.estado = EstadoMensajeSaliente.FAILED
+    message.motivo_bloqueo = failure_reason
+    message.full_clean()
+    message.save(update_fields=['estado', 'motivo_bloqueo', 'updated_at'])
+    ensure_whatsapp_fallback_resolution(
+        message,
+        failure_reason,
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+    )
     return message
 
 
