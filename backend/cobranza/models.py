@@ -219,6 +219,11 @@ class AjusteContrato(TimestampedModel):
 
     def clean(self):
         super().clean()
+        self.justificacion = (self.justificacion or '').strip()
+        if contains_sensitive_reference(self.justificacion, include_sensitive_keys=True):
+            raise ValidationError(
+                {'justificacion': 'La justificacion del ajuste no puede contener referencias sensibles.'}
+            )
         if self.mes_inicio.day != 1:
             raise ValidationError({'mes_inicio': 'El mes inicial del ajuste debe ser el primer dia del mes.'})
         if self.mes_fin.day != 1:

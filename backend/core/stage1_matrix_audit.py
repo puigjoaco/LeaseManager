@@ -1921,7 +1921,24 @@ def _audit_payment_distribution_consistency(issues: list[dict[str, Any]]) -> Non
                 )
 
 
+def _audit_adjustment_justifications(issues: list[dict[str, Any]]) -> None:
+    for adjustment in AjusteContrato.objects.all():
+        if contains_sensitive_reference(adjustment.justificacion, include_sensitive_keys=True):
+            _issue(
+                issues,
+                code='stage1.ajuste_contrato.justificacion_sensible',
+                entity='AjusteContrato',
+                entity_id=adjustment.pk,
+                message=(
+                    'Ajuste de contrato existente conserva una justificacion que parece contener '
+                    'referencias sensibles; mover el detalle a evidencia segura y conservar solo '
+                    'motivo no sensible.'
+                ),
+            )
+
+
 def _audit_contratos(issues: list[dict[str, Any]]) -> None:
+    _audit_adjustment_justifications(issues)
     _audit_model_validation(
         issues,
         queryset=Arrendatario.objects.all(),

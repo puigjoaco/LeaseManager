@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: Cobranza/Etapa 1 protege justificaciones de ajustes
+contractuales. `AjusteContrato.clean()` rechaza nuevas justificaciones con
+URLs, correos, tokens o credenciales; API, snapshot y admin Django redactan
+justificaciones heredadas, y el auditor Etapa 1 reporta
+`stage1.ajuste_contrato.justificacion_sensible`.
+
 Nota 2026-05-28: Patrimonio redacta observaciones sensibles heredadas en
 representaciones de comunidad. `RepresentacionComunidad.clean()` rechaza nuevas
 observaciones con URLs, correos, tokens o credenciales, la API de comunidades
