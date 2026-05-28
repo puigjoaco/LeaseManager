@@ -32,6 +32,8 @@ SENSITIVE_EXPORT_METADATA_ERROR = 'La metadata visible de exportacion no puede c
 ACTIVE_RETENTION_POLICY_ERROR = 'No existe una politica de retencion activa para la categoria indicada.'
 PAYLOAD_HASH_MISMATCH_ERROR = 'La integridad de la exportacion no coincide con su payload_hash.'
 PAYLOAD_UNREADABLE_ERROR = 'El payload cifrado de la exportacion sensible no puede descifrarse.'
+EXPORT_ALREADY_REVOKED_ERROR = 'La exportacion ya fue revocada y no puede revocarse nuevamente.'
+EXPIRED_EXPORT_REVOKE_ERROR = 'La exportacion expirada es terminal y no puede revocarse.'
 EXPORT_KIND_CATEGORY_MAP = {
     'dashboard_operativo': CategoriaDato.OPERATIONAL,
     'financiero_mensual': CategoriaDato.FINANCIAL,
@@ -176,6 +178,14 @@ def get_export_payload(export):
 
 
 def revoke_export(export):
+    if export.estado == EstadoExportacionSensible.REVOKED:
+        raise ValueError(EXPORT_ALREADY_REVOKED_ERROR)
+    if export.estado == EstadoExportacionSensible.EXPIRED:
+        raise ValueError(EXPIRED_EXPORT_REVOKE_ERROR)
+    if not export.hold_activo and export.expires_at <= timezone.now():
+        export.estado = EstadoExportacionSensible.EXPIRED
+        export.save(update_fields=['estado', 'updated_at'])
+        raise ValueError(EXPIRED_EXPORT_REVOKE_ERROR)
     export.estado = EstadoExportacionSensible.REVOKED
     export.save(update_fields=['estado', 'updated_at'])
     return export

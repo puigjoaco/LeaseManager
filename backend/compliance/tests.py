@@ -34,6 +34,8 @@ from .models import (
 )
 from .services import (
     ACTIVE_RETENTION_POLICY_ERROR,
+    EXPIRED_EXPORT_REVOKE_ERROR,
+    EXPORT_ALREADY_REVOKED_ERROR,
     PAYLOAD_HASH_MISMATCH_ERROR,
     PAYLOAD_UNREADABLE_ERROR,
     SENSITIVE_EXPORT_METADATA_ERROR,
@@ -536,6 +538,111 @@ class ComplianceAPITests(APITestCase):
             AuditEvent.objects.filter(
                 event_type=EXPORT_REVOKED_EVENT_TYPE,
                 entity_id=str(prepared.data['id']),
+            ).exists()
+        )
+
+    def test_export_revoke_rejects_terminal_states(self):
+        self._create_context('REV-TERM')
+        self._create_policy('operativo')
+
+        prepared = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'operativo',
+                'export_kind': 'dashboard_operativo',
+                'motivo': 'Revision interna',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+
+        first_revoke = self.client.post(
+            reverse('compliance-export-revoke', args=[prepared.data['id']]),
+            {'motivo': 'Rotacion controlada de evidencia'},
+            format='json',
+        )
+        self.assertEqual(first_revoke.status_code, status.HTTP_200_OK)
+
+        repeated_revoke = self.client.post(
+            reverse('compliance-export-revoke', args=[prepared.data['id']]),
+            {'motivo': 'Intento duplicado'},
+            format='json',
+        )
+        self.assertEqual(repeated_revoke.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(repeated_revoke.data['detail'], EXPORT_ALREADY_REVOKED_ERROR)
+        self.assertEqual(
+            AuditEvent.objects.filter(
+                event_type=EXPORT_REVOKED_EVENT_TYPE,
+                entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+                entity_id=str(prepared.data['id']),
+            ).count(),
+            1,
+        )
+
+        expired = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'operativo',
+                'export_kind': 'dashboard_operativo',
+                'motivo': 'Revision expirada',
+            },
+            format='json',
+        )
+        self.assertEqual(expired.status_code, status.HTTP_201_CREATED)
+        ExportacionSensible.objects.filter(pk=expired.data['id']).update(
+            estado=EstadoExportacionSensible.EXPIRED,
+            expires_at=timezone.now() - timedelta(days=1),
+        )
+
+        expired_revoke = self.client.post(
+            reverse('compliance-export-revoke', args=[expired.data['id']]),
+            {'motivo': 'Intento posterior a expiracion'},
+            format='json',
+        )
+        self.assertEqual(expired_revoke.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(expired_revoke.data['detail'], EXPIRED_EXPORT_REVOKE_ERROR)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=EXPORT_REVOKED_EVENT_TYPE,
+                entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+                entity_id=str(expired.data['id']),
+            ).exists()
+        )
+
+    def test_export_revoke_expires_overdue_export_before_rejecting(self):
+        self._create_context('REV-OVERDUE')
+        self._create_policy('operativo')
+
+        prepared = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'operativo',
+                'export_kind': 'dashboard_operativo',
+                'motivo': 'Revision interna',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+
+        export = ExportacionSensible.objects.get(pk=prepared.data['id'])
+        export.expires_at = timezone.now() - timedelta(days=1)
+        export.save(update_fields=['expires_at'])
+
+        response = self.client.post(
+            reverse('compliance-export-revoke', args=[export.id]),
+            {'motivo': 'Intento posterior a vencimiento'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], EXPIRED_EXPORT_REVOKE_ERROR)
+        export.refresh_from_db()
+        self.assertEqual(export.estado, EstadoExportacionSensible.EXPIRED)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=EXPORT_REVOKED_EVENT_TYPE,
+                entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+                entity_id=str(export.id),
             ).exists()
         )
 

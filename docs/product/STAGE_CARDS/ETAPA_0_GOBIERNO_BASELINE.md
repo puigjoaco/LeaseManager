@@ -26,6 +26,10 @@ evidencia respalda el root limpio.
 - Auth no expone metadata de usuario sensible: login, login demo y `/me`
   devuelven metadata redactada, la firma interna de cache demo no viaja al
   cliente y el admin muestra solo metadata redactada.
+- Compliance de datos sensibles trata exportaciones expiradas como terminales:
+  no se descargan, no se revocan, una exportacion ya revocada no se revoca de
+  nuevo y las exportaciones preparadas vencidas sin hold se normalizan a
+  `expirada` antes de rechazar operaciones terminales incompatibles.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.
