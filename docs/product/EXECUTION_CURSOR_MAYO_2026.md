@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 / CobranzaActiva - redaccion de motivo de excepcion parcial en repactaciones. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `RepactacionDeuda.excepcion_parcial_motivo` se valida y audita como sensible, pero puede exponerse crudo por API y el snapshot de Cobranza no lista la repactacion asociada. |
-| Motivo de prioridad | Paquete local seguro en Etapa 2/CobranzaActiva: completa la redaccion de excepciones de repactacion parcial sin depender de secretos, `.env`, datos reales ni integraciones. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-repayment-exception-motive-redaction`. |
-| Rama | `codex/stage2-repayment-exception-motive-redaction`. |
-| Estado | Abierto para redactar motivo de excepcion parcial de repactacion en API/snapshot, cubrir tests y evidencia. |
-| Gate esperado | Tests focales de Cobranza/Etapa 2, suite impactada Cobranza + readiness Etapa 2, `manage.py check`, migraciones dry-run, readiness local Etapa 2, frontend build/lint, acceptance local, higiene repo y CI remoto. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Etapa 2/CobranzaActiva `stage2-repayment-exception-motive-redaction` integrado en PR #451, merge `5ea0fdc`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con CI remoto acceptance en verde; worktree y rama tactica de implementacion limpiados. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge o pausar explicitamente aqui si aparece un bloqueo real. |
-| Siguiente accion | Implementar redaccion, actualizar stage card/trazabilidad/evidencia y cerrar paquete. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, elegir el siguiente frente seguro desde trazabilidad y abrir un nuevo paquete pequeno y verificable. |
+| Siguiente accion | Diagnosticar el estado real y seleccionar el proximo paquete seguro desde PRD, stage cards, trazabilidad y evidencia. |
 
 ## Actualizacion
 
