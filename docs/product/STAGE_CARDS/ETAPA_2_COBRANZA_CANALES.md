@@ -224,7 +224,9 @@ condicionados sin envios reales accidentales.
   `CodigoCobroResidualAdmin` y `EstadoCuentaArrendatarioAdmin` tambien
   mantienen el alta manual deshabilitada, porque los residuales se generan con
   referencia canonica controlada y los estados de cuenta se reconstruyen desde
-  pagos, repactaciones y codigos activos.
+  pagos, repactaciones y codigos activos. En `EstadoCuentaArrendatarioAdmin`,
+  `resumen_operativo` y `score_pago` son visibles solo como lectura para evitar
+  bypass manual del rebuild.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   valores UF manuales, estados de cuenta, identidades/asignaciones de canal, gates
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,
