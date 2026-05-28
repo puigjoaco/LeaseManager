@@ -153,8 +153,9 @@ contra datos reales o snapshot controlado.
   ultimo tramo vigente. Si una renovacion cambia monto o moneda, el periodo
   debe conservar referencia no sensible y motivo trazable de la politica
   documentada que autoriza la diferencia; API y auditor Etapa 1 bloquean
-  renovaciones heredadas sin esa traza, y admin/backoffice expone refs/motivos
-  heredados solo mediante version redactada.
+  renovaciones heredadas sin esa traza o con motivo sensible, y
+  API/snapshot/admin/backoffice exponen refs/motivos heredados solo mediante
+  version redactada.
 - Renovacion automatica operacional: el endpoint de contrato crea un nuevo
   `PeriodoContractual` de origen `renovacion_automatica`, extiende
   `fecha_fin_vigente`, usa por defecto la base del ultimo tramo, bloquea la
@@ -192,9 +193,10 @@ contra datos reales o snapshot controlado.
 - Terminacion anticipada con ultimo mes parcial: solo se permite si el
   contrato conserva una referencia no sensible a regla o decision de prorrata,
   un motivo trazable y un evento auditable dedicado. `Contrato.full_clean()` y
-  la API bloquean nuevas escrituras sin esa auditoria, y el auditor Etapa 1
-  bloquea snapshots heredados sin esa decision o sin auditoria; admin/backoffice
-  expone refs/motivos heredados solo mediante version redactada.
+  la API bloquean nuevas escrituras sin esa auditoria o con motivo sensible, y
+  el auditor Etapa 1 bloquea snapshots heredados sin esa decision, sin
+  auditoria o con motivo sensible; API/snapshot/admin/backoffice exponen
+  refs/motivos heredados solo mediante version redactada.
 - Validacion de pagos y distribuciones existentes en el snapshot: si existen,
   deben cuadrar devengo, conciliacion, porcentaje y entidad facturadora.
 - Validacion de que pagos mensuales existentes queden dentro de la vigencia
@@ -214,8 +216,9 @@ contra datos reales o snapshot controlado.
   referencia no sensible y motivo trazable. `Contrato.full_clean()`, la API y
   el auditor Etapa 1 bloquean contratos futuros sin AvisoTermino registrado,
   terminacion anticipada ejecutada o resolucion guiada cuando hay conflicto de
-  renovacion, sin cancelar ni reescribir efectos producidos; admin/backoffice
-  expone refs/motivos heredados solo mediante version redactada.
+  renovacion, o con motivo de resolucion sensible, sin cancelar ni reescribir
+  efectos producidos; API/snapshot/admin/backoffice exponen refs/motivos
+  heredados solo mediante version redactada.
 - Cambio de arrendatario: el flujo operacional guiado crea `AvisoTermino`
   registrado y contrato futuro con nuevo arrendatario en una transaccion,
   conserva el contrato/deuda historica sin reescribir identidad, copia las

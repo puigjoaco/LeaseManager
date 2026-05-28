@@ -223,15 +223,15 @@ class ContractsSnapshotView(APIView):
                         'entrega_llaves_autorizacion_ref': redact_sensitive_reference(
                             item.entrega_llaves_autorizacion_ref
                         ),
-                        'entrega_llaves_autorizacion_motivo': (
-                            item.entrega_llaves_autorizacion_motivo or ''
+                        'entrega_llaves_autorizacion_motivo': redact_sensitive_reference(
+                            item.entrega_llaves_autorizacion_motivo
                         ),
                         'fecha_registro_operativo': item.fecha_registro_operativo,
                         'terminacion_anticipada_prorrata_ref': redact_sensitive_reference(
                             item.terminacion_anticipada_prorrata_ref
                         ),
-                        'terminacion_anticipada_prorrata_motivo': (
-                            item.terminacion_anticipada_prorrata_motivo or ''
+                        'terminacion_anticipada_prorrata_motivo': redact_sensitive_reference(
+                            item.terminacion_anticipada_prorrata_motivo
                         ),
                         'requiere_notificacion_manual_retroactiva': (
                             item.requires_retroactive_manual_notification()
@@ -283,7 +283,9 @@ class ContractsSnapshotView(APIView):
                                 'politica_base_renovacion_ref': redact_sensitive_reference(
                                     periodo.politica_base_renovacion_ref
                                 ),
-                                'politica_base_renovacion_motivo': periodo.politica_base_renovacion_motivo,
+                                'politica_base_renovacion_motivo': redact_sensitive_reference(
+                                    periodo.politica_base_renovacion_motivo
+                                ),
                             }
                             for periodo in item.periodos_contractuales.all()
                         ],
@@ -300,7 +302,9 @@ class ContractsSnapshotView(APIView):
                         'resolucion_conflicto_renovacion_ref': redact_sensitive_reference(
                             item.resolucion_conflicto_renovacion_ref
                         ),
-                        'resolucion_conflicto_renovacion_motivo': item.resolucion_conflicto_renovacion_motivo,
+                        'resolucion_conflicto_renovacion_motivo': redact_sensitive_reference(
+                            item.resolucion_conflicto_renovacion_motivo
+                        ),
                         'fecha_limite_registro_oportuno': item.latest_timely_registration_at(),
                         'registrado_fuera_plazo': item.is_late_registered_notice(),
                         'alerta_registro_fuera_plazo': item.late_registration_alert(),

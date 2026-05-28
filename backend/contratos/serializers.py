@@ -303,6 +303,16 @@ class PeriodoContractualReadSerializer(serializers.ModelSerializer):
             'updated_at',
         )
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['politica_base_renovacion_ref'] = redact_sensitive_reference(
+            data.get('politica_base_renovacion_ref')
+        )
+        data['politica_base_renovacion_motivo'] = redact_sensitive_reference(
+            data.get('politica_base_renovacion_motivo')
+        )
+        return data
+
 
 class PeriodoContractualWriteSerializer(serializers.Serializer):
     numero_periodo = serializers.IntegerField(min_value=1)
@@ -344,6 +354,16 @@ class PeriodoContractualWriteSerializer(serializers.Serializer):
                     )
                 }
             )
+        if attrs['politica_base_renovacion_motivo'] and contains_sensitive_reference(
+            attrs['politica_base_renovacion_motivo']
+        ):
+            raise serializers.ValidationError(
+                {
+                    'politica_base_renovacion_motivo': (
+                        'La politica de base de renovacion no debe contener referencias sensibles.'
+                    )
+                }
+            )
         return attrs
 
 
@@ -375,6 +395,14 @@ class ContratoAutomaticRenewalSerializer(serializers.Serializer):
                 {
                     'politica_base_renovacion_ref': (
                         'La politica de base de renovacion debe usar una referencia no sensible.'
+                    )
+                }
+            )
+        if policy_reason and contains_sensitive_reference(policy_reason):
+            raise serializers.ValidationError(
+                {
+                    'politica_base_renovacion_motivo': (
+                        'La politica de base de renovacion no debe contener referencias sensibles.'
                     )
                 }
             )
@@ -449,6 +477,14 @@ class ContratoTenantReplacementSerializer(serializers.Serializer):
         if conflict_ref and not is_non_sensitive_reference(conflict_ref):
             raise serializers.ValidationError(
                 {'resolucion_conflicto_renovacion_ref': 'La resolucion guiada debe usar referencia no sensible.'}
+            )
+        if conflict_reason and contains_sensitive_reference(conflict_reason):
+            raise serializers.ValidationError(
+                {
+                    'resolucion_conflicto_renovacion_motivo': (
+                        'La resolucion guiada no debe contener referencias sensibles.'
+                    )
+                }
             )
         monto_base = attrs.get('monto_base')
         moneda_base = attrs.get('moneda_base')
@@ -530,8 +566,14 @@ class ContratoSerializer(serializers.ModelSerializer):
         data['terminacion_anticipada_prorrata_ref'] = redact_sensitive_reference(
             data.get('terminacion_anticipada_prorrata_ref')
         )
+        data['terminacion_anticipada_prorrata_motivo'] = redact_sensitive_reference(
+            data.get('terminacion_anticipada_prorrata_motivo')
+        )
         data['entrega_llaves_autorizacion_ref'] = redact_sensitive_reference(
             data.get('entrega_llaves_autorizacion_ref')
+        )
+        data['entrega_llaves_autorizacion_motivo'] = redact_sensitive_reference(
+            data.get('entrega_llaves_autorizacion_motivo')
         )
         return data
 
@@ -1043,6 +1085,9 @@ class AvisoTerminoSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data['resolucion_conflicto_renovacion_ref'] = redact_sensitive_reference(
             data.get('resolucion_conflicto_renovacion_ref')
+        )
+        data['resolucion_conflicto_renovacion_motivo'] = redact_sensitive_reference(
+            data.get('resolucion_conflicto_renovacion_motivo')
         )
         return data
 
