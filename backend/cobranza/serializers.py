@@ -634,6 +634,21 @@ class EstadoCuentaArrendatarioSerializer(serializers.ModelSerializer):
                 return build_account_state_summary(obj.arrendatario, access)
         return obj.resumen_operativo
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['observaciones'] = redact_sensitive_reference(data.get('observaciones'))
+        return data
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, EstadoCuentaArrendatario)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
 
 class EstadoCuentaRecalculoSerializer(serializers.Serializer):
     arrendatario_id = serializers.PrimaryKeyRelatedField(source='arrendatario', queryset=EstadoCuentaArrendatario._meta.get_field('arrendatario').remote_field.model.objects.all())

@@ -337,6 +337,7 @@ class CobranzaSnapshotView(APIView):
                         'arrendatario': item.arrendatario_id,
                         'score_pago': item.score_pago,
                         'resumen_operativo': build_account_state_summary(item.arrendatario, access),
+                        'observaciones': redact_sensitive_reference(item.observaciones),
                     }
                     for item in estados_cuenta
                 ],

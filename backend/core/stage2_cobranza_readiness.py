@@ -694,6 +694,8 @@ def _collect_account_state_issues(account_states, required_tenant_ids: set[int],
     existing_tenant_ids: set[int] = set()
     for state in account_states:
         existing_tenant_ids.add(state.arrendatario_id)
+        if contains_sensitive_reference(state.observaciones, include_sensitive_keys=True):
+            counts['sensitive_observations'] += 1
         try:
             state.full_clean()
         except ValidationError:
@@ -1174,6 +1176,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.account_state.invalid_model',
                 'Existen estados de cuenta que no pasan validacion de dominio.',
                 count=account_state_issues['invalid_model'],
+            )
+        )
+    if account_state_issues.get('sensitive_observations'):
+        issues.append(
+            _issue(
+                'stage2.account_state.sensitive_observations',
+                'Existen estados de cuenta con observaciones que parecen contener referencias sensibles.',
+                count=account_state_issues['sensitive_observations'],
             )
         )
     if valid_email_open_gates <= 0:

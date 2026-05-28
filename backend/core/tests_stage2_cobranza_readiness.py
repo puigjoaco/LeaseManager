@@ -755,6 +755,22 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.account_state.missing_score', issue_codes)
         self.assertEqual(result['sections']['account_states']['missing_score'], 1)
 
+    def test_account_state_sensitive_observations_are_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        EstadoCuentaArrendatario.objects.filter(pk=fixture['account_state'].pk).update(
+            observaciones='Revision en https://billing.example.test/account?token=secret',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.account_state.sensitive_observations', issue_codes)
+        self.assertEqual(result['sections']['account_states']['sensitive_observations'], 1)
+        self.assertNotIn('billing.example.test', json.dumps(result))
+
     def test_account_state_stale_payment_score_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()

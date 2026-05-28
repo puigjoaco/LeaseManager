@@ -32,6 +32,7 @@ from .models import (
     AjusteContrato,
     DistribucionCobroMensual,
     CodigoCobroResidual,
+    EstadoCuentaArrendatario,
     EstadoGarantia,
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
@@ -51,6 +52,7 @@ from .models import (
 )
 from .admin import (
     AjusteContratoAdmin,
+    EstadoCuentaArrendatarioAdmin,
     GateCobroExternoAdmin,
     GarantiaContractualAdmin,
     HistorialGarantiaAdmin,
@@ -400,6 +402,38 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(account_state.resumen_operativo['pagos_abiertos'], 1)
         self.assertEqual(account_state.resumen_operativo['pagos_atrasados'], 1)
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.overdue_refreshed').exists())
+
+    def test_account_state_observations_reject_and_redact_sensitive_values(self):
+        payment = self._generate_monthly_payment(codigo='CON-STATE-OBS')
+        account_state = rebuild_account_state(payment.contrato.arrendatario)
+        EstadoCuentaArrendatario.objects.filter(pk=account_state.pk).update(
+            observaciones='Revision en https://billing.example.test/account?token=secret',
+        )
+        account_state.refresh_from_db()
+
+        detail_response = self.client.get(reverse('cobranza-estado-cuenta-detail', args=[account_state.pk]))
+        list_response = self.client.get(reverse('cobranza-estado-cuenta-list'))
+        snapshot_response = self.client.get(reverse('cobranza-snapshot'))
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['observaciones'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(list_response.data[0]['observaciones'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['estados_cuenta'][0]['observaciones'], REDACTED_SENSITIVE_REFERENCE)
+
+        account_state_admin = EstadoCuentaArrendatarioAdmin(EstadoCuentaArrendatario, AdminSite())
+        self.assertNotIn('observaciones', account_state_admin.fields)
+        self.assertEqual(account_state_admin.observaciones_redacted(account_state), REDACTED_SENSITIVE_REFERENCE)
+
+        update_response = self.client.patch(
+            reverse('cobranza-estado-cuenta-detail', args=[account_state.pk]),
+            {'observaciones': 'Seguimiento en https://billing.example.test/account?token=secret'},
+            format='json',
+        )
+
+        self.assertEqual(update_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('observaciones', update_response.data)
 
     def _create_contract_for_company_and_arrendatario(self, *, empresa, arrendatario, codigo='CON-SHARED', owner_kind='empresa', comunidad=None):
         propietario_socio = None
