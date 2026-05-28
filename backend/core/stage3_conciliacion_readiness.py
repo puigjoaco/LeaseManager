@@ -74,6 +74,9 @@ INTERNAL_TRANSFER_REQUIRED_METADATA_FIELDS = (
     'criterio_conciliacion',
     'evidencia_transferencia_ref',
     'responsable_ref',
+    'resolved_with',
+    'evento_contable_ids',
+    'empresa_evento_ids',
 )
 UNKNOWN_INCOME_MANUAL_RESOLUTION_REQUIRED_METADATA_FIELDS = (
     'resolved_payment_id',
@@ -117,6 +120,26 @@ def _metadata_int(metadata: dict[str, Any], key: str) -> int | None:
         return int(str(metadata.get(key) or '').strip())
     except (TypeError, ValueError):
         return None
+
+
+def _metadata_int_set(metadata: dict[str, Any], key: str) -> set[int] | None:
+    raw_value = metadata.get(key)
+    if raw_value is None:
+        return None
+    if isinstance(raw_value, (list, tuple, set)):
+        values = raw_value
+    else:
+        values = [value.strip() for value in str(raw_value).split(',')]
+
+    result: set[int] = set()
+    for value in values:
+        if not has_text(value):
+            continue
+        try:
+            result.add(int(str(value).strip()))
+        except (TypeError, ValueError):
+            return None
+    return result
 
 
 def _metadata_text(metadata: dict[str, Any], key: str) -> str:
@@ -239,6 +262,8 @@ def _charge_classification_target_matches(resolution: ManualResolution, metadata
 
 
 def _internal_transfer_target_matches(resolution: ManualResolution, metadata: dict[str, Any]) -> bool:
+    if metadata.get('resolved_with') != 'internal_transfer':
+        return False
     movement = _get_resolution_movement(resolution)
     if movement is None:
         return False
@@ -278,6 +303,52 @@ def _internal_transfer_target_matches(resolution: ManualResolution, metadata: di
     try:
         transfer.full_clean()
     except ValidationError:
+        return False
+
+    event_ids = _metadata_int_set(metadata, 'evento_contable_ids')
+    company_ids = _metadata_int_set(metadata, 'empresa_evento_ids')
+    if event_ids is None or company_ids is None:
+        return False
+
+    expected_specs = []
+    origin = transfer.movimiento_origen
+    destination = transfer.movimiento_destino
+    origin_account = origin.conexion_bancaria.cuenta_recaudadora
+    destination_account = destination.conexion_bancaria.cuenta_recaudadora
+    if origin_account.empresa_owner_id:
+        expected_specs.append((
+            'TransferenciaIntercuentaSalida',
+            origin_account.empresa_owner_id,
+            origin.fecha_movimiento,
+            origin.monto,
+        ))
+    if destination_account.empresa_owner_id:
+        expected_specs.append((
+            'TransferenciaIntercuentaEntrada',
+            destination_account.empresa_owner_id,
+            destination.fecha_movimiento,
+            destination.monto,
+        ))
+
+    expected_events = []
+    for event_type, company_id, event_date, amount in expected_specs:
+        event = EventoContable.objects.filter(
+            pk__in=event_ids,
+            empresa_id=company_id,
+            evento_tipo=event_type,
+            entidad_origen_tipo='transferencia_intercuenta',
+            entidad_origen_id=str(transfer.pk),
+            fecha_operativa=event_date,
+            moneda='CLP',
+            monto_base=amount,
+        ).first()
+        if event is None:
+            return False
+        expected_events.append(event)
+
+    if {event.pk for event in expected_events} != event_ids:
+        return False
+    if {event.empresa_id for event in expected_events if event.empresa_id} != company_ids:
         return False
     return True
 
@@ -1125,7 +1196,7 @@ def collect_stage3_conciliacion_readiness(
         issues.append(
             _issue(
                 'stage3.manual_resolution.internal_transfer_context_missing',
-                'Existen transferencias internas resueltas sin par de movimientos, entidades, periodo, criterio o evidencia trazable.',
+                'Existen transferencias internas resueltas sin par de movimientos, entidades, periodo, criterio, evidencia o traza contable.',
                 count=manual_resolution_issues['internal_transfer_context_missing'],
             )
         )
@@ -1157,7 +1228,7 @@ def collect_stage3_conciliacion_readiness(
         issues.append(
             _issue(
                 'stage3.manual_resolution.internal_transfer_target_mismatch',
-                'Existen transferencias internas resueltas cuya traza no coincide con el par cargo/abono o la metadata registrada.',
+                'Existen transferencias internas resueltas cuya traza no coincide con el par cargo/abono, la metadata registrada o los eventos contables.',
                 count=manual_resolution_issues['internal_transfer_target_mismatch'],
             )
         )
