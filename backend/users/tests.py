@@ -1,6 +1,8 @@
 from decimal import Decimal
+import json
 from unittest.mock import patch
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import override_settings
@@ -12,11 +14,14 @@ from rest_framework.test import APITestCase
 
 from contabilidad.models import ConfiguracionFiscalEmpresa, CuentaContable, EventoContable, RegimenTributarioEmpresa
 from core.models import Role, Scope, UserScopeAssignment
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from conciliacion.models import ConexionBancaria, MovimientoBancarioImportado
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio
 from audit.models import ManualResolution
 from reporting.services import build_manual_resolution_summary
+
+from .admin import LeaseManagerUserAdmin
 
 
 class UserAuthAPITests(APITestCase):
@@ -150,6 +155,71 @@ class UserAuthAPITests(APITestCase):
         self.assertNotIn('manual_summary', response.data['bootstrap']['overview'])
         self.assertNotIn('socios_total', response.data['bootstrap']['overview']['dashboard'])
         self.assertNotIn('control', response.data['bootstrap'])
+
+    def test_login_redacts_user_metadata(self):
+        user = get_user_model().objects.create_user(
+            username='metadata-login',
+            password='secret123',
+            default_role_code='AdministradorGlobal',
+            metadata={
+                'safe_ref': 'controlled-user-ref',
+                'callback_url': 'https://auth.example.test/callback?token=secret',
+                'nested': {'api_key': 'secret-value', 'result_ref': 'controlled-result'},
+            },
+        )
+
+        response = self.client.post(
+            reverse('login'),
+            {'username': user.username, 'password': 'secret123'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        metadata = response.data['user']['metadata']
+        self.assertEqual(metadata['safe_ref'], 'controlled-user-ref')
+        self.assertEqual(metadata['callback_url'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(metadata['nested']['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(metadata['nested']['result_ref'], 'controlled-result')
+        self.assertNotIn('signature', response.data)
+        rendered = str(response.data)
+        self.assertNotIn('auth.example.test', rendered)
+        self.assertNotIn('secret-value', rendered)
+
+    def test_me_redacts_user_metadata(self):
+        user = get_user_model().objects.create_user(
+            username='metadata-me',
+            password='secret123',
+            metadata={
+                'safe_ref': 'controlled-user-ref',
+                'authorization': 'Bearer secret-token',
+            },
+        )
+        self.client.force_authenticate(user)
+
+        response = self.client.get(reverse('me'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['metadata']['safe_ref'], 'controlled-user-ref')
+        self.assertEqual(response.data['metadata']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('Bearer secret-token', str(response.data))
+
+    def test_user_admin_redacts_metadata(self):
+        user = get_user_model().objects.create_user(
+            username='metadata-admin',
+            password='secret123',
+            metadata={
+                'safe_ref': 'controlled-user-ref',
+                'callback_url': 'https://auth.example.test/callback?token=secret',
+            },
+        )
+        admin_instance = LeaseManagerUserAdmin(get_user_model(), AdminSite())
+        leasemanager_fields = admin_instance.fieldsets[-1][1]['fields']
+
+        self.assertNotIn('metadata', leasemanager_fields)
+        self.assertIn('metadata_redacted', leasemanager_fields)
+        metadata = json.loads(admin_instance.metadata_redacted(user))
+        self.assertEqual(metadata['safe_ref'], 'controlled-user-ref')
+        self.assertEqual(metadata['callback_url'], REDACTED_SENSITIVE_REFERENCE)
 
     def test_login_includes_cached_manual_summary_when_available(self):
         user = get_user_model().objects.create_user(
@@ -334,6 +404,10 @@ class UserAuthAPITests(APITestCase):
             username='demo-admin',
             password='another-secret',
             default_role_code='AdministradorGlobal',
+            metadata={
+                'safe_ref': 'demo-user-ref',
+                'callback_url': 'https://auth.example.test/demo?token=secret',
+            },
         )
 
         response = self.client.post(
@@ -344,6 +418,22 @@ class UserAuthAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['user']['username'], user.username)
+        self.assertNotIn('signature', response.data)
+        self.assertEqual(response.data['user']['metadata']['safe_ref'], 'demo-user-ref')
+        self.assertEqual(response.data['user']['metadata']['callback_url'], REDACTED_SENSITIVE_REFERENCE)
+        cached_payload = cache.get('auth:demo-login-response:username=demo-admin')
+        self.assertRegex(cached_payload['signature'], r'^[0-9a-f]{64}$')
+        rendered = f'{response.data}{cached_payload["signature"]}'
+        self.assertNotIn('auth.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+
+        cached_response = self.client.post(
+            reverse('login'),
+            {'username': 'demo-admin', 'password': 'demo12345'},
+            format='json',
+        )
+        self.assertEqual(cached_response.status_code, status.HTTP_200_OK)
+        self.assertNotIn('signature', cached_response.data)
 
     @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
     def test_demo_admin_login_builds_manual_summary_without_prior_cache(self):
