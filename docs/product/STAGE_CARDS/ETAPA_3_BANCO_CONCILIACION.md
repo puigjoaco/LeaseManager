@@ -82,6 +82,10 @@ sistema igual a saldo banco.
   sensibles ya persistidas, incluida `referencia` de movimientos,
   `rationale` de cuadraturas y criterio/motivo de transferencias intercuenta,
   antes de exponerlas al backoffice.
+- Las notas administrativas de movimientos bancarios deben ser no sensibles:
+  dominio/API rechazan nuevas `notas_admin` con URLs, correos, tokens o
+  credenciales; API/admin redactan notas heredadas y readiness las clasifica
+  sin exponer el valor.
 - El admin Django de Conciliacion no expone ni busca refs bancarias crudas de
   conexiones, movimientos, ingresos desconocidos, cuadraturas ni
   transferencias intercuenta; solo muestra versiones redactadas y mantiene

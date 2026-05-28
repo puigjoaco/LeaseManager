@@ -426,6 +426,7 @@ class MovimientoBancarioImportado(TimestampedModel):
     def clean(self):
         super().clean()
         errors = {}
+        self.notas_admin = (self.notas_admin or '').strip()
         _add_non_sensitive_reference_error(
             errors,
             self,
@@ -443,6 +444,12 @@ class MovimientoBancarioImportado(TimestampedModel):
             self,
             'referencia',
             'referencia debe ser una referencia bancaria no sensible, no una URL, token o credencial.',
+        )
+        _add_sensitive_text_error(
+            errors,
+            self,
+            'notas_admin',
+            'notas_admin no puede contener URLs, tokens, correos ni credenciales bancarias.',
         )
 
         self._validate_bank_transaction_identity(errors)
