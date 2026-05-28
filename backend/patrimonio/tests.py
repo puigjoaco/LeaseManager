@@ -16,7 +16,7 @@ from audit.models import AuditEvent
 from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 
-from .admin import RepresentacionComunidadAdmin
+from .admin import RepresentacionComunidadAdmin, ServicioPropiedadAdmin
 from .models import (
     ComunidadPatrimonial,
     Empresa,
@@ -356,6 +356,26 @@ class PatrimonioAPITests(APITestCase):
         self.assertNotIn('evidencia_ref', model_admin.fields)
         self.assertEqual(model_admin.evidencia_ref_redacted(representacion), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(model_admin.has_add_permission(None))
+
+    def test_property_service_admin_redacts_sensitive_evidence(self):
+        propiedad = self._create_socio_property()
+        service = ServicioPropiedad.objects.create(
+            propiedad=propiedad,
+            tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+            proveedor_nombre='Administracion Edificio',
+            numero_cliente='GC-100',
+            administrador_nombre='Administracion Edificio',
+            evidencia_ref='postgres://user:secret@example.test/db',
+            activo=True,
+        )
+
+        model_admin = ServicioPropiedadAdmin(ServicioPropiedad, AdminSite())
+
+        self.assertNotIn('evidencia_ref', model_admin.list_display)
+        self.assertNotIn('evidencia_ref', model_admin.search_fields)
+        self.assertNotIn('evidencia_ref', model_admin.fields)
+        self.assertIn('evidencia_ref_redacted', model_admin.readonly_fields)
+        self.assertEqual(model_admin.evidencia_ref_redacted(service), REDACTED_SENSITIVE_REFERENCE)
 
     def test_create_socio_normalizes_rut_and_rejects_duplicate(self):
         payload = {

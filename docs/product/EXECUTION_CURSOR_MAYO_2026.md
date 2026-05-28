@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Patrimonio / Etapa 1 - redaccion admin de evidencia de servicios de propiedad. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Pendiente seleccionar el siguiente frente seguro desde trazabilidad y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 1 `stage1-participation-transfer-reason-redaction` integrado en PR #441, merge `04c2339`. |
-| Gate esperado | N/A hasta abrir el siguiente frente. |
-| Estado al cerrar paquete | Cerrado con CI remoto `acceptance` en verde; worktree y rama tactica de implementacion limpiados. |
+| Brecha activa | `ServicioPropiedadAdmin` expone `evidencia_ref` cruda por campos admin por defecto, aunque API/snapshot ya redactan y el dominio rechaza nuevas refs sensibles. |
+| Motivo de prioridad | Primer frente no cerrado en orden de construccion: Patrimonio Etapa 1; brecha local cerrable sin datos externos. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-service-admin-evidence-redaction`. |
+| Rama | `codex/stage1-service-admin-evidence-redaction`. |
+| Estado | En implementacion. |
+| Gate esperado | Validaciones focales de Patrimonio/admin, suite impactada Etapa 1, checks locales y CI remoto. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Desde `main` limpio, tomar el siguiente frente seguro segun trazabilidad y abrirlo explicitamente en este cursor. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza antes de abrir otro frente. |
+| Siguiente accion | Cerrar exposicion admin cruda de `ServicioPropiedad.evidencia_ref`, agregar cobertura y actualizar trazabilidad/evidencia. |
 
 ## Actualizacion
 
