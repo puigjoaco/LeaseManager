@@ -124,7 +124,9 @@ class ValorUFDiarioSerializer(RedactReferenceFieldsMixin, serializers.ModelSeria
         return attrs
 
 
-class AjusteContratoSerializer(serializers.ModelSerializer):
+class AjusteContratoSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('justificacion',)
+
     class Meta:
         model = AjusteContrato
         fields = (

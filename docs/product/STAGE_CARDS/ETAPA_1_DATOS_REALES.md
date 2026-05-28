@@ -186,7 +186,10 @@ contra datos reales o snapshot controlado.
   expone refs/motivos heredados solo mediante version redactada.
 - Validacion de ajustes contractuales existentes: contrato, moneda, rango de
   meses normalizado al primer dia del mes dentro de la vigencia contractual y
-  justificacion deben ser coherentes antes de usarlos en cobranza.
+  justificacion no sensible deben ser coherentes antes de usarlos en cobranza.
+  API, snapshot y admin/backoffice exponen justificaciones heredadas solo
+  mediante version redactada, y el auditor Etapa 1 marca ajustes heredados con
+  justificacion sensible.
 - Validacion de avisos de termino existentes: la fecha efectiva debe quedar
   dentro del rango del contrato asociado.
 - Avisos de termino fuera de plazo: se registran sin inventar fechas, se

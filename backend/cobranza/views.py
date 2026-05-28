@@ -235,6 +235,7 @@ class CobranzaSnapshotView(APIView):
                         'moneda': item.moneda,
                         'mes_inicio': item.mes_inicio,
                         'mes_fin': item.mes_fin,
+                        'justificacion': redact_sensitive_reference(item.justificacion),
                         'activo': item.activo,
                     }
                     for item in ajustes

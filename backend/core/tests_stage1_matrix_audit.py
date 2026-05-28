@@ -1288,6 +1288,35 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_existing_contract_adjustment_sensitive_justification_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        adjustment = AjusteContrato.objects.create(
+            contrato=contrato,
+            tipo_ajuste='cargo_justificacion_sensible',
+            monto=Decimal('1000.00'),
+            moneda=MonedaBaseContrato.CLP,
+            mes_inicio=date(2026, 1, 1),
+            mes_fin=date(2026, 1, 1),
+            justificacion='fixture de auditoria',
+        )
+        AjusteContrato.objects.filter(pk=adjustment.pk).update(
+            justificacion='Cargo respaldado en https://example.test/adjustment?token=secret'
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['summary']['ajustes_contrato'], 1)
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.ajuste_contrato.justificacion_sensible', issue_codes)
+        self.assertIn('stage1.ajuste_contrato.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['ajustes_contrato']['classification'],
+            'defectuoso',
+        )
+        self.assertNotIn('example.test', str(result))
+
     def test_existing_contract_period_outside_contract_validity_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         periodo = contrato.periodos_contractuales.get(numero_periodo=1)

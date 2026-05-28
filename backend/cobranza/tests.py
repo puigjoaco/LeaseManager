@@ -50,6 +50,7 @@ from .models import (
     WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
 )
 from .admin import (
+    AjusteContratoAdmin,
     GateCobroExternoAdmin,
     GarantiaContractualAdmin,
     HistorialGarantiaAdmin,
@@ -353,6 +354,29 @@ class CobranzaAPITests(APITestCase):
             repayment_admin,
         ):
             self.assertFalse(admin_instance.has_add_permission(None))
+
+    def test_adjustment_admin_redacts_sensitive_justification(self):
+        contrato = self._create_active_contract(codigo='CON-ADM-AJUS', monto_base='100000.00', code='111')
+        adjustment = AjusteContrato.objects.create(
+            contrato=contrato,
+            tipo_ajuste='cargo_controlado',
+            monto=Decimal('1000.00'),
+            moneda='CLP',
+            mes_inicio=date(2026, 1, 1),
+            mes_fin=date(2026, 1, 1),
+            justificacion='Cargo operativo controlado',
+        )
+        AjusteContrato.objects.filter(pk=adjustment.pk).update(
+            justificacion='Cargo respaldado en https://billing.example.test/adjustment?token=secret'
+        )
+        adjustment.refresh_from_db()
+
+        adjustment_admin = AjusteContratoAdmin(AjusteContrato, AdminSite())
+
+        self.assertNotIn('justificacion', adjustment_admin.fields)
+        self.assertNotIn('justificacion', adjustment_admin.search_fields)
+        self.assertEqual(adjustment_admin.justificacion_redacted(adjustment), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(adjustment_admin.has_add_permission(None))
 
     def test_refresh_mora_marks_pending_payment_overdue_and_updates_account_state(self):
         payment = self._generate_monthly_payment(codigo='CON-MORA-REFRESH')
@@ -2009,6 +2033,57 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(invalid_end.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('mes_fin', invalid_end.data)
         self.assertFalse(AjusteContrato.objects.filter(contrato=contrato).exists())
+
+    def test_adjustment_rejects_sensitive_justification(self):
+        contrato = self._create_active_contract(codigo='CON-AJUSTE-SENS', monto_base='100000.00', code='111')
+
+        response = self.client.post(
+            reverse('cobranza-ajuste-list'),
+            {
+                'contrato': contrato.id,
+                'tipo_ajuste': 'cargo_controlado',
+                'monto': '1000.00',
+                'moneda': 'CLP',
+                'mes_inicio': '2026-01-01',
+                'mes_fin': '2026-01-01',
+                'justificacion': 'Cargo respaldado en https://billing.example.test/adjustment?token=secret',
+                'activo': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('justificacion', response.data)
+        self.assertFalse(AjusteContrato.objects.filter(contrato=contrato).exists())
+
+    def test_adjustment_apis_and_snapshot_redact_inherited_sensitive_justification(self):
+        contrato = self._create_active_contract(codigo='CON-AJUSTE-RED', monto_base='100000.00', code='111')
+        adjustment = AjusteContrato.objects.create(
+            contrato=contrato,
+            tipo_ajuste='cargo_controlado',
+            monto=Decimal('1000.00'),
+            moneda='CLP',
+            mes_inicio=date(2026, 1, 1),
+            mes_fin=date(2026, 1, 1),
+            justificacion='Cargo operativo controlado',
+        )
+        AjusteContrato.objects.filter(pk=adjustment.pk).update(
+            justificacion='Cargo respaldado en https://billing.example.test/adjustment?token=secret'
+        )
+
+        list_response = self.client.get(reverse('cobranza-ajuste-list'))
+        detail_response = self.client.get(reverse('cobranza-ajuste-detail', args=[adjustment.pk]))
+        snapshot_response = self.client.get(reverse('cobranza-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['justificacion'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['justificacion'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['ajustes'][0]['justificacion'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('billing.example.test', str(list_response.data))
+        self.assertNotIn('billing.example.test', str(detail_response.data))
+        self.assertNotIn('billing.example.test', str(snapshot_response.data))
 
     def test_adjustment_rejects_month_range_outside_contract_validity(self):
         contrato = self._create_active_contract(codigo='CON-AJUSTE-VIG', monto_base='100000.00', code='111')

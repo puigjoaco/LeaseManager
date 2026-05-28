@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | `stage1-adjustment-justification-redaction`. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete `stage1-representation-observation-redaction` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 1/Patrimonio `stage1-representation-observation-redaction` integrado en PR #467, merge `1642138`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; rama remota tactica eliminada. |
+| Brecha activa | `AjusteContrato.justificacion` acepta texto libre con referencias sensibles y la API/admin pueden exponer justificaciones heredadas sin redaccion especifica. |
+| Motivo de prioridad | Etapa 1/Cobranza ya valida ventana y meses de ajustes; falta cerrar la superficie de justificacion antes de usar ajustes en cobranza. La brecha es local, verificable y no requiere fuente externa. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-adjustment-justification-redaction`. |
+| Rama | `codex/stage1-adjustment-justification-redaction`. |
+| Estado | Validado localmente; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Etapa 1 local sigue `implementado_sin_evidencia`; el paquete endurece preparacion segura sin declarar cierre. |
+| Estado al cerrar paquete | Validacion local completa OK: focal 4 tests, impacto 220 tests, acceptance 1014 tests, checks backend/frontend, higiene y diff check. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta validacion, PR, CI, merge y limpieza antes de abrir otro frente. |
+| Siguiente accion | Crear commit y PR del paquete, esperar CI remoto, mergear y limpiar worktree tactico. |
 
 ## Actualizacion
 

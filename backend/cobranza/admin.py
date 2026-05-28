@@ -62,9 +62,37 @@ class ValorUFDiarioAdmin(admin.ModelAdmin):
 
 @admin.register(AjusteContrato)
 class AjusteContratoAdmin(admin.ModelAdmin):
-    list_display = ('contrato', 'tipo_ajuste', 'monto', 'moneda', 'mes_inicio', 'mes_fin', 'activo')
+    fields = (
+        'contrato',
+        'tipo_ajuste',
+        'monto',
+        'moneda',
+        'mes_inicio',
+        'mes_fin',
+        'justificacion_redacted',
+        'activo',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = ('justificacion_redacted', 'created_at', 'updated_at')
+    list_display = (
+        'contrato',
+        'tipo_ajuste',
+        'monto',
+        'moneda',
+        'mes_inicio',
+        'mes_fin',
+        'justificacion_redacted',
+        'activo',
+    )
     list_filter = ('moneda', 'activo')
     search_fields = ('contrato__codigo_contrato', 'tipo_ajuste')
+
+    def justificacion_redacted(self, obj):
+        return _redacted_attr(obj, 'justificacion')
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(PagoMensual)
