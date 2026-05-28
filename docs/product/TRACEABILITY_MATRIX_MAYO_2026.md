@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: Conciliacion/Etapa 3 protege notas administrativas de
+movimientos bancarios. `MovimientoBancarioImportado.clean()` rechaza nuevas
+`notas_admin` con URLs, correos, tokens o credenciales; API y admin Django
+redactan notas heredadas, y readiness Etapa 3 reporta
+`stage3.movement.sensitive_admin_notes`.
+
 Nota 2026-05-28: CobranzaActiva/Etapa 2 protege observaciones de estados de
 cuenta. `EstadoCuentaArrendatario.clean()` rechaza nuevas observaciones con
 URLs, correos, tokens o credenciales; API, snapshot y admin Django redactan

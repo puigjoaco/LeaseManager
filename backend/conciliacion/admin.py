@@ -100,7 +100,7 @@ class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
         'estado_conciliacion',
         'pago_mensual',
         'codigo_cobro_residual',
-        'notas_admin',
+        'notas_admin_redacted',
         'created_at',
         'updated_at',
     )
@@ -108,6 +108,7 @@ class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
         'evidencia_importacion_ref_redacted',
         'referencia_redacted',
         'transaction_id_banco_redacted',
+        'notas_admin_redacted',
         'created_at',
         'updated_at',
     )
@@ -134,6 +135,10 @@ class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
     @admin.display(description='transaction_id_banco')
     def transaction_id_banco_redacted(self, obj):
         return _redacted_attr(obj, 'transaction_id_banco')
+
+    @admin.display(description='notas_admin')
+    def notas_admin_redacted(self, obj):
+        return _redacted_attr(obj, 'notas_admin')
 
     def has_add_permission(self, request):
         return False

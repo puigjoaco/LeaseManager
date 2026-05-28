@@ -750,6 +750,49 @@ class ConciliacionAPITests(APITestCase):
         self.assertNotIn('bank.example.test', rendered)
         self.assertNotIn('secret', rendered)
 
+    def test_bank_movement_admin_notes_reject_and_redact_sensitive_values(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-MOV-NOTES-REDACT')
+        conexion = self._create_connection(cuenta)
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='100111.00',
+            descripcion_origen='Movimiento con notas heredadas',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            estado_conciliacion=EstadoConciliacionMovimiento.PENDING,
+        )
+        MovimientoBancarioImportado.objects.filter(pk=movimiento.pk).update(
+            notas_admin='Revision interna en https://bank.example.test/note?token=secret',
+        )
+        movimiento.refresh_from_db()
+
+        list_response = self.client.get(reverse('conciliacion-movimiento-list'))
+        detail_response = self.client.get(reverse('conciliacion-movimiento-detail', args=[movimiento.pk]))
+        create_response = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                notas_admin='Revision en https://bank.example.test/note?token=secret',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['notas_admin'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['notas_admin'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(create_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('notas_admin', create_response.data)
+        rendered = json.dumps({'list': list_response.data, 'detail': detail_response.data}, default=str)
+        self.assertNotIn('bank.example.test', rendered)
+        self.assertNotIn('secret', rendered)
+
+        movement_admin = MovimientoBancarioImportadoAdmin(MovimientoBancarioImportado, AdminSite())
+        self.assertNotIn('notas_admin', movement_admin.fields)
+        self.assertEqual(movement_admin.notas_admin_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
+
     def test_bank_snapshot_redacts_sensitive_movement_reference(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-MOV-SNAP-REDACT')
         conexion = self._create_connection(cuenta)

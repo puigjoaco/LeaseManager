@@ -337,6 +337,8 @@ def _collect_movement_issues(
 
         if _has_sensitive_reference(movement, MOVEMENT_REFERENCE_FIELDS):
             counts['sensitive_reference'] += 1
+        if _contains_sensitive(movement.notas_admin):
+            counts['sensitive_admin_notes'] += 1
 
         if movement.origen_importacion == OrigenImportacionMovimiento.MANUAL_CONTROLLED:
             if not has_text(movement.evidencia_importacion_ref):
@@ -814,6 +816,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.movement.sensitive_reference',
                 'Existen movimientos bancarios con referencias de importacion, banco o proveedor sensibles.',
                 count=movement_issues['sensitive_reference'],
+            )
+        )
+    if movement_issues.get('sensitive_admin_notes'):
+        issues.append(
+            _issue(
+                'stage3.movement.sensitive_admin_notes',
+                'Existen movimientos bancarios con notas administrativas sensibles.',
+                count=movement_issues['sensitive_admin_notes'],
             )
         )
     if movement_issues.get('credit_exact_match_without_target'):

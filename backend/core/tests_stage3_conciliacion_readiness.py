@@ -1518,6 +1518,33 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.movement.sensitive_reference', issue_codes)
         self.assertEqual(result['sections']['movements']['sensitive_reference'], 1)
 
+    def test_sensitive_movement_admin_notes_are_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-MOV-NOTES-SENSITIVE')
+        conexion = self._create_ready_connection(cuenta)
+        movement = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=payment.monto_calculado_clp,
+            descripcion_origen='Pago conciliado con nota administrativa sensible',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3',
+            saldo_reportado=Decimal('1000000.00'),
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+            pago_mensual=payment,
+        )
+        MovimientoBancarioImportado.objects.filter(pk=movement.pk).update(
+            notas_admin='Revision interna en https://bank.example.test/note?token=secret',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.sensitive_admin_notes', issue_codes)
+        self.assertEqual(result['sections']['movements']['sensitive_admin_notes'], 1)
+        self.assertNotIn('bank.example.test', json.dumps(result))
+
     def test_command_writes_json_and_rejects_versionable_repo_output(self):
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'stage3_readiness.json'
