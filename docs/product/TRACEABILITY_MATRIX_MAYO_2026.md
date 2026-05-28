@@ -17,6 +17,11 @@ de propiedad. `ServicioPropiedadAdmin` ya no expone ni busca `evidencia_ref`
 cruda, muestra solo `evidencia_ref_redacted` y conserva la API/snapshot como
 superficies redactadas para referencias heredadas.
 
+Nota 2026-05-27: Contratos cierra superficie admin de refs WhatsApp y contacto
+de pago. `ArrendatarioAdmin` y `ContactoPagoArrendatarioAdmin` reemplazan
+evidencias, motivos y refs heredadas por vistas redactadas y evitan exponer los
+campos crudos desde el admin Django.
+
 Nota 2026-05-27: CobranzaActiva persiste traza UF exacta en pagos mensuales.
 `PagoMensual` guarda moneda de calculo, fecha UF usada, valor UF usado y
 fuente canonica; la fecha debe coincidir con `fecha_vencimiento`. La generacion

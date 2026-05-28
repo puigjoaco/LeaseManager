@@ -19,6 +19,38 @@ def _redacted_attr(obj, field_name):
 
 @admin.register(Arrendatario)
 class ArrendatarioAdmin(admin.ModelAdmin):
+    fields = (
+        'tipo_arrendatario',
+        'nombre_razon_social',
+        'rut',
+        'email',
+        'telefono',
+        'domicilio_notificaciones',
+        'estado_contacto',
+        'nacionalidad',
+        'estado_civil',
+        'profesion',
+        'whatsapp_opt_in',
+        'whatsapp_opt_in_evidencia_ref_redacted',
+        'whatsapp_bloqueado',
+        'whatsapp_bloqueo_motivo_redacted',
+        'whatsapp_bloqueo_evidencia_ref_redacted',
+        'whatsapp_bloqueado_at',
+        'whatsapp_rehabilitacion_ref_redacted',
+        'whatsapp_rehabilitado_at',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = (
+        'whatsapp_opt_in_evidencia_ref_redacted',
+        'whatsapp_bloqueo_motivo_redacted',
+        'whatsapp_bloqueo_evidencia_ref_redacted',
+        'whatsapp_rehabilitacion_ref_redacted',
+        'whatsapp_bloqueado_at',
+        'whatsapp_rehabilitado_at',
+        'created_at',
+        'updated_at',
+    )
     list_display = (
         'nombre_razon_social',
         'rut',
@@ -31,12 +63,44 @@ class ArrendatarioAdmin(admin.ModelAdmin):
     list_filter = ('tipo_arrendatario', 'estado_contacto', 'whatsapp_bloqueado')
     search_fields = ('nombre_razon_social', 'rut', 'email')
 
+    def whatsapp_opt_in_evidencia_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'whatsapp_opt_in_evidencia_ref')
+
+    def whatsapp_bloqueo_motivo_redacted(self, obj):
+        return _redacted_attr(obj, 'whatsapp_bloqueo_motivo')
+
+    def whatsapp_bloqueo_evidencia_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'whatsapp_bloqueo_evidencia_ref')
+
+    def whatsapp_rehabilitacion_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'whatsapp_rehabilitacion_ref')
+
 
 @admin.register(ContactoPagoArrendatario)
 class ContactoPagoArrendatarioAdmin(admin.ModelAdmin):
+    fields = (
+        'arrendatario',
+        'nombre',
+        'rol_operativo',
+        'email',
+        'telefono',
+        'evidencia_autorizacion_ref_redacted',
+        'es_principal',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = (
+        'evidencia_autorizacion_ref_redacted',
+        'created_at',
+        'updated_at',
+    )
     list_display = ('arrendatario', 'nombre', 'rol_operativo', 'estado', 'es_principal')
     list_filter = ('estado', 'es_principal')
     search_fields = ('arrendatario__nombre_razon_social', 'nombre', 'email', 'telefono')
+
+    def evidencia_autorizacion_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'evidencia_autorizacion_ref')
 
 
 @admin.register(Contrato)

@@ -127,11 +127,13 @@ contra datos reales o snapshot controlado.
   tiene estado de contacto activo, email o telefono operativo, domicilio de
   notificaciones y al menos un contacto de pago activo estructurado. Los
   contactos de pago conservan nombre, rol operativo, email o telefono y
-  evidencia opcional no sensible.
+  evidencia opcional no sensible; API, snapshot y admin/backoffice exponen
+  evidencia heredada solo mediante version redactada.
 - Validacion de telefonos para mensajeria: si un arrendatario usa WhatsApp
   operativo, el telefono debe estar en formato internacional; numeros locales
   o ambiguos quedan bloqueados para Canales y clasificados por el auditor
-  Etapa 1 en snapshots heredados.
+  Etapa 1 en snapshots heredados; admin/backoffice expone refs/motivos
+  WhatsApp heredados solo mediante version redactada.
 - Override explicito de `IdentidadDeEnvio` por contrato: si existe, debe estar
   activo y pertenecer a la entidad facturadora o al administrador operativo
   autorizado por el mandato; Canales lo usa antes de la asignacion del mandato
