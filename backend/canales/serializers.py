@@ -13,6 +13,7 @@ from documentos.models import DocumentoEmitido
 from operacion.models import IdentidadDeEnvio
 
 from .models import CanalMensajeria, ConfiguracionNotificacionContrato, MensajeSaliente, NotificacionCobranzaProgramada
+from .redaction import redact_channel_gate_restrictions
 from .services import document_delivery_blocking_reason, resolve_document_contract
 
 
@@ -53,7 +54,6 @@ class RedactReferenceFieldsMixin:
 
 
 class CanalMensajeriaSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
-    redacted_payload_value_fields = ('restricciones_operativas',)
     redacted_reference_fields = ('evidencia_ref',)
 
     class Meta:
@@ -79,6 +79,13 @@ class CanalMensajeriaSerializer(RedactReferenceFieldsMixin, serializers.ModelSer
         except DjangoValidationError as error:
             raise_drf_validation_error(error)
         return attrs
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['restricciones_operativas'] = redact_channel_gate_restrictions(
+            data.get('restricciones_operativas') or {}
+        )
+        return data
 
 
 class ConfiguracionNotificacionContratoSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):

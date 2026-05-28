@@ -575,6 +575,7 @@ class CanalesAPITests(APITestCase):
                 'prueba_aislada_ref': 'email-readiness-controlled',
                 'credencial_validada_ref': 'email-ref-validado-v1',
                 'callback_ref': 'https://mail.example.test/proof?token=secret',
+                'api_key': 'controlled-provider-reference',
                 'headers': {'authorization': 'Bearer inherited-channel-value'},
             },
         )
@@ -656,10 +657,12 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(gate_restrictions['prueba_aislada_ref'], 'email-readiness-controlled')
         self.assertEqual(gate_restrictions['credencial_validada_ref'], 'email-ref-validado-v1')
         self.assertEqual(gate_restrictions['callback_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(gate_restrictions['api_key'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(gate_restrictions['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
         snapshot_gate_restrictions = snapshot_response.data['gates'][0]['restricciones_operativas']
         self.assertEqual(snapshot_gate_restrictions['credencial_validada_ref'], 'email-ref-validado-v1')
         self.assertEqual(snapshot_gate_restrictions['callback_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_gate_restrictions['api_key'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['documentos_emitidos'][0]['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
         payload = messages_response.data[0]['provider_payload']
         self.assertEqual(payload['provider_message_id'], 'MSG-SAFE-001')
@@ -672,6 +675,7 @@ class CanalesAPITests(APITestCase):
             self.assertNotIn('mail.example.test', body)
             self.assertNotIn('provider.example.test', body)
             self.assertNotIn('storage.example.test', body)
+            self.assertNotIn('controlled-provider-reference', body)
             self.assertNotIn('token', body)
             self.assertNotIn('secret', body)
 

@@ -178,7 +178,11 @@ condicionados sin envios reales accidentales.
   esto cubre `evidencia_ref`, `restricciones_operativas`, `external_ref`,
   `return_url_ref`, `provider_payload`, `motivo_bloqueo` de intentos WebPay,
   `motivo_estado` de notificaciones de cobranza y `storage_ref` documental
-  expuesto por snapshot de Canales, sin abrir integraciones externas. Los mensajes
+  expuesto por snapshot de Canales, sin abrir integraciones externas.
+  `restricciones_operativas` se redacta tambien por nombre de clave sensible:
+  Canales preserva solo claves canonicas de referencia no sensible del gate, y
+  Cobranza/WebPay expone las restricciones del gate unicamente como payload
+  redactado en API y snapshot. Los mensajes
   salientes rechazan nuevas escrituras con `provider_payload` que contenga
   URLs, tokens, credenciales, correos o claves sensibles. Los motivos de
   bloqueo de mensajes salientes tampoco pueden contener referencias sensibles,

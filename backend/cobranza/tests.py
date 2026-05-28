@@ -1173,6 +1173,11 @@ class CobranzaAPITests(APITestCase):
             provider_key='transbank_webpay',
             estado_gate=EstadoGateCobroExterno.OPEN,
             evidencia_ref='https://transbank.example.test/token/secret',
+            restricciones_operativas={
+                'api_key': 'controlled-webpay-reference',
+                'safe_ref': 'webpay-controlled-ref',
+                'headers': {'authorization': 'opaque-inherited-webpay-value'},
+            },
         )
         IntentoPagoWebPay.objects.create(
             pago_mensual=payment,
@@ -1207,6 +1212,14 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(intents_response.data[0]['motivo_bloqueo'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(intents_response.data[0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['gates_cobro'][0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        gate_restrictions = gates_response.data[0]['restricciones_operativas']
+        self.assertEqual(gate_restrictions['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(gate_restrictions['safe_ref'], 'webpay-controlled-ref')
+        self.assertEqual(gate_restrictions['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        snapshot_gate_restrictions = snapshot_response.data['gates_cobro'][0]['restricciones_operativas']
+        self.assertEqual(snapshot_gate_restrictions['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_gate_restrictions['safe_ref'], 'webpay-controlled-ref')
+        self.assertEqual(snapshot_gate_restrictions['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['intentos_webpay'][0]['motivo_bloqueo'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['intentos_webpay'][0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
         payload = intents_response.data[0]['provider_payload']
@@ -1219,6 +1232,7 @@ class CobranzaAPITests(APITestCase):
             body = response.content.decode()
             self.assertNotIn('transbank.example.test', body)
             self.assertNotIn('front.example.test', body)
+            self.assertNotIn('controlled-webpay-reference', body)
             self.assertNotIn('token', body)
             self.assertNotIn('secret', body)
 

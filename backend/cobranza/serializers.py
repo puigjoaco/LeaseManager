@@ -290,6 +290,7 @@ class PagoMensualRefreshMoraSerializer(serializers.Serializer):
 
 
 class GateCobroExternoSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_payload_fields = ('restricciones_operativas',)
     redacted_reference_fields = ('evidencia_ref',)
 
     class Meta:
