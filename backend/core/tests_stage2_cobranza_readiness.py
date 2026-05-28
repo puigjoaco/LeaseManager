@@ -1029,6 +1029,42 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.repayment.partial_without_audit_event', issue_codes)
         self.assertEqual(result['sections']['repayments']['partial_without_audit_event'], 1)
 
+    def test_partial_repayment_with_sensitive_exception_motive_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            deuda_total_original=Decimal('50000.00'),
+            cantidad_cuotas=4,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('40000.00'),
+            estado='activa',
+            excepcion_parcial_ref='partial-repayment-exception-2026-01',
+            excepcion_parcial_motivo='Excepcion parcial heredada en https://example.test/approval?token=secret',
+        )
+        AuditEvent.objects.create(
+            event_type=PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
+            entity_type='repactacion_deuda',
+            entity_id=str(repayment.pk),
+            summary='Repactacion parcial autorizada.',
+            actor_identifier='stage2-operator',
+            metadata={
+                'excepcion_parcial_ref': 'partial-repayment-exception-2026-01',
+                'excepcion_parcial_motivo': 'Excepcion parcial heredada en https://example.test/approval?token=secret',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.repayment.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['repayments']['invalid_model'], 1)
+        self.assertNotIn('example.test', json.dumps(result))
+        self.assertNotIn('token=secret', json.dumps(result))
+
     def test_partial_repayment_with_audit_event_can_pass_repayment_gate(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()
