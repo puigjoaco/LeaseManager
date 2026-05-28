@@ -1289,10 +1289,15 @@ class AvisoTermino(TimestampedModel):
 
     def clean(self):
         super().clean()
+        self.causal = (self.causal or '').strip()
         self.resolucion_conflicto_renovacion_ref = (self.resolucion_conflicto_renovacion_ref or '').strip()
         self.resolucion_conflicto_renovacion_motivo = (
             self.resolucion_conflicto_renovacion_motivo or ''
         ).strip()
+        if contains_sensitive_reference(self.causal):
+            raise ValidationError(
+                {'causal': 'La causal del aviso de termino no debe contener referencias sensibles.'}
+            )
         if self.fecha_efectiva < self.contrato.fecha_inicio:
             raise ValidationError({'fecha_efectiva': 'La fecha efectiva no puede ser anterior al inicio del contrato.'})
         if self.fecha_efectiva > self.contrato.fecha_fin_vigente:

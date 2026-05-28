@@ -7,6 +7,11 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: Contratos/Etapa 1 protege causales de avisos de termino.
+`AvisoTermino.clean()` rechaza nuevas causales con URLs, correos, tokens o
+credenciales; API, snapshot y admin Django redactan causales heredadas, y el
+auditor Etapa 1 reporta `stage1.aviso_termino.causal_sensible`.
+
 Nota 2026-05-28: Cobranza/Etapa 1 protege justificaciones de ajustes
 contractuales. `AjusteContrato.clean()` rechaza nuevas justificaciones con
 URLs, correos, tokens o credenciales; API, snapshot y admin Django redactan

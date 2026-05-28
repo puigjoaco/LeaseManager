@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 1 / Contratos - `stage1-notice-causal-redaction`. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete `stage1-adjustment-justification-redaction` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 1/Cobranza `stage1-adjustment-justification-redaction` integrado en PR #469, merge `0090a84`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; rama remota tactica eliminada. |
+| Brecha activa | `AvisoTermino.causal` acepta y expone texto libre sin redaccion defensiva de referencias sensibles heredadas. |
+| Motivo de prioridad | Cierra una superficie local de Etapa 1/Contratos ya cubierta para motivos/ref de renovacion, pero pendiente en la causal del aviso. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-notice-causal-redaction`. |
+| Rama | `codex/stage1-notice-causal-redaction`. |
+| Estado | Paquete abierto; implementar validacion/redaccion/auditoria/documentacion y validar sin datos reales ni secretos. |
+| Gate esperado | Diagnostico local Etapa 1 parcial/no evidencial; no cierra Etapa 1 sin fuente autorizada. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza o registrar pausa explicita. |
+| Siguiente accion | Implementar y validar el paquete `stage1-notice-causal-redaction`. |
 
 ## Actualizacion
 

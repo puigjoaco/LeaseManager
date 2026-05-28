@@ -2384,6 +2384,22 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.aviso_termino.validacion_modelo', issue_codes)
 
+    def test_notice_sensitive_causal_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='No renovacion en https://contracts.example.test/notice?token=secret',
+            estado=EstadoAvisoTermino.REGISTERED,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.aviso_termino.causal_sensible', issue_codes)
+
     def test_invalid_stage1_model_records_are_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         participacion = ParticipacionPatrimonial.objects.filter(

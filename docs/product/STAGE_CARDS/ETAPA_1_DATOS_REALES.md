@@ -222,8 +222,9 @@ contra datos reales o snapshot controlado.
   el auditor Etapa 1 bloquean contratos futuros sin AvisoTermino registrado,
   terminacion anticipada ejecutada o resolucion guiada cuando hay conflicto de
   renovacion, o con motivo de resolucion sensible, sin cancelar ni reescribir
-  efectos producidos; API/snapshot/admin/backoffice exponen refs/motivos
-  heredados solo mediante version redactada.
+  efectos producidos; la causal del aviso y sus refs/motivos deben ser no
+  sensibles, y API/snapshot/admin/backoffice exponen causales, refs o motivos
+  heredados sensibles solo mediante version redactada.
 - Cambio de arrendatario: el flujo operacional guiado crea `AvisoTermino`
   registrado y contrato futuro con nuevo arrendatario en una transaccion,
   conserva el contrato/deuda historica sin reescribir identidad, copia las
