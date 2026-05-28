@@ -38,6 +38,17 @@ FORMALIZED_IMMUTABLE_FIELDS = {
     'correccion_ref',
 }
 
+CORRECTIVE_AUDIT_IMMUTABLE_FIELDS = {
+    'documento_origen',
+    'expediente',
+    'tipo_documental',
+    'version_plantilla',
+    'checksum',
+    'storage_ref',
+    'correccion_ref',
+    'estado',
+}
+
 
 def raise_drf_validation_error(error):
     if hasattr(error, 'message_dict'):
@@ -248,6 +259,36 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'origen': 'Los documentos generados por sistema no se modifican desde el endpoint generico.'}
             )
+        if self.instance:
+            is_corrective = bool(self.instance.documento_origen_id)
+            converting_to_corrective = (
+                not is_corrective
+                and (
+                    (
+                        'documento_origen' in attrs
+                        and attrs.get('documento_origen') is not None
+                    )
+                    or (
+                        'correccion_ref' in attrs
+                        and str(attrs.get('correccion_ref') or '').strip()
+                    )
+                )
+            )
+            if converting_to_corrective:
+                raise serializers.ValidationError(
+                    {'documento_origen': 'Las versiones correctivas deben crearse como documento nuevo para registrar auditoria dedicada.'}
+                )
+            if is_corrective:
+                changed_corrective_fields = [
+                    field_name
+                    for field_name, value in attrs.items()
+                    if field_name in CORRECTIVE_AUDIT_IMMUTABLE_FIELDS
+                    and _value_changed(self.instance, field_name, value)
+                ]
+                if changed_corrective_fields:
+                    raise serializers.ValidationError(
+                        {'documento_origen': 'La traza de una version correctiva no se modifica desde el endpoint generico.'}
+                    )
 
         requested_state = attrs.get('estado')
         current_state = getattr(self.instance, 'estado', None)

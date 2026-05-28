@@ -78,6 +78,8 @@ firma y notaria trazables.
 - Las versiones correctivas deben apuntar al documento formalizado de origen,
   pertenecer al mismo expediente y tipo documental, tener PDF/checksum propios
   y conservar `correccion_ref` no sensible con evento de auditoria dedicado.
+  El endpoint generico no puede convertir documentos existentes en versiones
+  correctivas ni mutar la traza auditada de una version correctiva ya creada.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   documentos formalizados sin evento `documentos.documento_emitido.formalized`.
 - Ese evento de formalizacion debe conservar actor y metadata alineada con la
