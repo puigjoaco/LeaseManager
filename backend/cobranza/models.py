@@ -1134,5 +1134,10 @@ class EstadoCuentaArrendatario(TimestampedModel):
 
     def clean(self):
         super().clean()
+        self.observaciones = (self.observaciones or '').strip()
+        if self.observaciones and contains_sensitive_reference(self.observaciones, include_sensitive_keys=True):
+            raise ValidationError(
+                {'observaciones': 'Las observaciones del estado de cuenta no deben contener referencias sensibles.'}
+            )
         if self.score_pago is not None and not 0 <= self.score_pago <= 100:
             raise ValidationError({'score_pago': 'El score de pago debe estar entre 0 y 100.'})

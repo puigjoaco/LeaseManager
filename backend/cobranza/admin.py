@@ -356,5 +356,17 @@ class CodigoCobroResidualAdmin(admin.ModelAdmin):
 
 @admin.register(EstadoCuentaArrendatario)
 class EstadoCuentaArrendatarioAdmin(admin.ModelAdmin):
-    list_display = ('arrendatario', 'score_pago', 'updated_at')
+    fields = (
+        'arrendatario',
+        'resumen_operativo',
+        'score_pago',
+        'observaciones_redacted',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = ('observaciones_redacted', 'created_at', 'updated_at')
+    list_display = ('arrendatario', 'score_pago', 'observaciones_redacted', 'updated_at')
     search_fields = ('arrendatario__nombre_razon_social', 'arrendatario__rut')
+
+    def observaciones_redacted(self, obj):
+        return _redacted_attr(obj, 'observaciones')

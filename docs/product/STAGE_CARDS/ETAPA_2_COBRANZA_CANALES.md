@@ -47,7 +47,9 @@ condicionados sin envios reales accidentales.
   operativo debe exponer porcentaje, meses evaluados, pagos en plazo y pagos
   fuera de plazo. La readiness debe bloquear snapshots con arrendatarios
   cobrables sin estado, con resumen operativo desactualizado o con score
-  faltante/desalineado.
+  faltante/desalineado. Las observaciones del estado de cuenta deben ser no
+  sensibles; API, snapshot, admin/backoffice y readiness redactan o bloquean
+  observaciones heredadas con URLs, correos, tokens o credenciales.
 - El score de pago excluye pagos cuyo vencimiento cae antes del
   `fecha_registro_operativo` del contrato, porque esos meses no tienen
   registro operativo valido para medir cumplimiento. El resumen operativo
@@ -217,8 +219,8 @@ condicionados sin envios reales accidentales.
   codigo efectivo descuadrado o sin evento auditable, motivos de bloqueo de
   mensajes salientes sensibles heredados, pagos por acuerdo de
   termino o condonados sin resolucion trazable o sin evento auditable, y
-  estados de cuenta con score faltante o desalineado, sin enviar mensajes ni conectar
-  proveedores externos. Para cierre debe ejecutarse
+  estados de cuenta con score faltante, desalineado u observaciones sensibles,
+  sin enviar mensajes ni conectar proveedores externos. Para cierre debe ejecutarse
   con `--source-kind
   snapshot_controlado` o `--source-kind real_autorizado`; la fuente local no
   puede marcar `ready_for_stage2_cobranza=true`.

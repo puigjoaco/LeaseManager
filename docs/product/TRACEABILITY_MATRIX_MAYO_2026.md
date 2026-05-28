@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: CobranzaActiva/Etapa 2 protege observaciones de estados de
+cuenta. `EstadoCuentaArrendatario.clean()` rechaza nuevas observaciones con
+URLs, correos, tokens o credenciales; API, snapshot y admin Django redactan
+observaciones heredadas, y readiness Etapa 2 reporta
+`stage2.account_state.sensitive_observations`.
+
 Nota 2026-05-28: Contratos/Etapa 1 protege causales de avisos de termino.
 `AvisoTermino.clean()` rechaza nuevas causales con URLs, correos, tokens o
 credenciales; API, snapshot y admin Django redactan causales heredadas, y el

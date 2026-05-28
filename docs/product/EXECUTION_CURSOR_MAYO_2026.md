@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 2 / CobranzaActiva - `stage2-account-state-observation-redaction`. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete `stage1-notice-causal-redaction` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 1/Contratos `stage1-notice-causal-redaction` integrado en PR #471, merge `77285c3`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; rama remota tactica eliminada. |
+| Brecha activa | `EstadoCuentaArrendatario.observaciones` acepta y expone texto libre sin validacion/redaccion de referencias sensibles heredadas. |
+| Motivo de prioridad | Cierra una superficie local de Etapa 2/Cobranza en estados de cuenta, alineada con readiness y backoffice. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-account-state-observation-redaction`. |
+| Rama | `codex/stage2-account-state-observation-redaction`. |
+| Estado | Paquete abierto; implementar validacion/redaccion/auditoria/readiness/documentacion y validar sin datos reales ni secretos. |
+| Gate esperado | Diagnostico local Etapa 2 parcial/no evidencial; no cierra Etapa 2 sin fuente autorizada ni pruebas externas. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza o registrar pausa explicita. |
+| Siguiente accion | Implementar y validar el paquete `stage2-account-state-observation-redaction`. |
 
 ## Actualizacion
 
