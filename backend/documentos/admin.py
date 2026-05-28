@@ -7,9 +7,39 @@ from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotari
 
 @admin.register(ExpedienteDocumental)
 class ExpedienteDocumentalAdmin(admin.ModelAdmin):
-    list_display = ('entidad_tipo', 'entidad_id', 'owner_operativo', 'estado')
-    list_filter = ('estado', 'entidad_tipo')
-    search_fields = ('entidad_tipo', 'entidad_id', 'owner_operativo')
+    list_display = ('entidad_tipo_redacted', 'entidad_id_redacted', 'owner_operativo_redacted', 'estado')
+    list_filter = ('estado',)
+    search_fields = ()
+    fields = (
+        'entidad_tipo_redacted',
+        'entidad_id_redacted',
+        'estado',
+        'owner_operativo_redacted',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = (
+        'entidad_tipo_redacted',
+        'entidad_id_redacted',
+        'owner_operativo_redacted',
+        'created_at',
+        'updated_at',
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.display(description='Entidad tipo redacted')
+    def entidad_tipo_redacted(self, obj):
+        return redact_sensitive_reference(obj.entidad_tipo) or ''
+
+    @admin.display(description='Entidad ID redacted')
+    def entidad_id_redacted(self, obj):
+        return redact_sensitive_reference(obj.entidad_id) or ''
+
+    @admin.display(description='Owner operativo redacted')
+    def owner_operativo_redacted(self, obj):
+        return redact_sensitive_reference(obj.owner_operativo) or ''
 
 
 @admin.register(DocumentoEmitido)

@@ -413,6 +413,36 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('documents.source_kind_not_authorized', issue_codes)
 
+    def test_sensitive_expediente_references_are_blocking_without_exposing_values(self):
+        create_all_active_policies()
+        ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='https://legacy.example.test/expediente?token=secret',
+            estado='abierto',
+            owner_operativo='owner@example.test',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+        rendered = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.expediente_invalid', issue_codes)
+        self.assertIn('documents.expediente_sensitive_reference', issue_codes)
+        self.assertEqual(result['sections']['expedientes']['total'], 1)
+        self.assertEqual(result['sections']['expedientes']['invalid'], 1)
+        self.assertEqual(result['sections']['expedientes']['sensitive_references'], 1)
+        self.assertNotIn('legacy.example.test', rendered)
+        self.assertNotIn('owner@example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+
     def test_authorized_source_requires_source_trace_refs(self):
         create_all_active_policies()
 

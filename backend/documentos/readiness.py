@@ -20,6 +20,7 @@ from .models import (
     DocumentoEmitido,
     EstadoDocumento,
     EstadoPoliticaFirma,
+    ExpedienteDocumental,
     OrigenDocumento,
     PoliticaFirmaYNotaria,
     TipoDocumental,
@@ -226,6 +227,20 @@ def collect_document_readiness(
     missing_policy_types = sorted(REQUIRED_POLICY_TYPES - active_policy_types)
     invalid_active_policies = _count_invalid(active_policies)
 
+    expedientes = ExpedienteDocumental.objects.all()
+    invalid_expedientes = _count_invalid(expedientes)
+    sensitive_expediente_refs = 0
+    for expediente in expedientes:
+        if any(
+            _sensitive_reference(value)
+            for value in (
+                expediente.entidad_tipo,
+                expediente.entidad_id,
+                expediente.owner_operativo,
+            )
+        ):
+            sensitive_expediente_refs += 1
+
     documents = DocumentoEmitido.objects.select_related('expediente', 'comprobante_notarial', 'documento_origen').all()
     documents_without_policy = documents.exclude(tipo_documental__in=active_policy_types).count()
     non_pdf_documents = 0
@@ -395,6 +410,22 @@ def collect_document_readiness(
                 'documents.document_without_active_policy',
                 'Existen documentos emitidos sin politica activa para su tipo documental.',
                 count=documents_without_policy,
+            )
+        )
+    if invalid_expedientes:
+        issues.append(
+            _issue(
+                'documents.expediente_invalid',
+                'Existen expedientes documentales que no pasan validacion de dominio.',
+                count=invalid_expedientes,
+            )
+        )
+    if sensitive_expediente_refs:
+        issues.append(
+            _issue(
+                'documents.expediente_sensitive_reference',
+                'Existen expedientes documentales con referencias sensibles en entidad u owner operativo.',
+                count=sensitive_expediente_refs,
             )
         )
     if non_pdf_documents:
@@ -688,6 +719,12 @@ def collect_document_readiness(
                 'corrective_versions_without_audit': corrective_versions_without_audit,
                 'corrective_versions_with_unaligned_audit': corrective_versions_with_unaligned_audit,
                 'corrective_audit_sensitive_metadata': corrective_audit_sensitive_metadata,
+            },
+            'expedientes': {
+                'total': expedientes.count(),
+                'by_entity_type': _count_by(expedientes, 'entidad_tipo'),
+                'invalid': invalid_expedientes,
+                'sensitive_references': sensitive_expediente_refs,
             },
             'final_evidence': checks,
             'source_trace': source_trace,
