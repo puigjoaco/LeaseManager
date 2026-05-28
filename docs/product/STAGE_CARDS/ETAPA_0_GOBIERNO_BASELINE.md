@@ -23,6 +23,9 @@ evidencia respalda el root limpio.
   ensuciar `git status` del root limpio ni confundirse con paquete activo.
 - Superficies publicas con errores seguros, sin mensajes internos ni nombres de
   configuracion expuestos.
+- Auth no expone metadata de usuario sensible: login, login demo y `/me`
+  devuelven metadata redactada, la firma interna de cache demo no viaja al
+  cliente y el admin muestra solo metadata redactada.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.

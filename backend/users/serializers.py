@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from core.reference_validation import redact_sensitive_payload
 from core.models import UserScopeAssignment
 
 from .models import User
@@ -24,6 +25,11 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             'metadata',
             'assignments',
         )
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['metadata'] = redact_sensitive_payload(data.get('metadata') or {})
+        return data
 
     def get_assignments(self, obj):
         return [

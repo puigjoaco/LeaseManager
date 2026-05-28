@@ -1,3 +1,4 @@
+import hashlib
 import json
 import secrets
 
@@ -53,7 +54,14 @@ def _user_bootstrap_signature(user):
         'metadata': getattr(user, 'metadata', {}) or {},
         'assignments': assignments,
     }
-    return json.dumps(payload, sort_keys=True, ensure_ascii=True)
+    serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True)
+    return hashlib.sha256(serialized.encode('utf-8')).hexdigest()
+
+
+def _public_demo_login_response_payload(payload):
+    public_payload = dict(payload)
+    public_payload.pop('signature', None)
+    return public_payload
 
 
 def _login_bootstrap_cache_key(user, roles, access, *, profile='default'):
@@ -129,7 +137,7 @@ def build_demo_login_response_payload(user):
         'signature': _user_bootstrap_signature(user),
     }
     cache.set(cache_key, payload, DEMO_LOGIN_RESPONSE_CACHE_TTL_SECONDS)
-    return payload
+    return _public_demo_login_response_payload(payload)
 
 
 def resolve_demo_login_user(*, username: str, password: str):
@@ -163,7 +171,7 @@ def get_cached_demo_login_response_payload(*, username: str, password: str):
     if not Token.objects.filter(user=user, key=cached_payload.get('token')).exists():
         cache.delete(_demo_login_response_cache_key_for_username(username))
         return None
-    return cached_payload
+    return _public_demo_login_response_payload(cached_payload)
 
 
 def warm_demo_login_response_payloads():
