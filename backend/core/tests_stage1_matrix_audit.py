@@ -2734,6 +2734,38 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertTrue(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'resuelto_confirmado')
 
+    def test_guarantee_history_sensitive_justification_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        garantia = contrato.garantia_contractual
+        garantia.monto_pactado = Decimal('100000.00')
+        garantia.monto_recibido = Decimal('100000.00')
+        garantia.fecha_recepcion = date(2026, 1, 5)
+        garantia.estado_garantia = EstadoGarantia.HELD
+        garantia.save(
+            update_fields=[
+                'monto_pactado',
+                'monto_recibido',
+                'fecha_recepcion',
+                'estado_garantia',
+                'updated_at',
+            ]
+        )
+        HistorialGarantia.objects.create(
+            garantia_contractual=garantia,
+            tipo_movimiento=TipoMovimientoGarantia.DEPOSIT,
+            monto_clp=Decimal('100000.00'),
+            fecha=date(2026, 1, 5),
+            justificacion='Deposito respaldado en https://example.test/receipt?token=secret',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.historial_garantia.validacion_modelo', issue_codes)
+        self.assertEqual(result['aggregate_classification']['historial_garantias']['classification'], 'defectuoso')
+
     def test_guarantee_excess_without_resolution_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         garantia = contrato.garantia_contractual
