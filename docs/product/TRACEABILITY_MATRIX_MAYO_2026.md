@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: SII/Etapa 4 protege observaciones tributarias. DTE, F29,
+DDJJ y F22 rechazan nuevas observaciones con URLs, correos, tokens o
+credenciales desde dominio y servicios; API, snapshot y admin Django redactan
+observaciones heredadas, y readiness Etapa 4 reporta
+`stage4.dte_sensitive_observations`, `stage4.f29_sensitive_observations`,
+`stage4.ddjj_sensitive_observations` y
+`stage4.f22_sensitive_observations`.
+
 Nota 2026-05-28: Conciliacion/Etapa 3 protege notas administrativas de
 movimientos bancarios. `MovimientoBancarioImportado.clean()` rechaza nuevas
 `notas_admin` con URLs, correos, tokens o credenciales; API y admin Django

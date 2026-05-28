@@ -2,7 +2,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 
 from contabilidad.models import EstadoPreparacionTributaria, ObligacionTributariaMensual
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 from .models import (
     CapacidadSII,
@@ -52,6 +52,13 @@ def _ensure_non_sensitive_reference(value, field_name):
     normalized = str(value or '').strip()
     if normalized and not is_non_sensitive_reference(normalized):
         raise ValueError(f'{field_name} debe ser una referencia no sensible; no use URLs, tokens, credenciales ni correos.')
+    return normalized
+
+
+def _ensure_non_sensitive_text(value, field_name):
+    normalized = str(value or '').strip()
+    if normalized and contains_sensitive_reference(normalized):
+        raise ValueError(f'{field_name} no debe contener URLs, tokens, credenciales ni correos.')
     return normalized
 
 
@@ -148,6 +155,7 @@ def generate_dte_draft(payment, tipo_dte='34'):
 
 def register_dte_status(dte, *, estado_dte, sii_track_id='', ultimo_estado_sii='', observaciones=''):
     input_track_id = _ensure_non_sensitive_reference(sii_track_id, 'sii_track_id')
+    input_observaciones = _ensure_non_sensitive_text(observaciones, 'observaciones')
     next_track_id = input_track_id or dte.sii_track_id
     next_sii_status = str(ultimo_estado_sii or '').strip() or dte.ultimo_estado_sii
     if estado_dte in DTE_EXTERNAL_STATES:
@@ -166,8 +174,8 @@ def register_dte_status(dte, *, estado_dte, sii_track_id='', ultimo_estado_sii='
         dte.sii_track_id = input_track_id
     if ultimo_estado_sii:
         dte.ultimo_estado_sii = ultimo_estado_sii
-    if observaciones:
-        dte.observaciones = observaciones
+    if input_observaciones:
+        dte.observaciones = input_observaciones
     dte.save(update_fields=['estado_dte', 'sii_track_id', 'ultimo_estado_sii', 'observaciones', 'updated_at'])
     return dte
 
@@ -234,6 +242,7 @@ def register_f29_status(draft, *, estado_preparacion, borrador_ref='', observaci
     if estado_preparacion == EstadoPreparacionTributaria.PRESENTED:
         raise ValueError('SII.F29Presentacion requiere gate propio y no se registra desde preparacion local.')
     input_ref = _ensure_non_sensitive_reference(borrador_ref, 'borrador_ref')
+    input_observaciones = _ensure_non_sensitive_text(observaciones, 'observaciones')
     next_ref = input_ref or draft.borrador_ref
     if estado_preparacion in TAX_STATUS_REQUIRING_GATE:
         ensure_sii_capability_ready(draft.capacidad_tributaria, draft.capacidad_tributaria.capacidad_key)
@@ -245,8 +254,8 @@ def register_f29_status(draft, *, estado_preparacion, borrador_ref='', observaci
     draft.estado_preparacion = estado_preparacion
     if input_ref:
         draft.borrador_ref = input_ref
-    if observaciones:
-        draft.observaciones = observaciones
+    if input_observaciones:
+        draft.observaciones = input_observaciones
     draft.save(update_fields=['estado_preparacion', 'borrador_ref', 'observaciones', 'updated_at'])
     return draft
 
@@ -353,6 +362,7 @@ def register_annual_status(document, *, estado_preparacion, ref_value='', observ
     if hasattr(document, 'borrador_ref'):
         current_ref = document.borrador_ref
     input_ref = _ensure_non_sensitive_reference(ref_value, 'ref_value')
+    input_observaciones = _ensure_non_sensitive_text(observaciones, 'observaciones')
     next_ref = input_ref or current_ref
     if estado_preparacion in TAX_STATUS_REQUIRING_GATE:
         ensure_sii_capability_ready(document.capacidad_tributaria, document.capacidad_tributaria.capacidad_key)
@@ -366,8 +376,8 @@ def register_annual_status(document, *, estado_preparacion, ref_value='', observ
         document.paquete_ref = input_ref
     if hasattr(document, 'borrador_ref') and input_ref:
         document.borrador_ref = input_ref
-    if observaciones:
-        document.observaciones = observaciones
+    if input_observaciones:
+        document.observaciones = input_observaciones
     fields = ['estado_preparacion', 'updated_at']
     if hasattr(document, 'paquete_ref'):
         fields.append('paquete_ref')

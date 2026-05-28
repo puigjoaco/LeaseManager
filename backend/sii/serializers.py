@@ -33,6 +33,7 @@ def build_validation_candidate(instance, model_class):
 class RedactSensitiveSiiFieldsMixin:
     redacted_reference_fields = ()
     redacted_payload_fields = ()
+    redacted_text_fields = ()
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -42,6 +43,9 @@ class RedactSensitiveSiiFieldsMixin:
         for field_name in self.redacted_payload_fields:
             if field_name in data:
                 data[field_name] = redact_sensitive_payload(data[field_name])
+        for field_name in self.redacted_text_fields:
+            if field_name in data:
+                data[field_name] = redact_sensitive_reference(data[field_name])
         return data
 
 
@@ -94,6 +98,7 @@ class CapacidadTributariaSIISerializer(RedactSensitiveSiiFieldsMixin, serializer
 
 class DTEEmitidoSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
     redacted_reference_fields = ('sii_track_id',)
+    redacted_text_fields = ('observaciones',)
 
     class Meta:
         model = DTEEmitido
@@ -160,6 +165,7 @@ class DTEStatusSerializer(serializers.Serializer):
 class F29PreparacionMensualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
     redacted_reference_fields = ('borrador_ref',)
     redacted_payload_fields = ('resumen_formulario',)
+    redacted_text_fields = ('observaciones',)
 
     class Meta:
         model = F29PreparacionMensual
@@ -223,6 +229,7 @@ class ProcesoRentaAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.Mod
 class DDJJPreparacionAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
     redacted_reference_fields = ('paquete_ref',)
     redacted_payload_fields = ('resumen_paquete',)
+    redacted_text_fields = ('observaciones',)
 
     class Meta:
         model = DDJJPreparacionAnual
@@ -245,6 +252,7 @@ class DDJJPreparacionAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.
 class F22PreparacionAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
     redacted_reference_fields = ('borrador_ref',)
     redacted_payload_fields = ('resumen_f22',)
+    redacted_text_fields = ('observaciones',)
 
     class Meta:
         model = F22PreparacionAnual

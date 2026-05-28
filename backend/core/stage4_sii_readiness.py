@@ -128,6 +128,8 @@ def _collect_dte_issues(dtes, dte_status_capabilities_by_company: dict[int, Capa
             counts['status_query_capability_not_ready'] += 1
         if has_text(dte.sii_track_id) and not is_non_sensitive_reference(dte.sii_track_id):
             counts['sensitive_tracking_ref'] += 1
+        if contains_sensitive_reference(dte.observaciones or ''):
+            counts['sensitive_observations'] += 1
         if dte.estado_dte in DTE_FINAL_STATES and not has_text(dte.ultimo_estado_sii):
             counts['external_status_missing'] += 1
 
@@ -154,6 +156,8 @@ def _collect_f29_issues(f29_drafts) -> dict[str, int]:
             counts['sensitive_ref'] += 1
         if contains_sensitive_reference(draft.resumen_formulario or {}, include_sensitive_keys=True):
             counts['sensitive_payload'] += 1
+        if contains_sensitive_reference(draft.observaciones or ''):
+            counts['sensitive_observations'] += 1
 
     return dict(sorted(counts.items()))
 
@@ -196,6 +200,8 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['sensitive_ref'] += 1
         if contains_sensitive_reference(ddjj.resumen_paquete or {}, include_sensitive_keys=True):
             counts['ddjj_sensitive_payload'] += 1
+        if contains_sensitive_reference(ddjj.observaciones or ''):
+            counts['ddjj_sensitive_observations'] += 1
 
     for f22 in f22_preparations:
         try:
@@ -214,6 +220,8 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['sensitive_ref'] += 1
         if contains_sensitive_reference(f22.resumen_f22 or {}, include_sensitive_keys=True):
             counts['f22_sensitive_payload'] += 1
+        if contains_sensitive_reference(f22.observaciones or ''):
+            counts['f22_sensitive_observations'] += 1
 
     return dict(sorted(counts.items()))
 
@@ -435,6 +443,14 @@ def collect_stage4_sii_readiness(
                 count=dte_issues['sensitive_tracking_ref'],
             )
         )
+    if dte_issues.get('sensitive_observations'):
+        issues.append(
+            _issue(
+                'stage4.dte_sensitive_observations',
+                'Existen DTE con observaciones sensibles.',
+                count=dte_issues['sensitive_observations'],
+            )
+        )
     if dte_issues.get('external_status_missing'):
         issues.append(
             _issue(
@@ -504,6 +520,14 @@ def collect_stage4_sii_readiness(
                 'stage4.f29_sensitive_payload',
                 'Existen borradores F29 con payload tributario sensible.',
                 count=f29_issues['sensitive_payload'],
+            )
+        )
+    if f29_issues.get('sensitive_observations'):
+        issues.append(
+            _issue(
+                'stage4.f29_sensitive_observations',
+                'Existen borradores F29 con observaciones sensibles.',
+                count=f29_issues['sensitive_observations'],
             )
         )
     if f29_without_fiscal_config:
@@ -582,9 +606,19 @@ def collect_stage4_sii_readiness(
             'Existen DDJJ preparadas con resumen_paquete sensible.',
         ),
         (
+            'ddjj_sensitive_observations',
+            'stage4.ddjj_sensitive_observations',
+            'Existen DDJJ preparadas con observaciones sensibles.',
+        ),
+        (
             'f22_sensitive_payload',
             'stage4.f22_sensitive_payload',
             'Existen F22 preparados con resumen_f22 sensible.',
+        ),
+        (
+            'f22_sensitive_observations',
+            'stage4.f22_sensitive_observations',
+            'Existen F22 preparados con observaciones sensibles.',
         ),
     ]:
         if annual_issues.get(key):

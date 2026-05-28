@@ -106,6 +106,15 @@ def _add_non_sensitive_payload_error(errors, field_name, value):
         )
 
 
+def _add_non_sensitive_text_error(errors, field_name, value):
+    if has_text(value) and contains_sensitive_reference(value):
+        _add_error(
+            errors,
+            field_name,
+            f'{field_name} no debe contener URLs, tokens, credenciales ni correos.',
+        )
+
+
 def _summary_fiscal_year(summary):
     if not isinstance(summary, dict) or not has_text(summary.get('fiscal_year')):
         return None
@@ -283,6 +292,7 @@ class DTEEmitido(TimestampedModel):
         super().clean()
         errors = {}
         _add_non_sensitive_reference_error(errors, self, 'sii_track_id')
+        _add_non_sensitive_text_error(errors, 'observaciones', self.observaciones)
         _add_active_fiscal_config_error(errors, self, 'DTE')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad SII debe pertenecer a la misma empresa del DTE.'
@@ -342,6 +352,7 @@ class F29PreparacionMensual(TimestampedModel):
         errors = {}
         _add_required_tax_reference_error(errors, self, 'borrador_ref', 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
+        _add_non_sensitive_text_error(errors, 'observaciones', self.observaciones)
         _add_active_fiscal_config_error(errors, self, 'F29')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad SII debe pertenecer a la misma empresa del borrador F29.'
@@ -430,6 +441,7 @@ class DDJJPreparacionAnual(TimestampedModel):
         errors = {}
         _add_required_tax_reference_error(errors, self, 'paquete_ref', 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'paquete_ref')
+        _add_non_sensitive_text_error(errors, 'observaciones', self.observaciones)
         _add_active_fiscal_config_error(errors, self, 'DDJJ')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad DDJJ debe pertenecer a la misma empresa.'
@@ -480,6 +492,7 @@ class F22PreparacionAnual(TimestampedModel):
         errors = {}
         _add_required_tax_reference_error(errors, self, 'borrador_ref', 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
+        _add_non_sensitive_text_error(errors, 'observaciones', self.observaciones)
         _add_active_fiscal_config_error(errors, self, 'F22')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
             errors['capacidad_tributaria'] = 'La capacidad F22 debe pertenecer a la misma empresa.'

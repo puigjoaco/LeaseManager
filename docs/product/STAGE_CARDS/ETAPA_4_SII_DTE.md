@@ -44,6 +44,10 @@ produccion por defecto.
   credenciales, correos y claves sensibles como `api_key`, `access_token` o
   `credential`; readiness Etapa 4 detecta snapshots heredados sin exponer esos
   valores.
+- Las observaciones tributarias de DTE, F29, DDJJ y F22 deben ser no
+  sensibles: dominio y servicios rechazan nuevas URLs, correos, tokens o
+  credenciales; API, snapshot y admin Django redactan observaciones heredadas;
+  readiness Etapa 4 las clasifica sin exponer el valor.
 - El admin Django de SII mantiene cerrada la superficie administrativa:
   `CapacidadTributariaSIIAdmin`, `DTEEmitidoAdmin`,
   `F29PreparacionMensualAdmin`, `ProcesoRentaAnualAdmin`,
@@ -67,7 +71,8 @@ produccion por defecto.
   local sin gate propio o reemision formal del set.
 - `audit_stage4_sii_readiness` consolida configuracion fiscal por empresa,
   capacidades SII, DTE, F29 y preparacion anual sin conectar SII ni leer
-  certificados, y reporta refs sensibles existentes sin imprimir sus valores.
+  certificados, y reporta refs, payloads u observaciones sensibles existentes
+  sin imprimir sus valores.
 - `audit_stage4_sii_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre SII.
