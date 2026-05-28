@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 5 / Documentos - guard de mutaciones de version correctiva. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete Etapa 5 / Documentos `stage5-generated-document-generic-guard` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad y orden de construccion. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 5 / Documentos integrado en PR #493, merge `14778a5`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con pruebas focales, suite impactada, gate documental local, acceptance local, CI remoto acceptance, evidencia, trazabilidad e higiene en verde; el worktree tactico queda listo para limpieza. |
+| Brecha activa | El endpoint generico registra auditoria dedicada al crear una version correctiva, pero una mutacion posterior de `documento_origen` o `correccion_ref` puede desalinear esa auditoria y quedar solo para deteccion tardia de readiness. |
+| Motivo de prioridad | La stage card exige que las versiones correctivas conserven auditoria alineada; el guard de escritura debe impedir conversiones o cambios correctivos sin flujo dedicado. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-corrective-document-update-guard`. |
+| Rama | `codex/stage5-corrective-document-update-guard`. |
+| Estado | Paquete abierto en implementacion local. |
+| Gate esperado | Readiness documental local debe permanecer `classification=parcial`, `ready_for_stage5_documents=false`; las pruebas API deben bloquear conversiones y mutaciones correctivas desde el endpoint generico. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el proximo paquete pequeno, seguro y verificable desde `TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards y orden de construccion. |
-| Siguiente accion | Abrir el proximo paquete util en worktree `codex/...` y registrar aqui el frente activo antes de editar. |
+| Politica de reanudacion | Continuar este worktree hasta validacion, PR, CI, merge y limpieza; no abrir otro frente mientras este paquete este sucio. |
+| Siguiente accion | Implementar guard de mutacion correctiva, pruebas focales, gate documental local, acceptance, evidencia, PR/CI/merge y cierre del cursor. |
 
 ## Actualizacion
 

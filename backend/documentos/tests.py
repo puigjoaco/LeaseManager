@@ -1057,6 +1057,84 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(correction_snapshot['documento_origen'], documento['id'])
         self.assertEqual(correction_snapshot['correccion_ref'], 'correction-ticket-doc-001')
 
+    def test_existing_document_cannot_be_converted_to_corrective_version(self):
+        expediente = self._create_expediente(entidad_id='4G-convert-correction')
+        self._create_politica()
+        origin = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[origin['id']]),
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
+            format='json',
+        )
+        self.assertEqual(formalize.status_code, status.HTTP_200_OK)
+        target = self._create_documento(
+            expediente['id'],
+            version_plantilla='v2',
+            checksum=VALID_SHA256_ALT,
+            storage_ref='storage/contracts/contrato-target-v2.pdf',
+        )
+
+        response = self.client.patch(
+            reverse('documentos-documento-detail', args=[target['id']]),
+            {
+                'documento_origen': origin['id'],
+                'correccion_ref': 'correction-ticket-doc-conversion',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('documento_origen', response.data)
+        stored = DocumentoEmitido.objects.get(pk=target['id'])
+        self.assertIsNone(stored.documento_origen_id)
+        self.assertEqual(stored.correccion_ref, '')
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=CORRECTION_AUDIT_EVENT_TYPE,
+                entity_type='documento_emitido',
+                entity_id=str(target['id']),
+            ).exists()
+        )
+
+    def test_corrective_version_trace_cannot_be_mutated_from_generic_endpoint(self):
+        expediente = self._create_expediente(entidad_id='4G-mutate-correction')
+        self._create_politica()
+        origin = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[origin['id']]),
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
+            format='json',
+        )
+        self.assertEqual(formalize.status_code, status.HTTP_200_OK)
+        correction = self._create_documento(
+            expediente['id'],
+            version_plantilla='v2',
+            checksum=VALID_SHA256_ALT,
+            storage_ref='storage/contracts/contrato-correction-v2.pdf',
+            documento_origen=origin['id'],
+            correccion_ref='correction-ticket-doc-immutable',
+        )
+
+        response = self.client.patch(
+            reverse('documentos-documento-detail', args=[correction['id']]),
+            {'correccion_ref': 'correction-ticket-doc-mutated'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('documento_origen', response.data)
+        stored = DocumentoEmitido.objects.get(pk=correction['id'])
+        self.assertEqual(stored.documento_origen_id, origin['id'])
+        self.assertEqual(stored.correccion_ref, 'correction-ticket-doc-immutable')
+
     def test_corrective_version_requires_formalized_origin(self):
         expediente = self._create_expediente(entidad_id='4H')
         self._create_politica()
