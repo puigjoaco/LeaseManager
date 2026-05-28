@@ -28,9 +28,9 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: PR #509 `Make residual codes immutable after creation`, merge `24ab23d6fe8f551af5accbf6887f8f1ad96134b8`. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Conciliacion sin mutacion operativa fuera de APIs/servicios auditados. |
 | Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | PR #509 integrado en `main`; Etapa 2 permanece parcial sin cierre falso. |
+| Estado al cerrar paquete | Etapa 3 permanece parcial sin cierre falso; paquete validado con focal admin, suite impactada, gate local Etapa 3, acceptance local, frontend build/lint, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |

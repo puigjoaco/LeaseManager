@@ -374,6 +374,7 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(connection_admin.evidencia_gate_ref_redacted(conexion), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(connection_admin.prueba_conectividad_ref_redacted(conexion), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(connection_admin.has_add_permission(None))
+        self.assertFalse(connection_admin.has_delete_permission(None))
 
         for raw_field in ('evidencia_importacion_ref', 'referencia', 'transaction_id_banco'):
             self.assertNotIn(raw_field, movement_admin.fields)
@@ -381,7 +382,9 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movement_admin.evidencia_importacion_ref_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(movement_admin.referencia_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(movement_admin.transaction_id_banco_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
+        self.assertTrue(set(movement_admin.fields).issubset(set(movement_admin.readonly_fields)))
         self.assertFalse(movement_admin.has_add_permission(None))
+        self.assertFalse(movement_admin.has_delete_permission(None))
 
         self.assertNotIn('sugerencia_asistida', unknown_income_admin.fields)
         self.assertIn('sugerencia_asistida_redacted', unknown_income_admin.fields)
@@ -390,7 +393,9 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(suggestion['authorization'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(suggestion['callback_url'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(suggestion['payment_candidate_ids'], [1])
+        self.assertTrue(set(unknown_income_admin.fields).issubset(set(unknown_income_admin.readonly_fields)))
         self.assertFalse(unknown_income_admin.has_add_permission(None))
+        self.assertFalse(unknown_income_admin.has_delete_permission(None))
 
         for raw_field in ('evidencia_cuadratura_ref', 'responsable_ref', 'rationale'):
             self.assertNotIn(raw_field, balance_admin.fields)
@@ -398,7 +403,9 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(balance_admin.evidencia_cuadratura_ref_redacted(cuadratura), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(balance_admin.responsable_ref_redacted(cuadratura), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(balance_admin.rationale_redacted(cuadratura), REDACTED_SENSITIVE_REFERENCE)
+        self.assertTrue(set(balance_admin.fields).issubset(set(balance_admin.readonly_fields)))
         self.assertFalse(balance_admin.has_add_permission(None))
+        self.assertFalse(balance_admin.has_delete_permission(None))
 
         for raw_field in (
             'criterio_conciliacion',
@@ -412,7 +419,9 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(transfer_admin.evidencia_transferencia_ref_redacted(transferencia), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(transfer_admin.responsable_ref_redacted(transferencia), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(transfer_admin.rationale_redacted(transferencia), REDACTED_SENSITIVE_REFERENCE)
+        self.assertTrue(set(transfer_admin.fields).issubset(set(transfer_admin.readonly_fields)))
         self.assertFalse(transfer_admin.has_add_permission(None))
+        self.assertFalse(transfer_admin.has_delete_permission(None))
 
     def test_auth_is_required_for_conciliacion_endpoints(self):
         client = self.client_class()
