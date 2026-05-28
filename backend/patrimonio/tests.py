@@ -329,6 +329,69 @@ class PatrimonioAPITests(APITestCase):
             '<redacted-sensitive-reference>',
         )
 
+    def test_community_api_redacts_sensitive_representation_observations(self):
+        socio_participante = self._create_socio('Socio Comunidad Observacion', '11111111-1')
+        socio_designado = self._create_socio('Representante Observacion', '22222222-2')
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Observacion', estado=EstadoPatrimonial.ACTIVE)
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_participante,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        RepresentacionComunidad.objects.create(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio_designado,
+            vigente_desde='2026-01-01',
+            activo=True,
+            evidencia_ref='community-designated-representative-act-obs',
+            observaciones='Acta en https://docs.example.test/acta?token=secret',
+        )
+
+        list_response = self.client.get(reverse('patrimonio-comunidad-list'))
+        detail_response = self.client.get(reverse('patrimonio-comunidad-detail', args=[comunidad.id]))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        comunidad_list = next(item for item in list_response.data if item['id'] == comunidad.id)
+        for comunidad_data in (comunidad_list, detail_response.data):
+            self.assertEqual(
+                comunidad_data['representacion_vigente']['observaciones'],
+                REDACTED_SENSITIVE_REFERENCE,
+            )
+
+        rendered = str(list_response.data) + str(detail_response.data)
+        self.assertNotIn('docs.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+
+    def test_representation_model_rejects_sensitive_observations(self):
+        socio_participante = self._create_socio('Socio Comunidad Modelo', '11111111-1')
+        socio_designado = self._create_socio('Representante Modelo', '22222222-2')
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Modelo', estado=EstadoPatrimonial.ACTIVE)
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_participante,
+            comunidad_owner=comunidad,
+            porcentaje='100.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        representation = RepresentacionComunidad(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio_designado,
+            vigente_desde='2026-01-01',
+            activo=True,
+            evidencia_ref='community-designated-representative-act-model',
+            observaciones='Contacto juan@example.test',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            representation.full_clean()
+
+        self.assertIn('observaciones', error.exception.message_dict)
+
     def test_representation_admin_redacts_sensitive_designated_evidence(self):
         socio_participante = self._create_socio('Socio Comunidad Admin', '11111111-1')
         socio_designado = self._create_socio('Representante Admin', '22222222-2')

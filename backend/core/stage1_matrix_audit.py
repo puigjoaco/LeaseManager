@@ -605,6 +605,22 @@ def _audit_designated_community_representation_evidence(issues: list[dict[str, A
             )
 
 
+def _audit_community_representation_observations(issues: list[dict[str, Any]]) -> None:
+    representations = RepresentacionComunidad.objects.filter(activo=True)
+    for representation in representations:
+        if contains_sensitive_reference(representation.observaciones, include_sensitive_keys=True):
+            _issue(
+                issues,
+                code='stage1.representacion.observaciones_sensibles',
+                entity='RepresentacionComunidad',
+                entity_id=representation.pk,
+                message=(
+                    'Representacion de comunidad activa con observaciones que parecen contener referencias sensibles; '
+                    'mover el detalle a evidencia segura y conservar solo una referencia no secreta.'
+                ),
+            )
+
+
 def _metadata_str(value: Any) -> str:
     return '' if value is None else str(value).strip()
 
@@ -875,6 +891,7 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
     )
     _audit_community_representation_window_overlaps(issues)
     _audit_designated_community_representation_evidence(issues)
+    _audit_community_representation_observations(issues)
     _audit_participation_transfers(issues)
 
     for empresa in Empresa.objects.filter(estado='activa'):

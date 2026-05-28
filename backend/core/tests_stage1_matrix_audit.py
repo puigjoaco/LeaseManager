@@ -1008,6 +1008,21 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.representacion.designada_evidencia_sensible', issue_codes)
 
+    def test_community_representation_sensitive_observations_are_blocking(self):
+        self._create_valid_stage1_matrix()
+        representation = RepresentacionComunidad.objects.get(comunidad__nombre='Comunidad Controlada')
+        RepresentacionComunidad.objects.filter(pk=representation.pk).update(
+            observaciones='Revision en https://docs.example.test/acta?token=secret',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.representacion.observaciones_sensibles', issue_codes)
+        self.assertNotIn('docs.example.test', str(result))
+
     def test_designated_community_representation_with_evidence_can_pass(self):
         self._create_valid_stage1_matrix()
         representation = RepresentacionComunidad.objects.get(comunidad__nombre='Comunidad Controlada')

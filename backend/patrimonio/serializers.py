@@ -236,6 +236,7 @@ class RepresentacionComunidadReadSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['evidencia_ref'] = redact_sensitive_reference(data.get('evidencia_ref'))
+        data['observaciones'] = redact_sensitive_reference(data.get('observaciones'))
         return data
 
 
