@@ -12,6 +12,11 @@ Estos archivos son salida local de herramienta, no evidencia, snapshot ni
 fuente de producto; deben permanecer fuera de versionado para que `main` quede
 limpio y el cursor operativo sea la unica senal de paquete activo.
 
+Nota 2026-05-27: Patrimonio cierra superficie admin de evidencias de servicios
+de propiedad. `ServicioPropiedadAdmin` ya no expone ni busca `evidencia_ref`
+cruda, muestra solo `evidencia_ref_redacted` y conserva la API/snapshot como
+superficies redactadas para referencias heredadas.
+
 Nota 2026-05-27: CobranzaActiva persiste traza UF exacta en pagos mensuales.
 `PagoMensual` guarda moneda de calculo, fecha UF usada, valor UF usado y
 fuente canonica; la fecha debe coincidir con `fecha_vencimiento`. La generacion

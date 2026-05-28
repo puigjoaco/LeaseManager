@@ -89,6 +89,28 @@ class PropiedadAdmin(admin.ModelAdmin):
 
 @admin.register(ServicioPropiedad)
 class ServicioPropiedadAdmin(admin.ModelAdmin):
-    list_display = ('propiedad', 'tipo_servicio', 'proveedor_nombre', 'numero_cliente', 'activo')
+    list_display = (
+        'propiedad',
+        'tipo_servicio',
+        'proveedor_nombre',
+        'numero_cliente',
+        'activo',
+        'evidencia_ref_redacted',
+    )
     list_filter = ('tipo_servicio', 'activo')
     search_fields = ('propiedad__codigo_propiedad', 'proveedor_nombre', 'numero_cliente', 'administrador_nombre')
+    fields = (
+        'propiedad',
+        'tipo_servicio',
+        'proveedor_nombre',
+        'numero_cliente',
+        'administrador_nombre',
+        'activo',
+        'evidencia_ref_redacted',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = ('evidencia_ref_redacted', 'created_at', 'updated_at')
+
+    def evidencia_ref_redacted(self, obj):
+        return redact_sensitive_reference(obj.evidencia_ref) or ''

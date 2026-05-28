@@ -106,10 +106,10 @@ contra datos reales o snapshot controlado.
   o futuros este activa.
 - Servicios y gastos comunes estructurados: `ServicioPropiedad` registra tipo
   de servicio, proveedor/administracion, numero de cliente, evidencia opcional
-  no sensible y estado; el snapshot de Patrimonio expone la lista redactada y
-  `Contrato.full_clean()`, la API y el auditor Etapa 1 bloquean contratos
-  vigentes/futuros con gastos comunes si la propiedad principal no tiene un
-  gasto comun activo estructurado.
+  no sensible y estado; API, snapshot y admin/backoffice exponen evidencia
+  heredada solo mediante version redactada, y `Contrato.full_clean()`, la API y
+  el auditor Etapa 1 bloquean contratos vigentes/futuros con gastos comunes si
+  la propiedad principal no tiene un gasto comun activo estructurado.
 - Validacion de roles contrato-propiedad: exactamente una propiedad principal
   y, si hay pareja, una propiedad vinculada.
 - Validacion de que cada contrato vigente o futuro cubra una sola propiedad o
