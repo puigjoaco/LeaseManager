@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 3 / Conciliacion - `stage3-bank-admin-notes-redaction`. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `MovimientoBancarioImportado.notas_admin` acepta y expone texto manual sin validacion/redaccion de referencias sensibles heredadas. |
-| Motivo de prioridad | Cierra una superficie local de Etapa 3/Conciliacion en movimientos bancarios, antes de avanzar a Contabilidad. |
-| Worktree | `D:/Proyectos/LeaseManager-stage3-bank-admin-notes-redaction`. |
-| Rama | `codex/stage3-bank-admin-notes-redaction`. |
-| Estado | Paquete abierto; implementar validacion/redaccion/readiness/documentacion y validar sin banco real, datos reales ni secretos. |
-| Gate esperado | Diagnostico local Etapa 3 parcial/no evidencial; no cierra Etapa 3 sin fuente autorizada ni prueba bancaria. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete `stage3-bank-admin-notes-redaction` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Etapa 3/Conciliacion `stage3-bank-admin-notes-redaction` integrado en PR #475, merge `d87e6d3`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; rama remota tactica eliminada. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge/limpieza o registrar pausa explicita. |
-| Siguiente accion | Implementar y validar el paquete `stage3-bank-admin-notes-redaction`. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
+| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
 
 ## Actualizacion
 
