@@ -288,7 +288,9 @@ class CobranzaSnapshotView(APIView):
                         'resolucion_exceso_garantia_ref': redact_sensitive_reference(
                             item.resolucion_exceso_garantia_ref
                         ),
-                        'resolucion_exceso_garantia_motivo': item.resolucion_exceso_garantia_motivo,
+                        'resolucion_exceso_garantia_motivo': redact_sensitive_reference(
+                            item.resolucion_exceso_garantia_motivo
+                        ),
                         'tiene_resolucion_exceso_garantia': item.tiene_resolucion_exceso_garantia,
                         'estado_garantia': item.estado_garantia,
                     }

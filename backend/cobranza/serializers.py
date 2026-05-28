@@ -392,7 +392,11 @@ class GarantiaContractualSerializer(RedactReferenceFieldsMixin, serializers.Mode
     garantia_incompleta = serializers.BooleanField(read_only=True)
     garantia_parcial_aceptada = serializers.BooleanField(read_only=True)
     tiene_resolucion_exceso_garantia = serializers.BooleanField(read_only=True)
-    redacted_reference_fields = ('aceptacion_parcial_ref', 'resolucion_exceso_garantia_ref')
+    redacted_reference_fields = (
+        'aceptacion_parcial_ref',
+        'resolucion_exceso_garantia_ref',
+        'resolucion_exceso_garantia_motivo',
+    )
 
     class Meta:
         model = GarantiaContractual

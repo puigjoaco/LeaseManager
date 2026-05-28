@@ -1599,6 +1599,44 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('resolucion_exceso_garantia_ref', response.data)
 
+    def test_guarantee_excess_resolution_apis_and_snapshot_redact_sensitive_motive(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-EXCESS-MOT', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(
+            contrato=contrato,
+            monto_pactado=Decimal('50000.00'),
+            monto_recibido=Decimal('60000.00'),
+            fecha_recepcion=date(2026, 1, 1),
+            estado_garantia=EstadoGarantia.HELD,
+            resolucion_exceso_garantia='bloquear',
+            resolucion_exceso_garantia_ref='manual-resolution-guarantee-excess-2026-01',
+            resolucion_exceso_garantia_motivo=(
+                'Exceso heredado con detalle en https://example.test/approval?token=secret'
+            ),
+        )
+
+        list_response = self.client.get(reverse('cobranza-garantia-list'))
+        detail_response = self.client.get(reverse('cobranza-garantia-detail', args=[garantia.id]))
+        snapshot_response = self.client.get(reverse('cobranza-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            list_response.data[0]['resolucion_exceso_garantia_motivo'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            detail_response.data['resolucion_exceso_garantia_motivo'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            snapshot_response.data['garantias'][0]['resolucion_exceso_garantia_motivo'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
+        self.assertNotIn('example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+
     def test_guarantee_movement_rejects_sensitive_justification(self):
         contrato = self._create_active_contract(codigo='CON-GAR-JUST-SENS', monto_base='100000.00', code='111')
         garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='50000.00')
