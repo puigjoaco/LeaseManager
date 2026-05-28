@@ -673,6 +673,56 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertEqual(result['sections']['annual']['f22_sensitive_payload'], 1)
         self.assertNotIn('api_key', json.dumps(result))
 
+    def test_sensitive_tax_observations_do_not_close_readiness(self):
+        empresa = self._create_valid_local_matrix()
+        ddjj_capability = self._open_capability(empresa, CapacidadSII.DDJJ_PREPARACION, 'ddjj')
+        f22_capability = self._open_capability(empresa, CapacidadSII.F22_PREPARACION, 'f22')
+        DTEEmitido.objects.update(observaciones='No exponer https://sii.example.test/dte?token=secret')
+        F29PreparacionMensual.objects.update(observaciones='No exponer https://sii.example.test/f29?token=secret')
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            fecha_preparacion=timezone.now(),
+            resumen_anual={'source': 'stage4-controlled'},
+            paquete_ddjj_ref='ddjj-stage4-controlled',
+            borrador_f22_ref='f22-stage4-controlled',
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_paquete={'resumen_anual': {'fiscal_year': 2026}},
+            paquete_ref='ddjj-stage4-controlled',
+            observaciones='No exponer https://sii.example.test/ddjj?token=secret',
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_f22={'resumen_anual': {'fiscal_year': 2026}},
+            borrador_ref='f22-stage4-controlled',
+            observaciones='No exponer https://sii.example.test/f22?token=secret',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertIn('stage4.dte_sensitive_observations', issue_codes)
+        self.assertIn('stage4.f29_sensitive_observations', issue_codes)
+        self.assertIn('stage4.ddjj_sensitive_observations', issue_codes)
+        self.assertIn('stage4.f22_sensitive_observations', issue_codes)
+        self.assertEqual(result['sections']['dte']['sensitive_observations'], 1)
+        self.assertEqual(result['sections']['f29']['sensitive_observations'], 1)
+        self.assertEqual(result['sections']['annual']['ddjj_sensitive_observations'], 1)
+        self.assertEqual(result['sections']['annual']['f22_sensitive_observations'], 1)
+        self.assertNotIn('sii.example.test', json.dumps(result))
+
     def test_command_writes_json_and_rejects_versionable_repo_output(self):
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'stage4_readiness.json'

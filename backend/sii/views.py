@@ -168,6 +168,7 @@ class SiiSnapshotView(APIView):
                         'monto_neto_clp': item.monto_neto_clp,
                         'estado_dte': item.estado_dte,
                         'sii_track_id': redact_sensitive_reference(item.sii_track_id),
+                        'observaciones': redact_sensitive_reference(item.observaciones),
                     }
                     for item in dtes
                 ],
@@ -180,6 +181,7 @@ class SiiSnapshotView(APIView):
                         'mes': item.mes,
                         'estado_preparacion': item.estado_preparacion,
                         'borrador_ref': redact_sensitive_reference(item.borrador_ref),
+                        'observaciones': redact_sensitive_reference(item.observaciones),
                     }
                     for item in f29s
                 ],
@@ -200,6 +202,7 @@ class SiiSnapshotView(APIView):
                         'anio_tributario': item.anio_tributario,
                         'estado_preparacion': item.estado_preparacion,
                         'paquete_ref': redact_sensitive_reference(item.paquete_ref),
+                        'observaciones': redact_sensitive_reference(item.observaciones),
                     }
                     for item in ddjjs
                 ],
@@ -210,6 +213,7 @@ class SiiSnapshotView(APIView):
                         'anio_tributario': item.anio_tributario,
                         'estado_preparacion': item.estado_preparacion,
                         'borrador_ref': redact_sensitive_reference(item.borrador_ref),
+                        'observaciones': redact_sensitive_reference(item.observaciones),
                     }
                     for item in f22s
                 ],

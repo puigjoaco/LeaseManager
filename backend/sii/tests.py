@@ -877,6 +877,7 @@ class SiiAPITests(APITestCase):
             estado_dte='aceptado',
             sii_track_id='https://sii.example.test/track?token=secret',
             ultimo_estado_sii='Aceptado controlado',
+            observaciones='Observacion con https://sii.example.test/obs?token=secret',
         )
         close, _ = self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
         f29 = F29PreparacionMensual.objects.create(
@@ -888,6 +889,7 @@ class SiiAPITests(APITestCase):
             estado_preparacion='aprobado_para_presentacion',
             resumen_formulario={'callback': 'https://sii.example.test/f29?token=secret'},
             borrador_ref='https://sii.example.test/f29?token=secret',
+            observaciones='Observacion con https://sii.example.test/f29?token=secret',
         )
         process = ProcesoRentaAnual.objects.create(
             empresa=empresa,
@@ -905,6 +907,7 @@ class SiiAPITests(APITestCase):
             estado_preparacion='aprobado_para_presentacion',
             resumen_paquete={'api_key': 'secret-api-key-value'},
             paquete_ref='https://sii.example.test/ddjj?token=secret',
+            observaciones='Observacion con https://sii.example.test/ddjj?token=secret',
         )
         f22 = F22PreparacionAnual.objects.create(
             empresa=empresa,
@@ -914,6 +917,7 @@ class SiiAPITests(APITestCase):
             estado_preparacion='aprobado_para_presentacion',
             resumen_f22={'access_token': 'secret-f22-token-value'},
             borrador_ref='https://sii.example.test/f22?token=secret',
+            observaciones='Observacion con https://sii.example.test/f22?token=secret',
         )
 
         capabilities = self.client.get(reverse('sii-capacidad-list'))
@@ -934,22 +938,32 @@ class SiiAPITests(APITestCase):
         self.assertEqual(capability_data['ultimo_resultado']['safe_ref'], 'controlled-result')
         self.assertEqual(capability_detail.data['regla_fiscal_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(dtes.data[0]['sii_track_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(dtes.data[0]['observaciones'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(dte_detail.data['sii_track_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(dte_detail.data['observaciones'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(f29s.data[0]['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f29s.data[0]['observaciones'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(f29_detail.data['resumen_formulario']['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f29_detail.data['observaciones'], REDACTED_SENSITIVE_REFERENCE)
         process_data = next(item for item in annual.data if item['id'] == process.id)
         self.assertEqual(process_data['paquete_ddjj_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(process_data['resumen_anual']['callback'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(ddjjs.data[0]['paquete_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(ddjjs.data[0]['observaciones'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(ddjjs.data[0]['resumen_paquete']['api_key'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(f22s.data[0]['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(f22s.data[0]['observaciones'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(f22s.data[0]['resumen_f22']['access_token'], REDACTED_SENSITIVE_REFERENCE)
         snapshot_capability = next(item for item in snapshot.data['capacidades'] if item['id'] == dte_capability.id)
         self.assertEqual(snapshot_capability['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot.data['dtes'][0]['sii_track_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot.data['dtes'][0]['observaciones'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot.data['f29s'][0]['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot.data['f29s'][0]['observaciones'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot.data['ddjjs'][0]['paquete_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot.data['ddjjs'][0]['observaciones'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot.data['f22s'][0]['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot.data['f22s'][0]['observaciones'], REDACTED_SENSITIVE_REFERENCE)
 
         body = b''.join(
             response.content
@@ -1343,6 +1357,17 @@ class SiiAPITests(APITestCase):
         self.assertEqual(dte_update.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('sii_track_id', dte_update.data['detail'])
 
+        dte_observations_update = self.client.post(
+            reverse('sii-dte-status', args=[generated_dte.data['id']]),
+            {
+                'estado_dte': 'borrador',
+                'observaciones': 'No registrar https://sii.example.test/dte?token=secret',
+            },
+            format='json',
+        )
+        self.assertEqual(dte_observations_update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('observaciones', dte_observations_update.data['detail'])
+
         self.client.post(
             reverse('sii-capacidad-list'),
             {
@@ -1373,6 +1398,17 @@ class SiiAPITests(APITestCase):
         self.assertEqual(f29_update.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('borrador_ref', f29_update.data['detail'])
 
+        f29_observations_update = self.client.post(
+            reverse('sii-f29-status', args=[generated_f29.data['id']]),
+            {
+                'estado_preparacion': generated_f29.data['estado_preparacion'],
+                'observaciones': 'No registrar https://sii.example.test/f29?token=secret',
+            },
+            format='json',
+        )
+        self.assertEqual(f29_observations_update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('observaciones', f29_observations_update.data['detail'])
+
         annual_empresa = Empresa.objects.create(
             razon_social='Annual Sensitive SpA',
             rut='33333333-3',
@@ -1397,6 +1433,28 @@ class SiiAPITests(APITestCase):
         )
         self.assertEqual(ddjj_update.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('ref_value', ddjj_update.data['detail'])
+
+        ddjj_observations_update = self.client.post(
+            reverse('sii-ddjj-status', args=[generated_annual.data['ddjj_preparacion']['id']]),
+            {
+                'estado_preparacion': generated_annual.data['ddjj_preparacion']['estado_preparacion'],
+                'observaciones': 'No registrar https://sii.example.test/ddjj?token=secret',
+            },
+            format='json',
+        )
+        self.assertEqual(ddjj_observations_update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('observaciones', ddjj_observations_update.data['detail'])
+
+        f22_observations_update = self.client.post(
+            reverse('sii-f22-status', args=[generated_annual.data['f22_preparacion']['id']]),
+            {
+                'estado_preparacion': generated_annual.data['f22_preparacion']['estado_preparacion'],
+                'observaciones': 'No registrar https://sii.example.test/f22?token=secret',
+            },
+            format='json',
+        )
+        self.assertEqual(f22_observations_update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('observaciones', f22_observations_update.data['detail'])
 
     def test_generate_f29_requires_capability_and_approved_close(self):
         empresa, _ = self._setup_paid_payment()
