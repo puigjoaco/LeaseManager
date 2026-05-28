@@ -94,6 +94,12 @@ condicionados sin envios reales accidentales.
   mandato operativo activo, contexto WhatsApp valido o formalizacion
   documental cuando corresponda; mensajes `enviado` requieren `external_ref`
   trazable no sensible y timestamp de envio.
+- Mensajes preparados o enviados asociados a un contrato o documento
+  contractual solo pueden usar una `IdentidadDeEnvio` autorizada para ese
+  contrato: override explicito del contrato o asignacion activa del mandato
+  para el mismo canal. El servicio de preparacion y el registro manual de
+  envio revalidan esa autorizacion, y readiness bloquea mensajes heredados con
+  identidades activas pero no autorizadas.
 - Las notificaciones por cobranza se configuran por contrato y canal
   habilitado mediante cadencias activas de dias. La base sugerida es
   `1/3/5/10/15/20/25`; una cadencia distinta requiere referencia no sensible,

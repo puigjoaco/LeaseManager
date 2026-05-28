@@ -848,6 +848,13 @@ class CanalesAPITests(APITestCase):
         gate_data = self._create_gate(canal='email')
         gate = CanalMensajeria.objects.get(pk=gate_data['id'])
         identity = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identity,
+            prioridad=1,
+            estado='activa',
+        )
 
         message = MensajeSaliente(
             canal='email',
@@ -872,6 +879,13 @@ class CanalesAPITests(APITestCase):
         gate_data = self._create_gate(canal='email')
         gate = CanalMensajeria.objects.get(pk=gate_data['id'])
         identity = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identity,
+            prioridad=1,
+            estado='activa',
+        )
 
         message = MensajeSaliente(
             canal='email',
@@ -1355,7 +1369,7 @@ class CanalesAPITests(APITestCase):
         self.assertIn('WhatsApp', response.data['detail'])
         self.assertEqual(MensajeSaliente.objects.get(pk=prepared.data['id']).estado, EstadoMensajeSaliente.PREPARED)
 
-    def test_explicit_identity_override_is_used_when_valid(self):
+    def test_explicit_identity_override_must_be_authorized_for_contract(self):
         empresa, contrato = self._create_contract_context(codigo='CH-OVERRIDE')
         gate = self._create_gate(canal='email')
         identity_default = self._create_identity(empresa, canal='email', direccion='default@example.com')
@@ -1368,7 +1382,7 @@ class CanalesAPITests(APITestCase):
             estado='activa',
         )
 
-        response = self.client.post(
+        blocked = self.client.post(
             reverse('canales-mensaje-preparar'),
             {
                 'canal': 'email',
@@ -1379,8 +1393,55 @@ class CanalesAPITests(APITestCase):
             },
             format='json',
         )
+        self.assertEqual(blocked.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(blocked.data['estado'], EstadoMensajeSaliente.BLOCKED)
+        self.assertIn('autorizada', blocked.data['motivo_bloqueo'])
+
+        contrato.identidad_envio_override = identity_override
+        contrato.save(update_fields=['identidad_envio_override', 'updated_at'])
+
+        response = self.client.post(
+            reverse('canales-mensaje-preparar'),
+            {
+                'canal': 'email',
+                'canal_mensajeria': gate['id'],
+                'contrato': contrato.id,
+                'identidad_envio': identity_override.id,
+                'asunto': 'Override autorizado',
+            },
+            format='json',
+        )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoMensajeSaliente.PREPARED)
         self.assertEqual(response.data['identidad_envio'], identity_override.id)
+
+    def test_prepared_message_rejects_legacy_unassigned_identity(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-LEGACY-ID')
+        gate = self._create_gate(canal='email')
+        assigned_identity = self._create_identity(empresa, canal='email', direccion='assigned@example.com')
+        unassigned_identity = self._create_identity(empresa, canal='email', direccion='unassigned@example.com')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=assigned_identity,
+            prioridad=1,
+            estado='activa',
+        )
+        message = MensajeSaliente(
+            canal='email',
+            canal_mensajeria_id=gate['id'],
+            identidad_envio=unassigned_identity,
+            contrato=contrato,
+            arrendatario=contrato.arrendatario,
+            destinatario=contrato.arrendatario.email,
+            asunto='Legacy',
+            estado=EstadoMensajeSaliente.PREPARED,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            message.full_clean()
+
+        self.assertIn('identidad_envio', error.exception.message_dict)
 
     def test_register_manual_send_marks_prepared_message_as_sent(self):
         empresa, contrato = self._create_contract_context(codigo='CH-SEND')

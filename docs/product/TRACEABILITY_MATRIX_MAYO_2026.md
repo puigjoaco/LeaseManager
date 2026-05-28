@@ -15,6 +15,13 @@ observaciones heredadas, y readiness Etapa 4 reporta
 `stage4.ddjj_sensitive_observations` y
 `stage4.f22_sensitive_observations`.
 
+Nota 2026-05-28: Canales/Etapa 2 exige identidad autorizada en mensajes
+contractuales. Mensajes preparados o enviados asociados a contrato o documento
+contractual solo aceptan una `IdentidadDeEnvio` autorizada por override
+explicito del contrato o asignacion activa del mandato para el mismo canal; el
+servicio de preparacion, el registro manual y readiness Etapa 2 bloquean
+identidades activas pero no autorizadas.
+
 Nota 2026-05-28: Conciliacion/Etapa 3 protege notas administrativas de
 movimientos bancarios. `MovimientoBancarioImportado.clean()` rechaza nuevas
 `notas_admin` con URLs, correos, tokens o credenciales; API y admin Django

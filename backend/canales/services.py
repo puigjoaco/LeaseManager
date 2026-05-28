@@ -23,6 +23,7 @@ from .models import (
     NotificacionCobranzaProgramada,
     document_delivery_blocking_reason,
     has_non_sensitive_operational_ref,
+    message_identity_authorization_issue,
     whatsapp_gate_has_approved_template,
 )
 
@@ -333,6 +334,13 @@ def prepare_message(
         blocking_reason = reason
     elif not identidad or identidad.estado != EstadoIdentidadEnvio.ACTIVE:
         blocking_reason = f'No existe una identidad activa valida para el canal {canal}.'
+    elif reason := message_identity_authorization_issue(
+        canal,
+        contrato=contrato,
+        documento_emitido=documento_emitido,
+        identidad_envio=identidad,
+    ):
+        blocking_reason = reason
     elif canal == CanalOperacion.WHATSAPP and (
         reason := whatsapp_blocking_reason(arrendatario, canal_mensajeria)
     ):
@@ -391,6 +399,13 @@ def mark_message_as_sent(message, external_ref='', *, actor_user=None, actor_ide
         raise ValueError(f'No se puede registrar envio manual de Email: {reason}')
     if not message.identidad_envio or message.identidad_envio.estado != EstadoIdentidadEnvio.ACTIVE:
         raise ValueError('No se puede registrar envio manual sin identidad de envio activa.')
+    if reason := message_identity_authorization_issue(
+        message.canal,
+        contrato=message.contrato,
+        documento_emitido=message.documento_emitido,
+        identidad_envio=message.identidad_envio,
+    ):
+        raise ValueError(f'No se puede registrar envio manual: {reason}')
     if not message.destinatario:
         raise ValueError('No se puede registrar envio manual sin destinatario trazable.')
     if message.contrato and message.contrato.mandato_operacion.estado != EstadoMandatoOperacion.ACTIVE:

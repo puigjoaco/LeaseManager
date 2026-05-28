@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 2 / Canales - identidad autorizada en mensajes salientes. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete `stage5-document-expediente-redaction` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 5/Documentos `stage5-document-expediente-redaction` integrado en PR #479, merge `f44482f`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; rama remota tactica eliminada. |
+| Brecha activa | Mensajes preparados/enviados deben usar una `IdentidadDeEnvio` autorizada para el contrato: override explicito del contrato o asignacion activa del mandato para el mismo canal. |
+| Motivo de prioridad | El PRD canonico define que un contrato usa su override explicito de identidad o la asignacion vigente del mandato; Canales no debe preparar/envia mensajes con una identidad activa pero no autorizada para ese contrato. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-message-authorized-identity`. |
+| Rama | `codex/stage2-message-authorized-identity`. |
+| Estado | Implementado y validado localmente; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Etapa 2 local como diagnostico parcial, sin cierre evidencial. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta commit, PR, CI, merge y limpieza, salvo instruccion explicita del usuario. |
+| Siguiente accion | Cerrar paquete con commit, PR, CI, merge y limpieza del worktree tactico. |
 
 ## Actualizacion
 
