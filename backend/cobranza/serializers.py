@@ -319,7 +319,7 @@ class GateCobroExternoSerializer(RedactReferenceFieldsMixin, serializers.ModelSe
 
 class IntentoPagoWebPaySerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
     redacted_payload_fields = ('provider_payload',)
-    redacted_reference_fields = ('return_url_ref', 'external_ref')
+    redacted_reference_fields = ('return_url_ref', 'motivo_bloqueo', 'external_ref')
 
     class Meta:
         model = IntentoPagoWebPay

@@ -1121,6 +1121,28 @@ class CobranzaAPITests(APITestCase):
             intent.full_clean()
         self.assertIn('provider_payload', payload_error.exception.message_dict)
 
+    def test_webpay_intent_full_clean_rejects_sensitive_block_reason(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-BLOCK-SECRET')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-gate-evidence-controlled',
+        )
+        intent = IntentoPagoWebPay(
+            pago_mensual=payment,
+            gate_cobro=gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=payment.monto_calculado_clp,
+            buy_order='BUY-BLOCK-SECRET',
+            session_id='SESSION-BLOCK-SECRET',
+            estado=EstadoIntentoPagoWebPay.BLOCKED,
+            motivo_bloqueo='Bloqueo por https://transbank.example.test/block?token=secret',
+        )
+
+        with self.assertRaises(ValidationError) as block_error:
+            intent.full_clean()
+        self.assertIn('motivo_bloqueo', block_error.exception.message_dict)
+
     def test_webpay_apis_redact_inherited_sensitive_references(self):
         self.user.default_role_code = 'AdministradorGlobal'
         self.user.save(update_fields=['default_role_code'])
@@ -1139,6 +1161,7 @@ class CobranzaAPITests(APITestCase):
             session_id='SESSION-LEGACY',
             return_url_ref='https://front.example.test/webpay?token=secret',
             estado=EstadoIntentoPagoWebPay.CONFIRMED_MANUAL,
+            motivo_bloqueo='Bloqueo heredado por https://transbank.example.test/block?token=secret',
             external_ref='https://transbank.example.test/token/secret',
             fecha_pago_webpay='2026-01-06',
             usuario=self.user,
@@ -1159,8 +1182,10 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
         self.assertEqual(gates_response.data[0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(intents_response.data[0]['return_url_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(intents_response.data[0]['motivo_bloqueo'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(intents_response.data[0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['gates_cobro'][0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['intentos_webpay'][0]['motivo_bloqueo'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['intentos_webpay'][0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
         payload = intents_response.data[0]['provider_payload']
         self.assertEqual(payload['transaction_status'], 'AUTHORIZED')

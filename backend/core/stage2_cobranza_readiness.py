@@ -487,6 +487,8 @@ def _collect_webpay_intent_issues(intents) -> dict[str, int]:
             counts['invalid_model'] += 1
         if contains_sensitive_reference(intent.provider_payload, include_sensitive_keys=True):
             counts['sensitive_provider_payload'] += 1
+        if intent.motivo_bloqueo.strip() and contains_sensitive_reference(intent.motivo_bloqueo):
+            counts['sensitive_block_reason'] += 1
         if intent.return_url_ref.strip() and not _non_sensitive_reference(intent.return_url_ref):
             counts['sensitive_return_url_ref'] += 1
         if intent.estado == EstadoIntentoPagoWebPay.CONFIRMED_MANUAL:
@@ -1482,6 +1484,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.webpay_intent.sensitive_provider_payload',
                 'Existen intentos WebPay con provider_payload sensible.',
                 count=webpay_intent_issues['sensitive_provider_payload'],
+            )
+        )
+    if webpay_intent_issues.get('sensitive_block_reason'):
+        issues.append(
+            _issue(
+                'stage2.webpay_intent.sensitive_block_reason',
+                'Existen intentos WebPay con motivo de bloqueo sensible heredado.',
+                count=webpay_intent_issues['sensitive_block_reason'],
             )
         )
     if webpay_intent_issues.get('confirmed_without_external_ref'):

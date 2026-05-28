@@ -266,7 +266,7 @@ class CobranzaSnapshotView(APIView):
                         'monto_clp_snapshot': item.monto_clp_snapshot,
                         'buy_order': item.buy_order,
                         'estado': item.estado,
-                        'motivo_bloqueo': item.motivo_bloqueo,
+                        'motivo_bloqueo': redact_sensitive_reference(item.motivo_bloqueo),
                         'external_ref': redact_sensitive_reference(item.external_ref),
                         'fecha_pago_webpay': item.fecha_pago_webpay,
                     }

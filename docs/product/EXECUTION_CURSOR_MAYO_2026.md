@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 2 - Cobranza/WebPay. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Pendiente seleccionar el siguiente frente seguro desde trazabilidad y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 2 `stage2-message-block-reason-redaction` integrado en PR #432, merge `06243bf`. |
-| Gate esperado | N/A hasta abrir el siguiente frente. |
-| Estado al cerrar paquete | Cerrado con CI remoto `acceptance` en verde; limpieza de worktrees pendiente en cierre operativo. |
+| Brecha activa | `IntentoPagoWebPay.motivo_bloqueo` no queda clasificado/redactado explicitamente como superficie sensible heredada en API/snapshot/readiness Etapa 2. |
+| Motivo de prioridad | Cerrar una fuga local de WebPay sin depender de Transbank real ni credenciales externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-webpay-block-reason-redaction`. |
+| Rama | `codex/stage2-webpay-block-reason-redaction`. |
+| Estado | Validado localmente; pendiente PR, CI, merge y limpieza. |
+| Gate esperado | Etapa 2 local: `classification=parcial`, `ready_for_stage2_cobranza=false`, sin cierre evidencial. |
+| Estado al cerrar paquete | Pendiente de registrar merge y dejar el cursor sin paquete activo. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Desde `main` limpio, tomar el siguiente frente seguro segun trazabilidad y abrirlo explicitamente en este cursor. |
+| Siguiente accion | Publicar PR, esperar CI, mergear, limpiar worktree y cerrar el cursor. |
 
 ## Actualizacion
 

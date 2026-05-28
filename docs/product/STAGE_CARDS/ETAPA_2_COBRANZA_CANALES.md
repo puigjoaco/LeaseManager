@@ -164,15 +164,16 @@ condicionados sin envios reales accidentales.
   WebPay, y el servicio de confirmacion manual debe conservar auditoria
   dedicada con actor y referencia externa alineada en la misma transaccion.
   `provider_payload` no puede contener URLs, tokens, credenciales, correos ni
-  claves sensibles; `restricciones_operativas` del gate WebPay aplica la misma
-  regla incluyendo nombres de claves sensibles. Ningun flujo llama Transbank ni
-  marca pago confirmado sin revalidar el gate.
+  claves sensibles; `motivo_bloqueo` de intentos WebPay tampoco puede contener
+  referencias sensibles; `restricciones_operativas` del gate WebPay aplica la
+  misma regla incluyendo nombres de claves sensibles. Ningun flujo llama
+  Transbank ni marca pago confirmado sin revalidar el gate.
 - APIs y snapshots de Canales/Cobranza redactan refs sensibles ya persistidas
   antes de devolver gates, mensajes salientes o intentos WebPay al backoffice;
   esto cubre `evidencia_ref`, `restricciones_operativas`, `external_ref`,
-  `return_url_ref`, `provider_payload`, `motivo_estado` de notificaciones de
-  cobranza y `storage_ref` documental expuesto por snapshot de Canales, sin
-  abrir integraciones externas. Los mensajes
+  `return_url_ref`, `provider_payload`, `motivo_bloqueo` de intentos WebPay,
+  `motivo_estado` de notificaciones de cobranza y `storage_ref` documental
+  expuesto por snapshot de Canales, sin abrir integraciones externas. Los mensajes
   salientes rechazan nuevas escrituras con `provider_payload` que contenga
   URLs, tokens, credenciales, correos o claves sensibles. Los motivos de
   bloqueo de mensajes salientes tampoco pueden contener referencias sensibles,
@@ -198,8 +199,9 @@ condicionados sin envios reales accidentales.
   valores UF manuales, estados de cuenta, identidades/asignaciones de canal, gates
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,
   incluyendo deteccion de
-  UF manual sin evento auditable, refs sensibles en gates, `external_ref`, `return_url_ref` o
-  `provider_payload` sensible, intentos WebPay confirmados desalineados con el
+  UF manual sin evento auditable, refs sensibles en gates, `external_ref`, `return_url_ref`,
+  `motivo_bloqueo` o `provider_payload` sensible en intentos WebPay,
+  intentos WebPay confirmados desalineados con el
   pago mensual, pagos pendientes vencidos, mora desactualizada, efecto de
   codigo efectivo descuadrado o sin evento auditable, motivos de bloqueo de
   mensajes salientes sensibles heredados, pagos por acuerdo de
