@@ -82,6 +82,9 @@ class ConexionBancariaAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(MovimientoBancarioImportado)
 class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
@@ -104,14 +107,7 @@ class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'evidencia_importacion_ref_redacted',
-        'referencia_redacted',
-        'transaction_id_banco_redacted',
-        'notas_admin_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = (
         'conexion_bancaria',
         'fecha_movimiento',
@@ -143,6 +139,9 @@ class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(IngresoDesconocido)
 class IngresoDesconocidoAdmin(admin.ModelAdmin):
@@ -157,7 +156,7 @@ class IngresoDesconocidoAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = ('sugerencia_asistida_redacted', 'created_at', 'updated_at')
+    readonly_fields = fields
     list_display = ('cuenta_recaudadora', 'fecha_movimiento', 'monto', 'estado')
     list_filter = ('estado',)
     search_fields = ('descripcion_origen',)
@@ -167,6 +166,9 @@ class IngresoDesconocidoAdmin(admin.ModelAdmin):
         return _redacted_payload_attr(obj, 'sugerencia_asistida')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -186,14 +188,7 @@ class CuadraturaBancariaAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'diferencia_clp',
-        'evidencia_cuadratura_ref_redacted',
-        'responsable_ref_redacted',
-        'rationale_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = (
         'cuenta_recaudadora',
         'periodo_economico',
@@ -221,6 +216,9 @@ class CuadraturaBancariaAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(TransferenciaIntercuenta)
 class TransferenciaIntercuentaAdmin(admin.ModelAdmin):
@@ -239,18 +237,7 @@ class TransferenciaIntercuentaAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'entidad_origen_tipo',
-        'entidad_origen_id',
-        'entidad_destino_tipo',
-        'entidad_destino_id',
-        'criterio_conciliacion_redacted',
-        'evidencia_transferencia_ref_redacted',
-        'responsable_ref_redacted',
-        'rationale_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = (
         'periodo_economico',
         'movimiento_origen',
@@ -278,5 +265,8 @@ class TransferenciaIntercuentaAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'rationale')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
