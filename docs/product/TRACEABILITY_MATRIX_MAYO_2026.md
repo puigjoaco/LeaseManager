@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: Auditoria/Conciliacion cierra la superficie generica de
+resoluciones manuales especializadas. El endpoint generico de
+`ManualResolution` ya no puede crear categorias `conciliacion.*`
+especializadas, convertir una resolucion comun a esas categorias ni retargetear
+`scope_type`, `scope_reference` o `metadata`; esos casos quedan bajo los
+servicios auditados de ingreso desconocido, cargo bancario y transferencia
+interna.
+
 Nota 2026-05-28: Canales/Etapa 2 agrega ruta interna controlada para
 mensajes WhatsApp fallidos. `mark_whatsapp_message_as_failed()` solo acepta
 mensajes preparados, exige actor trazable y motivo no sensible, cambia el

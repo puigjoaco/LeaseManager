@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 3 / Conciliacion - superficie generica de resoluciones manuales especializadas. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete Etapa 2 / Canales `stage2-whatsapp-failed-fallback-trace` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad y orden de construccion. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 2 / Canales integrado en PR #501, merge `92b6670`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con pruebas focales, suite impactada, gate local Etapa 2, acceptance local, CI remoto acceptance, evidencia, trazabilidad e higiene en verde; el worktree tactico fue eliminado. |
+| Brecha activa | Las resoluciones manuales especializadas de Conciliacion ya bloquean cierre generico, pero el endpoint generico aun puede crear categorias especializadas o retargetear scope/metadata, saltando los servicios auditados. |
+| Motivo de prioridad | Cierra una superficie local de Conciliacion/Auditoria sin banco externo: las resoluciones de ingresos desconocidos y cargos deben nacer y mutar por servicios especializados. |
+| Worktree | `D:/Proyectos/LeaseManager-stage3-specialized-resolution-surface`. |
+| Rama | `codex/stage3-specialized-resolution-surface`. |
+| Estado | Paquete abierto. |
+| Gate esperado | Etapa 3 local debe seguir `classification=parcial`, `ready_for_stage3_conciliacion=false` sin llamadas a bancos reales. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el proximo paquete pequeno, seguro y verificable desde `TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards y orden de construccion. |
-| Siguiente accion | Abrir el proximo paquete util en worktree `codex/...` y registrar aqui el frente activo antes de editar. |
+| Politica de reanudacion | Continuar este worktree hasta cerrar PR o pausar aqui explicitamente. |
+| Siguiente accion | Bloquear creacion/retarget generico de resoluciones especializadas, cubrir tests, evidencia y trazabilidad. |
 
 ## Actualizacion
 

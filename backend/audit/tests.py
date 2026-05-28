@@ -202,6 +202,75 @@ class AuditAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_specialized_resolution_cannot_be_created_via_generic_endpoint(self):
+        response = self.client.post(
+            reverse('manual-resolution-list'),
+            {
+                'category': 'conciliacion.ingreso_desconocido',
+                'scope_type': 'movimiento_bancario',
+                'scope_reference': '123',
+                'summary': 'Ingreso desconocido creado directo',
+                'status': 'open',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('category', response.data)
+        self.assertFalse(
+            ManualResolution.objects.filter(
+                category='conciliacion.ingreso_desconocido',
+                scope_type='movimiento_bancario',
+                scope_reference='123',
+            ).exists()
+        )
+
+    def test_generic_resolution_cannot_be_converted_to_specialized_category(self):
+        resolution = ManualResolution.objects.create(
+            category='operacion.revision_manual',
+            scope_type='operacion',
+            scope_reference='op-1',
+            summary='Revision operativa',
+            status='open',
+        )
+
+        response = self.client.patch(
+            reverse('manual-resolution-detail', args=[resolution.pk]),
+            {'category': 'conciliacion.movimiento_cargo'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('category', response.data)
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.category, 'operacion.revision_manual')
+
+    def test_specialized_resolution_cannot_be_retargeted_via_generic_patch(self):
+        resolution = ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            scope_type='movimiento_bancario',
+            scope_reference='124',
+            summary='Cargo bancario',
+            status='open',
+            metadata={'movimiento_id': 124},
+        )
+
+        response = self.client.patch(
+            reverse('manual-resolution-detail', args=[resolution.pk]),
+            {
+                'scope_reference': '999',
+                'metadata': {'movimiento_id': 999},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('scope_reference', response.data)
+        self.assertIn('metadata', response.data)
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.scope_reference, '124')
+        self.assertEqual(resolution.metadata['movimiento_id'], 124)
+
     def test_unknown_income_resolution_cannot_be_marked_superseded_via_generic_patch(self):
         resolution = ManualResolution.objects.create(
             category='conciliacion.ingreso_desconocido',
