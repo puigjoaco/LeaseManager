@@ -231,6 +231,50 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('origen', response.data)
 
+    def test_generic_document_endpoint_rejects_patch_to_system_generated_origin(self):
+        expediente = self._create_expediente(entidad_id='generic-generated-origin-patch')
+        self._create_politica()
+        documento = self._create_documento(expediente['id'])
+
+        response = self.client.patch(
+            reverse('documentos-documento-detail', args=[documento['id']]),
+            {'origen': 'generado_sistema'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('origen', response.data)
+        stored = DocumentoEmitido.objects.get(pk=documento['id'])
+        self.assertEqual(stored.origen, 'carga_externa_controlada')
+
+    def test_generated_pdf_document_cannot_be_mutated_from_generic_endpoint(self):
+        expediente = self._create_expediente(entidad_id='generated-pdf-generic-mutation')
+        self._create_politica()
+        payload = {
+            'expediente': expediente['id'],
+            'tipo_documental': 'contrato_principal',
+            'version_plantilla': 'contrato-v1',
+            'titulo': 'Contrato principal controlado',
+            'lineas': ['Arrendador: referencia-operativa-arrendador'],
+        }
+        preview = self.client.post(reverse('documentos-documento-previsualizar-pdf'), payload, format='json')
+        self.assertEqual(preview.status_code, status.HTTP_200_OK)
+        generated = self.client.post(reverse('documentos-documento-generar-pdf'), payload, format='json')
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        document_id = generated.data['documento']['id']
+
+        response = self.client.patch(
+            reverse('documentos-documento-detail', args=[document_id]),
+            {'checksum': VALID_SHA256_ALT},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('origen', response.data)
+        stored = DocumentoEmitido.objects.get(pk=document_id)
+        self.assertEqual(stored.origen, 'generado_sistema')
+        self.assertEqual(stored.checksum, generated.data['pdf_sha256'])
+
     def test_document_admin_redacts_sensitive_document_refs(self):
         expediente = self._create_expediente(entidad_id='admin-redaction')
         self._create_politica()

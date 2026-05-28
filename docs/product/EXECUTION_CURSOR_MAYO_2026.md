@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 5 / Documentos - guard de endpoint generico para PDF generado. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete `stage5-transfer-event-alignment` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 5/Contabilidad `stage5-transfer-event-alignment` integrado en PR #491, merge `1b6bc17`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; worktree tactico y rama remota eliminados. |
+| Brecha activa | El endpoint generico de documentos bloqueaba crear `origen=generado_sistema`, pero aun podia convertir un documento externo a generado o mutar un PDF generado ya emitido. |
+| Motivo de prioridad | La stage card exige que la emision de PDF generado ocurra solo por `generar-pdf/`, con preview y auditoria dedicada; el endpoint generico no debe simular ni alterar ese origen. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-generated-document-generic-guard`. |
+| Rama | `codex/stage5-generated-document-generic-guard`. |
+| Estado | Paquete abierto en implementacion local. |
+| Gate esperado | Readiness documental local debe permanecer `classification=parcial`, `ready_for_stage5_documents=false` por fuente local no autorizada; las pruebas API deben bloquear mutaciones genericas de documentos generados por sistema. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta validacion, PR, CI, merge y limpieza; no abrir otro frente mientras este paquete este sucio. |
+| Siguiente accion | Ejecutar pruebas focales e impactadas, gate documental local, acceptance local, higiene, PR/CI/merge y cierre del cursor. |
 
 ## Actualizacion
 
