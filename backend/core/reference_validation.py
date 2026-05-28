@@ -5,6 +5,12 @@ SENSITIVE_REFERENCE_PATTERN = re.compile(
     r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
     re.IGNORECASE,
 )
+SENSITIVE_REFERENCE_KEY_ALIASES = {
+    'authorization',
+    'authorizationheader',
+    'authheader',
+    'privatekey',
+}
 REDACTED_SENSITIVE_REFERENCE = '<redacted-sensitive-reference>'
 
 
@@ -15,6 +21,15 @@ def normalize_reference(value):
 def is_non_sensitive_reference(value):
     normalized = normalize_reference(value)
     return bool(normalized) and not SENSITIVE_REFERENCE_PATTERN.search(normalized)
+
+
+def key_looks_sensitive(value):
+    normalized = normalize_reference(value)
+    compact = re.sub(r'[\s_-]+', '', normalized.lower())
+    return bool(normalized) and (
+        bool(SENSITIVE_REFERENCE_PATTERN.search(normalized))
+        or compact in SENSITIVE_REFERENCE_KEY_ALIASES
+    )
 
 
 def redact_sensitive_reference(value):
@@ -36,7 +51,7 @@ def redact_sensitive_payload(value, *, _sensitive_key=False):
             key: redact_sensitive_payload(
                 item,
                 _sensitive_key=_sensitive_key
-                or bool(isinstance(key, str) and SENSITIVE_REFERENCE_PATTERN.search(key)),
+                or bool(isinstance(key, str) and key_looks_sensitive(key)),
             )
             for key, item in value.items()
         }
@@ -80,7 +95,7 @@ def contains_sensitive_reference(
                     include_sensitive_keys
                     and isinstance(key, str)
                     and key not in allowed_sensitive_keys
-                    and SENSITIVE_REFERENCE_PATTERN.search(key)
+                    and key_looks_sensitive(key)
                 ),
             )
             for key, item in value.items()

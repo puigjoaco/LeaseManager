@@ -2,6 +2,7 @@ import json
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -242,6 +243,8 @@ class ReferenceValidationTests(TestCase):
             'safe_ref': 'controlled-reference',
             'callback': 'https://provider.example.test/token/value',
             'access_token': 'opaque-value',
+            'headers': {'authorization': 'opaque-header-value'},
+            'private_key': 'opaque-private-key-value',
             'nested': [
                 {'api_key': 'opaque-key'},
                 {'result_ref': 'controlled-result'},
@@ -255,6 +258,8 @@ class ReferenceValidationTests(TestCase):
         self.assertEqual(redacted['safe_ref'], 'controlled-reference')
         self.assertEqual(redacted['callback'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(redacted['access_token'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(redacted['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(redacted['private_key'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(redacted['nested'][0]['api_key'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(redacted['nested'][1]['result_ref'], 'controlled-result')
         self.assertEqual(redacted['count'], 2)
@@ -280,6 +285,9 @@ class ReferenceValidationTests(TestCase):
         self.assertFalse(contains_sensitive_reference(payload))
         self.assertTrue(contains_sensitive_reference(payload, include_sensitive_keys=True))
         self.assertTrue(contains_sensitive_reference({'api_key': None}, include_sensitive_keys=True))
+        self.assertTrue(contains_sensitive_reference({'authorization': 'opaque-value'}, include_sensitive_keys=True))
+        self.assertTrue(contains_sensitive_reference({'private-key': None}, include_sensitive_keys=True))
+        self.assertFalse(contains_sensitive_reference('stage2-authorization-v1', include_sensitive_keys=True))
 
     def test_contains_sensitive_reference_allows_canonical_reference_keys(self):
         payload = {
@@ -301,3 +309,19 @@ class ReferenceValidationTests(TestCase):
                 allowed_sensitive_keys=('credencial_validada_ref',),
             )
         )
+
+    def test_runtime_signal_rejects_opaque_authorization_or_private_key_metadata(self):
+        for payload in (
+            {'healthy': True, 'authorization': 'opaque-runtime-header'},
+            {'healthy': True, 'private_key': 'opaque-private-key'},
+        ):
+            signal = OperationalRuntimeSignal(
+                signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+                status=RuntimeSignalStatus.OK,
+                source_kind=RuntimeSignalSourceKind.LOCAL,
+                value=payload,
+                evidence_ref='runtime-evidence-v1',
+            )
+            with self.subTest(payload=payload), self.assertRaises(ValidationError) as context:
+                signal.full_clean()
+            self.assertIn('value', context.exception.message_dict)
