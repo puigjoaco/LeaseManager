@@ -479,7 +479,7 @@ class ContratosAPITests(APITestCase):
         aviso = AvisoTermino.objects.create(
             contrato=contrato,
             fecha_efectiva=date(2026, 12, 31),
-            causal='No renovacion',
+            causal='No renovacion en https://contracts.example.test/notice?token=secret',
             estado=EstadoAvisoTermino.REGISTERED,
             resolucion_conflicto_renovacion_ref='https://contracts.example.test/conflict?token=secret',
             resolucion_conflicto_renovacion_motivo='Resolucion en https://contracts.example.test/conflict?token=secret',
@@ -497,6 +497,7 @@ class ContratosAPITests(APITestCase):
         self.assertNotIn('terminacion_anticipada_prorrata_motivo', contrato_admin.fields)
         self.assertNotIn('politica_base_renovacion_ref', periodo_admin.fields)
         self.assertNotIn('politica_base_renovacion_motivo', periodo_admin.fields)
+        self.assertNotIn('causal', aviso_admin.fields)
         self.assertNotIn('resolucion_conflicto_renovacion_ref', aviso_admin.fields)
         self.assertNotIn('resolucion_conflicto_renovacion_motivo', aviso_admin.fields)
         self.assertFalse(contrato_admin.has_add_permission(None))
@@ -528,6 +529,10 @@ class ContratosAPITests(APITestCase):
         )
         self.assertEqual(
             aviso_admin.resolucion_conflicto_renovacion_ref_redacted(aviso),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            aviso_admin.causal_redacted(aviso),
             REDACTED_SENSITIVE_REFERENCE,
         )
         self.assertEqual(
@@ -577,7 +582,7 @@ class ContratosAPITests(APITestCase):
         aviso = AvisoTermino.objects.create(
             contrato=contrato,
             fecha_efectiva=date(2026, 12, 31),
-            causal='No renovacion',
+            causal='No renovacion en https://contracts.example.test/notice?token=secret',
             estado=EstadoAvisoTermino.REGISTERED,
             resolucion_conflicto_renovacion_ref='https://contracts.example.test/conflict?token=secret',
             resolucion_conflicto_renovacion_motivo='Resolucion en https://contracts.example.test/conflict?token=secret',
@@ -616,6 +621,7 @@ class ContratosAPITests(APITestCase):
             self.assertEqual(payload['politica_base_renovacion_motivo'], REDACTED_SENSITIVE_REFERENCE)
 
         for payload in (aviso_detail.data, aviso_snapshot):
+            self.assertEqual(payload['causal'], REDACTED_SENSITIVE_REFERENCE)
             self.assertEqual(payload['resolucion_conflicto_renovacion_ref'], REDACTED_SENSITIVE_REFERENCE)
             self.assertEqual(payload['resolucion_conflicto_renovacion_motivo'], REDACTED_SENSITIVE_REFERENCE)
 
@@ -2928,6 +2934,27 @@ class ContratosAPITests(APITestCase):
 
         self.assertEqual(aviso_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('fecha_efectiva', aviso_response.data)
+
+    def test_notice_rejects_sensitive_causal(self):
+        mandato = self._create_active_mandato(codigo='MAND-107-CAUSAL', owner_rut='16161627-7')
+        arrendatario = self._create_arrendatario(rut='17171728-4')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-107-CAUSAL')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        aviso_response = self.client.post(
+            reverse('contratos-aviso-list'),
+            {
+                'contrato': current_response.data['id'],
+                'fecha_efectiva': '2026-12-31',
+                'causal': 'No renovacion en https://contracts.example.test/notice?token=secret',
+                'estado': EstadoAvisoTermino.REGISTERED,
+            },
+            format='json',
+        )
+
+        self.assertEqual(aviso_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('causal', aviso_response.data)
 
     def test_registered_notice_exposes_late_registration_alert(self):
         mandato = self._create_active_mandato(codigo='MAND-107-LATE-REG', owner_rut='16161618-8')

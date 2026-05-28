@@ -1413,6 +1413,22 @@ def _audit_late_termination_notices(issues: list[dict[str, Any]]) -> None:
         )
 
 
+def _audit_notice_sensitive_causals(issues: list[dict[str, Any]]) -> None:
+    for aviso in AvisoTermino.objects.all():
+        if contains_sensitive_reference(aviso.causal):
+            _issue(
+                issues,
+                code='stage1.aviso_termino.causal_sensible',
+                entity='AvisoTermino',
+                entity_id=aviso.pk,
+                message=(
+                    'Aviso de termino existente conserva una causal que parece contener '
+                    'referencias sensibles; mover el detalle a evidencia segura y conservar '
+                    'solo causal no sensible.'
+                ),
+            )
+
+
 def _audit_contract_tenant_readiness(issues: list[dict[str, Any]], contrato: Contrato) -> None:
     tenant = contrato.arrendatario
     if tenant.estado_contacto != EstadoContactoArrendatario.ACTIVE:
@@ -2016,6 +2032,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
         code='stage1.periodo.validacion_modelo',
         entity='PeriodoContractual',
     )
+    _audit_notice_sensitive_causals(issues)
     _audit_model_validation(
         issues,
         queryset=AvisoTermino.objects.select_related('contrato'),

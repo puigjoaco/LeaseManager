@@ -220,7 +220,7 @@ class AvisoTerminoAdmin(admin.ModelAdmin):
     fields = (
         'contrato',
         'fecha_efectiva',
-        'causal',
+        'causal_redacted',
         'estado',
         'resolucion_conflicto_renovacion_ref_redacted',
         'resolucion_conflicto_renovacion_motivo_redacted',
@@ -229,14 +229,18 @@ class AvisoTerminoAdmin(admin.ModelAdmin):
         'updated_at',
     )
     readonly_fields = (
+        'causal_redacted',
         'resolucion_conflicto_renovacion_ref_redacted',
         'resolucion_conflicto_renovacion_motivo_redacted',
         'created_at',
         'updated_at',
     )
-    list_display = ('contrato', 'fecha_efectiva', 'causal', 'estado', 'registrado_por')
+    list_display = ('contrato', 'fecha_efectiva', 'causal_redacted', 'estado', 'registrado_por')
     list_filter = ('estado',)
-    search_fields = ('contrato__codigo_contrato', 'causal')
+    search_fields = ('contrato__codigo_contrato',)
+
+    def causal_redacted(self, obj):
+        return _redacted_attr(obj, 'causal')
 
     def resolucion_conflicto_renovacion_ref_redacted(self, obj):
         return _redacted_attr(obj, 'resolucion_conflicto_renovacion_ref')

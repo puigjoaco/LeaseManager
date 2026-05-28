@@ -1083,6 +1083,7 @@ class AvisoTerminoSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        data['causal'] = redact_sensitive_reference(data.get('causal'))
         data['resolucion_conflicto_renovacion_ref'] = redact_sensitive_reference(
             data.get('resolucion_conflicto_renovacion_ref')
         )

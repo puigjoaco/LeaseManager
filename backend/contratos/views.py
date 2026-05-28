@@ -297,7 +297,7 @@ class ContractsSnapshotView(APIView):
                         'id': item.id,
                         'contrato': item.contrato_id,
                         'fecha_efectiva': item.fecha_efectiva,
-                        'causal': item.causal,
+                        'causal': redact_sensitive_reference(item.causal),
                         'estado': item.estado,
                         'resolucion_conflicto_renovacion_ref': redact_sensitive_reference(
                             item.resolucion_conflicto_renovacion_ref
