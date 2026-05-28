@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | PlataformaBase / Compliance - estados terminales de exportaciones sensibles. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `ExportacionSensible` expirada es terminal para descarga, pero la revocacion operativa aun puede sobreescribir ese estado. |
-| Motivo de prioridad | Frente local seguro de PlataformaBase/Compliance: endurece control de datos sensibles sin requerir `.env`, datos reales, DB historicas, backfills, deploys ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-export-terminal-state`. |
-| Rama | `codex/compliance-export-terminal-state`. |
-| Estado | Abierto para bloquear revocaciones sobre exportaciones expiradas o ya revocadas, cubrir readiness y evidencia. |
-| Gate esperado | Tests focales Compliance/readiness, suite impactada Compliance/Core, `manage.py check`, migraciones dry-run, readiness local Compliance, frontend build/lint, acceptance local, higiene repo y CI remoto. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete PlataformaBase/Compliance `compliance-export-terminal-state` integrado en PR #455, merge `7ea08de`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con CI remoto acceptance en verde; worktree y rama tactica de implementacion limpiados. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge o pausar explicitamente aqui si aparece un bloqueo real. |
-| Siguiente accion | Implementar guard de estado terminal, actualizar tests/evidencia/trazabilidad y cerrar paquete. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
+| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
 
 ## Actualizacion
 
