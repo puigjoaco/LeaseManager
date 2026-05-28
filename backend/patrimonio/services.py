@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.db import models, transaction
 
 from audit.services import create_audit_event
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 from .models import ComunidadPatrimonial, Empresa, EstadoPatrimonial, ParticipacionPatrimonial, Socio
 
@@ -89,8 +89,11 @@ def execute_participation_transfer(
     actor_user=None,
     ip_address=None,
 ):
-    if not reason or not reason.strip():
+    reason = (reason or '').strip()
+    if not reason:
         raise ValueError('La transferencia requiere motivo auditable.')
+    if contains_sensitive_reference(reason):
+        raise ValueError('El motivo de transferencia no puede contener URLs, correos, tokens ni credenciales.')
     if not evidence_ref or not evidence_ref.strip():
         raise ValueError('La transferencia requiere referencia de evidencia no sensible.')
     if not is_non_sensitive_reference(evidence_ref):
@@ -170,7 +173,7 @@ def execute_participation_transfer(
             'origin_participant_type': origin.participante_tipo,
             'origin_participant_id': origin.participante_id,
             'effective_date': effective_date.isoformat(),
-            'reason': reason.strip(),
+            'reason': reason,
             'evidence_ref': evidence_ref.strip(),
             'target_participation_ids': [item.pk for item in created_targets],
             'target_count': len(created_targets),

@@ -652,13 +652,19 @@ def _participation_transfer_event_is_aligned(
             metadata.get('origin_participant_type') == participation.participante_tipo,
             _metadata_id_matches(metadata.get('origin_participant_id'), participation.participante_id),
             metadata.get('effective_date') == effective_date.isoformat(),
-            bool(reason),
+            bool(reason) and not contains_sensitive_reference(reason),
             bool(evidence_ref) and is_non_sensitive_reference(evidence_ref),
             _metadata_ids_match(metadata.get('target_participation_ids'), successor_ids),
             _metadata_id_matches(metadata.get('target_count'), len(successors)),
             _metadata_decimal_matches(metadata.get('transferred_percentage'), transferred_percentage),
         )
     )
+
+
+def _participation_transfer_event_has_sensitive_reason(event: AuditEvent) -> bool:
+    metadata = event.metadata if isinstance(event.metadata, dict) else {}
+    reason = _metadata_str(metadata.get('reason'))
+    return bool(reason) and contains_sensitive_reference(reason)
 
 
 def _audit_participation_transfers(issues: list[dict[str, Any]]) -> None:
@@ -704,6 +710,18 @@ def _audit_participation_transfers(issues: list[dict[str, Any]]) -> None:
                 message=(
                     'Participacion patrimonial terminada con sucesor inmediato sin evento auditado de '
                     'transferencia/reemplazo; debe usar el flujo guiado para conservar trazabilidad.'
+                ),
+            )
+            continue
+        if any(_participation_transfer_event_has_sensitive_reason(event) for event in audit_events):
+            _issue(
+                issues,
+                code='stage1.participacion.transferencia_motivo_sensible',
+                entity='ParticipacionPatrimonial',
+                entity_id=participation.pk,
+                message=(
+                    'Participacion patrimonial terminada con evento de transferencia cuyo motivo contiene '
+                    'referencias sensibles; la auditoria debe conservar solo motivo no sensible.'
                 ),
             )
             continue

@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 1 - Patrimonio. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Pendiente seleccionar el siguiente frente seguro desde trazabilidad y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 0 `platform-user-metadata-redaction` integrado en PR #439, merge `e73ae18`. |
-| Gate esperado | N/A hasta abrir el siguiente frente. |
-| Estado al cerrar paquete | Cerrado con CI remoto `acceptance` en verde; worktree y rama tactica de implementacion limpiados. |
+| Brecha activa | La transferencia patrimonial valida `evidence_ref` no sensible, pero permite que `motivo` con URL, token, correo o credencial quede persistido en `AuditEvent.metadata`. |
+| Motivo de prioridad | Primer frente no cerrado en el orden de construccion; la stage card exige motivo/evidencia no sensibles para transferencias de participaciones. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-participation-transfer-reason-redaction`. |
+| Rama | `codex/stage1-participation-transfer-reason-redaction`. |
+| Estado | En desarrollo. |
+| Gate esperado | Tests focales Patrimonio/Auditor Etapa 1, suite impactada, acceptance local y CI remoto verdes; no requiere fuentes externas. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Desde `main` limpio, tomar el siguiente frente seguro segun trazabilidad y abrirlo explicitamente en este cursor. |
+| Politica de reanudacion | Continuar solo este worktree hasta PR/CI/merge/limpieza o pausar aqui con estado explicito. |
+| Siguiente accion | Validar y auditar que el motivo de transferencia patrimonial no contenga referencias sensibles. |
 
 ## Actualizacion
 
