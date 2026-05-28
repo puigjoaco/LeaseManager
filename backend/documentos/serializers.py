@@ -236,6 +236,18 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'origen': 'Los documentos generados por sistema deben emitirse desde generar-pdf/.'}
             )
+        if (
+            self.instance
+            and attrs.get('origen') == OrigenDocumento.GENERATED
+            and self.instance.origen != OrigenDocumento.GENERATED
+        ):
+            raise serializers.ValidationError(
+                {'origen': 'Los documentos generados por sistema deben emitirse desde generar-pdf/.'}
+            )
+        if self.instance and self.instance.origen == OrigenDocumento.GENERATED and attrs:
+            raise serializers.ValidationError(
+                {'origen': 'Los documentos generados por sistema no se modifican desde el endpoint generico.'}
+            )
 
         requested_state = attrs.get('estado')
         current_state = getattr(self.instance, 'estado', None)

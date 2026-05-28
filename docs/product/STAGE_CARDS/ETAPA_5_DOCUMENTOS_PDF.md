@@ -25,7 +25,8 @@ firma y notaria trazables.
   `documentos-emitidos/generar-pdf/`: genera bytes PDF canonicos locales,
   deriva `checksum` y `storage_ref` desde el contenido, rechaza contenido
   sensible, registra auditoria `documentos.documento_emitido.generated_pdf` y
-  deja cerrado el endpoint generico para `origen=generado_sistema`.
+  deja cerrado el endpoint generico para crear, convertir o mutar documentos
+  con `origen=generado_sistema`.
 - La auditoria de PDF generado debe conservar actor y metadata alineada con el
   documento emitido: `checksum`, `storage_ref`, version de plantilla, tipo
   documental y expediente. Readiness debe reportar
