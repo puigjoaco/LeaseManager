@@ -24,6 +24,7 @@ from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoM
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
 from .admin import (
+    AsientoContableAdmin,
     BalanceComprobacionAdmin,
     CierreMensualContableAdmin,
     EfectoReaperturaCierreMensualAdmin,
@@ -648,6 +649,7 @@ class ContabilidadAPITests(APITestCase):
         site = AdminSite()
 
         event_admin = EventoContableAdmin(EventoContable, site)
+        asiento_admin = AsientoContableAdmin(AsientoContable, site)
         movement_admin = MovimientoAsientoAdmin(MovimientoAsiento, site)
         obligation_admin = ObligacionTributariaMensualAdmin(ObligacionTributariaMensual, site)
         diario_admin = LibroDiarioAdmin(LibroDiario, site)
@@ -658,15 +660,25 @@ class ContabilidadAPITests(APITestCase):
 
         self.assertNotIn('payload_resumen', event_admin.fields)
         self.assertEqual(event_admin.payload_resumen_redacted(event)['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertTrue(set(event_admin.fields).issubset(set(event_admin.readonly_fields)))
         self.assertFalse(event_admin.has_add_permission(None))
+        self.assertFalse(event_admin.has_delete_permission(None))
+
+        self.assertTrue(set(asiento_admin.fields).issubset(set(asiento_admin.readonly_fields)))
+        self.assertFalse(asiento_admin.has_add_permission(None))
+        self.assertFalse(asiento_admin.has_delete_permission(None))
 
         self.assertNotIn('centro_resultado_ref', movement_admin.fields)
         self.assertEqual(movement_admin.centro_resultado_ref_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
+        self.assertTrue(set(movement_admin.fields).issubset(set(movement_admin.readonly_fields)))
         self.assertFalse(movement_admin.has_add_permission(None))
+        self.assertFalse(movement_admin.has_delete_permission(None))
 
         self.assertNotIn('detalle_calculo', obligation_admin.fields)
         self.assertEqual(obligation_admin.detalle_calculo_redacted(obligacion)['api_key'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertTrue(set(obligation_admin.fields).issubset(set(obligation_admin.readonly_fields)))
         self.assertFalse(obligation_admin.has_add_permission(None))
+        self.assertFalse(obligation_admin.has_delete_permission(None))
 
         for admin_instance, obj in (
             (diario_admin, libro_diario),
@@ -676,7 +688,9 @@ class ContabilidadAPITests(APITestCase):
             self.assertNotIn('storage_ref', admin_instance.fields)
             self.assertNotIn('resumen', admin_instance.fields)
             self.assertEqual(admin_instance.storage_ref_redacted(obj), REDACTED_SENSITIVE_REFERENCE)
+            self.assertTrue(set(admin_instance.fields).issubset(set(admin_instance.readonly_fields)))
             self.assertFalse(admin_instance.has_add_permission(None))
+            self.assertFalse(admin_instance.has_delete_permission(None))
 
         self.assertEqual(diario_admin.resumen_redacted(libro_diario)['authorization'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(mayor_admin.resumen_redacted(libro_mayor)['callback'], REDACTED_SENSITIVE_REFERENCE)
@@ -687,7 +701,9 @@ class ContabilidadAPITests(APITestCase):
             close_admin.resumen_obligaciones_redacted(cierre)['callback'],
             REDACTED_SENSITIVE_REFERENCE,
         )
+        self.assertTrue(set(close_admin.fields).issubset(set(close_admin.readonly_fields)))
         self.assertFalse(close_admin.has_add_permission(None))
+        self.assertFalse(close_admin.has_delete_permission(None))
 
         for raw_field in ('motivo', 'efecto_esperado', 'evidencia_ref'):
             self.assertNotIn(raw_field, effect_admin.fields)
@@ -695,7 +711,9 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(effect_admin.motivo_redacted(effect), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(effect_admin.efecto_esperado_redacted(effect), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(effect_admin.evidencia_ref_redacted(effect), REDACTED_SENSITIVE_REFERENCE)
+        self.assertTrue(set(effect_admin.fields).issubset(set(effect_admin.readonly_fields)))
         self.assertFalse(effect_admin.has_add_permission(None))
+        self.assertFalse(effect_admin.has_delete_permission(None))
 
     def test_create_and_patch_configuracion_fiscal_with_tasa_ppm_vigente(self):
         empresa = self._create_active_empresa(nombre='FiscalCo', rut='78787878-7')
