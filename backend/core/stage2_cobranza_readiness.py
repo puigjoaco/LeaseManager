@@ -17,6 +17,7 @@ from canales.models import (
     MensajeSaliente,
     NotificacionCobranzaProgramada,
     gate_restrictions_contain_sensitive_reference,
+    message_identity_authorization_issue,
 )
 from canales.services import (
     COLLECTABLE_PAYMENT_STATES,
@@ -208,6 +209,13 @@ def _message_operational_issue(message: MensajeSaliente) -> str:
         return 'Mensaje Email preparado/enviado con readiness de gate incompleta.'
     if not message.identidad_envio_id or message.identidad_envio.estado != EstadoIdentidadEnvio.ACTIVE:
         return 'Mensaje preparado/enviado sin identidad activa.'
+    if message_identity_authorization_issue(
+        message.canal,
+        contrato=message.contrato,
+        documento_emitido=message.documento_emitido,
+        identidad_envio=message.identidad_envio,
+    ):
+        return 'Mensaje preparado/enviado con identidad no autorizada para el contrato.'
     if not message.destinatario.strip():
         return 'Mensaje preparado/enviado sin destinatario trazable.'
     if message.contrato_id and message.contrato.mandato_operacion.estado != EstadoMandatoOperacion.ACTIVE:

@@ -97,6 +97,66 @@ def document_delivery_blocking_reason(documento_emitido):
     return ''
 
 
+def resolve_message_contract_context(contrato=None, documento_emitido=None):
+    if contrato:
+        return contrato
+    if not documento_emitido:
+        return None
+    expediente = getattr(documento_emitido, 'expediente', None)
+    if not expediente or expediente.entidad_tipo != 'contrato':
+        return None
+    try:
+        contract_id = int(expediente.entidad_id)
+    except (TypeError, ValueError):
+        return None
+    return Contrato.objects.filter(pk=contract_id).first()
+
+
+def identity_is_contract_override(canal, contrato, identidad_envio):
+    if not contrato or not identidad_envio:
+        return False
+    if contrato.identidad_envio_override_id != identidad_envio.pk:
+        return False
+    if identidad_envio.canal != canal or identidad_envio.estado != EstadoIdentidadEnvio.ACTIVE:
+        return False
+    try:
+        contrato.validate_identity_override()
+    except ValidationError:
+        return False
+    return True
+
+
+def identity_has_active_mandate_assignment(canal, contrato, identidad_envio):
+    if not contrato or not contrato.mandato_operacion_id or not identidad_envio:
+        return False
+    return AsignacionCanalOperacion.objects.filter(
+        mandato_operacion_id=contrato.mandato_operacion_id,
+        mandato_operacion__estado=EstadoMandatoOperacion.ACTIVE,
+        canal=canal,
+        identidad_envio=identidad_envio,
+        identidad_envio__estado=EstadoIdentidadEnvio.ACTIVE,
+        estado=EstadoAsignacionCanal.ACTIVE,
+    ).exists()
+
+
+def message_identity_authorization_issue(canal, contrato=None, documento_emitido=None, identidad_envio=None):
+    contract_context = resolve_message_contract_context(contrato=contrato, documento_emitido=documento_emitido)
+    if not contract_context or not identidad_envio:
+        return ''
+    if identidad_envio.canal != canal:
+        return 'La identidad de envio debe pertenecer al mismo canal del mensaje.'
+    if identidad_envio.estado != EstadoIdentidadEnvio.ACTIVE:
+        return 'Mensaje preparado/enviado requiere identidad activa.'
+    if identity_is_contract_override(canal, contract_context, identidad_envio):
+        return ''
+    if identity_has_active_mandate_assignment(canal, contract_context, identidad_envio):
+        return ''
+    return (
+        'La identidad de envio debe estar autorizada por override del contrato o asignacion activa '
+        'del mandato para el mismo canal.'
+    )
+
+
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -354,6 +414,13 @@ class MensajeSaliente(TimestampedModel):
                     errors['canal_mensajeria'] = 'Email preparado/enviado requiere credencial u OAuth validado.'
             if not self.identidad_envio_id or self.identidad_envio.estado != EstadoIdentidadEnvio.ACTIVE:
                 errors['identidad_envio'] = 'Mensaje preparado/enviado requiere identidad activa.'
+            elif reason := message_identity_authorization_issue(
+                self.canal,
+                contrato=self.contrato,
+                documento_emitido=self.documento_emitido,
+                identidad_envio=self.identidad_envio,
+            ):
+                errors['identidad_envio'] = reason
             if not self.destinatario.strip():
                 errors['destinatario'] = 'Mensaje preparado/enviado requiere destinatario trazable.'
             if self.contrato_id and self.contrato.mandato_operacion.estado != EstadoMandatoOperacion.ACTIVE:

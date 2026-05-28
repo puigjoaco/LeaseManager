@@ -1392,6 +1392,37 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.message.sent_without_timestamp', issue_codes)
         self.assertEqual(result['sections']['messages']['sent_without_timestamp'], 1)
 
+    def test_prepared_message_with_unassigned_identity_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        unassigned_identity = IdentidadDeEnvio.objects.create(
+            empresa_owner=fixture['empresa'],
+            canal=CanalOperacion.EMAIL,
+            remitente_visible='LeaseManager Unassigned',
+            direccion_o_numero='unassigned-stage2@example.com',
+            credencial_ref='cred-unassigned-stage2-ref',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+        MensajeSaliente.objects.create(
+            canal=CanalOperacion.EMAIL,
+            canal_mensajeria=email_gate,
+            identidad_envio=unassigned_identity,
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario=fixture['tenant'].email,
+            asunto='Aviso',
+            cuerpo='Cobranza controlada',
+            estado=EstadoMensajeSaliente.PREPARED,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.message.prepared_or_sent_not_ready', issue_codes)
+        self.assertEqual(result['sections']['messages']['prepared_or_sent_not_ready'], 1)
+
     def test_sent_message_without_audit_event_is_blocking(self):
         fixture = self._create_payment_matrix()
         email_gate = self._create_valid_email_gate()
