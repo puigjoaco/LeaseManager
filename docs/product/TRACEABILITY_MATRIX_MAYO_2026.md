@@ -300,6 +300,12 @@ WebPay, intentos WebPay, garantias y repactaciones reemplazan refs, motivos y
 payloads crudos por vistas redactadas, eliminan busquedas por campos sensibles
 y mantienen el alta manual cerrada desde backoffice.
 
+Nota 2026-05-28: CobranzaActiva completa el cierre de alta manual para
+artefactos operativos derivados. `CodigoCobroResidualAdmin` y
+`EstadoCuentaArrendatarioAdmin` mantienen el alta manual deshabilitada para que
+los residuales nazcan por generacion controlada y los estados de cuenta por
+rebuild de pagos, repactaciones y codigos activos.
+
 Nota 2026-05-27: Patrimonio bloquea la inactivacion de empresas y comunidades
 que aun conservan participaciones o representaciones propias activas vigentes.
 La salida operativa exige transferir o cerrar esa estructura antes de marcar el

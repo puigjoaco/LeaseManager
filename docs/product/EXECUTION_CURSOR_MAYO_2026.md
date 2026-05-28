@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 2 / Cobranza admin closed surface. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete Etapa 2 / Canales `stage2-notification-message-alignment` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad y orden de construccion. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 2 / Canales integrado en PR #497, merge `f61773b`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con pruebas focales, suite impactada, gate local Etapa 2, acceptance local, CI remoto acceptance, evidencia, trazabilidad e higiene en verde; el worktree tactico fue eliminado. |
+| Brecha activa | `CodigoCobroResidualAdmin` y `EstadoCuentaArrendatarioAdmin` aun permiten alta manual desde Django admin, aunque sus registros deben nacer de servicios/generacion/rebuild para no saltar reglas de CobranzaActiva. |
+| Motivo de prioridad | Etapa 2 mantiene cerrada la superficie administrativa para cobros operativos; esta brecha es local, pequena y verificable sin proveedores, secretos ni datos reales. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-cobranza-admin-closed-surface`. |
+| Rama | `codex/stage2-cobranza-admin-closed-surface`. |
+| Estado | Abierto en implementacion. |
+| Gate esperado | Tests focales de admin Cobranza, suite impactada Cobranza/Stage 2, gate local Etapa 2, acceptance local, CI remoto acceptance e higiene. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el proximo paquete pequeno, seguro y verificable desde `TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards y orden de construccion. |
-| Siguiente accion | Abrir el proximo paquete util en worktree `codex/...` y registrar aqui el frente activo antes de editar. |
+| Siguiente accion | Cerrar alta manual de residuales/estados de cuenta en admin, cubrir con tests, actualizar stage card/trazabilidad/evidencia y validar. |
 
 ## Actualizacion
 

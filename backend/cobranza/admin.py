@@ -353,6 +353,9 @@ class CodigoCobroResidualAdmin(admin.ModelAdmin):
     list_filter = ('estado',)
     search_fields = ('referencia_visible', 'arrendatario__nombre_razon_social', 'contrato_origen__codigo_contrato')
 
+    def has_add_permission(self, request):
+        return False
+
 
 @admin.register(EstadoCuentaArrendatario)
 class EstadoCuentaArrendatarioAdmin(admin.ModelAdmin):
@@ -370,3 +373,6 @@ class EstadoCuentaArrendatarioAdmin(admin.ModelAdmin):
 
     def observaciones_redacted(self, obj):
         return _redacted_attr(obj, 'observaciones')
+
+    def has_add_permission(self, request):
+        return False

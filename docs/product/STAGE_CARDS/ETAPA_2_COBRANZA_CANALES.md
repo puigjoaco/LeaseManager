@@ -217,6 +217,10 @@ condicionados sin envios reales accidentales.
   `RepactacionDeudaAdmin` muestran versiones redactadas de refs, motivos y
   payloads sensibles heredados, no buscan por esos campos crudos y mantienen el
   alta manual deshabilitada para evitar bypass operativo desde backoffice.
+  `CodigoCobroResidualAdmin` y `EstadoCuentaArrendatarioAdmin` tambien
+  mantienen el alta manual deshabilitada, porque los residuales se generan con
+  referencia canonica controlada y los estados de cuenta se reconstruyen desde
+  pagos, repactaciones y codigos activos.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   valores UF manuales, estados de cuenta, identidades/asignaciones de canal, gates
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,
