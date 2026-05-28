@@ -103,20 +103,39 @@ def _count_rules_without_active_matrix(rules) -> int:
 def _count_internal_transfer_accounting_event_gaps(transfers) -> int:
     missing = 0
     for transfer in transfers:
+        origin_movement = transfer.movimiento_origen
+        destination_movement = transfer.movimiento_destino
         origin_account = transfer.movimiento_origen.conexion_bancaria.cuenta_recaudadora
         destination_account = transfer.movimiento_destino.conexion_bancaria.cuenta_recaudadora
         expected_specs = []
         if origin_account.empresa_owner_id:
-            expected_specs.append(('TransferenciaIntercuentaSalida', origin_account.empresa_owner_id))
+            expected_specs.append(
+                (
+                    'TransferenciaIntercuentaSalida',
+                    origin_account.empresa_owner_id,
+                    origin_movement.fecha_movimiento,
+                    origin_movement.monto,
+                )
+            )
         if destination_account.empresa_owner_id:
-            expected_specs.append(('TransferenciaIntercuentaEntrada', destination_account.empresa_owner_id))
+            expected_specs.append(
+                (
+                    'TransferenciaIntercuentaEntrada',
+                    destination_account.empresa_owner_id,
+                    destination_movement.fecha_movimiento,
+                    destination_movement.monto,
+                )
+            )
 
-        for event_type, company_id in expected_specs:
+        for event_type, company_id, movement_date, movement_amount in expected_specs:
             if not EventoContable.objects.filter(
                 empresa_id=company_id,
                 evento_tipo=event_type,
                 entidad_origen_tipo='transferencia_intercuenta',
                 entidad_origen_id=str(transfer.pk),
+                fecha_operativa=movement_date,
+                moneda='CLP',
+                monto_base=movement_amount,
             ).exists():
                 missing += 1
     return missing

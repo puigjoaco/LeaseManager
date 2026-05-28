@@ -52,8 +52,9 @@ contables desde hechos conciliados.
 - Transferencias intercuenta conciliadas que involucren cuentas recaudadoras
   con owner empresa deben generar eventos contables idempotentes de salida y/o
   entrada (`TransferenciaIntercuentaSalida`,
-  `TransferenciaIntercuentaEntrada`) antes de considerar el ledger preparado
-  para cierre.
+  `TransferenciaIntercuentaEntrada`) alineados con empresa, fecha, moneda y
+  monto del movimiento bancario correspondiente antes de considerar el ledger
+  preparado para cierre.
 - Eventos, movimientos, obligaciones, libros, balances y cierres no pueden
   persistir nuevas URLs, tokens, credenciales, correos ni referencias sensibles
   en payloads, `storage_ref` o `centro_resultado_ref`.
