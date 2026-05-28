@@ -115,6 +115,10 @@ def _metadata_int(metadata: dict[str, Any], key: str) -> int | None:
         return None
 
 
+def _metadata_text(metadata: dict[str, Any], key: str) -> str:
+    return str(metadata.get(key) or '').strip()
+
+
 def _expected_payment_period(payment: PagoMensual) -> str:
     return f'{payment.anio:04d}-{payment.mes:02d}'
 
@@ -235,6 +239,14 @@ def _internal_transfer_target_matches(resolution: ManualResolution, metadata: di
     if metadata.get('entidad_destino_tipo') != transfer.entidad_destino_tipo:
         return False
     if _metadata_int(metadata, 'entidad_destino_id') != transfer.entidad_destino_id:
+        return False
+    if _metadata_text(metadata, 'periodo_economico') != transfer.periodo_economico:
+        return False
+    if _metadata_text(metadata, 'criterio_conciliacion') != transfer.criterio_conciliacion:
+        return False
+    if _metadata_text(metadata, 'evidencia_transferencia_ref') != transfer.evidencia_transferencia_ref:
+        return False
+    if _metadata_text(metadata, 'responsable_ref') != transfer.responsable_ref:
         return False
     try:
         transfer.full_clean()
@@ -1118,7 +1130,7 @@ def collect_stage3_conciliacion_readiness(
         issues.append(
             _issue(
                 'stage3.manual_resolution.internal_transfer_target_mismatch',
-                'Existen transferencias internas resueltas cuya traza no coincide con el par cargo/abono registrado.',
+                'Existen transferencias internas resueltas cuya traza no coincide con el par cargo/abono o la metadata registrada.',
                 count=manual_resolution_issues['internal_transfer_target_mismatch'],
             )
         )

@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
-| Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete `stage3-charge-period-alignment` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 3/Conciliacion `stage3-charge-period-alignment` integrado en PR #483, merge `cf74760`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; worktree tactico y rama local/remota eliminados. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo. |
+| Frente activo | Etapa 3 / Conciliacion - alineacion de metadata en transferencias internas manuales. |
+| Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, `docs/product/STAGE_CARDS/ETAPA_3_BANCO_CONCILIACION.md`, trazabilidad y evidencia vigentes. |
+| Brecha activa | `audit_stage3_conciliacion_readiness` valida que exista `TransferenciaIntercuenta`, pero no compara toda la metadata resuelta heredada contra el registro canonico de la transferencia. |
+| Motivo de prioridad | Paquete pequeno y verificable de Etapa 3; evita metadata bancaria/contable desalineada sin requerir banco real, secretos, `.env`, DB historica ni snapshot autorizado. |
+| Worktree | `D:/Proyectos/LeaseManager-stage3-internal-transfer-metadata-alignment`. |
+| Rama | `codex/stage3-internal-transfer-metadata-alignment`. |
+| Estado | Validado localmente; pendiente PR, CI remoto, merge y limpieza. |
+| Gate esperado | Gate local Etapa 3 como diagnostico: `classification=parcial`, `ready_for_stage3_conciliacion=false`, sin declarar cierre por falta de fuente autorizada. |
+| Estado al cerrar paquete | Pendiente confirmar PR/CI/merge/limpieza, main limpio y cursor cerrado o actualizado. |
+| Bloqueos relacionados | BLK-003 sigue impidiendo cierre de banco/Conciliacion sin fuente `snapshot_controlado` o `real_autorizado`; no bloquea este hardening local. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Siguiente accion | Publicar PR del paquete, esperar CI, mergear y limpiar worktree/rama; luego cerrar o actualizar cursor. |
 
 ## Actualizacion
 

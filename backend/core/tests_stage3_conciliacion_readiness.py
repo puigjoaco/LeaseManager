@@ -490,6 +490,47 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertEqual(result['sections']['internal_transfers']['total'], 1)
         self.assertEqual(result['issues'], [])
 
+    def test_resolved_internal_transfer_with_metadata_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER-METADATA-MISMATCH')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        self._create_square_balance(cuenta)
+        transfer, movimiento_origen, movimiento_destino = self._create_internal_transfer_pair(
+            cuenta,
+            conexion,
+            suffix='META-MISMATCH',
+        )
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento_origen.pk),
+            summary='Transferencia interna registrada con metadata heredada desalineada',
+            rationale='Transferencia interna validada por cartola controlada.',
+            metadata={
+                'categoria_movimiento': 'transferencia_interna',
+                'resolved_with': 'internal_transfer',
+                'transferencia_intercuenta_id': transfer.pk,
+                'movimiento_origen_id': movimiento_origen.pk,
+                'movimiento_destino_id': movimiento_destino.pk,
+                'entidad_origen_tipo': transfer.entidad_origen_tipo,
+                'entidad_origen_id': transfer.entidad_origen_id,
+                'entidad_destino_tipo': transfer.entidad_destino_tipo,
+                'entidad_destino_id': transfer.entidad_destino_id,
+                'periodo_economico': transfer.periodo_economico,
+                'criterio_conciliacion': transfer.criterio_conciliacion,
+                'evidencia_transferencia_ref': 'internal-transfer-other-controlled-ref',
+                'responsable_ref': transfer.responsable_ref,
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.internal_transfer_target_mismatch', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['internal_transfer_target_mismatch'], 1)
+
     def test_internal_transfer_sensitive_reference_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-TRANSFER-SENSITIVE')
         conexion = self._create_ready_connection(cuenta)
