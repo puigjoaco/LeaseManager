@@ -301,7 +301,7 @@ class CobranzaSnapshotView(APIView):
                         'tipo_movimiento': item.tipo_movimiento,
                         'monto_clp': item.monto_clp,
                         'fecha': item.fecha,
-                        'justificacion': item.justificacion,
+                        'justificacion': redact_sensitive_reference(item.justificacion),
                     }
                     for item in historial
                 ],

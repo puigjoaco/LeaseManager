@@ -167,7 +167,8 @@ contra datos reales o snapshot controlado.
   cierre consistentes, y saldos recibidos, devueltos o aplicados conciliados
   contra `HistorialGarantia`, incluyendo que devoluciones, retenciones o
   aplicaciones apunten al deposito origen, no superen ese deposito y conserven
-  cronologia valida. Si una garantia fue recibida parcialmente y
+  cronologia valida; las justificaciones de movimientos no deben contener
+  referencias sensibles y se exponen redactadas si son heredadas. Si una garantia fue recibida parcialmente y
   sigue abierta, debe tener aceptacion formal trazable no sensible o quedar
   marcada como incompleta. Si una garantia recibida excede lo pactado, el
   exceso debe quedar clasificado, devuelto, regularizado o bloqueado con

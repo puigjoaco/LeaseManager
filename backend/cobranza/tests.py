@@ -40,6 +40,7 @@ from .models import (
     EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
     GateCobroExterno,
     GarantiaContractual,
+    HistorialGarantia,
     IntentoPagoWebPay,
     MANUAL_UF_LOAD_EVENT_TYPE,
     PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
@@ -51,6 +52,7 @@ from .models import (
 from .admin import (
     GateCobroExternoAdmin,
     GarantiaContractualAdmin,
+    HistorialGarantiaAdmin,
     IntentoPagoWebPayAdmin,
     PagoMensualAdmin,
     RepactacionDeudaAdmin,
@@ -260,6 +262,13 @@ class CobranzaAPITests(APITestCase):
             resolucion_exceso_garantia_ref='https://billing.example.test/excess?token=secret',
             resolucion_exceso_garantia_motivo='Exceso en https://billing.example.test/excess?token=secret',
         )
+        history = HistorialGarantia.objects.create(
+            garantia_contractual=guarantee,
+            tipo_movimiento='deposito',
+            monto_clp=Decimal('50000.00'),
+            fecha=date(2026, 1, 1),
+            justificacion='Deposito en https://billing.example.test/history?token=secret',
+        )
         repayment = RepactacionDeuda.objects.create(
             arrendatario=payment.contrato.arrendatario,
             contrato_origen=payment.contrato,
@@ -278,6 +287,7 @@ class CobranzaAPITests(APITestCase):
         gate_admin = GateCobroExternoAdmin(GateCobroExterno, site)
         intent_admin = IntentoPagoWebPayAdmin(IntentoPagoWebPay, site)
         guarantee_admin = GarantiaContractualAdmin(GarantiaContractual, site)
+        history_admin = HistorialGarantiaAdmin(HistorialGarantia, site)
         repayment_admin = RepactacionDeudaAdmin(RepactacionDeuda, site)
 
         self.assertNotIn('evidencia_ref', uf_admin.fields)
@@ -326,10 +336,22 @@ class CobranzaAPITests(APITestCase):
             REDACTED_SENSITIVE_REFERENCE,
         )
 
+        self.assertNotIn('justificacion', history_admin.fields)
+        self.assertNotIn('justificacion', history_admin.search_fields)
+        self.assertEqual(history_admin.justificacion_redacted(history), REDACTED_SENSITIVE_REFERENCE)
+
         self.assertNotIn('excepcion_parcial_ref', repayment_admin.fields)
         self.assertEqual(repayment_admin.excepcion_parcial_ref_redacted(repayment), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(repayment_admin.excepcion_parcial_motivo_redacted(repayment), REDACTED_SENSITIVE_REFERENCE)
-        for admin_instance in (uf_admin, payment_admin, gate_admin, intent_admin, guarantee_admin, repayment_admin):
+        for admin_instance in (
+            uf_admin,
+            payment_admin,
+            gate_admin,
+            intent_admin,
+            guarantee_admin,
+            history_admin,
+            repayment_admin,
+        ):
             self.assertFalse(admin_instance.has_add_permission(None))
 
     def test_refresh_mora_marks_pending_payment_overdue_and_updates_account_state(self):
@@ -1576,6 +1598,58 @@ class CobranzaAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('resolucion_exceso_garantia_ref', response.data)
+
+    def test_guarantee_movement_rejects_sensitive_justification(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-JUST-SENS', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='50000.00')
+
+        response = self.client.post(
+            reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+            {
+                'tipo_movimiento': 'deposito',
+                'monto_clp': '50000.00',
+                'fecha': '2026-01-01',
+                'justificacion': 'Deposito validado en https://example.test/receipt?token=secret',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('justificacion', response.data)
+
+    def test_guarantee_history_apis_and_snapshot_redact_sensitive_justification(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-JUST-RED', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(
+            contrato=contrato,
+            monto_pactado='50000.00',
+            monto_recibido='50000.00',
+            fecha_recepcion=date(2026, 1, 1),
+            estado_garantia=EstadoGarantia.HELD,
+        )
+        movement = HistorialGarantia.objects.create(
+            garantia_contractual=garantia,
+            tipo_movimiento='deposito',
+            monto_clp=Decimal('50000.00'),
+            fecha=date(2026, 1, 1),
+            justificacion='Deposito heredado en https://example.test/receipt?token=secret',
+        )
+
+        list_response = self.client.get(reverse('cobranza-historial-list'))
+        detail_response = self.client.get(reverse('cobranza-historial-detail', args=[movement.id]))
+        snapshot_response = self.client.get(reverse('cobranza-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['justificacion'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['justificacion'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            snapshot_response.data['historial_garantias'][0]['justificacion'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
+        self.assertNotIn('example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
 
     def test_partial_guarantee_exposes_incomplete_until_formal_acceptance(self):
         contrato = self._create_active_contract(codigo='CON-GAR-PARTIAL', monto_base='100000.00', code='111')

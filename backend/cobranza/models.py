@@ -923,6 +923,15 @@ class HistorialGarantia(TimestampedModel):
 
     def clean(self):
         super().clean()
+        self.justificacion = (self.justificacion or '').strip()
+        if self.justificacion and contains_sensitive_reference(self.justificacion):
+            raise ValidationError(
+                {
+                    'justificacion': (
+                        'La justificacion del movimiento de garantia no debe contener referencias sensibles.'
+                    )
+                }
+            )
         is_derived = self.tipo_movimiento in DERIVED_GUARANTEE_MOVEMENT_TYPES
         if self.tipo_movimiento == TipoMovimientoGarantia.DEPOSIT and self.movimiento_origen_id:
             raise ValidationError({'movimiento_origen': 'Un deposito de garantia no debe tener movimiento origen.'})

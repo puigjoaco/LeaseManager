@@ -262,9 +262,26 @@ class GarantiaContractualAdmin(admin.ModelAdmin):
 
 @admin.register(HistorialGarantia)
 class HistorialGarantiaAdmin(admin.ModelAdmin):
+    fields = (
+        'garantia_contractual',
+        'tipo_movimiento',
+        'monto_clp',
+        'fecha',
+        'justificacion_redacted',
+        'movimiento_origen',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = ('justificacion_redacted', 'created_at', 'updated_at')
     list_display = ('garantia_contractual', 'tipo_movimiento', 'monto_clp', 'fecha')
     list_filter = ('tipo_movimiento',)
     search_fields = ('garantia_contractual__contrato__codigo_contrato',)
+
+    def justificacion_redacted(self, obj):
+        return _redacted_attr(obj, 'justificacion')
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(RepactacionDeuda)

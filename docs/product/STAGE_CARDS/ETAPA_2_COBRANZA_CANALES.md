@@ -194,7 +194,8 @@ condicionados sin envios reales accidentales.
   deshabilitada desde backoffice.
 - El admin Django de Cobranza tambien debe mantener esa superficie cerrada:
   `ValorUFDiarioAdmin`, `PagoMensualAdmin`, `GateCobroExternoAdmin`,
-  `IntentoPagoWebPayAdmin`, `GarantiaContractualAdmin` y
+  `IntentoPagoWebPayAdmin`, `GarantiaContractualAdmin`,
+  `HistorialGarantiaAdmin` y
   `RepactacionDeudaAdmin` muestran versiones redactadas de refs, motivos y
   payloads sensibles heredados, no buscan por esos campos crudos y mantienen el
   alta manual deshabilitada para evitar bypass operativo desde backoffice.

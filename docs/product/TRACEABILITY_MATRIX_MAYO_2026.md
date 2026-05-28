@@ -22,6 +22,12 @@ de pago. `ArrendatarioAdmin` y `ContactoPagoArrendatarioAdmin` reemplazan
 evidencias, motivos y refs heredadas por vistas redactadas y evitan exponer los
 campos crudos desde el admin Django.
 
+Nota 2026-05-27: Cobranza/Etapa 1 protege justificaciones de historial de
+garantia. `HistorialGarantia.clean()` rechaza nuevas justificaciones con URLs,
+correos, tokens o credenciales; API, snapshot y admin Django redactan
+justificaciones sensibles heredadas y el auditor Etapa 1 las clasifica como
+`stage1.historial_garantia.validacion_modelo`.
+
 Nota 2026-05-27: CobranzaActiva persiste traza UF exacta en pagos mensuales.
 `PagoMensual` guarda moneda de calculo, fecha UF usada, valor UF usado y
 fuente canonica; la fecha debe coincidir con `fecha_vencimiento`. La generacion

@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 1 / Cobranza - redaccion de justificacion en historial de garantia. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Pendiente seleccionar el siguiente frente seguro desde trazabilidad y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 1 `stage1-contract-tenant-admin-redaction` integrado en PR #445, merge `7ad5fe6`. |
-| Gate esperado | N/A hasta abrir el siguiente frente. |
-| Estado al cerrar paquete | Cerrado con CI remoto `acceptance` en verde; worktree y rama tactica de implementacion limpiados. |
+| Brecha activa | `HistorialGarantia.justificacion` puede conservar referencias sensibles heredadas y exponerse por API/snapshot/admin sin redaccion especifica. |
+| Motivo de prioridad | Paquete local seguro en Etapa 1/Cobranza: refuerza trazabilidad de garantias sin depender de secretos, `.env`, datos reales ni integraciones. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-guarantee-history-justification-redaction`. |
+| Rama | `codex/stage1-guarantee-history-justification-redaction`. |
+| Estado | Abierto para validar/redactar justificacion de movimientos de garantia con tests y evidencia. |
+| Gate esperado | Tests focales de Cobranza/Etapa 1, suite impactada Cobranza + auditor matriz, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build/lint, acceptance local, higiene repo y CI remoto. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, tomar el siguiente frente seguro desde trazabilidad y abrirlo explicitamente en este cursor. |
-| Siguiente accion | Desde `main` limpio, tomar el siguiente frente seguro segun trazabilidad y abrirlo explicitamente en este cursor. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge o pausar explicitamente aqui si aparece un bloqueo real. |
+| Siguiente accion | Implementar guard/redaccion, actualizar stage card/trazabilidad/evidencia y cerrar paquete. |
 
 ## Actualizacion
 

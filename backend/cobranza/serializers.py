@@ -454,7 +454,8 @@ class GarantiaContractualSerializer(RedactReferenceFieldsMixin, serializers.Mode
         return attrs
 
 
-class HistorialGarantiaReadSerializer(serializers.ModelSerializer):
+class HistorialGarantiaReadSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('justificacion',)
     contrato_id = serializers.IntegerField(source='garantia_contractual.contrato_id', read_only=True)
 
     class Meta:
