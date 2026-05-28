@@ -156,7 +156,10 @@ class ExportacionRevokeView(APIView):
         export = generics.get_object_or_404(ExportacionSensible, pk=pk)
         serializer = ExportacionRevokeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        export = revoke_export(export)
+        try:
+            export = revoke_export(export)
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
         create_export_audit_event(
             event_type=EXPORT_REVOKED_EVENT_TYPE,
             export=export,
