@@ -62,15 +62,32 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        category = attrs.get('category')
+        if self.instance is None and category in SPECIALIZED_MANUAL_RESOLUTION_CATEGORIES:
+            raise serializers.ValidationError(
+                {'category': 'Use el servicio especializado correspondiente para crear este caso.'}
+            )
         if (
             self.instance
-            and self.instance.category in SPECIALIZED_MANUAL_RESOLUTION_CATEGORIES
-            and attrs.get('status') in {ManualResolution.Status.RESOLVED, ManualResolution.Status.SUPERSEDED}
-            and self.instance.status != attrs.get('status')
-        ):
-            raise serializers.ValidationError(
-                {'status': 'Use la resolución especializada correspondiente para cerrar este caso.'}
+            and (
+                self.instance.category in SPECIALIZED_MANUAL_RESOLUTION_CATEGORIES
+                or category in SPECIALIZED_MANUAL_RESOLUTION_CATEGORIES
             )
+        ):
+            errors = {}
+            if category and category != self.instance.category:
+                errors['category'] = 'Use el servicio especializado correspondiente para cambiar este caso.'
+            for field_name in ('scope_type', 'scope_reference', 'metadata'):
+                if field_name in attrs:
+                    errors[field_name] = 'Use el servicio especializado correspondiente para retargetear este caso.'
+            status_value = attrs.get('status')
+            if (
+                status_value in {ManualResolution.Status.RESOLVED, ManualResolution.Status.SUPERSEDED}
+                and self.instance.status != status_value
+            ):
+                errors['status'] = 'Use la resolución especializada correspondiente para cerrar este caso.'
+            if errors:
+                raise serializers.ValidationError(errors)
         return attrs
 
 

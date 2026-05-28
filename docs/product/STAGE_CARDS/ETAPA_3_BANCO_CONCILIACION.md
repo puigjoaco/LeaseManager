@@ -83,6 +83,10 @@ sistema igual a saldo banco.
   como `superseded` con motivo, metadata de origen/target y evento de
   auditoria alineado; la readiness bloquea supersesiones sin metadata, motivo
   o evento suficiente.
+- Las categorias especializadas de resolucion manual de Conciliacion no pueden
+  crearse, convertirse, retargetearse ni cerrarse desde el endpoint generico de
+  `ManualResolution`; deben nacer y mutar desde los servicios auditados de
+  ingreso desconocido, cargo bancario o transferencia interna.
 - Las respuestas API y snapshot de Conciliacion redactan refs bancarias
   sensibles ya persistidas, incluida `referencia` de movimientos,
   `rationale` de cuadraturas y criterio/motivo de transferencias intercuenta,
