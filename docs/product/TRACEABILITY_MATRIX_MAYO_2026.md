@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: Conciliacion/Etapa 3 alinea metadata de transferencias
+internas manuales. Readiness compara la resolucion manual heredada contra el
+registro canonico `TransferenciaIntercuenta`: par cargo/abono, entidades,
+periodo economico, criterio, evidencia y responsable; cualquier desalineacion
+queda como `stage3.manual_resolution.internal_transfer_target_mismatch`.
+
 Nota 2026-05-28: Conciliacion/Etapa 3 alinea el periodo economico de cargos
 bancarios manuales. El servicio de clasificacion de cargos rechaza
 `periodo_economico` que no coincida con el mes del movimiento bancario, y

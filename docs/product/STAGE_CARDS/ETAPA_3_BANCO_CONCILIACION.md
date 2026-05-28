@@ -72,8 +72,9 @@ sistema igual a saldo banco.
   el servicio no permiten
   resolver una transferencia si los movimientos no son de cuentas distintas,
   no tienen monto opuesto equivalente o conservan targets de pago/codigo
-  residual, y la readiness bloquea pares heredados invalidos, con criterio o
-  motivo sensible, o refs sensibles.
+  residual, y la readiness bloquea pares heredados invalidos, con metadata
+  resuelta desalineada contra `TransferenciaIntercuenta`, con criterio o motivo
+  sensible, o refs sensibles.
 - Resoluciones manuales abiertas que quedan obsoletas por match exacto o por
   otra resolucion manual no se marcan como resueltas manualmente: se cierran
   como `superseded` con motivo, metadata de origen/target y evento de
