@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 / Documentos - guard de endpoint generico para PDF generado. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | El endpoint generico de documentos bloqueaba crear `origen=generado_sistema`, pero aun podia convertir un documento externo a generado o mutar un PDF generado ya emitido. |
-| Motivo de prioridad | La stage card exige que la emision de PDF generado ocurra solo por `generar-pdf/`, con preview y auditoria dedicada; el endpoint generico no debe simular ni alterar ese origen. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-generated-document-generic-guard`. |
-| Rama | `codex/stage5-generated-document-generic-guard`. |
-| Estado | Paquete abierto en implementacion local. |
-| Gate esperado | Readiness documental local debe permanecer `classification=parcial`, `ready_for_stage5_documents=false` por fuente local no autorizada; las pruebas API deben bloquear mutaciones genericas de documentos generados por sistema. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete Etapa 5 / Documentos `stage5-generated-document-generic-guard` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad y orden de construccion. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Etapa 5 / Documentos integrado en PR #493, merge `14778a5`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con pruebas focales, suite impactada, gate documental local, acceptance local, CI remoto acceptance, evidencia, trazabilidad e higiene en verde; el worktree tactico queda listo para limpieza. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta validacion, PR, CI, merge y limpieza; no abrir otro frente mientras este paquete este sucio. |
-| Siguiente accion | Ejecutar pruebas focales e impactadas, gate documental local, acceptance local, higiene, PR/CI/merge y cierre del cursor. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el proximo paquete pequeno, seguro y verificable desde `TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards y orden de construccion. |
+| Siguiente accion | Abrir el proximo paquete util en worktree `codex/...` y registrar aqui el frente activo antes de editar. |
 
 ## Actualizacion
 
