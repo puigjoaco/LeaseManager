@@ -985,6 +985,31 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.unknown_income.invalid_model', issue_codes)
         self.assertEqual(result['sections']['unknown_income']['invalid_model'], 1)
 
+    def test_unknown_income_sensitive_assisted_suggestion_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-UNKNOWN-SUGGESTION')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment)
+        IngresoDesconocido.objects.create(
+            movimiento_bancario=movimiento,
+            cuenta_recaudadora=cuenta,
+            monto=movimiento.monto,
+            fecha_movimiento=movimiento.fecha_movimiento,
+            descripcion_origen=movimiento.descripcion_origen,
+            estado=EstadoIngresoDesconocido.RESOLVED,
+            sugerencia_asistida={
+                'payment_candidate_ids': [payment.pk],
+                'authorization': 'opaque-authorization-value',
+                'nested': {'private_key': 'opaque-private-key-value'},
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.unknown_income.sensitive_suggestion', issue_codes)
+        self.assertEqual(result['sections']['unknown_income']['sensitive_suggestion'], 1)
+
     def test_exact_matched_payment_snapshot_mismatch_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-EXACT-MISMATCH')
         conexion = self._create_ready_connection(cuenta)

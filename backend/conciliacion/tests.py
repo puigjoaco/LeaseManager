@@ -22,6 +22,7 @@ from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Soci
 from .admin import (
     ConexionBancariaAdmin,
     CuadraturaBancariaAdmin,
+    IngresoDesconocidoAdmin,
     MovimientoBancarioImportadoAdmin,
     TransferenciaIntercuentaAdmin,
 )
@@ -345,10 +346,24 @@ class ConciliacionAPITests(APITestCase):
             responsable_ref='ops@example.test',
             rationale='Rationale en https://bank.example.test/transfer?token=secret',
         )
+        ingreso = IngresoDesconocido.objects.create(
+            movimiento_bancario=movimiento,
+            cuenta_recaudadora=cuenta,
+            monto=movimiento.monto,
+            fecha_movimiento=movimiento.fecha_movimiento,
+            descripcion_origen=movimiento.descripcion_origen,
+            estado='pendiente_revision',
+            sugerencia_asistida={
+                'authorization': 'opaque-bank-auth',
+                'callback_url': 'https://bank.example.test/callback?token=secret',
+                'payment_candidate_ids': [1],
+            },
+        )
         site = AdminSite()
 
         connection_admin = ConexionBancariaAdmin(ConexionBancaria, site)
         movement_admin = MovimientoBancarioImportadoAdmin(MovimientoBancarioImportado, site)
+        unknown_income_admin = IngresoDesconocidoAdmin(IngresoDesconocido, site)
         balance_admin = CuadraturaBancariaAdmin(CuadraturaBancaria, site)
         transfer_admin = TransferenciaIntercuentaAdmin(TransferenciaIntercuenta, site)
 
@@ -367,6 +382,15 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movement_admin.referencia_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(movement_admin.transaction_id_banco_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(movement_admin.has_add_permission(None))
+
+        self.assertNotIn('sugerencia_asistida', unknown_income_admin.fields)
+        self.assertIn('sugerencia_asistida_redacted', unknown_income_admin.fields)
+        self.assertNotIn('sugerencia_asistida', unknown_income_admin.search_fields)
+        suggestion = unknown_income_admin.sugerencia_asistida_redacted(ingreso)
+        self.assertEqual(suggestion['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(suggestion['callback_url'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(suggestion['payment_candidate_ids'], [1])
+        self.assertFalse(unknown_income_admin.has_add_permission(None))
 
         for raw_field in ('evidencia_cuadratura_ref', 'responsable_ref', 'rationale'):
             self.assertNotIn(raw_field, balance_admin.fields)
@@ -748,6 +772,52 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(response.data['movimientos'][0]['referencia'], '<redacted-sensitive-reference>')
         self.assertNotIn('bank.example.test', rendered)
         self.assertNotIn('secret', rendered)
+
+    def test_unknown_income_api_and_snapshot_redact_sensitive_assisted_suggestion(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-UNK-SUG-REDACT')
+        conexion = self._create_connection(cuenta)
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='100111.00',
+            descripcion_origen='Ingreso desconocido con sugerencia heredada',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            estado_conciliacion=EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+        )
+        IngresoDesconocido.objects.create(
+            movimiento_bancario=movimiento,
+            cuenta_recaudadora=cuenta,
+            monto=movimiento.monto,
+            fecha_movimiento=movimiento.fecha_movimiento,
+            descripcion_origen=movimiento.descripcion_origen,
+            estado='pendiente_revision',
+            sugerencia_asistida={
+                'payment_candidate_ids': [101],
+                'authorization': 'opaque-authorization-value',
+                'nested': {'private_key': 'opaque-private-key-value'},
+                'callback': 'https://bank.example.test/suggestion?token=secret',
+            },
+        )
+
+        list_response = self.client.get(reverse('conciliacion-ingreso-list'))
+        snapshot_response = self.client.get(reverse('conciliacion-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        list_suggestion = list_response.data[0]['sugerencia_asistida']
+        snapshot_suggestion = snapshot_response.data['ingresos_desconocidos'][0]['sugerencia_asistida']
+        for suggestion in (list_suggestion, snapshot_suggestion):
+            self.assertEqual(suggestion['payment_candidate_ids'], [101])
+            self.assertEqual(suggestion['authorization'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(suggestion['nested']['private_key'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(suggestion['callback'], REDACTED_SENSITIVE_REFERENCE)
+        rendered = json.dumps({'list': list_response.data, 'snapshot': snapshot_response.data}, default=str)
+        self.assertNotIn('opaque-authorization-value', rendered)
+        self.assertNotIn('opaque-private-key-value', rendered)
+        self.assertNotIn('bank.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
 
     def test_provider_sync_requires_primary_bank_readiness(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-PROVIDER-GATE')

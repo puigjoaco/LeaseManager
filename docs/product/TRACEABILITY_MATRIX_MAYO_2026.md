@@ -19,6 +19,12 @@ sensibles. `CanalMensajeriaAdmin` redacta `restricciones_operativas`
 heredadas con claves `authorization` o `private_key` aunque sus valores sean
 opacos, preservando solo claves canonicas de referencia no sensible del gate.
 
+Nota 2026-05-28: Conciliacion redacta sugerencias asistidas de ingresos
+desconocidos. API, snapshot y admin Django exponen
+`IngresoDesconocido.sugerencia_asistida` solo mediante payload redactado, y
+readiness Etapa 3 reporta `stage3.unknown_income.sensitive_suggestion` cuando
+snapshots heredados conservan claves o valores sensibles en esa metadata.
+
 Nota 2026-05-27: Gobierno ignora artefactos locales `.codex-spreadsheet/`.
 Estos archivos son salida local de herramienta, no evidencia, snapshot ni
 fuente de producto; deben permanecer fuera de versionado para que `main` quede
