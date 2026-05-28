@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 Documentos - referencias sensibles en expedientes documentales. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `ExpedienteDocumental` valida y expone `entidad_id`/`owner_operativo` con menor proteccion que `DocumentoEmitido`; snapshots heredados pueden conservar URL, token, credencial o correo. |
-| Motivo de prioridad | Etapa 5 exige referencias documentales no sensibles y redaccion defensiva en API/snapshot/backoffice/readiness antes de cierre. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-document-expediente-redaction`. |
-| Rama | `codex/stage5-document-expediente-redaction`. |
-| Estado | Paquete abierto desde main limpio `f2f8023`; cambios pendientes de implementacion y validacion. |
-| Gate esperado | `scripts/run-stage5-documents-readiness-gate.ps1` debe seguir diagnosticando `classification=parcial`, `ready_for_stage5_documents=false` por fuente local no autorizada. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete `stage5-document-expediente-redaction` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Etapa 5/Documentos `stage5-document-expediente-redaction` integrado en PR #479, merge `f44482f`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; rama remota tactica eliminada. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Endurecer validacion/redaccion/readiness de expedientes documentales, probar flujo API/snapshot/admin y cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
 
 ## Actualizacion
 
