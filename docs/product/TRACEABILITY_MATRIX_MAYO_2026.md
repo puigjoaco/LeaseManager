@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: Conciliacion/Etapa 3 alinea el periodo economico de cargos
+bancarios manuales. El servicio de clasificacion de cargos rechaza
+`periodo_economico` que no coincida con el mes del movimiento bancario, y
+readiness Etapa 3 bloquea resoluciones heredadas con esa metadata desalineada
+como `stage3.manual_resolution.charge_classification_target_mismatch`.
+
 Nota 2026-05-28: SII/Etapa 4 protege observaciones tributarias. DTE, F29,
 DDJJ y F22 rechazan nuevas observaciones con URLs, correos, tokens o
 credenciales desde dominio y servicios; API, snapshot y admin Django redactan

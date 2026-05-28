@@ -1427,6 +1427,35 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.manual_resolution.charge_classification_target_mismatch', issue_codes)
         self.assertEqual(result['sections']['manual_resolutions']['charge_classification_target_mismatch'], 1)
 
+    def test_resolved_charge_manual_resolution_with_movement_period_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-CHARGE-MOVEMENT-PERIOD')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        charge = self._create_reconciled_charge_movement(conexion)
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(charge.pk),
+            summary='Cargo con periodo economico desalineado al movimiento',
+            rationale='Clasificado con metadata heredada.',
+            metadata={
+                'categoria_movimiento': 'comision_bancaria',
+                'entidad_afectada_tipo': 'empresa',
+                'entidad_afectada_id': cuenta.empresa_owner_id,
+                'periodo_economico': '2026-02',
+                'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
+                'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.charge_classification_target_mismatch', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['charge_classification_target_mismatch'], 1)
+
     def test_sensitive_final_refs_do_not_close_readiness(self):
         cuenta, payment = self._create_payment_matrix()
         conexion = self._create_ready_connection(cuenta)
