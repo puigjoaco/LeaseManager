@@ -45,7 +45,9 @@ sistema igual a saldo banco.
 - Ingresos desconocidos existentes deben coincidir con el movimiento bancario
   que los origina: cuenta recaudadora, monto, fecha, descripcion, tipo abono y
   estado de conciliacion deben ser coherentes; la readiness debe bloquear
-  snapshots que conserven discrepancias.
+  snapshots que conserven discrepancias. Las sugerencias asistidas asociadas
+  se exponen en API, snapshot y admin solo como payload redactado, y readiness
+  bloquea metadata heredada con claves o valores sensibles.
 - Ingresos desconocidos resueltos manualmente requieren pago mensual target,
   contrato, periodo economico canonico `YYYY-MM` alineado al mes/anio del
   `PagoMensual`, criterio aplicado, `evidencia_regularizacion_ref` no sensible
@@ -81,9 +83,9 @@ sistema igual a saldo banco.
   `rationale` de cuadraturas y criterio/motivo de transferencias intercuenta,
   antes de exponerlas al backoffice.
 - El admin Django de Conciliacion no expone ni busca refs bancarias crudas de
-  conexiones, movimientos, cuadraturas ni transferencias intercuenta; solo
-  muestra versiones redactadas y mantiene cerrada el alta manual de esas
-  entidades desde backoffice.
+  conexiones, movimientos, ingresos desconocidos, cuadraturas ni
+  transferencias intercuenta; solo muestra versiones redactadas y mantiene
+  cerrada el alta manual de esas entidades desde backoffice.
 - `audit_stage3_conciliacion_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 3.

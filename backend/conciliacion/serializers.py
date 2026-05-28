@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 
 from .models import (
@@ -173,6 +173,11 @@ class IngresoDesconocidoSerializer(serializers.ModelSerializer):
             'updated_at',
         )
         read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['sugerencia_asistida'] = redact_sensitive_payload(data.get('sugerencia_asistida') or {})
+        return data
 
 
 class CuadraturaBancariaSerializer(RedactReferenceFieldsMixin, serializers.ModelSerializer):

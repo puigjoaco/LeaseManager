@@ -387,6 +387,14 @@ def _collect_movement_issues(
     return dict(sorted(counts.items()))
 
 
+def _collect_unknown_income_issues(unknown_income) -> dict[str, int]:
+    counts = Counter()
+    for item in unknown_income:
+        if contains_sensitive_reference(item.sugerencia_asistida or {}, include_sensitive_keys=True):
+            counts['sensitive_suggestion'] += 1
+    return dict(sorted(counts.items()))
+
+
 def _collect_internal_transfer_issues(transfers) -> dict[str, int]:
     counts = Counter()
     for transfer in transfers:
@@ -660,6 +668,7 @@ def collect_stage3_conciliacion_readiness(
     unknown_income = IngresoDesconocido.objects.select_related('movimiento_bancario', 'cuenta_recaudadora').all()
     invalid_unknown_income = _count_invalid(unknown_income)
     open_unknown_income = unknown_income.filter(estado=EstadoIngresoDesconocido.OPEN).count()
+    unknown_income_issues = _collect_unknown_income_issues(unknown_income)
     balance_signal_available = ready_primary_balances > 0 or movements_with_reported_balance > 0
     superseded_resolution_ids = [
         str(pk)
@@ -853,6 +862,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.unknown_income.invalid_model',
                 'Existen ingresos desconocidos que no coinciden con su movimiento bancario.',
                 count=invalid_unknown_income,
+            )
+        )
+    if unknown_income_issues.get('sensitive_suggestion'):
+        issues.append(
+            _issue(
+                'stage3.unknown_income.sensitive_suggestion',
+                'Existen ingresos desconocidos con sugerencias asistidas que contienen claves o valores sensibles.',
+                count=unknown_income_issues['sensitive_suggestion'],
             )
         )
     if not balance_signal_available:
@@ -1158,6 +1175,7 @@ def collect_stage3_conciliacion_readiness(
                 'by_state': _count_by(unknown_income, 'estado'),
                 'open': open_unknown_income,
                 'invalid_model': invalid_unknown_income,
+                **unknown_income_issues,
             },
             'balance_squares': {
                 'total': balance_squares.count(),

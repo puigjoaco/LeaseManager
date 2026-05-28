@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import (
     ScopedQuerysetMixin,
     get_scope_access,
@@ -160,7 +160,7 @@ class ConciliacionSnapshotView(APIView):
                         'monto': item.monto,
                         'descripcion_origen': item.descripcion_origen,
                         'estado': item.estado,
-                        'sugerencia_asistida': item.sugerencia_asistida,
+                        'sugerencia_asistida': redact_sensitive_payload(item.sugerencia_asistida or {}),
                     }
                     for item in ingresos
                 ],

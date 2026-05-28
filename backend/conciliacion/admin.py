@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 
 from .models import (
     CuadraturaBancaria,
@@ -13,6 +13,10 @@ from .models import (
 
 def _redacted_attr(obj, field_name):
     return redact_sensitive_reference(getattr(obj, field_name, ''))
+
+
+def _redacted_payload_attr(obj, field_name):
+    return redact_sensitive_payload(getattr(obj, field_name, None))
 
 
 @admin.register(ConexionBancaria)
@@ -137,9 +141,28 @@ class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
 
 @admin.register(IngresoDesconocido)
 class IngresoDesconocidoAdmin(admin.ModelAdmin):
+    fields = (
+        'movimiento_bancario',
+        'cuenta_recaudadora',
+        'monto',
+        'fecha_movimiento',
+        'descripcion_origen',
+        'estado',
+        'sugerencia_asistida_redacted',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = ('sugerencia_asistida_redacted', 'created_at', 'updated_at')
     list_display = ('cuenta_recaudadora', 'fecha_movimiento', 'monto', 'estado')
     list_filter = ('estado',)
     search_fields = ('descripcion_origen',)
+
+    @admin.display(description='sugerencia_asistida')
+    def sugerencia_asistida_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'sugerencia_asistida')
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(CuadraturaBancaria)
