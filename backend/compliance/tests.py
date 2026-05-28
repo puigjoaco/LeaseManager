@@ -452,6 +452,29 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(model_admin.evento_inicio_redacted(policy), REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('audit.example.test', model_admin.evento_inicio_redacted(policy))
 
+    def test_retention_policy_apis_redact_inherited_sensitive_event_start(self):
+        policy = PoliticaRetencionDatos.objects.create(
+            categoria_dato=CategoriaDato.FINANCIAL,
+            evento_inicio='https://audit.example.test/policy?token=secret',
+            plazo_minimo_anos=6,
+            permite_borrado_logico=True,
+            permite_purga_fisica=False,
+            requiere_hold=False,
+            estado='activa',
+        )
+
+        list_response = self.client.get(reverse('compliance-politica-list'))
+        detail_response = self.client.get(reverse('compliance-politica-detail', args=[policy.id]))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        for policy_data in (list_response.data[0], detail_response.data):
+            self.assertEqual(policy_data['evento_inicio'], REDACTED_SENSITIVE_REFERENCE)
+
+        rendered = str(list_response.data) + str(detail_response.data)
+        self.assertNotIn('audit.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+
     def test_export_can_be_revoked(self):
         self._create_context('REV')
         self._create_policy('operativo')
