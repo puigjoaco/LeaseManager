@@ -49,7 +49,9 @@ contra datos reales o snapshot controlado.
   representante `designado` fuera de las participaciones patrimoniales, debe
   conservar `evidencia_ref` formal trazable no sensible. API, snapshot,
   admin/backoffice y auditor Etapa 1 bloquean o redactan datos heredados sin
-  esa traza.
+  esa traza. Las observaciones de representacion no pueden contener URLs,
+  correos, tokens ni credenciales; la API redacta observaciones heredadas
+  sensibles y el auditor las clasifica como defecto especifico.
 - Validacion de participantes patrimoniales activos: una participacion activa
   solo puede apuntar a un socio activo o a una empresa participante activa con
   participaciones completas.

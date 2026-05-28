@@ -8,7 +8,7 @@ from django.db import models
 from django.db.models import Q, Sum
 from django.utils import timezone
 
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 from .validators import normalize_rut, validate_rut
 
@@ -327,6 +327,10 @@ class RepresentacionComunidad(TimestampedModel):
             raise ValidationError({'vigente_hasta': 'La vigencia final no puede ser anterior a la inicial.'})
         if self.activo and not self.socio_representante.activo:
             raise ValidationError({'socio_representante': 'La representacion activa requiere un socio activo.'})
+        if contains_sensitive_reference(self.observaciones, include_sensitive_keys=True):
+            raise ValidationError(
+                {'observaciones': 'Las observaciones de representacion no pueden contener referencias sensibles.'}
+            )
         if self.modo_representacion == ModoRepresentacionComunidad.DESIGNATED:
             if not (self.evidencia_ref or '').strip():
                 raise ValidationError(

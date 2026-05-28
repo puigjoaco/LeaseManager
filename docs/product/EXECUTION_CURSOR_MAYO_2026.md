@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | `stage1-representation-observation-redaction`. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete `compliance-policy-api-redaction` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Compliance `compliance-policy-api-redaction` integrado en PR #465, merge `2d90f31`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con CI remoto acceptance en verde; rama remota tactica eliminada. |
+| Brecha activa | `RepresentacionComunidad.observaciones` puede contener referencias sensibles heredadas y `representacion_vigente` las expone por API sin redaccion ni clasificacion especifica del auditor Etapa 1. |
+| Motivo de prioridad | Patrimonio/Etapa 1 es el siguiente frente de construccion; la brecha es local, verificable y no requiere fuente externa. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-representation-observation-redaction`. |
+| Rama | `codex/stage1-representation-observation-redaction`. |
+| Estado | Validado localmente; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Etapa 1 local sigue `implementado_sin_evidencia`; el paquete endurece preparacion segura sin declarar cierre. |
+| Estado al cerrar paquete | Validacion local completa OK: focal 3 tests, impacto 184 tests, acceptance 1010 tests, checks backend/frontend, higiene y diff check. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta validacion, PR, CI, merge y limpieza antes de abrir otro frente. |
+| Siguiente accion | Crear commit y PR del paquete, esperar CI remoto, mergear y limpiar worktree tactico. |
 
 ## Actualizacion
 
