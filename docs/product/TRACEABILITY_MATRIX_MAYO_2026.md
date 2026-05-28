@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: Conciliacion/Etapa 3 exige traza contable para cargos
+bancarios resueltos manualmente. Readiness valida que la resolucion manual de
+`comision_bancaria` conserve `resolved_event_id`, `resolved_empresa_id` y
+`resolved_with=charge_manual_classification`, y que el `EventoContable`
+`ComisionBancaria` coincida con movimiento, empresa, fecha, moneda y monto; una
+traza inexistente o desalineada queda como
+`stage3.manual_resolution.charge_classification_target_mismatch`.
+
 Nota 2026-05-28: Conciliacion/Etapa 3 alinea metadata de transferencias
 internas manuales. Readiness compara la resolucion manual heredada contra el
 registro canonico `TransferenciaIntercuenta`: par cargo/abono, entidades,

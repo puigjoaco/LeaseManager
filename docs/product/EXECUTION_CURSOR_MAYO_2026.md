@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Etapa 3 / Conciliacion - traza contable de cargos bancarios manuales. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Paquete `stage3-internal-transfer-metadata-alignment` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete Etapa 3/Conciliacion `stage3-internal-transfer-metadata-alignment` integrado en PR #485, merge `40306f6`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; worktree tactico y rama local/remota eliminados. |
+| Brecha activa | Readiness permitia que un cargo bancario resuelto manualmente quedara con categoria/entidad/periodo/evidencia, pero sin probar que la resolucion conserve el `EventoContable` `ComisionBancaria` alineado al movimiento. |
+| Motivo de prioridad | El PRD exige que todo hecho economico confirmado genere evento contable o quede en revision; los cargos bancarios manuales ya generan evento en servicio, pero el auditor no bloqueaba snapshots heredados sin esa traza. |
+| Worktree | `D:/Proyectos/LeaseManager-stage3-charge-accounting-event-trace`. |
+| Rama | `codex/stage3-charge-accounting-event-trace`. |
+| Estado | En implementacion. |
+| Gate esperado | Gate Etapa 3 local como diagnostico parcial; no cierre sin fuente autorizada. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Politica de reanudacion | Continuar este worktree si existe sucio; no abrir otro frente hasta cerrar, pausar en cursor o recibir instruccion segura. |
+| Siguiente accion | Implementar validacion de `resolved_event_id`/`resolved_empresa_id` y tests focales de readiness Etapa 3. |
 
 ## Actualizacion
 
