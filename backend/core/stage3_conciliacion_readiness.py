@@ -27,6 +27,7 @@ from conciliacion.models import (
     bank_provider_sync_blocking_reason,
     has_text,
 )
+from contabilidad.models import EventoContable
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 
@@ -57,6 +58,9 @@ CHARGE_MANUAL_CLASSIFICATION_REQUIRED_METADATA_FIELDS = (
     'periodo_economico',
     'criterio_reparto',
     'evidencia_clasificacion_ref',
+    'resolved_with',
+    'resolved_event_id',
+    'resolved_empresa_id',
 )
 INTERNAL_TRANSFER_REQUIRED_METADATA_FIELDS = (
     'transferencia_intercuenta_id',
@@ -189,6 +193,8 @@ def _has_resolved_payment_manual_assignment(movement: MovimientoBancarioImportad
 
 
 def _charge_classification_target_matches(resolution: ManualResolution, metadata: dict[str, Any]) -> bool:
+    if metadata.get('resolved_with') != 'charge_manual_classification':
+        return False
     movement = _get_resolution_movement(resolution)
     if movement is None:
         return False
@@ -206,7 +212,28 @@ def _charge_classification_target_matches(resolution: ManualResolution, metadata
         return False
 
     resolved_empresa_id = _metadata_int(metadata, 'resolved_empresa_id')
-    if resolved_empresa_id is not None and resolved_empresa_id != empresa_id:
+    if resolved_empresa_id != empresa_id:
+        return False
+    resolved_event_id = _metadata_int(metadata, 'resolved_event_id')
+    if resolved_event_id is None:
+        return False
+    try:
+        event = EventoContable.objects.get(pk=resolved_event_id)
+    except EventoContable.DoesNotExist:
+        return False
+    if event.empresa_id != empresa_id:
+        return False
+    if event.evento_tipo != 'ComisionBancaria':
+        return False
+    if event.entidad_origen_tipo != 'movimiento_bancario':
+        return False
+    if str(event.entidad_origen_id) != str(movement.pk):
+        return False
+    if event.fecha_operativa != movement.fecha_movimiento:
+        return False
+    if event.moneda != 'CLP':
+        return False
+    if Decimal(event.monto_base) != Decimal(movement.monto):
         return False
     return True
 
@@ -1058,7 +1085,7 @@ def collect_stage3_conciliacion_readiness(
         issues.append(
             _issue(
                 'stage3.manual_resolution.charge_classification_context_missing',
-                'Existen cargos bancarios resueltos manualmente sin categoria, entidad, periodo, criterio o evidencia trazable.',
+                'Existen cargos bancarios resueltos manualmente sin categoria, entidad, periodo, criterio, evidencia o traza contable.',
                 count=manual_resolution_issues['charge_classification_context_missing'],
             )
         )
@@ -1090,7 +1117,7 @@ def collect_stage3_conciliacion_readiness(
         issues.append(
             _issue(
                 'stage3.manual_resolution.charge_classification_target_mismatch',
-                'Existen cargos bancarios resueltos cuya traza no coincide con la entidad afectada.',
+                'Existen cargos bancarios resueltos cuya traza no coincide con la entidad afectada o evento contable.',
                 count=manual_resolution_issues['charge_classification_target_mismatch'],
             )
         )

@@ -13,6 +13,7 @@ from django.test import TestCase
 
 from audit.models import AuditEvent, ManualResolution
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
+from contabilidad.models import EventoContable
 from contratos.models import (
     Arrendatario,
     Contrato,
@@ -217,6 +218,38 @@ class Stage3ConciliacionReadinessTests(TestCase):
             evidencia_importacion_ref='manual-import-stage3-charge',
             estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
         )
+
+    def _create_charge_accounting_event(self, cuenta, charge):
+        return EventoContable.objects.create(
+            empresa=cuenta.empresa_owner,
+            evento_tipo='ComisionBancaria',
+            entidad_origen_tipo='movimiento_bancario',
+            entidad_origen_id=str(charge.pk),
+            fecha_operativa=charge.fecha_movimiento,
+            moneda='CLP',
+            monto_base=charge.monto,
+            payload_resumen={
+                'movimiento_bancario_id': charge.pk,
+                'cuenta_recaudadora_id': charge.conexion_bancaria.cuenta_recaudadora_id,
+            },
+            idempotency_key=f'ComisionBancaria:{charge.pk}:readiness-test',
+        )
+
+    def _charge_classification_metadata(self, cuenta, charge, **overrides):
+        event = self._create_charge_accounting_event(cuenta, charge)
+        metadata = {
+            'categoria_movimiento': 'comision_bancaria',
+            'entidad_afectada_tipo': 'empresa',
+            'entidad_afectada_id': cuenta.empresa_owner_id,
+            'periodo_economico': '2026-01',
+            'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
+            'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
+            'resolved_with': 'charge_manual_classification',
+            'resolved_event_id': event.pk,
+            'resolved_empresa_id': cuenta.empresa_owner_id,
+        }
+        metadata.update(overrides)
+        return metadata
 
     def _create_square_balance(self, cuenta, periodo='2026-01'):
         year, month = (int(part) for part in periodo.split('-'))
@@ -436,14 +469,7 @@ class Stage3ConciliacionReadinessTests(TestCase):
             scope_reference=str(charge.pk),
             summary='Cargo bancario clasificado manualmente',
             rationale='Se clasifico comision bancaria con respaldo controlado.',
-            metadata={
-                'categoria_movimiento': 'comision_bancaria',
-                'entidad_afectada_tipo': 'empresa',
-                'entidad_afectada_id': cuenta.empresa_owner_id,
-                'periodo_economico': '2026-01',
-                'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
-                'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
-            },
+            metadata=self._charge_classification_metadata(cuenta, charge),
         )
         self._create_square_balance(cuenta)
 
@@ -1364,14 +1390,11 @@ class Stage3ConciliacionReadinessTests(TestCase):
             scope_reference=str(charge.pk),
             summary='Cargo con evidencia sensible',
             rationale='Clasificado con evidencia heredada.',
-            metadata={
-                'categoria_movimiento': 'comision_bancaria',
-                'entidad_afectada_tipo': 'empresa',
-                'entidad_afectada_id': cuenta.empresa_owner_id,
-                'periodo_economico': '2026-01',
-                'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
-                'evidencia_clasificacion_ref': 'https://bank.example.test/fee?token=secret',
-            },
+            metadata=self._charge_classification_metadata(
+                cuenta,
+                charge,
+                evidencia_clasificacion_ref='https://bank.example.test/fee?token=secret',
+            ),
         )
 
         result = self._collect_with_final_refs()
@@ -1393,14 +1416,11 @@ class Stage3ConciliacionReadinessTests(TestCase):
             scope_reference=str(charge.pk),
             summary='Cargo con criterio sensible',
             rationale='Clasificado con criterio heredado.',
-            metadata={
-                'categoria_movimiento': 'comision_bancaria',
-                'entidad_afectada_tipo': 'empresa',
-                'entidad_afectada_id': cuenta.empresa_owner_id,
-                'periodo_economico': '2026-01',
-                'criterio_reparto': 'Cargo revisado en https://bank.example.test/fee?token=secret',
-                'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
-            },
+            metadata=self._charge_classification_metadata(
+                cuenta,
+                charge,
+                criterio_reparto='Cargo revisado en https://bank.example.test/fee?token=secret',
+            ),
         )
 
         result = self._collect_with_final_refs()
@@ -1422,14 +1442,7 @@ class Stage3ConciliacionReadinessTests(TestCase):
             scope_reference=str(charge.pk),
             summary='Cargo con periodo economico invalido',
             rationale='Clasificado con metadata heredada.',
-            metadata={
-                'categoria_movimiento': 'comision_bancaria',
-                'entidad_afectada_tipo': 'empresa',
-                'entidad_afectada_id': cuenta.empresa_owner_id,
-                'periodo_economico': '2026-13',
-                'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
-                'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
-            },
+            metadata=self._charge_classification_metadata(cuenta, charge, periodo_economico='2026-13'),
         )
 
         result = self._collect_with_final_refs()
@@ -1451,14 +1464,33 @@ class Stage3ConciliacionReadinessTests(TestCase):
             scope_reference=str(charge.pk),
             summary='Cargo con entidad afectada inconsistente',
             rationale='Clasificado con metadata heredada.',
-            metadata={
-                'categoria_movimiento': 'comision_bancaria',
-                'entidad_afectada_tipo': 'empresa',
-                'entidad_afectada_id': cuenta.empresa_owner_id + 99,
-                'periodo_economico': '2026-01',
-                'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
-                'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
-            },
+            metadata=self._charge_classification_metadata(
+                cuenta,
+                charge,
+                entidad_afectada_id=cuenta.empresa_owner_id + 99,
+            ),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.manual_resolution.charge_classification_target_mismatch', issue_codes)
+        self.assertEqual(result['sections']['manual_resolutions']['charge_classification_target_mismatch'], 1)
+
+    def test_resolved_charge_manual_resolution_without_accounting_event_trace_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-CHARGE-EVENT')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+        charge = self._create_reconciled_charge_movement(conexion)
+        ManualResolution.objects.create(
+            category='conciliacion.movimiento_cargo',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='movimiento_bancario',
+            scope_reference=str(charge.pk),
+            summary='Cargo sin evento contable trazable',
+            rationale='Clasificado con metadata heredada.',
+            metadata=self._charge_classification_metadata(cuenta, charge, resolved_event_id=999999),
         )
 
         result = self._collect_with_final_refs()
@@ -1480,14 +1512,7 @@ class Stage3ConciliacionReadinessTests(TestCase):
             scope_reference=str(charge.pk),
             summary='Cargo con periodo economico desalineado al movimiento',
             rationale='Clasificado con metadata heredada.',
-            metadata={
-                'categoria_movimiento': 'comision_bancaria',
-                'entidad_afectada_tipo': 'empresa',
-                'entidad_afectada_id': cuenta.empresa_owner_id,
-                'periodo_economico': '2026-02',
-                'criterio_reparto': 'Cargo asignado a empresa duena de la cuenta.',
-                'evidencia_clasificacion_ref': 'charge-classification-controlled-ref',
-            },
+            metadata=self._charge_classification_metadata(cuenta, charge, periodo_economico='2026-02'),
         )
 
         result = self._collect_with_final_refs()
