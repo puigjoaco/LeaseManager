@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete activo. |
+| Frente activo | Canales / Seguridad admin - claves sensibles en restricciones operativas. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna abierta. |
-| Motivo de prioridad | Pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
-| Worktree | N/A. |
-| Rama | N/A. |
-| Estado | Paquete PlataformaBase/Core `core-sensitive-reference-keys` integrado en PR #457, merge `c098cec`. |
-| Gate esperado | N/A hasta abrir el siguiente paquete. |
-| Estado al cerrar paquete | Cerrado con CI remoto acceptance en verde; worktree y rama tactica de implementacion limpiados. |
+| Brecha activa | `CanalMensajeriaAdmin` conserva redaccion propia para `restricciones_operativas` que revisa claves sensibles con el patron antiguo y no con el detector transversal `key_looks_sensitive`, por lo que claves como `authorization` o `private_key` podrian quedar visibles en admin heredado. |
+| Motivo de prioridad | Frente local seguro: alinea la superficie admin de Canales con el hardening transversal de Core sin tocar `.env`, datos reales, DB historicas, backfills, deploys ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-channels-admin-sensitive-key-redaction`. |
+| Rama | `codex/channels-admin-sensitive-key-redaction`. |
+| Estado | Abierto para alinear redaccion admin de Canales, tests, trazabilidad y evidencia. |
+| Gate esperado | Test focal Canales/admin, suite impactada Canales/Stage2, `manage.py check`, migraciones dry-run, frontend build/lint, acceptance local, higiene repo y CI remoto. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
-| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge o pausar explicitamente aqui si aparece un bloqueo real. |
+| Siguiente accion | Usar `key_looks_sensitive` en la redaccion admin de restricciones de canal, cubrir claves `authorization`/`private_key` con test y cerrar paquete. |
 
 ## Actualizacion
 
