@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | PlataformaBase / Seguridad - claves sensibles en metadata transversal. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | El detector transversal de referencias sensibles no clasifica nombres de metadata como `authorization` o `private_key` cuando el valor es opaco, dejando posible exposicion en payloads heredados redactados por clave. |
-| Motivo de prioridad | Frente local seguro de PlataformaBase: refuerza redaccion/auditoria de secretos sin tocar `.env`, datos reales, DB historicas, backfills, deploys ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-core-sensitive-reference-keys`. |
-| Rama | `codex/core-sensitive-reference-keys`. |
-| Estado | Abierto para endurecer deteccion de claves sensibles transversales, tests, trazabilidad y evidencia. |
-| Gate esperado | Tests focales Core/reference validation, suites impactadas Core/Audit/Compliance, `manage.py check`, migraciones dry-run, frontend build/lint, acceptance local, higiene repo y CI remoto. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete PlataformaBase/Core `core-sensitive-reference-keys` integrado en PR #457, merge `c098cec`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con CI remoto acceptance en verde; worktree y rama tactica de implementacion limpiados. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta PR/CI/merge o pausar explicitamente aqui si aparece un bloqueo real. |
-| Siguiente accion | Ajustar detector transversal, cubrir claves `authorization`/`private_key` con tests y cerrar paquete. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
+| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
 
 ## Actualizacion
 
