@@ -52,7 +52,13 @@ from .models import (
     WHATSAPP_BLOCK_EVENT_TYPE,
     WHATSAPP_REHABILITATION_EVENT_TYPE,
 )
-from .admin import AvisoTerminoAdmin, ContratoAdmin, PeriodoContractualAdmin
+from .admin import (
+    ArrendatarioAdmin,
+    AvisoTerminoAdmin,
+    ContactoPagoArrendatarioAdmin,
+    ContratoAdmin,
+    PeriodoContractualAdmin,
+)
 from .services import block_whatsapp_contact, rehabilitate_whatsapp_contact
 
 
@@ -526,6 +532,66 @@ class ContratosAPITests(APITestCase):
         )
         self.assertEqual(
             aviso_admin.resolucion_conflicto_renovacion_motivo_redacted(aviso),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+
+    def test_arrendatario_admin_redacts_sensitive_whatsapp_refs(self):
+        arrendatario = Arrendatario.objects.create(
+            tipo_arrendatario='persona_natural',
+            nombre_razon_social='Arrendatario Admin WA',
+            rut='40404040-5',
+            email='tenant-admin-wa@example.com',
+            telefono='+56912345678',
+            domicilio_notificaciones='Direccion Admin WA',
+            estado_contacto='activo',
+            whatsapp_opt_in_evidencia_ref='https://wa.example.test/optin?token=secret',
+            whatsapp_bloqueado=True,
+            whatsapp_bloqueo_motivo='Bloqueo en https://wa.example.test/block?token=secret',
+            whatsapp_bloqueo_evidencia_ref='https://wa.example.test/block?token=secret',
+            whatsapp_rehabilitacion_ref='https://wa.example.test/rehab?token=secret',
+        )
+
+        arrendatario_admin = ArrendatarioAdmin(Arrendatario, AdminSite())
+
+        self.assertNotIn('whatsapp_opt_in_evidencia_ref', arrendatario_admin.fields)
+        self.assertNotIn('whatsapp_bloqueo_motivo', arrendatario_admin.fields)
+        self.assertNotIn('whatsapp_bloqueo_evidencia_ref', arrendatario_admin.fields)
+        self.assertNotIn('whatsapp_rehabilitacion_ref', arrendatario_admin.fields)
+        self.assertEqual(
+            arrendatario_admin.whatsapp_opt_in_evidencia_ref_redacted(arrendatario),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            arrendatario_admin.whatsapp_bloqueo_motivo_redacted(arrendatario),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            arrendatario_admin.whatsapp_bloqueo_evidencia_ref_redacted(arrendatario),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            arrendatario_admin.whatsapp_rehabilitacion_ref_redacted(arrendatario),
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+
+    def test_payment_contact_admin_redacts_sensitive_authorization_evidence(self):
+        arrendatario = self._create_arrendatario(rut='40404040-6')
+        contact = ContactoPagoArrendatario.objects.create(
+            arrendatario=arrendatario,
+            nombre='Contacto Admin Pago',
+            rol_operativo='finanzas',
+            email='contacto-pago-admin@example.com',
+            evidencia_autorizacion_ref='https://payments.example.test/evidence?token=secret',
+            es_principal=True,
+            estado='activo',
+        )
+
+        contact_admin = ContactoPagoArrendatarioAdmin(ContactoPagoArrendatario, AdminSite())
+
+        self.assertNotIn('evidencia_autorizacion_ref', contact_admin.fields)
+        self.assertNotIn('evidencia_autorizacion_ref', contact_admin.search_fields)
+        self.assertEqual(
+            contact_admin.evidencia_autorizacion_ref_redacted(contact),
             REDACTED_SENSITIVE_REFERENCE,
         )
 
