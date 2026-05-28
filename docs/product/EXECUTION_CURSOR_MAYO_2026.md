@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 / CobranzaActiva - score de estado de cuenta solo por rebuild. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | El detalle de `EstadoCuentaArrendatario` permite recibir `score_pago` por PATCH, aunque el score operativo debe reconstruirse desde pagos, repactaciones y codigos activos. |
-| Motivo de prioridad | Cierra una superficie local de Cobranza sin proveedores externos: el score no debe quedar editable manualmente desde API/backoffice. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-account-score-readonly`. |
-| Rama | `codex/stage2-account-score-readonly`. |
-| Estado | Paquete abierto. |
-| Gate esperado | Etapa 2 local debe seguir `classification=parcial`, `ready_for_stage2_cobranza=false` sin Email/WebPay reales. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna registrada en curso. |
+| Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
+| Worktree | N/A. |
+| Rama | `main`. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: PR #505 `Make account state score rebuild-only`, merge `45bc24b95240633c712e6f34a5f8d2319115578c`. |
+| Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
+| Estado al cerrar paquete | PR #505 integrado en `main`; Etapa 2 permanece parcial sin cierre falso. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta cerrar PR o pausar aqui explicitamente. |
-| Siguiente accion | Bloquear `score_pago` manual en API, cubrir tests, evidencia y trazabilidad. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
+| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
 ## Actualizacion
 
