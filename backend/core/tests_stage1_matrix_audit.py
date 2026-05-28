@@ -2128,6 +2128,68 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.contrato_futuro.conflicto_renovacion_sin_resolucion', issue_codes)
 
+    def test_future_contract_conflict_resolution_sensitive_motive_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.fecha_fin_vigente = date(2027, 12, 31)
+        contrato.save(update_fields=['fecha_fin_vigente', 'updated_at'])
+        PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=2,
+            fecha_inicio=date(2027, 1, 1),
+            fecha_fin=date(2027, 12, 31),
+            monto_base='250000.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='renovacion',
+            origen_periodo='renovacion_automatica',
+        )
+        AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='Termino controlado con renovacion ya ejecutada',
+            estado=EstadoAvisoTermino.REGISTERED,
+            resolucion_conflicto_renovacion_ref='renewal-conflict-resolution-001',
+            resolucion_conflicto_renovacion_motivo=(
+                'Resolucion en https://contracts.example.test/conflict?token=secret'
+            ),
+        )
+        self._create_future_contract_for(contrato)
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato_futuro.conflicto_renovacion_resolucion_sensible', issue_codes)
+        self.assertNotIn('contracts.example.test', str(result))
+        self.assertNotIn('token=secret', str(result))
+
+    def test_renewal_base_policy_sensitive_motive_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contrato.fecha_fin_vigente = date(2027, 12, 31)
+        contrato.tiene_tramos = True
+        contrato.save(update_fields=['fecha_fin_vigente', 'tiene_tramos', 'updated_at'])
+        PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=2,
+            fecha_inicio=date(2027, 1, 1),
+            fecha_fin=date(2027, 12, 31),
+            monto_base='300000.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='renovacion',
+            origen_periodo='manual_controlado',
+            politica_base_renovacion_ref='renewal-base-policy-001',
+            politica_base_renovacion_motivo='Politica en https://contracts.example.test/renewal?token=secret',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.periodo.renovacion_base_politica_sensible', issue_codes)
+        self.assertNotIn('contracts.example.test', str(result))
+        self.assertNotIn('token=secret', str(result))
+
     def test_early_terminated_partial_month_without_audit_event_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         partial_contract = Contrato.objects.create(
@@ -2165,6 +2227,55 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.contrato.terminacion_anticipada_prorrata_sin_auditoria', issue_codes)
+
+    def test_early_terminated_partial_month_sensitive_motive_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        partial_contract = Contrato.objects.create(
+            codigo_contrato='CON-EARLY-PARTIAL-SENSITIVE',
+            mandato_operacion=contrato.mandato_operacion,
+            arrendatario=contrato.arrendatario,
+            fecha_inicio=date(2025, 1, 1),
+            fecha_fin_vigente=date(2025, 6, 15),
+            terminacion_anticipada_prorrata_ref='early-term-proration-sensitive',
+            terminacion_anticipada_prorrata_motivo=(
+                'Prorrata en https://contracts.example.test/prorrata?token=secret'
+            ),
+            dia_pago_mensual=5,
+            estado=EstadoContrato.EARLY_TERMINATED,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=partial_contract,
+            propiedad=contrato.mandato_operacion.propiedad,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='003',
+        )
+        PeriodoContractual.objects.create(
+            contrato=partial_contract,
+            numero_periodo=1,
+            fecha_inicio=date(2025, 1, 1),
+            fecha_fin=date(2025, 6, 15),
+            monto_base='250000.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='terminacion_anticipada',
+            origen_periodo='decision_controlada',
+        )
+        AuditEvent.objects.create(
+            event_type=EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
+            entity_type='contrato',
+            entity_id=str(partial_contract.pk),
+            summary='Decision auditada para prorrata de termino anticipado.',
+            metadata={'terminacion_anticipada_prorrata_ref': 'early-term-proration-sensitive'},
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.terminacion_anticipada_prorrata_sensible', issue_codes)
+        self.assertNotIn('contracts.example.test', str(result))
+        self.assertNotIn('token=secret', str(result))
 
     def test_early_terminated_partial_month_with_audit_event_can_pass_stage1_matrix_gate(self):
         contrato = self._create_valid_stage1_matrix()

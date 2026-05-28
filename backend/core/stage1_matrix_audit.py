@@ -1209,6 +1209,21 @@ def _audit_contract_periods(issues: list[dict[str, Any]], contrato: Contrato) ->
                         'requiere politica documentada no sensible.'
                     ),
                 )
+            elif (
+                str(current.tipo_periodo or '').strip().lower() == RENEWAL_PERIOD_KIND
+                and base_changed
+                and contains_sensitive_reference(current.politica_base_renovacion_motivo)
+            ):
+                _issue(
+                    issues,
+                    code='stage1.periodo.renovacion_base_politica_sensible',
+                    entity='PeriodoContractual',
+                    entity_id=current.pk,
+                    message=(
+                        'Renovacion contractual con base distinta al ultimo tramo vigente '
+                        'contiene motivo de politica con referencias sensibles.'
+                    ),
+                )
 
 
 def _audit_future_contract_closure_evidence(
@@ -1262,6 +1277,20 @@ def _audit_future_contract_closure_evidence(
                 message=(
                     'Contrato futuro coexiste con AvisoTermino y renovacion ya ejecutada; '
                     'requiere resolucion guiada no sensible antes de considerarse integro.'
+                ),
+            )
+        elif (
+            aviso.has_executed_renewal_conflict(contrato.fecha_inicio)
+            and contains_sensitive_reference(aviso.resolucion_conflicto_renovacion_motivo)
+        ):
+            _issue(
+                issues,
+                code='stage1.contrato_futuro.conflicto_renovacion_resolucion_sensible',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message=(
+                    'Contrato futuro coexiste con AvisoTermino y renovacion ya ejecutada; '
+                    'la resolucion guiada contiene motivo sensible.'
                 ),
             )
         elif contrato.arrendatario_id != current_contract.arrendatario_id and not AuditEvent.objects.filter(
@@ -1322,6 +1351,21 @@ def _audit_early_termination_proration(issues: list[dict[str, Any]]) -> None:
                 message=(
                     'Contrato terminado anticipadamente con ultimo mes parcial requiere regla o decision '
                     'auditada con referencia no sensible y motivo trazable.'
+                ),
+            )
+            continue
+        if (
+            not is_non_sensitive_reference(contrato.terminacion_anticipada_prorrata_ref)
+            or contains_sensitive_reference(contrato.terminacion_anticipada_prorrata_motivo)
+        ):
+            _issue(
+                issues,
+                code='stage1.contrato.terminacion_anticipada_prorrata_sensible',
+                entity='Contrato',
+                entity_id=contrato.pk,
+                message=(
+                    'Contrato terminado anticipadamente con ultimo mes parcial conserva '
+                    'decision de prorrata con referencia o motivo sensible.'
                 ),
             )
             continue

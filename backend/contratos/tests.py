@@ -535,6 +535,151 @@ class ContratosAPITests(APITestCase):
             REDACTED_SENSITIVE_REFERENCE,
         )
 
+    def test_contract_lifecycle_apis_and_snapshot_redact_sensitive_motives(self):
+        mandato = self._create_active_mandato(codigo='MAND-API-MOTIVES', owner_rut='30303031-1')
+        arrendatario = self._create_arrendatario(rut='40404041-2')
+        contrato = Contrato.objects.create(
+            codigo_contrato='CTR-API-MOTIVES',
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            fecha_entrega=date(2026, 1, 1),
+            entrega_llaves_autorizacion_ref='https://contracts.example.test/key?token=secret',
+            entrega_llaves_autorizacion_motivo='Autorizacion en https://contracts.example.test/key?token=secret',
+            terminacion_anticipada_prorrata_ref='https://contracts.example.test/prorrata?token=secret',
+            terminacion_anticipada_prorrata_motivo='Prorrata en https://contracts.example.test/prorrata?token=secret',
+            dia_pago_mensual=5,
+            plazo_notificacion_termino_dias=60,
+            dias_prealerta_admin=90,
+            estado=EstadoContrato.ACTIVE,
+            politica_documental=self.contract_policy,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=contrato,
+            propiedad=mandato.propiedad,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='123',
+        )
+        periodo = PeriodoContractual.objects.create(
+            contrato=contrato,
+            numero_periodo=1,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin=date(2026, 12, 31),
+            monto_base=Decimal('1000000.00'),
+            moneda_base='CLP',
+            tipo_periodo='renovacion',
+            origen_periodo='manual_controlado',
+            politica_base_renovacion_ref='https://contracts.example.test/renewal?token=secret',
+            politica_base_renovacion_motivo='Politica en https://contracts.example.test/renewal?token=secret',
+        )
+        aviso = AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='No renovacion',
+            estado=EstadoAvisoTermino.REGISTERED,
+            resolucion_conflicto_renovacion_ref='https://contracts.example.test/conflict?token=secret',
+            resolucion_conflicto_renovacion_motivo='Resolucion en https://contracts.example.test/conflict?token=secret',
+            registrado_por=self.user,
+        )
+
+        contract_list = self.client.get(reverse('contratos-contrato-list'))
+        contract_detail = self.client.get(reverse('contratos-contrato-detail', args=[contrato.id]))
+        period_detail = self.client.get(reverse('contratos-periodo-detail', args=[periodo.id]))
+        aviso_detail = self.client.get(reverse('contratos-aviso-detail', args=[aviso.id]))
+        snapshot = self.client.get(reverse('contratos-snapshot'))
+
+        self.assertEqual(contract_list.status_code, status.HTTP_200_OK)
+        self.assertEqual(contract_detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(period_detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(aviso_detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+
+        contract_list_item = contract_list.data[0]
+        contract_snapshot = snapshot.data['contratos'][0]
+        period_snapshot = contract_snapshot['periodos_contractuales_detail'][0]
+        aviso_snapshot = snapshot.data['avisos'][0]
+
+        for contract_payload in (contract_list_item, contract_detail.data, contract_snapshot):
+            self.assertEqual(contract_payload['entrega_llaves_autorizacion_ref'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(contract_payload['entrega_llaves_autorizacion_motivo'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(contract_payload['terminacion_anticipada_prorrata_ref'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(
+                contract_payload['terminacion_anticipada_prorrata_motivo'],
+                REDACTED_SENSITIVE_REFERENCE,
+            )
+
+        period_payload = contract_detail.data['periodos_contractuales_detail'][0]
+        for payload in (period_payload, period_detail.data, period_snapshot):
+            self.assertEqual(payload['politica_base_renovacion_ref'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(payload['politica_base_renovacion_motivo'], REDACTED_SENSITIVE_REFERENCE)
+
+        for payload in (aviso_detail.data, aviso_snapshot):
+            self.assertEqual(payload['resolucion_conflicto_renovacion_ref'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(payload['resolucion_conflicto_renovacion_motivo'], REDACTED_SENSITIVE_REFERENCE)
+
+        rendered = f'{contract_list.data}{contract_detail.data}{period_detail.data}{aviso_detail.data}{snapshot.data}'
+        self.assertNotIn('contracts.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+
+    def test_contract_lifecycle_motives_reject_sensitive_values_on_full_clean(self):
+        mandato = self._create_active_mandato(codigo='MAND-MOTIVE-CLEAN', owner_rut='30303032-K')
+        arrendatario = self._create_arrendatario(rut='40404042-0')
+        contrato = Contrato.objects.create(
+            codigo_contrato='CTR-MOTIVE-CLEAN',
+            mandato_operacion=mandato,
+            arrendatario=arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 6, 15),
+            terminacion_anticipada_prorrata_ref='prorrata-controlled-001',
+            terminacion_anticipada_prorrata_motivo='Prorrata en https://contracts.example.test/prorrata?token=secret',
+            dia_pago_mensual=5,
+            plazo_notificacion_termino_dias=60,
+            dias_prealerta_admin=90,
+            estado=EstadoContrato.EARLY_TERMINATED,
+            politica_documental=self.contract_policy,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=contrato,
+            propiedad=mandato.propiedad,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='123',
+        )
+        with self.assertRaises(ValidationError) as contract_context:
+            contrato.full_clean()
+        self.assertIn('terminacion_anticipada_prorrata_motivo', contract_context.exception.message_dict)
+
+        periodo = PeriodoContractual(
+            contrato=contrato,
+            numero_periodo=1,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin=date(2026, 6, 15),
+            monto_base=Decimal('1000000.00'),
+            moneda_base='CLP',
+            tipo_periodo='terminacion_anticipada',
+            origen_periodo='decision_controlada',
+            politica_base_renovacion_ref='renewal-policy-controlled-001',
+            politica_base_renovacion_motivo='Politica en https://contracts.example.test/renewal?token=secret',
+        )
+        with self.assertRaises(ValidationError) as period_context:
+            periodo.full_clean()
+        self.assertIn('politica_base_renovacion_motivo', period_context.exception.message_dict)
+
+        aviso = AvisoTermino(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 6, 15),
+            causal='No renovacion',
+            estado=EstadoAvisoTermino.REGISTERED,
+            resolucion_conflicto_renovacion_ref='conflict-resolution-controlled-001',
+            resolucion_conflicto_renovacion_motivo='Resolucion en https://contracts.example.test/conflict?token=secret',
+            registrado_por=self.user,
+        )
+        with self.assertRaises(ValidationError) as notice_context:
+            aviso.full_clean()
+        self.assertIn('resolucion_conflicto_renovacion_motivo', notice_context.exception.message_dict)
+
     def test_arrendatario_admin_redacts_sensitive_whatsapp_refs(self):
         arrendatario = Arrendatario.objects.create(
             tipo_arrendatario='persona_natural',
@@ -1553,6 +1698,42 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('periodos_contractuales', response.data)
         self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-REN-BASE').exists())
+
+    def test_renewal_period_with_changed_base_rejects_sensitive_policy_motive(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REN-SENS', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REN-SENS')
+        payload['tiene_tramos'] = True
+        payload['periodos_contractuales'] = [
+            {
+                'numero_periodo': 1,
+                'fecha_inicio': '2026-01-01',
+                'fecha_fin': '2026-06-30',
+                'monto_base': '1000000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'inicial',
+                'origen_periodo': 'manual',
+            },
+            {
+                'numero_periodo': 2,
+                'fecha_inicio': '2026-07-01',
+                'fecha_fin': '2026-12-31',
+                'monto_base': '1100000.00',
+                'moneda_base': 'CLP',
+                'tipo_periodo': 'renovacion',
+                'origen_periodo': 'manual',
+                'politica_base_renovacion_ref': 'renewal-base-policy-sensitive-001',
+                'politica_base_renovacion_motivo': (
+                    'Politica en https://contracts.example.test/renewal?token=secret'
+                ),
+            },
+        ]
+
+        response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('periodos_contractuales', response.data)
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-REN-SENS').exists())
 
     def test_renewal_period_with_changed_base_accepts_documented_policy(self):
         mandato = self._create_active_mandato(codigo='MAND-101-REN-POL', owner_rut='11111112-K')

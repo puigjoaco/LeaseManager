@@ -513,6 +513,13 @@ class Contrato(TimestampedModel):
             errors['terminacion_anticipada_prorrata_ref'] = (
                 'La decision de prorrata por terminacion anticipada debe ser una referencia no sensible.'
             )
+        if (
+            self.terminacion_anticipada_prorrata_motivo
+            and contains_sensitive_reference(self.terminacion_anticipada_prorrata_motivo)
+        ):
+            errors['terminacion_anticipada_prorrata_motivo'] = (
+                'El motivo de prorrata por terminacion anticipada no debe contener referencias sensibles.'
+            )
 
         if self.has_partial_early_termination_month():
             if not self.terminacion_anticipada_prorrata_ref:
@@ -1081,6 +1088,16 @@ class PeriodoContractual(TimestampedModel):
                     )
                 }
             )
+        if self.politica_base_renovacion_motivo and contains_sensitive_reference(
+            self.politica_base_renovacion_motivo
+        ):
+            raise ValidationError(
+                {
+                    'politica_base_renovacion_motivo': (
+                        'La politica de base de renovacion no debe contener referencias sensibles.'
+                    )
+                }
+            )
         if (
             self.is_automatic_renewal_origin()
             and not getattr(self, '_allow_automatic_renewal_trace', False)
@@ -1290,6 +1307,16 @@ class AvisoTermino(TimestampedModel):
                 {
                     'resolucion_conflicto_renovacion_ref': (
                         'La resolucion guiada del conflicto de renovacion debe usar una referencia no sensible.'
+                    )
+                }
+            )
+        if self.resolucion_conflicto_renovacion_motivo and contains_sensitive_reference(
+            self.resolucion_conflicto_renovacion_motivo
+        ):
+            raise ValidationError(
+                {
+                    'resolucion_conflicto_renovacion_motivo': (
+                        'La resolucion guiada del conflicto de renovacion no debe contener referencias sensibles.'
                     )
                 }
             )

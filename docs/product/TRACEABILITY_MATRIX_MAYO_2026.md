@@ -42,6 +42,14 @@ ahora redactan `excepcion_parcial_motivo` heredado antes de exponerlo, y
 readiness Etapa 2 conserva la clasificacion de esos snapshots como
 `stage2.repayment.invalid_model` sin filtrar valores.
 
+Nota 2026-05-28: Contratos valida y redacta motivos contractuales sensibles.
+API list/detail, serializers de periodos/avisos y snapshot de Contratos
+redactan motivos heredados de entrega de llaves, prorrata de terminacion
+anticipada, politica base de renovacion y resolucion de conflicto de
+renovacion. Nuevas escrituras rechazan motivos sensibles y el auditor Etapa 1
+clasifica snapshots heredados con motivos sensibles mediante codigos
+especificos sin exponer URLs, correos, tokens ni credenciales.
+
 Nota 2026-05-27: CobranzaActiva persiste traza UF exacta en pagos mensuales.
 `PagoMensual` guarda moneda de calculo, fecha UF usada, valor UF usado y
 fuente canonica; la fecha debe coincidir con `fecha_vencimiento`. La generacion

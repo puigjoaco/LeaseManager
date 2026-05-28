@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from audit.models import ManualResolution
 from audit.services import create_audit_event
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 from .models import (
     AUTOMATIC_RENEWAL_EVENT_TYPE,
@@ -61,6 +61,14 @@ def _validate_renewal_base_policy(*, base_changed, policy_ref, policy_reason):
             {
                 'politica_base_renovacion_ref': (
                     'La politica de base de renovacion debe usar una referencia no sensible.'
+                )
+            }
+        )
+    if contains_sensitive_reference(policy_reason):
+        raise ValidationError(
+            {
+                'politica_base_renovacion_motivo': (
+                    'La politica de base de renovacion no debe contener referencias sensibles.'
                 )
             }
         )
@@ -461,6 +469,10 @@ def execute_tenant_replacement(
     if conflict_ref and not is_non_sensitive_reference(conflict_ref):
         raise ValidationError(
             {'resolucion_conflicto_renovacion_ref': 'La resolucion guiada debe usar referencia no sensible.'}
+        )
+    if conflict_reason and contains_sensitive_reference(conflict_reason):
+        raise ValidationError(
+            {'resolucion_conflicto_renovacion_motivo': 'La resolucion guiada no debe contener referencias sensibles.'}
         )
 
     aviso = AvisoTermino(
