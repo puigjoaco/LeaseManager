@@ -571,6 +571,15 @@ class RepactacionDeudaSerializer(RedactReferenceFieldsMixin, serializers.ModelSe
 
 
 class CodigoCobroResidualSerializer(serializers.ModelSerializer):
+    immutable_after_create_fields = (
+        'referencia_visible',
+        'arrendatario',
+        'contrato_origen',
+        'saldo_actual',
+        'estado',
+        'fecha_activacion',
+    )
+
     class Meta:
         model = CodigoCobroResidual
         fields = (
@@ -595,6 +604,19 @@ class CodigoCobroResidualSerializer(serializers.ModelSerializer):
         self.fields['contrato_origen'].queryset = _scoped_contrato_queryset(user)
 
     def validate(self, attrs):
+        if self.instance is not None:
+            requested_locked_fields = sorted(
+                field
+                for field in self.immutable_after_create_fields
+                if field in getattr(self, 'initial_data', {})
+            )
+            if requested_locked_fields:
+                raise serializers.ValidationError(
+                    {
+                        field: 'El codigo residual no se muta desde el endpoint generico despues de creado.'
+                        for field in requested_locked_fields
+                    }
+                )
         if not self.instance:
             attrs['referencia_visible'] = generate_residual_reference()
         candidate = build_validation_candidate(self.instance, CodigoCobroResidual)

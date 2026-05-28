@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | Etapa 2 - CobranzaActiva. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna registrada en curso. |
-| Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
-| Worktree | N/A. |
-| Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: PR #507 `Make account state admin fields read-only`, merge `646ede81a240f94cb02671376d44de6d75633c38`. |
-| Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | PR #507 integrado en `main`; Etapa 2 permanece parcial sin cierre falso. |
+| Brecha activa | `CodigoCobroResidual` conserva superficie de mutacion generica despues de creado desde API detail/admin, permitiendo alterar saldo, estado o target sin flujo bancario exacto ni resolucion auditada especifica. |
+| Motivo de prioridad | El PRD exige deuda residual con referencia propia y trazabilidad; el codigo residual ya se genera con referencia canonica, pero debe quedar inmutable desde superficies genericas despues de creado. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-residual-code-readonly`. |
+| Rama | `codex/stage2-residual-code-readonly`. |
+| Estado | Paquete tactico abierto. Ultimo paquete cerrado: PR #507 `Make account state admin fields read-only`, merge `646ede81a240f94cb02671376d44de6d75633c38`. |
+| Gate esperado | Tests focales de Cobranza para API/admin de codigos residuales, suite impactada Cobranza + readiness Etapa 2, `manage.py check`, migraciones dry-run, gate local Etapa 2, frontend build/lint, acceptance local, higiene y `git diff --check`. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Siguiente accion | Bloquear mutaciones genericas posteriores a la creacion de `CodigoCobroResidual`, dejar admin en solo lectura para registros existentes y validar/documentar el paquete. |
 
 ## Actualizacion
 
