@@ -61,9 +61,9 @@ contables desde hechos conciliados.
 - APIs de contabilidad y reporting de libros redactan payloads y referencias
   sensibles heredadas antes de exponerlas al backoffice.
 - El admin Django de Contabilidad no expone refs/payloads crudos de eventos,
-  movimientos, obligaciones, libros, balances, cierres ni efectos de
-  reapertura; muestra versiones redactadas y mantiene cerrada el alta manual
-  de esos artefactos generados desde backoffice.
+  asientos, movimientos, obligaciones, libros, balances, cierres ni efectos
+  de reapertura; muestra versiones redactadas y mantiene cerrada el alta,
+  edicion y borrado manual de esos artefactos generados desde backoffice.
 - `audit_stage5_contabilidad_readiness` consolida configuracion fiscal,
   reglas/matriz, eventos, asientos, integridad de movimientos, snapshots,
   cierres mensuales y conciliacion del periodo sin presentar impuestos ni

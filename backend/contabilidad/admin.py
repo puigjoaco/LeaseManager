@@ -80,7 +80,7 @@ class EventoContableAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = ('payload_resumen_redacted', 'created_at', 'updated_at')
+    readonly_fields = fields
     list_display = ('evento_tipo', 'empresa', 'fecha_operativa', 'monto_base', 'estado_contable')
     list_filter = ('estado_contable', 'evento_tipo', 'moneda')
     search_fields = ('idempotency_key', 'entidad_origen_tipo', 'entidad_origen_id')
@@ -92,12 +92,34 @@ class EventoContableAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(AsientoContable)
 class AsientoContableAdmin(admin.ModelAdmin):
+    fields = (
+        'evento_contable',
+        'fecha_contable',
+        'periodo_contable',
+        'estado',
+        'debe_total',
+        'haber_total',
+        'moneda_funcional',
+        'hash_integridad',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
     list_display = ('id', 'evento_contable', 'fecha_contable', 'periodo_contable', 'debe_total', 'haber_total', 'estado')
     list_filter = ('estado', 'periodo_contable')
     search_fields = ('evento_contable__idempotency_key',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(MovimientoAsiento)
@@ -112,7 +134,7 @@ class MovimientoAsientoAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = ('centro_resultado_ref_redacted', 'created_at', 'updated_at')
+    readonly_fields = fields
     list_display = ('asiento_contable', 'cuenta_contable', 'tipo_movimiento', 'monto', 'centro_resultado_ref_redacted')
     list_filter = ('tipo_movimiento',)
     search_fields = ('asiento_contable__id', 'cuenta_contable__codigo', 'glosa')
@@ -122,6 +144,9 @@ class MovimientoAsientoAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'centro_resultado_ref')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -147,14 +172,7 @@ class EfectoReaperturaCierreMensualAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'motivo_redacted',
-        'efecto_esperado_redacted',
-        'evidencia_ref_redacted',
-        'fecha_aplicacion',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('cierre', 'tipo_efecto', 'monto_efecto', 'evento_contable', 'fecha_aplicacion')
     list_filter = ('tipo_efecto',)
     search_fields = ('cierre__empresa__razon_social', 'evento_contable__idempotency_key')
@@ -174,6 +192,9 @@ class EfectoReaperturaCierreMensualAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(ObligacionTributariaMensual)
 class ObligacionTributariaMensualAdmin(admin.ModelAdmin):
@@ -189,7 +210,7 @@ class ObligacionTributariaMensualAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = ('detalle_calculo_redacted', 'created_at', 'updated_at')
+    readonly_fields = fields
     list_display = ('empresa', 'anio', 'mes', 'obligacion_tipo', 'monto_calculado', 'estado_preparacion')
     list_filter = ('obligacion_tipo', 'estado_preparacion')
     search_fields = ('empresa__razon_social',)
@@ -199,6 +220,9 @@ class ObligacionTributariaMensualAdmin(admin.ModelAdmin):
         return _redacted_payload_attr(obj, 'detalle_calculo')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -212,7 +236,7 @@ class LedgerSnapshotAdminMixin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = ('storage_ref_redacted', 'resumen_redacted', 'created_at', 'updated_at')
+    readonly_fields = fields
     list_display = ('empresa', 'periodo', 'estado_snapshot', 'storage_ref_redacted')
     list_filter = ('estado_snapshot',)
     search_fields = ('empresa__razon_social', 'periodo')
@@ -226,6 +250,9 @@ class LedgerSnapshotAdminMixin(admin.ModelAdmin):
         return _redacted_payload_attr(obj, 'resumen')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -257,13 +284,7 @@ class CierreMensualContableAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'fecha_preparacion',
-        'fecha_aprobacion',
-        'resumen_obligaciones_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('empresa', 'anio', 'mes', 'estado', 'fecha_preparacion', 'fecha_aprobacion')
     list_filter = ('estado', 'anio', 'mes')
     search_fields = ('empresa__razon_social',)
@@ -273,4 +294,7 @@ class CierreMensualContableAdmin(admin.ModelAdmin):
         return _redacted_payload_attr(obj, 'resumen_obligaciones')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
