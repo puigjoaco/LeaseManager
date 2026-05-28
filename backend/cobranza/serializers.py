@@ -640,6 +640,10 @@ class EstadoCuentaArrendatarioSerializer(serializers.ModelSerializer):
         return data
 
     def validate(self, attrs):
+        if self.instance is not None and 'score_pago' in getattr(self, 'initial_data', {}):
+            raise serializers.ValidationError(
+                {'score_pago': 'El score de pago se recalcula desde el endpoint de reconstruccion de estado de cuenta.'}
+            )
         candidate = build_validation_candidate(self.instance, EstadoCuentaArrendatario)
         for field, value in attrs.items():
             setattr(candidate, field, value)

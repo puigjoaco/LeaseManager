@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ningun paquete tactico abierto. |
+| Frente activo | Etapa 2 / CobranzaActiva - score de estado de cuenta solo por rebuild. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Pendiente de seleccionar desde trazabilidad, stage cards y orden de construccion. |
-| Motivo de prioridad | No aplica mientras no haya paquete abierto. |
-| Worktree | `D:/Proyectos/LeaseManager`. |
-| Rama | `main`. |
-| Estado | PR #503 integrado en `main` (`ec8236c`); cursor listo para seleccionar el siguiente paquete. |
-| Gate esperado | Ejecutar el gate proporcional del siguiente frente seleccionado. |
-| Estado al cerrar paquete | PR #503 cerro la superficie generica de resoluciones manuales especializadas de Etapa 3 sin banco externo. |
+| Brecha activa | El detalle de `EstadoCuentaArrendatario` permite recibir `score_pago` por PATCH, aunque el score operativo debe reconstruirse desde pagos, repactaciones y codigos activos. |
+| Motivo de prioridad | Cierra una superficie local de Cobranza sin proveedores externos: el score no debe quedar editable manualmente desde API/backoffice. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-account-score-readonly`. |
+| Rama | `codex/stage2-account-score-readonly`. |
+| Estado | Paquete abierto. |
+| Gate esperado | Etapa 2 local debe seguir `classification=parcial`, `ready_for_stage2_cobranza=false` sin Email/WebPay reales. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Confirmar `git status --short --branch` y `git worktree list`; si no hay worktree tactico sucio, seleccionar el siguiente frente seguro desde trazabilidad y orden de construccion. |
-| Siguiente accion | Abrir un nuevo paquete pequeno, trazable y validable segun la proxima brecha real del repo. |
+| Politica de reanudacion | Continuar este worktree hasta cerrar PR o pausar aqui explicitamente. |
+| Siguiente accion | Bloquear `score_pago` manual en API, cubrir tests, evidencia y trazabilidad. |
 
 ## Actualizacion
 
