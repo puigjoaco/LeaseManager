@@ -18,15 +18,12 @@ class ExpedienteDocumentalAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'entidad_tipo_redacted',
-        'entidad_id_redacted',
-        'owner_operativo_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
     @admin.display(description='Entidad tipo redacted')
@@ -76,15 +73,12 @@ class DocumentoEmitidoAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'storage_ref_redacted',
-        'evidencia_formalizacion_ref_redacted',
-        'correccion_ref_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
     @admin.display(description='Storage ref redacted')

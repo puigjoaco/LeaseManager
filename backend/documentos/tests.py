@@ -296,7 +296,9 @@ class DocumentosAPITests(APITestCase):
         for raw_field in ('storage_ref', 'evidencia_formalizacion_ref', 'correccion_ref'):
             self.assertNotIn(raw_field, model_admin.fields)
             self.assertNotIn(raw_field, model_admin.search_fields)
+        self.assertEqual(set(model_admin.readonly_fields), set(model_admin.fields))
         self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_delete_permission(None, document))
         self.assertEqual(model_admin.storage_ref_redacted(document), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(
             model_admin.evidencia_formalizacion_ref_redacted(document),
@@ -382,7 +384,9 @@ class DocumentosAPITests(APITestCase):
             self.assertNotIn(raw_field, model_admin.fields)
             self.assertNotIn(raw_field, model_admin.search_fields)
             self.assertNotIn(raw_field, model_admin.list_filter)
+        self.assertEqual(set(model_admin.readonly_fields), set(model_admin.fields))
         self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_delete_permission(None, expediente))
         self.assertEqual(model_admin.entidad_tipo_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(model_admin.entidad_id_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(model_admin.owner_operativo_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)

@@ -55,6 +55,10 @@ firma y notaria trazables.
 - APIs, snapshot documental y admin/backoffice deben redactar `storage_ref`,
   `evidencia_formalizacion_ref` y `correccion_ref` sensibles heredados antes
   de exponer documentos.
+- El admin/backoffice de `ExpedienteDocumental` y `DocumentoEmitido` es solo
+  lectura y no permite borrado manual. Altas, formalizacion, correcciones y
+  cambios operativos documentales deben pasar por endpoints o servicios
+  auditados.
 - Expedientes documentales deben conservar `entidad_tipo`, `entidad_id` y
   `owner_operativo` como referencias operativas no sensibles. Dominio/API
   rechazan nuevas URLs, correos, tokens o credenciales, y API, snapshot y
