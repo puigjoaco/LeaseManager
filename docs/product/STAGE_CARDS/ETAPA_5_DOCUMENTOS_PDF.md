@@ -54,6 +54,10 @@ firma y notaria trazables.
 - APIs, snapshot documental y admin/backoffice deben redactar `storage_ref`,
   `evidencia_formalizacion_ref` y `correccion_ref` sensibles heredados antes
   de exponer documentos.
+- Expedientes documentales deben conservar `entidad_tipo`, `entidad_id` y
+  `owner_operativo` como referencias operativas no sensibles. Dominio/API
+  rechazan nuevas URLs, correos, tokens o credenciales, y API, snapshot y
+  admin/backoffice redactan valores heredados sensibles antes de exponerlos.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
   desde el endpoint dedicado `formalizar/`, no desde create/update generico,
   para conservar la auditoria especifica del acto de formalizacion.
@@ -105,6 +109,10 @@ firma y notaria trazables.
 - Auditoria local `audit_document_readiness` debe consolidar politicas activas
   por tipo documental, metadata PDF, evidencia controlada, responsables y
   faltantes antes de declarar cierre.
+- Auditoria local `audit_document_readiness` debe bloquear expedientes
+  documentales invalidos o con referencias sensibles heredadas mediante
+  `documents.expediente_invalid` y
+  `documents.expediente_sensitive_reference`, sin exponer valores.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   documentos emitidos sin `usuario` responsable registrado.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta

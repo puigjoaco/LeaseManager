@@ -91,6 +91,13 @@ def _value_changed(instance, field_name, value):
 
 
 class ExpedienteDocumentalSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['entidad_tipo'] = redact_sensitive_reference(data.get('entidad_tipo'))
+        data['entidad_id'] = redact_sensitive_reference(data.get('entidad_id'))
+        data['owner_operativo'] = redact_sensitive_reference(data.get('owner_operativo'))
+        return data
+
     class Meta:
         model = ExpedienteDocumental
         fields = ('id', 'entidad_tipo', 'entidad_id', 'estado', 'owner_operativo', 'created_at', 'updated_at')

@@ -97,6 +97,20 @@ class ExpedienteDocumental(TimestampedModel):
     def __str__(self):
         return f'{self.entidad_tipo}:{self.entidad_id}'
 
+    def clean(self):
+        super().clean()
+        field_labels = {
+            'entidad_tipo': 'entidad_tipo',
+            'entidad_id': 'entidad_id',
+            'owner_operativo': 'owner_operativo',
+        }
+        errors = {}
+        for field_name, label in field_labels.items():
+            if not is_non_sensitive_reference(getattr(self, field_name)):
+                errors[field_name] = f'{label} debe ser una referencia operativa no sensible.'
+        if errors:
+            raise ValidationError(errors)
+
 
 class PoliticaFirmaYNotaria(TimestampedModel):
     tipo_documental = models.CharField(max_length=64, choices=TipoDocumental.choices, unique=True)

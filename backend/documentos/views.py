@@ -90,10 +90,10 @@ class DocumentsSnapshotView(APIView):
                 'expedientes': [
                     {
                         'id': item.id,
-                        'entidad_tipo': item.entidad_tipo,
-                        'entidad_id': item.entidad_id,
+                        'entidad_tipo': redact_sensitive_reference(item.entidad_tipo),
+                        'entidad_id': redact_sensitive_reference(item.entidad_id),
                         'estado': item.estado,
-                        'owner_operativo': item.owner_operativo,
+                        'owner_operativo': redact_sensitive_reference(item.owner_operativo),
                     }
                     for item in expedientes
                 ],

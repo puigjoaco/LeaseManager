@@ -13,7 +13,7 @@ from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .admin import DocumentoEmitidoAdmin
+from .admin import DocumentoEmitidoAdmin, ExpedienteDocumentalAdmin
 from .correction_audit import CORRECTION_AUDIT_EVENT_TYPE
 from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria
@@ -259,6 +259,89 @@ class DocumentosAPITests(APITestCase):
             REDACTED_SENSITIVE_REFERENCE,
         )
         self.assertEqual(model_admin.correccion_ref_redacted(document), REDACTED_SENSITIVE_REFERENCE)
+
+    def test_expediente_full_clean_rejects_sensitive_operational_reference(self):
+        expediente = ExpedienteDocumental(
+            entidad_tipo='manual',
+            entidad_id='https://legacy.example.test/entity?token=secret',
+            estado='abierto',
+            owner_operativo='manual:safe-owner',
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            expediente.full_clean()
+
+        self.assertIn('entidad_id', context.exception.message_dict)
+
+    def test_expediente_api_rejects_sensitive_operational_references(self):
+        base_payload = {
+            'entidad_tipo': 'manual',
+            'entidad_id': 'safe-entity',
+            'estado': 'abierto',
+            'owner_operativo': 'manual:safe-owner',
+        }
+        sensitive_cases = {
+            'entidad_tipo': 'https://legacy.example.test/type?token=secret',
+            'entidad_id': 'https://legacy.example.test/entity?token=secret',
+            'owner_operativo': 'owner@example.test',
+        }
+
+        for field_name, value in sensitive_cases.items():
+            payload = {**base_payload, field_name: value}
+            response = self.client.post(reverse('documentos-expediente-list'), payload, format='json')
+
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn(field_name, response.data)
+
+        self.assertFalse(ExpedienteDocumental.objects.exists())
+
+    def test_expediente_apis_and_snapshot_redact_inherited_sensitive_references(self):
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='https://legacy.example.test/type?token=secret',
+            entidad_id='https://legacy.example.test/entity?token=secret',
+            estado='abierto',
+            owner_operativo='owner@example.test',
+        )
+
+        list_response = self.client.get(reverse('documentos-expediente-list'))
+        detail_response = self.client.get(reverse('documentos-expediente-detail', args=[expediente.id]))
+        snapshot_response = self.client.get(reverse('documentos-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['entidad_tipo'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(list_response.data[0]['entidad_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(list_response.data[0]['owner_operativo'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['entidad_tipo'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['entidad_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(detail_response.data['owner_operativo'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['expedientes'][0]['entidad_tipo'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['expedientes'][0]['entidad_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['expedientes'][0]['owner_operativo'], REDACTED_SENSITIVE_REFERENCE)
+        rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
+        self.assertNotIn('legacy.example.test', rendered)
+        self.assertNotIn('owner@example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+
+    def test_expediente_admin_redacts_sensitive_operational_references(self):
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='https://legacy.example.test/type?token=secret',
+            entidad_id='https://legacy.example.test/entity?token=secret',
+            estado='abierto',
+            owner_operativo='owner@example.test',
+        )
+        model_admin = ExpedienteDocumentalAdmin(ExpedienteDocumental, AdminSite())
+
+        for raw_field in ('entidad_tipo', 'entidad_id', 'owner_operativo'):
+            self.assertNotIn(raw_field, model_admin.list_display)
+            self.assertNotIn(raw_field, model_admin.fields)
+            self.assertNotIn(raw_field, model_admin.search_fields)
+            self.assertNotIn(raw_field, model_admin.list_filter)
+        self.assertFalse(model_admin.has_add_permission(None))
+        self.assertEqual(model_admin.entidad_tipo_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(model_admin.entidad_id_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(model_admin.owner_operativo_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
 
     def _create_active_company(self, nombre, rut, socio_ruts):
         socio_1 = Socio.objects.create(nombre=f'{nombre} Socio 1', rut=socio_ruts[0], activo=True)
