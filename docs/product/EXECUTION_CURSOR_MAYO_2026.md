@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 / Canales - alineacion de recordatorios de cobranza con mensaje saliente. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `NotificacionCobranzaProgramada` puede enlazar un `MensajeSaliente` sin contrato o de otro arrendatario, dejando un recordatorio preparado con traza no alineada al pago mensual. |
-| Motivo de prioridad | Siguiente paquete local seguro de Canales segun orden de construccion y trazabilidad: cerrar consistencia interna de recordatorios sin enviar Email/WhatsApp ni usar proveedores externos. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-notification-message-alignment`. |
-| Rama | `codex/stage2-notification-message-alignment`. |
-| Estado | Paquete abierto; pendiente implementar guard de dominio, tests, readiness/documentacion y validaciones proporcionales. |
-| Gate esperado | Stage 2 readiness local debe seguir `classification=parcial`, bloqueando snapshots heredados con recordatorios preparados cuyo mensaje no pertenezca al pago/contrato/arrendatario. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete Etapa 2 / Canales `stage2-notification-message-alignment` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad y orden de construccion. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Etapa 2 / Canales integrado en PR #497, merge `f61773b`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con pruebas focales, suite impactada, gate local Etapa 2, acceptance local, CI remoto acceptance, evidencia, trazabilidad e higiene en verde; el worktree tactico fue eliminado. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree hasta commit, PR, CI, merge y limpieza; no abrir otro frente salvo instruccion explicita o pausa registrada. |
-| Siguiente accion | Implementar validacion de alineacion `notificacion -> mensaje -> pago/contrato/arrendatario`, cubrir con tests focales y actualizar evidencia/trazabilidad. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el proximo paquete pequeno, seguro y verificable desde `TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards y orden de construccion. |
+| Siguiente accion | Abrir el proximo paquete util en worktree `codex/...` y registrar aqui el frente activo antes de editar. |
 
 ## Actualizacion
 
