@@ -583,6 +583,10 @@ class IntentoPagoWebPay(TimestampedModel):
                     )
                 }
             )
+        if self.motivo_bloqueo.strip() and contains_sensitive_reference(self.motivo_bloqueo):
+            raise ValidationError(
+                {'motivo_bloqueo': 'motivo_bloqueo no debe contener URLs, tokens, credenciales ni correos.'}
+            )
         if self.estado in {EstadoIntentoPagoWebPay.PREPARED, EstadoIntentoPagoWebPay.CONFIRMED_MANUAL}:
             if self.gate_cobro.estado_gate != EstadoGateCobroExterno.OPEN:
                 raise ValidationError({'estado': 'WebPay solo puede prepararse o confirmarse con gate abierto.'})
