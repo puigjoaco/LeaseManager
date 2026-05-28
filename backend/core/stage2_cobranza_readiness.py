@@ -319,6 +319,10 @@ def _collect_whatsapp_block_issues(blocked_tenants) -> dict[str, int]:
             tenant.whatsapp_bloqueo_evidencia_ref
         ):
             counts['whatsapp_block_evidence_sensitive'] += 1
+        if tenant.whatsapp_bloqueo_motivo.strip() and contains_sensitive_reference(
+            tenant.whatsapp_bloqueo_motivo
+        ):
+            counts['whatsapp_block_motive_sensitive'] += 1
         if not _whatsapp_block_event_is_complete(tenant):
             counts['whatsapp_block_event_missing'] += 1
         if not _whatsapp_block_alert_is_complete(tenant):
@@ -1319,6 +1323,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.whatsapp.block_evidence_sensitive',
                 'Existen bloqueos definitivos WhatsApp con evidencia_ref sensible.',
                 count=whatsapp_block_issues['whatsapp_block_evidence_sensitive'],
+            )
+        )
+    if whatsapp_block_issues.get('whatsapp_block_motive_sensitive'):
+        issues.append(
+            _issue(
+                'stage2.whatsapp.block_motive_sensitive',
+                'Existen bloqueos definitivos WhatsApp con motivo sensible heredado.',
+                count=whatsapp_block_issues['whatsapp_block_motive_sensitive'],
             )
         )
     if whatsapp_block_issues.get('whatsapp_block_event_missing'):

@@ -64,6 +64,13 @@ sensibles en intentos de pago. `IntentoPagoWebPay.clean()` rechaza nuevos
 redactan motivos heredados antes de exponerlos, y readiness Etapa 2 reporta
 `stage2.webpay_intent.sensitive_block_reason` sin imprimir el valor.
 
+Nota 2026-05-27: Contratos/Canales clasifica y redacta motivos sensibles de
+bloqueo definitivo WhatsApp. `Arrendatario.clean()` y el endpoint de bloqueo
+rechazan nuevos `whatsapp_bloqueo_motivo` con URLs, correos, tokens o
+credenciales; la API y snapshot de Contratos redactan motivos heredados antes
+de exponerlos, y readiness Etapa 2 reporta
+`stage2.whatsapp.block_motive_sensitive` sin imprimir el valor.
+
 Nota 2026-05-27: PlataformaBase recupera `core.tests_migration_pipeline`
 para comunidades mixtas con empresa participante. La resolucion manual de
 owners valida de forma controlada que una empresa participante activa tenga
