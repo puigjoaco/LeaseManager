@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 3 / Conciliacion - traza contable de transferencias internas. |
+| Frente activo | Sin paquete activo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Readiness validaba metadata de resolucion manual contra `TransferenciaIntercuenta`, pero no probaba que `evento_contable_ids` y `empresa_evento_ids` correspondieran a los `EventoContable` de salida/entrada creados para el par cargo/abono. |
-| Motivo de prioridad | El servicio de resolucion de transferencias internas ya genera eventos contables; el auditor debe bloquear snapshots heredados que pierdan o desalineen esa traza antes de alimentar Contabilidad. |
-| Worktree | `D:/Proyectos/LeaseManager-stage3-transfer-accounting-event-trace`. |
-| Rama | `codex/stage3-transfer-accounting-event-trace`. |
-| Estado | En implementacion. |
-| Gate esperado | Gate Etapa 3 local como diagnostico parcial; no cierre sin fuente autorizada. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna abierta. |
+| Motivo de prioridad | Paquete `stage3-transfer-accounting-event-trace` cerrado; pendiente seleccionar el siguiente frente util desde trazabilidad, stage cards, PRD y estado real del repo. |
+| Worktree | N/A. |
+| Rama | N/A. |
+| Estado | Paquete Etapa 3/Conciliacion `stage3-transfer-accounting-event-trace` integrado en PR #489, merge `54137f2`. |
+| Gate esperado | N/A hasta abrir el siguiente paquete. |
+| Estado al cerrar paquete | Cerrado con validacion local completa y CI remoto acceptance en verde; worktree tactico y rama local/remota eliminados. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. |
-| Politica de reanudacion | Continuar este worktree si existe sucio; no abrir otro frente hasta cerrar, pausar en cursor o recibir instruccion segura. |
-| Siguiente accion | Implementar validacion de eventos contables de transferencias internas y tests focales de readiness Etapa 3. |
+| Politica de reanudacion | Si no existe worktree tactico sucio, seleccionar el siguiente frente seguro desde estado real del repo y documentos rectores. |
+| Siguiente accion | Abrir el proximo paquete util, pequeno y verificable segun trazabilidad, stage cards, PRD y estado real del repo. |
 
 ## Actualizacion
 
