@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-29: Auditoria/Etapa 0 cierra exposicion de referencias sensibles
+heredadas en API y snapshot. `AuditEventSerializer` redacta actor, entidad,
+resumen, request id y metadata; `ManualResolutionSerializer` redacta
+scope, resumen, rationale y metadata; y la API generica de resoluciones
+manuales rechaza nuevas referencias sensibles en campos textuales o metadata.
+
 Nota 2026-05-29: Documentos/Etapa 5 incorpora registro canonico de plantillas
 documentales versionadas. `PlantillaDocumental` exige tipo documental,
 version, referencia no sensible, checksum SHA-256 y estado; `DocumentoEmitido`

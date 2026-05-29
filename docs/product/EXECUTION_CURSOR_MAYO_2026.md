@@ -23,15 +23,15 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` en `d170eaa` tras merge de PR #563, PRD canonico, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna. Ultimo paquete cerrado: Etapa 0 / Compliance / auditoria atomica de exportaciones sensibles desde servicio. |
+| Fuente exacta | Estado real de `main` tras integrar el paquete Etapa 0 / Auditoria / redaccion defensiva de eventos y resoluciones manuales, PRD canonico, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna. Ultimo paquete cerrado: Etapa 0 / Auditoria / redaccion defensiva de eventos y resoluciones manuales en API y snapshot. |
 | Motivo de prioridad | No hay paquete tactico abierto; corresponde diagnosticar el siguiente frente seguro desde trazabilidad y stage cards. |
-| Worktree | Ninguno tras merge. El laboratorio usado por el ultimo paquete fue `D:/Proyectos/LeaseManager-compliance-export-audit-service` y ya fue eliminado. |
-| Rama | `main` limpio tras merge `d170eaa`; laboratorio cerrado: `codex/compliance-export-audit-service`. |
-| Estado | Ultimo paquete integrado en `main` por PR #563. El cursor queda libre para diagnosticar el siguiente frente seguro, sin reabrir Compliance ni repetir tareas cerradas. |
+| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-audit-resolution-redaction`. |
+| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/audit-resolution-redaction`. |
+| Estado | Paquete de Auditoria cerrado en este frente; luego de merge, el cursor queda libre para diagnosticar el siguiente frente seguro. |
 | Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
-| Estado al cerrar paquete | Etapa 0 / Compliance / auditoria atomica de exportaciones sensibles: merge `d170eaa` de PR #563. Validacion local OK con focal 5 tests, suite `compliance` + readiness datos sensibles 95 tests, `manage.py check`, migraciones dry-run, gate local Compliance parcial esperado, `npm ci` 0 vulnerabilidades, `npm run build`, `npm run lint`, acceptance 1105 tests, higiene repo y `git diff --check`; CI GitHub acceptance OK. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; Compliance de datos sensibles no se declara cerrado sin politica aprobada, responsables, controles, evidencia archivada, validacion legal-operativa y fuente autorizada. |
+| Estado al cerrar paquete | Etapa 0 / Auditoria / redaccion defensiva de actor, entidad, resumen, request id, scope, rationale y metadata: focal 3 tests OK, suite impactada 53 tests OK, `manage.py check`, migraciones dry-run, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1106 tests OK, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo. No requiere `.env`, secretos, DB historica, datos reales, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
