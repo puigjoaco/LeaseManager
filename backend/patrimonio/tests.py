@@ -419,6 +419,7 @@ class PatrimonioAPITests(APITestCase):
         self.assertNotIn('evidencia_ref', model_admin.fields)
         self.assertEqual(model_admin.evidencia_ref_redacted(representacion), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_delete_permission(None, representacion))
 
     def test_property_service_admin_redacts_sensitive_evidence(self):
         propiedad = self._create_socio_property()
@@ -439,6 +440,7 @@ class PatrimonioAPITests(APITestCase):
         self.assertNotIn('evidencia_ref', model_admin.fields)
         self.assertIn('evidencia_ref_redacted', model_admin.readonly_fields)
         self.assertEqual(model_admin.evidencia_ref_redacted(service), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(model_admin.has_delete_permission(None, service))
 
     def test_create_socio_normalizes_rut_and_rejects_duplicate(self):
         payload = {

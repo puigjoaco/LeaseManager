@@ -51,7 +51,9 @@ contra datos reales o snapshot controlado.
   admin/backoffice y auditor Etapa 1 bloquean o redactan datos heredados sin
   esa traza. Las observaciones de representacion no pueden contener URLs,
   correos, tokens ni credenciales; la API redacta observaciones heredadas
-  sensibles y el auditor las clasifica como defecto especifico.
+  sensibles y el auditor las clasifica como defecto especifico. El admin
+  Django no permite borrar manualmente representaciones; deben cerrarse por
+  vigencia, inactivacion o flujo auditado.
 - Validacion de participantes patrimoniales activos: una participacion activa
   solo puede apuntar a un socio activo o a una empresa participante activa con
   participaciones completas.
@@ -111,7 +113,9 @@ contra datos reales o snapshot controlado.
   no sensible y estado; API, snapshot y admin/backoffice exponen evidencia
   heredada solo mediante version redactada, y `Contrato.full_clean()`, la API y
   el auditor Etapa 1 bloquean contratos vigentes/futuros con gastos comunes si
-  la propiedad principal no tiene un gasto comun activo estructurado.
+  la propiedad principal no tiene un gasto comun activo estructurado. El admin
+  Django no permite borrar manualmente servicios de propiedad para no destruir
+  cobertura operativa ni evidencia.
 - Validacion de roles contrato-propiedad: exactamente una propiedad principal
   y, si hay pareja, una propiedad vinculada.
 - Validacion de que cada contrato vigente o futuro cubra una sola propiedad o

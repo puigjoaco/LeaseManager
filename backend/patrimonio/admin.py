@@ -76,6 +76,9 @@ class RepresentacionComunidadAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     def evidencia_ref_redacted(self, obj):
         return redact_sensitive_reference(obj.evidencia_ref) or ''
 
@@ -111,6 +114,9 @@ class ServicioPropiedadAdmin(admin.ModelAdmin):
         'updated_at',
     )
     readonly_fields = ('evidencia_ref_redacted', 'created_at', 'updated_at')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     def evidencia_ref_redacted(self, obj):
         return redact_sensitive_reference(obj.evidencia_ref) or ''

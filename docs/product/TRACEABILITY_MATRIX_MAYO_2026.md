@@ -148,6 +148,12 @@ observaciones con URLs, correos, tokens o credenciales, la API de comunidades
 redacta `representacion_vigente.observaciones` y el auditor Etapa 1 reporta
 `stage1.representacion.observaciones_sensibles`.
 
+Nota 2026-05-28: Patrimonio cierra borrado manual de representaciones y
+servicios estructurados desde admin. `RepresentacionComunidadAdmin` y
+`ServicioPropiedadAdmin` mantienen evidencia sensible heredada solo como
+version redactada y deshabilitan borrado manual para conservar vigencias,
+cobertura de gastos comunes, historial operativo y trazabilidad.
+
 Nota 2026-05-28: Compliance cierra superficie API de politicas de retencion.
 `PoliticaRetencionDatosSerializer` redacta `evento_inicio` sensible heredado en
 list/detail, mientras dominio/API mantienen el rechazo de nuevas URLs, correos,
