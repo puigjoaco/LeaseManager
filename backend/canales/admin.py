@@ -30,12 +30,7 @@ class CanalMensajeriaAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'restricciones_operativas_redacted',
-        'evidencia_ref_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('canal', 'provider_key', 'estado_gate', 'evidencia_ref_redacted')
     list_filter = ('estado_gate', 'canal')
     search_fields = ('provider_key',)
@@ -49,6 +44,9 @@ class CanalMensajeriaAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'evidencia_ref')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -73,14 +71,7 @@ class MensajeSalienteAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'motivo_bloqueo_redacted',
-        'external_ref_redacted',
-        'provider_payload_redacted',
-        'enviado_at',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = (
         'canal',
         'destinatario',
@@ -108,6 +99,9 @@ class MensajeSalienteAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(ConfiguracionNotificacionContrato)
 class ConfiguracionNotificacionContratoAdmin(admin.ModelAdmin):
@@ -120,11 +114,7 @@ class ConfiguracionNotificacionContratoAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'evidencia_configuracion_ref_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('contrato', 'canal', 'dias_notificacion', 'activa', 'evidencia_configuracion_ref_redacted')
     list_filter = ('canal', 'activa')
     search_fields = ('contrato__codigo_contrato',)
@@ -134,6 +124,9 @@ class ConfiguracionNotificacionContratoAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'evidencia_configuracion_ref')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -151,11 +144,7 @@ class NotificacionCobranzaProgramadaAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'motivo_estado_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('pago_mensual', 'canal', 'dia_notificacion', 'fecha_programada', 'estado')
     list_filter = ('canal', 'estado')
     search_fields = ('pago_mensual__contrato__codigo_contrato',)
@@ -165,5 +154,8 @@ class NotificacionCobranzaProgramadaAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'motivo_estado')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 

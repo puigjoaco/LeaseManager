@@ -13,6 +13,13 @@ lectura y deshabilitan borrado manual; las altas, formalizacion, correcciones y
 mutaciones documentales quedan bajo endpoints o servicios auditados. La
 politica de firma/notaria conserva su superficie de configuracion operativa.
 
+Nota 2026-05-28: Canales/Etapa 2 cierra superficie admin operativa.
+`CanalMensajeriaAdmin`, `MensajeSalienteAdmin`,
+`ConfiguracionNotificacionContratoAdmin` y
+`NotificacionCobranzaProgramadaAdmin` dejan sus campos en solo lectura y
+deshabilitan borrado manual; gates, mensajes, cadencias y recordatorios quedan
+bajo APIs, servicios y readiness auditada.
+
 Nota 2026-05-28: Contabilidad/Etapa 5 cierra superficie admin operativa.
 `EventoContableAdmin`, `AsientoContableAdmin`, `MovimientoAsientoAdmin`,
 `ObligacionTributariaMensualAdmin`, `LibroDiarioAdmin`, `LibroMayorAdmin`,
