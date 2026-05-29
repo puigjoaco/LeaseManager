@@ -101,6 +101,12 @@ contra datos reales o snapshot controlado.
   operativa trazable no sensible; API, snapshot y admin/backoffice redactan
   referencias sensibles heredadas antes de exponerlas, y el auditor Etapa 1
   detecta faltantes o referencias sensibles heredadas.
+- Validacion de cuenta activa para facturacion operativa: un
+  `MandatoOperacion` activo con `entidad_facturadora` requiere que esa empresa
+  tenga una cuenta recaudadora activa propia ademas de la cuenta activa del
+  recaudador del mandato; la API bloquea nuevas operaciones incompletas y el
+  auditor Etapa 1 emite `stage1.facturacion.cuenta_activa_faltante` para
+  snapshots heredados.
 - Validacion de que cada contrato vigente o futuro este cubierto por la
   vigencia del `MandatoOperacion` que define propiedad, cuenta y facturacion;
   un mandato con contratos vigentes/futuros no puede recortar su vigencia fuera

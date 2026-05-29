@@ -548,6 +548,52 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_billing_company_without_active_account_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        socio_1 = Socio.objects.get(rut='11111111-1')
+        socio_2 = Socio.objects.get(rut='22222222-2')
+        facturadora = Empresa.objects.create(
+            razon_social='Facturadora Sin Cuenta SpA',
+            rut='99999999-9',
+            estado='activa',
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_1,
+            empresa_owner=facturadora,
+            porcentaje='50.00',
+            vigente_desde=date(2026, 1, 1),
+            activo=True,
+        )
+        ParticipacionPatrimonial.objects.create(
+            participante_socio=socio_2,
+            empresa_owner=facturadora,
+            porcentaje='50.00',
+            vigente_desde=date(2026, 1, 1),
+            activo=True,
+        )
+        ConfiguracionFiscalEmpresa.objects.create(
+            empresa=facturadora,
+            regimen_tributario=RegimenTributarioEmpresa.objects.get(codigo_regimen='14D3-CONTROL'),
+            tasa_ppm_vigente='1.00',
+            aplica_ppm=True,
+            inicio_ejercicio=date(2026, 1, 1),
+            estado=EstadoRegistro.ACTIVE,
+        )
+        mandato = contrato.mandato_operacion
+        MandatoOperacion.objects.filter(pk=mandato.pk).update(entidad_facturadora_id=facturadora.id)
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.mandato.validacion_modelo', issue_codes)
+        self.assertIn('stage1.facturacion.cuenta_activa_faltante', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['mandatos_con_facturacion']['classification'],
+            'defectuoso',
+        )
+
     def test_inactive_identity_with_active_assignment_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         identidad = contrato.mandato_operacion.asignaciones_canal.get().identidad_envio

@@ -51,6 +51,7 @@ from operacion.models import (
     AsignacionCanalOperacion,
     CuentaRecaudadora,
     EstadoAsignacionCanal,
+    EstadoCuentaRecaudadora,
     EstadoIdentidadEnvio,
     EstadoMandatoOperacion,
     IdentidadDeEnvio,
@@ -968,6 +969,12 @@ def _audit_operacion(issues: list[dict[str, Any]]) -> None:
     fiscal_config_by_company = set(
         ConfiguracionFiscalEmpresa.objects.filter(estado=EstadoRegistro.ACTIVE).values_list('empresa_id', flat=True)
     )
+    company_ids_with_active_account = set(
+        CuentaRecaudadora.objects.filter(
+            empresa_owner_id__isnull=False,
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        ).values_list('empresa_owner_id', flat=True)
+    )
     for mandato in MandatoOperacion.objects.select_related(
         'propiedad',
         'cuenta_recaudadora',
@@ -1008,6 +1015,17 @@ def _audit_operacion(issues: list[dict[str, Any]]) -> None:
                     entity='MandatoOperacion',
                     entity_id=mandato.pk,
                     message='Entidad facturadora sin ConfiguracionFiscalEmpresa activa.',
+                )
+            elif (
+                mandato.estado == EstadoMandatoOperacion.ACTIVE
+                and mandato.entidad_facturadora_id not in company_ids_with_active_account
+            ):
+                _issue(
+                    issues,
+                    code='stage1.facturacion.cuenta_activa_faltante',
+                    entity='MandatoOperacion',
+                    entity_id=mandato.pk,
+                    message='Entidad facturadora activa sin cuenta recaudadora activa propia.',
                 )
 
         if mandato.requires_operational_authority():

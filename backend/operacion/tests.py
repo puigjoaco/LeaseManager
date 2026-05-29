@@ -565,6 +565,7 @@ class OperacionAPITests(APITestCase):
         admin_company = self._create_active_empresa('AdminCo', '88888888-8')
         facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
         self._create_active_fiscal_config(facturadora)
+        self._create_active_account(empresa=facturadora, numero='ACC-FAC-001')
         propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-001')
         cuenta = self._create_active_account(empresa=admin_company, numero='ACC-001')
 
@@ -668,6 +669,28 @@ class OperacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('entidad_facturadora', response.data)
 
+    def test_active_mandato_rejects_facturadora_without_active_account(self):
+        propietario = self._create_socio('Propietario Cuenta', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo Cuenta', '88888888-8')
+        facturadora = self._create_active_empresa('FacturaCo Cuenta', '99999999-9')
+        self._create_active_fiscal_config(facturadora)
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-001C')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-001C')
+
+        response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+            facturadora_id=facturadora.id,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('entidad_facturadora', response.data)
+        self.assertIn('cuenta recaudadora activa', str(response.data['entidad_facturadora']))
+
     def test_active_mandato_rejects_property_owner_mismatch(self):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
         another_owner = self._create_socio('Propietario Dos', '12121212-4')
@@ -691,6 +714,7 @@ class OperacionAPITests(APITestCase):
         admin_company = self._create_active_empresa('AdminCo', '88888888-8')
         facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
         self._create_active_fiscal_config(facturadora)
+        self._create_active_account(empresa=facturadora, numero='ACC-FAC-003')
         unrelated_owner = self._create_socio('Tercero Uno', '13131313-1')
         propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-003')
         cuenta = self._create_active_account(socio=unrelated_owner, numero='ACC-003')
@@ -1001,6 +1025,7 @@ class OperacionAPITests(APITestCase):
         admin_company = self._create_active_empresa('AdminCo', '88888888-8')
         facturadora = self._create_active_empresa('FacturaCo', '99999999-9')
         self._create_active_fiscal_config(facturadora)
+        self._create_active_account(empresa=facturadora, numero='ACC-FAC-005')
         propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-005')
         cuenta = self._create_active_account(empresa=admin_company, numero='ACC-005')
         mandato_response = self._create_active_mandato(
