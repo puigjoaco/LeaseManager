@@ -28,10 +28,10 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de SII sin mutacion operativa de capacidades, DTE, F29 ni renta anual fuera de APIs/servicios/gates auditados. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: Reporting tributario anual exige proceso anual incluido y DDJJ/F22 alineados al mismo proceso, empresa y ano antes de verificar o exportar el reporte. |
 | Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | Etapa 4 permanece parcial sin cierre falso; paquete validado con focal admin, suite `sii` y readiness Etapa 4, gate local Etapa 4, acceptance local, frontend build/lint, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo. |
+| Estado al cerrar paquete | Etapa 7 permanece parcial sin cierre falso; paquete validado con focal Reporting/readiness/permisos/Compliance, suite impactada, gate local Etapa 7, acceptance local, frontend build/lint, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; cierre real de Etapa 7 sigue dependiendo de fuente autorizada y evidencia externa/controlada. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 

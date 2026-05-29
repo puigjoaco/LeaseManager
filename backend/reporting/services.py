@@ -120,6 +120,14 @@ def _annual_summary_fiscal_year_mismatch(summary, anio_tributario) -> bool:
     return fiscal_year is not None and fiscal_year != int(anio_tributario) - 1
 
 
+def _annual_document_process_mismatch(document, process) -> bool:
+    return (
+        document.proceso_renta_anual_id != process.id
+        or document.empresa_id != process.empresa_id
+        or document.anio_tributario != process.anio_tributario
+    )
+
+
 def _values_set(queryset, field: str) -> set[int]:
     return {value for value in queryset.values_list(field, flat=True).distinct() if value is not None}
 
@@ -490,10 +498,10 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
     ddjj_items = list(ddjj_items)
     f22_items = list(f22_items)
 
-    if empresa_id is not None and not processes:
+    if not processes:
         _raise_traceability_error(
             'reporting.annual_process_missing',
-            'El reporte tributario anual requiere un proceso de renta anual preparado para la empresa.',
+            'El reporte tributario anual requiere al menos un proceso de renta anual preparado.',
             {'empresa_id': empresa_id, 'anio_tributario': anio_tributario},
         )
 
@@ -544,6 +552,21 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                 'reporting.annual_documents_missing',
                 'El reporte tributario anual requiere DDJJ y F22 asociados al proceso anual.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        mismatched_documents = []
+        if _annual_document_process_mismatch(ddjj, process):
+            mismatched_documents.append('DDJJPreparacionAnual')
+        if _annual_document_process_mismatch(f22, process):
+            mismatched_documents.append('F22PreparacionAnual')
+        if mismatched_documents:
+            _raise_traceability_error(
+                'reporting.annual_document_process_mismatch',
+                'El reporte tributario anual requiere DDJJ y F22 asociados al mismo proceso anual, empresa y ano tributario.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'documentos_desalineados': mismatched_documents,
+                },
             )
         if not ddjj.resumen_paquete or not f22.resumen_f22:
             _raise_traceability_error(

@@ -348,6 +348,36 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertEqual(result['sections']['annual_tax']['ddjj_without_active_fiscal_config'], 1)
         self.assertEqual(result['sections']['annual_tax']['f22_without_active_fiscal_config'], 1)
 
+    def test_annual_reporting_documents_must_match_process_company_and_year(self):
+        self._create_valid_local_matrix()
+        other_empresa = self._create_active_empresa(nombre='AnnualMismatchCo', rut='76767676-7')
+        self._activate_fiscal_config(other_empresa)
+        ddjj_capability = CapacidadTributariaSII.objects.create(
+            empresa=other_empresa,
+            capacidad_key='DDJJPreparacion',
+            certificado_ref='cert-ddjj-stage7-mismatch',
+            ambiente='certificacion',
+            estado_gate='condicionado',
+        )
+        f22_capability = CapacidadTributariaSII.objects.create(
+            empresa=other_empresa,
+            capacidad_key='F22Preparacion',
+            certificado_ref='cert-f22-stage7-mismatch',
+            ambiente='certificacion',
+            estado_gate='condicionado',
+        )
+        DDJJPreparacionAnual.objects.update(empresa=other_empresa, capacidad_tributaria=ddjj_capability)
+        F22PreparacionAnual.objects.update(empresa=other_empresa, capacidad_tributaria=f22_capability)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_reporting'])
+        self.assertIn('stage7.reporting.annual_ddjj_process_mismatch', issue_codes)
+        self.assertIn('stage7.reporting.annual_f22_process_mismatch', issue_codes)
+        self.assertEqual(result['sections']['annual_tax']['ddjj_process_mismatch'], 1)
+        self.assertEqual(result['sections']['annual_tax']['f22_process_mismatch'], 1)
+
     def test_accounting_entry_without_hash_or_movements_is_blocking(self):
         empresa = self._create_valid_local_matrix()
         AsientoContable.objects.update(hash_integridad='')

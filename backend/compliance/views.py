@@ -1,9 +1,11 @@
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission
+from reporting.services import ReportingTraceabilityError
 
 from .audit import (
     EXPORT_ACCESSED_EVENT_TYPE,
@@ -94,7 +96,18 @@ class ExportacionPrepareView(APIView):
         data = serializer.validated_data
 
         scope_resumen = {key: value for key, value in data.items() if key not in {'categoria_dato', 'export_kind', 'motivo', 'hold_activo'}}
-        payload = render_export_payload(data['export_kind'], scope_resumen)
+        try:
+            payload = render_export_payload(data['export_kind'], scope_resumen)
+        except ReportingTraceabilityError as error:
+            raise ValidationError(
+                {
+                    'traceability': {
+                        'code': error.code,
+                        'detail': str(error),
+                        'details': error.details,
+                    }
+                }
+            ) from error
         export = prepare_sensitive_export(
             categoria_dato=data['categoria_dato'],
             export_kind=data['export_kind'],

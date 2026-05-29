@@ -671,14 +671,13 @@ class ComplianceAPITests(APITestCase):
 
     def test_export_expires_after_window_when_no_hold(self):
         self._create_context('EXP')
-        self._create_policy('tributario')
+        self._create_policy('operativo')
         prepared = self.client.post(
             reverse('compliance-export-prepare'),
             {
-                'categoria_dato': 'tributario',
-                'export_kind': 'tributario_anual',
-                'motivo': 'Revision anual',
-                'anio_tributario': 2027,
+                'categoria_dato': 'operativo',
+                'export_kind': 'dashboard_operativo',
+                'motivo': 'Revision operativa',
             },
             format='json',
         )
@@ -701,6 +700,24 @@ class ComplianceAPITests(APITestCase):
                 metadata__payload_hash=export.payload_hash,
             ).exists()
         )
+
+    def test_prepare_tax_export_returns_traceability_error_without_annual_process(self):
+        self._create_context('EXP-TAX-MISSING')
+        self._create_policy('tributario')
+
+        response = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'tributario',
+                'export_kind': 'tributario_anual',
+                'motivo': 'Revision anual',
+                'anio_tributario': 2027,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_process_missing')
 
     def test_expired_export_status_is_terminal_even_before_expiry(self):
         self._create_context('EXP-STATE')
