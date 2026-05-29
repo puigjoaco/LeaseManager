@@ -678,6 +678,7 @@ type AvisoTermino = {
   estado: string
   resolucion_conflicto_renovacion_ref: string
   resolucion_conflicto_renovacion_motivo: string
+  registrado_at: string | null
   fecha_limite_registro_oportuno: string | null
   registrado_fuera_plazo: boolean
   alerta_registro_fuera_plazo: string

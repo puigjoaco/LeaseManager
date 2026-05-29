@@ -1890,7 +1890,7 @@ class Stage1MatrixAuditTests(TestCase):
             estado=EstadoAvisoTermino.REGISTERED,
         )
         AvisoTermino.objects.filter(pk=aviso.pk).update(
-            created_at=timezone.make_aware(datetime(2026, 11, 2, 10, 0, 0))
+            registrado_at=timezone.make_aware(datetime(2026, 11, 2, 10, 0, 0))
         )
 
         result = self._collect_controlled_snapshot()
@@ -1900,6 +1900,23 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertEqual(result['issue_counts'].get('warning'), 1)
         self.assertIn('stage1.aviso_termino.registro_fuera_plazo', issue_codes)
+
+    def test_registered_notice_missing_registration_timestamp_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        aviso = AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='No renovacion sin timestamp',
+            estado=EstadoAvisoTermino.REGISTERED,
+        )
+        AvisoTermino.objects.filter(pk=aviso.pk).update(registrado_at=None)
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.aviso_termino.registro_timestamp_faltante', issue_codes)
 
     def test_existing_payment_for_retroactive_past_billing_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

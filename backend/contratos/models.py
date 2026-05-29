@@ -1217,6 +1217,7 @@ class AvisoTermino(TimestampedModel):
         on_delete=models.SET_NULL,
         related_name='avisos_termino_registrados',
     )
+    registrado_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-fecha_efectiva']
@@ -1243,7 +1244,15 @@ class AvisoTermino(TimestampedModel):
         )
 
     def registration_timestamp_for_notice_deadline(self):
-        return self.created_at
+        return self.registrado_at or self.created_at
+
+    def save(self, *args, **kwargs):
+        if self.estado == EstadoAvisoTermino.REGISTERED and self.registrado_at is None:
+            self.registrado_at = timezone.now()
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None:
+                kwargs['update_fields'] = set(update_fields) | {'registrado_at'}
+        super().save(*args, **kwargs)
 
     def has_renewal_conflict_resolution(self):
         return bool(
