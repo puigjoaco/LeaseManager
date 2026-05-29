@@ -297,9 +297,9 @@ Nota 2026-05-27: PlataformaBase/Core cierra superficie admin cruda.
 `ScopeAdmin`, `RoleScopeAdmin`, `UserScopeAssignmentAdmin`,
 `PlatformSettingAdmin` y `OperationalRuntimeSignalAdmin` reemplazan metadata,
 permission sets, valores y refs runtime por vistas redactadas, eliminan
-busquedas por campos sensibles, mantienen cerrada el alta manual de settings y
-mantienen cerradas el alta, edicion y borrado manual de signals runtime desde
-Django admin.
+busquedas por campos sensibles, mantienen cerrada el alta y borrado manual de
+settings, y mantienen cerradas el alta, edicion y borrado manual de signals
+runtime desde Django admin.
 
 Nota 2026-05-27: PlataformaBase/Auth redacta metadata de usuario expuesta.
 `CurrentUserSerializer` devuelve `User.metadata` con redaccion recursiva, el

@@ -208,6 +208,7 @@ class CoreAdminRedactionTests(TestCase):
             self.assertNotIn(raw_field, signal_admin.search_fields)
 
         self.assertFalse(setting_admin.has_add_permission(None))
+        self.assertFalse(setting_admin.has_delete_permission(None, setting))
         self.assertFalse(signal_admin.has_add_permission(None))
         self.assertFalse(signal_admin.has_change_permission(None, signal))
         self.assertFalse(signal_admin.has_delete_permission(None, signal))
