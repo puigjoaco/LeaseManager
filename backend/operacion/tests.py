@@ -22,6 +22,7 @@ from patrimonio.models import (
 )
 
 from .models import (
+    AsignacionCanalOperacion,
     CanalOperacion,
     CuentaRecaudadora,
     EstadoAsignacionCanal,
@@ -33,7 +34,12 @@ from .models import (
     ModoOperacionCuentaRecaudadora,
     MonedaOperativa,
 )
-from .admin import CuentaRecaudadoraAdmin, IdentidadDeEnvioAdmin, MandatoOperacionAdmin
+from .admin import (
+    AsignacionCanalOperacionAdmin,
+    CuentaRecaudadoraAdmin,
+    IdentidadDeEnvioAdmin,
+    MandatoOperacionAdmin,
+)
 
 
 class OperacionModelTests(TestCase):
@@ -513,21 +519,31 @@ class OperacionAPITests(APITestCase):
             vigencia_desde='2026-01-01',
             estado=EstadoMandatoOperacion.ACTIVE,
         )
+        asignacion = AsignacionCanalOperacion.objects.create(
+            mandato_operacion=mandato,
+            canal=CanalOperacion.EMAIL,
+            identidad_envio=identidad,
+            prioridad=1,
+            estado=EstadoAsignacionCanal.ACTIVE,
+        )
 
         site = AdminSite()
         cuenta_admin = CuentaRecaudadoraAdmin(CuentaRecaudadora, site)
         identidad_admin = IdentidadDeEnvioAdmin(IdentidadDeEnvio, site)
         mandato_admin = MandatoOperacionAdmin(MandatoOperacion, site)
+        asignacion_admin = AsignacionCanalOperacionAdmin(AsignacionCanalOperacion, site)
 
         self.assertNotIn('evidencia_operativa_ref', cuenta_admin.search_fields)
         self.assertNotIn('evidencia_operativa_ref', cuenta_admin.fields)
         self.assertEqual(cuenta_admin.evidencia_operativa_ref_redacted(cuenta), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(cuenta_admin.has_add_permission(None))
+        self.assertFalse(cuenta_admin.has_delete_permission(None, cuenta))
 
         self.assertNotIn('credencial_ref', identidad_admin.search_fields)
         self.assertNotIn('credencial_ref', identidad_admin.fields)
         self.assertEqual(identidad_admin.credencial_ref_redacted(identidad), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(identidad_admin.has_add_permission(None))
+        self.assertFalse(identidad_admin.has_delete_permission(None, identidad))
 
         self.assertNotIn('autoridad_operativa_evidencia_ref', mandato_admin.search_fields)
         self.assertNotIn('autoridad_operativa_evidencia_ref', mandato_admin.fields)
@@ -536,6 +552,8 @@ class OperacionAPITests(APITestCase):
             REDACTED_SENSITIVE_REFERENCE,
         )
         self.assertFalse(mandato_admin.has_add_permission(None))
+        self.assertFalse(mandato_admin.has_delete_permission(None, mandato))
+        self.assertFalse(asignacion_admin.has_delete_permission(None, asignacion))
 
     def test_active_mandato_accepts_distinct_owner_admin_and_facturadora_when_authorized(self):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
