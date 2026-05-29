@@ -6,6 +6,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -33,6 +34,8 @@ from .admin import (
     EventoContableAdmin,
     LibroDiarioAdmin,
     LibroMayorAdmin,
+    LineaLiquidacionMensualAdmin,
+    LiquidacionMensualAdmin,
     MatrizReglasContablesAdmin,
     MovimientoAsientoAdmin,
     ObligacionTributariaMensualAdmin,
@@ -47,17 +50,22 @@ from .models import (
     ConfiguracionFiscalEmpresa,
     CuentaContable,
     EfectoReaperturaCierreMensual,
+    EstadoLiquidacionMensual,
     EstadoEventoContable,
     EventoContable,
     LibroDiario,
     LibroMayor,
+    LineaLiquidacionMensual,
+    LiquidacionMensual,
     MatrizReglasContables,
     MovimientoAsiento,
     ObligacionTributariaMensual,
     PoliticaReversoContable,
     RegimenTributarioEmpresa,
     ReglaContable,
+    TipoLineaLiquidacion,
     TipoMovimientoAsiento,
+    TipoOwnerLiquidacion,
 )
 from .services import (
     DEFAULT_REGIME_CODE,
@@ -669,6 +677,30 @@ class ContabilidadAPITests(APITestCase):
             efecto_esperado='Esperado con token=secret',
             evidencia_ref='https://close.example.test/evidence?token=secret',
         )
+        socio = ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).first().participante_socio
+        liquidacion = LiquidacionMensual.objects.create(
+            owner_tipo=TipoOwnerLiquidacion.COMPANY,
+            empresa=empresa,
+            cierre_contable=cierre,
+            anio=2026,
+            mes=1,
+            estado=EstadoLiquidacionMensual.APPROVED,
+            comision_administracion_aplica=True,
+            saldo_final_clp=Decimal('25000.00'),
+            saldo_final_explicacion='Saldo con https://settlement.example.test/balance?token=secret',
+            saldo_final_evidencia_ref='https://settlement.example.test/evidence?token=secret',
+            evidencia_base_ref='https://settlement.example.test/base?token=secret',
+            responsable_ref='mailto:controller@example.test',
+        )
+        linea_liquidacion = LineaLiquidacionMensual.objects.create(
+            liquidacion=liquidacion,
+            tipo_linea=TipoLineaLiquidacion.ADMINISTRATION_FEE,
+            descripcion='Comision sensible https://settlement.example.test/fee?token=secret',
+            monto_clp=Decimal('10000.00'),
+            evidencia_ref='https://settlement.example.test/fee-evidence?token=secret',
+            beneficiario_socio=socio,
+            evento_contable=event,
+        )
         site = AdminSite()
 
         event_admin = EventoContableAdmin(EventoContable, site)
@@ -680,6 +712,8 @@ class ContabilidadAPITests(APITestCase):
         balance_admin = BalanceComprobacionAdmin(BalanceComprobacion, site)
         close_admin = CierreMensualContableAdmin(CierreMensualContable, site)
         effect_admin = EfectoReaperturaCierreMensualAdmin(EfectoReaperturaCierreMensual, site)
+        liquidation_admin = LiquidacionMensualAdmin(LiquidacionMensual, site)
+        liquidation_line_admin = LineaLiquidacionMensualAdmin(LineaLiquidacionMensual, site)
 
         self.assertNotIn('payload_resumen', event_admin.fields)
         self.assertEqual(event_admin.payload_resumen_redacted(event)['callback'], REDACTED_SENSITIVE_REFERENCE)
@@ -744,6 +778,31 @@ class ContabilidadAPITests(APITestCase):
         self.assertFalse(effect_admin.has_add_permission(None))
         self.assertFalse(effect_admin.has_change_permission(None, obj=effect))
         self.assertFalse(effect_admin.has_delete_permission(None))
+
+        for raw_field in (
+            'saldo_final_explicacion',
+            'saldo_final_evidencia_ref',
+            'evidencia_base_ref',
+            'responsable_ref',
+        ):
+            self.assertNotIn(raw_field, liquidation_admin.fields)
+        self.assertEqual(liquidation_admin.saldo_final_explicacion_redacted(liquidacion), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(liquidation_admin.saldo_final_evidencia_ref_redacted(liquidacion), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(liquidation_admin.evidencia_base_ref_redacted(liquidacion), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(liquidation_admin.responsable_ref_redacted(liquidacion), REDACTED_SENSITIVE_REFERENCE)
+        self.assertTrue(set(liquidation_admin.fields).issubset(set(liquidation_admin.readonly_fields)))
+        self.assertFalse(liquidation_admin.has_add_permission(None))
+        self.assertFalse(liquidation_admin.has_change_permission(None, obj=liquidacion))
+        self.assertFalse(liquidation_admin.has_delete_permission(None))
+
+        self.assertNotIn('descripcion', liquidation_line_admin.fields)
+        self.assertNotIn('evidencia_ref', liquidation_line_admin.fields)
+        self.assertEqual(liquidation_line_admin.descripcion_redacted(linea_liquidacion), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(liquidation_line_admin.evidencia_ref_redacted(linea_liquidacion), REDACTED_SENSITIVE_REFERENCE)
+        self.assertTrue(set(liquidation_line_admin.fields).issubset(set(liquidation_line_admin.readonly_fields)))
+        self.assertFalse(liquidation_line_admin.has_add_permission(None))
+        self.assertFalse(liquidation_line_admin.has_change_permission(None, obj=linea_liquidacion))
+        self.assertFalse(liquidation_line_admin.has_delete_permission(None))
 
     def test_create_and_patch_configuracion_fiscal_with_tasa_ppm_vigente(self):
         empresa = self._create_active_empresa(nombre='FiscalCo', rut='78787878-7')
@@ -839,6 +898,129 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(len(response.data['eventos_contables']), 1)
         self.assertEqual(len(response.data['obligaciones_mensuales']), 1)
         self.assertEqual(len(response.data['cierres_mensuales']), 1)
+
+    def test_liquidacion_prepared_requires_explicit_admin_fee_line(self):
+        empresa = self._create_active_empresa(nombre='LiquidationPrepCo', rut='72727272-7')
+        self._setup_contabilidad(empresa)
+        close = CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='preparado',
+            fecha_preparacion=timezone.now(),
+        )
+
+        direct_prepared = self.client.post(
+            reverse('contabilidad-liquidacion-list'),
+            {
+                'owner_tipo': TipoOwnerLiquidacion.COMPANY,
+                'empresa': empresa.id,
+                'cierre_contable': close.id,
+                'anio': 2026,
+                'mes': 1,
+                'estado': EstadoLiquidacionMensual.PREPARED,
+                'comision_administracion_aplica': True,
+                'evidencia_base_ref': 'liquidation-base-controlled-direct',
+                'responsable_ref': 'liquidation-owner-controlled-direct',
+            },
+            format='json',
+        )
+        self.assertEqual(direct_prepared.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('comision_administracion_aplica', direct_prepared.data)
+
+        created = self.client.post(
+            reverse('contabilidad-liquidacion-list'),
+            {
+                'owner_tipo': TipoOwnerLiquidacion.COMPANY,
+                'empresa': empresa.id,
+                'cierre_contable': close.id,
+                'anio': 2026,
+                'mes': 1,
+                'estado': EstadoLiquidacionMensual.DRAFT,
+                'comision_administracion_aplica': True,
+                'evidencia_base_ref': 'liquidation-base-controlled-001',
+                'responsable_ref': 'liquidation-owner-controlled-001',
+            },
+            format='json',
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        prepared = self.client.patch(
+            reverse('contabilidad-liquidacion-detail', args=[created.data['id']]),
+            {'estado': EstadoLiquidacionMensual.PREPARED},
+            format='json',
+        )
+
+        self.assertEqual(prepared.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('comision_administracion_aplica', prepared.data)
+
+    def test_liquidacion_api_creates_line_and_snapshot_redacts_sensitive_fields(self):
+        empresa = self._create_active_empresa(nombre='LiquidationSnapshotCo', rut='72727273-7')
+        self._setup_contabilidad(empresa)
+        close = CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='preparado',
+            fecha_preparacion=timezone.now(),
+        )
+        socio = ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).first().participante_socio
+
+        created = self.client.post(
+            reverse('contabilidad-liquidacion-list'),
+            {
+                'owner_tipo': TipoOwnerLiquidacion.COMPANY,
+                'empresa': empresa.id,
+                'cierre_contable': close.id,
+                'anio': 2026,
+                'mes': 1,
+                'estado': EstadoLiquidacionMensual.DRAFT,
+                'comision_administracion_aplica': True,
+                'evidencia_base_ref': 'liquidation-base-controlled-002',
+                'responsable_ref': 'liquidation-owner-controlled-002',
+            },
+            format='json',
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        line = self.client.post(
+            reverse('contabilidad-linea-liquidacion-list'),
+            {
+                'liquidacion': created.data['id'],
+                'tipo_linea': TipoLineaLiquidacion.ADMINISTRATION_FEE,
+                'descripcion': 'Comision administracion enero controlada',
+                'monto_clp': '10000.00',
+                'evidencia_ref': 'liquidation-fee-controlled-002',
+                'beneficiario_socio': socio.id,
+            },
+            format='json',
+        )
+        self.assertEqual(line.status_code, status.HTTP_201_CREATED)
+
+        LiquidacionMensual.objects.filter(pk=created.data['id']).update(
+            saldo_final_explicacion='Saldo con https://settlement.example.test/balance?token=secret',
+            saldo_final_evidencia_ref='https://settlement.example.test/evidence?token=secret',
+            evidencia_base_ref='https://settlement.example.test/base?token=secret',
+            responsable_ref='mailto:controller@example.test',
+        )
+        LineaLiquidacionMensual.objects.filter(pk=line.data['id']).update(
+            descripcion='Comision sensible https://settlement.example.test/fee?token=secret',
+            evidencia_ref='https://settlement.example.test/fee-evidence?token=secret',
+        )
+
+        snapshot = self.client.get(f"{reverse('contabilidad-snapshot')}?refresh=1")
+
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        liquidation_payload = next(
+            item for item in snapshot.data['liquidaciones_mensuales'] if item['id'] == created.data['id']
+        )
+        line_payload = next(item for item in snapshot.data['lineas_liquidacion'] if item['id'] == line.data['id'])
+        self.assertEqual(liquidation_payload['saldo_final_explicacion'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(liquidation_payload['saldo_final_evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(liquidation_payload['evidencia_base_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(liquidation_payload['responsable_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(line_payload['descripcion'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(line_payload['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
 
     def test_control_snapshot_refresh_bypasses_cached_mode_payload(self):
         empresa = self._create_active_empresa(nombre='SnapshotRefreshCo', rut='73737374-7')

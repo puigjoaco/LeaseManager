@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
-from patrimonio.models import Empresa
+from patrimonio.models import ComunidadPatrimonial, Empresa, Socio
 
 
 class TimestampedModel(models.Model):
@@ -42,6 +42,29 @@ class EstadoCierreMensual(models.TextChoices):
     PREPARED = 'preparado', 'Preparado'
     APPROVED = 'aprobado', 'Aprobado'
     REOPENED = 'reabierto', 'Reabierto'
+
+
+class EstadoLiquidacionMensual(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparada', 'Preparada'
+    APPROVED = 'aprobada', 'Aprobada'
+    OBSERVED = 'observada', 'Observada'
+
+
+class TipoOwnerLiquidacion(models.TextChoices):
+    COMPANY = 'empresa', 'Empresa'
+    COMMUNITY = 'comunidad', 'Comunidad'
+    PARTNER = 'socio', 'Socio'
+
+
+class TipoLineaLiquidacion(models.TextChoices):
+    RENT_INCOME = 'ingreso_arriendo', 'Ingreso arriendo'
+    OPERATING_EXPENSE = 'egreso_operativo', 'Egreso operativo'
+    ADMINISTRATION_FEE = 'comision_administracion', 'Comision administracion'
+    PARTNER_DISTRIBUTION = 'distribucion_socio', 'Distribucion socio'
+    TAX_PROVISION = 'provision_impuesto', 'Provision impuesto'
+    ADJUSTMENT = 'ajuste', 'Ajuste'
+    FINAL_BALANCE = 'saldo_final_explicado', 'Saldo final explicado'
 
 
 class EstadoPreparacionTributaria(models.TextChoices):
@@ -521,6 +544,211 @@ class CierreMensualContable(TimestampedModel):
         super().clean()
         errors = {}
         _add_non_sensitive_payload_error(errors, 'resumen_obligaciones', self.resumen_obligaciones)
+        if errors:
+            raise ValidationError(errors)
+
+
+class LiquidacionMensual(TimestampedModel):
+    owner_tipo = models.CharField(max_length=16, choices=TipoOwnerLiquidacion.choices)
+    empresa = models.ForeignKey(
+        Empresa,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='liquidaciones_mensuales',
+    )
+    comunidad = models.ForeignKey(
+        ComunidadPatrimonial,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='liquidaciones_mensuales',
+    )
+    socio = models.ForeignKey(
+        Socio,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='liquidaciones_mensuales',
+    )
+    cierre_contable = models.ForeignKey(
+        CierreMensualContable,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='liquidaciones_mensuales',
+    )
+    anio = models.PositiveSmallIntegerField()
+    mes = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(12)])
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoLiquidacionMensual.choices,
+        default=EstadoLiquidacionMensual.DRAFT,
+    )
+    comision_administracion_aplica = models.BooleanField(default=False)
+    saldo_final_clp = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'))
+    saldo_final_explicacion = models.CharField(max_length=255, blank=True)
+    saldo_final_evidencia_ref = models.CharField(max_length=255, blank=True)
+    evidencia_base_ref = models.CharField(max_length=255, blank=True)
+    responsable_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['owner_tipo', '-anio', '-mes', '-id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['empresa', 'anio', 'mes'],
+                condition=Q(owner_tipo=TipoOwnerLiquidacion.COMPANY, empresa__isnull=False),
+                name='uniq_liquidacion_empresa_periodo',
+            ),
+            models.UniqueConstraint(
+                fields=['comunidad', 'anio', 'mes'],
+                condition=Q(owner_tipo=TipoOwnerLiquidacion.COMMUNITY, comunidad__isnull=False),
+                name='uniq_liquidacion_comunidad_periodo',
+            ),
+            models.UniqueConstraint(
+                fields=['socio', 'anio', 'mes'],
+                condition=Q(owner_tipo=TipoOwnerLiquidacion.PARTNER, socio__isnull=False),
+                name='uniq_liquidacion_socio_periodo',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.owner_tipo} {self.anio}-{self.mes:02d}'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        owner_values = {
+            TipoOwnerLiquidacion.COMPANY: self.empresa_id,
+            TipoOwnerLiquidacion.COMMUNITY: self.comunidad_id,
+            TipoOwnerLiquidacion.PARTNER: self.socio_id,
+        }
+        selected_owners = [value for value in owner_values.values() if value]
+        if len(selected_owners) != 1:
+            errors['owner_tipo'] = 'La liquidacion mensual debe tener exactamente un owner operativo.'
+        elif not owner_values.get(self.owner_tipo):
+            errors['owner_tipo'] = 'owner_tipo debe coincidir con el owner informado.'
+
+        for field_name in ('evidencia_base_ref', 'responsable_ref', 'saldo_final_evidencia_ref'):
+            _add_non_sensitive_reference_error(errors, self, field_name)
+        _add_non_sensitive_payload_error(errors, 'saldo_final_explicacion', self.saldo_final_explicacion)
+
+        prepared_or_approved = self.estado in {
+            EstadoLiquidacionMensual.PREPARED,
+            EstadoLiquidacionMensual.APPROVED,
+        }
+        if prepared_or_approved:
+            if not has_text(self.evidencia_base_ref):
+                errors['evidencia_base_ref'] = 'La liquidacion preparada requiere evidencia base no sensible.'
+            if not has_text(self.responsable_ref):
+                errors['responsable_ref'] = 'La liquidacion preparada requiere responsable no sensible.'
+            if self.owner_tipo == TipoOwnerLiquidacion.COMPANY and not self.cierre_contable_id:
+                errors['cierre_contable'] = 'La liquidacion de empresa preparada requiere cierre contable trazable.'
+
+        if self.saldo_final_clp != Decimal('0.00'):
+            if not has_text(self.saldo_final_explicacion):
+                errors['saldo_final_explicacion'] = 'Un saldo final distinto de cero requiere explicacion.'
+            if not has_text(self.saldo_final_evidencia_ref):
+                errors['saldo_final_evidencia_ref'] = 'Un saldo final distinto de cero requiere evidencia no sensible.'
+
+        if self.cierre_contable_id:
+            if self.cierre_contable.anio != self.anio or self.cierre_contable.mes != self.mes:
+                errors['cierre_contable'] = 'El cierre contable debe corresponder al periodo de la liquidacion.'
+            if self.empresa_id and self.cierre_contable.empresa_id != self.empresa_id:
+                errors['cierre_contable'] = 'El cierre contable debe pertenecer a la misma empresa.'
+            if self.estado == EstadoLiquidacionMensual.APPROVED and self.cierre_contable.estado != EstadoCierreMensual.APPROVED:
+                errors['cierre_contable'] = 'La liquidacion aprobada requiere cierre contable aprobado.'
+
+        if (
+            prepared_or_approved
+            and self.comision_administracion_aplica
+            and (
+                not self.pk
+                or not self.lineas.filter(tipo_linea=TipoLineaLiquidacion.ADMINISTRATION_FEE).exists()
+            )
+        ):
+            errors['comision_administracion_aplica'] = (
+                'La comision de administracion aplicable debe quedar como linea explicita.'
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+
+class LineaLiquidacionMensual(TimestampedModel):
+    liquidacion = models.ForeignKey(
+        LiquidacionMensual,
+        on_delete=models.CASCADE,
+        related_name='lineas',
+    )
+    tipo_linea = models.CharField(max_length=32, choices=TipoLineaLiquidacion.choices)
+    descripcion = models.CharField(max_length=255)
+    monto_clp = models.DecimalField(max_digits=14, decimal_places=2)
+    evidencia_ref = models.CharField(max_length=255, blank=True)
+    beneficiario_socio = models.ForeignKey(
+        Socio,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='lineas_liquidacion_beneficiario',
+    )
+    evento_contable = models.ForeignKey(
+        EventoContable,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='lineas_liquidacion',
+    )
+
+    class Meta:
+        ordering = ['liquidacion_id', 'id']
+
+    def __str__(self):
+        return f'{self.liquidacion_id} - {self.tipo_linea} {self.monto_clp}'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        _add_non_sensitive_payload_error(errors, 'descripcion', self.descripcion)
+        _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+
+        if self.monto_clp == Decimal('0.00'):
+            errors['monto_clp'] = 'La linea de liquidacion debe tener monto distinto de cero.'
+
+        if self.tipo_linea in {
+            TipoLineaLiquidacion.ADMINISTRATION_FEE,
+            TipoLineaLiquidacion.PARTNER_DISTRIBUTION,
+        }:
+            if self.monto_clp <= Decimal('0.00'):
+                errors['monto_clp'] = 'Comisiones y distribuciones deben registrarse con monto positivo.'
+            if not self.beneficiario_socio_id:
+                errors['beneficiario_socio'] = 'La linea requiere socio beneficiario trazable.'
+            if not has_text(self.evidencia_ref):
+                errors['evidencia_ref'] = 'La linea requiere evidencia no sensible.'
+
+        if self.tipo_linea == TipoLineaLiquidacion.FINAL_BALANCE and not has_text(self.evidencia_ref):
+            errors['evidencia_ref'] = 'La explicacion de saldo final requiere evidencia no sensible.'
+
+        if self.liquidacion_id and self.evento_contable_id:
+            if self.liquidacion.empresa_id and self.evento_contable.empresa_id != self.liquidacion.empresa_id:
+                errors['evento_contable'] = 'El evento contable debe pertenecer a la empresa de la liquidacion.'
+
+        if (
+            self.liquidacion_id
+            and self.liquidacion.estado in {EstadoLiquidacionMensual.PREPARED, EstadoLiquidacionMensual.APPROVED}
+            and self.tipo_linea
+            in {
+                TipoLineaLiquidacion.RENT_INCOME,
+                TipoLineaLiquidacion.OPERATING_EXPENSE,
+                TipoLineaLiquidacion.ADMINISTRATION_FEE,
+                TipoLineaLiquidacion.PARTNER_DISTRIBUTION,
+                TipoLineaLiquidacion.TAX_PROVISION,
+                TipoLineaLiquidacion.ADJUSTMENT,
+            }
+            and not self.evento_contable_id
+        ):
+            errors['evento_contable'] = 'La linea economica preparada requiere traza a evento contable.'
+
         if errors:
             raise ValidationError(errors)
 

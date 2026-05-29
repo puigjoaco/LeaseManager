@@ -17,16 +17,21 @@ from contabilidad.models import (
     EstadoAsientoContable,
     EstadoCierreMensual,
     EstadoEventoContable,
+    EstadoLiquidacionMensual,
     EstadoPreparacionTributaria,
     EstadoRegistro,
     EventoContable,
     LibroDiario,
     LibroMayor,
+    LineaLiquidacionMensual,
+    LiquidacionMensual,
     MatrizReglasContables,
     MovimientoAsiento,
     ObligacionTributariaMensual,
     PoliticaReversoContable,
     ReglaContable,
+    TipoLineaLiquidacion,
+    TipoOwnerLiquidacion,
     has_text,
 )
 from contabilidad.services import (
@@ -173,6 +178,46 @@ def _ledger_close_issues(closes) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _count_approved_closes_without_company_liquidation(approved_closes) -> int:
+    missing = 0
+    for close in approved_closes:
+        if not LiquidacionMensual.objects.filter(
+            owner_tipo=TipoOwnerLiquidacion.COMPANY,
+            empresa=close.empresa,
+            anio=close.anio,
+            mes=close.mes,
+            estado__in=[EstadoLiquidacionMensual.PREPARED, EstadoLiquidacionMensual.APPROVED],
+        ).exists():
+            missing += 1
+    return missing
+
+
+def _count_required_admin_fee_line_missing(liquidations) -> int:
+    missing = 0
+    for liquidation in liquidations:
+        if liquidation.comision_administracion_aplica and not liquidation.lineas.filter(
+            tipo_linea=TipoLineaLiquidacion.ADMINISTRATION_FEE
+        ).exists():
+            missing += 1
+    return missing
+
+
+def _count_prepared_economic_lines_without_event(lines) -> int:
+    economic_line_types = {
+        TipoLineaLiquidacion.RENT_INCOME,
+        TipoLineaLiquidacion.OPERATING_EXPENSE,
+        TipoLineaLiquidacion.ADMINISTRATION_FEE,
+        TipoLineaLiquidacion.PARTNER_DISTRIBUTION,
+        TipoLineaLiquidacion.TAX_PROVISION,
+        TipoLineaLiquidacion.ADJUSTMENT,
+    }
+    return lines.filter(
+        liquidacion__estado__in=[EstadoLiquidacionMensual.PREPARED, EstadoLiquidacionMensual.APPROVED],
+        tipo_linea__in=economic_line_types,
+        evento_contable__isnull=True,
+    ).count()
+
+
 def collect_stage5_contabilidad_readiness(
     *,
     stage3_evidence_ref: str = '',
@@ -303,6 +348,36 @@ def collect_stage5_contabilidad_readiness(
             _count_sensitive_references(reopen_effects, 'evidencia_ref'),
             _count_sensitive_payloads(reopen_effects, 'motivo'),
             _count_sensitive_payloads(reopen_effects, 'efecto_esperado'),
+        ]
+    )
+
+    liquidations = LiquidacionMensual.objects.select_related(
+        'empresa',
+        'comunidad',
+        'socio',
+        'cierre_contable',
+    ).prefetch_related('lineas')
+    prepared_or_approved_liquidations = liquidations.filter(
+        estado__in=[EstadoLiquidacionMensual.PREPARED, EstadoLiquidacionMensual.APPROVED]
+    )
+    liquidation_lines = LineaLiquidacionMensual.objects.select_related(
+        'liquidacion',
+        'beneficiario_socio',
+        'evento_contable',
+    )
+    invalid_liquidations = _count_invalid(liquidations)
+    invalid_liquidation_lines = _count_invalid(liquidation_lines)
+    approved_closes_without_company_liquidation = _count_approved_closes_without_company_liquidation(approved_closes)
+    required_admin_fee_line_missing = _count_required_admin_fee_line_missing(prepared_or_approved_liquidations)
+    prepared_economic_lines_without_event = _count_prepared_economic_lines_without_event(liquidation_lines)
+    liquidation_sensitive_references = sum(
+        [
+            _count_sensitive_references(liquidations, 'evidencia_base_ref'),
+            _count_sensitive_references(liquidations, 'responsable_ref'),
+            _count_sensitive_references(liquidations, 'saldo_final_evidencia_ref'),
+            _count_sensitive_payloads(liquidations, 'saldo_final_explicacion'),
+            _count_sensitive_references(liquidation_lines, 'evidencia_ref'),
+            _count_sensitive_payloads(liquidation_lines, 'descripcion'),
         ]
     )
 
@@ -578,6 +653,54 @@ def collect_stage5_contabilidad_readiness(
                 count=reopen_effects_sensitive_references,
             )
         )
+    if approved_closes_without_company_liquidation:
+        issues.append(
+            _issue(
+                'stage5.liquidation_missing_for_approved_close',
+                'Existen cierres mensuales aprobados sin liquidacion mensual de empresa trazable.',
+                count=approved_closes_without_company_liquidation,
+            )
+        )
+    if invalid_liquidations:
+        issues.append(
+            _issue(
+                'stage5.liquidation_invalid',
+                'Existen liquidaciones mensuales que no pasan validacion de dominio.',
+                count=invalid_liquidations,
+            )
+        )
+    if invalid_liquidation_lines:
+        issues.append(
+            _issue(
+                'stage5.liquidation_line_invalid',
+                'Existen lineas de liquidacion mensual que no pasan validacion de dominio.',
+                count=invalid_liquidation_lines,
+            )
+        )
+    if required_admin_fee_line_missing:
+        issues.append(
+            _issue(
+                'stage5.liquidation_admin_fee_line_missing',
+                'Existen liquidaciones con comision de administracion aplicable sin linea explicita.',
+                count=required_admin_fee_line_missing,
+            )
+        )
+    if prepared_economic_lines_without_event:
+        issues.append(
+            _issue(
+                'stage5.liquidation_line_accounting_trace_missing',
+                'Existen lineas economicas de liquidacion preparada/aprobada sin evento contable trazable.',
+                count=prepared_economic_lines_without_event,
+            )
+        )
+    if liquidation_sensitive_references:
+        issues.append(
+            _issue(
+                'stage5.liquidation_sensitive_reference',
+                'Existen liquidaciones o lineas con evidencia, responsable, explicacion o descripcion sensible.',
+                count=liquidation_sensitive_references,
+            )
+        )
 
     for key, code, message in [
         (
@@ -720,6 +843,20 @@ def collect_stage5_contabilidad_readiness(
                 'obligations_by_state': _count_by(obligations, 'estado_preparacion'),
                 'obligations_sensitive_payloads': obligations_sensitive_payloads,
                 **close_issues,
+            },
+            'liquidations': {
+                'liquidations_total': liquidations.count(),
+                'liquidations_by_state': _count_by(liquidations, 'estado'),
+                'liquidations_by_owner_type': _count_by(liquidations, 'owner_tipo'),
+                'prepared_or_approved_liquidations': prepared_or_approved_liquidations.count(),
+                'lines_total': liquidation_lines.count(),
+                'lines_by_type': _count_by(liquidation_lines, 'tipo_linea'),
+                'approved_closes_without_company_liquidation': approved_closes_without_company_liquidation,
+                'invalid_liquidations': invalid_liquidations,
+                'invalid_liquidation_lines': invalid_liquidation_lines,
+                'required_admin_fee_line_missing': required_admin_fee_line_missing,
+                'prepared_economic_lines_without_event': prepared_economic_lines_without_event,
+                'liquidation_sensitive_references': liquidation_sensitive_references,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,

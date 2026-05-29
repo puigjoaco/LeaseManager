@@ -991,6 +991,15 @@ clasifica eventos heredados con metadata sensible mediante codigos especificos
 sin exponer `storage_ref`, evidencia de formalizacion ni referencias de
 correccion.
 
+Nota 2026-05-29: Contabilidad/Etapa 5 incorpora liquidaciones mensuales
+trazables. Un cierre mensual aprobado debe tener `LiquidacionMensual` de
+empresa preparada/aprobada para el mismo periodo y cierre; si aplica comision
+de administracion, exige `LineaLiquidacionMensual` explicita con beneficiario,
+monto positivo, evidencia no sensible y traza a `EventoContable`. Readiness
+bloquea cierres sin liquidacion, liquidaciones o lineas invalidas, comisiones
+sin linea, lineas economicas sin traza contable y refs/explicaciones sensibles
+sin exponer valores.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos. |

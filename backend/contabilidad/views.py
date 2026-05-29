@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
+from core.reference_validation import redact_sensitive_reference
 from core.scope_access import (
     ScopedQuerysetMixin,
     get_scope_access,
@@ -23,6 +24,8 @@ from .models import (
     EventoContable,
     LibroDiario,
     LibroMayor,
+    LineaLiquidacionMensual,
+    LiquidacionMensual,
     MatrizReglasContables,
     ObligacionTributariaMensual,
     PoliticaReversoContable,
@@ -40,6 +43,8 @@ from .serializers import (
     EventoContableSerializer,
     LibroDiarioSerializer,
     LibroMayorSerializer,
+    LineaLiquidacionMensualSerializer,
+    LiquidacionMensualSerializer,
     MatrizReglasContablesSerializer,
     ObligacionTributariaMensualSerializer,
     PoliticaReversoContableSerializer,
@@ -246,6 +251,53 @@ def build_control_snapshot_payload(access, *, mode='full', use_cache=True):
                     'estado',
                 )
             )
+            if include_activity
+            else []
+        ),
+        'liquidaciones_mensuales': (
+            [
+                {
+                    'id': liquidacion.id,
+                    'owner_tipo': liquidacion.owner_tipo,
+                    'empresa': liquidacion.empresa_id,
+                    'comunidad': liquidacion.comunidad_id,
+                    'socio': liquidacion.socio_id,
+                    'cierre_contable': liquidacion.cierre_contable_id,
+                    'anio': liquidacion.anio,
+                    'mes': liquidacion.mes,
+                    'estado': liquidacion.estado,
+                    'comision_administracion_aplica': liquidacion.comision_administracion_aplica,
+                    'saldo_final_clp': liquidacion.saldo_final_clp,
+                    'saldo_final_explicacion': redact_sensitive_reference(liquidacion.saldo_final_explicacion),
+                    'saldo_final_evidencia_ref': redact_sensitive_reference(liquidacion.saldo_final_evidencia_ref),
+                    'evidencia_base_ref': redact_sensitive_reference(liquidacion.evidencia_base_ref),
+                    'responsable_ref': redact_sensitive_reference(liquidacion.responsable_ref),
+                }
+                for liquidacion in scoped(
+                    LiquidacionMensual.objects.select_related('empresa', 'cierre_contable'),
+                    company_paths=('empresa_id', 'cierre_contable__empresa_id'),
+                )
+            ]
+            if include_activity
+            else []
+        ),
+        'lineas_liquidacion': (
+            [
+                {
+                    'id': linea.id,
+                    'liquidacion': linea.liquidacion_id,
+                    'tipo_linea': linea.tipo_linea,
+                    'descripcion': redact_sensitive_reference(linea.descripcion),
+                    'monto_clp': linea.monto_clp,
+                    'evidencia_ref': redact_sensitive_reference(linea.evidencia_ref),
+                    'beneficiario_socio': linea.beneficiario_socio_id,
+                    'evento_contable': linea.evento_contable_id,
+                }
+                for linea in scoped(
+                    LineaLiquidacionMensual.objects.select_related('liquidacion', 'evento_contable'),
+                    company_paths=('liquidacion__empresa_id', 'liquidacion__cierre_contable__empresa_id'),
+                )
+            ]
             if include_activity
             else []
         ),
@@ -519,6 +571,68 @@ class CierreMensualContableDetailView(ScopedQuerysetMixin, generics.RetrieveAPIV
     serializer_class = CierreMensualContableSerializer
     queryset = CierreMensualContable.objects.select_related('empresa').all()
     company_scope_paths = ('empresa_id',)
+
+
+class LiquidacionMensualListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = LiquidacionMensualSerializer
+    queryset = LiquidacionMensual.objects.select_related(
+        'empresa',
+        'comunidad',
+        'socio',
+        'cierre_contable',
+    ).prefetch_related('lineas')
+    company_scope_paths = ('empresa_id', 'cierre_contable__empresa_id')
+    audit_entity_type = 'liquidacion_mensual'
+    audit_entity_label = 'liquidacion mensual'
+
+
+class LiquidacionMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = LiquidacionMensualSerializer
+    queryset = LiquidacionMensual.objects.select_related(
+        'empresa',
+        'comunidad',
+        'socio',
+        'cierre_contable',
+    ).prefetch_related('lineas')
+    company_scope_paths = ('empresa_id', 'cierre_contable__empresa_id')
+    audit_entity_type = 'liquidacion_mensual'
+    audit_entity_label = 'liquidacion mensual'
+
+
+class LineaLiquidacionMensualListCreateView(
+    ScopedQuerysetMixin,
+    AuditCreateUpdateMixin,
+    generics.ListCreateAPIView,
+):
+    permission_classes = [ControlModulePermission]
+    serializer_class = LineaLiquidacionMensualSerializer
+    queryset = LineaLiquidacionMensual.objects.select_related(
+        'liquidacion',
+        'beneficiario_socio',
+        'evento_contable',
+    )
+    company_scope_paths = ('liquidacion__empresa_id', 'liquidacion__cierre_contable__empresa_id')
+    audit_entity_type = 'linea_liquidacion_mensual'
+    audit_entity_label = 'linea de liquidacion mensual'
+
+
+class LineaLiquidacionMensualDetailView(
+    ScopedQuerysetMixin,
+    AuditCreateUpdateMixin,
+    generics.RetrieveUpdateAPIView,
+):
+    permission_classes = [ControlModulePermission]
+    serializer_class = LineaLiquidacionMensualSerializer
+    queryset = LineaLiquidacionMensual.objects.select_related(
+        'liquidacion',
+        'beneficiario_socio',
+        'evento_contable',
+    )
+    company_scope_paths = ('liquidacion__empresa_id', 'liquidacion__cierre_contable__empresa_id')
+    audit_entity_type = 'linea_liquidacion_mensual'
+    audit_entity_label = 'linea de liquidacion mensual'
 
 
 class CierreMensualPrepareView(APIView):

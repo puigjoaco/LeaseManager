@@ -37,6 +37,15 @@ contables desde hechos conciliados.
 - Un cierre mensual aprobado solo se reabre con `PoliticaReversoContable`
   activa para `reapertura_cierre_mensual`, que permita reapertura y exija
   aprobacion.
+- Un cierre mensual aprobado debe conservar `LiquidacionMensual` de empresa
+  preparada o aprobada para el mismo periodo y cierre contable.
+- Si la liquidacion mensual declara comision de administracion aplicable, debe
+  existir una `LineaLiquidacionMensual` explicita de
+  `comision_administracion` con beneficiario, monto positivo y evidencia no
+  sensible.
+- Las lineas economicas de liquidaciones preparadas o aprobadas deben trazar a
+  `EventoContable`, y las explicaciones/evidencias de saldo final no pueden
+  contener URLs, correos, tokens, credenciales ni referencias sensibles.
 - La reapertura posterior al cierre debe aplicar un efecto contable trazable:
   `reverso` o `asiento_complementario`, segun la politica activa. El efecto
   exige motivo, efecto esperado, monto, evidencia no sensible y genera un
