@@ -277,6 +277,39 @@ class IdentidadDeEnvio(TimestampedModel):
             return AsignacionCanalOperacion.objects.none()
         return self.asignaciones_operacion.filter(estado=EstadoAsignacionCanal.ACTIVE)
 
+    def active_assignment_dependency_errors(self):
+        errors = {}
+        identity_owner = (self.owner_tipo, self.owner_id)
+        active_assignments = self.active_channel_dependencies().select_related(
+            'mandato_operacion',
+            'mandato_operacion__entidad_facturadora',
+            'mandato_operacion__administrador_empresa_owner',
+            'mandato_operacion__administrador_socio_owner',
+            'mandato_operacion__propietario_empresa_owner',
+            'mandato_operacion__propietario_comunidad_owner',
+            'mandato_operacion__propietario_socio_owner',
+        )
+        for assignment in active_assignments:
+            if assignment.canal != self.canal:
+                errors['canal'] = (
+                    'No se puede cambiar el canal de una identidad con asignaciones activas.'
+                )
+            mandate = assignment.mandato_operacion
+            allowed_owners = {mandate.administrador_tuple(), mandate.facturadora_tuple()}
+            if identity_owner not in allowed_owners:
+                errors['estado'] = (
+                    'No se puede cambiar el owner de una identidad con asignaciones activas '
+                    'si deja de pertenecer al administrador operativo o facturadora del mandato.'
+                )
+            if identity_owner != mandate.propietario_tuple() and not mandate.autoriza_comunicacion:
+                errors['estado'] = (
+                    'No se puede cambiar el owner de una identidad con asignaciones activas '
+                    'si el mandato no autoriza comunicacion para un actor distinto al propietario.'
+                )
+            if errors:
+                break
+        return errors
+
     def clean(self):
         super().clean()
         if sum(bool(value) for value in (self.empresa_owner_id, self.socio_owner_id)) != 1:
@@ -304,6 +337,10 @@ class IdentidadDeEnvio(TimestampedModel):
                     )
                 }
             )
+        if self.estado == EstadoIdentidadEnvio.ACTIVE:
+            dependency_errors = self.active_assignment_dependency_errors()
+            if dependency_errors:
+                raise ValidationError(dependency_errors)
 
 
 class MandatoOperacion(TimestampedModel):
