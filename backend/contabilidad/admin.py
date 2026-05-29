@@ -107,6 +107,9 @@ class EventoContableAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -131,6 +134,9 @@ class AsientoContableAdmin(admin.ModelAdmin):
     search_fields = ('evento_contable__idempotency_key',)
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -159,6 +165,9 @@ class MovimientoAsientoAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'centro_resultado_ref')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -210,6 +219,9 @@ class EfectoReaperturaCierreMensualAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -240,6 +252,9 @@ class ObligacionTributariaMensualAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -268,6 +283,9 @@ class LedgerSnapshotAdminMixin(admin.ModelAdmin):
         return _redacted_payload_attr(obj, 'resumen')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -312,6 +330,9 @@ class CierreMensualContableAdmin(admin.ModelAdmin):
         return _redacted_payload_attr(obj, 'resumen_obligaciones')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):

@@ -7,6 +7,16 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-29: Contabilidad/Etapa 5 cierra edicion manual no auditada desde
+admin para artefactos generados. `EventoContableAdmin`,
+`AsientoContableAdmin`, `MovimientoAsientoAdmin`,
+`ObligacionTributariaMensualAdmin`, `LibroDiarioAdmin`, `LibroMayorAdmin`,
+`BalanceComprobacionAdmin`, `CierreMensualContableAdmin` y
+`EfectoReaperturaCierreMensualAdmin` conservan inspeccion redactada, pero
+deshabilitan alta, edicion y borrado manual para que eventos, asientos,
+movimientos, obligaciones, snapshots, cierres y efectos pasen por API,
+servicios, gates y auditoria.
+
 Nota 2026-05-29: Conciliacion/Etapa 3 cierra edicion manual no auditada desde
 admin. `MovimientoBancarioImportadoAdmin`, `IngresoDesconocidoAdmin`,
 `CuadraturaBancariaAdmin` y `TransferenciaIntercuentaAdmin` conservan
