@@ -59,6 +59,9 @@ firma y notaria trazables.
   lectura y no permite borrado manual. Altas, formalizacion, correcciones y
   cambios operativos documentales deben pasar por endpoints o servicios
   auditados.
+- El admin de `PoliticaFirmaYNotaria` conserva la configuracion operativa,
+  pero no permite borrado manual de politicas; los cambios deben expresarse
+  por edicion controlada, estado o flujo auditado.
 - Expedientes documentales deben conservar `entidad_tipo`, `entidad_id` y
   `owner_operativo` como referencias operativas no sensibles. Dominio/API
   rechazan nuevas URLs, correos, tokens o credenciales, y API, snapshot y
