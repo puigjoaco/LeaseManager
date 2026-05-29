@@ -25,6 +25,12 @@ puede cambiar tipo documental, requisitos de firma/notaria/documentacion,
 modo de firma ni estado desde dominio/API, evitando reinterpretar evidencia
 historica sin versionado de politica por documento.
 
+Nota 2026-05-29: Documentos/Etapa 5 aplica scope tambien al comprobante
+notarial durante `formalizar/`. `DocumentoFormalizarSerializer` recibe el
+`request` del endpoint y filtra `comprobante_notarial` con
+`scope_documento_queryset`, evitando que un operador use evidencia documental
+de expedientes fuera de su cartera visible.
+
 Nota 2026-05-29: Patrimonio/Etapa 1 completa la salida operativa de owners
 locales. `Socio.inactive_dependency_errors()` y
 `ComunidadPatrimonial.inactive_state_dependency_errors()` bloquean cuentas
