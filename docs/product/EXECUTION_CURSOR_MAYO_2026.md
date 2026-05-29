@@ -28,10 +28,10 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: transiciones de estado contractual bloquean regresiones como `vigente` -> `pendiente_activacion` y reaperturas directas de estados terminales. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: API y servicio operacional comparten la matriz de transiciones de `PagoMensual`, bloqueando saltos internos como `pendiente` -> `en_repactacion` aunque exista plan asociado. |
 | Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | Paquete `Contrato.transiciones_estado` validado con focal API/modelo, suite Contratos + Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1 no evidencial, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 1 sigue sin cierre real por falta de fuente `snapshot_controlado` o `real_autorizado`, pero esta preparacion local no depende de datos reales ni integraciones externas. |
+| Estado al cerrar paquete | Paquete `PagoMensual.transiciones_servicio` validado con focal API/servicio, suite Cobranza + Etapa 2, `manage.py check`, migraciones dry-run, readiness local Etapa 2, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 2 sigue parcial hasta tener fuente `snapshot_controlado` o `real_autorizado` y evidencia de ciclo controlado, pero esta preparacion local no depende de datos reales ni integraciones externas. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 

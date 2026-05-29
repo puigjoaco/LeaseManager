@@ -1101,6 +1101,40 @@ class CobranzaAPITests(APITestCase):
             ).exists()
         )
 
+    def test_payment_operational_service_rejects_invalid_state_transition(self):
+        payment = self._generate_monthly_payment(codigo='CON-SVC-STATE-GUARD')
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=payment.contrato.arrendatario,
+            contrato_origen=payment.contrato,
+            deuda_total_original='30000.00',
+            cantidad_cuotas=3,
+            monto_cuota='10000.00',
+            saldo_pendiente='30000.00',
+            estado='activa',
+        )
+
+        with self.assertRaisesMessage(ValueError, 'Transicion invalida desde pendiente hacia en_repactacion'):
+            update_payment_operational_fields(
+                payment=payment,
+                validated_data={
+                    'estado_pago': EstadoPago.IN_REPAYMENT,
+                    'repactacion_deuda': repayment,
+                },
+                actor_user=self.user,
+                ip_address='127.0.0.1',
+            )
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+        self.assertIsNone(payment.repactacion_deuda_id)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
+                entity_type='pago_mensual',
+                entity_id=str(payment.pk),
+            ).exists()
+        )
+
     def test_payment_update_allows_paid_by_termination_with_trace(self):
         payment = self._generate_monthly_payment(codigo='CON-TERM-TRACE')
 

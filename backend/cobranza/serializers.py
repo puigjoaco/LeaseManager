@@ -23,12 +23,12 @@ from .models import (
     ValorUFDiario,
 )
 from .services import (
-    PAYMENT_STATE_TRANSITIONS,
     apply_guarantee_movement,
     build_account_state_summary,
     generate_residual_reference,
     calculate_monthly_amount,
     sync_payment_state,
+    validate_payment_state_transition,
 )
 
 
@@ -227,9 +227,11 @@ class PagoMensualSerializer(RedactReferenceFieldsMixin, serializers.ModelSeriali
 
         next_state = attrs.get('estado_pago', self.instance.estado_pago)
         previous_state = self.instance.estado_pago
-        if next_state != previous_state and next_state not in PAYMENT_STATE_TRANSITIONS.get(previous_state, set()):
+        try:
+            validate_payment_state_transition(previous_state, next_state)
+        except ValueError as error:
             raise serializers.ValidationError(
-                {'estado_pago': f'Transicion invalida desde {previous_state} hacia {next_state}.'}
+                {'estado_pago': str(error)}
             )
 
         if next_state in {
