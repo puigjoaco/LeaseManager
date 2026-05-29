@@ -28,9 +28,9 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro por trazabilidad y orden de construccion. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: `AjusteContrato` bloquea descuentos CLP activos que dejan meses contractuales bajo minimo operativo de CLP 1.000. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: `MandatoOperacion` bloquea facturadoras activas sin cuenta recaudadora activa propia. |
 | Gate esperado | Definir segun el siguiente frente seguro. |
-| Estado al cerrar paquete | Paquete `AjusteContrato.minimo_operativo_clp` validado con focal ajustes/API/auditor, suite Cobranza + auditor Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Paquete `MandatoOperacion.facturadora_cuenta_activa` validado con focal Operacion/API/auditor, suite Operacion + auditor Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 1 no se declara cerrada sin fuente `snapshot_controlado` o `real_autorizado`. |
 | Politica de reanudacion | Si se reanuda con un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |

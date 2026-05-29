@@ -515,6 +515,14 @@ class MandatoOperacion(TimestampedModel):
             return ('empresa', self.entidad_facturadora_id)
         return (None, None)
 
+    def facturadora_has_active_account(self):
+        if not self.entidad_facturadora_id:
+            return True
+        return CuentaRecaudadora.objects.filter(
+            empresa_owner_id=self.entidad_facturadora_id,
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        ).exists()
+
     def property_owner_tuple(self):
         return patrimonio_owner_tuple(
             empresa_id=self.propiedad.empresa_owner_id,
@@ -690,6 +698,14 @@ class MandatoOperacion(TimestampedModel):
                     {
                         'entidad_facturadora': (
                             'La entidad facturadora requiere ConfiguracionFiscalEmpresa activa.'
+                        )
+                    }
+                )
+            if not self.facturadora_has_active_account():
+                raise ValidationError(
+                    {
+                        'entidad_facturadora': (
+                            'La entidad facturadora requiere una cuenta recaudadora activa propia para operar.'
                         )
                     }
                 )
