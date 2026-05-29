@@ -23,9 +23,22 @@ class PoliticaRetencionDatosAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = ('evento_inicio_redacted', 'created_at', 'updated_at')
+    readonly_fields = (
+        'categoria_dato',
+        'evento_inicio_redacted',
+        'plazo_minimo_anos',
+        'permite_borrado_logico',
+        'permite_purga_fisica',
+        'requiere_hold',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -56,15 +69,24 @@ class ExportacionSensibleAdmin(admin.ModelAdmin):
         'updated_at',
     )
     readonly_fields = (
+        'categoria_dato',
+        'export_kind',
         'scope_resumen_redacted',
         'motivo_redacted',
         'payload_hash',
         'encrypted_ref_redacted',
+        'expires_at',
+        'hold_activo',
+        'estado',
+        'created_by',
         'created_at',
         'updated_at',
     )
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
