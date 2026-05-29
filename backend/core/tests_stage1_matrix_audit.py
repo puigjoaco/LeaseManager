@@ -2498,6 +2498,54 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.garantia.validacion_modelo', issue_codes)
         self.assertIn('stage1.aviso_termino.validacion_modelo', issue_codes)
 
+    def test_canceled_contract_with_irreversible_payment_effect_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        canceled_contract = Contrato.objects.create(
+            codigo_contrato='CON-CANCEL-PAYMENT',
+            mandato_operacion=contrato.mandato_operacion,
+            arrendatario=contrato.arrendatario,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            dia_pago_mensual=5,
+            estado=EstadoContrato.CANCELED,
+            politica_documental=contrato.politica_documental,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=canceled_contract,
+            propiedad=contrato.mandato_operacion.propiedad,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='004',
+        )
+        periodo = PeriodoContractual.objects.create(
+            contrato=canceled_contract,
+            numero_periodo=1,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin=date(2026, 12, 31),
+            monto_base='250000.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='mensual',
+            origen_periodo='snapshot_controlado',
+        )
+        PagoMensual.objects.create(
+            contrato=canceled_contract,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp=Decimal('250000.00'),
+            monto_calculado_clp=Decimal('250000.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('0.00'),
+            fecha_vencimiento=date(2026, 1, 5),
+            codigo_conciliacion_efectivo='004',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.cancelado_con_efectos_irreversibles', issue_codes)
+
     def test_invalid_fiscal_configuration_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         config = ConfiguracionFiscalEmpresa.objects.get(

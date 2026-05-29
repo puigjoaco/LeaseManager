@@ -206,6 +206,12 @@ contra datos reales o snapshot controlado.
   justificacion sensible.
 - Validacion de avisos de termino existentes: la fecha efectiva debe quedar
   dentro del rango del contrato asociado.
+- Cancelacion contractual: un contrato solo puede quedar `cancelado` si no
+  conserva efectos irreversibles operativos o economicos, como pagos
+  mensuales generados, garantia recibida/devuelta/aplicada o con historial,
+  entrega de llaves registrada o aviso de termino registrado. `Contrato.full_clean()`,
+  la API y el auditor Etapa 1 bloquean nuevas escrituras o snapshots heredados
+  que intenten cancelar contratos con esos efectos.
 - Avisos de termino fuera de plazo: se registran sin inventar fechas, se
   comparan contra `AvisoTermino.registrado_at` como timestamp real de registro
   hasta las `23:59:59` del ultimo dia permitido y se reportan como advertencia
