@@ -12,6 +12,7 @@ from rest_framework.test import APITestCase
 from .admin import (
     OperationalRuntimeSignalAdmin,
     PlatformSettingAdmin,
+    RoleAdmin,
     RoleScopeAdmin,
     ScopeAdmin,
     UserScopeAssignmentAdmin,
@@ -192,6 +193,7 @@ class CoreAdminRedactionTests(TestCase):
 
         site = AdminSite()
         scope_admin = ScopeAdmin(Scope, site)
+        role_admin = RoleAdmin(Role, site)
         role_scope_admin = RoleScopeAdmin(RoleScope, site)
         assignment_admin = UserScopeAssignmentAdmin(UserScopeAssignment, site)
         setting_admin = PlatformSettingAdmin(PlatformSetting, site)
@@ -207,6 +209,10 @@ class CoreAdminRedactionTests(TestCase):
             self.assertNotIn(raw_field, signal_admin.fields)
             self.assertNotIn(raw_field, signal_admin.search_fields)
 
+        self.assertFalse(scope_admin.has_delete_permission(None, scope))
+        self.assertFalse(role_admin.has_delete_permission(None, role))
+        self.assertFalse(role_scope_admin.has_delete_permission(None, role_scope))
+        self.assertFalse(assignment_admin.has_delete_permission(None, assignment))
         self.assertFalse(setting_admin.has_add_permission(None))
         self.assertFalse(setting_admin.has_delete_permission(None, setting))
         self.assertFalse(signal_admin.has_add_permission(None))

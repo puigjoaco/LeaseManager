@@ -29,6 +29,8 @@ evidencia respalda el root limpio.
 - El detector transversal de referencias sensibles redacta valores y claves de
   metadata como `authorization` y `private_key`, sin tratar refs operativas no
   sensibles como secretos por su nombre de valor.
+- Los admins RBAC de Core no exponen metadata ni permission sets crudos y no
+  permiten borrado manual de roles, scopes, permisos por scope ni asignaciones.
 - `PlatformSettingAdmin` muestra valores de plataforma solo redactados y no
   permite alta ni borrado manual de settings existentes.
 - Compliance de datos sensibles trata exportaciones expiradas como terminales:
