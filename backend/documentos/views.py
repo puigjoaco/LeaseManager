@@ -296,7 +296,12 @@ class DocumentoFormalizarView(APIView):
             pk=pk,
         )
         previous_state = document.estado
-        serializer = DocumentoFormalizarSerializer(instance=document, data=request.data, partial=True)
+        serializer = DocumentoFormalizarSerializer(
+            instance=document,
+            data=request.data,
+            partial=True,
+            context={'request': request},
+        )
         serializer.is_valid(raise_exception=True)
         try:
             with transaction.atomic():

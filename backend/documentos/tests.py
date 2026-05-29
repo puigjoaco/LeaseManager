@@ -1783,3 +1783,33 @@ class DocumentosScopeAPITests(APITestCase):
 
         self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(update_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_formalization_rejects_notary_receipt_outside_scope_at_serializer_boundary(self):
+        PoliticaFirmaYNotaria.objects.filter(tipo_documental='contrato_principal').update(requiere_notaria=True)
+        out_of_scope_receipt = DocumentoEmitido.objects.create(
+            expediente_id=self.expediente_b.data['id'],
+            tipo_documental='comprobante_notarial',
+            version_plantilla='v1',
+            checksum=VALID_SHA256_ALT,
+            fecha_carga=timezone.now(),
+            usuario=self.user,
+            origen='carga_externa_controlada',
+            estado=EstadoDocumento.ISSUED,
+            storage_ref='storage/docs/notary-outside-scope.pdf',
+        )
+
+        response = self.client.post(
+            reverse('documentos-documento-formalizar', args=[self.documento_a.data['id']]),
+            {
+                'firma_arrendador_registrada': True,
+                'firma_arrendatario_registrada': True,
+                'recepcion_notarial_registrada': True,
+                'evidencia_formalizacion_ref': FORMALIZATION_REF,
+                'comprobante_notarial': out_of_scope_receipt.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('comprobante_notarial', response.data)
+        self.assertEqual(response.data['comprobante_notarial'][0].code, 'does_not_exist')

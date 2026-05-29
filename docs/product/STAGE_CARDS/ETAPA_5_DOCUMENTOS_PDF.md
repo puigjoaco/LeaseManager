@@ -90,6 +90,9 @@ firma y notaria trazables.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
   desde el endpoint dedicado `formalizar/`, no desde create/update generico,
   para conservar la auditoria especifica del acto de formalizacion.
+- El endpoint `formalizar/` debe aplicar el scope del usuario tambien sobre
+  `comprobante_notarial`; un operador no puede usar como respaldo un documento
+  notarial de un expediente fuera de su cartera visible.
 - Si la politica exige firma de codeudor, la formalizacion debe verificar si el
   expediente corresponde a un contrato con `CodeudorSolidario` activo. En ese
   caso la firma del codeudor es obligatoria; contratos sin codeudor activo no
