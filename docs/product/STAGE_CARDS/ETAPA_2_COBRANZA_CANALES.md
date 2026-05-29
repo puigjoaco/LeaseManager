@@ -221,18 +221,19 @@ condicionados sin envios reales accidentales.
   `HistorialGarantiaAdmin` y
   `RepactacionDeudaAdmin` muestran versiones redactadas de refs, motivos y
   payloads sensibles heredados, no buscan por esos campos crudos y mantienen el
-  alta manual deshabilitada para evitar bypass operativo desde backoffice.
+  alta y borrado manual deshabilitados para evitar bypass operativo desde
+  backoffice.
   `CodigoCobroResidualAdmin` y `EstadoCuentaArrendatarioAdmin` tambien
-  mantienen el alta manual deshabilitada, porque los residuales se generan con
-  referencia canonica controlada y los estados de cuenta se reconstruyen desde
-  pagos, repactaciones y codigos activos. En `CodigoCobroResidualAdmin`, los
-  campos operativos quedan visibles solo como lectura y no se permite borrado
-  manual de registros ya generados. El endpoint generico de detalle tambien
-  rechaza mutaciones posteriores a la creacion de un codigo residual; cierres o
-  ajustes deben pasar por flujo auditado especifico, como conciliacion exacta o
-  resolucion formal. En `EstadoCuentaArrendatarioAdmin`, `resumen_operativo` y
-  `score_pago` son visibles solo como lectura para evitar bypass manual del
-  rebuild.
+  mantienen el alta y borrado manual deshabilitados, porque los residuales se
+  generan con referencia canonica controlada y los estados de cuenta se
+  reconstruyen desde pagos, repactaciones y codigos activos. En
+  `CodigoCobroResidualAdmin`, los campos operativos quedan visibles solo como
+  lectura y no se permite borrado manual de registros ya generados. El endpoint
+  generico de detalle tambien rechaza mutaciones posteriores a la creacion de
+  un codigo residual; cierres o ajustes deben pasar por flujo auditado
+  especifico, como conciliacion exacta o resolucion formal. En
+  `EstadoCuentaArrendatarioAdmin`, `resumen_operativo` y `score_pago` son
+  visibles solo como lectura para evitar bypass manual del rebuild.
 - Auditoria local `audit_stage2_cobranza_readiness` consolida pagos mensuales,
   valores UF manuales, estados de cuenta, identidades/asignaciones de canal, gates
   Email/WhatsApp/WebPay, mensajes enviados/preparados e intentos WebPay,
