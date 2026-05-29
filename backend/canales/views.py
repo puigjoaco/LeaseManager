@@ -330,15 +330,6 @@ class MensajePrepararView(APIView):
             ip_address=request.META.get('REMOTE_ADDR'),
         )
 
-        create_audit_event(
-            event_type='canales.mensaje_saliente.prepared',
-            entity_type='mensaje_saliente',
-            entity_id=str(message.pk),
-            summary='Mensaje preparado o bloqueado segun gate/identidad',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            metadata={'estado': message.estado, 'canal': message.canal},
-        )
         return Response(
             MensajeSalienteSerializer(message).data,
             status=status.HTTP_201_CREATED,

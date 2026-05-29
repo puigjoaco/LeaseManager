@@ -88,6 +88,11 @@ condicionados sin envios reales accidentales.
   no sensible alineado al mensaje. El servicio de registro manual crea esa
   auditoria en la misma transaccion que marca el mensaje como `enviado`, para
   cubrir tanto el endpoint HTTP como llamadas internas controladas.
+- La preparacion de mensajes tambien queda auditada desde el servicio
+  `prepare_message()`: persistencia del mensaje preparado/bloqueado y evento
+  `canales.mensaje_saliente.prepared` ocurren en la misma transaccion, para
+  cubrir endpoint HTTP y llamadas internas controladas sin dejar mensajes sin
+  auditoria.
 - Registro manual de envio solo con `external_ref` trazable no sensible y
   revalidacion del gate abierto, identidad activa, destinatario y mandato
   operativo activo.

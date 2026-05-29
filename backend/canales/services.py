@@ -30,6 +30,7 @@ from .models import (
 
 WHATSAPP_WINDOW_START_HOUR = 8
 WHATSAPP_WINDOW_END_HOUR = 21
+MESSAGE_PREPARED_EVENT_TYPE = 'canales.mensaje_saliente.prepared'
 WHATSAPP_FALLBACK_REQUIRED_CATEGORY = 'canales.whatsapp.fallback_requerido'
 WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE = 'canales.whatsapp.fallback_required'
 COLLECTABLE_PAYMENT_STATES = {EstadoPago.PENDING, EstadoPago.OVERDUE}
@@ -135,6 +136,25 @@ def ensure_whatsapp_fallback_resolution(
         actor_identifier=actor_identifier,
         ip_address=ip_address,
         audit_event_type=WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
+    )
+
+
+def create_message_prepared_audit_event(message, *, actor_user=None, actor_identifier='', ip_address=None):
+    create_audit_event(
+        event_type=MESSAGE_PREPARED_EVENT_TYPE,
+        entity_type='mensaje_saliente',
+        entity_id=str(message.pk),
+        summary='Mensaje preparado o bloqueado segun gate/identidad',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata={
+            'estado': message.estado,
+            'canal': message.canal,
+            'contrato_id': message.contrato_id,
+            'arrendatario_id': message.arrendatario_id,
+            'documento_emitido_id': message.documento_emitido_id,
+        },
     )
 
 
@@ -372,10 +392,22 @@ def prepare_message(
                 actor_identifier=actor_identifier,
                 ip_address=ip_address,
             )
+        create_message_prepared_audit_event(
+            message,
+            actor_user=usuario,
+            actor_identifier=actor_identifier,
+            ip_address=ip_address,
+        )
         return message
 
     message.estado = EstadoMensajeSaliente.PREPARED
     message.save()
+    create_message_prepared_audit_event(
+        message,
+        actor_user=usuario,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+    )
     return message
 
 

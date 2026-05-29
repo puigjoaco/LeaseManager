@@ -23,15 +23,15 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` base `2f13492`, PRD canonico, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
-| Brecha activa | Cerrada por este paquete: `formalizar/` guardaba el cambio de estado antes de crear auditoria, permitiendo una formalizacion parcial si fallaba la escritura del evento. |
-| Motivo de prioridad | La formalizacion documental es un acto auditado; el estado `formalizado` no debe persistir si no queda tambien el evento dedicado y trazable. |
-| Worktree | Ninguno tras merge. Durante la ejecucion se uso `D:/Proyectos/LeaseManager-stage5-formalization-atomic-audit`. |
-| Rama | `main` tras merge; laboratorio usado: `codex/stage5-formalization-atomic-audit`. |
-| Estado | Paquete Etapa 5 / Documentos / atomicidad de formalizacion y auditoria preparado para integracion: implementacion, pruebas locales y gates proporcionales OK. |
-| Gate esperado | Focal Documentos, suite `documentos`, `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 5 Documentos, acceptance local, higiene repo y `git diff --check`. |
-| Estado al cerrar paquete | Etapa 5 / Documentos / atomicidad de formalizacion y auditoria: validacion local OK con focal 2 tests, suite `documentos` 83 tests, `manage.py check`, migraciones dry-run, gate local Etapa 5 Documentos parcial esperado, `npm ci` 0 vulnerabilidades, `npm run build`, acceptance 1100 tests, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; Documentos/Etapa 5 no se declara cerrado sin fuente `snapshot_controlado` o `real_autorizado`, politica final, plantillas activas finales, prueba PDF controlada y responsable. |
+| Fuente exacta | Estado real de `main` base `fc808d6`, PRD canonico, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
+| Brecha activa | Cerrada por este paquete: `prepare_message()` persistia mensajes preparados o bloqueados, pero el evento `canales.mensaje_saliente.prepared` quedaba en la vista HTTP. Las llamadas internas no quedaban auditadas y una falla posterior de auditoria podia dejar mensaje sin evento de preparacion. |
+| Motivo de prioridad | La preparacion de mensajes es una operacion critica de Canales: estado del mensaje, gate, identidad y contexto deben quedar persistidos junto con auditoria trazable dentro de la misma transaccion. |
+| Worktree | Ninguno tras merge. Durante la ejecucion se uso `D:/Proyectos/LeaseManager-stage2-message-prepare-audit`. |
+| Rama | `main` tras merge; laboratorio usado: `codex/stage2-message-prepare-audit`. |
+| Estado | Paquete Etapa 2 / Canales / auditoria atomica de preparacion de mensajes preparado para integracion: implementacion, pruebas locales y gates proporcionales OK. |
+| Gate esperado | Focal Canales, suite `canales` y readiness Etapa 2, `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 2, acceptance local, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Etapa 2 / Canales / auditoria atomica de preparacion de mensajes: validacion local OK con focal 3 tests, suite `canales` + readiness Etapa 2 140 tests, `manage.py check`, migraciones dry-run, gate local Etapa 2 parcial esperado, `npm ci` 0 vulnerabilidades, `npm run build`, `npm run lint`, acceptance 1102 tests, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 2/Canales no se declara cerrada sin fuente `snapshot_controlado` o `real_autorizado`, evidencia Etapa 1, prueba Email/WebPay controlada y responsables. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
