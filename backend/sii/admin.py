@@ -36,16 +36,7 @@ class CapacidadTributariaSIIAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'certificado_ref_redacted',
-        'evidencia_ref_redacted',
-        'prueba_flujo_ref_redacted',
-        'autorizacion_ambiente_ref_redacted',
-        'regla_fiscal_ref_redacted',
-        'ultimo_resultado_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('empresa', 'capacidad_key', 'ambiente', 'estado_gate', 'evidencia_ref_redacted')
     list_filter = ('capacidad_key', 'ambiente', 'estado_gate')
     search_fields = ('empresa__razon_social',)
@@ -77,6 +68,9 @@ class CapacidadTributariaSIIAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(DTEEmitido)
 class DTEEmitidoAdmin(admin.ModelAdmin):
@@ -97,12 +91,7 @@ class DTEEmitidoAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'sii_track_id_redacted',
-        'observaciones_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('empresa', 'tipo_dte', 'pago_mensual', 'monto_neto_clp', 'estado_dte', 'fecha_emision')
     list_filter = ('tipo_dte', 'estado_dte')
     search_fields = ('empresa__razon_social', 'ultimo_estado_sii')
@@ -116,6 +105,9 @@ class DTEEmitidoAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'observaciones')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -134,13 +126,7 @@ class F29PreparacionMensualAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'resumen_formulario_redacted',
-        'borrador_ref_redacted',
-        'observaciones_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('empresa', 'anio', 'mes', 'estado_preparacion', 'borrador_ref_redacted')
     list_filter = ('estado_preparacion', 'anio', 'mes')
     search_fields = ('empresa__razon_social',)
@@ -160,6 +146,9 @@ class F29PreparacionMensualAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 class AnnualTaxArtifactAdminMixin(admin.ModelAdmin):
     list_filter = ('estado_preparacion', 'anio_tributario')
@@ -170,6 +159,9 @@ class AnnualTaxArtifactAdminMixin(admin.ModelAdmin):
         return _redacted_attr(obj, 'observaciones')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -186,14 +178,7 @@ class ProcesoRentaAnualAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'fecha_preparacion',
-        'resumen_anual_redacted',
-        'paquete_ddjj_ref_redacted',
-        'borrador_f22_ref_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('empresa', 'anio_tributario', 'estado', 'paquete_ddjj_ref_redacted', 'borrador_f22_ref_redacted')
     list_filter = ('estado', 'anio_tributario')
     search_fields = ('empresa__razon_social',)
@@ -213,6 +198,9 @@ class ProcesoRentaAnualAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(DDJJPreparacionAnual)
 class DDJJPreparacionAnualAdmin(AnnualTaxArtifactAdminMixin):
@@ -228,13 +216,7 @@ class DDJJPreparacionAnualAdmin(AnnualTaxArtifactAdminMixin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'resumen_paquete_redacted',
-        'paquete_ref_redacted',
-        'observaciones_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('empresa', 'anio_tributario', 'estado_preparacion', 'paquete_ref_redacted')
 
     @admin.display(description='resumen_paquete')
@@ -260,13 +242,7 @@ class F22PreparacionAnualAdmin(AnnualTaxArtifactAdminMixin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = (
-        'resumen_f22_redacted',
-        'borrador_ref_redacted',
-        'observaciones_redacted',
-        'created_at',
-        'updated_at',
-    )
+    readonly_fields = fields
     list_display = ('empresa', 'anio_tributario', 'estado_preparacion', 'borrador_ref_redacted')
 
     @admin.display(description='resumen_f22')

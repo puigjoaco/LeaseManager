@@ -1135,8 +1135,18 @@ class SiiAPITests(APITestCase):
         self.assertEqual(f22_admin.borrador_ref_redacted(f22), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(f22_admin.observaciones_redacted(f22), REDACTED_SENSITIVE_REFERENCE)
 
-        for model_admin in (capability_admin, dte_admin, f29_admin, process_admin, ddjj_admin, f22_admin):
+        admin_objects = (
+            (capability_admin, dte_capability),
+            (dte_admin, dte),
+            (f29_admin, f29),
+            (process_admin, process),
+            (ddjj_admin, ddjj),
+            (f22_admin, f22),
+        )
+        for model_admin, obj in admin_objects:
+            self.assertEqual(set(model_admin.readonly_fields), set(model_admin.fields))
             self.assertFalse(model_admin.has_add_permission(None))
+            self.assertFalse(model_admin.has_delete_permission(None, obj))
 
     def test_generate_dte_draft_rejects_conditioned_gate(self):
         empresa, pago = self._setup_paid_payment()

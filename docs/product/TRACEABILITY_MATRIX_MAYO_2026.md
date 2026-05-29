@@ -20,6 +20,13 @@ Nota 2026-05-28: Canales/Etapa 2 cierra superficie admin operativa.
 deshabilitan borrado manual; gates, mensajes, cadencias y recordatorios quedan
 bajo APIs, servicios y readiness auditada.
 
+Nota 2026-05-28: SII/Etapa 4 cierra superficie admin operativa.
+`CapacidadTributariaSIIAdmin`, `DTEEmitidoAdmin`,
+`F29PreparacionMensualAdmin`, `ProcesoRentaAnualAdmin`,
+`DDJJPreparacionAnualAdmin` y `F22PreparacionAnualAdmin` dejan sus campos en
+solo lectura y deshabilitan borrado manual; capacidades, DTE, F29 y renta anual
+quedan bajo APIs, servicios, gates y readiness auditada.
+
 Nota 2026-05-28: Contabilidad/Etapa 5 cierra superficie admin operativa.
 `EventoContableAdmin`, `AsientoContableAdmin`, `MovimientoAsientoAdmin`,
 `ObligacionTributariaMensualAdmin`, `LibroDiarioAdmin`, `LibroMayorAdmin`,
