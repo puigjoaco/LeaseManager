@@ -113,6 +113,11 @@ class AdminOnlyPermission(RolePermission):
     write_roles = {ROLE_ADMIN}
 
 
+class SensitiveExportPermission(RolePermission):
+    read_roles = {ROLE_ADMIN, ROLE_REVIEWER}
+    write_roles = {ROLE_ADMIN, ROLE_REVIEWER}
+
+
 class OperationalOverviewPermission(RolePermission):
     read_roles = {ROLE_ADMIN, ROLE_OPERATOR}
     write_roles = set()

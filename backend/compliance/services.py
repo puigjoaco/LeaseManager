@@ -63,17 +63,17 @@ def _payload_hash(payload):
     return hashlib.sha256(_canonical_payload_bytes(payload)).hexdigest()
 
 
-def render_export_payload(export_kind, params):
+def render_export_payload(export_kind, params, access=None):
     if export_kind == 'dashboard_operativo':
-        return build_operational_dashboard()
+        return build_operational_dashboard(access=access)
     if export_kind == 'financiero_mensual':
-        return build_financial_monthly_summary(params['anio'], params['mes'], params.get('empresa_id'))
+        return build_financial_monthly_summary(params['anio'], params['mes'], params.get('empresa_id'), access=access)
     if export_kind == 'tributario_anual':
-        return build_annual_tax_summary(params['anio_tributario'], params.get('empresa_id'))
+        return build_annual_tax_summary(params['anio_tributario'], params.get('empresa_id'), access=access)
     if export_kind == 'socio_resumen':
-        return build_partner_summary(params['socio_id'])
+        return build_partner_summary(params['socio_id'], access=access)
     if export_kind == 'libros_periodo':
-        return build_period_books_summary(params['empresa_id'], params['periodo'])
+        return build_period_books_summary(params['empresa_id'], params['periodo'], access=access)
     raise ValueError('Tipo de exportacion no soportado.')
 
 

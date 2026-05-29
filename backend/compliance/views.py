@@ -1,11 +1,18 @@
 from rest_framework import generics, status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import create_audit_event
-from core.permissions import AdminOnlyPermission
-from reporting.services import ReportingTraceabilityError
+from core.permissions import (
+    AdminOnlyPermission,
+    ROLE_ADMIN,
+    SensitiveExportPermission,
+    get_effective_role_codes,
+)
+from core.scope_access import get_scope_access, scope_queryset_for_access
+from patrimonio.models import Empresa, Socio
+from reporting.services import SOCIO_SCOPE_PATHS, ReportingTraceabilityError
 
 from .audit import (
     EXPORT_ACCESSED_EVENT_TYPE,
@@ -22,6 +29,62 @@ from .serializers import (
     PoliticaRetencionDatosSerializer,
 )
 from .services import get_export_payload, prepare_sensitive_export, render_export_payload, revoke_export
+
+
+SCOPE_REQUIRED_ERROR = 'Las exportaciones sensibles requieren un scope explicito para usuarios no administradores.'
+SCOPE_DENIED_ERROR = 'La exportacion sensible solicitada queda fuera del scope asignado para este usuario.'
+
+
+def _has_global_sensitive_export_access(user):
+    return getattr(user, 'is_superuser', False) or ROLE_ADMIN in get_effective_role_codes(user)
+
+
+def _scope_access_for_sensitive_export(user):
+    access = get_scope_access(user)
+    if _has_global_sensitive_export_access(user):
+        return access
+    if not access.restricted:
+        raise PermissionDenied(SCOPE_REQUIRED_ERROR)
+    return access
+
+
+def _ensure_company_scope(access, empresa_id):
+    if empresa_id in (None, ''):
+        return
+    if not scope_queryset_for_access(
+        Empresa.objects.filter(pk=empresa_id),
+        access,
+        company_paths=('id',),
+    ).exists():
+        raise PermissionDenied(SCOPE_DENIED_ERROR)
+
+
+def _ensure_partner_scope(access, socio_id):
+    if not scope_queryset_for_access(
+        Socio.objects.filter(pk=socio_id),
+        access,
+        property_paths=SOCIO_SCOPE_PATHS,
+    ).exists():
+        raise PermissionDenied(SCOPE_DENIED_ERROR)
+
+
+def _ensure_export_scope_allowed(user, export_kind, scope_resumen):
+    access = _scope_access_for_sensitive_export(user)
+    if _has_global_sensitive_export_access(user):
+        return access
+
+    if export_kind in {'financiero_mensual', 'tributario_anual', 'libros_periodo'}:
+        _ensure_company_scope(access, scope_resumen.get('empresa_id'))
+    if export_kind == 'socio_resumen':
+        _ensure_partner_scope(access, scope_resumen.get('socio_id'))
+    return access
+
+
+def _export_queryset_for_user(queryset, user):
+    if _has_global_sensitive_export_access(user):
+        return queryset
+    _scope_access_for_sensitive_export(user)
+    return queryset.filter(created_by=user)
 
 
 class AuditCreateUpdateMixin:
@@ -76,19 +139,30 @@ class PoliticaRetencionDatosDetailView(AuditCreateUpdateMixin, generics.Retrieve
 
 
 class ExportacionSensibleListView(generics.ListAPIView):
-    permission_classes = [AdminOnlyPermission]
+    permission_classes = [SensitiveExportPermission]
     serializer_class = ExportacionSensibleSerializer
     queryset = ExportacionSensible.objects.select_related('created_by').all()
+
+    def get_queryset(self):
+        return _export_queryset_for_user(super().get_queryset(), self.request.user)
 
 
 class ExportacionSensibleDetailView(generics.RetrieveAPIView):
-    permission_classes = [AdminOnlyPermission]
+    permission_classes = [SensitiveExportPermission]
     serializer_class = ExportacionSensibleSerializer
     queryset = ExportacionSensible.objects.select_related('created_by').all()
 
+    def get_queryset(self):
+        return _export_queryset_for_user(super().get_queryset(), self.request.user)
+
+    def get_object(self):
+        export = super().get_object()
+        _ensure_export_scope_allowed(self.request.user, export.export_kind, export.scope_resumen)
+        return export
+
 
 class ExportacionPrepareView(APIView):
-    permission_classes = [AdminOnlyPermission]
+    permission_classes = [SensitiveExportPermission]
 
     def post(self, request):
         serializer = ExportacionPrepareSerializer(data=request.data)
@@ -96,8 +170,9 @@ class ExportacionPrepareView(APIView):
         data = serializer.validated_data
 
         scope_resumen = {key: value for key, value in data.items() if key not in {'categoria_dato', 'export_kind', 'motivo', 'hold_activo'}}
+        access = _ensure_export_scope_allowed(request.user, data['export_kind'], scope_resumen)
         try:
-            payload = render_export_payload(data['export_kind'], scope_resumen)
+            payload = render_export_payload(data['export_kind'], scope_resumen, access=access)
         except ReportingTraceabilityError as error:
             raise ValidationError(
                 {
@@ -128,10 +203,14 @@ class ExportacionPrepareView(APIView):
 
 
 class ExportacionContentView(APIView):
-    permission_classes = [AdminOnlyPermission]
+    permission_classes = [SensitiveExportPermission]
 
     def get(self, request, pk):
-        export = generics.get_object_or_404(ExportacionSensible, pk=pk)
+        export = generics.get_object_or_404(
+            _export_queryset_for_user(ExportacionSensible.objects.all(), request.user),
+            pk=pk,
+        )
+        _ensure_export_scope_allowed(request.user, export.export_kind, export.scope_resumen)
         try:
             payload = get_export_payload(export)
         except ValueError as error:
@@ -163,10 +242,14 @@ class ExportacionContentView(APIView):
 
 
 class ExportacionRevokeView(APIView):
-    permission_classes = [AdminOnlyPermission]
+    permission_classes = [SensitiveExportPermission]
 
     def post(self, request, pk):
-        export = generics.get_object_or_404(ExportacionSensible, pk=pk)
+        export = generics.get_object_or_404(
+            _export_queryset_for_user(ExportacionSensible.objects.all(), request.user),
+            pk=pk,
+        )
+        _ensure_export_scope_allowed(request.user, export.export_kind, export.scope_resumen)
         serializer = ExportacionRevokeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:

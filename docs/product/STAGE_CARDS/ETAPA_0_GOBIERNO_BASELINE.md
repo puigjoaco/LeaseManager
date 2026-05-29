@@ -43,6 +43,11 @@ evidencia respalda el root limpio.
   los valores heredados se representan redactados. El admin de politicas y
   exportaciones sensibles mantiene cerrados el alta, edicion y borrado manual:
   las mutaciones deben pasar por API, servicios, dominio y auditoria.
+- Compliance de datos sensibles permite a `RevisorFiscalExterno` preparar y
+  descargar exportaciones sensibles solo dentro de un scope explicito asignado:
+  el payload se renderiza con `ScopeAccess`, detalle/descarga/revocacion
+  revalidan el scope actual, los intentos fuera de scope se rechazan y los
+  usuarios no administradores solo ven/operan sus propias exportaciones.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.
