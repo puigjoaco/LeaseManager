@@ -32,6 +32,9 @@ class CuentaRecaudadoraAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -58,6 +61,9 @@ class IdentidadDeEnvioAdmin(admin.ModelAdmin):
     readonly_fields = ('credencial_ref_redacted', 'created_at', 'updated_at')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -117,6 +123,9 @@ class MandatoOperacionAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -129,6 +138,12 @@ class AsignacionCanalOperacionAdmin(admin.ModelAdmin):
     list_display = ('mandato_operacion', 'canal', 'identidad_envio', 'prioridad', 'estado')
     list_filter = ('canal', 'estado')
     search_fields = ('mandato_operacion__propiedad__codigo_propiedad', 'identidad_envio__direccion_o_numero')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
     def has_delete_permission(self, request, obj=None):
         return False

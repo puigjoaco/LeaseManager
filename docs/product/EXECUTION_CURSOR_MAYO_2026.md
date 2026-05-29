@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | Operacion / admin operativo. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, `CODEX_OPERATING_PROTOCOL_MAYO_2026.md`, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna registrada en curso. |
-| Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
-| Worktree | N/A. |
-| Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Cobranza bloquea alta, edicion y borrado manual en superficies operativas, conservando inspeccion redactada y sin conectar WebPay real. |
-| Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | PR #540 mergeado en `main` (`a17472f`). Validado con focal Cobranza admin, suite Cobranza/readiness Etapa 2, `manage.py check`, migraciones dry-run, gate local Etapa 2 parcial, frontend build/lint, acceptance local, CI GitHub, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; CobranzaActiva/Etapa 2 sigue parcial para cierre real por datos Etapa 1, fuente autorizada y pruebas externas/controladas de Email/WebPay, pero esta preparacion local no depende de datos reales ni integraciones externas. |
+| Brecha activa | Los admins operativos de Operacion bloqueaban borrado manual y en parte alta manual, pero aun podian abrir flujos de alta/edicion manual desde Django admin. |
+| Motivo de prioridad | Etapa 1 exige que cuentas, identidades, mandatos y asignaciones con cobertura de contratos vigentes/futuros pasen por API, validaciones de dominio, vigencias, estados o flujos auditados. |
+| Worktree | `D:/Proyectos/LeaseManager-operacion-admin-change-guard`. |
+| Rama | `codex/operacion-admin-change-guard`. |
+| Estado | Paquete tactico abierto para bloquear alta/edicion/borrado manual de admins operativos de Operacion, conservando inspeccion redactada. |
+| Gate esperado | Focal Operacion admin; suite Operacion/readiness Etapa 1; `manage.py check`; migraciones dry-run; readiness local Etapa 1 no evidencial; frontend build/lint; acceptance local; higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 1 sigue sin cierre real por falta de fuente `snapshot_controlado` o `real_autorizado`, pero esta preparacion local no depende de datos reales ni integraciones externas. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Siguiente accion | Implementar guard de `has_add_permission`/`has_change_permission`, validar y cerrar PR. |
 
 ## Actualizacion
 

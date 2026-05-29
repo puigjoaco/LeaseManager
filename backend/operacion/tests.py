@@ -537,12 +537,14 @@ class OperacionAPITests(APITestCase):
         self.assertNotIn('evidencia_operativa_ref', cuenta_admin.fields)
         self.assertEqual(cuenta_admin.evidencia_operativa_ref_redacted(cuenta), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(cuenta_admin.has_add_permission(None))
+        self.assertFalse(cuenta_admin.has_change_permission(None, cuenta))
         self.assertFalse(cuenta_admin.has_delete_permission(None, cuenta))
 
         self.assertNotIn('credencial_ref', identidad_admin.search_fields)
         self.assertNotIn('credencial_ref', identidad_admin.fields)
         self.assertEqual(identidad_admin.credencial_ref_redacted(identidad), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(identidad_admin.has_add_permission(None))
+        self.assertFalse(identidad_admin.has_change_permission(None, identidad))
         self.assertFalse(identidad_admin.has_delete_permission(None, identidad))
 
         self.assertNotIn('autoridad_operativa_evidencia_ref', mandato_admin.search_fields)
@@ -552,7 +554,10 @@ class OperacionAPITests(APITestCase):
             REDACTED_SENSITIVE_REFERENCE,
         )
         self.assertFalse(mandato_admin.has_add_permission(None))
+        self.assertFalse(mandato_admin.has_change_permission(None, mandato))
         self.assertFalse(mandato_admin.has_delete_permission(None, mandato))
+        self.assertFalse(asignacion_admin.has_add_permission(None))
+        self.assertFalse(asignacion_admin.has_change_permission(None, asignacion))
         self.assertFalse(asignacion_admin.has_delete_permission(None, asignacion))
 
     def test_active_mandato_accepts_distinct_owner_admin_and_facturadora_when_authorized(self):
