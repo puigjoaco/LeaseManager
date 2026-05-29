@@ -16,6 +16,7 @@ from compliance.audit import (
     EXPORT_PREPARED_EVENT_TYPE,
     EXPORT_REVOKED_EVENT_TYPE,
 )
+from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from reporting.tests import ReportingAPITests
 
@@ -75,6 +76,30 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         return response.data
 
+    def _create_scoped_reviewer_client(self, empresa, *, username_suffix=''):
+        user_model = get_user_model()
+        reviewer = user_model.objects.create_user(
+            username=f'compliance-reviewer-{empresa.id}{username_suffix}',
+            password='secret123',
+            default_role_code='RevisorFiscalExterno',
+        )
+        reviewer_role, _ = Role.objects.get_or_create(
+            code='RevisorFiscalExterno',
+            defaults={'name': 'Revisor fiscal externo'},
+        )
+        scope = Scope.objects.create(
+            code=f'compliance-company-{empresa.id}{username_suffix}',
+            name=f'Compliance scope {empresa.razon_social}',
+            scope_type=Scope.ScopeType.COMPANY,
+            external_reference=str(empresa.id),
+            is_active=True,
+        )
+        UserScopeAssignment.objects.create(user=reviewer, role=reviewer_role, scope=scope, is_primary=True)
+
+        reviewer_client = self.client_class()
+        reviewer_client.force_authenticate(reviewer)
+        return reviewer_client, reviewer
+
     def test_auth_is_required_for_compliance_endpoints(self):
         client = self.client_class()
         urls = [
@@ -127,6 +152,124 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(prepared_event.metadata['estado'], EstadoExportacionSensible.PREPARED)
         self.assertEqual(accessed_event.actor_user_id, self.user.id)
         self.assertEqual(accessed_event.metadata['payload_hash'], export.payload_hash)
+
+    def test_scoped_reviewer_can_prepare_and_download_in_scope_sensitive_export(self):
+        socio, empresa, *_rest = self._create_context('CMP-SCOPE-A')
+        self._create_policy('documental_sensible')
+        reviewer_client, reviewer = self._create_scoped_reviewer_client(empresa, username_suffix='-in')
+
+        response = reviewer_client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'documental_sensible',
+                'export_kind': 'socio_resumen',
+                'motivo': 'Revision documental scoped',
+                'socio_id': socio.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        export = ExportacionSensible.objects.get(pk=response.data['id'])
+        self.assertEqual(export.created_by_id, reviewer.id)
+        content = reviewer_client.get(reverse('compliance-export-content', args=[export.id]))
+        self.assertEqual(content.status_code, status.HTTP_200_OK)
+        self.assertEqual(content.data['payload']['socio']['id'], socio.id)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=EXPORT_ACCESSED_EVENT_TYPE,
+                entity_id=str(export.id),
+                actor_user_id=reviewer.id,
+            ).exists()
+        )
+
+    def test_scoped_reviewer_cannot_prepare_sensitive_export_outside_scope(self):
+        _socio_in_scope, empresa_in_scope, *_rest = self._create_context('CMP-SCOPE-IN')
+        socio_out_scope, _empresa_out_scope, *_other = self._create_context('CMP-SCOPE-OUT')
+        self._create_policy('documental_sensible')
+        reviewer_client, reviewer = self._create_scoped_reviewer_client(empresa_in_scope, username_suffix='-out')
+
+        response = reviewer_client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'documental_sensible',
+                'export_kind': 'socio_resumen',
+                'motivo': 'Revision documental fuera de scope',
+                'socio_id': socio_out_scope.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(ExportacionSensible.objects.filter(created_by=reviewer).exists())
+
+    def test_scoped_reviewer_cannot_download_sensitive_export_created_by_other_user(self):
+        socio, empresa, *_rest = self._create_context('CMP-SCOPE-OWN')
+        self._create_policy('documental_sensible')
+        prepared = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'documental_sensible',
+                'export_kind': 'socio_resumen',
+                'motivo': 'Revision documental admin',
+                'socio_id': socio.id,
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+        export = ExportacionSensible.objects.get(pk=prepared.data['id'])
+        reviewer_client, reviewer = self._create_scoped_reviewer_client(empresa, username_suffix='-foreign')
+
+        content = reviewer_client.get(reverse('compliance-export-content', args=[export.id]))
+
+        self.assertEqual(content.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=EXPORT_ACCESSED_EVENT_TYPE,
+                entity_id=str(export.id),
+                actor_user_id=reviewer.id,
+            ).exists()
+        )
+
+    def test_scoped_reviewer_cannot_download_sensitive_export_after_scope_changes(self):
+        socio, empresa, *_rest = self._create_context('CMP-SCOPE-OLD')
+        _socio_other, empresa_other, *_other = self._create_context('CMP-SCOPE-NEW')
+        self._create_policy('documental_sensible')
+        reviewer_client, reviewer = self._create_scoped_reviewer_client(empresa, username_suffix='-shift')
+        prepared = reviewer_client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'documental_sensible',
+                'export_kind': 'socio_resumen',
+                'motivo': 'Revision documental antes de cambio de scope',
+                'socio_id': socio.id,
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+        export = ExportacionSensible.objects.get(pk=prepared.data['id'])
+
+        UserScopeAssignment.objects.filter(user=reviewer).update(effective_to=timezone.now())
+        reviewer_role = Role.objects.get(code='RevisorFiscalExterno')
+        next_scope = Scope.objects.create(
+            code=f'compliance-company-{empresa_other.id}-shift',
+            name=f'Compliance scope {empresa_other.razon_social}',
+            scope_type=Scope.ScopeType.COMPANY,
+            external_reference=str(empresa_other.id),
+            is_active=True,
+        )
+        UserScopeAssignment.objects.create(user=reviewer, role=reviewer_role, scope=next_scope, is_primary=True)
+
+        content = reviewer_client.get(reverse('compliance-export-content', args=[export.id]))
+
+        self.assertEqual(content.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=EXPORT_ACCESSED_EVENT_TYPE,
+                entity_id=str(export.id),
+                actor_user_id=reviewer.id,
+            ).exists()
+        )
 
     def test_export_content_rejects_payload_hash_mismatch(self):
         self._create_context('HASH-MISMATCH')

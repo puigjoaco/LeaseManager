@@ -28,10 +28,10 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro por trazabilidad y orden de construccion. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: `Socio` y `ComunidadPatrimonial` no pueden quedar inactivos con cuentas recaudadoras, mandatos operativos o, para socios, identidades de envio activas. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: Compliance de datos sensibles acota exportaciones sensibles a admin global o `RevisorFiscalExterno` con scope explicito asignado, aplica `ScopeAccess` al render de payload, revalida scope actual al consultar/descargar/revocar y limita operaciones no admin a exportaciones propias. |
 | Gate esperado | Definir segun el siguiente frente seguro. |
-| Estado al cerrar paquete | Paquete `Socio/ComunidadPatrimonial.salida_operativa_dependencias_activas` validado con focal Patrimonio/API/auditor, suite Patrimonio + Operacion + auditor Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 1 no se declara cerrada sin fuente `snapshot_controlado` o `real_autorizado`. |
+| Estado al cerrar paquete | Paquete `Compliance.exportaciones_sensibles_scope` validado con focal Compliance/API, suite impactada Compliance + Reporting + Users + readiness, `manage.py check`, migraciones dry-run, readiness Compliance local, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo para este paquete. |
 | Politica de reanudacion | Si se reanuda con un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 

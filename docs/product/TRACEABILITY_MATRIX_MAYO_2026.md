@@ -385,6 +385,13 @@ motivo o con URLs, correos, tokens, bearer, claves o credenciales, guarda
 readiness reporta `compliance.export_revoked_audit_reason_missing` para
 snapshots heredados revocados sin motivo auditable valido.
 
+Nota 2026-05-29: Compliance acota exportaciones sensibles por scope operativo.
+`RevisorFiscalExterno` puede preparar y descargar exportaciones sensibles solo
+dentro de un scope explicito asignado, `render_export_payload` recibe
+`ScopeAccess`, detalle/descarga/revocacion revalidan el scope actual, los
+intentos fuera de scope se rechazan con 403 y los usuarios no administradores
+solo listan, descargan o revocan exportaciones creadas por ellos.
+
 Nota 2026-05-27: Compliance separa motivos sensibles heredados en revocaciones.
 `audit_compliance_data_readiness` distingue revocaciones sin motivo de
 revocaciones con `revocation_reason` sensible mediante
