@@ -112,6 +112,13 @@ inspeccion redactada sin alta, edicion ni borrado manual, obligando cambios de
 politicas, preparacion, descarga, expiracion y revocacion de exportaciones a
 pasar por API, servicios, dominio y auditoria.
 
+Nota 2026-05-29: Compliance/Etapa 0 mueve la auditoria de preparacion y
+revocacion de exportaciones sensibles al servicio. `prepare_sensitive_export()`
+y `revoke_export()` persisten exportacion/estado y eventos
+`compliance.exportacion_sensible.prepared` o
+`compliance.exportacion_sensible.revoked` dentro de la misma transaccion,
+evitando registros sensibles preparados o revocados sin auditoria dedicada.
+
 Nota 2026-05-29: PlataformaBase/Auth cierra borrado manual de usuarios desde
 admin. `LeaseManagerUserAdmin` conserva gestion operativa y metadata redactada,
 pero deshabilita borrado manual para preservar actores, scopes, asignaciones y

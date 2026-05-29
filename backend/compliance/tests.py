@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
@@ -42,6 +43,7 @@ from .services import (
     SENSITIVE_EXPORT_METADATA_ERROR,
     encrypt_payload,
     prepare_sensitive_export,
+    revoke_export,
 )
 
 
@@ -152,6 +154,47 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(prepared_event.metadata['estado'], EstadoExportacionSensible.PREPARED)
         self.assertEqual(accessed_event.actor_user_id, self.user.id)
         self.assertEqual(accessed_event.metadata['payload_hash'], export.payload_hash)
+
+    def test_prepare_sensitive_export_service_creates_audit_event(self):
+        self._create_policy('financiero')
+
+        export = prepare_sensitive_export(
+            categoria_dato='financiero',
+            export_kind='financiero_mensual',
+            scope_resumen={'anio': 2026, 'mes': 1},
+            motivo='Revision mensual desde servicio',
+            payload={'total': 'controlado'},
+            created_by=self.user,
+            actor_user=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        prepared_event = AuditEvent.objects.get(
+            event_type=EXPORT_PREPARED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+            entity_id=str(export.id),
+        )
+        self.assertEqual(prepared_event.actor_user_id, self.user.id)
+        self.assertEqual(prepared_event.ip_address, '127.0.0.1')
+        self.assertEqual(prepared_event.metadata['export_kind'], export.export_kind)
+        self.assertEqual(prepared_event.metadata['payload_hash'], export.payload_hash)
+
+    def test_prepare_sensitive_export_rolls_back_when_audit_creation_fails(self):
+        self._create_policy('financiero')
+
+        with patch('compliance.audit.create_audit_event', side_effect=RuntimeError('export audit unavailable')):
+            with self.assertRaises(RuntimeError):
+                prepare_sensitive_export(
+                    categoria_dato='financiero',
+                    export_kind='financiero_mensual',
+                    scope_resumen={'anio': 2026, 'mes': 1},
+                    motivo='Revision sin auditoria',
+                    payload={'total': 'controlado'},
+                    created_by=self.user,
+                    actor_user=self.user,
+                )
+
+        self.assertFalse(ExportacionSensible.objects.filter(motivo='Revision sin auditoria').exists())
 
     def test_scoped_reviewer_can_prepare_and_download_in_scope_sensitive_export(self):
         socio, empresa, *_rest = self._create_context('CMP-SCOPE-A')
@@ -679,6 +722,36 @@ class ComplianceAPITests(APITestCase):
             AuditEvent.objects.filter(
                 event_type=EXPORT_ACCESSED_EVENT_TYPE,
                 entity_id=str(prepared.data['id']),
+            ).exists()
+        )
+
+    def test_revoke_export_service_rolls_back_when_audit_creation_fails(self):
+        self._create_policy('operativo')
+        export = prepare_sensitive_export(
+            categoria_dato='operativo',
+            export_kind='dashboard_operativo',
+            scope_resumen={},
+            motivo='Revision interna',
+            payload={'dashboard': 'controlado'},
+            created_by=self.user,
+            actor_user=self.user,
+        )
+
+        with patch('compliance.audit.create_audit_event', side_effect=RuntimeError('revoke audit unavailable')):
+            with self.assertRaises(RuntimeError):
+                revoke_export(
+                    export,
+                    actor_user=self.user,
+                    ip_address='127.0.0.1',
+                    revocation_reason='Rotacion controlada de evidencia',
+                )
+
+        export.refresh_from_db()
+        self.assertEqual(export.estado, EstadoExportacionSensible.PREPARED)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=EXPORT_REVOKED_EVENT_TYPE,
+                entity_id=str(export.id),
             ).exists()
         )
 

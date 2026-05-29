@@ -5,6 +5,7 @@ from datetime import timedelta
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 
 from core.reference_validation import contains_sensitive_reference
@@ -16,6 +17,7 @@ from reporting.services import (
     build_period_books_summary,
 )
 
+from .audit import EXPORT_PREPARED_EVENT_TYPE, EXPORT_REVOKED_EVENT_TYPE, create_export_audit_event
 from .models import (
     CategoriaDato,
     EstadoExportacionSensible,
@@ -137,26 +139,45 @@ def validate_sensitive_export_controls(*, categoria_dato, export_kind):
         raise ValidationError({'categoria_dato': ACTIVE_RETENTION_POLICY_ERROR})
 
 
-def prepare_sensitive_export(*, categoria_dato, export_kind, scope_resumen, motivo, payload, created_by, hold_activo=False):
+def prepare_sensitive_export(
+    *,
+    categoria_dato,
+    export_kind,
+    scope_resumen,
+    motivo,
+    payload,
+    created_by,
+    hold_activo=False,
+    actor_user=None,
+    ip_address=None,
+):
     ensure_export_metadata_is_non_sensitive(scope_resumen=scope_resumen, motivo=motivo)
     validate_sensitive_export_controls(categoria_dato=categoria_dato, export_kind=export_kind)
     encrypted_payload, payload_hash = encrypt_payload(payload)
     expires_at = timezone.now() + timedelta(days=MAX_EXPORT_DAYS)
-    export = ExportacionSensible(
-        categoria_dato=categoria_dato,
-        export_kind=export_kind,
-        scope_resumen=scope_resumen,
-        motivo=motivo,
-        encrypted_payload=encrypted_payload,
-        payload_hash=payload_hash,
-        encrypted_ref=build_encrypted_export_ref(export_kind, payload_hash),
-        expires_at=expires_at,
-        hold_activo=hold_activo,
-        created_by=created_by,
-    )
-    export.full_clean()
-    export.save()
-    return export
+    with transaction.atomic():
+        export = ExportacionSensible(
+            categoria_dato=categoria_dato,
+            export_kind=export_kind,
+            scope_resumen=scope_resumen,
+            motivo=motivo,
+            encrypted_payload=encrypted_payload,
+            payload_hash=payload_hash,
+            encrypted_ref=build_encrypted_export_ref(export_kind, payload_hash),
+            expires_at=expires_at,
+            hold_activo=hold_activo,
+            created_by=created_by,
+        )
+        export.full_clean()
+        export.save()
+        create_export_audit_event(
+            event_type=EXPORT_PREPARED_EVENT_TYPE,
+            export=export,
+            summary='Exportacion sensible preparada y cifrada',
+            actor_user=actor_user or created_by,
+            ip_address=ip_address,
+        )
+        return export
 
 
 def get_export_payload(export):
@@ -177,7 +198,7 @@ def get_export_payload(export):
     return payload
 
 
-def revoke_export(export):
+def revoke_export(export, *, actor_user=None, ip_address=None, revocation_reason=''):
     if export.estado == EstadoExportacionSensible.REVOKED:
         raise ValueError(EXPORT_ALREADY_REVOKED_ERROR)
     if export.estado == EstadoExportacionSensible.EXPIRED:
@@ -186,7 +207,16 @@ def revoke_export(export):
         export.estado = EstadoExportacionSensible.EXPIRED
         export.save(update_fields=['estado', 'updated_at'])
         raise ValueError(EXPIRED_EXPORT_REVOKE_ERROR)
-    export.estado = EstadoExportacionSensible.REVOKED
-    export.save(update_fields=['estado', 'updated_at'])
-    return export
+    with transaction.atomic():
+        export.estado = EstadoExportacionSensible.REVOKED
+        export.save(update_fields=['estado', 'updated_at'])
+        create_export_audit_event(
+            event_type=EXPORT_REVOKED_EVENT_TYPE,
+            export=export,
+            summary='Exportacion sensible revocada',
+            actor_user=actor_user,
+            ip_address=ip_address,
+            extra_metadata={'revocation_reason': revocation_reason} if revocation_reason else None,
+        )
+        return export
 

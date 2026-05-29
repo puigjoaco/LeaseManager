@@ -48,6 +48,11 @@ evidencia respalda el root limpio.
   el payload se renderiza con `ScopeAccess`, detalle/descarga/revocacion
   revalidan el scope actual, los intentos fuera de scope se rechazan y los
   usuarios no administradores solo ven/operan sus propias exportaciones.
+- La preparacion y revocacion de exportaciones sensibles crean los eventos
+  `compliance.exportacion_sensible.prepared` y
+  `compliance.exportacion_sensible.revoked` desde el servicio y en la misma
+  transaccion que persiste el estado, evitando exportaciones sensibles sin
+  auditoria dedicada si falla la escritura del evento.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.
