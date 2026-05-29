@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Contabilidad / admin de artefactos generados. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, `CODEX_OPERATING_PROTOCOL_MAYO_2026.md`, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Los admins de artefactos contables generados estaban en campos solo lectura y sin alta/borrado manual, pero aun podian abrir flujo de cambio manual desde Django admin. |
-| Motivo de prioridad | Etapa 5 declara que eventos, asientos, movimientos, obligaciones, snapshots, cierres y efectos de reapertura no deben mutarse manualmente desde backoffice; las mutaciones deben pasar por API, servicios, gates y auditoria. |
-| Worktree | `D:/Proyectos/LeaseManager-contabilidad-admin-change-guard`. |
-| Rama | `codex/contabilidad-admin-change-guard`. |
-| Estado | Paquete tactico abierto para bloquear edicion manual de artefactos contables generados, conservando inspeccion redactada y sin afectar configuracion contable/fiscal editable. |
-| Gate esperado | Focal Contabilidad admin; suite Contabilidad/readiness Etapa 5/Reporting; `manage.py check`; migraciones dry-run; gate local Etapa 5 parcial; frontend build/lint; acceptance local; higiene repo y `git diff --check`. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna registrada en curso. |
+| Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
+| Worktree | N/A. |
+| Rama | `main`. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Contabilidad bloquea alta, edicion y borrado manual en artefactos generados de Etapa 5, conservando inspeccion redactada y sin afectar configuracion contable/fiscal editable. |
+| Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
+| Estado al cerrar paquete | PR #534 mergeado en `main` (`3cf9e9b`). Validado con focal Contabilidad admin, suite Contabilidad/readiness Etapa 5/Reporting, `manage.py check`, migraciones dry-run, gate local Etapa 5 parcial, frontend build/lint, acceptance local, CI GitHub, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 5 sigue parcial para cierre real por dependencias de Conciliacion/fuente autorizada, pero esta preparacion local no depende de datos reales ni integraciones externas. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
-| Siguiente accion | Implementar guard de `has_change_permission`, validar y cerrar PR. |
+| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
 ## Actualizacion
 
