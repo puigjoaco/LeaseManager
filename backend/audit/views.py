@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -168,6 +169,12 @@ class ManualResolutionListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(scope_reference=scope_reference)
         return queryset
 
+    def perform_create(self, serializer):
+        serializer.save(
+            requested_by=self.request.user,
+            status=ManualResolution.Status.OPEN,
+        )
+
 
 class ManualResolutionDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [AuditResolutionPermission]
@@ -176,6 +183,15 @@ class ManualResolutionDetailView(generics.RetrieveUpdateAPIView):
 
     def get_queryset(self):
         return _manual_resolution_queryset_for_user(self.request.user)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        next_status = serializer.validated_data.get('status', instance.status)
+        terminal_statuses = {ManualResolution.Status.RESOLVED, ManualResolution.Status.SUPERSEDED}
+        if next_status in terminal_statuses and instance.status != next_status:
+            serializer.save(resolved_by=self.request.user, resolved_at=timezone.now())
+            return
+        serializer.save()
 
 
 class ResolveMigrationPropertyOwnerView(APIView):

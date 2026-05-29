@@ -34,6 +34,10 @@ evidencia respalda el root limpio.
   eventos redactan actor, entidad, resumen, request id y metadata; las
   resoluciones manuales redactan scope, resumen, rationale y metadata, y la API
   generica rechaza nuevas escrituras con referencias sensibles.
+- Las resoluciones manuales genericas conservan actor de solicitud y cierre
+  trazable: la API crea casos abiertos con `requested_by` del usuario actual,
+  no acepta cierres al crear, exige rationale para cerrar y estampa
+  `resolved_by`/`resolved_at` desde el usuario autenticado.
 - Los admins RBAC de Core no exponen metadata ni permission sets crudos y no
   permiten borrado manual de roles, scopes, permisos por scope ni asignaciones.
 - `PlatformSettingAdmin` muestra valores de plataforma solo redactados y no
