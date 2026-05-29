@@ -46,6 +46,9 @@ class CanalMensajeriaAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -99,6 +102,9 @@ class MensajeSalienteAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -124,6 +130,9 @@ class ConfiguracionNotificacionContratoAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'evidencia_configuracion_ref')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -154,6 +163,9 @@ class NotificacionCobranzaProgramadaAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'motivo_estado')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):

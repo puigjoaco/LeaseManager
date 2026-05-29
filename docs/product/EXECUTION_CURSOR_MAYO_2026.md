@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, `CODEX_OPERATING_PROTOCOL_MAYO_2026.md`, stage card Etapa 0, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna registrada en curso. |
-| Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
-| Worktree | N/A. |
-| Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Compliance bloquea alta, edicion y borrado manual conservando inspeccion redactada. |
-| Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | Compliance datos sensibles permanece parcial por cierre legal/evidencial externo; paquete local validado con focal Compliance admin/API, suite Compliance/readiness, `manage.py check`, migraciones dry-run, readiness Compliance local, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; Compliance sigue parcial por BLK-010 y evidencia/legal autorizada de cierre, pero esta preparacion local no depende de datos reales. |
+| Frente activo | Canales / admin de superficie cerrada. |
+| Fuente exacta | Stage card Etapa 2, trazabilidad vigente, evidencia vigente y estado real del repositorio. |
+| Brecha activa | `CanalMensajeriaAdmin`, `MensajeSalienteAdmin`, `ConfiguracionNotificacionContratoAdmin` y `NotificacionCobranzaProgramadaAdmin` ya eran readonly por campos, pero conservaban permiso Django admin de cambio. |
+| Motivo de prioridad | Cerrar una brecha local de bypass administrativo en una superficie que la arquitectura declara de solo lectura y con mutaciones bajo APIs, servicios y readiness auditada. |
+| Worktree | `D:/Proyectos/LeaseManager-canales-admin-change-guard`. |
+| Rama | `codex/canales-admin-change-guard`. |
+| Estado | Paquete tactico validado localmente; pendiente PR, CI, merge y limpieza. |
+| Gate esperado | Focal Canales admin, suite Canales/readiness Etapa 2, `manage.py check`, migraciones dry-run, gate local Etapa 2 parcial, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Validacion local OK: focal Canales admin, suite Canales/readiness Etapa 2, `manage.py check`, migraciones dry-run, gate local Etapa 2 parcial, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Ninguno nuevo; Etapa 2 sigue parcial para cierre real por fuentes y pruebas externas/controladas, pero este paquete local no depende de ellas. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
