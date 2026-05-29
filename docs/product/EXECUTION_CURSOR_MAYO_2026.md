@@ -28,9 +28,9 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Operacion bloquea alta, edicion y borrado manual en cuentas, identidades, mandatos y asignaciones, conservando inspeccion redactada. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: `AvisoTermino` conserva `registrado_at` como timestamp real de registro para medir oportunidad, API/snapshot/admin/backoffice lo exponen como lectura y el auditor Etapa 1 bloquea avisos registrados heredados sin timestamp. |
 | Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | PR #542 mergeado en main (`daad9aa`). Validado con focal Operacion admin, suite Operacion/readiness Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1 no evidencial, frontend build/lint, acceptance local, CI GitHub, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Paquete `AvisoTermino.registrado_at` validado con focal AvisoTermino/API/auditor, suite Contratos + Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1 no evidencial, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 1 sigue sin cierre real por falta de fuente `snapshot_controlado` o `real_autorizado`, pero esta preparacion local no depende de datos reales ni integraciones externas. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |

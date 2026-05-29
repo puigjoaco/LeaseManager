@@ -1067,13 +1067,14 @@ class AvisoTerminoSerializer(serializers.ModelSerializer):
             'resolucion_conflicto_renovacion_ref',
             'resolucion_conflicto_renovacion_motivo',
             'registrado_por',
+            'registrado_at',
             'fecha_limite_registro_oportuno',
             'registrado_fuera_plazo',
             'alerta_registro_fuera_plazo',
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('id', 'registrado_por', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'registrado_por', 'registrado_at', 'created_at', 'updated_at')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

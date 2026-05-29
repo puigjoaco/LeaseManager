@@ -1401,6 +1401,17 @@ def _audit_early_termination_proration(issues: list[dict[str, Any]]) -> None:
 
 def _audit_late_termination_notices(issues: list[dict[str, Any]]) -> None:
     for aviso in AvisoTermino.objects.filter(estado=EstadoAvisoTermino.REGISTERED).select_related('contrato'):
+        if aviso.registrado_at is None:
+            _issue(
+                issues,
+                code='stage1.aviso_termino.registro_timestamp_faltante',
+                entity='AvisoTermino',
+                entity_id=aviso.pk,
+                message=(
+                    'Aviso de termino registrado no conserva timestamp real de registro; '
+                    'no se debe inferir oportunidad desde fechas editables o reconstruidas.'
+                ),
+            )
         if not aviso.is_late_registered_notice():
             continue
         _issue(

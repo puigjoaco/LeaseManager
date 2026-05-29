@@ -243,6 +243,7 @@ class AvisoTerminoAdmin(admin.ModelAdmin):
         'resolucion_conflicto_renovacion_ref_redacted',
         'resolucion_conflicto_renovacion_motivo_redacted',
         'registrado_por',
+        'registrado_at',
         'created_at',
         'updated_at',
     )
@@ -250,10 +251,11 @@ class AvisoTerminoAdmin(admin.ModelAdmin):
         'causal_redacted',
         'resolucion_conflicto_renovacion_ref_redacted',
         'resolucion_conflicto_renovacion_motivo_redacted',
+        'registrado_at',
         'created_at',
         'updated_at',
     )
-    list_display = ('contrato', 'fecha_efectiva', 'causal_redacted', 'estado', 'registrado_por')
+    list_display = ('contrato', 'fecha_efectiva', 'causal_redacted', 'estado', 'registrado_por', 'registrado_at')
     list_filter = ('estado',)
     search_fields = ('contrato__codigo_contrato',)
 

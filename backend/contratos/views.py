@@ -305,6 +305,7 @@ class ContractsSnapshotView(APIView):
                         'resolucion_conflicto_renovacion_motivo': redact_sensitive_reference(
                             item.resolucion_conflicto_renovacion_motivo
                         ),
+                        'registrado_at': item.registrado_at,
                         'fecha_limite_registro_oportuno': item.latest_timely_registration_at(),
                         'registrado_fuera_plazo': item.is_late_registered_notice(),
                         'alerta_registro_fuera_plazo': item.late_registration_alert(),
