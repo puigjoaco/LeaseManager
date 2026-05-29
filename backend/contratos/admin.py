@@ -75,6 +75,9 @@ class ArrendatarioAdmin(admin.ModelAdmin):
     def whatsapp_rehabilitacion_ref_redacted(self, obj):
         return _redacted_attr(obj, 'whatsapp_rehabilitacion_ref')
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(ContactoPagoArrendatario)
 class ContactoPagoArrendatarioAdmin(admin.ModelAdmin):
@@ -101,6 +104,9 @@ class ContactoPagoArrendatarioAdmin(admin.ModelAdmin):
 
     def evidencia_autorizacion_ref_redacted(self, obj):
         return _redacted_attr(obj, 'evidencia_autorizacion_ref')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Contrato)
@@ -164,12 +170,18 @@ class ContratoAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(ContratoPropiedad)
 class ContratoPropiedadAdmin(admin.ModelAdmin):
     list_display = ('contrato', 'propiedad', 'rol_en_contrato', 'codigo_conciliacion_efectivo_snapshot')
     list_filter = ('rol_en_contrato',)
     search_fields = ('contrato__codigo_contrato', 'propiedad__codigo_propiedad')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(PeriodoContractual)
@@ -207,12 +219,18 @@ class PeriodoContractualAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(CodeudorSolidario)
 class CodeudorSolidarioAdmin(admin.ModelAdmin):
     list_display = ('contrato', 'fecha_inclusion', 'estado')
     list_filter = ('estado',)
     search_fields = ('contrato__codigo_contrato',)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(AvisoTermino)
@@ -249,5 +267,8 @@ class AvisoTerminoAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'resolucion_conflicto_renovacion_motivo')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 

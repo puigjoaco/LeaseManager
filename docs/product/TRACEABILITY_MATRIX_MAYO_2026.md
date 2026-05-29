@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: Contratos/Etapa 1 cierra borrado manual contractual desde
+admin. `ArrendatarioAdmin`, `ContactoPagoArrendatarioAdmin`,
+`ContratoAdmin`, `ContratoPropiedadAdmin`, `PeriodoContractualAdmin`,
+`CodeudorSolidarioAdmin` y `AvisoTerminoAdmin` deshabilitan borrado manual
+para conservar snapshots, vigencias, tramos, propiedades vinculadas,
+codeudores, avisos y trazabilidad; las bajas quedan por estado, vigencia o
+flujo auditado.
+
 Nota 2026-05-28: Operacion/Etapa 1 cierra borrado manual de cobertura
 operativa desde admin. `CuentaRecaudadoraAdmin`, `IdentidadDeEnvioAdmin`,
 `MandatoOperacionAdmin` y `AsignacionCanalOperacionAdmin` deshabilitan
