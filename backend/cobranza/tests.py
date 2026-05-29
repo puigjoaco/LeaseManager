@@ -367,6 +367,7 @@ class CobranzaAPITests(APITestCase):
             account_state_admin,
         ):
             self.assertFalse(admin_instance.has_add_permission(None))
+            self.assertFalse(admin_instance.has_change_permission(None, object()))
             self.assertFalse(admin_instance.has_delete_permission(None))
 
     def test_adjustment_admin_redacts_sensitive_justification(self):
@@ -391,6 +392,7 @@ class CobranzaAPITests(APITestCase):
         self.assertNotIn('justificacion', adjustment_admin.search_fields)
         self.assertEqual(adjustment_admin.justificacion_redacted(adjustment), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(adjustment_admin.has_add_permission(None))
+        self.assertFalse(adjustment_admin.has_change_permission(None, adjustment))
         self.assertFalse(adjustment_admin.has_delete_permission(None))
 
     def test_refresh_mora_marks_pending_payment_overdue_and_updates_account_state(self):
