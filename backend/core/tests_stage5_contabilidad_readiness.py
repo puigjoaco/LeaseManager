@@ -32,15 +32,20 @@ from contabilidad.models import (
     EstadoAsientoContable,
     EstadoCierreMensual,
     EstadoEventoContable,
+    EstadoLiquidacionMensual,
     EventoContable,
     LibroDiario,
     LibroMayor,
+    LineaLiquidacionMensual,
+    LiquidacionMensual,
     MatrizReglasContables,
     MovimientoAsiento,
     ObligacionTributariaMensual,
     PoliticaReversoContable,
     ReglaContable,
+    TipoLineaLiquidacion,
     TipoMovimientoAsiento,
+    TipoOwnerLiquidacion,
 )
 from contabilidad.services import (
     MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
@@ -320,7 +325,7 @@ class Stage5ContabilidadReadinessTests(TestCase):
             estado_snapshot=EstadoCierreMensual.APPROVED,
             resumen={'total_debe': '100000.00', 'total_haber': '100000.00', 'cuadrado': True},
         )
-        return CierreMensualContable.objects.create(
+        close = CierreMensualContable.objects.create(
             empresa=empresa,
             anio=2026,
             mes=1,
@@ -339,6 +344,47 @@ class Stage5ContabilidadReadinessTests(TestCase):
                 },
             },
         )
+        self._create_company_liquidation(empresa, close)
+        return close
+
+    def _create_company_liquidation(self, empresa, close, *, admin_fee=True):
+        event = EventoContable.objects.filter(
+            empresa=empresa,
+            estado_contable=EstadoEventoContable.POSTED,
+        ).first()
+        socio = (
+            ParticipacionPatrimonial.objects.filter(
+                empresa_owner=empresa,
+                participante_socio__isnull=False,
+                activo=True,
+            )
+            .select_related('participante_socio')
+            .first()
+            .participante_socio
+        )
+        liquidation = LiquidacionMensual.objects.create(
+            owner_tipo=TipoOwnerLiquidacion.COMPANY,
+            empresa=empresa,
+            cierre_contable=close,
+            anio=close.anio,
+            mes=close.mes,
+            estado=EstadoLiquidacionMensual.APPROVED,
+            comision_administracion_aplica=admin_fee,
+            saldo_final_clp=Decimal('0.00'),
+            evidencia_base_ref='stage5-liquidation-base-controlled-v1',
+            responsable_ref='stage5-liquidation-owner-controlled-v1',
+        )
+        if admin_fee:
+            LineaLiquidacionMensual.objects.create(
+                liquidacion=liquidation,
+                tipo_linea=TipoLineaLiquidacion.ADMINISTRATION_FEE,
+                descripcion='Comision administracion controlada',
+                monto_clp=Decimal('10000.00'),
+                evidencia_ref='stage5-liquidation-fee-controlled-v1',
+                beneficiario_socio=socio,
+                evento_contable=event,
+            )
+        return liquidation
 
     def _create_valid_local_matrix(self):
         empresa = self._create_active_empresa()
@@ -399,6 +445,64 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage5_contabilidad'])
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('stage5.source_kind_not_authorized', issue_codes)
+
+    def test_approved_close_without_company_liquidation_is_blocking(self):
+        self._create_valid_local_matrix()
+        LiquidacionMensual.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.liquidation_missing_for_approved_close', issue_codes)
+        self.assertEqual(result['sections']['liquidations']['approved_closes_without_company_liquidation'], 1)
+
+    def test_liquidation_admin_fee_line_required_when_applicable(self):
+        self._create_valid_local_matrix()
+        LineaLiquidacionMensual.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.liquidation_admin_fee_line_missing', issue_codes)
+        self.assertIn('stage5.liquidation_invalid', issue_codes)
+        self.assertEqual(result['sections']['liquidations']['required_admin_fee_line_missing'], 1)
+
+    def test_prepared_liquidation_economic_line_requires_accounting_trace(self):
+        self._create_valid_local_matrix()
+        LineaLiquidacionMensual.objects.update(evento_contable=None)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.liquidation_line_accounting_trace_missing', issue_codes)
+        self.assertIn('stage5.liquidation_line_invalid', issue_codes)
+        self.assertEqual(result['sections']['liquidations']['prepared_economic_lines_without_event'], 1)
+
+    def test_liquidation_sensitive_references_are_blocking_and_redacted(self):
+        self._create_valid_local_matrix()
+        LiquidacionMensual.objects.update(
+            evidencia_base_ref='https://settlement.example.test/base?token=secret',
+            responsable_ref='mailto:controller@example.test',
+            saldo_final_explicacion='Saldo con token=secret',
+            saldo_final_evidencia_ref='https://settlement.example.test/balance?token=secret',
+        )
+        LineaLiquidacionMensual.objects.update(
+            descripcion='Linea con https://settlement.example.test/fee?token=secret',
+            evidencia_ref='https://settlement.example.test/fee?token=secret',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        rendered = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.liquidation_sensitive_reference', issue_codes)
+        self.assertGreaterEqual(result['sections']['liquidations']['liquidation_sensitive_references'], 1)
+        self.assertNotIn('settlement.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
 
     def test_close_with_bank_movement_without_cuadratura_is_blocking(self):
         empresa = self._create_valid_local_matrix()

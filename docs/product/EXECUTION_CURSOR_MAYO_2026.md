@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, `CODEX_OPERATING_PROTOCOL_MAYO_2026.md`, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna registrada en curso. |
-| Motivo de prioridad | Tomar el siguiente frente seguro por trazabilidad y orden de construccion. |
-| Worktree | N/A. |
-| Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: Compliance de datos sensibles acota exportaciones sensibles a admin global o `RevisorFiscalExterno` con scope explicito asignado, aplica `ScopeAccess` al render de payload, revalida scope actual al consultar/descargar/revocar y limita operaciones no admin a exportaciones propias. |
-| Gate esperado | Definir segun el siguiente frente seguro. |
-| Estado al cerrar paquete | Paquete `Compliance.exportaciones_sensibles_scope` validado con focal Compliance/API, suite impactada Compliance + Reporting + Users + readiness, `manage.py check`, migraciones dry-run, readiness Compliance local, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo para este paquete. |
+| Frente activo | Etapa 5 / Contabilidad / liquidaciones mensuales trazables. |
+| Fuente exacta | `01_Set_Vigente/PRD_CANONICO.md` lineas 310, 433, 445 y 446; `docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md`; trazabilidad y evidencia vigentes. |
+| Brecha activa | No existe entidad canonica de liquidacion mensual ni linea explicita de comision/honorario de administracion; el cierre Etapa 5 no puede verificar que liquidaciones y saldo final queden trazables. |
+| Motivo de prioridad | Completa una brecha local de Contabilidad/Etapa 5 sin secretos, datos reales ni integraciones externas; prepara el cierre contable para liquidaciones explicadas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-monthly-liquidations`. |
+| Rama | `codex/stage5-monthly-liquidations`. |
+| Estado | Implementacion y validacion local completadas; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Tests focales Contabilidad/API/readiness; suite impactada `contabilidad`, `core.tests_stage5_contabilidad_readiness`, `reporting`; `manage.py check`; `makemigrations --check --dry-run`; readiness Etapa 5 local; frontend build/lint; acceptance local; higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Validacion local OK: focal 6 tests, suite impactada 96 tests, `manage.py check`, `makemigrations --check --dry-run`, gate Etapa 5 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1092 tests, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 5 no se declara cerrada sin Conciliacion cerrada y fuente `snapshot_controlado` o `real_autorizado`. |
 | Politica de reanudacion | Si se reanuda con un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 

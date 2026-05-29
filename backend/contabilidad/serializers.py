@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference, redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
-from patrimonio.models import Empresa
+from patrimonio.models import ComunidadPatrimonial, Empresa, Socio
 
 from .models import (
     AsientoContable,
@@ -16,6 +16,8 @@ from .models import (
     EventoContable,
     LibroDiario,
     LibroMayor,
+    LineaLiquidacionMensual,
+    LiquidacionMensual,
     MatrizReglasContables,
     MovimientoAsiento,
     ObligacionTributariaMensual,
@@ -409,6 +411,116 @@ class CierreMensualContableSerializer(RedactSensitiveAccountingFieldsMixin, seri
             'updated_at',
         )
         read_only_fields = fields
+
+
+class LineaLiquidacionMensualSerializer(RedactSensitiveAccountingFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('descripcion', 'evidencia_ref')
+
+    class Meta:
+        model = LineaLiquidacionMensual
+        fields = (
+            'id',
+            'liquidacion',
+            'tipo_linea',
+            'descripcion',
+            'monto_clp',
+            'evidencia_ref',
+            'beneficiario_socio',
+            'evento_contable',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'data' not in kwargs:
+            return
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['liquidacion'].queryset = scope_queryset_for_user(
+            LiquidacionMensual.objects.all(),
+            user,
+            company_paths=('empresa_id', 'cierre_contable__empresa_id'),
+        )
+        self.fields['evento_contable'].queryset = scope_queryset_for_user(
+            EventoContable.objects.all(),
+            user,
+            company_paths=('empresa_id',),
+        )
+        self.fields['beneficiario_socio'].queryset = Socio.objects.filter(activo=True)
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, LineaLiquidacionMensual)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
+class LiquidacionMensualSerializer(RedactSensitiveAccountingFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('evidencia_base_ref', 'responsable_ref', 'saldo_final_evidencia_ref')
+    lineas = LineaLiquidacionMensualSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = LiquidacionMensual
+        fields = (
+            'id',
+            'owner_tipo',
+            'empresa',
+            'comunidad',
+            'socio',
+            'cierre_contable',
+            'anio',
+            'mes',
+            'estado',
+            'comision_administracion_aplica',
+            'saldo_final_clp',
+            'saldo_final_explicacion',
+            'saldo_final_evidencia_ref',
+            'evidencia_base_ref',
+            'responsable_ref',
+            'lineas',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'lineas', 'created_at', 'updated_at')
+        validators = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'data' not in kwargs:
+            return
+        user = _request_user(self)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return
+        self.fields['empresa'].queryset = _scoped_empresa_queryset(user)
+        self.fields['cierre_contable'].queryset = scope_queryset_for_user(
+            CierreMensualContable.objects.all(),
+            user,
+            company_paths=('empresa_id',),
+        )
+        self.fields['comunidad'].queryset = ComunidadPatrimonial.objects.filter(estado='activa')
+        self.fields['socio'].queryset = Socio.objects.filter(activo=True)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['saldo_final_explicacion'] = redact_sensitive_reference(data.get('saldo_final_explicacion', ''))
+        return data
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, LiquidacionMensual)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
 
 
 class CierreMensualPrepareSerializer(serializers.Serializer):

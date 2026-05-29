@@ -12,6 +12,8 @@ from .models import (
     EventoContable,
     LibroDiario,
     LibroMayor,
+    LineaLiquidacionMensual,
+    LiquidacionMensual,
     MatrizReglasContables,
     MovimientoAsiento,
     ObligacionTributariaMensual,
@@ -328,6 +330,93 @@ class CierreMensualContableAdmin(admin.ModelAdmin):
     @admin.display(description='resumen_obligaciones')
     def resumen_obligaciones_redacted(self, obj):
         return _redacted_payload_attr(obj, 'resumen_obligaciones')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(LiquidacionMensual)
+class LiquidacionMensualAdmin(admin.ModelAdmin):
+    fields = (
+        'owner_tipo',
+        'empresa',
+        'comunidad',
+        'socio',
+        'cierre_contable',
+        'anio',
+        'mes',
+        'estado',
+        'comision_administracion_aplica',
+        'saldo_final_clp',
+        'saldo_final_explicacion_redacted',
+        'saldo_final_evidencia_ref_redacted',
+        'evidencia_base_ref_redacted',
+        'responsable_ref_redacted',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = ('owner_tipo', 'empresa', 'comunidad', 'socio', 'anio', 'mes', 'estado')
+    list_filter = ('owner_tipo', 'estado', 'anio', 'mes', 'comision_administracion_aplica')
+    search_fields = ('empresa__razon_social', 'comunidad__nombre', 'socio__nombre')
+
+    @admin.display(description='saldo_final_explicacion')
+    def saldo_final_explicacion_redacted(self, obj):
+        return _redacted_attr(obj, 'saldo_final_explicacion')
+
+    @admin.display(description='saldo_final_evidencia_ref')
+    def saldo_final_evidencia_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'saldo_final_evidencia_ref')
+
+    @admin.display(description='evidencia_base_ref')
+    def evidencia_base_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'evidencia_base_ref')
+
+    @admin.display(description='responsable_ref')
+    def responsable_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsable_ref')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(LineaLiquidacionMensual)
+class LineaLiquidacionMensualAdmin(admin.ModelAdmin):
+    fields = (
+        'liquidacion',
+        'tipo_linea',
+        'descripcion_redacted',
+        'monto_clp',
+        'evidencia_ref_redacted',
+        'beneficiario_socio',
+        'evento_contable',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = ('liquidacion', 'tipo_linea', 'monto_clp', 'beneficiario_socio', 'evento_contable')
+    list_filter = ('tipo_linea',)
+    search_fields = ('liquidacion__empresa__razon_social', 'beneficiario_socio__nombre', 'evento_contable__idempotency_key')
+
+    @admin.display(description='descripcion')
+    def descripcion_redacted(self, obj):
+        return _redacted_attr(obj, 'descripcion')
+
+    @admin.display(description='evidencia_ref')
+    def evidencia_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'evidencia_ref')
 
     def has_add_permission(self, request):
         return False
