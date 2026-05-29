@@ -139,6 +139,9 @@ class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -166,6 +169,9 @@ class IngresoDesconocidoAdmin(admin.ModelAdmin):
         return _redacted_payload_attr(obj, 'sugerencia_asistida')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -214,6 +220,9 @@ class CuadraturaBancariaAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'rationale')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -265,6 +274,9 @@ class TransferenciaIntercuentaAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'rationale')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):

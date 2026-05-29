@@ -99,9 +99,9 @@ sistema igual a saldo banco.
   conexiones, movimientos, ingresos desconocidos, cuadraturas ni
   transferencias intercuenta; solo muestra versiones redactadas, mantiene
   cerrada el alta y borrado manual de esas entidades desde backoffice, y deja
-  movimientos, ingresos desconocidos, cuadraturas y transferencias en modo
-  solo lectura para que las mutaciones operativas pasen por APIs o servicios
-  auditados.
+  movimientos, ingresos desconocidos, cuadraturas y transferencias sin edicion
+  manual y en modo solo lectura para que las mutaciones operativas pasen por
+  APIs o servicios auditados.
 - `audit_stage3_conciliacion_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 3.
