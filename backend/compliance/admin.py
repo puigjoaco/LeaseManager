@@ -28,6 +28,9 @@ class PoliticaRetencionDatosAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     @admin.display(description='Evento inicio redacted')
     def evento_inicio_redacted(self, obj):
         return redact_sensitive_reference(obj.evento_inicio) or ''
@@ -62,6 +65,9 @@ class ExportacionSensibleAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
     @admin.display(description='Scope redacted')

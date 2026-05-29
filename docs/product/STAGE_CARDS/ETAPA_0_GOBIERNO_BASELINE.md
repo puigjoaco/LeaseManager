@@ -37,7 +37,8 @@ evidencia respalda el root limpio.
   `expirada` antes de rechazar operaciones terminales incompatibles.
 - Compliance no expone `evento_inicio` sensible heredado de politicas de
   retencion en API ni admin: nuevas escrituras siguen bloqueadas por dominio y
-  los valores heredados se representan redactados.
+  los valores heredados se representan redactados. El admin de politicas y
+  exportaciones sensibles mantiene cerrados el alta y borrado manual.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.
