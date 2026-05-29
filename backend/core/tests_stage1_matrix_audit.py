@@ -548,6 +548,41 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_inactive_company_with_active_account_is_blocking(self):
+        empresa = Empresa.objects.create(
+            razon_social='Empresa Cerrada Con Cuenta SpA',
+            rut='99999999-9',
+            estado=EstadoPatrimonial.INACTIVE,
+        )
+        CuentaRecaudadora.objects.create(
+            empresa_owner=empresa,
+            institucion='Banco Controlado',
+            numero_cuenta='EXIT-ACC-001',
+            tipo_cuenta='corriente',
+            titular_nombre=empresa.razon_social,
+            titular_rut=empresa.rut,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            evidencia_operativa_ref='account-operational-evidence-exit',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.empresa.validacion_modelo', issue_codes)
+        self.assertIn('stage1.cuenta.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['empresas']['classification'],
+            'defectuoso',
+        )
+        self.assertEqual(
+            result['aggregate_classification']['cuentas_recaudadoras']['classification'],
+            'defectuoso',
+        )
+
     def test_billing_company_without_active_account_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         socio_1 = Socio.objects.get(rut='11111111-1')

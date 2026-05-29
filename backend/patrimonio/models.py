@@ -2,6 +2,7 @@ from decimal import Decimal
 import re
 import unicodedata
 
+from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -181,6 +182,21 @@ class Empresa(TimestampedModel):
             )
         if _currently_effective(self.participaciones_patrimoniales_como_participante).exists():
             errors.append('La empresa participante de participaciones activas vigentes debe permanecer activa.')
+        CuentaRecaudadora = apps.get_model('operacion', 'CuentaRecaudadora')
+        MandatoOperacion = apps.get_model('operacion', 'MandatoOperacion')
+        IdentidadDeEnvio = apps.get_model('operacion', 'IdentidadDeEnvio')
+        if CuentaRecaudadora.objects.filter(empresa_owner_id=self.pk, estado_operativo='activa').exists():
+            errors.append('La empresa con cuentas recaudadoras activas debe permanecer activa.')
+        active_mandates = MandatoOperacion.objects.filter(estado='activa').filter(
+            Q(propietario_empresa_owner_id=self.pk)
+            | Q(administrador_empresa_owner_id=self.pk)
+            | Q(recaudador_empresa_owner_id=self.pk)
+            | Q(entidad_facturadora_id=self.pk)
+        )
+        if active_mandates.exists():
+            errors.append('La empresa con mandatos operativos activos debe permanecer activa.')
+        if IdentidadDeEnvio.objects.filter(empresa_owner_id=self.pk, estado='activa').exists():
+            errors.append('La empresa con identidades de envio activas debe permanecer activa.')
         return errors
 
     def clean(self):
