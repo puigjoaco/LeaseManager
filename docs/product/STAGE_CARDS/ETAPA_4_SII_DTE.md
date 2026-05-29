@@ -54,8 +54,9 @@ produccion por defecto.
   `DDJJPreparacionAnualAdmin` y `F22PreparacionAnualAdmin` muestran versiones
   redactadas de refs, payloads y observaciones sensibles heredadas, no buscan
   por campos crudos como `certificado_ref`, `evidencia_ref`,
-  `sii_track_id`, `borrador_ref` o `paquete_ref`, y mantienen el alta manual
-  deshabilitada desde backoffice.
+  `sii_track_id`, `borrador_ref` o `paquete_ref`, muestran sus campos en solo
+  lectura, bloquean borrado manual y mantienen el alta manual deshabilitada
+  desde backoffice.
 - DTE, F29, DDJJ/F22 y procesos anuales rechazan por dominio nuevas escrituras
   asociadas a empresas sin `ConfiguracionFiscalEmpresa` activa propia.
 - Los eventos de auditoria de cambios de estado DTE registran `sii_track_id`
