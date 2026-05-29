@@ -28,10 +28,10 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin RBAC de Core bloquea borrado manual de roles, scopes, permisos por scope y asignaciones. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Patrimonio bloquea borrado manual de representaciones de comunidad y servicios de propiedad. |
 | Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | PlataformaBase/RBAC permanece preparado sin cierre falso; paquete validado con focal Core admin, suite Core/RBAC/permisos/scopes, `manage.py check`, migraciones dry-run, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; cierre real de operacion productiva sigue dependiendo de fuente autorizada y evidencia externa/controlada. |
+| Estado al cerrar paquete | Patrimonio/Etapa 1 permanece preparado sin cierre falso; paquete validado con focal Patrimonio admin, suite Patrimonio/Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 1 sigue sin cierre evidencial hasta fuente `snapshot_controlado` o `real_autorizado` autorizada. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
