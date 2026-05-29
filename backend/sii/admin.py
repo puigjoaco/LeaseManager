@@ -68,6 +68,9 @@ class CapacidadTributariaSIIAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -105,6 +108,9 @@ class DTEEmitidoAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'observaciones')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -146,6 +152,9 @@ class F29PreparacionMensualAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -159,6 +168,9 @@ class AnnualTaxArtifactAdminMixin(admin.ModelAdmin):
         return _redacted_attr(obj, 'observaciones')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
@@ -196,6 +208,9 @@ class ProcesoRentaAnualAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'borrador_f22_ref')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
