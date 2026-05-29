@@ -30,3 +30,6 @@ class LeaseManagerUserAdmin(UserAdmin):
     @admin.display(description='metadata')
     def metadata_redacted(self, obj):
         return json.dumps(redact_sensitive_payload(obj.metadata or {}), sort_keys=True, ensure_ascii=True)
+
+    def has_delete_permission(self, request, obj=None):
+        return False

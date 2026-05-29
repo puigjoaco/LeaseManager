@@ -25,7 +25,8 @@ evidencia respalda el root limpio.
   configuracion expuestos.
 - Auth no expone metadata de usuario sensible: login, login demo y `/me`
   devuelven metadata redactada, la firma interna de cache demo no viaja al
-  cliente y el admin muestra solo metadata redactada.
+  cliente y el admin muestra solo metadata redactada sin permitir borrado
+  manual de usuarios.
 - El detector transversal de referencias sensibles redacta valores y claves de
   metadata como `authorization` y `private_key`, sin tratar refs operativas no
   sensibles como secretos por su nombre de valor.
