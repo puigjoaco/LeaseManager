@@ -996,6 +996,16 @@ type PoliticaFirma = {
   estado: string
 }
 
+type PlantillaDocumental = {
+  id: number
+  tipo_documental: string
+  version_plantilla: string
+  plantilla_ref: string
+  checksum_plantilla: string
+  descripcion: string
+  estado: string
+}
+
 type DocumentoEmitidoItem = {
   id: number
   expediente: number
@@ -1137,6 +1147,7 @@ type ContractsSnapshot = {
 type DocumentsSnapshot = {
   expedientes: ExpedienteDocumental[]
   politicas_firma: PoliticaFirma[]
+  plantillas_documentales: PlantillaDocumental[]
   documentos_emitidos: DocumentoEmitidoItem[]
 }
 
@@ -1404,6 +1415,7 @@ function App() {
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [expedientes, setExpedientes] = useState<ExpedienteDocumental[]>([])
   const [politicasFirma, setPoliticasFirma] = useState<PoliticaFirma[]>([])
+  const [plantillasDocumentales, setPlantillasDocumentales] = useState<PlantillaDocumental[]>([])
   const [documentosEmitidos, setDocumentosEmitidos] = useState<DocumentoEmitidoItem[]>([])
   const [gatesCanales, setGatesCanales] = useState<CanalMensajeriaItem[]>([])
   const [mensajesSalientes, setMensajesSalientes] = useState<MensajeSalienteItem[]>([])
@@ -1580,13 +1592,21 @@ function App() {
     modo_firma_permitido: 'firma_simple',
     estado: 'activa',
   })
+  const [plantillaDocumentalDraft, setPlantillaDocumentalDraft] = useState({
+    tipo_documental: 'contrato_principal',
+    version_plantilla: 'v1',
+    plantilla_ref: '',
+    checksum_plantilla: '',
+    descripcion: '',
+    estado: 'activa',
+  })
   const [documentoDraft, setDocumentoDraft] = useState({
     expediente: '',
     tipo_documental: 'contrato_principal',
     version_plantilla: 'v1',
     checksum: '',
     fecha_carga: `${todayIso()}T12:00`,
-    origen: 'generado_sistema',
+    origen: 'carga_externa_controlada',
     estado: 'emitido',
     storage_ref: '',
     firma_arrendador_registrada: false,
@@ -2189,13 +2209,21 @@ function App() {
       modo_firma_permitido: 'firma_simple',
       estado: 'activa',
     })
+    setPlantillaDocumentalDraft({
+      tipo_documental: 'contrato_principal',
+      version_plantilla: 'v1',
+      plantilla_ref: '',
+      checksum_plantilla: '',
+      descripcion: '',
+      estado: 'activa',
+    })
     setDocumentoDraft({
       expediente: '',
       tipo_documental: 'contrato_principal',
       version_plantilla: 'v1',
       checksum: '',
       fecha_carga: `${todayIso()}T12:00`,
-      origen: 'generado_sistema',
+      origen: 'carga_externa_controlada',
       estado: 'emitido',
       storage_ref: '',
       firma_arrendador_registrada: false,
@@ -2739,6 +2767,7 @@ function App() {
       if (documentsSnapshotPayload) {
         setExpedientes(documentsSnapshotPayload.expedientes)
         setPoliticasFirma(documentsSnapshotPayload.politicas_firma)
+        setPlantillasDocumentales(documentsSnapshotPayload.plantillas_documentales)
         setDocumentosEmitidos(documentsSnapshotPayload.documentos_emitidos)
         setIsDocumentsSnapshotLoaded(true)
       }
@@ -2885,6 +2914,7 @@ function App() {
         const loadContratos = canReadOperational && ['canales', 'sii'].includes(targetView)
         const loadExpedientes = canReadOperational && false
         const loadPoliticasFirma = canReadOperational && false
+        const loadPlantillasDocumentales = canReadOperational && false
         const loadDocumentosEmitidos = false
         const loadGatesCanales = false
         const loadMensajesSalientes = false
@@ -2955,6 +2985,7 @@ function App() {
             requestIf<Contrato[]>(loadContratos, '/api/v1/contratos/contratos/', contratos),
             requestIf<ExpedienteDocumental[]>(loadExpedientes, '/api/v1/documentos/expedientes/', expedientes),
             requestIf<PoliticaFirma[]>(loadPoliticasFirma, '/api/v1/documentos/politicas-firma/', politicasFirma),
+            requestIf<PlantillaDocumental[]>(loadPlantillasDocumentales, '/api/v1/documentos/plantillas-documentales/', plantillasDocumentales),
             requestIf<DocumentoEmitidoItem[]>(loadDocumentosEmitidos, '/api/v1/documentos/documentos-emitidos/', documentosEmitidos),
             requestIf<CanalMensajeriaItem[]>(loadGatesCanales, '/api/v1/canales/gates/', gatesCanales),
             requestIf<MensajeSalienteItem[]>(loadMensajesSalientes, '/api/v1/canales/mensajes/', mensajesSalientes),
@@ -2983,27 +3014,29 @@ function App() {
           const contratosPayload = resolvedValue<Contrato[]>(1, contratos)
           const expedientesPayload = resolvedValue<ExpedienteDocumental[]>(2, expedientes)
           const politicasFirmaPayload = resolvedValue<PoliticaFirma[]>(3, politicasFirma)
-          const documentosEmitidosPayload = resolvedValue<DocumentoEmitidoItem[]>(4, documentosEmitidos)
-          const gatesCanalesPayload = resolvedValue<CanalMensajeriaItem[]>(5, gatesCanales)
-          const mensajesSalientesPayload = resolvedValue<MensajeSalienteItem[]>(6, mensajesSalientes)
-          const avisosPayload = resolvedValue<AvisoTermino[]>(7, avisos)
-          const valoresUfPayload = resolvedValue<ValorUF[]>(8, valoresUf)
-          const ajustesPayload = resolvedValue<AjusteContrato[]>(9, ajustes)
-          const pagosPayload = resolvedValue<PagoMensual[]>(10, pagos)
-          const garantiasPayload = resolvedValue<Garantia[]>(11, garantias)
-          const historialGarantiasPayload = resolvedValue<HistorialGarantia[]>(12, historialGarantias)
-          const estadosCuentaPayload = resolvedValue<EstadoCuenta[]>(13, estadosCuenta)
-          const conexionesPayload = resolvedValue<ConexionBancaria[]>(14, conexionesBancarias)
-          const movimientosPayload = resolvedValue<MovimientoBancario[]>(15, movimientosBancarios)
-          const ingresosPayload = resolvedValue<IngresoDesconocido[]>(16, ingresosDesconocidos)
-          const cuadraturasPayload = resolvedValue<CuadraturaBancaria[]>(17, cuadraturasBancarias)
-          const auditEventsPayload = resolvedValue<AuditEventItem[]>(18, auditEvents)
-          const manualResolutionsPayload = resolvedValue<ManualResolutionItem[]>(19, manualResolutions)
+          const plantillasDocumentalesPayload = resolvedValue<PlantillaDocumental[]>(4, plantillasDocumentales)
+          const documentosEmitidosPayload = resolvedValue<DocumentoEmitidoItem[]>(5, documentosEmitidos)
+          const gatesCanalesPayload = resolvedValue<CanalMensajeriaItem[]>(6, gatesCanales)
+          const mensajesSalientesPayload = resolvedValue<MensajeSalienteItem[]>(7, mensajesSalientes)
+          const avisosPayload = resolvedValue<AvisoTermino[]>(8, avisos)
+          const valoresUfPayload = resolvedValue<ValorUF[]>(9, valoresUf)
+          const ajustesPayload = resolvedValue<AjusteContrato[]>(10, ajustes)
+          const pagosPayload = resolvedValue<PagoMensual[]>(11, pagos)
+          const garantiasPayload = resolvedValue<Garantia[]>(12, garantias)
+          const historialGarantiasPayload = resolvedValue<HistorialGarantia[]>(13, historialGarantias)
+          const estadosCuentaPayload = resolvedValue<EstadoCuenta[]>(14, estadosCuenta)
+          const conexionesPayload = resolvedValue<ConexionBancaria[]>(15, conexionesBancarias)
+          const movimientosPayload = resolvedValue<MovimientoBancario[]>(16, movimientosBancarios)
+          const ingresosPayload = resolvedValue<IngresoDesconocido[]>(17, ingresosDesconocidos)
+          const cuadraturasPayload = resolvedValue<CuadraturaBancaria[]>(18, cuadraturasBancarias)
+          const auditEventsPayload = resolvedValue<AuditEventItem[]>(19, auditEvents)
+          const manualResolutionsPayload = resolvedValue<ManualResolutionItem[]>(20, manualResolutions)
 
           setArrendatarios(arrendatariosPayload)
           setContratos(contratosPayload)
           setExpedientes(expedientesPayload)
           setPoliticasFirma(politicasFirmaPayload)
+          setPlantillasDocumentales(plantillasDocumentalesPayload)
           setDocumentosEmitidos(documentosEmitidosPayload)
           setGatesCanales(gatesCanalesPayload)
           setMensajesSalientes(mensajesSalientesPayload)
@@ -4579,6 +4612,19 @@ function App() {
     if (!success) return
   }
 
+  async function handleCreatePlantillaDocumental(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditDocumentos) return
+    const success = await submitMutation(
+      '/api/v1/documentos/plantillas-documentales/',
+      'POST',
+      plantillaDocumentalDraft,
+      'Plantilla documental creada correctamente.',
+      'documentos',
+    )
+    if (!success) return
+  }
+
   async function handleCreateDocumento(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditDocumentos) return
@@ -4991,6 +5037,19 @@ function App() {
         matches(normalizedSearch, [item.tipo_documental, item.modo_firma_permitido, item.estado]),
       ),
     [politicasFirma, normalizedSearch],
+  )
+  const filteredPlantillasDocumentales = useMemo(
+    () =>
+      plantillasDocumentales.filter((item) =>
+        matches(normalizedSearch, [
+          item.tipo_documental,
+          item.version_plantilla,
+          item.plantilla_ref,
+          item.checksum_plantilla,
+          item.estado,
+        ]),
+      ),
+    [plantillasDocumentales, normalizedSearch],
   )
   const filteredDocumentosEmitidos = useMemo(
     () =>
@@ -5603,6 +5662,9 @@ function App() {
           politicaFirmaDraft={politicaFirmaDraft}
           setPoliticaFirmaDraft={setPoliticaFirmaDraft}
           handleCreatePoliticaFirma={handleCreatePoliticaFirma}
+          plantillaDocumentalDraft={plantillaDocumentalDraft}
+          setPlantillaDocumentalDraft={setPlantillaDocumentalDraft}
+          handleCreatePlantillaDocumental={handleCreatePlantillaDocumental}
           documentoDraft={documentoDraft}
           setDocumentoDraft={setDocumentoDraft}
           handleCreateDocumento={handleCreateDocumento}
@@ -5610,9 +5672,11 @@ function App() {
           setDocumentoFormalizarDraft={setDocumentoFormalizarDraft}
           handleFormalizeDocumento={handleFormalizeDocumento}
           expedientes={expedientes}
+          plantillasDocumentales={plantillasDocumentales}
           documentosEmitidos={documentosEmitidos}
           filteredExpedientes={filteredExpedientes}
           filteredPoliticasFirma={filteredPoliticasFirma}
+          filteredPlantillasDocumentales={filteredPlantillasDocumentales}
           filteredDocumentosEmitidos={filteredDocumentosEmitidos}
           isSubmitting={isSubmitting}
           isLoading={isDocumentsSnapshotLoading}

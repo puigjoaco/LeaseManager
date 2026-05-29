@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-29: Documentos/Etapa 5 incorpora registro canonico de plantillas
+documentales versionadas. `PlantillaDocumental` exige tipo documental,
+version, referencia no sensible, checksum SHA-256 y estado; `DocumentoEmitido`
+y la generacion PDF rechazan versiones sin plantilla activa, snapshot/API/admin
+redactan refs heredadas sensibles y readiness bloquea plantillas faltantes,
+invalidas o documentos sin plantilla activa.
+
 Nota 2026-05-29: Patrimonio/Etapa 1 completa la salida operativa de owners
 locales. `Socio.inactive_dependency_errors()` y
 `ComunidadPatrimonial.inactive_state_dependency_errors()` bloquean cuentas

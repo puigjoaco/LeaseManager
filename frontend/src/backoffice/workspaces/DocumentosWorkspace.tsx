@@ -25,6 +25,16 @@ type PoliticaFirma = {
   estado: string
 }
 
+type PlantillaDocumental = {
+  id: number
+  tipo_documental: string
+  version_plantilla: string
+  plantilla_ref: string
+  checksum_plantilla: string
+  descripcion: string
+  estado: string
+}
+
 type DocumentoEmitidoItem = {
   id: number
   expediente: number
@@ -63,6 +73,15 @@ type PoliticaFirmaDraft = {
   requiere_profesion_arrendatario: boolean
   requiere_notaria: boolean
   modo_firma_permitido: string
+  estado: string
+}
+
+type PlantillaDocumentalDraft = {
+  tipo_documental: string
+  version_plantilla: string
+  plantilla_ref: string
+  checksum_plantilla: string
+  descripcion: string
   estado: string
 }
 
@@ -112,6 +131,9 @@ export function DocumentosWorkspace({
   politicaFirmaDraft,
   setPoliticaFirmaDraft,
   handleCreatePoliticaFirma,
+  plantillaDocumentalDraft,
+  setPlantillaDocumentalDraft,
+  handleCreatePlantillaDocumental,
   documentoDraft,
   setDocumentoDraft,
   handleCreateDocumento,
@@ -119,9 +141,11 @@ export function DocumentosWorkspace({
   setDocumentoFormalizarDraft,
   handleFormalizeDocumento,
   expedientes,
+  plantillasDocumentales,
   documentosEmitidos,
   filteredExpedientes,
   filteredPoliticasFirma,
+  filteredPlantillasDocumentales,
   filteredDocumentosEmitidos,
   isSubmitting,
   isLoading,
@@ -137,6 +161,9 @@ export function DocumentosWorkspace({
   politicaFirmaDraft: PoliticaFirmaDraft
   setPoliticaFirmaDraft: Dispatch<SetStateAction<PoliticaFirmaDraft>>
   handleCreatePoliticaFirma: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  plantillaDocumentalDraft: PlantillaDocumentalDraft
+  setPlantillaDocumentalDraft: Dispatch<SetStateAction<PlantillaDocumentalDraft>>
+  handleCreatePlantillaDocumental: (event: FormEvent<HTMLFormElement>) => Promise<void>
   documentoDraft: DocumentoDraft
   setDocumentoDraft: Dispatch<SetStateAction<DocumentoDraft>>
   handleCreateDocumento: (event: FormEvent<HTMLFormElement>) => Promise<void>
@@ -144,9 +171,11 @@ export function DocumentosWorkspace({
   setDocumentoFormalizarDraft: Dispatch<SetStateAction<DocumentoFormalizarDraft>>
   handleFormalizeDocumento: (event: FormEvent<HTMLFormElement>) => Promise<void>
   expedientes: ExpedienteDocumental[]
+  plantillasDocumentales: PlantillaDocumental[]
   documentosEmitidos: DocumentoEmitidoItem[]
   filteredExpedientes: ExpedienteDocumental[]
   filteredPoliticasFirma: PoliticaFirma[]
+  filteredPlantillasDocumentales: PlantillaDocumental[]
   filteredDocumentosEmitidos: DocumentoEmitidoItem[]
   isSubmitting: boolean
   isLoading: boolean
@@ -154,6 +183,9 @@ export function DocumentosWorkspace({
   goToDocumentoContext: (documentoId: number) => void
 }) {
   const expedienteById = new Map(expedientes.map((item) => [item.id, item]))
+  const activeTemplateOptions = plantillasDocumentales.filter((item) =>
+    item.estado === 'activa' && item.tipo_documental === documentoDraft.tipo_documental,
+  )
   const notaryReceiptOptions = documentosEmitidos.filter((item) =>
     item.tipo_documental === 'comprobante_notarial'
     && ['emitido', 'formalizado', 'archivado'].includes(item.estado)
@@ -227,6 +259,30 @@ export function DocumentosWorkspace({
           </section>
 
           <section className="panel">
+            <div className="section-heading"><div><h2>Plantilla documental</h2><p>Versiones activas para emitir PDF.</p></div></div>
+            <form className="entity-form" onSubmit={handleCreatePlantillaDocumental}>
+              <select value={plantillaDocumentalDraft.tipo_documental} onChange={(event) => setPlantillaDocumentalDraft((current) => ({ ...current, tipo_documental: event.target.value }))}>
+                <option value="contrato_principal">Contrato principal</option>
+                <option value="anexo">Anexo</option>
+                <option value="carta_aviso">Carta de aviso</option>
+                <option value="liquidacion_garantia">Liquidación de garantía</option>
+                <option value="respaldo_tributario">Respaldo tributario</option>
+                <option value="comprobante_notarial">Comprobante notarial</option>
+                <option value="evidencia_resolucion_manual">Evidencia de resolución manual</option>
+              </select>
+              <input placeholder="Versión plantilla" value={plantillaDocumentalDraft.version_plantilla} onChange={(event) => setPlantillaDocumentalDraft((current) => ({ ...current, version_plantilla: event.target.value }))} />
+              <input placeholder="Plantilla ref" value={plantillaDocumentalDraft.plantilla_ref} onChange={(event) => setPlantillaDocumentalDraft((current) => ({ ...current, plantilla_ref: event.target.value }))} />
+              <input placeholder="Checksum plantilla" value={plantillaDocumentalDraft.checksum_plantilla} onChange={(event) => setPlantillaDocumentalDraft((current) => ({ ...current, checksum_plantilla: event.target.value }))} />
+              <input placeholder="Descripción" value={plantillaDocumentalDraft.descripcion} onChange={(event) => setPlantillaDocumentalDraft((current) => ({ ...current, descripcion: event.target.value }))} />
+              <select value={plantillaDocumentalDraft.estado} onChange={(event) => setPlantillaDocumentalDraft((current) => ({ ...current, estado: event.target.value }))}>
+                <option value="activa">Activa</option>
+                <option value="inactiva">Inactiva</option>
+              </select>
+              <button type="submit" className="button-primary" disabled={isSubmitting || !plantillaDocumentalDraft.version_plantilla.trim() || !plantillaDocumentalDraft.plantilla_ref.trim() || !isDocumentChecksum(plantillaDocumentalDraft.checksum_plantilla)}>Guardar plantilla</button>
+            </form>
+          </section>
+
+          <section className="panel">
             <div className="section-heading"><div><h2>Documento emitido</h2><p>Registro de documento y estado documental.</p></div></div>
             <form className="entity-form" onSubmit={handleCreateDocumento}>
               <select value={documentoDraft.expediente} onChange={(event) => setDocumentoDraft((current) => ({ ...current, expediente: event.target.value }))}>
@@ -244,11 +300,15 @@ export function DocumentosWorkspace({
                 <option value="comprobante_notarial">Comprobante notarial</option>
                 <option value="evidencia_resolucion_manual">Evidencia de resolución manual</option>
               </select>
-              <input placeholder="Versión plantilla" value={documentoDraft.version_plantilla} onChange={(event) => setDocumentoDraft((current) => ({ ...current, version_plantilla: event.target.value }))} />
+              <select value={documentoDraft.version_plantilla} onChange={(event) => setDocumentoDraft((current) => ({ ...current, version_plantilla: event.target.value }))}>
+                {activeTemplateOptions.length === 0 ? <option value={documentoDraft.version_plantilla}>{documentoDraft.version_plantilla || 'Sin plantilla activa'}</option> : null}
+                {activeTemplateOptions.map((item) => (
+                  <option key={item.id} value={item.version_plantilla}>{item.version_plantilla}</option>
+                ))}
+              </select>
               <input placeholder="Checksum SHA-256" value={documentoDraft.checksum} onChange={(event) => setDocumentoDraft((current) => ({ ...current, checksum: event.target.value }))} />
               <input type="datetime-local" value={documentoDraft.fecha_carga} onChange={(event) => setDocumentoDraft((current) => ({ ...current, fecha_carga: event.target.value }))} />
               <select value={documentoDraft.origen} onChange={(event) => setDocumentoDraft((current) => ({ ...current, origen: event.target.value }))}>
-                <option value="generado_sistema">Generado por sistema</option>
                 <option value="carga_externa_controlada">Carga externa controlada</option>
               </select>
               <select value={documentoDraft.estado} onChange={(event) => setDocumentoDraft((current) => ({ ...current, estado: event.target.value }))}>
@@ -309,6 +369,14 @@ export function DocumentosWorkspace({
         { label: 'Arrendatario', render: (row) => row.requiere_firma_arrendatario ? 'Sí' : 'No' },
         { label: 'Perfil PN', render: (row) => row.requiere_nacionalidad_arrendatario || row.requiere_estado_civil_arrendatario || row.requiere_profesion_arrendatario ? 'Sí' : 'No' },
         { label: 'Notaría', render: (row) => row.requiere_notaria ? 'Sí' : 'No' },
+        { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+      ]} />
+
+      <TableBlock title="Plantillas documentales" subtitle="Versiones controladas para emisión PDF." rows={filteredPlantillasDocumentales} empty="No hay plantillas para este filtro." isLoading={isLoading} loadingLabel="Cargando documentos..." columns={[
+        { label: 'Tipo documental', render: (row) => row.tipo_documental },
+        { label: 'Versión', render: (row) => row.version_plantilla },
+        { label: 'Plantilla', render: (row) => row.plantilla_ref },
+        { label: 'Checksum', render: (row) => row.checksum_plantilla.slice(0, 12) },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
 

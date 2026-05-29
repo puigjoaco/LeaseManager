@@ -21,6 +21,11 @@ firma y notaria trazables.
   SHA-256 canonico, no una etiqueta libre. `DocumentoEmitido.clean()` bloquea
   nuevas escrituras sin `usuario` responsable y readiness conserva la deteccion
   de documentos heredados sin responsable.
+- `version_plantilla` debe estar respaldada por una
+  `PlantillaDocumental` activa para el mismo `tipo_documental`. La plantilla
+  conserva referencia no sensible, checksum SHA-256 canonico y estado
+  auditable; API, snapshot y backoffice exponen el registro sin imprimir refs
+  sensibles.
 - La emision de PDF generado por sistema debe usar el endpoint dedicado
   `documentos-emitidos/generar-pdf/`: genera bytes PDF canonicos locales,
   deriva `checksum` y `storage_ref` desde el contenido, rechaza contenido
@@ -52,6 +57,11 @@ firma y notaria trazables.
 - Cada documento emitido debe tener politica activa para su tipo documental;
   el dominio/API rechaza nuevas escrituras sin esa politica y evita desactivar
   politicas ya usadas por documentos existentes.
+- Cada documento emitido y cada PDF generado por sistema debe tener plantilla
+  activa para su tipo y version. Readiness reporta
+  `documents.active_template_missing`, `documents.active_template_invalid`,
+  `documents.document_without_active_template` o
+  `documents.generated_pdf_template_missing` segun corresponda.
 - APIs, snapshot documental y admin/backoffice deben redactar `storage_ref`,
   `evidencia_formalizacion_ref` y `correccion_ref` sensibles heredados antes
   de exponer documentos.
@@ -62,6 +72,9 @@ firma y notaria trazables.
 - El admin de `PoliticaFirmaYNotaria` conserva la configuracion operativa,
   pero no permite borrado manual de politicas; los cambios deben expresarse
   por edicion controlada, estado o flujo auditado.
+- El admin de `PlantillaDocumental` es solo lectura redactada. La gestion
+  operativa de plantillas versionadas debe pasar por API/backoffice y
+  validaciones de dominio.
 - Expedientes documentales deben conservar `entidad_tipo`, `entidad_id` y
   `owner_operativo` como referencias operativas no sensibles. Dominio/API
   rechazan nuevas URLs, correos, tokens o credenciales, y API, snapshot y
@@ -154,9 +167,9 @@ firma y notaria trazables.
 
 ## Salida
 
-Documentos no cierra sin politica final de firma/notaria, responsables y prueba
-PDF controlada. La preparacion local puede avanzar sin usar storage real ni
-documentos productivos.
+Documentos no cierra sin politicas finales, plantillas documentales activas,
+responsables y prueba PDF controlada. La preparacion local puede avanzar sin
+usar storage real ni documentos productivos.
 
 ## Ejecucion local segura
 

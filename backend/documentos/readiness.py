@@ -19,9 +19,11 @@ from .formalization_audit import (
 from .models import (
     DocumentoEmitido,
     EstadoDocumento,
+    EstadoPlantillaDocumental,
     EstadoPoliticaFirma,
     ExpedienteDocumental,
     OrigenDocumento,
+    PlantillaDocumental,
     PoliticaFirmaYNotaria,
     TipoDocumental,
     is_pdf_storage_ref,
@@ -36,6 +38,7 @@ from .pdf_generation import (
 
 
 REQUIRED_POLICY_TYPES = set(TipoDocumental.values)
+REQUIRED_TEMPLATE_TYPES = set(TipoDocumental.values)
 AUTHORIZED_DOCUMENT_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 
 
@@ -227,6 +230,12 @@ def collect_document_readiness(
     missing_policy_types = sorted(REQUIRED_POLICY_TYPES - active_policy_types)
     invalid_active_policies = _count_invalid(active_policies)
 
+    active_templates = PlantillaDocumental.objects.filter(estado=EstadoPlantillaDocumental.ACTIVE)
+    active_template_types = set(active_templates.values_list('tipo_documental', flat=True))
+    missing_template_types = sorted(REQUIRED_TEMPLATE_TYPES - active_template_types)
+    invalid_active_templates = _count_invalid(active_templates)
+    active_template_pairs = set(active_templates.values_list('tipo_documental', 'version_plantilla'))
+
     expedientes = ExpedienteDocumental.objects.all()
     invalid_expedientes = _count_invalid(expedientes)
     sensitive_expediente_refs = 0
@@ -243,6 +252,8 @@ def collect_document_readiness(
 
     documents = DocumentoEmitido.objects.select_related('expediente', 'comprobante_notarial', 'documento_origen').all()
     documents_without_policy = documents.exclude(tipo_documental__in=active_policy_types).count()
+    documents_without_template = 0
+    generated_documents_without_template = 0
     non_pdf_documents = 0
     sensitive_storage_refs = 0
     documents_missing_metadata = 0
@@ -275,6 +286,9 @@ def collect_document_readiness(
     invalid_corrective_versions = 0
 
     for document in documents:
+        has_active_template = (document.tipo_documental, document.version_plantilla) in active_template_pairs
+        if not has_active_template:
+            documents_without_template += 1
         if not is_pdf_storage_ref(document.storage_ref):
             non_pdf_documents += 1
         if _sensitive_reference(document.storage_ref):
@@ -286,6 +300,8 @@ def collect_document_readiness(
         if _document_missing_metadata(document):
             documents_missing_metadata += 1
         if document.origen == OrigenDocumento.GENERATED:
+            if not has_active_template:
+                generated_documents_without_template += 1
             if not _has_generated_pdf_preview(document):
                 generated_documents_without_preview += 1
             else:
@@ -404,12 +420,36 @@ def collect_document_readiness(
                 count=invalid_active_policies,
             )
         )
+    if missing_template_types:
+        issues.append(
+            _issue(
+                'documents.active_template_missing',
+                'Faltan plantillas documentales activas para tipos documentales canonicos.',
+                count=len(missing_template_types),
+            )
+        )
+    if invalid_active_templates:
+        issues.append(
+            _issue(
+                'documents.active_template_invalid',
+                'Existen plantillas documentales activas que no pasan validacion de dominio.',
+                count=invalid_active_templates,
+            )
+        )
     if documents_without_policy:
         issues.append(
             _issue(
                 'documents.document_without_active_policy',
                 'Existen documentos emitidos sin politica activa para su tipo documental.',
                 count=documents_without_policy,
+            )
+        )
+    if documents_without_template:
+        issues.append(
+            _issue(
+                'documents.document_without_active_template',
+                'Existen documentos emitidos sin plantilla activa para su tipo y version.',
+                count=documents_without_template,
             )
         )
     if invalid_expedientes:
@@ -514,6 +554,14 @@ def collect_document_readiness(
                 'documents.generated_pdf_audit_sensitive_metadata',
                 'Existen auditorias de PDF generado con metadata sensible.',
                 count=generated_audit_sensitive_metadata,
+            )
+        )
+    if generated_documents_without_template:
+        issues.append(
+            _issue(
+                'documents.generated_pdf_template_missing',
+                'Existen documentos generados por sistema sin plantilla activa para su tipo y version.',
+                count=generated_documents_without_template,
             )
         )
     if generated_documents_without_preview:
@@ -686,11 +734,20 @@ def collect_document_readiness(
                 'active_policies_total': active_policies.count(),
                 'invalid_active_policies': invalid_active_policies,
             },
+            'templates': {
+                'required_template_types': sorted(REQUIRED_TEMPLATE_TYPES),
+                'active_template_types': sorted(active_template_types),
+                'missing_template_types': missing_template_types,
+                'active_templates_total': active_templates.count(),
+                'invalid_active_templates': invalid_active_templates,
+                'by_type': _count_by(active_templates, 'tipo_documental'),
+            },
             'documents': {
                 'total': documents.count(),
                 'by_state': _count_by(documents, 'estado'),
                 'by_type': _count_by(documents, 'tipo_documental'),
                 'without_active_policy': documents_without_policy,
+                'without_active_template': documents_without_template,
                 'non_pdf_storage_refs': non_pdf_documents,
                 'sensitive_storage_refs': sensitive_storage_refs,
                 'missing_metadata': documents_missing_metadata,
@@ -700,6 +757,7 @@ def collect_document_readiness(
                 'formalized_without_evidence': formalized_without_evidence,
                 'formalized_with_sensitive_evidence': formalized_with_sensitive_evidence,
                 'generated_without_preview': generated_documents_without_preview,
+                'generated_without_template': generated_documents_without_template,
                 'generated_with_unaligned_preview': generated_documents_with_unaligned_preview,
                 'generated_preview_sensitive_metadata': generated_preview_sensitive_metadata,
                 'generated_without_audit': generated_documents_without_audit,

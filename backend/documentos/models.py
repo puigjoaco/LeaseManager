@@ -53,6 +53,11 @@ class EstadoPoliticaFirma(models.TextChoices):
     INACTIVE = 'inactiva', 'Inactiva'
 
 
+class EstadoPlantillaDocumental(models.TextChoices):
+    ACTIVE = 'activa', 'Activa'
+    INACTIVE = 'inactiva', 'Inactiva'
+
+
 class ModoFirmaPermitido(models.TextChoices):
     SIMPLE = 'firma_simple', 'Firma simple'
     ADVANCED = 'firma_avanzada', 'Firma avanzada'
@@ -68,6 +73,14 @@ def is_pdf_storage_ref(value):
 def is_valid_pdf_checksum(value):
     normalized = str(value or '').strip()
     return bool(DOCUMENT_CHECKSUM_PATTERN.fullmatch(normalized))
+
+
+def has_active_document_template(tipo_documental, version_plantilla):
+    return PlantillaDocumental.objects.filter(
+        tipo_documental=tipo_documental,
+        version_plantilla=str(version_plantilla or '').strip(),
+        estado=EstadoPlantillaDocumental.ACTIVE,
+    ).exists()
 
 
 def _contract_id_from_expediente(expediente):
@@ -161,6 +174,48 @@ class PoliticaFirmaYNotaria(TimestampedModel):
             raise ValidationError(
                 'Los requisitos documentales del arrendatario persona natural solo aplican al contrato principal.'
             )
+
+
+class PlantillaDocumental(TimestampedModel):
+    tipo_documental = models.CharField(max_length=64, choices=TipoDocumental.choices)
+    version_plantilla = models.CharField(max_length=64)
+    plantilla_ref = models.CharField(max_length=255)
+    checksum_plantilla = models.CharField(max_length=128)
+    descripcion = models.TextField(blank=True)
+    estado = models.CharField(max_length=16, choices=EstadoPlantillaDocumental.choices, default=EstadoPlantillaDocumental.ACTIVE)
+
+    class Meta:
+        ordering = ['tipo_documental', 'version_plantilla']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tipo_documental', 'version_plantilla'],
+                name='uniq_plantilla_documental_version',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.tipo_documental}:{self.version_plantilla}'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if not str(self.version_plantilla or '').strip():
+            errors['version_plantilla'] = 'La plantilla documental requiere version_plantilla.'
+        if not is_non_sensitive_reference(self.plantilla_ref):
+            errors['plantilla_ref'] = 'plantilla_ref debe ser una referencia no sensible.'
+        if not is_valid_pdf_checksum(self.checksum_plantilla):
+            errors['checksum_plantilla'] = 'checksum_plantilla debe ser SHA-256 hexadecimal canonico.'
+        if (
+            self.pk
+            and self.estado != EstadoPlantillaDocumental.ACTIVE
+            and DocumentoEmitido.objects.filter(
+                tipo_documental=self.tipo_documental,
+                version_plantilla=self.version_plantilla,
+            ).exists()
+        ):
+            errors['estado'] = 'No se puede desactivar una plantilla usada por documentos emitidos.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class DocumentoEmitido(TimestampedModel):

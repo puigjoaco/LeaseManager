@@ -15,7 +15,7 @@ from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 from cobranza.models import PagoMensual
-from documentos.models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental
+from documentos.models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PlantillaDocumental
 from operacion.models import (
     AsignacionCanalOperacion,
     CuentaRecaudadora,
@@ -246,6 +246,16 @@ class CanalesAPITests(APITestCase):
         payload.update(overrides)
         response = self.client.post(reverse('documentos-politica-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        PlantillaDocumental.objects.get_or_create(
+            tipo_documental=payload['tipo_documental'],
+            version_plantilla='v1',
+            defaults={
+                'plantilla_ref': f"templates/{payload['tipo_documental']}/v1",
+                'checksum_plantilla': VALID_DOCUMENT_SHA256,
+                'descripcion': 'Plantilla controlada de prueba para canales.',
+                'estado': 'activa',
+            },
+        )
         return response.data
 
     def test_auth_is_required_for_channel_endpoints(self):
