@@ -17,8 +17,6 @@ from reporting.services import SOCIO_SCOPE_PATHS, ReportingTraceabilityError
 from .audit import (
     EXPORT_ACCESSED_EVENT_TYPE,
     EXPORT_ACCESS_DENIED_EVENT_TYPE,
-    EXPORT_PREPARED_EVENT_TYPE,
-    EXPORT_REVOKED_EVENT_TYPE,
     create_export_audit_event,
 )
 from .models import ExportacionSensible, PoliticaRetencionDatos
@@ -191,11 +189,6 @@ class ExportacionPrepareView(APIView):
             payload=payload,
             created_by=request.user,
             hold_activo=data.get('hold_activo', False),
-        )
-        create_export_audit_event(
-            event_type=EXPORT_PREPARED_EVENT_TYPE,
-            export=export,
-            summary='Exportacion sensible preparada y cifrada',
             actor_user=request.user,
             ip_address=request.META.get('REMOTE_ADDR'),
         )
@@ -253,15 +246,12 @@ class ExportacionRevokeView(APIView):
         serializer = ExportacionRevokeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            export = revoke_export(export)
+            export = revoke_export(
+                export,
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                revocation_reason=serializer.validated_data['motivo'],
+            )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
-        create_export_audit_event(
-            event_type=EXPORT_REVOKED_EVENT_TYPE,
-            export=export,
-            summary='Exportacion sensible revocada',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            extra_metadata={'revocation_reason': serializer.validated_data['motivo']},
-        )
         return Response(ExportacionSensibleSerializer(export).data, status=status.HTTP_200_OK)
