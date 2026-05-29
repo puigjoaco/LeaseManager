@@ -35,12 +35,18 @@ class RegimenTributarioEmpresaAdmin(admin.ModelAdmin):
     list_filter = ('estado',)
     search_fields = ('codigo_regimen', 'descripcion')
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(ConfiguracionFiscalEmpresa)
 class ConfiguracionFiscalEmpresaAdmin(admin.ModelAdmin):
     list_display = ('empresa', 'regimen_tributario', 'moneda_funcional', 'estado')
     list_filter = ('estado', 'moneda_funcional', 'aplica_ppm')
     search_fields = ('empresa__razon_social',)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(CuentaContable)
@@ -49,6 +55,9 @@ class CuentaContableAdmin(admin.ModelAdmin):
     list_filter = ('estado', 'naturaleza', 'plan_cuentas_version')
     search_fields = ('codigo', 'nombre', 'empresa__razon_social')
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(ReglaContable)
 class ReglaContableAdmin(admin.ModelAdmin):
@@ -56,12 +65,18 @@ class ReglaContableAdmin(admin.ModelAdmin):
     list_filter = ('estado', 'plan_cuentas_version')
     search_fields = ('evento_tipo', 'empresa__razon_social')
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(MatrizReglasContables)
 class MatrizReglasContablesAdmin(admin.ModelAdmin):
     list_display = ('regla_contable', 'cuenta_debe', 'cuenta_haber', 'estado')
     list_filter = ('estado',)
     search_fields = ('regla_contable__evento_tipo', 'cuenta_debe__codigo', 'cuenta_haber__codigo')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(EventoContable)
@@ -155,6 +170,9 @@ class PoliticaReversoContableAdmin(admin.ModelAdmin):
     list_display = ('empresa', 'tipo_ajuste', 'usa_reverso', 'usa_asiento_complementario', 'permite_reapertura', 'estado')
     list_filter = ('estado', 'usa_reverso', 'permite_reapertura')
     search_fields = ('empresa__razon_social', 'tipo_ajuste')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(EfectoReaperturaCierreMensual)

@@ -64,6 +64,10 @@ contables desde hechos conciliados.
   asientos, movimientos, obligaciones, libros, balances, cierres ni efectos
   de reapertura; muestra versiones redactadas y mantiene cerrada el alta,
   edicion y borrado manual de esos artefactos generados desde backoffice.
+- El admin Django de configuracion contable/fiscal deshabilita el borrado
+  manual de regimenes, configuraciones fiscales, cuentas, reglas, matriz y
+  politicas de reverso; los cambios deben pasar por edicion controlada,
+  estados, versionado o flujos auditados.
 - `audit_stage5_contabilidad_readiness` consolida configuracion fiscal,
   reglas/matriz, eventos, asientos, integridad de movimientos, snapshots,
   cierres mensuales y conciliacion del periodo sin presentar impuestos ni
