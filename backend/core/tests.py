@@ -209,6 +209,8 @@ class CoreAdminRedactionTests(TestCase):
 
         self.assertFalse(setting_admin.has_add_permission(None))
         self.assertFalse(signal_admin.has_add_permission(None))
+        self.assertFalse(signal_admin.has_change_permission(None, signal))
+        self.assertFalse(signal_admin.has_delete_permission(None, signal))
 
         self.assertEqual(scope_admin.external_reference_redacted(scope), REDACTED_SENSITIVE_REFERENCE)
         scope_metadata = json.loads(scope_admin.metadata_redacted(scope))
