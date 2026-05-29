@@ -28,10 +28,10 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de settings de plataforma bloquea borrado manual, conservando valores redactados y alta manual cerrada. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Compliance bloquea borrado manual de politicas de retencion y exportaciones sensibles, conservando campos redactados y alta manual cerrada. |
 | Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | PlataformaBase/Core permanece preparado sin cierre falso; paquete validado con focal Core admin, suite Core/observabilidad/permisos, `manage.py check`, migraciones dry-run, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; cierre real de Etapa 7 sigue dependiendo de fuente autorizada y evidencia externa/controlada. |
+| Estado al cerrar paquete | Compliance datos sensibles permanece preparado sin cierre falso; paquete validado con focal Compliance admin, suite Compliance/readiness, `manage.py check`, migraciones dry-run, gate Compliance local, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; cierre real de Compliance sigue dependiendo de fuente autorizada, politica aprobada, responsables y validacion legal-operativa. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 

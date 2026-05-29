@@ -426,6 +426,7 @@ class ComplianceAPITests(APITestCase):
             self.assertNotIn(raw_field, model_admin.fields)
         self.assertNotIn('encrypted_ref', model_admin.search_fields)
         self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_delete_permission(None, export))
         self.assertEqual(model_admin.motivo_redacted(export), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(model_admin.encrypted_ref_redacted(export), REDACTED_SENSITIVE_REFERENCE)
 
@@ -449,6 +450,7 @@ class ComplianceAPITests(APITestCase):
         self.assertNotIn('evento_inicio', model_admin.fields)
         self.assertNotIn('evento_inicio', model_admin.search_fields)
         self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_delete_permission(None, policy))
         self.assertEqual(model_admin.evento_inicio_redacted(policy), REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('audit.example.test', model_admin.evento_inicio_redacted(policy))
 

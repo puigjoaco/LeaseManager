@@ -316,7 +316,12 @@ saltar los flujos auditados del backoffice.
 Nota 2026-05-27: Compliance cierra superficie admin de politicas de retencion.
 `PoliticaRetencionDatosAdmin` ya no expone ni busca `evento_inicio` crudo,
 muestra una version redactada de politicas heredadas con URLs, tokens o
-credenciales y mantiene cerrada el alta manual desde admin.
+credenciales y mantiene cerrados el alta y borrado manual desde admin.
+
+Nota 2026-05-28: Compliance cierra borrado manual de exportaciones sensibles.
+`ExportacionSensibleAdmin` mantiene campos sensibles fuera del admin crudo,
+muestra versiones redactadas y deshabilita alta/borrado manual para que
+preparacion, descarga y revocacion sigan pasando por API, servicios y auditoria.
 
 Nota 2026-05-27: Compliance valida el bootstrap demo de politicas de
 retencion antes de persistir. `bootstrap_demo_compliance_policies` construye
