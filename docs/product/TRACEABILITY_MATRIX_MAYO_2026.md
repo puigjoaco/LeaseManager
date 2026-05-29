@@ -7,6 +7,15 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-29: Contabilidad/Etapa 5 cierra borrado manual de configuracion
+fiscal y contable desde admin. `RegimenTributarioEmpresaAdmin`,
+`ConfiguracionFiscalEmpresaAdmin`, `CuentaContableAdmin`,
+`ReglaContableAdmin`, `MatrizReglasContablesAdmin` y
+`PoliticaReversoContableAdmin` deshabilitan borrado manual para conservar
+regimenes, configuracion fiscal, plan de cuentas, reglas, matriz, politicas de
+reverso y trazabilidad de cambios; las bajas quedan por estado, versionado o
+flujo auditado.
+
 Nota 2026-05-29: CobranzaActiva/Etapa 2 cierra borrado manual operativo desde
 admin. `ValorUFDiarioAdmin`, `AjusteContratoAdmin`, `PagoMensualAdmin`,
 `GateCobroExternoAdmin`, `IntentoPagoWebPayAdmin`,

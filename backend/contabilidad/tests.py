@@ -27,12 +27,18 @@ from .admin import (
     AsientoContableAdmin,
     BalanceComprobacionAdmin,
     CierreMensualContableAdmin,
+    ConfiguracionFiscalEmpresaAdmin,
+    CuentaContableAdmin,
     EfectoReaperturaCierreMensualAdmin,
     EventoContableAdmin,
     LibroDiarioAdmin,
     LibroMayorAdmin,
+    MatrizReglasContablesAdmin,
     MovimientoAsientoAdmin,
     ObligacionTributariaMensualAdmin,
+    PoliticaReversoContableAdmin,
+    RegimenTributarioEmpresaAdmin,
+    ReglaContableAdmin,
 )
 from .models import (
     AsientoContable,
@@ -45,9 +51,12 @@ from .models import (
     EventoContable,
     LibroDiario,
     LibroMayor,
+    MatrizReglasContables,
     MovimientoAsiento,
     ObligacionTributariaMensual,
     PoliticaReversoContable,
+    RegimenTributarioEmpresa,
+    ReglaContable,
     TipoMovimientoAsiento,
 )
 from .services import (
@@ -552,6 +561,20 @@ class ContabilidadAPITests(APITestCase):
         self.assertNotIn('ledger.example.test', rendered)
         self.assertNotIn('storage.example.test', rendered)
         self.assertNotIn('secret-api-key-value', rendered)
+
+    def test_accounting_configuration_admins_block_manual_delete(self):
+        site = AdminSite()
+
+        for admin_instance in (
+            RegimenTributarioEmpresaAdmin(RegimenTributarioEmpresa, site),
+            ConfiguracionFiscalEmpresaAdmin(ConfiguracionFiscalEmpresa, site),
+            CuentaContableAdmin(CuentaContable, site),
+            ReglaContableAdmin(ReglaContable, site),
+            MatrizReglasContablesAdmin(MatrizReglasContables, site),
+            PoliticaReversoContableAdmin(PoliticaReversoContable, site),
+        ):
+            self.assertFalse(admin_instance.has_delete_permission(None))
+            self.assertFalse(admin_instance.has_delete_permission(None, obj=object()))
 
     def test_accounting_admin_redacts_sensitive_payloads_and_refs(self):
         empresa = self._create_active_empresa(nombre='AdminRedactLedgerCo', rut='74747474-4')

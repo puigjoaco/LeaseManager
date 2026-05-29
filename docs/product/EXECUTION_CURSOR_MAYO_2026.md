@@ -28,10 +28,10 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Cobranza bloquea borrado manual de UF, ajustes, pagos, gates, intentos WebPay, garantias, historial, repactaciones, residuales y estados de cuenta. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de configuracion contable/fiscal bloquea borrado manual de regimenes, configuraciones fiscales, cuentas, reglas, matriz y politicas de reverso. |
 | Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | CobranzaActiva/Etapa 2 permanece preparado sin cierre falso; paquete validado con focal admin Cobranza, suite Cobranza/Etapa 2, `manage.py check`, migraciones dry-run, readiness local Etapa 2, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 2 sigue sin cierre evidencial hasta fuente autorizada y pruebas externas/controladas requeridas. |
+| Estado al cerrar paquete | Contabilidad/Etapa 5 permanece preparada sin cierre falso; paquete validado con focal admin Contabilidad, suite Contabilidad/Etapa 5/Etapa 7, `manage.py check`, migraciones dry-run, readiness local Etapa 5, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 5 sigue sin cierre evidencial hasta Conciliacion cerrada y fuente autorizada/controlada requerida. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
