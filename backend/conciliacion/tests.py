@@ -384,6 +384,7 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movement_admin.transaction_id_banco_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
         self.assertTrue(set(movement_admin.fields).issubset(set(movement_admin.readonly_fields)))
         self.assertFalse(movement_admin.has_add_permission(None))
+        self.assertFalse(movement_admin.has_change_permission(None, movimiento))
         self.assertFalse(movement_admin.has_delete_permission(None))
 
         self.assertNotIn('sugerencia_asistida', unknown_income_admin.fields)
@@ -395,6 +396,7 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(suggestion['payment_candidate_ids'], [1])
         self.assertTrue(set(unknown_income_admin.fields).issubset(set(unknown_income_admin.readonly_fields)))
         self.assertFalse(unknown_income_admin.has_add_permission(None))
+        self.assertFalse(unknown_income_admin.has_change_permission(None, ingreso))
         self.assertFalse(unknown_income_admin.has_delete_permission(None))
 
         for raw_field in ('evidencia_cuadratura_ref', 'responsable_ref', 'rationale'):
@@ -405,6 +407,7 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(balance_admin.rationale_redacted(cuadratura), REDACTED_SENSITIVE_REFERENCE)
         self.assertTrue(set(balance_admin.fields).issubset(set(balance_admin.readonly_fields)))
         self.assertFalse(balance_admin.has_add_permission(None))
+        self.assertFalse(balance_admin.has_change_permission(None, cuadratura))
         self.assertFalse(balance_admin.has_delete_permission(None))
 
         for raw_field in (
@@ -421,6 +424,7 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(transfer_admin.rationale_redacted(transferencia), REDACTED_SENSITIVE_REFERENCE)
         self.assertTrue(set(transfer_admin.fields).issubset(set(transfer_admin.readonly_fields)))
         self.assertFalse(transfer_admin.has_add_permission(None))
+        self.assertFalse(transfer_admin.has_change_permission(None, transferencia))
         self.assertFalse(transfer_admin.has_delete_permission(None))
 
     def test_auth_is_required_for_conciliacion_endpoints(self):
