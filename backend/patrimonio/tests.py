@@ -16,7 +16,15 @@ from audit.models import AuditEvent
 from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 
-from .admin import RepresentacionComunidadAdmin, ServicioPropiedadAdmin
+from .admin import (
+    ComunidadPatrimonialAdmin,
+    EmpresaAdmin,
+    ParticipacionPatrimonialAdmin,
+    PropiedadAdmin,
+    RepresentacionComunidadAdmin,
+    ServicioPropiedadAdmin,
+    SocioAdmin,
+)
 from .models import (
     ComunidadPatrimonial,
     Empresa,
@@ -441,6 +449,51 @@ class PatrimonioAPITests(APITestCase):
         self.assertIn('evidencia_ref_redacted', model_admin.readonly_fields)
         self.assertEqual(model_admin.evidencia_ref_redacted(service), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(model_admin.has_delete_permission(None, service))
+
+    def test_structural_patrimony_admins_block_manual_delete(self):
+        socio = self._create_socio('Socio Admin Delete', '11111111-1')
+        empresa = Empresa.objects.create(
+            razon_social='Empresa Admin Delete',
+            rut='22222222-2',
+            domicilio='Providencia 100',
+            giro='Renta inmobiliaria',
+            codigo_actividad_sii='681000',
+            estado=EstadoPatrimonial.ACTIVE,
+        )
+        comunidad = ComunidadPatrimonial.objects.create(
+            nombre='Comunidad Admin Delete',
+            estado=EstadoPatrimonial.ACTIVE,
+        )
+        participacion = ParticipacionPatrimonial.objects.create(
+            participante_socio=socio,
+            empresa_owner=empresa,
+            porcentaje='100.00',
+            vigente_desde='2026-01-01',
+            activo=True,
+        )
+        propiedad = Propiedad.objects.create(
+            direccion='Av Patrimonio 100',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.APARTMENT,
+            codigo_propiedad='ADM-DEL-001',
+            estado=EstadoPatrimonial.ACTIVE,
+            socio_owner=socio,
+        )
+        site = AdminSite()
+
+        self.assertFalse(SocioAdmin(Socio, site).has_delete_permission(None, socio))
+        self.assertFalse(EmpresaAdmin(Empresa, site).has_delete_permission(None, empresa))
+        self.assertFalse(
+            ComunidadPatrimonialAdmin(ComunidadPatrimonial, site).has_delete_permission(None, comunidad)
+        )
+        self.assertFalse(
+            ParticipacionPatrimonialAdmin(ParticipacionPatrimonial, site).has_delete_permission(
+                None,
+                participacion,
+            )
+        )
+        self.assertFalse(PropiedadAdmin(Propiedad, site).has_delete_permission(None, propiedad))
 
     def test_create_socio_normalizes_rut_and_rejects_duplicate(self):
         payload = {

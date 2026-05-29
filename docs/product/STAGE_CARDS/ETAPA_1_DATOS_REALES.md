@@ -72,6 +72,9 @@ contra datos reales o snapshot controlado.
   representaciones o participaciones activas vigentes, incluyendo la estructura
   patrimonial propia de empresas/comunidades que debe transferirse o cerrarse
   antes de la salida operativa.
+- El admin Django de Patrimonio no permite borrar manualmente socios,
+  empresas, comunidades, participaciones ni propiedades; las bajas y cambios
+  estructurales deben conservarse por estado, vigencia o flujo auditado.
 - La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
   historicos no constituyen evidencia operativa de Etapa 1.
 - Validacion de no duplicar propiedades activas por rol de avaluo normalizado
