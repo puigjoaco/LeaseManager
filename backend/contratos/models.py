@@ -87,6 +87,30 @@ class EstadoContrato(models.TextChoices):
     CANCELED = 'cancelado', 'Cancelado'
 
 
+ALLOWED_CONTRACT_STATE_TRANSITIONS = {
+    EstadoContrato.PENDING: {
+        EstadoContrato.PENDING,
+        EstadoContrato.FUTURE,
+        EstadoContrato.ACTIVE,
+        EstadoContrato.CANCELED,
+    },
+    EstadoContrato.FUTURE: {
+        EstadoContrato.FUTURE,
+        EstadoContrato.ACTIVE,
+        EstadoContrato.CANCELED,
+    },
+    EstadoContrato.ACTIVE: {
+        EstadoContrato.ACTIVE,
+        EstadoContrato.EARLY_TERMINATED,
+        EstadoContrato.FINISHED,
+        EstadoContrato.CANCELED,
+    },
+    EstadoContrato.EARLY_TERMINATED: {EstadoContrato.EARLY_TERMINATED},
+    EstadoContrato.FINISHED: {EstadoContrato.FINISHED},
+    EstadoContrato.CANCELED: {EstadoContrato.CANCELED},
+}
+
+
 class RolContratoPropiedad(models.TextChoices):
     PRIMARY = 'principal', 'Principal'
     LINKED = 'vinculada', 'Vinculada'
@@ -404,6 +428,29 @@ class Contrato(TimestampedModel):
         except (TypeError, ValueError):
             return False
         return due_date < registration_date
+
+    def persisted_estado(self):
+        if not self.pk:
+            return None
+        return Contrato.objects.filter(pk=self.pk).values_list('estado', flat=True).first()
+
+    def validate_state_transition(self):
+        previous_state = self.persisted_estado()
+        if previous_state is None or previous_state == self.estado:
+            return
+
+        allowed_states = ALLOWED_CONTRACT_STATE_TRANSITIONS.get(previous_state, {previous_state})
+        if self.estado in allowed_states:
+            return
+
+        raise ValidationError(
+            {
+                'estado': (
+                    f'Transicion contractual no permitida: {previous_state} -> {self.estado}. '
+                    'Use el flujo operativo correspondiente y conserve trazabilidad.'
+                )
+            }
+        )
 
     def cancellation_irreversible_effects(self):
         if not self.pk:
@@ -822,6 +869,7 @@ class Contrato(TimestampedModel):
         if self.fecha_fin_vigente < self.fecha_inicio:
             raise ValidationError({'fecha_fin_vigente': 'La fecha fin vigente no puede ser anterior al inicio.'})
 
+        self.validate_state_transition()
         self.validate_cancellation_irreversible_effects()
         self.validate_early_termination_proration()
         self.validate_early_termination_proration_audit()
