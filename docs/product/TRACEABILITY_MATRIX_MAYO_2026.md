@@ -11,7 +11,9 @@ Nota 2026-05-29: Auditoria/Etapa 0 hace trazable el ciclo generico de
 `ManualResolution`. El endpoint generico crea resoluciones solo abiertas,
 ignora intentos de suplantar `requested_by`/`resolved_by`, exige rationale para
 cerrar, estampa `resolved_by` y `resolved_at` con el usuario actual y bloquea
-reaperturas de resoluciones terminales.
+reaperturas de resoluciones terminales. Tambien crea `AuditEvent` dedicado y
+transaccional para creacion, cambios de estado y ediciones comunes; si falla
+esa auditoria, la resolucion no queda creada ni mutada.
 
 Nota 2026-05-29: Auditoria/Etapa 0 cierra exposicion de referencias sensibles
 heredadas en API y snapshot. `AuditEventSerializer` redacta actor, entidad,

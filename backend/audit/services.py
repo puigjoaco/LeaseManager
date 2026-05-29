@@ -14,11 +14,16 @@ from patrimonio.models import (
     Socio,
 )
 from patrimonio.validators import normalize_rut
+from core.reference_validation import redact_sensitive_reference
 
 from .models import AuditEvent, ManualResolution
 
 
 CURRENT_COMMUNITY_REPRESENTATIVE_RUT_ENV = 'MIGRATION_CURRENT_COMMUNITY_REPRESENTATIVE_RUT'
+GENERIC_MANUAL_RESOLUTION_CREATED_EVENT_TYPE = 'audit.manual_resolution.created'
+GENERIC_MANUAL_RESOLUTION_UPDATED_EVENT_TYPE = 'audit.manual_resolution.updated'
+GENERIC_MANUAL_RESOLUTION_STATUS_CHANGED_EVENT_TYPE = 'audit.manual_resolution.status_changed'
+MANUAL_RESOLUTION_AUDIT_ENTITY_TYPE = 'manual_resolution'
 
 
 def create_audit_event(
@@ -45,6 +50,37 @@ def create_audit_event(
         metadata=metadata or {},
         request_id=request_id,
         ip_address=ip_address,
+    )
+
+
+def create_manual_resolution_lifecycle_event(
+    *,
+    resolution,
+    event_type,
+    summary,
+    actor_user=None,
+    previous_status='',
+    changed_fields=None,
+    ip_address=None,
+):
+    metadata = {
+        'resolution_category': redact_sensitive_reference(resolution.category) or '',
+        'scope_type': redact_sensitive_reference(resolution.scope_type) or '',
+        'status': resolution.status,
+    }
+    if previous_status:
+        metadata['previous_status'] = previous_status
+    if changed_fields:
+        metadata['changed_fields'] = sorted(set(changed_fields))
+
+    return create_audit_event(
+        event_type=event_type,
+        entity_type=MANUAL_RESOLUTION_AUDIT_ENTITY_TYPE,
+        entity_id=str(resolution.pk),
+        summary=summary,
+        actor_user=actor_user,
+        ip_address=ip_address,
+        metadata=metadata,
     )
 
 
