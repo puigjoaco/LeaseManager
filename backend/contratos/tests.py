@@ -3253,3 +3253,34 @@ class ContratosAPITests(APITestCase):
 
         self.assertEqual(patch_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('estado', patch_response.data)
+
+    def test_active_contract_cannot_regress_to_pending_state(self):
+        mandato = self._create_active_mandato(codigo='MAND-109-STATE-BACK', owner_rut='18181821-6')
+        arrendatario = self._create_arrendatario(rut='19191922-3')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-109-STATE-BACK')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        patch_response = self.client.patch(
+            reverse('contratos-contrato-detail', args=[create_response.data['id']]),
+            {'estado': EstadoContrato.PENDING},
+            format='json',
+        )
+
+        self.assertEqual(patch_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', patch_response.data)
+
+    def test_finished_contract_cannot_be_reactivated(self):
+        mandato = self._create_active_mandato(codigo='MAND-109-STATE-TERM', owner_rut='18181822-4')
+        arrendatario = self._create_arrendatario(rut='19191923-1')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-109-STATE-TERM')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        contract_url = reverse('contratos-contrato-detail', args=[create_response.data['id']])
+        finish_response = self.client.patch(contract_url, {'estado': EstadoContrato.FINISHED}, format='json')
+        self.assertEqual(finish_response.status_code, status.HTTP_200_OK)
+
+        reactivate_response = self.client.patch(contract_url, {'estado': EstadoContrato.ACTIVE}, format='json')
+
+        self.assertEqual(reactivate_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', reactivate_response.data)

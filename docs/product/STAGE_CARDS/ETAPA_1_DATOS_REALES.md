@@ -206,6 +206,11 @@ contra datos reales o snapshot controlado.
   justificacion sensible.
 - Validacion de avisos de termino existentes: la fecha efectiva debe quedar
   dentro del rango del contrato asociado.
+- Transiciones de estado contractual: `Contrato.full_clean()` y la API
+  impiden regresiones directas como `vigente` -> `pendiente_activacion` y
+  reaperturas de estados terminales como `finalizado` o `cancelado`. Los
+  cambios deben avanzar por el ciclo operativo permitido y conservar la
+  auditoria de cambio de estado.
 - Cancelacion contractual: un contrato solo puede quedar `cancelado` si no
   conserva efectos irreversibles operativos o economicos, como pagos
   mensuales generados, garantia recibida/devuelta/aplicada o con historial,
