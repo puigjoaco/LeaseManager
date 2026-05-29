@@ -90,6 +90,9 @@ firma y notaria trazables.
 - Formalizacion requiere politica activa por tipo documental y debe ejecutarse
   desde el endpoint dedicado `formalizar/`, no desde create/update generico,
   para conservar la auditoria especifica del acto de formalizacion.
+- El cambio de estado de `formalizar/` y sus eventos de auditoria deben quedar
+  en la misma transaccion, evitando documentos formalizados sin auditoria si
+  falla la escritura del evento.
 - El endpoint `formalizar/` debe aplicar el scope del usuario tambien sobre
   `comprobante_notarial`; un operador no puede usar como respaldo un documento
   notarial de un expediente fuera de su cartera visible.
