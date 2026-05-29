@@ -23,15 +23,15 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Ninguno. |
-| Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, PRD canonico, matriz de gates, stage cards, trazabilidad y evidencia vigentes. |
+| Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, `CODEX_OPERATING_PROTOCOL_MAYO_2026.md`, stage card Etapa 0, trazabilidad y evidencia vigentes. |
 | Brecha activa | Ninguna registrada en curso. |
 | Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de usuarios bloquea borrado manual conservando gestion operativa y metadata redactada. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Compliance bloquea alta, edicion y borrado manual conservando inspeccion redactada. |
 | Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | PlataformaBase/Auth permanece preparado como baseline local; paquete validado con focal Users admin, suite Users/Core/Audit, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; PlataformaBase permanece como baseline local, sin abrir gates externos. |
+| Estado al cerrar paquete | Compliance datos sensibles permanece parcial por cierre legal/evidencial externo; paquete local validado con focal Compliance admin/API, suite Compliance/readiness, `manage.py check`, migraciones dry-run, readiness Compliance local, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; Compliance sigue parcial por BLK-010 y evidencia/legal autorizada de cierre, pero esta preparacion local no depende de datos reales. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 

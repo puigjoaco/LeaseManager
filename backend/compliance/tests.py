@@ -426,7 +426,10 @@ class ComplianceAPITests(APITestCase):
             self.assertNotIn(raw_field, model_admin.fields)
         self.assertNotIn('encrypted_ref', model_admin.search_fields)
         self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_change_permission(None, export))
         self.assertFalse(model_admin.has_delete_permission(None, export))
+        for readonly_field in ('categoria_dato', 'export_kind', 'expires_at', 'hold_activo', 'estado', 'created_by'):
+            self.assertIn(readonly_field, model_admin.readonly_fields)
         self.assertEqual(model_admin.motivo_redacted(export), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(model_admin.encrypted_ref_redacted(export), REDACTED_SENSITIVE_REFERENCE)
 
@@ -450,7 +453,17 @@ class ComplianceAPITests(APITestCase):
         self.assertNotIn('evento_inicio', model_admin.fields)
         self.assertNotIn('evento_inicio', model_admin.search_fields)
         self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_change_permission(None, policy))
         self.assertFalse(model_admin.has_delete_permission(None, policy))
+        for readonly_field in (
+            'categoria_dato',
+            'plazo_minimo_anos',
+            'permite_borrado_logico',
+            'permite_purga_fisica',
+            'requiere_hold',
+            'estado',
+        ):
+            self.assertIn(readonly_field, model_admin.readonly_fields)
         self.assertEqual(model_admin.evento_inicio_redacted(policy), REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('audit.example.test', model_admin.evento_inicio_redacted(policy))
 
