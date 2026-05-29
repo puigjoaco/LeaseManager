@@ -301,6 +301,12 @@ busquedas por campos sensibles, mantienen cerrada el alta y borrado manual de
 settings, y mantienen cerradas el alta, edicion y borrado manual de signals
 runtime desde Django admin.
 
+Nota 2026-05-28: PlataformaBase/RBAC cierra borrado manual destructivo desde
+admin. `ScopeAdmin`, `RoleAdmin`, `RoleScopeAdmin` y
+`UserScopeAssignmentAdmin` conservan gestion operativa controlada, pero
+deshabilitan el borrado manual para que scopes se inactiven, asignaciones
+cierren vigencia y cambios de permisos conserven trazabilidad.
+
 Nota 2026-05-27: PlataformaBase/Auth redacta metadata de usuario expuesta.
 `CurrentUserSerializer` devuelve `User.metadata` con redaccion recursiva, el
 login demo conserva la firma de cache solo como hash interno y no la envia al

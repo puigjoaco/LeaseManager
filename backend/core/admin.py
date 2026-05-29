@@ -35,12 +35,18 @@ class ScopeAdmin(admin.ModelAdmin):
     def metadata_redacted(self, obj):
         return _redacted_payload_attr(obj, 'metadata')
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
     list_display = ('code', 'name', 'is_system_role')
     list_filter = ('is_system_role',)
     search_fields = ('code', 'name')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(RoleScope)
@@ -54,6 +60,9 @@ class RoleScopeAdmin(admin.ModelAdmin):
     def permission_set_redacted(self, obj):
         return _redacted_payload_attr(obj, 'permission_set')
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(UserScopeAssignment)
 class UserScopeAssignmentAdmin(admin.ModelAdmin):
@@ -66,6 +75,9 @@ class UserScopeAssignmentAdmin(admin.ModelAdmin):
     @admin.display(description='metadata')
     def metadata_redacted(self, obj):
         return _redacted_payload_attr(obj, 'metadata')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(PlatformSetting)
