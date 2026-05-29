@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-29: Patrimonio/Etapa 1 completa la salida operativa de owners
+locales. `Socio.inactive_dependency_errors()` y
+`ComunidadPatrimonial.inactive_state_dependency_errors()` bloquean cuentas
+recaudadoras y mandatos activos antes de permitir inactivacion; `Socio`
+tambien bloquea identidades de envio activas. La API y
+`audit_stage1_matrix` comparten la misma regla por validacion de dominio.
+
 Nota 2026-05-29: Operacion/Etapa 1 cierra edicion manual no auditada desde
 admin. `CuentaRecaudadoraAdmin`, `IdentidadDeEnvioAdmin`,
 `MandatoOperacionAdmin` y `AsignacionCanalOperacionAdmin` conservan inspeccion

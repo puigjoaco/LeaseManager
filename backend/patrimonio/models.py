@@ -124,6 +124,20 @@ class Socio(TimestampedModel):
             errors.append('No se puede desactivar un socio con participaciones patrimoniales activas vigentes.')
         if _currently_effective(self.representaciones_comunidad).exists():
             errors.append('No se puede desactivar un socio con representaciones de comunidad activas.')
+        CuentaRecaudadora = apps.get_model('operacion', 'CuentaRecaudadora')
+        MandatoOperacion = apps.get_model('operacion', 'MandatoOperacion')
+        IdentidadDeEnvio = apps.get_model('operacion', 'IdentidadDeEnvio')
+        if CuentaRecaudadora.objects.filter(socio_owner_id=self.pk, estado_operativo='activa').exists():
+            errors.append('No se puede desactivar un socio con cuentas recaudadoras activas.')
+        active_mandates = MandatoOperacion.objects.filter(estado='activa').filter(
+            Q(propietario_socio_owner_id=self.pk)
+            | Q(administrador_socio_owner_id=self.pk)
+            | Q(recaudador_socio_owner_id=self.pk)
+        )
+        if active_mandates.exists():
+            errors.append('No se puede desactivar un socio con mandatos operativos activos.')
+        if IdentidadDeEnvio.objects.filter(socio_owner_id=self.pk, estado='activa').exists():
+            errors.append('No se puede desactivar un socio con identidades de envio activas.')
         return errors
 
     def clean(self):
@@ -276,6 +290,15 @@ class ComunidadPatrimonial(TimestampedModel):
             )
         if _currently_effective(self.representaciones).exists():
             errors.append('La comunidad con representaciones activas vigentes debe permanecer activa.')
+        CuentaRecaudadora = apps.get_model('operacion', 'CuentaRecaudadora')
+        MandatoOperacion = apps.get_model('operacion', 'MandatoOperacion')
+        if CuentaRecaudadora.objects.filter(comunidad_owner_id=self.pk, estado_operativo='activa').exists():
+            errors.append('La comunidad con cuentas recaudadoras activas debe permanecer activa.')
+        active_mandates = MandatoOperacion.objects.filter(estado='activa').filter(
+            Q(propietario_comunidad_owner_id=self.pk) | Q(recaudador_comunidad_owner_id=self.pk)
+        )
+        if active_mandates.exists():
+            errors.append('La comunidad con mandatos operativos activos debe permanecer activa.')
         return errors
 
     def clean(self):

@@ -28,9 +28,9 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro por trazabilidad y orden de construccion. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: `Empresa` no puede quedar inactiva con cuentas recaudadoras, mandatos operativos o identidades de envio activas. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: `Socio` y `ComunidadPatrimonial` no pueden quedar inactivos con cuentas recaudadoras, mandatos operativos o, para socios, identidades de envio activas. |
 | Gate esperado | Definir segun el siguiente frente seguro. |
-| Estado al cerrar paquete | Paquete `Empresa.salida_operativa_dependencias_activas` validado con focal Patrimonio/API/auditor, suite Patrimonio + Operacion + auditor Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Paquete `Socio/ComunidadPatrimonial.salida_operativa_dependencias_activas` validado con focal Patrimonio/API/auditor, suite Patrimonio + Operacion + auditor Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 1 no se declara cerrada sin fuente `snapshot_controlado` o `real_autorizado`. |
 | Politica de reanudacion | Si se reanuda con un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
