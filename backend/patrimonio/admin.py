@@ -19,6 +19,9 @@ class SocioAdmin(admin.ModelAdmin):
     list_filter = ('activo',)
     search_fields = ('nombre', 'rut', 'email')
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(Empresa)
 class EmpresaAdmin(admin.ModelAdmin):
@@ -26,12 +29,18 @@ class EmpresaAdmin(admin.ModelAdmin):
     list_filter = ('estado',)
     search_fields = ('razon_social', 'rut')
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(ComunidadPatrimonial)
 class ComunidadPatrimonialAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'representacion_actual', 'estado', 'updated_at')
     list_filter = ('estado',)
     search_fields = ('nombre',)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     def representacion_actual(self, obj):
         representacion = obj.representacion_vigente()
@@ -45,6 +54,9 @@ class ParticipacionPatrimonialAdmin(admin.ModelAdmin):
     list_display = ('participante_display', 'participante_tipo', 'owner_tipo', 'owner_id', 'porcentaje', 'activo', 'vigente_desde', 'vigente_hasta')
     list_filter = ('activo', 'empresa_owner', 'comunidad_owner')
     search_fields = ('participante_socio__nombre', 'participante_socio__rut', 'participante_empresa__razon_social', 'participante_empresa__rut')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(RepresentacionComunidad)
@@ -88,6 +100,9 @@ class PropiedadAdmin(admin.ModelAdmin):
     list_display = ('codigo_propiedad', 'direccion', 'comuna', 'tipo_inmueble', 'estado', 'owner_tipo')
     list_filter = ('estado', 'tipo_inmueble')
     search_fields = ('codigo_propiedad', 'direccion', 'comuna')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(ServicioPropiedad)
