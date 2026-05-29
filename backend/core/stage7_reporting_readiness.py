@@ -116,6 +116,11 @@ def _annual_summary_fiscal_year_mismatch(summary: Any, anio_tributario: int) -> 
     return fiscal_year is not None and fiscal_year != anio_tributario - 1
 
 
+def _annual_document_process_mismatch(document: Any) -> bool:
+    process = document.proceso_renta_anual
+    return document.empresa_id != process.empresa_id or document.anio_tributario != process.anio_tributario
+
+
 def _collect_financial_report_issues(events, asientos) -> dict[str, int]:
     counts = Counter()
     posted_events = events.filter(estado_contable=EstadoEventoContable.POSTED)
@@ -227,6 +232,8 @@ def _collect_annual_report_issues(processes, ddjj_preparations, f22_preparations
             ddjj.full_clean()
         except ValidationError:
             counts['ddjj_invalid_model'] += 1
+        if _annual_document_process_mismatch(ddjj):
+            counts['ddjj_process_mismatch'] += 1
         if ddjj.estado_preparacion not in ANNUAL_TRACEABLE_STATES:
             counts['ddjj_not_traceable'] += 1
         if not ddjj.resumen_paquete:
@@ -246,6 +253,8 @@ def _collect_annual_report_issues(processes, ddjj_preparations, f22_preparations
             f22.full_clean()
         except ValidationError:
             counts['f22_invalid_model'] += 1
+        if _annual_document_process_mismatch(f22):
+            counts['f22_process_mismatch'] += 1
         if f22.estado_preparacion not in ANNUAL_TRACEABLE_STATES:
             counts['f22_not_traceable'] += 1
         if not f22.resumen_f22:
@@ -553,9 +562,19 @@ def collect_stage7_reporting_readiness(
             'Existen DDJJ que no pasan validacion de dominio.',
         ),
         (
+            'ddjj_process_mismatch',
+            'stage7.reporting.annual_ddjj_process_mismatch',
+            'Existen DDJJ asociadas a un proceso anual de otra empresa o ano tributario.',
+        ),
+        (
             'f22_invalid_model',
             'stage7.reporting.annual_f22_invalid',
             'Existen F22 que no pasan validacion de dominio.',
+        ),
+        (
+            'f22_process_mismatch',
+            'stage7.reporting.annual_f22_process_mismatch',
+            'Existen F22 asociados a un proceso anual de otra empresa o ano tributario.',
         ),
         (
             'ddjj_not_traceable',

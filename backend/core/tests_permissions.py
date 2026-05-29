@@ -113,10 +113,10 @@ class RolePermissionTests(APITestCase):
     def test_reviewer_can_read_reporting_but_not_operational_dashboard(self):
         self._force_user(username='reviewer-reporting', role_code='RevisorFiscalExterno')
 
-        financial_read = self.client.get(reverse('reporting-tributario-anual'), {'anio_tributario': 2027})
+        reporting_read = self.client.get(reverse('reporting-reference-options'))
         dashboard_read = self.client.get(reverse('reporting-dashboard-operativo'))
 
-        self.assertEqual(financial_read.status_code, status.HTTP_200_OK)
+        self.assertEqual(reporting_read.status_code, status.HTTP_200_OK)
         self.assertEqual(dashboard_read.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_socio_can_only_access_own_partner_summary(self):

@@ -25,6 +25,9 @@ documentos o procesos tributarios trazables.
   trazable. Estados aprobados, observados, rectificados o presentados requieren
   referencia externa trazable. Cada empresa incluida debe tener
   `ConfiguracionFiscalEmpresa` activa propia.
+- La API de resumen tributario anual bloquea consultas sin
+  `ProcesoRentaAnual` incluido y documentos DDJJ/F22 heredados cuyo proceso
+  anual no coincide con la empresa y ano tributario del documento.
 - El `fiscal_year` reportado por `ProcesoRentaAnual`, DDJJ y F22 debe
   corresponder al ano comercial inmediatamente anterior al `anio_tributario`;
   la API bloquea reportes desalineados y readiness los marca como brecha.
@@ -36,6 +39,9 @@ documentos o procesos tributarios trazables.
 - `audit_stage7_reporting_readiness` tambien clasifica explicitamente como
   bloqueantes las referencias finales sensibles de ProcesoRentaAnual, DDJJ y
   F22, sin exponer esos valores.
+- `audit_stage7_reporting_readiness` clasifica explicitamente como bloqueantes
+  DDJJ/F22 heredados asociados a un proceso anual de otra empresa o ano
+  tributario.
 - Si falta alguno de esos origenes, la API responde con bloqueo de
   trazabilidad y no entrega el reporte como valido.
 - `audit_stage7_reporting_readiness` consolida readiness local de resumen
