@@ -262,6 +262,14 @@ PAYMENT_API_BLOCKED_CLOSED_STATES = {
 }
 
 
+def validate_payment_state_transition(previous_state, next_state):
+    if next_state == previous_state:
+        return
+    allowed_states = PAYMENT_STATE_TRANSITIONS.get(previous_state, set())
+    if next_state not in allowed_states:
+        raise ValueError(f'Transicion invalida desde {previous_state} hacia {next_state}.')
+
+
 def calculate_days_late(payment):
     reference_date = payment.fecha_deposito_banco or payment.fecha_pago_webpay or payment.fecha_deteccion_sistema
     if not reference_date and payment.estado_pago == EstadoPago.OVERDUE:
@@ -337,6 +345,8 @@ def update_payment_operational_fields(
     ip_address=None,
 ):
     next_state = validated_data.get('estado_pago', payment.estado_pago)
+    previous_state = payment.estado_pago
+    validate_payment_state_transition(previous_state, next_state)
     if next_state in PAYMENT_API_BLOCKED_CLOSED_STATES:
         raise ValueError(
             'Los pagos cerrados solo se registran desde conciliacion bancaria '
@@ -345,7 +355,6 @@ def update_payment_operational_fields(
     if next_state in EXCEPTIONAL_PAYMENT_STATES and actor_user is None and not (actor_identifier or '').strip():
         raise ValueError('El cierre excepcional de pago requiere un actor trazable para auditoria.')
 
-    previous_state = payment.estado_pago
     for field, value in validated_data.items():
         setattr(payment, field, value)
 
