@@ -583,6 +583,75 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_inactive_socio_with_active_account_is_blocking(self):
+        socio = Socio.objects.create(
+            nombre='Socio Cerrado Con Cuenta',
+            rut='13131313-0',
+            activo=False,
+        )
+        CuentaRecaudadora.objects.create(
+            socio_owner=socio,
+            institucion='Banco Controlado',
+            numero_cuenta='EXIT-SOC-ACC-001',
+            tipo_cuenta='corriente',
+            titular_nombre=socio.nombre,
+            titular_rut=socio.rut,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            evidencia_operativa_ref='account-operational-evidence-socio-exit',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.socio.validacion_modelo', issue_codes)
+        self.assertIn('stage1.cuenta.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['socios']['classification'],
+            'defectuoso',
+        )
+        self.assertEqual(
+            result['aggregate_classification']['cuentas_recaudadoras']['classification'],
+            'defectuoso',
+        )
+
+    def test_inactive_community_with_active_account_is_blocking(self):
+        comunidad = ComunidadPatrimonial.objects.create(
+            nombre='Comunidad Cerrada Con Cuenta',
+            estado=EstadoPatrimonial.INACTIVE,
+        )
+        CuentaRecaudadora.objects.create(
+            comunidad_owner=comunidad,
+            institucion='Banco Controlado',
+            numero_cuenta='EXIT-COM-ACC-001',
+            tipo_cuenta='corriente',
+            titular_nombre=comunidad.nombre,
+            titular_rut='12345678-5',
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            evidencia_operativa_ref='account-operational-evidence-community-exit',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.comunidad.validacion_modelo', issue_codes)
+        self.assertIn('stage1.cuenta.validacion_modelo', issue_codes)
+        self.assertEqual(
+            result['aggregate_classification']['comunidades']['classification'],
+            'defectuoso',
+        )
+        self.assertEqual(
+            result['aggregate_classification']['cuentas_recaudadoras']['classification'],
+            'defectuoso',
+        )
+
     def test_billing_company_without_active_account_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         socio_1 = Socio.objects.get(rut='11111111-1')

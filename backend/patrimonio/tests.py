@@ -185,11 +185,12 @@ class PatrimonioAPITests(APITestCase):
             socio_owner=socio,
         )
 
-    def _create_active_account(self, *, empresa=None, socio=None, numero='ACC-PAT-001'):
-        titular_nombre = empresa.razon_social if empresa else socio.nombre
-        titular_rut = empresa.rut if empresa else socio.rut
+    def _create_active_account(self, *, empresa=None, comunidad=None, socio=None, numero='ACC-PAT-001'):
+        titular_nombre = empresa.razon_social if empresa else comunidad.nombre if comunidad else socio.nombre
+        titular_rut = empresa.rut if empresa else '12345678-5' if comunidad else socio.rut
         return CuentaRecaudadora.objects.create(
             empresa_owner=empresa,
+            comunidad_owner=comunidad,
             socio_owner=socio,
             institucion='Banco Uno',
             numero_cuenta=numero,
@@ -1380,6 +1381,150 @@ class PatrimonioAPITests(APITestCase):
         self.assertIn('estado', response.data)
         self.assertIn('identidades de envio activas', str(response.data['estado']))
         self.assertFalse(AuditEvent.objects.filter(event_type='patrimonio.empresa.state_changed').exists())
+
+    def test_socio_deactivation_rejects_active_account_dependency(self):
+        socio = self._create_socio('Socio Cuenta Salida', '13131313-0')
+        self._create_active_account(socio=socio, numero='ACC-SOC-EXIT-001')
+
+        response = self.client.patch(
+            reverse('patrimonio-socio-detail', args=[socio.id]),
+            {'activo': False},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('activo', response.data)
+        self.assertIn('cuentas recaudadoras activas', str(response.data['activo']))
+        socio.refresh_from_db()
+        self.assertTrue(socio.activo)
+
+    def test_socio_deactivation_rejects_active_mandate_dependency(self):
+        socio = self._create_socio('Socio Mandato Salida', '14141414-9')
+        propiedad = Propiedad.objects.create(
+            direccion='Av Mandato Socio 100',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='EXIT-SOC-MAN-001',
+            estado=EstadoPatrimonial.ACTIVE,
+            socio_owner=socio,
+        )
+        cuenta = self._create_active_account(socio=socio, numero='ACC-SOC-EXIT-002')
+        MandatoOperacion.objects.create(
+            propiedad=propiedad,
+            propietario_socio_owner=socio,
+            administrador_socio_owner=socio,
+            recaudador_socio_owner=socio,
+            cuenta_recaudadora=cuenta,
+            tipo_relacion_operativa='mandato_directo',
+            autoriza_recaudacion=True,
+            autoriza_facturacion=False,
+            autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-socio-exit-001',
+            vigencia_desde='2026-01-01',
+            estado=EstadoMandatoOperacion.ACTIVE,
+        )
+
+        response = self.client.patch(
+            reverse('patrimonio-socio-detail', args=[socio.id]),
+            {'activo': False},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('activo', response.data)
+        self.assertIn('mandatos operativos activos', str(response.data['activo']))
+        socio.refresh_from_db()
+        self.assertTrue(socio.activo)
+
+    def test_socio_deactivation_rejects_active_identity_dependency(self):
+        socio = self._create_socio('Socio Identidad Salida', '15151515-7')
+        IdentidadDeEnvio.objects.create(
+            socio_owner=socio,
+            canal=CanalOperacion.EMAIL,
+            remitente_visible=socio.nombre,
+            direccion_o_numero='salida-socio@example.com',
+            credencial_ref='identity-socio-exit-ref-001',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+
+        response = self.client.patch(
+            reverse('patrimonio-socio-detail', args=[socio.id]),
+            {'activo': False},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('activo', response.data)
+        self.assertIn('identidades de envio activas', str(response.data['activo']))
+        socio.refresh_from_db()
+        self.assertTrue(socio.activo)
+
+    def test_comunidad_deactivation_rejects_active_account_dependency(self):
+        comunidad = ComunidadPatrimonial.objects.create(
+            nombre='Comunidad Cuenta Salida',
+            estado=EstadoPatrimonial.ACTIVE,
+        )
+        self._create_active_account(comunidad=comunidad, numero='ACC-COM-EXIT-001')
+
+        response = self.client.patch(
+            reverse('patrimonio-comunidad-detail', args=[comunidad.id]),
+            {'estado': EstadoPatrimonial.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        self.assertIn('cuentas recaudadoras activas', str(response.data['estado']))
+        comunidad.refresh_from_db()
+        self.assertEqual(comunidad.estado, EstadoPatrimonial.ACTIVE)
+
+    def test_comunidad_deactivation_rejects_active_mandate_dependency(self):
+        administrador = self._create_socio('Administrador Comunidad Salida', '16161616-5')
+        comunidad = ComunidadPatrimonial.objects.create(
+            nombre='Comunidad Mandato Salida',
+            estado=EstadoPatrimonial.ACTIVE,
+        )
+        propiedad = Propiedad.objects.create(
+            direccion='Av Mandato Comunidad 100',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='EXIT-COM-MAN-001',
+            estado=EstadoPatrimonial.ACTIVE,
+            comunidad_owner=comunidad,
+        )
+        cuenta = self._create_active_account(comunidad=comunidad, numero='ACC-COM-EXIT-002')
+        MandatoOperacion.objects.create(
+            propiedad=propiedad,
+            propietario_comunidad_owner=comunidad,
+            administrador_socio_owner=administrador,
+            recaudador_comunidad_owner=comunidad,
+            cuenta_recaudadora=cuenta,
+            tipo_relacion_operativa='mandato_comunidad',
+            autoriza_recaudacion=True,
+            autoriza_facturacion=False,
+            autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-community-exit-001',
+            vigencia_desde='2026-01-01',
+            estado=EstadoMandatoOperacion.ACTIVE,
+        )
+
+        response = self.client.patch(
+            reverse('patrimonio-comunidad-detail', args=[comunidad.id]),
+            {'estado': EstadoPatrimonial.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        self.assertIn('mandatos operativos activos', str(response.data['estado']))
+        comunidad.refresh_from_db()
+        self.assertEqual(comunidad.estado, EstadoPatrimonial.ACTIVE)
 
     def test_comunidad_deactivation_rejects_active_structure(self):
         socio_a = self._create_socio('Socio Comunidad Estructura A', '15151515-7')

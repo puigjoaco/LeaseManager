@@ -71,9 +71,10 @@ contra datos reales o snapshot controlado.
   comunidades no pueden desactivarse si sostienen propiedades,
   representaciones o participaciones activas vigentes, incluyendo la estructura
   patrimonial propia de empresas/comunidades que debe transferirse o cerrarse
-  antes de la salida operativa. Las empresas tampoco pueden quedar inactivas
-  mientras conserven cuentas recaudadoras activas, mandatos operativos activos
-  o identidades de envio activas.
+  antes de la salida operativa. Socios, empresas y comunidades tampoco pueden
+  quedar inactivos mientras conserven cuentas recaudadoras activas o mandatos
+  operativos activos; socios y empresas tampoco pueden conservar identidades de
+  envio activas despues de su salida operativa.
 - El admin Django de Patrimonio no permite borrar manualmente socios,
   empresas, comunidades, participaciones ni propiedades; las bajas y cambios
   estructurales deben conservarse por estado, vigencia o flujo auditado.
