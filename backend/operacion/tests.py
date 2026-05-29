@@ -1121,6 +1121,85 @@ class OperacionAPITests(APITestCase):
         identidad.refresh_from_db()
         self.assertEqual(identidad.estado, EstadoIdentidadEnvio.ACTIVE)
 
+    def test_identity_channel_change_rejects_active_assignment_dependency(self):
+        propietario = self._create_socio('Propietario Canal', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo Canal', '88888888-8')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-006E')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-006E')
+        mandato_response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+        )
+        self.assertEqual(mandato_response.status_code, status.HTTP_201_CREATED)
+        identidad = self._create_active_identity(empresa=admin_company, direccion='identity-channel@example.com')
+        assignment_response = self.client.post(
+            reverse('operacion-asignacion-list'),
+            {
+                'mandato_operacion_id': mandato_response.data['id'],
+                'canal': CanalOperacion.EMAIL,
+                'identidad_envio_id': identidad.id,
+                'prioridad': 1,
+                'estado': EstadoAsignacionCanal.ACTIVE,
+            },
+            format='json',
+        )
+        self.assertEqual(assignment_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('operacion-identidad-detail', args=[identidad.id]),
+            {'canal': CanalOperacion.WHATSAPP},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('canal', response.data)
+        identidad.refresh_from_db()
+        self.assertEqual(identidad.canal, CanalOperacion.EMAIL)
+
+    def test_identity_owner_change_rejects_active_assignment_dependency(self):
+        propietario = self._create_socio('Propietario Owner', '77777777-7')
+        admin_company = self._create_active_empresa('AdminCo Owner', '88888888-8')
+        other_company = self._create_active_empresa('OtraCo Owner', '14141414-7')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-006F')
+        cuenta = self._create_active_account(empresa=admin_company, numero='ACC-006F')
+        mandato_response = self._create_active_mandato(
+            propiedad=propiedad,
+            propietario_tipo='socio',
+            propietario_id=propietario.id,
+            admin_tipo='empresa',
+            admin_id=admin_company.id,
+            cuenta_id=cuenta.id,
+        )
+        self.assertEqual(mandato_response.status_code, status.HTTP_201_CREATED)
+        identidad = self._create_active_identity(empresa=admin_company, direccion='identity-owner@example.com')
+        assignment_response = self.client.post(
+            reverse('operacion-asignacion-list'),
+            {
+                'mandato_operacion_id': mandato_response.data['id'],
+                'canal': CanalOperacion.EMAIL,
+                'identidad_envio_id': identidad.id,
+                'prioridad': 1,
+                'estado': EstadoAsignacionCanal.ACTIVE,
+            },
+            format='json',
+        )
+        self.assertEqual(assignment_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('operacion-identidad-detail', args=[identidad.id]),
+            {'owner_tipo': 'empresa', 'owner_id': other_company.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        identidad.refresh_from_db()
+        self.assertEqual(identidad.empresa_owner_id, admin_company.id)
+
     def test_assignment_deactivation_rejects_last_active_channel_for_active_contract(self):
         propietario = self._create_socio('Propietario Uno', '77777777-7')
         admin_company = self._create_active_empresa('AdminCo', '88888888-8')
