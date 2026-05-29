@@ -59,6 +59,9 @@ class ValorUFDiarioAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(AjusteContrato)
 class AjusteContratoAdmin(admin.ModelAdmin):
@@ -92,6 +95,9 @@ class AjusteContratoAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'justificacion')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -152,6 +158,9 @@ class PagoMensualAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(GateCobroExterno)
 class GateCobroExternoAdmin(admin.ModelAdmin):
@@ -181,6 +190,9 @@ class GateCobroExternoAdmin(admin.ModelAdmin):
         return _redacted_payload_attr(obj, 'restricciones_operativas')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -238,6 +250,9 @@ class IntentoPagoWebPayAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(GarantiaContractual)
 class GarantiaContractualAdmin(admin.ModelAdmin):
@@ -287,6 +302,9 @@ class GarantiaContractualAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(HistorialGarantia)
 class HistorialGarantiaAdmin(admin.ModelAdmin):
@@ -309,6 +327,9 @@ class HistorialGarantiaAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'justificacion')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -344,6 +365,9 @@ class RepactacionDeudaAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'excepcion_parcial_motivo')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -395,4 +419,7 @@ class EstadoCuentaArrendatarioAdmin(admin.ModelAdmin):
         return _redacted_attr(obj, 'observaciones')
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False

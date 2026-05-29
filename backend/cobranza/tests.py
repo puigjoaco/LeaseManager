@@ -295,6 +295,7 @@ class CobranzaAPITests(APITestCase):
         history_admin = HistorialGarantiaAdmin(HistorialGarantia, site)
         repayment_admin = RepactacionDeudaAdmin(RepactacionDeuda, site)
         residual_admin = CodigoCobroResidualAdmin(CodigoCobroResidual, site)
+        account_state_admin = EstadoCuentaArrendatarioAdmin(EstadoCuentaArrendatario, site)
 
         self.assertNotIn('evidencia_ref', uf_admin.fields)
         self.assertNotIn('responsable_ref', uf_admin.search_fields)
@@ -363,8 +364,10 @@ class CobranzaAPITests(APITestCase):
             history_admin,
             repayment_admin,
             residual_admin,
+            account_state_admin,
         ):
             self.assertFalse(admin_instance.has_add_permission(None))
+            self.assertFalse(admin_instance.has_delete_permission(None))
 
     def test_adjustment_admin_redacts_sensitive_justification(self):
         contrato = self._create_active_contract(codigo='CON-ADM-AJUS', monto_base='100000.00', code='111')
@@ -388,6 +391,7 @@ class CobranzaAPITests(APITestCase):
         self.assertNotIn('justificacion', adjustment_admin.search_fields)
         self.assertEqual(adjustment_admin.justificacion_redacted(adjustment), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(adjustment_admin.has_add_permission(None))
+        self.assertFalse(adjustment_admin.has_delete_permission(None))
 
     def test_refresh_mora_marks_pending_payment_overdue_and_updates_account_state(self):
         payment = self._generate_monthly_payment(codigo='CON-MORA-REFRESH')

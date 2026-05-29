@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-29: CobranzaActiva/Etapa 2 cierra borrado manual operativo desde
+admin. `ValorUFDiarioAdmin`, `AjusteContratoAdmin`, `PagoMensualAdmin`,
+`GateCobroExternoAdmin`, `IntentoPagoWebPayAdmin`,
+`GarantiaContractualAdmin`, `HistorialGarantiaAdmin`,
+`RepactacionDeudaAdmin`, `CodigoCobroResidualAdmin` y
+`EstadoCuentaArrendatarioAdmin` deshabilitan borrado manual; cambios y bajas
+quedan bajo flujos auditados, reconstruccion, conciliacion o resolucion formal.
+
 Nota 2026-05-29: Patrimonio/Etapa 1 cierra borrado manual estructural desde
 admin. `SocioAdmin`, `EmpresaAdmin`, `ComunidadPatrimonialAdmin`,
 `ParticipacionPatrimonialAdmin` y `PropiedadAdmin` deshabilitan borrado manual
@@ -406,13 +414,13 @@ Nota 2026-05-27: CobranzaActiva cierra superficie admin para referencias y
 payloads sensibles heredados. Los admins de UF manual, pagos mensuales, gates
 WebPay, intentos WebPay, garantias y repactaciones reemplazan refs, motivos y
 payloads crudos por vistas redactadas, eliminan busquedas por campos sensibles
-y mantienen el alta manual cerrada desde backoffice.
+y mantienen el alta y borrado manual cerrados desde backoffice.
 
 Nota 2026-05-28: CobranzaActiva completa el cierre de alta manual para
 artefactos operativos derivados. `CodigoCobroResidualAdmin` y
-`EstadoCuentaArrendatarioAdmin` mantienen el alta manual deshabilitada para que
-los residuales nazcan por generacion controlada y los estados de cuenta por
-rebuild de pagos, repactaciones y codigos activos.
+`EstadoCuentaArrendatarioAdmin` mantienen el alta y borrado manual
+deshabilitados para que los residuales nazcan por generacion controlada y los
+estados de cuenta por rebuild de pagos, repactaciones y codigos activos.
 
 Nota 2026-05-27: Patrimonio bloquea la inactivacion de empresas y comunidades
 que aun conservan participaciones o representaciones propias activas vigentes.
