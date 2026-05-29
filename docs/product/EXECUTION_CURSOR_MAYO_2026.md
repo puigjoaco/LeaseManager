@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
+| Frente activo | SII / admin de artefactos tributarios. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, `CODEX_OPERATING_PROTOCOL_MAYO_2026.md`, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Ninguna registrada en curso. |
-| Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
-| Worktree | N/A. |
-| Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Documentos bloquea alta, edicion y borrado manual en expedientes y documentos emitidos, conservando inspeccion redactada y sin afectar configuracion de politica firma/notaria. |
-| Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | PR #536 mergeado en `main` (`6281ac2`). Validado con focal Documentos admin, suite Documentos/readiness, `manage.py check`, migraciones dry-run, gate local Documentos parcial, frontend build/lint, acceptance local, CI GitHub, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; Documentos/Etapa 5 sigue parcial para cierre real por politica final, prueba PDF controlada, fuente autorizada y responsables, pero esta preparacion local no depende de datos reales ni integraciones externas. |
+| Brecha activa | Los admins SII de capacidades y artefactos tributarios estaban en campos solo lectura y sin alta/borrado manual, pero aun podian abrir flujo de cambio manual desde Django admin. |
+| Motivo de prioridad | Etapa 4 exige que capacidades, DTE, F29, DDJJ, F22 y procesos anuales pasen por dominio, servicios, gates y auditoria; no por mutacion manual de admin. |
+| Worktree | `D:/Proyectos/LeaseManager-sii-admin-change-guard`. |
+| Rama | `codex/sii-admin-change-guard`. |
+| Estado | Paquete tactico abierto para bloquear edicion manual de artefactos SII, conservando inspeccion redactada y sin conectar SII real. |
+| Gate esperado | Focal SII admin; suite SII/readiness Etapa 4 y Etapa 6; `manage.py check`; migraciones dry-run; gates locales Etapa 4 y Etapa 6 parciales; frontend build/lint; acceptance local; higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; SII/Etapa 4 y Renta Anual/Etapa 6 siguen parciales para cierre real por ambiente/regla fiscal/fuente autorizada/responsables, pero esta preparacion local no depende de datos reales ni integraciones externas. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Siguiente accion | Implementar guard de `has_change_permission`, validar y cerrar PR. |
 
 ## Actualizacion
 

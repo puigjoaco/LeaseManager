@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-29: SII/Etapa 4 cierra edicion manual no auditada desde admin.
+`CapacidadTributariaSIIAdmin`, `DTEEmitidoAdmin`,
+`F29PreparacionMensualAdmin`, `ProcesoRentaAnualAdmin`,
+`DDJJPreparacionAnualAdmin` y `F22PreparacionAnualAdmin` conservan inspeccion
+redactada, pero deshabilitan alta, edicion y borrado manual para que
+capacidades, DTE, F29, DDJJ, F22 y procesos anuales pasen por dominio,
+servicios, gates y auditoria.
+
 Nota 2026-05-29: Documentos/Etapa 5 cierra edicion manual no auditada desde
 admin. `ExpedienteDocumentalAdmin` y `DocumentoEmitidoAdmin` conservan
 inspeccion redactada, pero deshabilitan alta, edicion y borrado manual para
