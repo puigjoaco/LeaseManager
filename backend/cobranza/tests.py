@@ -1135,6 +1135,48 @@ class CobranzaAPITests(APITestCase):
             ).exists()
         )
 
+    def test_payment_model_rejects_invalid_state_transition(self):
+        payment = self._generate_monthly_payment(codigo='CON-MODEL-STATE-GUARD')
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=payment.contrato.arrendatario,
+            contrato_origen=payment.contrato,
+            deuda_total_original='30000.00',
+            cantidad_cuotas=3,
+            monto_cuota='10000.00',
+            saldo_pendiente='30000.00',
+            estado='activa',
+        )
+        payment.estado_pago = EstadoPago.IN_REPAYMENT
+        payment.repactacion_deuda = repayment
+
+        with self.assertRaises(ValidationError) as error:
+            payment.full_clean()
+
+        self.assertIn('estado_pago', error.exception.message_dict)
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+        self.assertIsNone(payment.repactacion_deuda_id)
+
+    def test_payment_model_allows_overdue_to_repayment_transition(self):
+        payment = self._generate_monthly_payment(codigo='CON-MODEL-STATE-OK')
+        payment.estado_pago = EstadoPago.OVERDUE
+        payment.dias_mora = 5
+        payment.save(update_fields=['estado_pago', 'dias_mora', 'updated_at'])
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=payment.contrato.arrendatario,
+            contrato_origen=payment.contrato,
+            deuda_total_original='30000.00',
+            cantidad_cuotas=3,
+            monto_cuota='10000.00',
+            saldo_pendiente='30000.00',
+            estado='activa',
+        )
+
+        payment.estado_pago = EstadoPago.IN_REPAYMENT
+        payment.repactacion_deuda = repayment
+
+        payment.full_clean()
+
     def test_payment_update_allows_paid_by_termination_with_trace(self):
         payment = self._generate_monthly_payment(codigo='CON-TERM-TRACE')
 
@@ -2590,8 +2632,15 @@ class CobranzaAPITests(APITestCase):
             saldo_pendiente='30000.00',
             estado='activa',
         )
-        payment.estado_pago = EstadoPago.PAID_VIA_REPAYMENT
+        payment.estado_pago = EstadoPago.OVERDUE
+        payment.dias_mora = 5
+        payment.save(update_fields=['estado_pago', 'dias_mora', 'updated_at'])
+        payment.estado_pago = EstadoPago.IN_REPAYMENT
         payment.repactacion_deuda = active_repayment
+        payment.full_clean()
+        payment.save(update_fields=['estado_pago', 'repactacion_deuda', 'updated_at'])
+
+        payment.estado_pago = EstadoPago.PAID_VIA_REPAYMENT
         payment.monto_pagado_clp = Decimal('30000.00')
         payment.fecha_deteccion_sistema = date(2026, 2, 5)
 

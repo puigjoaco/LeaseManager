@@ -32,6 +32,7 @@ from .models import (
     TipoMovimientoGarantia,
     ValorUFDiario,
     WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
+    payment_state_transition_error,
 )
 
 
@@ -231,26 +232,6 @@ def sync_payment_distribution(payment):
     return build_payment_distribution_snapshot(payment)
 
 
-PAYMENT_STATE_TRANSITIONS = {
-    EstadoPago.PENDING: {
-        EstadoPago.PAID,
-        EstadoPago.OVERDUE,
-        EstadoPago.PAID_BY_TERMINATION,
-        EstadoPago.FORGIVEN,
-    },
-    EstadoPago.OVERDUE: {
-        EstadoPago.IN_REPAYMENT,
-        EstadoPago.PAID,
-        EstadoPago.PAID_BY_TERMINATION,
-        EstadoPago.FORGIVEN,
-    },
-    EstadoPago.IN_REPAYMENT: {EstadoPago.PAID_VIA_REPAYMENT},
-    EstadoPago.PAID: set(),
-    EstadoPago.PAID_VIA_REPAYMENT: set(),
-    EstadoPago.PAID_BY_TERMINATION: set(),
-    EstadoPago.FORGIVEN: set(),
-}
-
 EXCEPTIONAL_PAYMENT_STATES = {
     EstadoPago.PAID_BY_TERMINATION,
     EstadoPago.FORGIVEN,
@@ -263,11 +244,9 @@ PAYMENT_API_BLOCKED_CLOSED_STATES = {
 
 
 def validate_payment_state_transition(previous_state, next_state):
-    if next_state == previous_state:
-        return
-    allowed_states = PAYMENT_STATE_TRANSITIONS.get(previous_state, set())
-    if next_state not in allowed_states:
-        raise ValueError(f'Transicion invalida desde {previous_state} hacia {next_state}.')
+    error = payment_state_transition_error(previous_state, next_state)
+    if error:
+        raise ValueError(error)
 
 
 def calculate_days_late(payment):

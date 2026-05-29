@@ -51,6 +51,38 @@ class EstadoPago(models.TextChoices):
     FORGIVEN = 'condonado', 'Condonado'
 
 
+PAYMENT_STATE_TRANSITIONS = {
+    EstadoPago.PENDING: {
+        EstadoPago.PAID,
+        EstadoPago.OVERDUE,
+        EstadoPago.PAID_BY_TERMINATION,
+        EstadoPago.FORGIVEN,
+    },
+    EstadoPago.OVERDUE: {
+        EstadoPago.IN_REPAYMENT,
+        EstadoPago.PAID,
+        EstadoPago.PAID_BY_TERMINATION,
+        EstadoPago.FORGIVEN,
+    },
+    EstadoPago.IN_REPAYMENT: {EstadoPago.PAID_VIA_REPAYMENT},
+    EstadoPago.PAID: set(),
+    EstadoPago.PAID_VIA_REPAYMENT: set(),
+    EstadoPago.PAID_BY_TERMINATION: set(),
+    EstadoPago.FORGIVEN: set(),
+}
+
+
+def payment_state_transition_error(previous_state, next_state):
+    if not previous_state:
+        return ''
+    if next_state == previous_state:
+        return ''
+    allowed_states = PAYMENT_STATE_TRANSITIONS.get(previous_state, set())
+    if next_state not in allowed_states:
+        return f'Transicion invalida desde {previous_state} hacia {next_state}.'
+    return ''
+
+
 class EstadoGarantia(models.TextChoices):
     PENDING = 'pendiente_recepcion', 'Pendiente recepcion'
     HELD = 'retenida', 'Retenida'
@@ -299,6 +331,11 @@ class PagoMensual(TimestampedModel):
     def __str__(self):
         return f'{self.contrato.codigo_contrato} - {self.mes}/{self.anio}'
 
+    def persisted_estado_pago(self):
+        if not self.pk:
+            return None
+        return type(self).objects.filter(pk=self.pk).values_list('estado_pago', flat=True).first()
+
     def clean(self):
         super().clean()
         if self.codigo_conciliacion_efectivo == '000':
@@ -353,6 +390,10 @@ class PagoMensual(TimestampedModel):
                     )
                 }
             )
+        previous_state = self.persisted_estado_pago()
+        transition_error = payment_state_transition_error(previous_state, self.estado_pago)
+        if transition_error:
+            raise ValidationError({'estado_pago': transition_error})
         expected_effect = Decimal(self.monto_calculado_clp or Decimal('0.00')) - Decimal(
             self.monto_facturable_clp or Decimal('0.00')
         )
