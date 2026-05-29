@@ -138,6 +138,10 @@ contra datos reales o snapshot controlado.
   contactos de pago conservan nombre, rol operativo, email o telefono y
   evidencia opcional no sensible; API, snapshot y admin/backoffice exponen
   evidencia heredada solo mediante version redactada.
+- El admin Django de Contratos no permite borrar manualmente arrendatarios,
+  contactos de pago, contratos, relaciones contrato-propiedad, periodos,
+  codeudores ni avisos de termino. Las bajas contractuales deben expresarse por
+  estado, vigencia o flujo auditado.
 - Validacion de telefonos para mensajeria: si un arrendatario usa WhatsApp
   operativo, el telefono debe estar en formato internacional; numeros locales
   o ambiguos quedan bloqueados para Canales y clasificados por el auditor

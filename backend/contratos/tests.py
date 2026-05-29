@@ -39,6 +39,7 @@ from .models import (
     AUTOMATIC_RENEWAL_EVENT_TYPE,
     Arrendatario,
     AvisoTermino,
+    CodeudorSolidario,
     ContactoPagoArrendatario,
     Contrato,
     ContratoPropiedad,
@@ -55,8 +56,10 @@ from .models import (
 from .admin import (
     ArrendatarioAdmin,
     AvisoTerminoAdmin,
+    CodeudorSolidarioAdmin,
     ContactoPagoArrendatarioAdmin,
     ContratoAdmin,
+    ContratoPropiedadAdmin,
     PeriodoContractualAdmin,
 )
 from .services import block_whatsapp_contact, rehabilitate_whatsapp_contact
@@ -464,6 +467,12 @@ class ContratosAPITests(APITestCase):
             estado=EstadoContrato.ACTIVE,
             politica_documental=self.contract_policy,
         )
+        contrato_propiedad = ContratoPropiedad.objects.create(
+            contrato=contrato,
+            propiedad=mandato.propiedad,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            codigo_conciliacion_efectivo_snapshot='123',
+        )
         periodo = PeriodoContractual.objects.create(
             contrato=contrato,
             numero_periodo=1,
@@ -485,11 +494,17 @@ class ContratosAPITests(APITestCase):
             resolucion_conflicto_renovacion_motivo='Resolucion en https://contracts.example.test/conflict?token=secret',
             registrado_por=self.user,
         )
+        codeudor = CodeudorSolidario.objects.create(
+            contrato=contrato,
+            snapshot_identidad={'nombre': 'Codeudor Admin', 'rut': '12.345.678-5'},
+        )
 
         site = AdminSite()
         contrato_admin = ContratoAdmin(Contrato, site)
+        contrato_propiedad_admin = ContratoPropiedadAdmin(ContratoPropiedad, site)
         periodo_admin = PeriodoContractualAdmin(PeriodoContractual, site)
         aviso_admin = AvisoTerminoAdmin(AvisoTermino, site)
+        codeudor_admin = CodeudorSolidarioAdmin(CodeudorSolidario, site)
 
         self.assertNotIn('entrega_llaves_autorizacion_ref', contrato_admin.fields)
         self.assertNotIn('entrega_llaves_autorizacion_motivo', contrato_admin.fields)
@@ -503,6 +518,11 @@ class ContratosAPITests(APITestCase):
         self.assertFalse(contrato_admin.has_add_permission(None))
         self.assertFalse(periodo_admin.has_add_permission(None))
         self.assertFalse(aviso_admin.has_add_permission(None))
+        self.assertFalse(contrato_admin.has_delete_permission(None, contrato))
+        self.assertFalse(contrato_propiedad_admin.has_delete_permission(None, contrato_propiedad))
+        self.assertFalse(periodo_admin.has_delete_permission(None, periodo))
+        self.assertFalse(aviso_admin.has_delete_permission(None, aviso))
+        self.assertFalse(codeudor_admin.has_delete_permission(None, codeudor))
         self.assertEqual(
             contrato_admin.entrega_llaves_autorizacion_ref_redacted(contrato),
             REDACTED_SENSITIVE_REFERENCE,
@@ -724,6 +744,7 @@ class ContratosAPITests(APITestCase):
             arrendatario_admin.whatsapp_rehabilitacion_ref_redacted(arrendatario),
             REDACTED_SENSITIVE_REFERENCE,
         )
+        self.assertFalse(arrendatario_admin.has_delete_permission(None, arrendatario))
 
     def test_payment_contact_admin_redacts_sensitive_authorization_evidence(self):
         arrendatario = self._create_arrendatario(rut='40404040-6')
@@ -745,6 +766,7 @@ class ContratosAPITests(APITestCase):
             contact_admin.evidencia_autorizacion_ref_redacted(contact),
             REDACTED_SENSITIVE_REFERENCE,
         )
+        self.assertFalse(contact_admin.has_delete_permission(None, contact))
 
     def test_create_arrendatario_rejects_opt_in_when_whatsapp_blocked(self):
         payload = {
