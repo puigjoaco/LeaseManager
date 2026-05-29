@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Conciliacion / admin operativo de solo lectura. |
-| Fuente exacta | Stage card Etapa 3, trazabilidad vigente, evidencia vigente y estado real del repositorio. |
-| Brecha activa | `MovimientoBancarioImportadoAdmin`, `IngresoDesconocidoAdmin`, `CuadraturaBancariaAdmin` y `TransferenciaIntercuentaAdmin` ya eran readonly por campos, pero conservaban permiso Django admin de cambio. |
-| Motivo de prioridad | Cerrar una brecha local de bypass administrativo en entidades que deben mutar por APIs o servicios auditados. |
-| Worktree | `D:/Proyectos/LeaseManager-conciliacion-admin-change-guard`. |
-| Rama | `codex/conciliacion-admin-change-guard`. |
-| Estado | Paquete tactico validado localmente; pendiente PR, CI, merge y limpieza. |
-| Gate esperado | Focal Conciliacion admin, suite Conciliacion/readiness Etapa 3, `manage.py check`, migraciones dry-run, gate local Etapa 3 parcial, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Estado al cerrar paquete | Validacion local OK: focal Conciliacion admin, suite Conciliacion/readiness Etapa 3, `manage.py check`, migraciones dry-run, gate local Etapa 3 parcial, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Ninguno nuevo; Etapa 3 sigue parcial para cierre real por banco real o snapshot autorizado, pero este paquete local no depende de eso. |
+| Frente activo | Ninguno. |
+| Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, `CODEX_OPERATING_PROTOCOL_MAYO_2026.md`, stage cards, trazabilidad y evidencia vigentes. |
+| Brecha activa | Ninguna registrada en curso. |
+| Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
+| Worktree | N/A. |
+| Rama | `main`. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Conciliacion bloquea alta, edicion y borrado manual en superficies operativas de solo lectura conservando inspeccion redactada. |
+| Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
+| Estado al cerrar paquete | Conciliacion/Etapa 3 permanece parcial por banco real o snapshot autorizado; paquete local validado con focal Conciliacion admin, suite Conciliacion/readiness Etapa 3, `manage.py check`, migraciones dry-run, gate local Etapa 3 parcial, frontend build/lint, acceptance local, CI GitHub, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 3 sigue parcial para cierre real, pero esta preparacion local no depende de datos reales ni integraciones externas. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
