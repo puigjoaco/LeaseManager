@@ -15,6 +15,16 @@ from rest_framework.test import APITestCase
 from audit.models import AuditEvent
 from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
+from operacion.models import (
+    CanalOperacion,
+    CuentaRecaudadora,
+    EstadoCuentaRecaudadora,
+    EstadoIdentidadEnvio,
+    EstadoMandatoOperacion,
+    IdentidadDeEnvio,
+    MandatoOperacion,
+    ModoOperacionCuentaRecaudadora,
+)
 
 from .admin import (
     ComunidadPatrimonialAdmin,
@@ -173,6 +183,24 @@ class PatrimonioAPITests(APITestCase):
             codigo_propiedad='SRV-001',
             estado=EstadoPatrimonial.ACTIVE,
             socio_owner=socio,
+        )
+
+    def _create_active_account(self, *, empresa=None, socio=None, numero='ACC-PAT-001'):
+        titular_nombre = empresa.razon_social if empresa else socio.nombre
+        titular_rut = empresa.rut if empresa else socio.rut
+        return CuentaRecaudadora.objects.create(
+            empresa_owner=empresa,
+            socio_owner=socio,
+            institucion='Banco Uno',
+            numero_cuenta=numero,
+            tipo_cuenta='corriente',
+            titular_nombre=titular_nombre,
+            titular_rut=titular_rut,
+            moneda_operativa='CLP',
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            evidencia_operativa_ref=f'account-operational-evidence-{numero}',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
         )
 
     def _empresa_payload(self, estado=EstadoPatrimonial.ACTIVE, participaciones=None):
@@ -1267,6 +1295,90 @@ class PatrimonioAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('estado', response.data)
+        self.assertFalse(AuditEvent.objects.filter(event_type='patrimonio.empresa.state_changed').exists())
+
+    def test_empresa_deactivation_rejects_active_account_dependency(self):
+        create_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        empresa = Empresa.objects.get(pk=create_response.data['id'])
+        self._create_active_account(empresa=empresa, numero='ACC-EXIT-001')
+
+        response = self.client.patch(
+            reverse('patrimonio-empresa-detail', args=[empresa.id]),
+            {'estado': EstadoPatrimonial.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        self.assertIn('cuentas recaudadoras activas', str(response.data['estado']))
+        self.assertFalse(AuditEvent.objects.filter(event_type='patrimonio.empresa.state_changed').exists())
+
+    def test_empresa_deactivation_rejects_active_mandate_dependency(self):
+        create_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        empresa = Empresa.objects.get(pk=create_response.data['id'])
+        propietario = self._create_socio('Propietario Mandato Salida', '15151515-7')
+        propiedad = Propiedad.objects.create(
+            direccion='Av Mandato Salida 100',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.LOCAL,
+            codigo_propiedad='EXIT-MAN-001',
+            estado=EstadoPatrimonial.ACTIVE,
+            socio_owner=propietario,
+        )
+        cuenta = self._create_active_account(socio=propietario, numero='ACC-EXIT-002')
+        MandatoOperacion.objects.create(
+            propiedad=propiedad,
+            propietario_socio_owner=propietario,
+            administrador_empresa_owner=empresa,
+            recaudador_socio_owner=propietario,
+            cuenta_recaudadora=cuenta,
+            tipo_relacion_operativa='mandato_externo',
+            autoriza_recaudacion=True,
+            autoriza_facturacion=False,
+            autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-exit-001',
+            vigencia_desde='2026-01-01',
+            estado=EstadoMandatoOperacion.ACTIVE,
+        )
+
+        response = self.client.patch(
+            reverse('patrimonio-empresa-detail', args=[empresa.id]),
+            {'estado': EstadoPatrimonial.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        self.assertIn('mandatos operativos activos', str(response.data['estado']))
+        self.assertFalse(AuditEvent.objects.filter(event_type='patrimonio.empresa.state_changed').exists())
+
+    def test_empresa_deactivation_rejects_active_identity_dependency(self):
+        create_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        empresa = Empresa.objects.get(pk=create_response.data['id'])
+        IdentidadDeEnvio.objects.create(
+            empresa_owner=empresa,
+            canal=CanalOperacion.EMAIL,
+            remitente_visible=empresa.razon_social,
+            direccion_o_numero='salida-operativa@example.com',
+            credencial_ref='identity-exit-ref-001',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+
+        response = self.client.patch(
+            reverse('patrimonio-empresa-detail', args=[empresa.id]),
+            {'estado': EstadoPatrimonial.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+        self.assertIn('identidades de envio activas', str(response.data['estado']))
         self.assertFalse(AuditEvent.objects.filter(event_type='patrimonio.empresa.state_changed').exists())
 
     def test_comunidad_deactivation_rejects_active_structure(self):
