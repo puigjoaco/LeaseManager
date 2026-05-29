@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | CobranzaActiva / admin operativo. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, `CODEX_OPERATING_PROTOCOL_MAYO_2026.md`, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | Los admins operativos de Cobranza bloqueaban alta y borrado manual, pero aun podian abrir flujo de cambio manual desde Django admin. |
-| Motivo de prioridad | Etapa 2 exige que UF, ajustes, pagos, WebPay, garantias, repactaciones, residuales y estados de cuenta pasen por API, servicios, reconstruccion, conciliacion o resolucion formal auditada; no por mutacion manual de admin. |
-| Worktree | `D:/Proyectos/LeaseManager-cobranza-admin-change-guard`. |
-| Rama | `codex/cobranza-admin-change-guard`. |
-| Estado | Paquete tactico abierto para bloquear edicion manual de admins operativos de Cobranza, conservando inspeccion redactada y sin conectar WebPay real. |
-| Gate esperado | Focal Cobranza admin; suite Cobranza/readiness Etapa 2; `manage.py check`; migraciones dry-run; gate local Etapa 2 parcial; frontend build/lint; acceptance local; higiene repo y `git diff --check`. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna registrada en curso. |
+| Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
+| Worktree | N/A. |
+| Rama | `main`. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Cobranza bloquea alta, edicion y borrado manual en superficies operativas, conservando inspeccion redactada y sin conectar WebPay real. |
+| Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
+| Estado al cerrar paquete | PR #540 mergeado en `main` (`a17472f`). Validado con focal Cobranza admin, suite Cobranza/readiness Etapa 2, `manage.py check`, migraciones dry-run, gate local Etapa 2 parcial, frontend build/lint, acceptance local, CI GitHub, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo; CobranzaActiva/Etapa 2 sigue parcial para cierre real por datos Etapa 1, fuente autorizada y pruebas externas/controladas de Email/WebPay, pero esta preparacion local no depende de datos reales ni integraciones externas. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
-| Siguiente accion | Implementar guard de `has_change_permission`, validar y cerrar PR. |
+| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
 ## Actualizacion
 
