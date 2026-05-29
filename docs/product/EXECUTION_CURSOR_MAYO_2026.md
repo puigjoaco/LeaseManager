@@ -23,14 +23,14 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` base `62f9adb`, PRD canonico, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
-| Brecha activa | Cerrada por este paquete: `prepare_sensitive_export()` y `revoke_export()` persistian la exportacion preparada/revocada, pero los eventos `compliance.exportacion_sensible.prepared` y `revoked` quedaban en la vista HTTP. Una falla posterior de auditoria podia dejar exportaciones sensibles sin evento dedicado. |
-| Motivo de prioridad | Las exportaciones sensibles son superficie de datos personales/financieros; preparar o revocar una exportacion no debe persistir sin auditoria trazable dentro de la misma transaccion. |
-| Worktree | Ninguno tras merge. Durante la ejecucion se uso `D:/Proyectos/LeaseManager-compliance-export-audit-service`. |
-| Rama | `main` tras merge; laboratorio usado: `codex/compliance-export-audit-service`. |
-| Estado | Paquete Etapa 0 / Compliance / auditoria atomica de exportaciones sensibles preparado para integracion: implementacion, pruebas locales y gates proporcionales OK. |
-| Gate esperado | Focal Compliance, suite `compliance` y readiness de datos sensibles, `manage.py check`, `makemigrations --check --dry-run`, gate local Compliance, acceptance local, higiene repo y `git diff --check`. |
-| Estado al cerrar paquete | Etapa 0 / Compliance / auditoria atomica de exportaciones sensibles: validacion local OK con focal 5 tests, suite `compliance` + readiness datos sensibles 95 tests, `manage.py check`, migraciones dry-run, gate local Compliance parcial esperado, `npm ci` 0 vulnerabilidades, `npm run build`, `npm run lint`, acceptance 1105 tests, higiene repo y `git diff --check`. |
+| Fuente exacta | Estado real de `main` en `d170eaa` tras merge de PR #563, PRD canonico, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna. Ultimo paquete cerrado: Etapa 0 / Compliance / auditoria atomica de exportaciones sensibles desde servicio. |
+| Motivo de prioridad | No hay paquete tactico abierto; corresponde diagnosticar el siguiente frente seguro desde trazabilidad y stage cards. |
+| Worktree | Ninguno tras merge. El laboratorio usado por el ultimo paquete fue `D:/Proyectos/LeaseManager-compliance-export-audit-service` y ya fue eliminado. |
+| Rama | `main` limpio tras merge `d170eaa`; laboratorio cerrado: `codex/compliance-export-audit-service`. |
+| Estado | Ultimo paquete integrado en `main` por PR #563. El cursor queda libre para diagnosticar el siguiente frente seguro, sin reabrir Compliance ni repetir tareas cerradas. |
+| Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
+| Estado al cerrar paquete | Etapa 0 / Compliance / auditoria atomica de exportaciones sensibles: merge `d170eaa` de PR #563. Validacion local OK con focal 5 tests, suite `compliance` + readiness datos sensibles 95 tests, `manage.py check`, migraciones dry-run, gate local Compliance parcial esperado, `npm ci` 0 vulnerabilidades, `npm run build`, `npm run lint`, acceptance 1105 tests, higiene repo y `git diff --check`; CI GitHub acceptance OK. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo; Compliance de datos sensibles no se declara cerrado sin politica aprobada, responsables, controles, evidencia archivada, validacion legal-operativa y fuente autorizada. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
