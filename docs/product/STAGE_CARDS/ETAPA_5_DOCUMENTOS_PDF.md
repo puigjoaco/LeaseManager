@@ -61,6 +61,10 @@ firma y notaria trazables.
 - Cada documento emitido debe tener politica activa para su tipo documental;
   el dominio/API rechaza nuevas escrituras sin esa politica y evita desactivar
   politicas ya usadas por documentos existentes.
+- Una `PoliticaFirmaYNotaria` ya usada por documentos emitidos no puede cambiar
+  `tipo_documental`, requisitos de firma, requisitos documentales del
+  arrendatario, requisito notarial, modo de firma ni `estado`. Sin versionado
+  de politica por documento, esas reglas son evidencia tecnica historica.
 - Cada documento emitido y cada PDF generado por sistema debe tener plantilla
   activa para su tipo y version. Readiness reporta
   `documents.active_template_missing`, `documents.active_template_invalid`,

@@ -773,6 +773,27 @@ class DocumentosAPITests(APITestCase):
         self.assertIn('estado', response.data)
         self.assertEqual(PoliticaFirmaYNotaria.objects.get(pk=policy['id']).estado, 'activa')
 
+    def test_used_policy_api_rejects_signature_requirement_mutation(self):
+        expediente = self._create_expediente(entidad_id='policy-immutability')
+        policy = self._create_politica()
+        self._create_documento(expediente['id'])
+
+        response = self.client.patch(
+            reverse('documentos-politica-detail', args=[policy['id']]),
+            {
+                'requiere_notaria': True,
+                'modo_firma_permitido': 'firma_avanzada',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('requiere_notaria', response.data)
+        self.assertIn('modo_firma_permitido', response.data)
+        stored = PoliticaFirmaYNotaria.objects.get(pk=policy['id'])
+        self.assertFalse(stored.requiere_notaria)
+        self.assertEqual(stored.modo_firma_permitido, 'firma_simple')
+
     def test_document_storage_ref_must_be_non_sensitive_pdf_reference(self):
         expediente = self._create_expediente(entidad_id='pdf-sensitive-guard')
         self._create_politica()

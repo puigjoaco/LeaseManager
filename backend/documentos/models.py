@@ -147,21 +147,28 @@ class PoliticaFirmaYNotaria(TimestampedModel):
     def __str__(self):
         return self.tipo_documental
 
+    def persisted_policy(self):
+        if not self.pk:
+            return None
+        return type(self).objects.filter(pk=self.pk).only(
+            'tipo_documental',
+            'requiere_firma_arrendador',
+            'requiere_firma_arrendatario',
+            'requiere_codeudor',
+            'requiere_nacionalidad_arrendatario',
+            'requiere_estado_civil_arrendatario',
+            'requiere_profesion_arrendatario',
+            'requiere_notaria',
+            'modo_firma_permitido',
+            'estado',
+        ).first()
+
     def clean(self):
         super().clean()
+        errors = {}
         if self.tipo_documental == TipoDocumental.MAIN_CONTRACT:
             if not self.requiere_firma_arrendador or not self.requiere_firma_arrendatario:
-                raise ValidationError(
-                    'El ContratoPrincipal requiere firma de arrendador y arrendatario.'
-                )
-        if (
-            self.pk
-            and self.estado != EstadoPoliticaFirma.ACTIVE
-            and DocumentoEmitido.objects.filter(tipo_documental=self.tipo_documental).exists()
-        ):
-            raise ValidationError(
-                {'estado': 'No se puede desactivar una politica usada por documentos emitidos.'}
-            )
+                errors['tipo_documental'] = 'El ContratoPrincipal requiere firma de arrendador y arrendatario.'
 
         if (
             self.tipo_documental != TipoDocumental.MAIN_CONTRACT
@@ -171,9 +178,34 @@ class PoliticaFirmaYNotaria(TimestampedModel):
                 or self.requiere_profesion_arrendatario
             )
         ):
-            raise ValidationError(
+            errors['tipo_documental'] = (
                 'Los requisitos documentales del arrendatario persona natural solo aplican al contrato principal.'
             )
+
+        persisted = self.persisted_policy()
+        if persisted:
+            policy_is_used = DocumentoEmitido.objects.filter(tipo_documental=persisted.tipo_documental).exists()
+            if policy_is_used:
+                protected_fields = (
+                    'tipo_documental',
+                    'requiere_firma_arrendador',
+                    'requiere_firma_arrendatario',
+                    'requiere_codeudor',
+                    'requiere_nacionalidad_arrendatario',
+                    'requiere_estado_civil_arrendatario',
+                    'requiere_profesion_arrendatario',
+                    'requiere_notaria',
+                    'modo_firma_permitido',
+                    'estado',
+                )
+                for field in protected_fields:
+                    if getattr(self, field) != getattr(persisted, field):
+                        errors[field] = (
+                            'No se puede modificar una politica documental ya usada por documentos emitidos.'
+                        )
+
+        if errors:
+            raise ValidationError(errors)
 
 
 class PlantillaDocumental(TimestampedModel):
