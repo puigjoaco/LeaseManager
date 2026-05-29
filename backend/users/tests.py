@@ -220,6 +220,8 @@ class UserAuthAPITests(APITestCase):
         metadata = json.loads(admin_instance.metadata_redacted(user))
         self.assertEqual(metadata['safe_ref'], 'controlled-user-ref')
         self.assertEqual(metadata['callback_url'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(admin_instance.has_delete_permission(None))
+        self.assertFalse(admin_instance.has_delete_permission(None, obj=user))
 
     def test_login_includes_cached_manual_summary_when_available(self):
         user = get_user_model().objects.create_user(
