@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-28: Operacion/Etapa 1 cierra borrado manual de cobertura
+operativa desde admin. `CuentaRecaudadoraAdmin`, `IdentidadDeEnvioAdmin`,
+`MandatoOperacionAdmin` y `AsignacionCanalOperacionAdmin` deshabilitan
+borrado manual para conservar cuentas, mandatos, identidades, asignaciones,
+vigencias y trazabilidad; las bajas quedan por estado, vigencia o flujo
+auditado.
+
 Nota 2026-05-28: Documentos/Etapa 5 cierra superficie admin operativa.
 `ExpedienteDocumentalAdmin` y `DocumentoEmitidoAdmin` dejan sus campos en solo
 lectura y deshabilitan borrado manual; las altas, formalizacion, correcciones y

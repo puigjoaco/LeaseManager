@@ -87,7 +87,10 @@ contra datos reales o snapshot controlado.
 - Validacion de transiciones operativas: cuentas recaudadoras, mandatos,
   identidades de envio y asignaciones de canal no pueden pausarse,
   suspenderse o inactivarse si dejan contratos vigentes/futuros, mandatos o
-  canales activos sin cobertura operativa.
+  canales activos sin cobertura operativa. El admin Django no permite borrar
+  manualmente cuentas recaudadoras, identidades de envio, mandatos ni
+  asignaciones de canal; las bajas deben expresarse por estado, vigencia o
+  flujo auditado.
 - Validacion de cuentas recaudadoras activas: una cuenta activa debe declarar
   uso operativo, modo `manual_controlado` o `gate_bancario`, y evidencia
   operativa trazable no sensible; API, snapshot y admin/backoffice redactan
