@@ -59,8 +59,9 @@ class AuditAPITests(APITestCase):
         resolution = ManualResolution.objects.create(
             category='migration.propiedad.owner_manual_required',
             scope_type='legacy_propiedad',
-            scope_reference='prop-redact',
-            summary='Metadata heredada',
+            scope_reference='https://audit.example.test/resolution?token=secret',
+            summary='Metadata heredada en https://audit.example.test/summary?token=secret',
+            rationale='Rationale heredado con bearer token',
             metadata={
                 'safe_ref': 'controlled-reference',
                 'callback_url': 'https://provider.example.test/token/value',
@@ -79,6 +80,14 @@ class AuditAPITests(APITestCase):
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
         self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        for payload in (
+            list_response.data[0],
+            detail_response.data,
+            snapshot_response.data['manual_resolutions'][0],
+        ):
+            self.assertEqual(payload['scope_reference'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(payload['summary'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(payload['rationale'], REDACTED_SENSITIVE_REFERENCE)
         for metadata in (
             list_response.data[0]['metadata'],
             detail_response.data['metadata'],
@@ -92,6 +101,7 @@ class AuditAPITests(APITestCase):
 
         for response in (list_response, detail_response, snapshot_response):
             body = response.content.decode()
+            self.assertNotIn('audit.example.test', body)
             self.assertNotIn('provider.example.test', body)
             self.assertNotIn('opaque-token-value', body)
             self.assertNotIn('Bearer inherited-value', body)
@@ -104,27 +114,41 @@ class AuditAPITests(APITestCase):
         )
         self.client.force_authenticate(admin)
         AuditEvent.objects.create(
+            actor_identifier='service-account-token-value',
             event_type='audit.metadata.test',
             entity_type='empresa',
-            entity_id='1',
-            summary='Evento con metadata heredada',
+            entity_id='https://audit.example.test/entities/1?token=secret',
+            summary='Evento con metadata heredada en https://audit.example.test/event?token=secret',
             metadata={
                 'safe_ref': 'controlled-event',
                 'callback_url': 'https://audit.example.test/token/value',
                 'api_key': 'opaque-key-value',
             },
+            request_id='request-token-value',
         )
 
         response = self.client.get(reverse('audit-events'))
+        snapshot_response = self.client.get(reverse('audit-snapshot'))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]['actor_identifier'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(response.data[0]['actor_user_display'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(response.data[0]['entity_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(response.data[0]['summary'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(response.data[0]['request_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['events'][0]['actor_user_display'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['events'][0]['entity_id'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['events'][0]['summary'], REDACTED_SENSITIVE_REFERENCE)
         metadata = response.data[0]['metadata']
         self.assertEqual(metadata['safe_ref'], 'controlled-event')
         self.assertEqual(metadata['callback_url'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(metadata['api_key'], REDACTED_SENSITIVE_REFERENCE)
-        body = response.content.decode()
-        self.assertNotIn('audit.example.test', body)
-        self.assertNotIn('opaque-key-value', body)
+        for raw_body in (response.content.decode(), snapshot_response.content.decode()):
+            self.assertNotIn('audit.example.test', raw_body)
+            self.assertNotIn('opaque-key-value', raw_body)
+            self.assertNotIn('service-account-token-value', raw_body)
+            self.assertNotIn('request-token-value', raw_body)
 
     def test_audit_admin_redacts_sensitive_event_and_resolution_fields(self):
         event = AuditEvent.objects.create(
@@ -224,6 +248,28 @@ class AuditAPITests(APITestCase):
                 scope_reference='123',
             ).exists()
         )
+
+    def test_generic_resolution_rejects_sensitive_fields(self):
+        response = self.client.post(
+            reverse('manual-resolution-list'),
+            {
+                'category': 'operacion.revision_manual',
+                'scope_type': 'operacion',
+                'scope_reference': 'https://audit.example.test/scope?token=secret',
+                'summary': 'Revision en https://audit.example.test/summary?token=secret',
+                'rationale': 'Rationale con bearer token',
+                'metadata': {'api_key': 'opaque-key-value'},
+                'status': 'open',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('scope_reference', response.data)
+        self.assertIn('summary', response.data)
+        self.assertIn('rationale', response.data)
+        self.assertIn('metadata', response.data)
+        self.assertFalse(ManualResolution.objects.filter(category='operacion.revision_manual').exists())
 
     def test_generic_resolution_cannot_be_converted_to_specialized_category(self):
         resolution = ManualResolution.objects.create(

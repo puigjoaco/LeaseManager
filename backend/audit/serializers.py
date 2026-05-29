@@ -2,7 +2,12 @@ from rest_framework import serializers
 
 from cobranza.models import PagoMensual
 from conciliacion.models import CategoriaMovimiento, MovimientoBancarioImportado
-from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference, redact_sensitive_payload
+from core.reference_validation import (
+    contains_sensitive_reference,
+    is_non_sensitive_reference,
+    redact_sensitive_payload,
+    redact_sensitive_reference,
+)
 from core.scope_access import scope_queryset_for_user
 from patrimonio.models import Empresa, ModoRepresentacionComunidad, Socio
 from patrimonio.validators import validate_rut
@@ -28,10 +33,12 @@ class AuditEventSerializer(serializers.ModelSerializer):
     def get_actor_user_display(self, obj):
         if obj.actor_user_id:
             return obj.actor_user.display_name or obj.actor_user.username
-        return obj.actor_identifier or 'Sistema'
+        return redact_sensitive_reference(obj.actor_identifier) or 'Sistema'
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        for field_name in ('actor_identifier', 'entity_id', 'summary', 'request_id'):
+            data[field_name] = redact_sensitive_reference(data.get(field_name))
         data['metadata'] = redact_sensitive_payload(data.get('metadata') or {})
         return data
 
@@ -57,16 +64,22 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        for field_name in ('scope_reference', 'summary', 'rationale'):
+            data[field_name] = redact_sensitive_reference(data.get(field_name))
         data['metadata'] = redact_sensitive_payload(data.get('metadata') or {})
         return data
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
         category = attrs.get('category')
+        errors = {}
+        for field_name in ('scope_reference', 'summary', 'rationale'):
+            if field_name in attrs and contains_sensitive_reference(attrs[field_name]):
+                errors[field_name] = 'Use una referencia o descripcion trazable no sensible.'
+        if 'metadata' in attrs and contains_sensitive_reference(attrs['metadata'], include_sensitive_keys=True):
+            errors['metadata'] = 'metadata no debe contener URLs, tokens, correos, credenciales ni claves sensibles.'
         if self.instance is None and category in SPECIALIZED_MANUAL_RESOLUTION_CATEGORIES:
-            raise serializers.ValidationError(
-                {'category': 'Use el servicio especializado correspondiente para crear este caso.'}
-            )
+            errors['category'] = 'Use el servicio especializado correspondiente para crear este caso.'
         if (
             self.instance
             and (
@@ -74,7 +87,6 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
                 or category in SPECIALIZED_MANUAL_RESOLUTION_CATEGORIES
             )
         ):
-            errors = {}
             if category and category != self.instance.category:
                 errors['category'] = 'Use el servicio especializado correspondiente para cambiar este caso.'
             for field_name in ('scope_type', 'scope_reference', 'metadata'):
@@ -88,6 +100,8 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
                 errors['status'] = 'Use la resolución especializada correspondiente para cerrar este caso.'
             if errors:
                 raise serializers.ValidationError(errors)
+        if errors:
+            raise serializers.ValidationError(errors)
         return attrs
 
 

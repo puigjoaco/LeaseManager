@@ -30,6 +30,10 @@ evidencia respalda el root limpio.
 - El detector transversal de referencias sensibles redacta valores y claves de
   metadata como `authorization` y `private_key`, sin tratar refs operativas no
   sensibles como secretos por su nombre de valor.
+- Auditoria no expone referencias sensibles heredadas en API ni snapshot:
+  eventos redactan actor, entidad, resumen, request id y metadata; las
+  resoluciones manuales redactan scope, resumen, rationale y metadata, y la API
+  generica rechaza nuevas escrituras con referencias sensibles.
 - Los admins RBAC de Core no exponen metadata ni permission sets crudos y no
   permiten borrado manual de roles, scopes, permisos por scope ni asignaciones.
 - `PlatformSettingAdmin` muestra valores de plataforma solo redactados y no

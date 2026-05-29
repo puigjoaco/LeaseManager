@@ -14,7 +14,7 @@ from core.permissions import (
     ROLE_REVIEWER,
     get_effective_role_codes,
 )
-from core.reference_validation import redact_sensitive_payload
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from patrimonio.models import Propiedad
 from .models import AuditEvent, ManualResolution
 from .scope_filters import scope_manual_resolution_queryset
@@ -84,6 +84,12 @@ def _manual_resolution_queryset_for_user(user):
     return _scoped_manual_resolution_queryset(ManualResolution.objects.all(), user)
 
 
+def _actor_display(event):
+    if event.actor_user_id:
+        return event.actor_user.display_name or event.actor_user.username
+    return redact_sensitive_reference(event.actor_identifier) or 'Sistema'
+
+
 class AuditEventListView(generics.ListAPIView):
     permission_classes = [AuditReadPermission]
     serializer_class = AuditEventSerializer
@@ -107,12 +113,12 @@ class AuditSnapshotView(APIView):
                 'events': [
                     {
                         'id': item.id,
-                        'actor_user_display': item.actor_user.display_name or item.actor_user.username if item.actor_user_id else (item.actor_identifier or 'Sistema'),
+                        'actor_user_display': _actor_display(item),
                         'event_type': item.event_type,
                         'severity': item.severity,
                         'entity_type': item.entity_type,
-                        'entity_id': item.entity_id,
-                        'summary': item.summary,
+                        'entity_id': redact_sensitive_reference(item.entity_id),
+                        'summary': redact_sensitive_reference(item.summary),
                         'created_at': item.created_at,
                     }
                     for item in (_scoped_audit_event_queryset(request.user).order_by('-created_at')[:100] if can_read_events else [])
@@ -123,9 +129,9 @@ class AuditSnapshotView(APIView):
                         'category': item.category,
                         'status': item.status,
                         'scope_type': item.scope_type,
-                        'scope_reference': item.scope_reference,
-                        'summary': item.summary,
-                        'rationale': item.rationale,
+                        'scope_reference': redact_sensitive_reference(item.scope_reference),
+                        'summary': redact_sensitive_reference(item.summary),
+                        'rationale': redact_sensitive_reference(item.rationale),
                         'requested_by': item.requested_by_id,
                         'requested_by_display': item.requested_by.display_name or item.requested_by.username if item.requested_by_id else '',
                         'resolved_by': item.resolved_by_id,
