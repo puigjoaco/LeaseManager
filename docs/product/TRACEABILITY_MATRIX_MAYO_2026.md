@@ -7,6 +7,11 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-29: Documentos/Etapa 5 cierra borrado manual de politica
+documental desde admin. `PoliticaFirmaYNotariaAdmin` conserva configuracion
+operativa, pero deshabilita borrado manual para preservar la regla que
+condiciona firmas, notaria, formalizacion y cierre documental.
+
 Nota 2026-05-29: Contabilidad/Etapa 5 cierra borrado manual de configuracion
 fiscal y contable desde admin. `RegimenTributarioEmpresaAdmin`,
 `ConfiguracionFiscalEmpresaAdmin`, `CuentaContableAdmin`,
@@ -49,7 +54,8 @@ Nota 2026-05-28: Documentos/Etapa 5 cierra superficie admin operativa.
 `ExpedienteDocumentalAdmin` y `DocumentoEmitidoAdmin` dejan sus campos en solo
 lectura y deshabilitan borrado manual; las altas, formalizacion, correcciones y
 mutaciones documentales quedan bajo endpoints o servicios auditados. La
-politica de firma/notaria conserva su superficie de configuracion operativa.
+politica de firma/notaria conserva su superficie de configuracion operativa sin
+borrado manual.
 
 Nota 2026-05-28: Canales/Etapa 2 cierra superficie admin operativa.
 `CanalMensajeriaAdmin`, `MensajeSalienteAdmin`,

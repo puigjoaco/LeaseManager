@@ -28,10 +28,10 @@ nueva.
 | Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de configuracion contable/fiscal bloquea borrado manual de regimenes, configuraciones fiscales, cuentas, reglas, matriz y politicas de reverso. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de politica firma/notaria bloquea borrado manual conservando configuracion operativa. |
 | Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
-| Estado al cerrar paquete | Contabilidad/Etapa 5 permanece preparada sin cierre falso; paquete validado con focal admin Contabilidad, suite Contabilidad/Etapa 5/Etapa 7, `manage.py check`, migraciones dry-run, readiness local Etapa 5, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 5 sigue sin cierre evidencial hasta Conciliacion cerrada y fuente autorizada/controlada requerida. |
+| Estado al cerrar paquete | Documentos/Etapa 5 permanece preparado sin cierre falso; paquete validado con focal admin Documentos, suite Documentos/readiness documental, `manage.py check`, migraciones dry-run, readiness local Documentos, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; Documentos/Etapa 5 sigue sin cierre evidencial hasta politica final, PDF controlado y fuente autorizada/controlada requerida. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 

@@ -115,3 +115,6 @@ class PoliticaFirmaYNotariaAdmin(admin.ModelAdmin):
     )
     search_fields = ('tipo_documental',)
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+

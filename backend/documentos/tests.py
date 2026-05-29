@@ -13,7 +13,7 @@ from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .admin import DocumentoEmitidoAdmin, ExpedienteDocumentalAdmin
+from .admin import DocumentoEmitidoAdmin, ExpedienteDocumentalAdmin, PoliticaFirmaYNotariaAdmin
 from .correction_audit import CORRECTION_AUDIT_EVENT_TYPE
 from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE
 from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria
@@ -390,6 +390,12 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(model_admin.entidad_tipo_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(model_admin.entidad_id_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(model_admin.owner_operativo_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
+
+    def test_signature_policy_admin_blocks_manual_delete(self):
+        model_admin = PoliticaFirmaYNotariaAdmin(PoliticaFirmaYNotaria, AdminSite())
+
+        self.assertFalse(model_admin.has_delete_permission(None))
+        self.assertFalse(model_admin.has_delete_permission(None, obj=object()))
 
     def _create_active_company(self, nombre, rut, socio_ruts):
         socio_1 = Socio.objects.create(nombre=f'{nombre} Socio 1', rut=socio_ruts[0], activo=True)
