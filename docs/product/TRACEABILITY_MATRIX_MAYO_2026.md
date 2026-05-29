@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-29: Auditoria/Etapa 0 hace trazable el ciclo generico de
+`ManualResolution`. El endpoint generico crea resoluciones solo abiertas,
+ignora intentos de suplantar `requested_by`/`resolved_by`, exige rationale para
+cerrar, estampa `resolved_by` y `resolved_at` con el usuario actual y bloquea
+reaperturas de resoluciones terminales.
+
 Nota 2026-05-29: Auditoria/Etapa 0 cierra exposicion de referencias sensibles
 heredadas en API y snapshot. `AuditEventSerializer` redacta actor, entidad,
 resumen, request id y metadata; `ManualResolutionSerializer` redacta

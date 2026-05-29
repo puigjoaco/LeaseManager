@@ -50,7 +50,7 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ManualResolution
         fields = '__all__'
-        read_only_fields = ('id', 'created_at', 'resolved_at')
+        read_only_fields = ('id', 'requested_by', 'resolved_by', 'created_at', 'resolved_at')
 
     def get_requested_by_display(self, obj):
         if obj.requested_by_id:
@@ -71,13 +71,17 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        category = attrs.get('category')
+        category = attrs.get('category', self.instance.category if self.instance else None)
         errors = {}
         for field_name in ('scope_reference', 'summary', 'rationale'):
             if field_name in attrs and contains_sensitive_reference(attrs[field_name]):
                 errors[field_name] = 'Use una referencia o descripcion trazable no sensible.'
         if 'metadata' in attrs and contains_sensitive_reference(attrs['metadata'], include_sensitive_keys=True):
             errors['metadata'] = 'metadata no debe contener URLs, tokens, correos, credenciales ni claves sensibles.'
+        terminal_statuses = {ManualResolution.Status.RESOLVED, ManualResolution.Status.SUPERSEDED}
+        status_value = attrs.get('status')
+        if self.instance is None and status_value in terminal_statuses:
+            errors['status'] = 'La resolucion manual debe crearse abierta y cerrarse por un flujo auditado.'
         if self.instance is None and category in SPECIALIZED_MANUAL_RESOLUTION_CATEGORIES:
             errors['category'] = 'Use el servicio especializado correspondiente para crear este caso.'
         if (
@@ -100,6 +104,14 @@ class ManualResolutionSerializer(serializers.ModelSerializer):
                 errors['status'] = 'Use la resolución especializada correspondiente para cerrar este caso.'
             if errors:
                 raise serializers.ValidationError(errors)
+        if self.instance:
+            next_status = status_value or self.instance.status
+            if self.instance.status in terminal_statuses and status_value and status_value != self.instance.status:
+                errors['status'] = 'Una resolucion manual cerrada no puede reabrirse ni cambiar de estado.'
+            if next_status in terminal_statuses and self.instance.status != next_status:
+                rationale = attrs.get('rationale', self.instance.rationale)
+                if not str(rationale or '').strip():
+                    errors['rationale'] = 'Cerrar una resolucion manual requiere rationale trazable.'
         if errors:
             raise serializers.ValidationError(errors)
         return attrs

@@ -271,6 +271,132 @@ class AuditAPITests(APITestCase):
         self.assertIn('metadata', response.data)
         self.assertFalse(ManualResolution.objects.filter(category='operacion.revision_manual').exists())
 
+    def test_generic_resolution_create_uses_current_user_and_open_status(self):
+        other_user = get_user_model().objects.create_user(
+            username='resolution-spoof',
+            password='secret123',
+            default_role_code='OperadorDeCartera',
+        )
+
+        response = self.client.post(
+            reverse('manual-resolution-list'),
+            {
+                'category': 'operacion.revision_manual',
+                'scope_type': 'operacion',
+                'scope_reference': 'operacion-review-001',
+                'summary': 'Revision operativa trazable',
+                'requested_by': other_user.pk,
+                'resolved_by': other_user.pk,
+                'status': 'in_review',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        resolution = ManualResolution.objects.get(category='operacion.revision_manual')
+        self.assertEqual(resolution.requested_by, self.user)
+        self.assertIsNone(resolution.resolved_by)
+        self.assertIsNone(resolution.resolved_at)
+        self.assertEqual(resolution.status, ManualResolution.Status.OPEN)
+        self.assertEqual(response.data['requested_by'], self.user.pk)
+        self.assertIsNone(response.data['resolved_by'])
+        self.assertEqual(response.data['status'], ManualResolution.Status.OPEN)
+
+    def test_generic_resolution_cannot_be_created_closed(self):
+        response = self.client.post(
+            reverse('manual-resolution-list'),
+            {
+                'category': 'operacion.revision_manual',
+                'scope_type': 'operacion',
+                'scope_reference': 'operacion-review-closed',
+                'summary': 'Revision operativa cerrada directo',
+                'rationale': 'Motivo trazable',
+                'status': ManualResolution.Status.RESOLVED,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('status', response.data)
+        self.assertFalse(ManualResolution.objects.filter(scope_reference='operacion-review-closed').exists())
+
+    def test_generic_resolution_close_stamps_current_actor(self):
+        resolution = ManualResolution.objects.create(
+            category='operacion.revision_manual',
+            scope_type='operacion',
+            scope_reference='operacion-review-close',
+            summary='Revision operativa',
+            requested_by=self.user,
+            status=ManualResolution.Status.OPEN,
+        )
+        closer = get_user_model().objects.create_user(
+            username='resolution-closer',
+            password='secret123',
+            default_role_code='OperadorDeCartera',
+        )
+        self.client.force_authenticate(closer)
+
+        response = self.client.patch(
+            reverse('manual-resolution-detail', args=[resolution.pk]),
+            {'status': ManualResolution.Status.RESOLVED, 'rationale': 'Cierre operativo trazable'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.status, ManualResolution.Status.RESOLVED)
+        self.assertEqual(resolution.requested_by, self.user)
+        self.assertEqual(resolution.resolved_by, closer)
+        self.assertIsNotNone(resolution.resolved_at)
+        self.assertEqual(response.data['resolved_by'], closer.pk)
+        self.assertIsNotNone(response.data['resolved_at'])
+
+    def test_generic_resolution_close_requires_rationale(self):
+        resolution = ManualResolution.objects.create(
+            category='operacion.revision_manual',
+            scope_type='operacion',
+            scope_reference='operacion-review-close-empty',
+            summary='Revision operativa',
+            requested_by=self.user,
+            status=ManualResolution.Status.OPEN,
+        )
+
+        response = self.client.patch(
+            reverse('manual-resolution-detail', args=[resolution.pk]),
+            {'status': ManualResolution.Status.RESOLVED},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('rationale', response.data)
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.status, ManualResolution.Status.OPEN)
+        self.assertIsNone(resolution.resolved_by)
+        self.assertIsNone(resolution.resolved_at)
+
+    def test_closed_generic_resolution_cannot_be_reopened(self):
+        resolution = ManualResolution.objects.create(
+            category='operacion.revision_manual',
+            scope_type='operacion',
+            scope_reference='operacion-review-reopen',
+            summary='Revision operativa',
+            rationale='Cierre operativo trazable',
+            requested_by=self.user,
+            resolved_by=self.user,
+            status=ManualResolution.Status.RESOLVED,
+        )
+
+        response = self.client.patch(
+            reverse('manual-resolution-detail', args=[resolution.pk]),
+            {'status': ManualResolution.Status.IN_REVIEW},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('status', response.data)
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.status, ManualResolution.Status.RESOLVED)
+
     def test_generic_resolution_cannot_be_converted_to_specialized_category(self):
         resolution = ManualResolution.objects.create(
             category='operacion.revision_manual',
