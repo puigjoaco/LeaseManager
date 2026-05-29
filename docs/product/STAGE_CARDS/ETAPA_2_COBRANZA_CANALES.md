@@ -221,12 +221,12 @@ condicionados sin envios reales accidentales.
   `HistorialGarantiaAdmin` y
   `RepactacionDeudaAdmin` muestran versiones redactadas de refs, motivos y
   payloads sensibles heredados, no buscan por esos campos crudos y mantienen el
-  alta y borrado manual deshabilitados para evitar bypass operativo desde
-  backoffice.
+  alta, edicion y borrado manual deshabilitados para evitar bypass operativo
+  desde backoffice.
   `CodigoCobroResidualAdmin` y `EstadoCuentaArrendatarioAdmin` tambien
-  mantienen el alta y borrado manual deshabilitados, porque los residuales se
-  generan con referencia canonica controlada y los estados de cuenta se
-  reconstruyen desde pagos, repactaciones y codigos activos. En
+  mantienen el alta, edicion y borrado manual deshabilitados, porque los
+  residuales se generan con referencia canonica controlada y los estados de
+  cuenta se reconstruyen desde pagos, repactaciones y codigos activos. En
   `CodigoCobroResidualAdmin`, los campos operativos quedan visibles solo como
   lectura y no se permite borrado manual de registros ya generados. El endpoint
   generico de detalle tambien rechaza mutaciones posteriores a la creacion de
