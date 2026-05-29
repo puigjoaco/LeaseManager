@@ -11,13 +11,14 @@ from core.reference_validation import redact_sensitive_reference
 from .correction_audit import build_correction_audit_metadata
 from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE, build_formalization_audit_metadata
 from .scope import scope_documento_queryset, scope_expediente_queryset
-from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria
+from .models import DocumentoEmitido, ExpedienteDocumental, PlantillaDocumental, PoliticaFirmaYNotaria
 from .pdf_generation import emit_generated_pdf_document, preview_generated_pdf_document
 from .serializers import (
     DocumentoEmitidoSerializer,
     DocumentoFormalizarSerializer,
     DocumentoGenerarPDFSerializer,
     ExpedienteDocumentalSerializer,
+    PlantillaDocumentalSerializer,
     PoliticaFirmaYNotariaSerializer,
 )
 
@@ -80,6 +81,7 @@ class DocumentsSnapshotView(APIView):
     def get(self, request):
         expedientes = scope_expediente_queryset(ExpedienteDocumental.objects.all().order_by('id'), request.user)
         politicas = PoliticaFirmaYNotaria.objects.all().order_by('tipo_documental', 'id')
+        plantillas = PlantillaDocumental.objects.all().order_by('tipo_documental', 'version_plantilla', 'id')
         documentos = scope_documento_queryset(
             DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial', 'documento_origen').all().order_by('id'),
             request.user,
@@ -112,6 +114,18 @@ class DocumentsSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in politicas
+                ],
+                'plantillas_documentales': [
+                    {
+                        'id': item.id,
+                        'tipo_documental': item.tipo_documental,
+                        'version_plantilla': item.version_plantilla,
+                        'plantilla_ref': redact_sensitive_reference(item.plantilla_ref),
+                        'checksum_plantilla': item.checksum_plantilla,
+                        'descripcion': item.descripcion,
+                        'estado': item.estado,
+                    }
+                    for item in plantillas
                 ],
                 'documentos_emitidos': [
                     {
@@ -176,6 +190,22 @@ class PoliticaFirmaYNotariaDetailView(AuditCreateUpdateMixin, generics.RetrieveU
     queryset = PoliticaFirmaYNotaria.objects.all()
     audit_entity_type = 'politica_firma'
     audit_entity_label = 'politica de firma'
+
+
+class PlantillaDocumentalListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [AdminOnlyPermission]
+    serializer_class = PlantillaDocumentalSerializer
+    queryset = PlantillaDocumental.objects.all()
+    audit_entity_type = 'plantilla_documental'
+    audit_entity_label = 'plantilla documental'
+
+
+class PlantillaDocumentalDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [AdminOnlyPermission]
+    serializer_class = PlantillaDocumentalSerializer
+    queryset = PlantillaDocumental.objects.all()
+    audit_entity_type = 'plantilla_documental'
+    audit_entity_label = 'plantilla documental'
 
 
 class DocumentoEmitidoListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):

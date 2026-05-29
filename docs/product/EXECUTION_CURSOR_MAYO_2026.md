@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto. |
-| Fuente exacta | Estado real de `main` en `e1e390d`, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna en curso. El paquete Etapa 5 / Contabilidad / liquidaciones mensuales trazables quedo cerrado en PR #555. |
-| Motivo de prioridad | Evitar que una reanudacion reabra un paquete ya integrado; el siguiente avance debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
-| Worktree | Ninguno. Solo debe existir el worktree principal salvo apertura explicita del siguiente frente. |
-| Rama | `main`. |
-| Estado | PR #555 integrado en `main` con merge `e1e390d`; worktree tactico y rama `codex/stage5-monthly-liquidations` eliminados. |
-| Gate esperado | Para el proximo paquete, definir gates proporcionales segun frente, archivos tocados y riesgo. |
-| Estado al cerrar paquete | Etapa 5 / liquidaciones mensuales: commit `ce69111`; PR #555; CI acceptance pass; validacion local OK: focal 6 tests, suite impactada 96 tests, `manage.py check`, `makemigrations --check --dry-run`, gate Etapa 5 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1092 tests, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo; Etapa 5 no se declara cerrada sin Conciliacion cerrada y fuente `snapshot_controlado` o `real_autorizado`. |
+| Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
+| Fuente exacta | Estado real de `main` base `5ceb572`, PRD canonico, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
+| Brecha activa | Cerrada por este paquete: `DocumentoEmitido.version_plantilla` quedaba como texto libre sin registro canonico de plantilla documental activa por tipo/version. |
+| Motivo de prioridad | Documentos no debe generar, formalizar ni enviar PDFs contra versiones de plantilla no registradas; la brecha es local, verificable y no requiere storage real ni documentos productivos. |
+| Worktree | Ninguno tras merge. Durante la ejecucion se uso `D:/Proyectos/LeaseManager-stage5-document-template-registry`. |
+| Rama | `main` tras merge; laboratorio usado: `codex/stage5-document-template-registry`. |
+| Estado | Paquete Etapa 5 / Documentos / plantillas documentales versionadas preparado para integracion: implementacion, pruebas locales, gate parcial esperado y acceptance local OK. |
+| Gate esperado | Focal Documentos, suite `documentos`, regresion Canales documental, `manage.py check`, `makemigrations --check --dry-run`, gate local Etapa 5 Documentos, `npm ci`, `npm run build`, `npm run lint`, acceptance local, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Etapa 5 / Documentos / plantillas documentales versionadas: validacion local OK con focal 4 tests, `documentos` 79 tests, regresion Canales 3 tests, gate local `classification=parcial`, acceptance local 1096 tests y frontend build/lint OK. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo; Documentos/Etapa 5 no se declara cerrado sin fuente `snapshot_controlado` o `real_autorizado`, politica final, plantillas activas finales, prueba PDF controlada y responsable. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 

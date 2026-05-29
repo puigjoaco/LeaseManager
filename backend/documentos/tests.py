@@ -13,10 +13,10 @@ from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .admin import DocumentoEmitidoAdmin, ExpedienteDocumentalAdmin, PoliticaFirmaYNotariaAdmin
+from .admin import DocumentoEmitidoAdmin, ExpedienteDocumentalAdmin, PlantillaDocumentalAdmin, PoliticaFirmaYNotariaAdmin
 from .correction_audit import CORRECTION_AUDIT_EVENT_TYPE
 from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE
-from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PoliticaFirmaYNotaria
+from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PlantillaDocumental, PoliticaFirmaYNotaria
 from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
 
 
@@ -62,7 +62,21 @@ class DocumentosAPITests(APITestCase):
         payload.update(overrides)
         response = self.client.post(reverse('documentos-politica-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self._ensure_template(payload['tipo_documental'], 'v1')
         return response.data
+
+    def _ensure_template(self, tipo_documental='contrato_principal', version_plantilla='v1'):
+        template, _ = PlantillaDocumental.objects.get_or_create(
+            tipo_documental=tipo_documental,
+            version_plantilla=version_plantilla,
+            defaults={
+                'plantilla_ref': f'templates/{tipo_documental}/{version_plantilla}',
+                'checksum_plantilla': VALID_SHA256,
+                'descripcion': 'Plantilla controlada de prueba.',
+                'estado': 'activa',
+            },
+        )
+        return template
 
     def _create_documento(self, expediente_id, **overrides):
         payload = {
@@ -81,6 +95,7 @@ class DocumentosAPITests(APITestCase):
             'comprobante_notarial': None,
         }
         payload.update(overrides)
+        self._ensure_template(payload['tipo_documental'], payload['version_plantilla'])
         response = self.client.post(reverse('documentos-documento-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         return response.data
@@ -88,6 +103,7 @@ class DocumentosAPITests(APITestCase):
     def test_generate_pdf_endpoint_derives_checksum_storage_and_audit(self):
         expediente = self._create_expediente(entidad_id='generated-pdf')
         self._create_politica()
+        self._ensure_template('contrato_principal', 'contrato-v1')
         payload = {
             'expediente': expediente['id'],
             'tipo_documental': 'contrato_principal',
@@ -145,6 +161,7 @@ class DocumentosAPITests(APITestCase):
     def test_generate_pdf_requires_matching_preview(self):
         expediente = self._create_expediente(entidad_id='generated-without-preview')
         self._create_politica()
+        self._ensure_template('contrato_principal', 'contrato-v1')
 
         response = self.client.post(
             reverse('documentos-documento-generar-pdf'),
@@ -168,6 +185,7 @@ class DocumentosAPITests(APITestCase):
     def test_generate_pdf_requires_preview_of_same_content(self):
         expediente = self._create_expediente(entidad_id='generated-preview-mismatch')
         self._create_politica()
+        self._ensure_template('contrato_principal', 'contrato-v1')
         payload = {
             'expediente': expediente['id'],
             'tipo_documental': 'contrato_principal',
@@ -188,6 +206,7 @@ class DocumentosAPITests(APITestCase):
     def test_generate_pdf_endpoint_rejects_sensitive_content(self):
         expediente = self._create_expediente(entidad_id='generated-sensitive')
         self._create_politica()
+        self._ensure_template('contrato_principal', 'contrato-v1')
 
         response = self.client.post(
             reverse('documentos-documento-previsualizar-pdf'),
@@ -203,6 +222,42 @@ class DocumentosAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('lineas', response.data)
+
+    def test_generate_pdf_requires_active_document_template(self):
+        expediente = self._create_expediente(entidad_id='generated-template-missing')
+        self._create_politica()
+
+        response = self.client.post(
+            reverse('documentos-documento-previsualizar-pdf'),
+            {
+                'expediente': expediente['id'],
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'contrato-v2-sin-registro',
+                'titulo': 'Contrato principal controlado',
+                'lineas': ['Arrendador: referencia-operativa-arrendador'],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('version_plantilla', response.data)
+
+    def test_template_api_rejects_sensitive_reference(self):
+        response = self.client.post(
+            reverse('documentos-plantilla-list'),
+            {
+                'tipo_documental': 'contrato_principal',
+                'version_plantilla': 'contrato-v1-sensitive',
+                'plantilla_ref': 'https://storage.example.test/templates/contrato.pdf?token=secret',
+                'checksum_plantilla': VALID_SHA256,
+                'descripcion': 'Plantilla heredada no controlada.',
+                'estado': 'activa',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('plantilla_ref', response.data)
 
     def test_generic_document_endpoint_rejects_system_generated_origin(self):
         expediente = self._create_expediente(entidad_id='generic-generated-origin')
@@ -250,6 +305,7 @@ class DocumentosAPITests(APITestCase):
     def test_generated_pdf_document_cannot_be_mutated_from_generic_endpoint(self):
         expediente = self._create_expediente(entidad_id='generated-pdf-generic-mutation')
         self._create_politica()
+        self._ensure_template('contrato_principal', 'contrato-v1')
         payload = {
             'expediente': expediente['id'],
             'tipo_documental': 'contrato_principal',
@@ -306,6 +362,34 @@ class DocumentosAPITests(APITestCase):
             REDACTED_SENSITIVE_REFERENCE,
         )
         self.assertEqual(model_admin.correccion_ref_redacted(document), REDACTED_SENSITIVE_REFERENCE)
+
+    def test_template_snapshot_and_admin_redact_sensitive_reference(self):
+        template = PlantillaDocumental.objects.create(
+            tipo_documental='contrato_principal',
+            version_plantilla='legacy-sensitive',
+            plantilla_ref='https://storage.example.test/templates/contrato.pdf?token=secret',
+            checksum_plantilla=VALID_SHA256,
+            estado='activa',
+        )
+
+        snapshot = self.client.get(reverse('documentos-snapshot'))
+
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        legacy_template = next(
+            item
+            for item in snapshot.data['plantillas_documentales']
+            if item['version_plantilla'] == 'legacy-sensitive'
+        )
+        self.assertEqual(legacy_template['plantilla_ref'], REDACTED_SENSITIVE_REFERENCE)
+
+        model_admin = PlantillaDocumentalAdmin(PlantillaDocumental, AdminSite())
+        self.assertNotIn('plantilla_ref', model_admin.fields)
+        self.assertNotIn('plantilla_ref', model_admin.search_fields)
+        self.assertEqual(set(model_admin.readonly_fields), set(model_admin.fields))
+        self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_change_permission(None, template))
+        self.assertFalse(model_admin.has_delete_permission(None, template))
+        self.assertEqual(model_admin.plantilla_ref_redacted(template), REDACTED_SENSITIVE_REFERENCE)
 
     def test_expediente_full_clean_rejects_sensitive_operational_reference(self):
         expediente = ExpedienteDocumental(
@@ -611,6 +695,7 @@ class DocumentosAPITests(APITestCase):
 
     def test_document_requires_active_policy_for_type(self):
         expediente = self._create_expediente(entidad_id='policy-guard')
+        self._ensure_template('contrato_principal', 'v1')
 
         response = self.client.post(
             reverse('documentos-documento-list'),
@@ -1151,6 +1236,7 @@ class DocumentosAPITests(APITestCase):
         expediente = self._create_expediente(entidad_id='4H')
         self._create_politica()
         documento = self._create_documento(expediente['id'])
+        self._ensure_template('contrato_principal', 'v2')
 
         response = self.client.post(
             reverse('documentos-documento-list'),
@@ -1191,6 +1277,7 @@ class DocumentosAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(formalize.status_code, status.HTTP_200_OK)
+        self._ensure_template('contrato_principal', 'v2')
 
         response = self.client.post(
             reverse('documentos-documento-list'),
@@ -1407,6 +1494,14 @@ class DocumentosScopeAPITests(APITestCase):
             requiere_codeudor=False,
             requiere_notaria=False,
             modo_firma_permitido='firma_simple',
+            estado='activa',
+        )
+        PlantillaDocumental.objects.create(
+            tipo_documental='contrato_principal',
+            version_plantilla='v1',
+            plantilla_ref='templates/contrato_principal/v1',
+            checksum_plantilla=VALID_SHA256,
+            descripcion='Plantilla controlada para pruebas de scope.',
             estado='activa',
         )
 

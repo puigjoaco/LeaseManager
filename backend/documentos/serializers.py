@@ -14,8 +14,10 @@ from .models import (
     EstadoPoliticaFirma,
     ExpedienteDocumental,
     OrigenDocumento,
+    PlantillaDocumental,
     PoliticaFirmaYNotaria,
     TipoDocumental,
+    has_active_document_template,
 )
 
 
@@ -197,6 +199,39 @@ class PoliticaFirmaYNotariaSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class PlantillaDocumentalSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['plantilla_ref'] = redact_sensitive_reference(data.get('plantilla_ref'))
+        return data
+
+    class Meta:
+        model = PlantillaDocumental
+        fields = (
+            'id',
+            'tipo_documental',
+            'version_plantilla',
+            'plantilla_ref',
+            'checksum_plantilla',
+            'descripcion',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+        validators = []
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, PlantillaDocumental)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
 class DocumentoEmitidoSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -242,6 +277,13 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if not self.instance and 'fecha_carga' not in attrs:
             attrs['fecha_carga'] = timezone.now()
+
+        tipo_documental = attrs.get('tipo_documental', getattr(self.instance, 'tipo_documental', ''))
+        version_plantilla = attrs.get('version_plantilla', getattr(self.instance, 'version_plantilla', ''))
+        if not has_active_document_template(tipo_documental, version_plantilla):
+            raise serializers.ValidationError(
+                {'version_plantilla': 'Documento emitido requiere plantilla documental activa para tipo y version.'}
+            )
 
         if not self.instance and attrs.get('origen') == OrigenDocumento.GENERATED:
             raise serializers.ValidationError(
@@ -367,6 +409,10 @@ class DocumentoGenerarPDFSerializer(serializers.Serializer):
         ).exists():
             raise serializers.ValidationError(
                 {'tipo_documental': 'La emision PDF generada requiere politica activa para el tipo documental.'}
+            )
+        if not has_active_document_template(attrs['tipo_documental'], attrs['version_plantilla']):
+            raise serializers.ValidationError(
+                {'version_plantilla': 'La emision PDF generada requiere plantilla documental activa para tipo y version.'}
             )
         return attrs
 

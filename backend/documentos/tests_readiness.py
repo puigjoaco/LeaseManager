@@ -32,6 +32,7 @@ from .models import (
     EstadoDocumento,
     ExpedienteDocumental,
     OrigenDocumento,
+    PlantillaDocumental,
     PoliticaFirmaYNotaria,
     TipoDocumental,
 )
@@ -72,6 +73,32 @@ def create_all_active_policies():
             defaults['requiere_firma_arrendador'] = True
             defaults['requiere_firma_arrendatario'] = True
         PoliticaFirmaYNotaria.objects.create(**defaults)
+        create_template(tipo_documental=tipo_documental, version_plantilla='v1')
+    for tipo_documental, version_plantilla in [
+        (TipoDocumental.MAIN_CONTRACT, 'v2'),
+        (TipoDocumental.MAIN_CONTRACT, 'contract-missing-reception'),
+        (TipoDocumental.MAIN_CONTRACT, 'contract-wrong-type'),
+        (TipoDocumental.MAIN_CONTRACT, 'contract-wrong-exp'),
+        (TipoDocumental.MAIN_CONTRACT, 'contract-invalid-state'),
+        (TipoDocumental.NOTARY_RECEIPT, 'notary-v1'),
+        (TipoDocumental.NOTARY_RECEIPT, 'notary-wrong-exp-v1'),
+        (TipoDocumental.NOTARY_RECEIPT, 'notary-draft-v1'),
+        (TipoDocumental.ADDENDUM, 'notary-wrong-type-v1'),
+    ]:
+        create_template(tipo_documental=tipo_documental, version_plantilla=version_plantilla)
+
+
+def create_template(tipo_documental=TipoDocumental.MAIN_CONTRACT, version_plantilla='v1', **overrides):
+    defaults = {
+        'tipo_documental': tipo_documental,
+        'version_plantilla': version_plantilla,
+        'plantilla_ref': f'templates/{tipo_documental}/{version_plantilla}',
+        'checksum_plantilla': VALID_SHA256,
+        'descripcion': 'Plantilla documental controlada.',
+        'estado': 'activa',
+    }
+    defaults.update(overrides)
+    return PlantillaDocumental.objects.create(**defaults)
 
 
 def create_contract_context(suffix='DOC-READINESS'):
@@ -412,6 +439,43 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage5_documents'])
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('documents.source_kind_not_authorized', issue_codes)
+
+    def test_generated_document_without_active_template_is_blocking(self):
+        create_all_active_policies()
+        user = create_user('docs-readiness-template-missing')
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='template-missing',
+            estado='abierto',
+            owner_operativo='manual:template-missing',
+        )
+        DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='legacy-template-missing',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen=OrigenDocumento.GENERATED,
+            estado=EstadoDocumento.ISSUED,
+            storage_ref='storage/docs/template-missing.pdf',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.document_without_active_template', issue_codes)
+        self.assertIn('documents.generated_pdf_template_missing', issue_codes)
+        self.assertEqual(result['sections']['documents']['without_active_template'], 1)
+        self.assertEqual(result['sections']['documents']['generated_without_template'], 1)
 
     def test_sensitive_expediente_references_are_blocking_without_exposing_values(self):
         create_all_active_policies()

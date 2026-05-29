@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from core.reference_validation import redact_sensitive_reference
 
-from .models import DocumentoEmitido, ExpedienteDocumental, PoliticaFirmaYNotaria
+from .models import DocumentoEmitido, ExpedienteDocumental, PlantillaDocumental, PoliticaFirmaYNotaria
 
 
 @admin.register(ExpedienteDocumental)
@@ -98,6 +98,37 @@ class DocumentoEmitidoAdmin(admin.ModelAdmin):
     @admin.display(description='Correccion ref redacted')
     def correccion_ref_redacted(self, obj):
         return redact_sensitive_reference(obj.correccion_ref) or ''
+
+
+@admin.register(PlantillaDocumental)
+class PlantillaDocumentalAdmin(admin.ModelAdmin):
+    list_display = ('tipo_documental', 'version_plantilla', 'estado', 'plantilla_ref_redacted')
+    list_filter = ('tipo_documental', 'estado')
+    search_fields = ('tipo_documental', 'version_plantilla')
+    fields = (
+        'tipo_documental',
+        'version_plantilla',
+        'plantilla_ref_redacted',
+        'checksum_plantilla',
+        'descripcion',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description='Plantilla ref redacted')
+    def plantilla_ref_redacted(self, obj):
+        return redact_sensitive_reference(obj.plantilla_ref) or ''
 
 
 @admin.register(PoliticaFirmaYNotaria)
