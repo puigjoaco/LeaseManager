@@ -306,24 +306,24 @@ class DocumentoFormalizarView(APIView):
         try:
             with transaction.atomic():
                 document = serializer.save()
+                create_audit_event(
+                    event_type=FORMALIZATION_AUDIT_EVENT_TYPE,
+                    entity_type='documento_emitido',
+                    entity_id=str(document.pk),
+                    summary='Documento formalizado',
+                    actor_user=request.user,
+                    metadata=build_formalization_audit_metadata(document),
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                )
+                if previous_state != document.estado:
+                    create_audit_event(
+                        event_type='documentos.documento_emitido.state_changed',
+                        entity_type='documento_emitido',
+                        entity_id=str(document.pk),
+                        summary='Cambio de estado documental',
+                        actor_user=request.user,
+                        ip_address=request.META.get('REMOTE_ADDR'),
+                    )
         except DjangoValidationError as error:
             return Response(serialize_validation_error(error), status=status.HTTP_400_BAD_REQUEST)
-        create_audit_event(
-            event_type=FORMALIZATION_AUDIT_EVENT_TYPE,
-            entity_type='documento_emitido',
-            entity_id=str(document.pk),
-            summary='Documento formalizado',
-            actor_user=request.user,
-            metadata=build_formalization_audit_metadata(document),
-            ip_address=request.META.get('REMOTE_ADDR'),
-        )
-        if previous_state != document.estado:
-            create_audit_event(
-                event_type='documentos.documento_emitido.state_changed',
-                entity_type='documento_emitido',
-                entity_id=str(document.pk),
-                summary='Cambio de estado documental',
-                actor_user=request.user,
-                ip_address=request.META.get('REMOTE_ADDR'),
-            )
         return Response(DocumentoEmitidoSerializer(document, context={'request': request}).data, status=status.HTTP_200_OK)

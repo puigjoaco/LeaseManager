@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -1102,6 +1104,44 @@ class DocumentosAPITests(APITestCase):
         self.assertFalse(event.metadata['firma_codeudor_registrada'])
         self.assertTrue(event.metadata['recepcion_notarial_registrada'])
         self.assertEqual(event.metadata['comprobante_notarial_id'], str(receipt['id']))
+
+    def test_formalization_rolls_back_when_audit_creation_fails(self):
+        from audit.services import create_audit_event as real_create_audit_event
+
+        expediente = self._create_expediente(entidad_id='4A')
+        self._create_politica()
+        documento = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+        calls = {'count': 0}
+
+        def create_audit_then_fail_state_change(**kwargs):
+            calls['count'] += 1
+            if calls['count'] == 1:
+                return real_create_audit_event(**kwargs)
+            raise RuntimeError('state audit unavailable')
+
+        with patch('documentos.views.create_audit_event', side_effect=create_audit_then_fail_state_change):
+            with self.assertRaises(RuntimeError):
+                self.client.post(
+                    reverse('documentos-documento-formalizar', args=[documento['id']]),
+                    {'evidencia_formalizacion_ref': FORMALIZATION_REF},
+                    format='json',
+                )
+
+        self.assertEqual(calls['count'], 2)
+        stored = DocumentoEmitido.objects.get(pk=documento['id'])
+        self.assertEqual(stored.estado, EstadoDocumento.ISSUED)
+        self.assertEqual(stored.evidencia_formalizacion_ref, '')
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=FORMALIZATION_AUDIT_EVENT_TYPE,
+                entity_type='documento_emitido',
+                entity_id=str(documento['id']),
+            ).exists()
+        )
 
     def test_formalized_document_cannot_be_mutated_from_generic_endpoint(self):
         expediente = self._create_expediente(entidad_id='4D')

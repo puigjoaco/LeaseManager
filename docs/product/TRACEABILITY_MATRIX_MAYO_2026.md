@@ -31,6 +31,12 @@ notarial durante `formalizar/`. `DocumentoFormalizarSerializer` recibe el
 `scope_documento_queryset`, evitando que un operador use evidencia documental
 de expedientes fuera de su cartera visible.
 
+Nota 2026-05-29: Documentos/Etapa 5 hace atomica la formalizacion documental.
+`formalizar/` guarda el estado formalizado y crea los eventos
+`documentos.documento_emitido.formalized` y `state_changed` dentro de la misma
+transaccion, evitando dejar documentos formalizados sin auditoria dedicada si
+falla la escritura del evento.
+
 Nota 2026-05-29: Patrimonio/Etapa 1 completa la salida operativa de owners
 locales. `Socio.inactive_dependency_errors()` y
 `ComunidadPatrimonial.inactive_state_dependency_errors()` bloquean cuentas
