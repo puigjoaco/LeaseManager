@@ -259,6 +259,40 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('plantilla_ref', response.data)
 
+    def test_used_template_api_rejects_identity_and_checksum_mutation(self):
+        expediente = self._create_expediente(entidad_id='template-immutability')
+        self._create_politica()
+        documento = self._create_documento(expediente['id'])
+        template = PlantillaDocumental.objects.get(
+            tipo_documental=documento['tipo_documental'],
+            version_plantilla=documento['version_plantilla'],
+        )
+
+        response = self.client.patch(
+            reverse('documentos-plantilla-detail', args=[template.id]),
+            {
+                'version_plantilla': 'v2',
+                'checksum_plantilla': VALID_SHA256_ALT,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('version_plantilla', response.data)
+        self.assertIn('checksum_plantilla', response.data)
+        template.refresh_from_db()
+        self.assertEqual(template.version_plantilla, 'v1')
+        self.assertEqual(template.checksum_plantilla, VALID_SHA256)
+
+        description_update = self.client.patch(
+            reverse('documentos-plantilla-detail', args=[template.id]),
+            {'descripcion': 'Descripcion operativa actualizada.'},
+            format='json',
+        )
+        self.assertEqual(description_update.status_code, status.HTTP_200_OK)
+        template.refresh_from_db()
+        self.assertEqual(template.descripcion, 'Descripcion operativa actualizada.')
+
     def test_generic_document_endpoint_rejects_system_generated_origin(self):
         expediente = self._create_expediente(entidad_id='generic-generated-origin')
         self._create_politica()

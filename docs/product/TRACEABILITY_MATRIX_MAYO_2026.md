@@ -14,6 +14,11 @@ y la generacion PDF rechazan versiones sin plantilla activa, snapshot/API/admin
 redactan refs heredadas sensibles y readiness bloquea plantillas faltantes,
 invalidas o documentos sin plantilla activa.
 
+Nota 2026-05-29: Documentos/Etapa 5 hace inmutable la evidencia tecnica de
+plantillas documentales ya usadas. Una `PlantillaDocumental` referenciada por
+documentos emitidos no puede cambiar tipo, version, referencia, checksum ni
+estado desde dominio/API; solo queda editable la descripcion operativa.
+
 Nota 2026-05-29: Patrimonio/Etapa 1 completa la salida operativa de owners
 locales. `Socio.inactive_dependency_errors()` y
 `ComunidadPatrimonial.inactive_state_dependency_errors()` bloquean cuentas
