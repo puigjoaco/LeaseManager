@@ -212,7 +212,8 @@ condicionados sin envios reales accidentales.
   payloads, restricciones y motivos sensibles heredados, no buscan por campos
   crudos como `external_ref` o `evidencia_configuracion_ref`, preservan claves
   canonicas de referencia no sensible del gate, aplican el detector transversal
-  de claves sensibles a `restricciones_operativas` y mantienen el alta manual
+  de claves sensibles a `restricciones_operativas`, muestran sus campos en
+  solo lectura, bloquean borrado manual y mantienen el alta manual
   deshabilitada desde backoffice.
 - El admin Django de Cobranza tambien debe mantener esa superficie cerrada:
   `ValorUFDiarioAdmin`, `PagoMensualAdmin`, `GateCobroExternoAdmin`,

@@ -820,8 +820,16 @@ class CanalesAPITests(APITestCase):
 
         self.assertNotIn('motivo_estado', notification_admin.fields)
         self.assertEqual(notification_admin.motivo_estado_redacted(notification), REDACTED_SENSITIVE_REFERENCE)
-        for model_admin in (gate_admin, message_admin, config_admin, notification_admin):
+        admin_objects = (
+            (gate_admin, gate),
+            (message_admin, message),
+            (config_admin, configuration),
+            (notification_admin, notification),
+        )
+        for model_admin, obj in admin_objects:
+            self.assertEqual(set(model_admin.readonly_fields), set(model_admin.fields))
             self.assertFalse(model_admin.has_add_permission(None))
+            self.assertFalse(model_admin.has_delete_permission(None, obj))
 
     def test_message_rejects_sensitive_provider_payload_on_full_clean(self):
         _, contrato = self._create_contract_context(codigo='CH-PAYLOAD-GUARD')
