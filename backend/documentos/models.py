@@ -196,6 +196,17 @@ class PlantillaDocumental(TimestampedModel):
     def __str__(self):
         return f'{self.tipo_documental}:{self.version_plantilla}'
 
+    def persisted_template(self):
+        if not self.pk:
+            return None
+        return type(self).objects.filter(pk=self.pk).only(
+            'tipo_documental',
+            'version_plantilla',
+            'plantilla_ref',
+            'checksum_plantilla',
+            'estado',
+        ).first()
+
     def clean(self):
         super().clean()
         errors = {}
@@ -205,15 +216,25 @@ class PlantillaDocumental(TimestampedModel):
             errors['plantilla_ref'] = 'plantilla_ref debe ser una referencia no sensible.'
         if not is_valid_pdf_checksum(self.checksum_plantilla):
             errors['checksum_plantilla'] = 'checksum_plantilla debe ser SHA-256 hexadecimal canonico.'
-        if (
-            self.pk
-            and self.estado != EstadoPlantillaDocumental.ACTIVE
-            and DocumentoEmitido.objects.filter(
-                tipo_documental=self.tipo_documental,
-                version_plantilla=self.version_plantilla,
+        persisted = self.persisted_template()
+        if persisted:
+            template_is_used = DocumentoEmitido.objects.filter(
+                tipo_documental=persisted.tipo_documental,
+                version_plantilla=persisted.version_plantilla,
             ).exists()
-        ):
-            errors['estado'] = 'No se puede desactivar una plantilla usada por documentos emitidos.'
+            if template_is_used:
+                protected_fields = (
+                    'tipo_documental',
+                    'version_plantilla',
+                    'plantilla_ref',
+                    'checksum_plantilla',
+                    'estado',
+                )
+                for field in protected_fields:
+                    if getattr(self, field) != getattr(persisted, field):
+                        errors[field] = (
+                            'No se puede modificar una plantilla documental ya usada por documentos emitidos.'
+                        )
         if errors:
             raise ValidationError(errors)
 

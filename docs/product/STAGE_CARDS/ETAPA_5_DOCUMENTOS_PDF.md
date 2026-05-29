@@ -26,6 +26,10 @@ firma y notaria trazables.
   conserva referencia no sensible, checksum SHA-256 canonico y estado
   auditable; API, snapshot y backoffice exponen el registro sin imprimir refs
   sensibles.
+- Una `PlantillaDocumental` ya usada por documentos emitidos no puede cambiar
+  `tipo_documental`, `version_plantilla`, `plantilla_ref`,
+  `checksum_plantilla` ni `estado`. Solo se permite ajustar descripcion
+  operativa sin alterar la evidencia tecnica de la version.
 - La emision de PDF generado por sistema debe usar el endpoint dedicado
   `documentos-emitidos/generar-pdf/`: genera bytes PDF canonicos locales,
   deriva `checksum` y `storage_ref` desde el contenido, rechaza contenido
