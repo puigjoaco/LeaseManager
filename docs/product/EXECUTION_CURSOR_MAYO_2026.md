@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Documentos / admin de expedientes y documentos emitidos. |
+| Frente activo | Ninguno. |
 | Fuente exacta | Estado real del repositorio, este cursor, `AGENTS.md`, `CODEX_OPERATING_PROTOCOL_MAYO_2026.md`, stage cards, trazabilidad y evidencia vigentes. |
-| Brecha activa | `ExpedienteDocumentalAdmin` y `DocumentoEmitidoAdmin` estaban en campos solo lectura y sin alta/borrado manual, pero aun podian abrir flujo de cambio manual desde Django admin. |
-| Motivo de prioridad | Etapa 5 Documentos exige que altas, formalizacion, correcciones y cambios operativos pasen por endpoints o servicios auditados, no por mutacion manual de admin. |
-| Worktree | `D:/Proyectos/LeaseManager-documentos-admin-change-guard`. |
-| Rama | `codex/documentos-admin-change-guard`. |
-| Estado | Paquete tactico abierto para bloquear edicion manual de expedientes y documentos emitidos, conservando inspeccion redactada y sin afectar la configuracion editable de politica firma/notaria. |
-| Gate esperado | Focal Documentos admin; suite Documentos/readiness; `manage.py check`; migraciones dry-run; gate local Documentos parcial; frontend build/lint; acceptance local; higiene repo y `git diff --check`. |
-| Estado al cerrar paquete | Pendiente. |
+| Brecha activa | Ninguna registrada en curso. |
+| Motivo de prioridad | Tomar el siguiente frente seguro desde trazabilidad y stage cards cuando se abra un nuevo paquete. |
+| Worktree | N/A. |
+| Rama | `main`. |
+| Estado | Sin paquete tactico abierto. Ultimo paquete cerrado: admin de Documentos bloquea alta, edicion y borrado manual en expedientes y documentos emitidos, conservando inspeccion redactada y sin afectar configuracion de politica firma/notaria. |
+| Gate esperado | El proximo paquete debe definir su gate proporcional antes de implementar. |
+| Estado al cerrar paquete | PR #536 mergeado en `main` (`6281ac2`). Validado con focal Documentos admin, suite Documentos/readiness, `manage.py check`, migraciones dry-run, gate local Documentos parcial, frontend build/lint, acceptance local, CI GitHub, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo; Documentos/Etapa 5 sigue parcial para cierre real por politica final, prueba PDF controlada, fuente autorizada y responsables, pero esta preparacion local no depende de datos reales ni integraciones externas. |
 | Politica de reanudacion | Si no existe worktree tactico sucio, abrir el siguiente paquete pequeno, seguro y verificable segun trazabilidad, stage cards y orden de construccion. |
-| Siguiente accion | Implementar guard de `has_change_permission`, validar y cerrar PR. |
+| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
 ## Actualizacion
 
