@@ -42,11 +42,13 @@ from .models import (
     NotificacionCobranzaProgramada,
 )
 from .services import (
+    MESSAGE_PREPARED_EVENT_TYPE,
     WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
     WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
     mark_message_as_sent,
     mark_whatsapp_message_as_failed,
     materialize_payment_notification_schedule,
+    prepare_message,
 )
 
 
@@ -1591,6 +1593,71 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(audit_event.actor_user, self.user)
         self.assertEqual(audit_event.ip_address, '127.0.0.1')
         self.assertEqual(audit_event.metadata['external_ref'], 'manual-service-001')
+
+    def test_prepare_message_service_creates_audit_event(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-PREP-SERVICE')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        message = prepare_message(
+            canal='email',
+            canal_mensajeria=gate,
+            contrato=contrato,
+            asunto='Preparar desde servicio',
+            usuario=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertEqual(message.estado, EstadoMensajeSaliente.PREPARED)
+        audit_event = AuditEvent.objects.get(
+            event_type=MESSAGE_PREPARED_EVENT_TYPE,
+            entity_type='mensaje_saliente',
+            entity_id=str(message.pk),
+        )
+        self.assertEqual(audit_event.actor_user, self.user)
+        self.assertEqual(audit_event.ip_address, '127.0.0.1')
+        self.assertEqual(audit_event.metadata['estado'], EstadoMensajeSaliente.PREPARED)
+        self.assertEqual(audit_event.metadata['canal'], 'email')
+        self.assertEqual(audit_event.metadata['contrato_id'], contrato.id)
+
+    def test_prepare_message_rolls_back_when_audit_creation_fails(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-PREP-ROLLBACK')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        with patch('canales.services.create_audit_event', side_effect=RuntimeError('prepare audit unavailable')):
+            with self.assertRaises(RuntimeError):
+                prepare_message(
+                    canal='email',
+                    canal_mensajeria=gate,
+                    contrato=contrato,
+                    asunto='Preparar sin auditoria',
+                    usuario=self.user,
+                    ip_address='127.0.0.1',
+                )
+
+        self.assertFalse(
+            MensajeSaliente.objects.filter(
+                contrato=contrato,
+                asunto='Preparar sin auditoria',
+            ).exists()
+        )
 
     def test_mark_manual_send_service_requires_actor(self):
         empresa, contrato = self._create_contract_context(codigo='CH-SENDACTOR')

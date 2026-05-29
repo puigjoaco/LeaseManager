@@ -100,6 +100,12 @@ admin. `CanalMensajeriaAdmin`, `MensajeSalienteAdmin`,
 deshabilitan alta, edicion y borrado manual para que gates, mensajes,
 cadencias y recordatorios pasen por APIs, servicios y readiness auditada.
 
+Nota 2026-05-29: Canales/Etapa 2 mueve la auditoria de preparacion al
+servicio. `prepare_message()` crea `canales.mensaje_saliente.prepared` dentro
+de la misma transaccion que persiste mensajes preparados o bloqueados,
+cubriendo endpoint HTTP y llamadas internas controladas sin dejar mensajes sin
+evento de preparacion.
+
 Nota 2026-05-29: Compliance/Etapa 0 cierra edicion manual no auditada desde
 admin. `PoliticaRetencionDatosAdmin` y `ExportacionSensibleAdmin` quedan como
 inspeccion redactada sin alta, edicion ni borrado manual, obligando cambios de
