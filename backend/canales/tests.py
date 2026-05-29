@@ -829,6 +829,7 @@ class CanalesAPITests(APITestCase):
         for model_admin, obj in admin_objects:
             self.assertEqual(set(model_admin.readonly_fields), set(model_admin.fields))
             self.assertFalse(model_admin.has_add_permission(None))
+            self.assertFalse(model_admin.has_change_permission(None, obj))
             self.assertFalse(model_admin.has_delete_permission(None, obj))
 
     def test_message_rejects_sensitive_provider_payload_on_full_clean(self):
