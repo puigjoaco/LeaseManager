@@ -138,8 +138,8 @@ condicionados sin envios reales accidentales.
   misma transaccion que cambia el estado, y el endpoint HTTP delega esa
   responsabilidad para cubrir tambien llamadas internas controladas. La
   readiness bloquea snapshots heredados sin esa resolucion o sin evento.
-- Las transiciones de `PagoMensual` se validan con la misma matriz en API y
-  servicio operacional, para impedir saltos internos como `pendiente` ->
+- Las transiciones de `PagoMensual` se validan con la misma matriz en dominio,
+  API y servicio operacional, para impedir saltos internos como `pendiente` ->
   `en_repactacion` sin pasar antes por `atrasado` aunque exista plan asociado.
 - Mensajes salientes con `DocumentoEmitido` cuya politica documental exige
   firma o notaria solo pueden prepararse o marcarse enviados si el documento
