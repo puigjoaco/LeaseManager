@@ -1399,6 +1399,24 @@ def _audit_early_termination_proration(issues: list[dict[str, Any]]) -> None:
             )
 
 
+def _audit_canceled_contract_irreversible_effects(issues: list[dict[str, Any]]) -> None:
+    contracts = Contrato.objects.filter(estado=EstadoContrato.CANCELED)
+    for contrato in contracts:
+        effects = contrato.cancellation_irreversible_effects()
+        if not effects:
+            continue
+        _issue(
+            issues,
+            code='stage1.contrato.cancelado_con_efectos_irreversibles',
+            entity='Contrato',
+            entity_id=contrato.pk,
+            message=(
+                'Contrato cancelado conserva efectos operativos o economicos ya producidos: '
+                f'{", ".join(effects)}.'
+            ),
+        )
+
+
 def _audit_late_termination_notices(issues: list[dict[str, Any]]) -> None:
     for aviso in AvisoTermino.objects.filter(estado=EstadoAvisoTermino.REGISTERED).select_related('contrato'):
         if aviso.registrado_at is None:
@@ -2058,6 +2076,7 @@ def _audit_contratos(issues: list[dict[str, Any]]) -> None:
     )
     _audit_payment_distribution_consistency(issues)
     _audit_early_termination_proration(issues)
+    _audit_canceled_contract_irreversible_effects(issues)
     _audit_late_termination_notices(issues)
 
     duplicate_any_role = (

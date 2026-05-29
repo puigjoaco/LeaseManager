@@ -405,6 +405,47 @@ class Contrato(TimestampedModel):
             return False
         return due_date < registration_date
 
+    def cancellation_irreversible_effects(self):
+        if not self.pk:
+            return []
+
+        effects = []
+        if self.pagos_mensuales.exists():
+            effects.append('pagos_mensuales')
+        if self.fecha_entrega:
+            effects.append('entrega_llaves')
+        if self.avisos_termino.filter(estado=EstadoAvisoTermino.REGISTERED).exists():
+            effects.append('aviso_termino_registrado')
+
+        try:
+            garantia = self.garantia_contractual
+        except ObjectDoesNotExist:
+            garantia = None
+        if garantia and (
+            garantia.monto_recibido > Decimal('0.00')
+            or garantia.monto_devuelto > Decimal('0.00')
+            or garantia.monto_aplicado > Decimal('0.00')
+            or garantia.historial_movimientos.exists()
+        ):
+            effects.append('garantia_operativa')
+
+        return effects
+
+    def validate_cancellation_irreversible_effects(self):
+        if self.estado != EstadoContrato.CANCELED:
+            return
+        effects = self.cancellation_irreversible_effects()
+        if not effects:
+            return
+        raise ValidationError(
+            {
+                'estado': (
+                    'Un contrato solo puede quedar cancelado si no produjo efectos irreversibles: '
+                    f'{", ".join(effects)}.'
+                )
+            }
+        )
+
     def has_key_delivery_authorization(self):
         return bool(
             (self.entrega_llaves_autorizacion_ref or '').strip()
@@ -781,6 +822,7 @@ class Contrato(TimestampedModel):
         if self.fecha_fin_vigente < self.fecha_inicio:
             raise ValidationError({'fecha_fin_vigente': 'La fecha fin vigente no puede ser anterior al inicio.'})
 
+        self.validate_cancellation_irreversible_effects()
         self.validate_early_termination_proration()
         self.validate_early_termination_proration_audit()
         self.validate_key_delivery_authorization()

@@ -3208,3 +3208,48 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.updated').exists())
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.state_changed').exists())
+
+    def test_contract_can_be_canceled_without_irreversible_effects(self):
+        mandato = self._create_active_mandato(codigo='MAND-109-CANCEL-OK', owner_rut='18181819-4')
+        arrendatario = self._create_arrendatario(rut='19191920-7')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-109-CANCEL-OK')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        patch_response = self.client.patch(
+            reverse('contratos-contrato-detail', args=[create_response.data['id']]),
+            {'estado': EstadoContrato.CANCELED},
+            format='json',
+        )
+
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(patch_response.data['estado'], EstadoContrato.CANCELED)
+
+    def test_contract_cannot_be_canceled_after_monthly_payment_exists(self):
+        mandato = self._create_active_mandato(codigo='MAND-109-CANCEL-BLOCK', owner_rut='18181820-8')
+        arrendatario = self._create_arrendatario(rut='19191921-5')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-109-CANCEL-BLOCK')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        contrato = Contrato.objects.get(pk=create_response.data['id'])
+        periodo = contrato.periodos_contractuales.get(numero_periodo=1)
+        PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp=Decimal('1000000.00'),
+            monto_calculado_clp=Decimal('1000000.00'),
+            monto_efecto_codigo_efectivo_clp=Decimal('0.00'),
+            fecha_vencimiento=date(2026, 1, 5),
+            codigo_conciliacion_efectivo='123',
+        )
+
+        patch_response = self.client.patch(
+            reverse('contratos-contrato-detail', args=[create_response.data['id']]),
+            {'estado': EstadoContrato.CANCELED},
+            format='json',
+        )
+
+        self.assertEqual(patch_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', patch_response.data)
