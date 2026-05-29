@@ -685,22 +685,26 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(event_admin.payload_resumen_redacted(event)['callback'], REDACTED_SENSITIVE_REFERENCE)
         self.assertTrue(set(event_admin.fields).issubset(set(event_admin.readonly_fields)))
         self.assertFalse(event_admin.has_add_permission(None))
+        self.assertFalse(event_admin.has_change_permission(None, obj=event))
         self.assertFalse(event_admin.has_delete_permission(None))
 
         self.assertTrue(set(asiento_admin.fields).issubset(set(asiento_admin.readonly_fields)))
         self.assertFalse(asiento_admin.has_add_permission(None))
+        self.assertFalse(asiento_admin.has_change_permission(None, obj=asiento))
         self.assertFalse(asiento_admin.has_delete_permission(None))
 
         self.assertNotIn('centro_resultado_ref', movement_admin.fields)
         self.assertEqual(movement_admin.centro_resultado_ref_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
         self.assertTrue(set(movement_admin.fields).issubset(set(movement_admin.readonly_fields)))
         self.assertFalse(movement_admin.has_add_permission(None))
+        self.assertFalse(movement_admin.has_change_permission(None, obj=movimiento))
         self.assertFalse(movement_admin.has_delete_permission(None))
 
         self.assertNotIn('detalle_calculo', obligation_admin.fields)
         self.assertEqual(obligation_admin.detalle_calculo_redacted(obligacion)['api_key'], REDACTED_SENSITIVE_REFERENCE)
         self.assertTrue(set(obligation_admin.fields).issubset(set(obligation_admin.readonly_fields)))
         self.assertFalse(obligation_admin.has_add_permission(None))
+        self.assertFalse(obligation_admin.has_change_permission(None, obj=obligacion))
         self.assertFalse(obligation_admin.has_delete_permission(None))
 
         for admin_instance, obj in (
@@ -713,6 +717,7 @@ class ContabilidadAPITests(APITestCase):
             self.assertEqual(admin_instance.storage_ref_redacted(obj), REDACTED_SENSITIVE_REFERENCE)
             self.assertTrue(set(admin_instance.fields).issubset(set(admin_instance.readonly_fields)))
             self.assertFalse(admin_instance.has_add_permission(None))
+            self.assertFalse(admin_instance.has_change_permission(None, obj=obj))
             self.assertFalse(admin_instance.has_delete_permission(None))
 
         self.assertEqual(diario_admin.resumen_redacted(libro_diario)['authorization'], REDACTED_SENSITIVE_REFERENCE)
@@ -726,6 +731,7 @@ class ContabilidadAPITests(APITestCase):
         )
         self.assertTrue(set(close_admin.fields).issubset(set(close_admin.readonly_fields)))
         self.assertFalse(close_admin.has_add_permission(None))
+        self.assertFalse(close_admin.has_change_permission(None, obj=cierre))
         self.assertFalse(close_admin.has_delete_permission(None))
 
         for raw_field in ('motivo', 'efecto_esperado', 'evidencia_ref'):
@@ -736,6 +742,7 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(effect_admin.evidencia_ref_redacted(effect), REDACTED_SENSITIVE_REFERENCE)
         self.assertTrue(set(effect_admin.fields).issubset(set(effect_admin.readonly_fields)))
         self.assertFalse(effect_admin.has_add_permission(None))
+        self.assertFalse(effect_admin.has_change_permission(None, obj=effect))
         self.assertFalse(effect_admin.has_delete_permission(None))
 
     def test_create_and_patch_configuracion_fiscal_with_tasa_ppm_vigente(self):
