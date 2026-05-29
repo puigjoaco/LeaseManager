@@ -249,6 +249,57 @@ class AjusteContrato(TimestampedModel):
     def __str__(self):
         return f'{self.contrato.codigo_contrato} - {self.tipo_ajuste}'
 
+    def affected_months(self):
+        current = date(self.mes_inicio.year, self.mes_inicio.month, 1)
+        end = date(self.mes_fin.year, self.mes_fin.month, 1)
+        while current <= end:
+            yield current
+            if current.month == 12:
+                current = date(current.year + 1, 1, 1)
+            else:
+                current = date(current.year, current.month + 1, 1)
+
+    def clp_adjustment_total_for_month(self, month_start):
+        adjustments = AjusteContrato.objects.filter(
+            contrato=self.contrato,
+            activo=True,
+            moneda=MonedaBaseContrato.CLP,
+            mes_inicio__lte=month_start,
+            mes_fin__gte=month_start,
+        )
+        if self.pk:
+            adjustments = adjustments.exclude(pk=self.pk)
+
+        total = sum(Decimal(adjustment.monto or Decimal('0.00')) for adjustment in adjustments)
+        if self.activo and self.moneda == MonedaBaseContrato.CLP:
+            total += Decimal(self.monto or Decimal('0.00'))
+        return total
+
+    def validate_clp_operational_minimum(self):
+        if not self.activo or self.moneda != MonedaBaseContrato.CLP or not self.contrato_id:
+            return
+
+        for month_start in self.affected_months():
+            period = self.contrato.periodos_contractuales.filter(
+                fecha_inicio__lte=month_start,
+                fecha_fin__gte=month_start,
+                moneda_base=MonedaBaseContrato.CLP,
+            ).first()
+            if not period:
+                continue
+            adjusted_amount = Decimal(period.monto_base or Decimal('0.00')) + self.clp_adjustment_total_for_month(
+                month_start
+            )
+            if adjusted_amount < Decimal('1000.00'):
+                raise ValidationError(
+                    {
+                        'monto': (
+                            'El ajuste CLP activo deja el monto mensual bajo el minimo operativo de CLP 1.000 '
+                            f'en {month_start:%Y-%m}.'
+                        )
+                    }
+                )
+
     def clean(self):
         super().clean()
         self.justificacion = (self.justificacion or '').strip()
@@ -273,6 +324,7 @@ class AjusteContrato(TimestampedModel):
             errors['mes_fin'] = 'El ajuste no puede terminar despues de la vigencia del contrato.'
         if errors:
             raise ValidationError(errors)
+        self.validate_clp_operational_minimum()
 
 
 class PagoMensual(TimestampedModel):

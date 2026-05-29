@@ -2147,6 +2147,28 @@ class CobranzaAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_adjustment_rejects_discount_below_operational_minimum(self):
+        contrato = self._create_active_contract(codigo='CON-AJUSTE-MIN', monto_base='1000.00', code='111')
+
+        response = self.client.post(
+            reverse('cobranza-ajuste-list'),
+            {
+                'contrato': contrato.id,
+                'tipo_ajuste': 'descuento_controlado',
+                'monto': '-1.00',
+                'moneda': 'CLP',
+                'mes_inicio': '2026-01-01',
+                'mes_fin': '2026-01-01',
+                'justificacion': 'Descuento operativo controlado',
+                'activo': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('monto', response.data)
+        self.assertFalse(AjusteContrato.objects.filter(contrato=contrato).exists())
+
     def test_adjustment_rejects_non_month_start_range(self):
         contrato = self._create_active_contract(codigo='CON-AJUSTE-MES', monto_base='100000.00', code='111')
 
