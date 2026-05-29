@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-29: Operacion/Etapa 1 cierra edicion manual no auditada desde
+admin. `CuentaRecaudadoraAdmin`, `IdentidadDeEnvioAdmin`,
+`MandatoOperacionAdmin` y `AsignacionCanalOperacionAdmin` conservan inspeccion
+redactada, pero deshabilitan alta, edicion y borrado manual para que cuentas,
+identidades, mandatos y asignaciones pasen por API, validaciones de dominio,
+vigencias, estados o flujos auditados.
+
 Nota 2026-05-29: CobranzaActiva/Etapa 2 cierra edicion manual no auditada
 desde admin. `ValorUFDiarioAdmin`, `AjusteContratoAdmin`,
 `PagoMensualAdmin`, `GateCobroExternoAdmin`, `IntentoPagoWebPayAdmin`,
