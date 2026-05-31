@@ -627,19 +627,11 @@ class WebPayIntentPrepareView(APIView):
                 provider_key=data.get('provider_key', 'transbank_webpay'),
                 return_url_ref=data['return_url_ref'],
                 usuario=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
             )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
-        create_audit_event(
-            event_type='cobranza.webpay_intento.prepared',
-            entity_type='webpay_intento',
-            entity_id=str(intent.pk),
-            summary='Intento WebPay preparado o bloqueado segun gate',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            metadata={'estado': intent.estado, 'pago_mensual_id': payment.pk, 'gate_cobro_id': intent.gate_cobro_id},
-        )
         return Response(IntentoPagoWebPaySerializer(intent).data, status=status.HTTP_201_CREATED)
 
 

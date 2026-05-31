@@ -4,7 +4,7 @@ from decimal import Decimal, ROUND_DOWN
 
 from django.db import transaction
 from django.utils import timezone
-from audit.models import ManualResolution
+from audit.models import AuditEvent, ManualResolution
 from audit.services import create_audit_event
 from contratos.models import MonedaBaseContrato
 from core.reference_validation import is_non_sensitive_reference
@@ -32,6 +32,7 @@ from .models import (
     TipoMovimientoGarantia,
     ValorUFDiario,
     WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
+    WEBPAY_PREPARE_EVENT_TYPE,
     payment_state_transition_error,
 )
 
@@ -751,7 +752,16 @@ def get_or_create_webpay_gate(provider_key='transbank_webpay'):
     return gate
 
 
-def ensure_manual_resolution_for_webpay_intent(intent, summary):
+def ensure_manual_resolution_for_webpay_intent(intent, summary, *, actor_user=None, actor_identifier=''):
+    actor_identifier = (actor_identifier or '').strip()
+    metadata = {
+        'intent_id': intent.pk,
+        'pago_mensual_id': intent.pago_mensual_id,
+        'gate_cobro_id': intent.gate_cobro_id,
+        'provider_key': intent.provider_key,
+    }
+    if actor_user is None and actor_identifier:
+        metadata['actor_identifier'] = actor_identifier
     existing = ManualResolution.objects.filter(
         category='cobranza.webpay.bloqueado',
         scope_type='cobranza.webpay',
@@ -759,18 +769,30 @@ def ensure_manual_resolution_for_webpay_intent(intent, summary):
         status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
     ).first()
     if existing:
+        updates = []
+        existing_metadata = existing.metadata if isinstance(existing.metadata, dict) else {}
+        if existing.summary != summary:
+            existing.summary = summary
+            updates.append('summary')
+        if actor_user is not None and existing.requested_by_id is None:
+            existing.requested_by = actor_user
+            updates.append('requested_by')
+        for key, value in metadata.items():
+            if existing_metadata.get(key) != value:
+                existing_metadata[key] = value
+        if existing_metadata != (existing.metadata or {}):
+            existing.metadata = existing_metadata
+            updates.append('metadata')
+        if updates:
+            existing.save(update_fields=updates)
         return existing
     return ManualResolution.objects.create(
         category='cobranza.webpay.bloqueado',
         scope_type='cobranza.webpay',
         scope_reference=str(intent.pk),
         summary=summary,
-        metadata={
-            'intent_id': intent.pk,
-            'pago_mensual_id': intent.pago_mensual_id,
-            'gate_cobro_id': intent.gate_cobro_id,
-            'provider_key': intent.provider_key,
-        },
+        requested_by=actor_user,
+        metadata=metadata,
     )
 
 
@@ -789,8 +811,68 @@ def webpay_blocking_reason(payment, gate, return_url_ref):
     return ''
 
 
+def _webpay_prepare_audit_metadata(intent):
+    metadata = {
+        'estado': intent.estado,
+        'pago_mensual_id': intent.pago_mensual_id,
+        'gate_cobro_id': intent.gate_cobro_id,
+        'provider_key': intent.provider_key,
+        'return_url_ref': intent.return_url_ref,
+    }
+    if intent.motivo_bloqueo.strip():
+        metadata['motivo_bloqueo'] = intent.motivo_bloqueo
+    return metadata
+
+
+def _webpay_prepare_audit_is_aligned(intent):
+    expected = _webpay_prepare_audit_metadata(intent)
+    events = AuditEvent.objects.filter(
+        event_type=WEBPAY_PREPARE_EVENT_TYPE,
+        entity_type='webpay_intento',
+        entity_id=str(intent.pk),
+    )
+    for event in events:
+        actor_identifier = (event.actor_identifier or '').strip()
+        if not event.actor_user_id and not actor_identifier:
+            continue
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if all(str(metadata.get(key, '')) == str(value) for key, value in expected.items()):
+            return True
+    return False
+
+
+def ensure_webpay_prepare_audit_event(intent, *, actor_user=None, actor_identifier='', ip_address=None):
+    actor_identifier = (actor_identifier or '').strip()
+    if actor_user is None and not actor_identifier:
+        raise ValueError('La preparacion WebPay requiere un actor trazable para auditoria.')
+    if _webpay_prepare_audit_is_aligned(intent):
+        return
+    create_audit_event(
+        event_type=WEBPAY_PREPARE_EVENT_TYPE,
+        entity_type='webpay_intento',
+        entity_id=str(intent.pk),
+        summary='Intento WebPay preparado o bloqueado segun gate',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata=_webpay_prepare_audit_metadata(intent),
+    )
+
+
 @transaction.atomic
-def prepare_webpay_intent(*, payment, gate=None, provider_key='transbank_webpay', return_url_ref='', usuario=None):
+def prepare_webpay_intent(
+    *,
+    payment,
+    gate=None,
+    provider_key='transbank_webpay',
+    return_url_ref='',
+    usuario=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    actor_identifier = (actor_identifier or '').strip()
+    if usuario is None and not actor_identifier:
+        raise ValueError('La preparacion WebPay requiere un actor trazable para auditoria.')
     provider_key = provider_key.strip()
     gate = gate or get_or_create_webpay_gate(provider_key=provider_key or 'transbank_webpay')
     provider_key = provider_key or gate.provider_key
@@ -809,6 +891,12 @@ def prepare_webpay_intent(*, payment, gate=None, provider_key='transbank_webpay'
             estado=EstadoIntentoPagoWebPay.PREPARED,
         ).first()
         if existing:
+            ensure_webpay_prepare_audit_event(
+                existing,
+                actor_user=usuario,
+                actor_identifier=actor_identifier,
+                ip_address=ip_address,
+            )
             return existing
 
     intent = IntentoPagoWebPay(
@@ -825,7 +913,18 @@ def prepare_webpay_intent(*, payment, gate=None, provider_key='transbank_webpay'
         intent.motivo_bloqueo = blocking_reason
         intent.full_clean()
         intent.save()
-        ensure_manual_resolution_for_webpay_intent(intent, blocking_reason)
+        ensure_manual_resolution_for_webpay_intent(
+            intent,
+            blocking_reason,
+            actor_user=usuario,
+            actor_identifier=actor_identifier,
+        )
+        ensure_webpay_prepare_audit_event(
+            intent,
+            actor_user=usuario,
+            actor_identifier=actor_identifier,
+            ip_address=ip_address,
+        )
         return intent
 
     intent.estado = EstadoIntentoPagoWebPay.PREPARED
@@ -833,6 +932,12 @@ def prepare_webpay_intent(*, payment, gate=None, provider_key='transbank_webpay'
     intent.session_id = f'LM-WP-{payment.pk}-{timezone.now().strftime("%Y%m%d%H%M%S%f")}'
     intent.full_clean()
     intent.save()
+    ensure_webpay_prepare_audit_event(
+        intent,
+        actor_user=usuario,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+    )
     return intent
 
 

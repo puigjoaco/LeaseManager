@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Cobranza/WebPay Etapa 2 alinea la preparacion de intentos
+con auditoria atomica. `prepare_webpay_intent()` crea o repara el evento
+`cobranza.webpay_intento.prepared` dentro de la misma transaccion que persiste
+el intento preparado o bloqueado; si falla la auditoria, no queda intento
+WebPay sin traza.
+
 Nota 2026-05-31: Canales/Etapa 2 realinea fallbacks WhatsApp
 preexistentes. `ensure_whatsapp_fallback_resolution()` ya no acepta una
 `ManualResolution` abierta como suficiente si su metadata o evento dedicado
