@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 - atomicidad de mutaciones API de Contabilidad y auditoria. |
-| Fuente exacta | Estado real de `main` en `297d6fd` despues de PR #615, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | `backend/contabilidad/views.py` guarda entidades, contabiliza eventos o prepara/aprueba/reabre cierres y luego registra auditoria de vista fuera de la misma transaccion. Si falla esa auditoria, pueden quedar cambios contables sin traza del endpoint que los ejecuto. |
-| Motivo de prioridad | Contabilidad sigue a Conciliacion en el orden de construccion y la brecha es local, verificable y no depende de banco real, SII, snapshots autorizados ni datos reales. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-accounting-audit-atomicity`. |
-| Rama | `codex/stage5-accounting-audit-atomicity`. |
-| Estado | Paquete tactico abierto. |
-| Gate esperado | Tests focales de rollback ante falla de auditoria, suite impactada Contabilidad/Etapa 5/Reporting, `manage.py check`, migraciones dry-run, gate local Etapa 5 diagnostico, frontend build/lint, acceptance local, higiene y CI GitHub. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | El cierre evidencial de Etapa 5 sigue condicionado por Conciliacion cerrada, fuente autorizada/controlada, evidencia ledger/reportes y validaciones externas aplicables. Este paquete local no usa `.env`, secretos, DB historicas, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si este worktree aparece sucio, terminar o pausar este paquete antes de abrir otro frente. Si no existe, confirmar el cursor actualizado en `main` antes de diagnosticar el siguiente frente. |
-| Siguiente accion | Implementar atomicidad, pruebas focales, documentacion/evidencia, validaciones proporcionales, PR, CI, merge y limpieza. |
+| Frente activo | Ninguno. |
+| Fuente exacta | Estado real de `main` en `f5e67d9` despues de PR #616, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Sin paquete tactico abierto. |
+| Motivo de prioridad | PR #616 cerro la atomicidad de mutaciones API de Contabilidad y auditoria de vista. |
+| Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
+| Rama | `main`. |
+| Estado | Main limpio y listo para diagnosticar el siguiente frente seguro por trazabilidad. |
+| Gate esperado | Para el siguiente paquete, definir tests focales, suite impactada, checks, gates locales, frontend si aplica, acceptance local, higiene y CI antes de PR. |
+| Estado al cerrar paquete | PR #616 mergeado en `f5e67d9`; CI GitHub acceptance OK; worktree `D:/Proyectos/LeaseManager-stage5-accounting-audit-atomicity` eliminado; rama tactica local/remota eliminada. |
+| Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
+| Politica de reanudacion | Si no hay worktree tactico abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; luego elegir el siguiente paquete pequeno, local, verificable y cerrable. |
 
 ## Actualizacion
 
