@@ -100,7 +100,7 @@ class ConexionBancariaAdmin(admin.ModelAdmin):
 @admin.register(MovimientoBancarioImportado)
 class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
     fields = (
-        'conexion_bancaria',
+        'conexion_bancaria_redacted',
         'fecha_movimiento',
         'tipo_movimiento',
         'monto',
@@ -120,7 +120,7 @@ class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
     )
     readonly_fields = fields
     list_display = (
-        'conexion_bancaria',
+        'conexion_bancaria_redacted',
         'fecha_movimiento',
         'tipo_movimiento',
         'monto',
@@ -130,6 +130,13 @@ class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
     )
     list_filter = ('tipo_movimiento', 'origen_importacion', 'estado_conciliacion')
     search_fields = ('descripcion_origen', 'numero_documento')
+
+    @admin.display(description='conexion_bancaria')
+    def conexion_bancaria_redacted(self, obj):
+        connection = getattr(obj, 'conexion_bancaria', None)
+        if not connection:
+            return '-'
+        return f'Conexion bancaria #{connection.pk}'
 
     @admin.display(description='evidencia_importacion_ref')
     def evidencia_importacion_ref_redacted(self, obj):

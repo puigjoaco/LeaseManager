@@ -388,6 +388,13 @@ class ConciliacionAPITests(APITestCase):
         for raw_field in ('evidencia_importacion_ref', 'referencia', 'transaction_id_banco'):
             self.assertNotIn(raw_field, movement_admin.fields)
             self.assertNotIn(raw_field, movement_admin.search_fields)
+        self.assertNotIn('conexion_bancaria', movement_admin.fields)
+        self.assertNotIn('conexion_bancaria', movement_admin.list_display)
+        self.assertIn('conexion_bancaria_redacted', movement_admin.fields)
+        self.assertIn('conexion_bancaria_redacted', movement_admin.list_display)
+        movement_connection_label = movement_admin.conexion_bancaria_redacted(movimiento)
+        self.assertIn(str(conexion.pk), movement_connection_label)
+        self.assertNotIn(cuenta.numero_cuenta, movement_connection_label)
         self.assertEqual(movement_admin.evidencia_importacion_ref_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(movement_admin.referencia_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(movement_admin.transaction_id_banco_redacted(movimiento), REDACTED_SENSITIVE_REFERENCE)
