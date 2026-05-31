@@ -185,6 +185,23 @@ class UserAuthAPITests(APITestCase):
         self.assertNotIn('auth.example.test', rendered)
         self.assertNotIn('secret-value', rendered)
 
+    def test_login_rolls_back_token_when_success_audit_fails(self):
+        user = get_user_model().objects.create_user(
+            username='audit-login',
+            password='secret123',
+            default_role_code='AdministradorGlobal',
+        )
+
+        with patch('users.views.create_audit_event', side_effect=RuntimeError('login audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'login audit unavailable'):
+                self.client.post(
+                    reverse('login'),
+                    {'username': user.username, 'password': 'secret123'},
+                    format='json',
+                )
+
+        self.assertFalse(Token.objects.filter(user=user).exists())
+
     def test_me_redacts_user_metadata(self):
         user = get_user_model().objects.create_user(
             username='metadata-me',
@@ -638,6 +655,21 @@ class UserAuthAPITests(APITestCase):
         self.assertEqual(second_login.status_code, status.HTTP_200_OK)
         self.assertEqual(second_login.data['user']['username'], user.username)
         self.assertNotEqual(second_login.data['token'], first_token)
+
+    def test_logout_rolls_back_token_delete_when_audit_fails(self):
+        user = get_user_model().objects.create_user(
+            username='audit-logout',
+            password='secret123',
+            default_role_code='AdministradorGlobal',
+        )
+        token = Token.objects.create(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        with patch('users.views.create_audit_event', side_effect=RuntimeError('logout audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'logout audit unavailable'):
+                self.client.post(reverse('logout'))
+
+        self.assertTrue(Token.objects.filter(user=user, key=token.key).exists())
 
     @override_settings(DEMO_LOGIN_USERS={'demo-admin'}, DEMO_LOGIN_PASSWORD='demo12345')
     def test_demo_login_cache_is_invalidated_when_token_is_deleted_outside_logout(self):
