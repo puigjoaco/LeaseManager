@@ -122,7 +122,8 @@ condicionados sin envios reales accidentales.
   configuracion inactiva. Un recordatorio preparado requiere mensaje saliente
   alineado al contrato del pago mensual y, si declara arrendatario, al mismo
   arrendatario del pago; readiness bloquea snapshots heredados con esa traza
-  desalineada. Un recordatorio omitido requiere motivo operativo no sensible.
+  desalineada. Un recordatorio omitido requiere motivo operativo no sensible, y
+  la rematerializacion idempotente no debe reactivarlo ni borrar esa decision.
   Esta programacion no envia Email, WhatsApp ni proveedores externos.
 - Los pagos mensuales abiertos vencidos deben refrescarse contra una fecha de
   corte operativa: un pago `pendiente` vencido pasa a `atrasado`, `dias_mora`

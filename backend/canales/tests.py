@@ -523,6 +523,36 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(snapshot_response.data['notificaciones_cobranza'][0]['canal'], 'email')
         self.assertEqual(snapshot_response.data['notificaciones_cobranza'][0]['pago_mensual'], payment.id)
 
+    def test_materialize_payment_notification_schedule_preserves_skipped_reason(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-SCH-SKIP')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payment = self._create_payment_for_contract(contrato)
+        ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
+
+        materialize_payment_notification_schedule(payment)
+        notification = NotificacionCobranzaProgramada.objects.get(
+            pago_mensual=payment,
+            canal='email',
+            dia_notificacion=5,
+        )
+        notification.estado = 'omitida'
+        notification.motivo_estado = 'arrendatario-notificado-por-llamada-controlada'
+        notification.full_clean()
+        notification.save(update_fields=['estado', 'motivo_estado', 'updated_at'])
+
+        result = materialize_payment_notification_schedule(payment)
+        notification.refresh_from_db()
+
+        self.assertEqual(result['created_count'], 0)
+        self.assertEqual(notification.estado, 'omitida')
+        self.assertEqual(notification.motivo_estado, 'arrendatario-notificado-por-llamada-controlada')
+        self.assertEqual(NotificacionCobranzaProgramada.objects.filter(pago_mensual=payment).count(), 7)
+
     def test_notification_schedule_rejects_inactive_configuration(self):
         empresa, contrato = self._create_contract_context(codigo='NTF-INACTIVE')
         self._enable_channel_for_contract(empresa, contrato, canal='email')
