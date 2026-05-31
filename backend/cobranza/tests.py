@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
@@ -50,6 +51,7 @@ from .models import (
     RepactacionDeuda,
     ValorUFDiario,
     WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
+    WEBPAY_PREPARE_EVENT_TYPE,
 )
 from .admin import (
     AjusteContratoAdmin,
@@ -65,6 +67,7 @@ from .admin import (
 )
 from .services import (
     confirm_webpay_intent_manually,
+    prepare_webpay_intent,
     rebuild_account_state,
     save_repayment_plan,
     save_uf_value,
@@ -1238,13 +1241,21 @@ class CobranzaAPITests(APITestCase):
         payment.refresh_from_db()
         self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
         self.assertEqual(str(payment.monto_pagado_clp), '0.00')
-        self.assertTrue(
-            ManualResolution.objects.filter(
-                category='cobranza.webpay.bloqueado',
-                scope_type='cobranza.webpay',
-                scope_reference=str(response.data['id']),
-            ).exists()
+        resolution = ManualResolution.objects.get(
+            category='cobranza.webpay.bloqueado',
+            scope_type='cobranza.webpay',
+            scope_reference=str(response.data['id']),
         )
+        self.assertEqual(resolution.requested_by, self.user)
+        self.assertEqual(resolution.metadata['intent_id'], response.data['id'])
+        audit_event = AuditEvent.objects.get(
+            event_type=WEBPAY_PREPARE_EVENT_TYPE,
+            entity_type='webpay_intento',
+            entity_id=str(response.data['id']),
+        )
+        self.assertEqual(audit_event.actor_user, self.user)
+        self.assertEqual(audit_event.metadata['estado'], EstadoIntentoPagoWebPay.BLOCKED)
+        self.assertEqual(audit_event.metadata['motivo_bloqueo'], response.data['motivo_bloqueo'])
 
     def test_webpay_prepare_blocks_open_gate_without_evidence(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-NO-EVID')
@@ -1433,7 +1444,75 @@ class CobranzaAPITests(APITestCase):
         payment.refresh_from_db()
         self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
         self.assertIsNone(payment.fecha_pago_webpay)
-        self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.webpay_intento.prepared').exists())
+        audit_event = AuditEvent.objects.get(
+            event_type=WEBPAY_PREPARE_EVENT_TYPE,
+            entity_type='webpay_intento',
+            entity_id=str(response.data['id']),
+        )
+        self.assertEqual(audit_event.actor_user, self.user)
+        self.assertEqual(audit_event.metadata['estado'], EstadoIntentoPagoWebPay.PREPARED)
+        self.assertEqual(audit_event.metadata['return_url_ref'], 'webpay-return-controlled-v1')
+        self.assertEqual(audit_event.metadata['provider_key'], 'transbank_webpay')
+
+    def test_webpay_prepare_service_reuses_existing_intent_and_realigns_missing_audit(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-PREP-REALIGN')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-sandbox-evidence-ok',
+        )
+        existing = prepare_webpay_intent(
+            payment=payment,
+            gate=gate,
+            return_url_ref='webpay-return-controlled-v1',
+            usuario=self.user,
+            ip_address='127.0.0.1',
+        )
+        AuditEvent.objects.filter(
+            event_type=WEBPAY_PREPARE_EVENT_TYPE,
+            entity_type='webpay_intento',
+            entity_id=str(existing.pk),
+        ).delete()
+
+        reused = prepare_webpay_intent(
+            payment=payment,
+            gate=gate,
+            return_url_ref='webpay-return-controlled-v1',
+            usuario=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertEqual(reused.pk, existing.pk)
+        self.assertEqual(IntentoPagoWebPay.objects.filter(pago_mensual=payment).count(), 1)
+        audit_event = AuditEvent.objects.get(
+            event_type=WEBPAY_PREPARE_EVENT_TYPE,
+            entity_type='webpay_intento',
+            entity_id=str(existing.pk),
+        )
+        self.assertEqual(audit_event.actor_user, self.user)
+        self.assertEqual(audit_event.ip_address, '127.0.0.1')
+        self.assertEqual(audit_event.metadata['estado'], EstadoIntentoPagoWebPay.PREPARED)
+
+    def test_webpay_prepare_service_rolls_back_when_audit_creation_fails(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-PREP-AUDITFAIL')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-sandbox-evidence-ok',
+        )
+
+        with patch('cobranza.services.create_audit_event', side_effect=RuntimeError('webpay audit unavailable')):
+            with self.assertRaises(RuntimeError):
+                prepare_webpay_intent(
+                    payment=payment,
+                    gate=gate,
+                    return_url_ref='webpay-return-controlled-v1',
+                    usuario=self.user,
+                    ip_address='127.0.0.1',
+                )
+
+        self.assertFalse(IntentoPagoWebPay.objects.filter(pago_mensual=payment).exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type=WEBPAY_PREPARE_EVENT_TYPE).exists())
 
     def test_webpay_prepare_rejects_sensitive_return_reference_before_persisting(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-RETURN-SECRET')
