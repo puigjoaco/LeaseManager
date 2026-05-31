@@ -99,7 +99,8 @@ sistema igual a saldo banco.
   conexiones, movimientos, ingresos desconocidos, cuadraturas ni
   transferencias intercuenta; tampoco expone ni busca numeros de cuenta
   recaudadora desde labels o `search_fields`. Solo muestra versiones
-  redactadas, mantiene cerrada el alta y borrado manual de esas entidades
+  redactadas, incluyendo el label de conexion bancaria en movimientos
+  importados, mantiene cerrada el alta y borrado manual de esas entidades
   desde backoffice, y deja movimientos, ingresos desconocidos, cuadraturas y
   transferencias sin edicion manual y en modo solo lectura para que las
   mutaciones operativas pasen por APIs o servicios auditados.
