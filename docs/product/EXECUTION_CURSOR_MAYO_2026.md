@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 - atomicidad de auditoria en APIs de Contratos. |
-| Fuente exacta | Estado real de `main` en `ad085f3` despues de PR #609, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | `backend/contratos/views.py::AuditCreateUpdateMixin` y overrides de contratos persistian altas/ediciones antes de crear la evidencia de auditoria; si `create_audit_event` fallaba, podian quedar cambios contractuales sin traza. |
-| Motivo de prioridad | Contratos es el siguiente dominio de construccion despues de Operacion y la brecha es local, verificable y no requiere secretos, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-contract-audit-atomicity`. |
-| Rama | `codex/stage1-contract-audit-atomicity`. |
-| Estado | Paquete tactico abierto. |
-| Gate esperado | Readiness local de Etapa 1 como diagnostico no evidencial; no declara cierre de etapa por BLK-002. |
-| Estado al cerrar paquete | PR #608 mergeado en `ac716fa`: `backend/operacion/views.py::AuditCreateUpdateMixin` persiste altas/ediciones operativas y eventos `created`, `updated` o `state_changed` en una sola transaccion. Si falla la auditoria, no quedan cuentas recaudadoras, identidades, mandatos ni asignaciones de canal mutadas sin traza. Validado con focal 4 tests, impactada Operacion/Etapa 1 174 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, readiness local Etapa 1 no evidencial, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1141 tests, higiene, `git diff --check` y CI GitHub. |
+| Frente activo | Ningun paquete tactico abierto. |
+| Fuente exacta | Estado real de `main` en `264c346` despues de PR #610, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna seleccionada en este cursor. |
+| Motivo de prioridad | PR #610 cerro la atomicidad de auditoria en APIs de Contratos; el siguiente frente debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Listo para diagnosticar el siguiente frente seguro. |
+| Gate esperado | No aplica hasta abrir un nuevo paquete. |
+| Estado al cerrar paquete | PR #610 mergeado en `264c346`: `backend/contratos/views.py::AuditCreateUpdateMixin` y overrides de arrendatario/contrato persisten altas/ediciones contractuales y eventos `created`, `updated`, `state_changed` o trazas derivadas en una sola transaccion. Si falla la auditoria, no quedan contactos de pago, contratos anidados ni estados contractuales mutados sin traza. Validado con focal 6 tests, impactada Contratos/Etapa 1 256 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, readiness local Etapa 1 no evidencial, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1144 tests, higiene, `git diff --check` y CI GitHub. |
 | Bloqueos relacionados | BLK-002 sigue abierto para cierre evidencial de Etapa 1 con fuente `snapshot_controlado` o `real_autorizado`. El paquete cerrado no uso `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Implementar transaccion atomica, cubrir rollback ante falla de auditoria, validar proporcionalmente y cerrar con PR, CI, merge y limpieza. |
+| Siguiente accion | Confirmar `main` limpio y diagnosticar el siguiente frente seguro por orden de construccion y trazabilidad vigente. |
 
 ## Actualizacion
 
