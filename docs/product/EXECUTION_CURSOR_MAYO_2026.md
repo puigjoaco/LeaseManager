@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 / Canales / preservar omisiones de recordatorios locales. |
-| Fuente exacta | Estado real de `main` en `1387555`, PRD canonico, `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | `materialize_payment_notification_schedule()` rematerializa recordatorios y puede volver a `programada` una `NotificacionCobranzaProgramada` marcada `omitida`, borrando el motivo operativo que la regla exige conservar. |
-| Motivo de prioridad | Es la siguiente brecha local verificable de Etapa 2: evita perder trazabilidad de omisiones de cobranza sin usar proveedores externos, datos reales ni secretos. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-preserve-skipped-notifications`. |
-| Rama | `codex/stage2-preserve-skipped-notifications`. |
-| Estado | Validado localmente; pendiente PR, CI remoto, merge y limpieza. |
-| Gate esperado | Focal Canales sobre materializacion de recordatorios, suite Canales/Cobranza/Stage 2 proporcional, `manage.py check`, migraciones dry-run, readiness local Etapa 2, frontend build/lint si aplica, acceptance local, higiene repo y CI remoto. |
-| Estado al cerrar paquete | Focal Canales 1 test OK; suite impactada Canales/Stage 2/Cobranza 142 tests OK; `manage.py check` OK; migraciones dry-run sin cambios; readiness local Etapa 2 `classification=parcial`, `ready_for_stage2_cobranza=false`; `npm ci`, `npm run build`, `npm run lint` OK; acceptance local 1117 tests OK; higiene repo y `git diff --check` OK. |
+| Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
+| Fuente exacta | Estado real de `main` tras integrar PR #580 en `0cbb977`, PRD canonico, `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna. Ultimo paquete cerrado: Canales preserva `NotificacionCobranzaProgramada` omitida con su motivo operativo al rematerializar cadencias. |
+| Motivo de prioridad | El paquete cerro una brecha local verificable de Etapa 2: conservar trazabilidad de omisiones de cobranza sin proveedores externos, datos reales ni secretos. |
+| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-stage2-preserve-skipped-notifications`. |
+| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/stage2-preserve-skipped-notifications`. |
+| Estado | Paquete Etapa 2 / Canales cerrado; luego de este ajuste de cursor, queda libre para diagnosticar el siguiente frente seguro. |
+| Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
+| Estado al cerrar paquete | Focal Canales 1 test OK; suite impactada Canales/Stage 2/Cobranza 142 tests OK; `manage.py check` OK; migraciones dry-run sin cambios; readiness local Etapa 2 `classification=parcial`, `ready_for_stage2_cobranza=false`; `npm ci`, `npm run build`, `npm run lint` OK; acceptance local 1117 tests OK; higiene repo y `git diff --check` OK; CI GitHub acceptance OK. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. No requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si existe este worktree, continuar este paquete antes de abrir otro frente. Si desaparece tras merge, diagnosticar el siguiente frente seguro desde el estado real del repo. |
-| Siguiente accion | Ejecutar higiene final, crear PR, esperar CI, mergear y limpiar worktree/ramas. |
+| Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
+| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
 ## Actualizacion
 
