@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Canales/Etapa 2 preserva omisiones operativas de
+recordatorios locales. `materialize_payment_notification_schedule()` mantiene
+`NotificacionCobranzaProgramada` en estado `omitida` con su motivo operativo
+no sensible cuando rematerializa cadencias, evitando reabrir cobranza o borrar
+la decision trazable de omision.
+
 Nota 2026-05-31: Contratos/Etapa 1 cierra alta y edicion manual no auditada
 desde Django admin. `ArrendatarioAdmin`,
 `ContactoPagoArrendatarioAdmin`, `ContratoAdmin`,

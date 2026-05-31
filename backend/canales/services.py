@@ -301,10 +301,6 @@ def materialize_payment_notification_schedule(payment):
                 if notification.fecha_programada != scheduled_date:
                     notification.fecha_programada = scheduled_date
                     updates.append('fecha_programada')
-                if notification.estado == EstadoNotificacionCobranza.SKIPPED:
-                    notification.estado = EstadoNotificacionCobranza.SCHEDULED
-                    notification.motivo_estado = ''
-                    updates.extend(['estado', 'motivo_estado'])
                 if updates:
                     notification.full_clean()
                     notification.save(update_fields=[*updates, 'updated_at'])
