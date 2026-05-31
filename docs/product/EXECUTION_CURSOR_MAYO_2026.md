@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 3 - atomicidad del reintento manual de match exacto. |
-| Fuente exacta | Estado real de `main` en `e87c81b` despues de PR #613, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | `backend/conciliacion/views.py::MovimientoBancarioRetryMatchView` ejecuta `reconcile_exact_movement()` antes de registrar `conciliacion.movimiento_bancario.match_retried`. Si falla esa auditoria de vista, podrian quedar pago, ingreso desconocido, supersesion o movimiento mutados sin traza del reintento manual. |
-| Motivo de prioridad | Conciliacion es el siguiente frente del orden de construccion despues de CobranzaActiva, y la brecha es local, verificable y no depende de banco real ni snapshot autorizado. |
-| Worktree | `D:/Proyectos/LeaseManager-stage3-retry-match-audit-atomicity`. |
-| Rama | `codex/stage3-retry-match-audit-atomicity`. |
-| Estado | Paquete tactico abierto. |
-| Gate esperado | Test focal de rollback de reintento, suite impactada Conciliacion/Etapa 3, `manage.py check`, migraciones dry-run, gate local Etapa 3 diagnostico, frontend build/lint, acceptance local, higiene y CI GitHub. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | El cierre evidencial de Etapa 3 sigue condicionado por fuente `snapshot_controlado` o `real_autorizado`, prueba bancaria y cuadratura autorizada. Este paquete local no usa `.env`, secretos, DB historicas, datos reales, banco real, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si este worktree aparece sucio, terminar o pausar este paquete antes de abrir otro frente. Si no existe, confirmar el cursor actualizado en `main` antes de diagnosticar el siguiente frente. |
-| Siguiente accion | Completar implementacion, pruebas focales, documentacion/evidencia, validaciones proporcionales, PR, CI, merge y limpieza. |
+| Frente activo | Ninguno. |
+| Fuente exacta | Estado real de `main` en `866beae` despues de PR #614, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna abierta en cursor. |
+| Motivo de prioridad | El paquete Etapa 3 - atomicidad del reintento manual de match exacto fue integrado y validado. |
+| Worktree | Ninguno. |
+| Rama | Ninguna. |
+| Estado | Sin paquete tactico abierto. |
+| Gate esperado | Antes de abrir un nuevo paquete, diagnosticar desde `main`, confirmar estado real con `git status --short --branch` y `git worktree list`, y elegir el siguiente frente local seguro segun trazabilidad y orden de construccion. |
+| Estado al cerrar paquete | PR #614 mergeado en `866beae`; CI acceptance remoto OK; worktree tactico y rama local/remota eliminados. |
+| Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion y evidencia suficiente; no bloquean abrir paquetes locales seguros. |
+| Politica de reanudacion | Si no existe worktree tactico abierto, partir desde este cursor y el estado real de `main`; no reabrir paquetes ya integrados. |
+| Siguiente accion | Diagnosticar el siguiente frente util y seguro desde `main`, abrir worktree `codex/...` si corresponde y ejecutar el paquete con validacion proporcional. |
 
 ## Actualizacion
 
