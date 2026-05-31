@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 / CobranzaActiva / WebPay - auditoria de confirmacion manual. |
-| Fuente exacta | Estado real de `main` en `8766fbd` despues de PR #597, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Readiness no clasifica intentos WebPay `confirmado_manual` heredados sin evento `cobranza.webpay_intento.confirmed_manually` completo, con actor y metadata alineada contra `external_ref`, `pago_mensual_id` y `fecha_pago_webpay`. |
-| Motivo de prioridad | La stage card exige que la confirmacion manual WebPay conserve auditoria dedicada en la misma transaccion; el servicio la crea, pero el gate local aun no detecta snapshots heredados o mutaciones directas sin esa traza. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-webpay-confirm-audit-readiness`. |
-| Rama | `codex/stage2-webpay-confirm-audit-readiness`. |
-| Estado | Implementado y validado localmente; pendiente empaquetar PR, esperar CI, mergear y limpiar worktree. |
-| Gate esperado | Etapa 2 local debe seguir `classification=parcial`, `ready_for_stage2_cobranza=false`; el paquete mejora preparacion segura, no cierra etapa. |
-| Estado al cerrar paquete | Validacion local OK: focal 6 tests, impactada 190 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, gate Etapa 2 `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1133 tests y `git diff --check`. |
-| Bloqueos relacionados | Etapa 2 sigue parcial para cierre real por fuente autorizada y pruebas Email/WebPay controladas. Este paquete no debe usar `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si este worktree existe, continuar este paquete hasta PR/CI/merge/limpieza antes de abrir otro frente; si aparece sucio, terminar o pausar aqui de forma explicita. |
-| Siguiente accion | Ejecutar higiene final, abrir PR, esperar CI, mergear, sincronizar `main`, cerrar cursor y eliminar worktree tactico. |
+| Frente activo | Ningun paquete tactico abierto. |
+| Fuente exacta | Estado real de `main` en `59fc5ca` despues de PR #598, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna seleccionada en este cursor. |
+| Motivo de prioridad | PR #598 cerro la deteccion de auditoria manual WebPay en readiness; el siguiente frente debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Listo para diagnosticar el siguiente frente seguro. |
+| Gate esperado | No aplica hasta abrir un nuevo paquete. |
+| Estado al cerrar paquete | PR #598 mergeado en `59fc5ca`: `audit_stage2_cobranza_readiness` clasifica intentos WebPay `confirmado_manual` sin auditoria `cobranza.webpay_intento.confirmed_manually` completa y alineada; `confirm_webpay_intent_manually()` queda cubierto contra persistir confirmacion/pago si falla la auditoria. Validado con focal 6 tests, impactada 190 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, gate Etapa 2 parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1133 tests, higiene, `git diff --check` y CI GitHub. |
+| Bloqueos relacionados | Etapa 2 sigue parcial para cierre real por fuente autorizada y pruebas Email/WebPay controladas. El paquete cerrado no uso `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
+| Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
+| Siguiente accion | Confirmar `main` limpio y diagnosticar el siguiente frente seguro por orden de construccion y trazabilidad vigente. |
 
 ## Actualizacion
 
