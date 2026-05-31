@@ -19,10 +19,16 @@ def _redacted_payload_attr(obj, field_name):
     return redact_sensitive_payload(getattr(obj, field_name, None))
 
 
+def _redacted_account_label(account):
+    if not account:
+        return '-'
+    return f'Cuenta recaudadora #{account.pk}'
+
+
 @admin.register(ConexionBancaria)
 class ConexionBancariaAdmin(admin.ModelAdmin):
     fields = (
-        'cuenta_recaudadora',
+        'cuenta_recaudadora_redacted',
         'provider_key',
         'scope',
         'credencial_ref_redacted',
@@ -41,6 +47,7 @@ class ConexionBancariaAdmin(admin.ModelAdmin):
         'updated_at',
     )
     readonly_fields = (
+        'cuenta_recaudadora_redacted',
         'credencial_ref_redacted',
         'evidencia_gate_ref_redacted',
         'prueba_conectividad_ref_redacted',
@@ -50,14 +57,18 @@ class ConexionBancariaAdmin(admin.ModelAdmin):
         'updated_at',
     )
     list_display = (
-        'cuenta_recaudadora',
+        'cuenta_recaudadora_redacted',
         'provider_key',
         'estado_conexion',
         'primaria_movimientos',
         'evidencia_gate_ref_redacted',
     )
     list_filter = ('estado_conexion', 'provider_key', 'primaria_movimientos', 'primaria_saldos', 'primaria_conectividad')
-    search_fields = ('cuenta_recaudadora__numero_cuenta', 'provider_key')
+    search_fields = ('provider_key',)
+
+    @admin.display(description='cuenta_recaudadora')
+    def cuenta_recaudadora_redacted(self, obj):
+        return _redacted_account_label(obj.cuenta_recaudadora)
 
     @admin.display(description='credencial_ref')
     def credencial_ref_redacted(self, obj):
@@ -150,7 +161,7 @@ class MovimientoBancarioImportadoAdmin(admin.ModelAdmin):
 class IngresoDesconocidoAdmin(admin.ModelAdmin):
     fields = (
         'movimiento_bancario',
-        'cuenta_recaudadora',
+        'cuenta_recaudadora_redacted',
         'monto',
         'fecha_movimiento',
         'descripcion_origen',
@@ -160,9 +171,13 @@ class IngresoDesconocidoAdmin(admin.ModelAdmin):
         'updated_at',
     )
     readonly_fields = fields
-    list_display = ('cuenta_recaudadora', 'fecha_movimiento', 'monto', 'estado')
+    list_display = ('cuenta_recaudadora_redacted', 'fecha_movimiento', 'monto', 'estado')
     list_filter = ('estado',)
     search_fields = ('descripcion_origen',)
+
+    @admin.display(description='cuenta_recaudadora')
+    def cuenta_recaudadora_redacted(self, obj):
+        return _redacted_account_label(obj.cuenta_recaudadora)
 
     @admin.display(description='sugerencia_asistida')
     def sugerencia_asistida_redacted(self, obj):
@@ -181,7 +196,7 @@ class IngresoDesconocidoAdmin(admin.ModelAdmin):
 @admin.register(CuadraturaBancaria)
 class CuadraturaBancariaAdmin(admin.ModelAdmin):
     fields = (
-        'cuenta_recaudadora',
+        'cuenta_recaudadora_redacted',
         'periodo_economico',
         'fecha_cuadratura',
         'saldo_sistema_clp',
@@ -196,7 +211,7 @@ class CuadraturaBancariaAdmin(admin.ModelAdmin):
     )
     readonly_fields = fields
     list_display = (
-        'cuenta_recaudadora',
+        'cuenta_recaudadora_redacted',
         'periodo_economico',
         'fecha_cuadratura',
         'saldo_sistema_clp',
@@ -205,7 +220,11 @@ class CuadraturaBancariaAdmin(admin.ModelAdmin):
         'estado',
     )
     list_filter = ('estado', 'periodo_economico')
-    search_fields = ('cuenta_recaudadora__numero_cuenta', 'periodo_economico')
+    search_fields = ('periodo_economico',)
+
+    @admin.display(description='cuenta_recaudadora')
+    def cuenta_recaudadora_redacted(self, obj):
+        return _redacted_account_label(obj.cuenta_recaudadora)
 
     @admin.display(description='evidencia_cuadratura_ref')
     def evidencia_cuadratura_ref_redacted(self, obj):
