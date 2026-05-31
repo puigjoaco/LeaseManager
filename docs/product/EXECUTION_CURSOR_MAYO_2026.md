@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 / Canales: alinear servicio `prepare_message()` con el guard de dominio que exige gate del mismo canal del mensaje. |
-| Fuente exacta | Estado real de `main` en `6e12d45` tras cerrar cursor de Compliance, `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`, trazabilidad y readiness vigentes. |
-| Brecha activa | `MensajeSaliente.clean()` rechaza mensajes preparados/enviados cuyo `canal_mensajeria.canal` no coincide con `MensajeSaliente.canal`, pero `prepare_message()` no valida ese cruce antes de persistir y puede crear un mensaje preparado desde una llamada interna con gate de otro canal. |
-| Motivo de prioridad | Es una brecha local verificable en el siguiente frente seguro: evita bypass de servicio sobre el gate de Canales sin depender de Email/WebPay/WhatsApp reales. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-message-gate-channel-guard`. |
-| Rama | `codex/stage2-message-gate-channel-guard`. |
-| Estado | Implementacion y validaciones locales completadas; pendiente commit, PR, CI, merge y limpieza. |
-| Gate esperado | Tests focales de Canales/readiness, suite impactada Stage 2/Canales/Cobranza, `manage.py check`, `makemigrations --check --dry-run --noinput`, readiness local Etapa 2 como `classification=parcial`, frontend build/lint segun impacto, higiene repo y `git diff --check`. |
-| Estado al cerrar paquete | Focal Canales 4 tests OK; suite impactada Canales/Stage2 143 tests OK; `manage.py check` OK; `makemigrations --check --dry-run --noinput` sin cambios; readiness local Etapa 2 `classification=parcial`, `ready_for_stage2_cobranza=false`; `npm ci`, `npm run build`, `npm run lint` OK; acceptance local 1124 tests OK; higiene repo y `git diff --check` OK. |
+| Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
+| Fuente exacta | Estado real de `main` tras integrar PR #588 en `fcfa71d`, `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna. Ultimo paquete cerrado: Canales valida `MensajeSaliente.full_clean()` desde `prepare_message()` y `mark_message_as_sent()` para impedir mensajes preparados/enviados con gate de otro canal. |
+| Motivo de prioridad | El paquete cerro una brecha local verificable de Etapa 2: alinear servicios internos de mensaje con el guard de dominio y readiness heredada sin usar integraciones externas. |
+| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-stage2-message-gate-channel-guard`. |
+| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/stage2-message-gate-channel-guard`. |
+| Estado | Paquete Canales / Etapa 2 cerrado; luego de este ajuste de cursor, queda libre para diagnosticar el siguiente frente seguro. |
+| Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
+| Estado al cerrar paquete | Focal Canales 4 tests OK; suite impactada Canales/Stage2 143 tests OK; `manage.py check` OK; `makemigrations --check --dry-run --noinput` sin cambios; readiness local Etapa 2 `classification=parcial`, `ready_for_stage2_cobranza=false`; `npm ci`, `npm run build`, `npm run lint` OK; acceptance local 1124 tests OK; higiene repo y `git diff --check` OK; CI GitHub acceptance OK; PR #588 mergeado en `fcfa71d`; worktree tactico y rama local/remota eliminados. |
 | Bloqueos relacionados | Etapa 2 sigue parcial para cierre externo por falta de fuente autorizada y pruebas controladas de Email/WebPay. Este paquete no requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Implementar guard en servicio, cubrirlo con tests y validar sin usar integraciones externas. |
+| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
 ## Actualizacion
 
