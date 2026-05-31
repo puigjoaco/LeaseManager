@@ -26,6 +26,7 @@ from documentos.models import (
     EstadoDocumento,
     ExpedienteDocumental,
     OrigenDocumento,
+    PlantillaDocumental,
     PoliticaFirmaYNotaria,
     TipoDocumental,
 )
@@ -151,6 +152,16 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 'requiere_codeudor': False,
                 'requiere_notaria': False,
                 'modo_firma_permitido': 'firma_simple',
+                'estado': 'activa',
+            },
+        )
+        PlantillaDocumental.objects.get_or_create(
+            tipo_documental=TipoDocumental.TAX_SUPPORT,
+            version_plantilla='stage6-v1',
+            defaults={
+                'plantilla_ref': 'templates/respaldo_tributario/stage6-v1',
+                'checksum_plantilla': VALID_DOCUMENT_SHA256,
+                'descripcion': 'Plantilla controlada para respaldo tributario anual.',
                 'estado': 'activa',
             },
         )

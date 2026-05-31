@@ -66,7 +66,8 @@ firma y notaria trazables.
   arrendatario, requisito notarial, modo de firma ni `estado`. Sin versionado
   de politica por documento, esas reglas son evidencia tecnica historica.
 - Cada documento emitido y cada PDF generado por sistema debe tener plantilla
-  activa para su tipo y version. Readiness reporta
+  activa para su tipo y version. `DocumentoEmitido.clean()` bloquea nuevas
+  escrituras sin plantilla activa aunque se salte el serializer, y readiness reporta
   `documents.active_template_missing`, `documents.active_template_invalid`,
   `documents.document_without_active_template` o
   `documents.generated_pdf_template_missing` segun corresponda.

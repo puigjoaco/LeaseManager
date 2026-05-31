@@ -354,6 +354,10 @@ class DocumentoEmitido(TimestampedModel):
             raise ValidationError({'usuario': 'Documento emitido requiere usuario responsable de carga.'})
         if not self.get_active_policy():
             raise ValidationError({'tipo_documental': 'Documento emitido requiere politica activa para su tipo documental.'})
+        if not has_active_document_template(self.tipo_documental, self.version_plantilla):
+            raise ValidationError(
+                {'version_plantilla': 'Documento emitido requiere plantilla documental activa para tipo y version.'}
+            )
         if self.comprobante_notarial_id and self.comprobante_notarial.tipo_documental != TipoDocumental.NOTARY_RECEIPT:
             raise ValidationError({'comprobante_notarial': 'El comprobante vinculado debe ser un comprobante notarial.'})
         if self.comprobante_notarial_id and self.pk and self.comprobante_notarial_id == self.pk:
