@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Conciliacion/Etapa 3 alinea el reintento manual de match
+exacto con auditoria atomica. `MovimientoBancarioRetryMatchView.post()`
+ejecuta `reconcile_exact_movement()` y registra
+`conciliacion.movimiento_bancario.match_retried` dentro de la misma
+transaccion; si falla esa auditoria de vista, no quedan pagos, ingresos
+desconocidos, resoluciones supersedidas ni movimientos mutados por el
+reintento.
+
 Nota 2026-05-31: CobranzaActiva/Etapa 2 alinea mutaciones API y auditoria
 de vista en una transaccion. `AuditCreateUpdateMixin` en Cobranza y los
 overrides de UF, pagos, refresco de mora, materializacion local, movimientos

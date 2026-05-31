@@ -1912,6 +1912,58 @@ class ConciliacionAPITests(APITestCase):
             ).exists()
         )
 
+    def test_retry_match_rolls_back_when_view_audit_fails(self):
+        cuenta, _, contrato = self._create_contract_and_payment(codigo='REC-RETRY-AUDIT-FAIL', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        create_movement = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                monto='777777.00',
+                descripcion_origen='Abono temprano para rollback de retry',
+            ),
+            format='json',
+        )
+        self.assertEqual(create_movement.status_code, status.HTTP_201_CREATED)
+
+        movimiento = MovimientoBancarioImportado.objects.get(pk=create_movement.data['id'])
+        pago = PagoMensual.objects.get(contrato=contrato, mes=1, anio=2026)
+        pago.monto_calculado_clp = '777777.00'
+        pago.save(update_fields=['monto_calculado_clp'])
+        resolution = ManualResolution.objects.get(
+            category='conciliacion.ingreso_desconocido',
+            scope_reference=str(movimiento.pk),
+        )
+
+        with patch('conciliacion.views.create_audit_event', side_effect=RuntimeError('retry audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'retry audit unavailable'):
+                self.client.post(
+                    reverse('conciliacion-movimiento-match', args=[movimiento.id]),
+                    format='json',
+                )
+
+        movimiento.refresh_from_db()
+        pago.refresh_from_db()
+        resolution.refresh_from_db()
+        ingreso = IngresoDesconocido.objects.get(movimiento_bancario=movimiento)
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.UNKNOWN_INCOME)
+        self.assertIsNone(movimiento.pago_mensual_id)
+        self.assertEqual(pago.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(str(pago.monto_pagado_clp), '0.00')
+        self.assertEqual(ingreso.estado, 'pendiente_revision')
+        self.assertEqual(resolution.status, ManualResolution.Status.OPEN)
+        self.assertNotIn('superseded_by', resolution.metadata)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type__in=[
+                    'conciliacion.movimiento_bancario.match_retried',
+                    'audit.manual_resolution.superseded',
+                    'contabilidad.evento_contable.payment_reconciled',
+                ]
+            ).exists()
+        )
+
     def test_manual_resolution_supersede_rolls_back_when_audit_creation_fails(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-SUP-AUDIT-FAIL', amount='100111.00')
         conexion = self._create_connection(cuenta)
