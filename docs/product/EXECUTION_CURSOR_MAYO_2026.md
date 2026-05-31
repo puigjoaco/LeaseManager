@@ -23,15 +23,15 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` tras integrar el paquete Etapa 0 / PlataformaBase / Auth / redaccion de `legacy_reference` en admin de usuarios, PRD canonico, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna. Ultimo paquete cerrado: Etapa 0 / PlataformaBase / Auth / `LeaseManagerUserAdmin` muestra `legacy_reference` solo redactado. |
-| Motivo de prioridad | No hay paquete tactico abierto; corresponde diagnosticar el siguiente frente seguro desde trazabilidad y stage cards. |
-| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-user-admin-legacy-ref-redaction`. |
-| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/user-admin-legacy-ref-redaction`. |
-| Estado | Paquete de Auth cerrado en este frente; luego de merge, el cursor queda libre para diagnosticar el siguiente frente seguro. |
+| Fuente exacta | Estado real de `main` tras integrar el paquete Etapa 3 / Conciliacion / Django admin / redaccion de cuenta recaudadora, PRD canonico, `docs/product/STAGE_CARDS/ETAPA_3_BANCO_CONCILIACION.md`, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna. Ultimo paquete cerrado: `ConexionBancariaAdmin`, `IngresoDesconocidoAdmin` y `CuadraturaBancariaAdmin` ya no exponen labels crudos de `cuenta_recaudadora` ni buscan por `cuenta_recaudadora__numero_cuenta`. |
+| Motivo de prioridad | La ficha de Etapa 3 exige que el admin de Conciliacion no exponga ni busque refs bancarias crudas ni numeros de cuenta; el paquete deja esa superficie cerrada localmente. |
+| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-stage3-admin-bank-account-redaction`. |
+| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/stage3-admin-bank-account-redaction`. |
+| Estado | Paquete de Conciliacion/admin cerrado en este frente; luego de merge, el cursor queda libre para diagnosticar el siguiente frente seguro. |
 | Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
-| Estado al cerrar paquete | Etapa 0 / PlataformaBase / Auth / admin de usuarios: focal 1 test OK, suite impactada 62 tests OK, `manage.py check`, migraciones dry-run, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1115 tests OK, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo. No requiere `.env`, secretos, DB historica, datos reales, backfills, deploys ni integraciones externas. |
+| Estado al cerrar paquete | Etapa 3 / Conciliacion / admin de cuenta recaudadora: focal 1 test OK, suite impactada 142 tests OK, `manage.py check`, migraciones dry-run, gate local Etapa 3 `classification=parcial`, `ready_for_stage3_conciliacion=false`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1115 tests OK, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo. No requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 

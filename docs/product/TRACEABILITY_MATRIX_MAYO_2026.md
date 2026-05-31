@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Conciliacion/Etapa 3 cierra exposicion de numeros de cuenta
+recaudadora en Django admin. `ConexionBancariaAdmin`,
+`IngresoDesconocidoAdmin` y `CuadraturaBancariaAdmin` reemplazan labels crudos
+de `cuenta_recaudadora` por `cuenta_recaudadora_redacted` y dejan de buscar por
+`cuenta_recaudadora__numero_cuenta`, manteniendo refs bancarias heredadas
+redactadas y mutaciones operativas bajo API/servicios auditados.
+
 Nota 2026-05-31: PlataformaBase/Auth cierra exposicion cruda de
 `legacy_reference` en Django admin de usuarios. `LeaseManagerUserAdmin`
 mantiene la gestion operativa de usuarios, pero reemplaza la referencia legacy
