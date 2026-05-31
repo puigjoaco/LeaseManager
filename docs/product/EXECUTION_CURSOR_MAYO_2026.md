@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 - atomicidad de auditoria en APIs de Patrimonio. |
-| Fuente exacta | Estado real de `main` en `fa5e091` despues de PR #605, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | `backend/patrimonio/views.py::AuditCreateUpdateMixin` persiste altas/ediciones patrimoniales antes de crear auditoria y fuera de una transaccion unica; si falla `create_audit_event`, pueden quedar cambios patrimoniales sin traza. |
-| Motivo de prioridad | Patrimonio es el primer dominio de construccion despues de PlataformaBase; la correccion es local, verificable y no requiere datos reales, snapshot, secretos ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-patrimony-audit-atomicity`. |
-| Rama | `codex/stage1-patrimony-audit-atomicity`. |
-| Estado | Paquete tactico abierto. |
-| Gate esperado | Etapa 1 local debe seguir como diagnostico no evidencial, sin cierre de etapa por falta de fuente autorizada. |
-| Estado al cerrar paquete | PR #604 mergeado en `4b65376`: `AuditCreateUpdateMixin` persiste creacion/actualizacion y auditoria en una sola transaccion, y `MovimientoBancarioListCreateView.perform_create()` persiste movimiento, auditoria `created`, match exacto local y auditoria `match_attempted` de forma atomica. Si falla la auditoria posterior, no quedan movimiento, pago mutado, ingreso desconocido ni estado de conciliacion sin traza. Validado con focal 3 tests, impactada Conciliacion/readiness 112 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, gate Etapa 3 parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1137 tests, higiene, `git diff --check` y CI GitHub. |
-| Bloqueos relacionados | Etapa 3 sigue parcial para cierre real porque requiere banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria y cuadratura controlada. El paquete cerrado no uso `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
+| Frente activo | Ningun paquete tactico abierto. |
+| Fuente exacta | Estado real de `main` en `9ef3b1d` despues de PR #606, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna seleccionada en este cursor. |
+| Motivo de prioridad | PR #606 cerro la atomicidad de auditoria en APIs de Patrimonio; el siguiente frente debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Listo para diagnosticar el siguiente frente seguro. |
+| Gate esperado | No aplica hasta abrir un nuevo paquete. |
+| Estado al cerrar paquete | PR #606 mergeado en `9ef3b1d`: `backend/patrimonio/views.py::AuditCreateUpdateMixin` persiste altas/ediciones patrimoniales y eventos `created`, `updated` o `state_changed` en una sola transaccion. Si falla la auditoria, no quedan empresas, participaciones anidadas ni cambios patrimoniales persistidos sin traza. Validado con focal 4 tests, impactada Patrimonio/Etapa 1 204 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, readiness local Etapa 1 no evidencial, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1139 tests, higiene, `git diff --check` y CI GitHub. |
+| Bloqueos relacionados | BLK-002 sigue abierto para cierre evidencial de Etapa 1 con fuente `snapshot_controlado` o `real_autorizado`. El paquete cerrado no uso `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Implementar transaccion atomica en APIs de Patrimonio, agregar pruebas de rollback ante fallo de auditoria, validar suite impactada y cerrar con PR/CI/merge/limpieza. |
+| Siguiente accion | Confirmar `main` limpio y diagnosticar el siguiente frente seguro por orden de construccion y trazabilidad vigente. |
 
 ## Actualizacion
 
