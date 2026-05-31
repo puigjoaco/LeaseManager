@@ -1668,6 +1668,52 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(audit_event.metadata['pago_mensual_id'], payment.pk)
         self.assertEqual(audit_event.metadata['fecha_pago_webpay'], '2026-01-08')
 
+    def test_webpay_manual_confirmation_rolls_back_when_audit_creation_fails(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-CONF-AUDIT-FAIL')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-sandbox-evidence-ok',
+        )
+        intent = IntentoPagoWebPay.objects.create(
+            pago_mensual=payment,
+            gate_cobro=gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=payment.monto_calculado_clp,
+            buy_order='LM-PM-WP-CONF-AUDIT-FAIL',
+            session_id='LM-WP-CONF-AUDIT-FAIL',
+            return_url_ref='webpay-return-controlled-v1',
+            estado=EstadoIntentoPagoWebPay.PREPARED,
+            usuario=self.user,
+        )
+
+        with patch('cobranza.services.create_audit_event', side_effect=RuntimeError('audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'audit unavailable'):
+                confirm_webpay_intent_manually(
+                    intent=intent,
+                    external_ref='TBK-AUDIT-FAIL-001',
+                    fecha_pago_webpay=date(2026, 1, 8),
+                    actor_user=self.user,
+                    ip_address='127.0.0.1',
+                )
+
+        intent.refresh_from_db()
+        payment.refresh_from_db()
+        self.assertEqual(intent.estado, EstadoIntentoPagoWebPay.PREPARED)
+        self.assertEqual(intent.external_ref, '')
+        self.assertIsNone(intent.fecha_pago_webpay)
+        self.assertIsNone(intent.confirmado_at)
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(payment.monto_pagado_clp, Decimal('0.00'))
+        self.assertIsNone(payment.fecha_pago_webpay)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
+                entity_type='webpay_intento',
+                entity_id=str(intent.pk),
+            ).exists()
+        )
+
     def test_webpay_manual_confirmation_service_requires_actor(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-ACTOR')
         gate = GateCobroExterno.objects.create(

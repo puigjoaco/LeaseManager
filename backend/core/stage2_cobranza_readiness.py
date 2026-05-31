@@ -45,6 +45,7 @@ from cobranza.models import (
     PagoMensual,
     RepactacionDeuda,
     ValorUFDiario,
+    WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
 )
 from cobranza.services import build_account_state_summary
 from contratos.models import (
@@ -490,6 +491,26 @@ def _gate_contains_sensitive_reference(gate) -> bool:
     )
 
 
+def _webpay_manual_confirmation_event_is_complete(intent: IntentoPagoWebPay) -> bool:
+    events = AuditEvent.objects.filter(
+        event_type=WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
+        entity_type='webpay_intento',
+        entity_id=str(intent.pk),
+    )
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if not event.actor_user_id and not event.actor_identifier.strip():
+            continue
+        if str(metadata.get('external_ref') or '').strip() != intent.external_ref.strip():
+            continue
+        if str(metadata.get('pago_mensual_id') or '').strip() != str(intent.pago_mensual_id):
+            continue
+        if str(metadata.get('fecha_pago_webpay') or '').strip() != str(intent.fecha_pago_webpay):
+            continue
+        return True
+    return False
+
+
 def _collect_webpay_intent_issues(intents) -> dict[str, int]:
     counts = Counter()
     for intent in intents:
@@ -514,6 +535,8 @@ def _collect_webpay_intent_issues(intents) -> dict[str, int]:
                 counts['confirmed_payment_without_webpay_date'] += 1
             elif intent.fecha_pago_webpay and intent.pago_mensual.fecha_pago_webpay != intent.fecha_pago_webpay:
                 counts['confirmed_payment_date_mismatch'] += 1
+            if not _webpay_manual_confirmation_event_is_complete(intent):
+                counts['confirmed_manual_event_missing'] += 1
     return dict(sorted(counts.items()))
 
 
@@ -1562,6 +1585,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.webpay_intent.confirmed_payment_date_mismatch',
                 'Existen intentos WebPay confirmados con fecha distinta a la del pago mensual.',
                 count=webpay_intent_issues['confirmed_payment_date_mismatch'],
+            )
+        )
+    if webpay_intent_issues.get('confirmed_manual_event_missing'):
+        issues.append(
+            _issue(
+                'stage2.webpay_intent.confirmed_manual_event_missing',
+                'Existen intentos WebPay confirmados sin auditoria manual completa y alineada.',
+                count=webpay_intent_issues['confirmed_manual_event_missing'],
             )
         )
 
