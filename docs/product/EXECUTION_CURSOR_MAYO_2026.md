@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` tras integrar PR #574 en `d857ff1`, PRD canonico, `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna. Ultimo paquete cerrado: `DocumentoEmitido.clean()` exige `PlantillaDocumental` activa para el mismo tipo documental y version; Stage 6 quedo alineado con plantilla activa en fixture valida. |
-| Motivo de prioridad | La ficha Etapa 5 exige plantilla activa para cada documento emitido y PDF generado; el paquete dejo cerrado ese guard local tambien en dominio. |
-| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-stage5-document-template-domain-guard`. |
-| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/stage5-document-template-domain-guard`. |
-| Estado | Paquete Etapa 5 / Documentos cerrado; luego de este ajuste de cursor, queda libre para diagnosticar el siguiente frente seguro. |
-| Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
-| Estado al cerrar paquete | Focal 3 tests OK, suite Documentos 84 tests OK, Stage 6 focal 1 test OK, `manage.py check`, migraciones dry-run, readiness local Etapa 5 Documentos `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1116 tests OK, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Sin bloqueo externo nuevo. No requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, bancos reales, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Frente activo | Etapa 1 / Patrimonio / admin estructural solo inspeccion. |
+| Fuente exacta | Estado real de `main` en `a68ae46`, PRD canonico, `docs/product/STAGE_CARDS/ETAPA_1_DATOS_REALES.md`, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Admin Django de Patrimonio bloqueaba borrado manual, pero aun permitia altas o ediciones manuales en entidades estructurales que ya tienen API o flujos auditados. |
+| Motivo de prioridad | Es la brecha local verificable de menor etapa detectada desde trazabilidad: evita mutaciones patrimoniales fuera de API, estado, vigencia o flujo auditado. |
+| Worktree | `D:/Proyectos/LeaseManager-stage1-patrimony-admin-readonly`. |
+| Rama | `codex/stage1-patrimony-admin-readonly`. |
+| Estado | Validado localmente; pendiente PR, CI remoto, merge y limpieza. |
+| Gate esperado | Focal de admins Patrimonio, suite Patrimonio/Etapa 1, `manage.py check`, migraciones dry-run, readiness local Etapa 1, frontend build/lint si aplica, acceptance local, higiene repo y CI remoto. |
+| Estado al cerrar paquete | Focal Patrimonio admin 3 tests OK; suite Patrimonio/Etapa 1 202 tests OK; `manage.py check` OK; migraciones dry-run sin cambios; readiness local Etapa 1 diagnostico OK; `npm ci`, `npm run build`, `npm run lint` OK; acceptance local 1116 tests OK. |
+| Bloqueos relacionados | Sin bloqueo externo nuevo. No requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
+| Politica de reanudacion | Si existe este worktree, continuar este paquete antes de abrir otro frente. Si desaparece tras merge, diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Siguiente accion | Ejecutar higiene final, crear PR, esperar CI, mergear y limpiar worktree/ramas. |
 
 ## Actualizacion
 

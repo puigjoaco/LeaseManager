@@ -456,6 +456,7 @@ class PatrimonioAPITests(APITestCase):
         self.assertNotIn('evidencia_ref', model_admin.fields)
         self.assertEqual(model_admin.evidencia_ref_redacted(representacion), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_change_permission(None, representacion))
         self.assertFalse(model_admin.has_delete_permission(None, representacion))
 
     def test_property_service_admin_redacts_sensitive_evidence(self):
@@ -477,9 +478,11 @@ class PatrimonioAPITests(APITestCase):
         self.assertNotIn('evidencia_ref', model_admin.fields)
         self.assertIn('evidencia_ref_redacted', model_admin.readonly_fields)
         self.assertEqual(model_admin.evidencia_ref_redacted(service), REDACTED_SENSITIVE_REFERENCE)
+        self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_change_permission(None, service))
         self.assertFalse(model_admin.has_delete_permission(None, service))
 
-    def test_structural_patrimony_admins_block_manual_delete(self):
+    def test_structural_patrimony_admins_block_manual_mutations(self):
         socio = self._create_socio('Socio Admin Delete', '11111111-1')
         empresa = Empresa.objects.create(
             razon_social='Empresa Admin Delete',
@@ -510,19 +513,18 @@ class PatrimonioAPITests(APITestCase):
             socio_owner=socio,
         )
         site = AdminSite()
+        admins = [
+            (SocioAdmin(Socio, site), socio),
+            (EmpresaAdmin(Empresa, site), empresa),
+            (ComunidadPatrimonialAdmin(ComunidadPatrimonial, site), comunidad),
+            (ParticipacionPatrimonialAdmin(ParticipacionPatrimonial, site), participacion),
+            (PropiedadAdmin(Propiedad, site), propiedad),
+        ]
 
-        self.assertFalse(SocioAdmin(Socio, site).has_delete_permission(None, socio))
-        self.assertFalse(EmpresaAdmin(Empresa, site).has_delete_permission(None, empresa))
-        self.assertFalse(
-            ComunidadPatrimonialAdmin(ComunidadPatrimonial, site).has_delete_permission(None, comunidad)
-        )
-        self.assertFalse(
-            ParticipacionPatrimonialAdmin(ParticipacionPatrimonial, site).has_delete_permission(
-                None,
-                participacion,
-            )
-        )
-        self.assertFalse(PropiedadAdmin(Propiedad, site).has_delete_permission(None, propiedad))
+        for model_admin, obj in admins:
+            self.assertFalse(model_admin.has_add_permission(None))
+            self.assertFalse(model_admin.has_change_permission(None, obj))
+            self.assertFalse(model_admin.has_delete_permission(None, obj))
 
     def test_create_socio_normalizes_rut_and_rejects_duplicate(self):
         payload = {
