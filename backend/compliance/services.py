@@ -42,6 +42,7 @@ REVOCATION_REASON_REQUIRED_ERROR = 'La revocacion de exportaciones sensibles req
 REVOCATION_REASON_SENSITIVE_ERROR = (
     'El motivo de revocacion no puede contener URLs, correos, tokens, bearer, claves ni credenciales.'
 )
+REVOCATION_ACTOR_REQUIRED_ERROR = 'La revocacion de exportaciones sensibles requiere actor trazable.'
 EXPORT_KIND_CATEGORY_MAP = {
     'dashboard_operativo': CategoriaDato.OPERATIONAL,
     'financiero_mensual': CategoriaDato.FINANCIAL,
@@ -215,6 +216,8 @@ def revoke_export(export, *, actor_user=None, ip_address=None, revocation_reason
         raise ValueError(EXPORT_ALREADY_REVOKED_ERROR)
     if export.estado == EstadoExportacionSensible.EXPIRED:
         raise ValueError(EXPIRED_EXPORT_REVOKE_ERROR)
+    if not getattr(actor_user, 'pk', None):
+        raise ValueError(REVOCATION_ACTOR_REQUIRED_ERROR)
     if not export.hold_activo and export.expires_at <= timezone.now():
         export.estado = EstadoExportacionSensible.EXPIRED
         export.save(update_fields=['estado', 'updated_at'])

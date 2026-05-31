@@ -69,8 +69,8 @@ evidencia respalda el root limpio.
   transaccion que persiste el estado, evitando exportaciones sensibles sin
   auditoria dedicada si falla la escritura del evento. La preparacion desde
   servicio exige motivo operativo y actor creador trazable; la revocacion desde
-  servicio tambien exige motivo operativo no sensible antes de persistir la
-  revocacion.
+  servicio tambien exige motivo operativo no sensible y actor trazable antes
+  de persistir la revocacion.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.
