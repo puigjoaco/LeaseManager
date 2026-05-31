@@ -207,6 +207,7 @@ class UserAuthAPITests(APITestCase):
         user = get_user_model().objects.create_user(
             username='metadata-admin',
             password='secret123',
+            legacy_reference='https://legacy.example.test/user?token=secret',
             metadata={
                 'safe_ref': 'controlled-user-ref',
                 'callback_url': 'https://auth.example.test/callback?token=secret',
@@ -215,6 +216,9 @@ class UserAuthAPITests(APITestCase):
         admin_instance = LeaseManagerUserAdmin(get_user_model(), AdminSite())
         leasemanager_fields = admin_instance.fieldsets[-1][1]['fields']
 
+        self.assertNotIn('legacy_reference', leasemanager_fields)
+        self.assertIn('legacy_reference_redacted', leasemanager_fields)
+        self.assertEqual(admin_instance.legacy_reference_redacted(user), REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('metadata', leasemanager_fields)
         self.assertIn('metadata_redacted', leasemanager_fields)
         metadata = json.loads(admin_instance.metadata_redacted(user))

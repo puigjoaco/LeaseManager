@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: PlataformaBase/Auth cierra exposicion cruda de
+`legacy_reference` en Django admin de usuarios. `LeaseManagerUserAdmin`
+mantiene la gestion operativa de usuarios, pero reemplaza la referencia legacy
+por `legacy_reference_redacted` y conserva metadata redactada y borrado manual
+deshabilitado.
+
 Nota 2026-05-31: Auditoria/Etapa 0 deja `AuditEventAdmin` y
 `ManualResolutionAdmin` como superficies solo lectura. Ambos admins conservan
 redaccion de campos sensibles y bloquean alta, cambio y borrado manual, para
