@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` tras integrar PR #590 en `c2a584b`, `docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md`, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna. Ultimo paquete cerrado: `approve_monthly_close()` exige `LiquidacionMensual` de empresa preparada para el mismo cierre/periodo antes de aprobar un cierre mensual contable. |
-| Motivo de prioridad | El paquete cerro una brecha local verificable de Etapa 5: alinear servicio operacional, readiness de liquidaciones y bootstraps demo sin usar fuentes externas. |
-| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-stage5-close-liquidation-guard`. |
-| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/stage5-close-liquidation-guard`. |
-| Estado | Paquete Contabilidad / Etapa 5 cerrado; luego de este ajuste de cursor, queda libre para diagnosticar el siguiente frente seguro. |
-| Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
-| Estado al cerrar paquete | Focal Contabilidad 3 tests OK; suite impactada Contabilidad/Stage5 69 tests OK; `manage.py check` OK; `makemigrations --check --dry-run --noinput` sin cambios; readiness local Etapa 5 `classification=parcial`, `ready_for_stage5_contabilidad=false`; `npm run build`, `npm run lint` OK; acceptance local 1125 tests OK; higiene repo y `git diff --check` OK; CI GitHub acceptance OK; PR #590 mergeado en `c2a584b`; worktree tactico y rama local/remota eliminados. |
-| Bloqueos relacionados | Etapa 5 sigue parcial para cierre real por Conciliacion/fuente autorizada/evidencia externa. Este paquete no requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
+| Frente activo | Etapa 5 Documentos PDF - auditoria atomica de versiones correctivas. |
+| Fuente exacta | Estado real de `main` en `95c273b`, `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`, `backend/documentos/views.py`, `backend/documentos/tests.py`, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | La creacion generica de una version correctiva persiste el documento antes de crear la auditoria dedicada `documentos.documento_emitido.corrective_version_created`; si falla la auditoria, puede quedar un documento correctivo sin evento dedicado hasta que readiness lo detecte. |
+| Motivo de prioridad | Cierra una brecha local verificable de Etapa 5 alineando version correctiva y auditoria dedicada en una misma transaccion, igual que formalizacion y PDF generado, sin usar fuentes externas. |
+| Worktree | `D:/Proyectos/LeaseManager-documents-corrective-audit-atomic`. |
+| Rama | `codex/documents-corrective-audit-atomic`. |
+| Estado | Paquete abierto para implementacion y validacion. |
+| Gate esperado | Test focal de rollback de version correctiva si falla auditoria dedicada; suite `documentos`; `manage.py check`; `makemigrations --check --dry-run --noinput`; readiness local Documentos como parcial esperado; frontend build/lint si corresponde; acceptance local; higiene repo y `git diff --check`; CI GitHub antes de merge. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Etapa 5 Documentos sigue parcial para cierre real por politica final, fuente autorizada y prueba PDF controlada. Este paquete no requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Siguiente accion | Implementar la transaccion atomica y validar rollback/auditoria. |
 
 ## Actualizacion
 

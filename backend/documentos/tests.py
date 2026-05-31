@@ -1273,6 +1273,61 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(correction_snapshot['documento_origen'], documento['id'])
         self.assertEqual(correction_snapshot['correccion_ref'], 'correction-ticket-doc-001')
 
+    def test_corrective_version_creation_rolls_back_when_dedicated_audit_fails(self):
+        from audit.services import create_audit_event as real_create_audit_event
+
+        expediente = self._create_expediente(entidad_id='4G-correction-audit-rollback')
+        self._create_politica()
+        origin = self._create_documento(
+            expediente['id'],
+            firma_arrendador_registrada=True,
+            firma_arrendatario_registrada=True,
+        )
+        formalize = self.client.post(
+            reverse('documentos-documento-formalizar', args=[origin['id']]),
+            {'evidencia_formalizacion_ref': FORMALIZATION_REF},
+            format='json',
+        )
+        self.assertEqual(formalize.status_code, status.HTTP_200_OK)
+        self._ensure_template('contrato_principal', 'v2')
+        document_count = DocumentoEmitido.objects.count()
+        audit_count = AuditEvent.objects.count()
+
+        def fail_dedicated_correction_audit(**kwargs):
+            if kwargs.get('event_type') == CORRECTION_AUDIT_EVENT_TYPE:
+                raise RuntimeError('correction audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('documentos.views.create_audit_event', side_effect=fail_dedicated_correction_audit):
+            with self.assertRaises(RuntimeError):
+                self.client.post(
+                    reverse('documentos-documento-list'),
+                    {
+                        'expediente': expediente['id'],
+                        'tipo_documental': 'contrato_principal',
+                        'version_plantilla': 'v2',
+                        'checksum': VALID_SHA256_ALT,
+                        'fecha_carga': '2026-03-18T10:00:00-03:00',
+                        'origen': 'carga_externa_controlada',
+                        'estado': 'emitido',
+                        'storage_ref': 'storage/contracts/contrato-correction-rollback.pdf',
+                        'firma_arrendador_registrada': False,
+                        'firma_arrendatario_registrada': False,
+                        'firma_codeudor_registrada': False,
+                        'recepcion_notarial_registrada': False,
+                        'comprobante_notarial': None,
+                        'documento_origen': origin['id'],
+                        'correccion_ref': 'correction-ticket-doc-rollback',
+                    },
+                    format='json',
+                )
+
+        self.assertEqual(DocumentoEmitido.objects.count(), document_count)
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+        self.assertFalse(
+            DocumentoEmitido.objects.filter(storage_ref='storage/contracts/contrato-correction-rollback.pdf').exists()
+        )
+
     def test_existing_document_cannot_be_converted_to_corrective_version(self):
         expediente = self._create_expediente(entidad_id='4G-convert-correction')
         self._create_politica()

@@ -115,6 +115,10 @@ firma y notaria trazables.
   y conservar `correccion_ref` no sensible con evento de auditoria dedicado.
   El endpoint generico no puede convertir documentos existentes en versiones
   correctivas ni mutar la traza auditada de una version correctiva ya creada.
+- La persistencia de una version correctiva y su auditoria dedicada
+  `documentos.documento_emitido.corrective_version_created` deben quedar en la
+  misma transaccion. Si falla la escritura del evento dedicado, no puede
+  quedar persistido un documento correctivo huerfano.
 - Auditoria local `audit_document_readiness` debe bloquear cierre si detecta
   documentos formalizados sin evento `documentos.documento_emitido.formalized`.
 - Ese evento de formalizacion debe conservar actor y metadata alineada con la

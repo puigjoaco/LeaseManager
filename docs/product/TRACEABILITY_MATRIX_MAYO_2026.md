@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Documentos/Etapa 5 alinea versiones correctivas con
+auditoria atomica. `DocumentoEmitidoListCreateView.perform_create()` persiste
+la version correctiva y los eventos `created` y
+`corrective_version_created` dentro de la misma transaccion; si falla la
+auditoria dedicada, se revierte tambien el documento correctivo y no queda
+traza huerfana para que readiness la detecte despues.
+
 Nota 2026-05-31: Contabilidad/Etapa 5 alinea la aprobacion de cierre mensual
 con readiness de liquidaciones. `approve_monthly_close()` exige una
 `LiquidacionMensual` de empresa preparada para el mismo cierre/periodo antes
