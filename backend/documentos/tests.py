@@ -729,6 +729,30 @@ class DocumentosAPITests(APITestCase):
 
         self.assertIn('usuario', error.exception.message_dict)
 
+    def test_document_full_clean_requires_active_template(self):
+        expediente = self._create_expediente(entidad_id='template-domain-guard')
+        self._create_politica()
+        PlantillaDocumental.objects.filter(
+            tipo_documental='contrato_principal',
+            version_plantilla='v1',
+        ).delete()
+        document = DocumentoEmitido(
+            expediente_id=expediente['id'],
+            tipo_documental='contrato_principal',
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=self.user,
+            origen='carga_externa_controlada',
+            estado='emitido',
+            storage_ref='storage/contracts/template-domain-guard.pdf',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            document.full_clean()
+
+        self.assertIn('version_plantilla', error.exception.message_dict)
+
     def test_document_requires_active_policy_for_type(self):
         expediente = self._create_expediente(entidad_id='policy-guard')
         self._ensure_template('contrato_principal', 'v1')

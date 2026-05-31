@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` tras integrar el paquete Etapa 3 / Conciliacion / Django admin / redaccion de conexion bancaria en movimientos importados, PRD canonico, `docs/product/STAGE_CARDS/ETAPA_3_BANCO_CONCILIACION.md`, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna. Ultimo paquete cerrado: `MovimientoBancarioImportadoAdmin` ya no expone la relacion cruda `conexion_bancaria` en `fields` ni `list_display`; usa `conexion_bancaria_redacted`. |
-| Motivo de prioridad | La ficha Etapa 3 exige labels/versiones redactadas en superficies admin de movimientos; el paquete deja cerrada esa superficie local. |
-| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-stage3-movement-connection-admin-redaction`. |
-| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/stage3-movement-connection-admin-redaction`. |
-| Estado | Paquete de Conciliacion/admin cerrado en este frente; luego de merge, el cursor queda libre para diagnosticar el siguiente frente seguro. |
-| Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
-| Estado al cerrar paquete | Focal 1 test OK, suite impactada 142 tests OK, `manage.py check`, migraciones dry-run, readiness local Etapa 3 `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1115 tests OK, higiene repo y `git diff --check`. |
+| Frente activo | Etapa 5 / Documentos / guard de plantilla activa en dominio. |
+| Fuente exacta | Estado real de `main` en `6602a74`, PRD canonico, `docs/product/STAGE_CARDS/ETAPA_5_DOCUMENTOS_PDF.md`, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | `DocumentoEmitido.clean()` no exigia `PlantillaDocumental` activa para el mismo tipo documental y version, aunque API y readiness ya lo cubrian. |
+| Motivo de prioridad | La ficha Etapa 5 exige plantilla activa para cada documento emitido y PDF generado; el guard debe vivir tambien en dominio para cubrir escrituras internas controladas que llamen `full_clean()`. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-document-template-domain-guard`. |
+| Rama | `codex/stage5-document-template-domain-guard`. |
+| Estado | Paquete tactico validado localmente; pendiente cierre con PR, CI, merge y limpieza. |
+| Gate esperado | Focal de Documentos, suite impactada Documentos/readiness, `manage.py check`, migraciones dry-run, gate local Etapa 5 Documentos, frontend build/lint si aplica, acceptance local, higiene repo y CI remoto. |
+| Estado al cerrar paquete | Focal 3 tests OK, suite Documentos 84 tests OK, Stage 6 focal 1 test OK, `manage.py check`, migraciones dry-run, readiness local Etapa 5 Documentos `classification=parcial`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1116 tests OK, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. No requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, bancos reales, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Politica de reanudacion | Si existe este worktree, continuar este paquete antes de abrir otro frente. Si desaparece tras merge, diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Siguiente accion | Completar validaciones proporcionales, registrar evidencia y cerrar PR. |
 
 ## Actualizacion
 
