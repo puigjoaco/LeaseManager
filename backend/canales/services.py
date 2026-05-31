@@ -371,6 +371,7 @@ def prepare_message(
     if blocking_reason:
         message.estado = EstadoMensajeSaliente.BLOCKED
         message.motivo_bloqueo = blocking_reason
+        message.full_clean()
         message.save()
         ensure_manual_resolution(
             f'canales.{canal}.bloqueado',
@@ -397,6 +398,7 @@ def prepare_message(
         return message
 
     message.estado = EstadoMensajeSaliente.PREPARED
+    message.full_clean()
     message.save()
     create_message_prepared_audit_event(
         message,
@@ -486,6 +488,7 @@ def mark_message_as_sent(message, external_ref='', *, actor_user=None, actor_ide
     message.estado = EstadoMensajeSaliente.SENT
     message.external_ref = external_ref
     message.enviado_at = timezone.now()
+    message.full_clean()
     message.save(update_fields=['estado', 'external_ref', 'enviado_at', 'updated_at'])
     create_audit_event(
         event_type='canales.mensaje_saliente.sent_manually',

@@ -106,7 +106,10 @@ condicionados sin envios reales accidentales.
   contrato: override explicito del contrato o asignacion activa del mandato
   para el mismo canal. El servicio de preparacion y el registro manual de
   envio revalidan esa autorizacion, y readiness bloquea mensajes heredados con
-  identidades activas pero no autorizadas.
+  identidades activas pero no autorizadas. El servicio tambien ejecuta la
+  validacion de dominio antes de persistir mensajes preparados/bloqueados o
+  registrar envios manuales, impidiendo que llamadas internas usen un gate de
+  canal distinto al canal del mensaje.
 - Las notificaciones por cobranza se configuran por contrato y canal
   habilitado mediante cadencias activas de dias. La base sugerida es
   `1/3/5/10/15/20/25`; una cadencia distinta requiere referencia no sensible,

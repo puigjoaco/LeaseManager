@@ -1624,6 +1624,44 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(audit_event.ip_address, '127.0.0.1')
         self.assertEqual(audit_event.metadata['external_ref'], 'manual-service-001')
 
+    def test_mark_manual_send_service_rejects_gate_channel_mismatch(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-SEND-GATE-MISMATCH')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        message = prepare_message(
+            canal='email',
+            canal_mensajeria=gate,
+            contrato=contrato,
+            asunto='Enviar con gate desalineado',
+            usuario=self.user,
+        )
+        whatsapp_gate_data = self._create_gate(
+            canal='whatsapp',
+            restricciones_operativas={'templates_aprobados': True},
+        )
+        MensajeSaliente.objects.filter(pk=message.pk).update(canal_mensajeria_id=whatsapp_gate_data['id'])
+        message.refresh_from_db()
+
+        with self.assertRaises(ValidationError) as error:
+            mark_message_as_sent(
+                message,
+                external_ref='manual-service-mismatch',
+                actor_user=self.user,
+            )
+
+        self.assertIn('canal_mensajeria', error.exception.message_dict)
+        message.refresh_from_db()
+        self.assertEqual(message.estado, EstadoMensajeSaliente.PREPARED)
+        self.assertEqual(message.external_ref, '')
+
     def test_prepare_message_service_creates_audit_event(self):
         empresa, contrato = self._create_contract_context(codigo='CH-PREP-SERVICE')
         gate_data = self._create_gate(canal='email')
@@ -1657,6 +1695,36 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(audit_event.metadata['estado'], EstadoMensajeSaliente.PREPARED)
         self.assertEqual(audit_event.metadata['canal'], 'email')
         self.assertEqual(audit_event.metadata['contrato_id'], contrato.id)
+
+    def test_prepare_message_service_rejects_gate_channel_mismatch(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-PREP-GATE-MISMATCH')
+        gate_data = self._create_gate(canal='whatsapp', restricciones_operativas={'templates_aprobados': True})
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+        identidad = self._create_identity(empresa, canal='email')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='email',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            prepare_message(
+                canal='email',
+                canal_mensajeria=gate,
+                contrato=contrato,
+                asunto='Gate de otro canal',
+                usuario=self.user,
+            )
+
+        self.assertIn('canal_mensajeria', error.exception.message_dict)
+        self.assertFalse(
+            MensajeSaliente.objects.filter(
+                contrato=contrato,
+                asunto='Gate de otro canal',
+            ).exists()
+        )
 
     def test_prepare_message_rolls_back_when_audit_creation_fails(self):
         empresa, contrato = self._create_contract_context(codigo='CH-PREP-ROLLBACK')
