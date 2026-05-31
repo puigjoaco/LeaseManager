@@ -52,8 +52,8 @@ contra datos reales o snapshot controlado.
   esa traza. Las observaciones de representacion no pueden contener URLs,
   correos, tokens ni credenciales; la API redacta observaciones heredadas
   sensibles y el auditor las clasifica como defecto especifico. El admin
-  Django no permite borrar manualmente representaciones; deben cerrarse por
-  vigencia, inactivacion o flujo auditado.
+  Django no permite alta, edicion ni borrado manual de representaciones; deben
+  cerrarse por vigencia, inactivacion o flujo auditado.
 - Validacion de participantes patrimoniales activos: una participacion activa
   solo puede apuntar a un socio activo o a una empresa participante activa con
   participaciones completas.
@@ -75,9 +75,10 @@ contra datos reales o snapshot controlado.
   quedar inactivos mientras conserven cuentas recaudadoras activas o mandatos
   operativos activos; socios y empresas tampoco pueden conservar identidades de
   envio activas despues de su salida operativa.
-- El admin Django de Patrimonio no permite borrar manualmente socios,
-  empresas, comunidades, participaciones ni propiedades; las bajas y cambios
-  estructurales deben conservarse por estado, vigencia o flujo auditado.
+- El admin Django de Patrimonio no permite alta, edicion ni borrado manual de
+  socios, empresas, comunidades, participaciones ni propiedades; las altas,
+  bajas y cambios estructurales deben pasar por API, estado, vigencia o flujo
+  auditado.
 - La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
   historicos no constituyen evidencia operativa de Etapa 1.
 - Validacion de no duplicar propiedades activas por rol de avaluo normalizado
@@ -134,8 +135,8 @@ contra datos reales o snapshot controlado.
   heredada solo mediante version redactada, y `Contrato.full_clean()`, la API y
   el auditor Etapa 1 bloquean contratos vigentes/futuros con gastos comunes si
   la propiedad principal no tiene un gasto comun activo estructurado. El admin
-  Django no permite borrar manualmente servicios de propiedad para no destruir
-  cobertura operativa ni evidencia.
+  Django no permite alta, edicion ni borrado manual de servicios de propiedad
+  para no destruir cobertura operativa ni evidencia.
 - Validacion de roles contrato-propiedad: exactamente una propiedad principal
   y, si hay pareja, una propiedad vinculada.
 - Validacion de que cada contrato vigente o futuro cubra una sola propiedad o
