@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 1 - atomicidad de auditoria en APIs de Operacion. |
-| Fuente exacta | Estado real de `main` en `bf31b91` despues de PR #607, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | `backend/operacion/views.py::AuditCreateUpdateMixin` persiste altas/ediciones operativas antes de crear la evidencia de auditoria; si `create_audit_event` falla, pueden quedar cambios operativos sin traza. |
-| Motivo de prioridad | Operacion es el siguiente dominio de construccion despues de Patrimonio y la brecha es local, verificable y no requiere secretos, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage1-operation-audit-atomicity`. |
-| Rama | `codex/stage1-operation-audit-atomicity`. |
-| Estado | Paquete tactico abierto. |
-| Gate esperado | Readiness local de Etapa 1 como diagnostico no evidencial; no declara cierre de etapa por BLK-002. |
-| Estado al cerrar paquete | PR #606 mergeado en `9ef3b1d`: `backend/patrimonio/views.py::AuditCreateUpdateMixin` persiste altas/ediciones patrimoniales y eventos `created`, `updated` o `state_changed` en una sola transaccion. Si falla la auditoria, no quedan empresas, participaciones anidadas ni cambios patrimoniales persistidos sin traza. Validado con focal 4 tests, impactada Patrimonio/Etapa 1 204 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, readiness local Etapa 1 no evidencial, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1139 tests, higiene, `git diff --check` y CI GitHub. |
+| Frente activo | Ningun paquete tactico abierto. |
+| Fuente exacta | Estado real de `main` en `ac716fa` despues de PR #608, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna seleccionada en este cursor. |
+| Motivo de prioridad | PR #608 cerro la atomicidad de auditoria en APIs de Operacion; el siguiente frente debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Listo para diagnosticar el siguiente frente seguro. |
+| Gate esperado | No aplica hasta abrir un nuevo paquete. |
+| Estado al cerrar paquete | PR #608 mergeado en `ac716fa`: `backend/operacion/views.py::AuditCreateUpdateMixin` persiste altas/ediciones operativas y eventos `created`, `updated` o `state_changed` en una sola transaccion. Si falla la auditoria, no quedan cuentas recaudadoras, identidades, mandatos ni asignaciones de canal mutadas sin traza. Validado con focal 4 tests, impactada Operacion/Etapa 1 174 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, readiness local Etapa 1 no evidencial, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1141 tests, higiene, `git diff --check` y CI GitHub. |
 | Bloqueos relacionados | BLK-002 sigue abierto para cierre evidencial de Etapa 1 con fuente `snapshot_controlado` o `real_autorizado`. El paquete cerrado no uso `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Implementar transaccion atomica, cubrir rollback ante falla de auditoria, validar proporcionalmente y cerrar con PR, CI, merge y limpieza. |
+| Siguiente accion | Confirmar `main` limpio y diagnosticar el siguiente frente seguro por orden de construccion y trazabilidad vigente. |
 
 ## Actualizacion
 
