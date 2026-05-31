@@ -67,7 +67,9 @@ evidencia respalda el root limpio.
   `compliance.exportacion_sensible.prepared` y
   `compliance.exportacion_sensible.revoked` desde el servicio y en la misma
   transaccion que persiste el estado, evitando exportaciones sensibles sin
-  auditoria dedicada si falla la escritura del evento.
+  auditoria dedicada si falla la escritura del evento. La revocacion desde
+  servicio tambien exige motivo operativo no sensible antes de persistir la
+  revocacion.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.
