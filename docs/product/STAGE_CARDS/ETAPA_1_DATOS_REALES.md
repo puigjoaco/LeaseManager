@@ -79,6 +79,10 @@ contra datos reales o snapshot controlado.
   socios, empresas, comunidades, participaciones ni propiedades; las altas,
   bajas y cambios estructurales deben pasar por API, estado, vigencia o flujo
   auditado.
+- Las altas y ediciones API de Patrimonio deben persistir la mutacion y los
+  eventos `created`, `updated` o `state_changed` de forma atomica; si falla la
+  auditoria, no deben quedar entidades patrimoniales ni participaciones
+  anidadas persistidas sin traza.
 - La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
   historicos no constituyen evidencia operativa de Etapa 1.
 - Validacion de no duplicar propiedades activas por rol de avaluo normalizado

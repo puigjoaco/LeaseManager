@@ -1,13 +1,13 @@
 from audit.services import create_audit_event
 from core.permissions import OperationalModulePermission, ROLE_ADMIN, get_effective_role_codes
 from core.reference_validation import redact_sensitive_reference
-from core.scope_access import get_scope_access
-from rest_framework.permissions import SAFE_METHODS
 from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_queryset_for_access
+from django.db import transaction
+from django.utils import timezone
 from rest_framework import generics
+from rest_framework.permissions import SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.utils import timezone
 
 from .models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, ServicioPropiedad, Socio
 from .serializers import (
@@ -26,19 +26,23 @@ class AuditCreateUpdateMixin:
     audit_entity_label = ''
 
     def perform_create(self, serializer):
-        instance = serializer.save()
-        self._create_audit_event(instance=instance, action='created')
+        with transaction.atomic():
+            instance = serializer.save()
+            self._create_audit_event(instance=instance, action='created')
+        return instance
 
     def perform_update(self, serializer):
         previous_state = self._extract_state(serializer.instance)
-        instance = serializer.save()
-        self._create_audit_event(instance=instance, action='updated')
-        if previous_state != self._extract_state(instance):
-            self._create_audit_event(
-                instance=instance,
-                action='state_changed',
-                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
-            )
+        with transaction.atomic():
+            instance = serializer.save()
+            self._create_audit_event(instance=instance, action='updated')
+            if previous_state != self._extract_state(instance):
+                self._create_audit_event(
+                    instance=instance,
+                    action='state_changed',
+                    summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                )
+        return instance
 
     def _extract_state(self, instance):
         if hasattr(instance, 'estado'):

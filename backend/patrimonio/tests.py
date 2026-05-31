@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
@@ -548,6 +549,16 @@ class PatrimonioAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(len(response.data['participaciones_detail']), 2)
         self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.empresa.created').exists())
+
+    def test_empresa_create_rolls_back_when_audit_creation_fails(self):
+        with patch('patrimonio.views.create_audit_event', side_effect=RuntimeError('patrimony audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'patrimony audit unavailable'):
+                self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')
+
+        self.assertFalse(Empresa.objects.filter(razon_social='Empresa Canonica').exists())
+        self.assertFalse(
+            ParticipacionPatrimonial.objects.filter(empresa_owner__razon_social='Empresa Canonica').exists()
+        )
 
     def test_empresa_update_rejects_direct_participation_rewrite(self):
         create_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')
@@ -1285,6 +1296,39 @@ class PatrimonioAPITests(APITestCase):
         self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
         self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.empresa.updated').exists())
         self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.empresa.state_changed').exists())
+
+    def test_empresa_update_rolls_back_when_state_change_audit_fails(self):
+        create_response = self.client.post(
+            reverse('patrimonio-empresa-list'),
+            self._empresa_payload(estado=EstadoPatrimonial.DRAFT),
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        empresa = Empresa.objects.get(pk=create_response.data['id'])
+
+        from audit.services import create_audit_event as real_create_audit_event
+
+        def fail_state_change_audit(**kwargs):
+            if kwargs.get('event_type') == 'patrimonio.empresa.state_changed':
+                raise RuntimeError('state change audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('patrimonio.views.create_audit_event', side_effect=fail_state_change_audit):
+            with self.assertRaisesRegex(RuntimeError, 'state change audit unavailable'):
+                self.client.patch(
+                    reverse('patrimonio-empresa-detail', args=[empresa.id]),
+                    {'estado': EstadoPatrimonial.ACTIVE},
+                    format='json',
+                )
+
+        empresa.refresh_from_db()
+        self.assertEqual(empresa.estado, EstadoPatrimonial.DRAFT)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type__in=['patrimonio.empresa.updated', 'patrimonio.empresa.state_changed'],
+                entity_id=str(empresa.id),
+            ).exists()
+        )
 
     def test_empresa_deactivation_rejects_active_own_participations(self):
         create_response = self.client.post(reverse('patrimonio-empresa-list'), self._empresa_payload(), format='json')
