@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
@@ -314,6 +316,59 @@ class OperacionAPITests(APITestCase):
 
         duplicate_response = self.client.post(reverse('operacion-cuenta-list'), payload, format='json')
         self.assertEqual(duplicate_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_account_create_rolls_back_when_audit_creation_fails(self):
+        empresa = self._create_active_empresa('AdminCo Audit', '88888888-8')
+        payload = {
+            'owner_tipo': 'empresa',
+            'owner_id': empresa.id,
+            'institucion': 'Banco Uno',
+            'numero_cuenta': '999010',
+            'tipo_cuenta': 'corriente',
+            'titular_nombre': empresa.razon_social,
+            'titular_rut': empresa.rut,
+            'moneda_operativa': MonedaOperativa.CLP,
+            'uso_operativo': 'recaudacion_arriendos',
+            'modo_operativo': ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            'evidencia_operativa_ref': 'account-operational-evidence-audit-rollback',
+            'estado_operativo': EstadoCuentaRecaudadora.ACTIVE,
+        }
+
+        with patch('operacion.views.create_audit_event', side_effect=RuntimeError('audit failed')):
+            with self.assertRaisesMessage(RuntimeError, 'audit failed'):
+                self.client.post(reverse('operacion-cuenta-list'), payload, format='json')
+
+        self.assertFalse(CuentaRecaudadora.objects.filter(numero_cuenta='999010').exists())
+
+    def test_account_state_update_rolls_back_when_audit_state_change_fails(self):
+        empresa = self._create_active_empresa('AdminCo Audit Update', '88888888-8')
+        cuenta = self._create_active_account(empresa=empresa, numero='999011')
+
+        def fail_on_state_changed(*, event_type, **kwargs):
+            if event_type == 'operacion.cuenta_recaudadora.state_changed':
+                raise RuntimeError('audit state failed')
+            return None
+
+        with patch('operacion.views.create_audit_event', side_effect=fail_on_state_changed):
+            with self.assertRaisesMessage(RuntimeError, 'audit state failed'):
+                self.client.patch(
+                    reverse('operacion-cuenta-detail', args=[cuenta.id]),
+                    {'estado_operativo': EstadoCuentaRecaudadora.INACTIVE},
+                    format='json',
+                )
+
+        cuenta.refresh_from_db()
+        self.assertEqual(cuenta.estado_operativo, EstadoCuentaRecaudadora.ACTIVE)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type__in=[
+                    'operacion.cuenta_recaudadora.updated',
+                    'operacion.cuenta_recaudadora.state_changed',
+                ],
+                entity_type='cuenta_recaudadora',
+                entity_id=str(cuenta.id),
+            ).exists()
+        )
 
     def test_create_active_account_for_comunidad_owner(self):
         comunidad = self._create_active_comunidad('Comunidad Operativa')

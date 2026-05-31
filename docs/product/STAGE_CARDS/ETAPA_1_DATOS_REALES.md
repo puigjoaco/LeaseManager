@@ -104,6 +104,10 @@ contra datos reales o snapshot controlado.
   cuentas recaudadoras, identidades de envio, mandatos ni asignaciones de
   canal; los cambios y bajas deben expresarse por API, estado, vigencia o
   flujo auditado.
+- Las altas y ediciones API de Operacion deben persistir la mutacion y los
+  eventos `created`, `updated` o `state_changed` de forma atomica; si falla la
+  auditoria, no deben quedar cuentas recaudadoras, identidades, mandatos ni
+  asignaciones de canal mutadas sin traza.
 - Validacion de cuentas recaudadoras activas: una cuenta activa debe declarar
   uso operativo, modo `manual_controlado` o `gate_bancario`, y evidencia
   operativa trazable no sensible; API, snapshot y admin/backoffice redactan
