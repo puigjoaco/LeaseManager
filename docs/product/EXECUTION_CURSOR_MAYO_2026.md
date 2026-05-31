@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 0 / Compliance datos sensibles / auditoria de acceso denegado. |
-| Fuente exacta | Estado real de `main` en `e2dc1f0` despues de PR #601, matriz, stage card Etapa 0, evidencia y bloqueos vigentes. |
-| Brecha activa | `ExportacionContentView` llama `get_export_payload()`, que puede normalizar una exportacion vencida a `expirada`, y luego crea `compliance.exportacion_sensible.access_denied` fuera de una frontera transaccional explicita; si falla la auditoria, puede quedar una mutacion sin traza. |
-| Motivo de prioridad | Compliance es la primera fila parcial de la matriz; BLK-010 impide cierre final, pero esta brecha es local, verificable y alinea mutaciones de datos sensibles con auditoria atomica sin usar fuentes externas. |
-| Worktree | `D:/Proyectos/LeaseManager-compliance-export-access-denied-atomicity`. |
-| Rama | `codex/compliance-export-access-denied-atomicity`. |
-| Estado | Paquete tactico implementado y validado localmente; pendiente higiene final, PR, CI remoto, merge y limpieza. |
-| Gate esperado | Compliance local debe seguir `classification=parcial`, `ready_for_compliance_data=false`; el paquete mejora preparacion segura, no cierra Compliance.DatosPersonalesChile2026. |
-| Estado al cerrar paquete | `ExportacionContentView` ejecuta descarga/denegacion y eventos `accessed`/`access_denied` dentro de una transaccion; si falla la auditoria de acceso denegado, la normalizacion de exportacion vencida a `expirada` se revierte. Validacion local: focal 3 tests OK; impactada Compliance/readiness 101 tests OK; `manage.py check` OK; `makemigrations --check --dry-run --noinput` OK; gate Compliance local `classification=parcial`, `ready_for_compliance_data=false`; `npm ci`, `npm run build`, `npm run lint` OK; acceptance local 1135 tests OK. |
-| Bloqueos relacionados | BLK-010 sigue abierto para cierre legal-operativo y fuente autorizada. Este paquete no debe usar `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si este worktree existe, continuar este paquete hasta PR/CI/merge/limpieza antes de abrir otro frente; si aparece sucio, terminar o pausar aqui de forma explicita. |
-| Siguiente accion | Ejecutar higiene final, crear PR, esperar CI, mergear, sincronizar `main`, cerrar cursor y limpiar worktree tactico. |
+| Frente activo | Ningun paquete tactico abierto. |
+| Fuente exacta | Estado real de `main` en `8651741` despues de PR #602, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna seleccionada en este cursor. |
+| Motivo de prioridad | PR #602 cerro la atomicidad de acceso denegado en Compliance; el siguiente frente debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Listo para diagnosticar el siguiente frente seguro. |
+| Gate esperado | No aplica hasta abrir un nuevo paquete. |
+| Estado al cerrar paquete | PR #602 mergeado en `8651741`: `ExportacionContentView` ejecuta descarga/denegacion y eventos `accessed`/`access_denied` dentro de una transaccion. Si falla la auditoria de acceso denegado, la normalizacion de exportacion vencida a `expirada` se revierte. Validado con focal 3 tests, impactada Compliance/readiness 101 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, gate Compliance parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1135 tests, higiene, `git diff --check` y CI GitHub. |
+| Bloqueos relacionados | BLK-010 sigue abierto para cierre legal-operativo y fuente autorizada. El paquete cerrado no uso `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
+| Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
+| Siguiente accion | Confirmar `main` limpio y diagnosticar el siguiente frente seguro por orden de construccion y trazabilidad vigente. |
 
 ## Actualizacion
 
