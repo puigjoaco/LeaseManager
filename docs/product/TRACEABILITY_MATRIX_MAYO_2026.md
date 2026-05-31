@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Patrimonio/Etapa 1 alinea altas y ediciones API con auditoria
+atomica. `AuditCreateUpdateMixin` en Patrimonio persiste `created`, `updated`
+y `state_changed` dentro de la misma transaccion que `serializer.save()`; si
+falla la auditoria, no quedan socios, empresas, comunidades, propiedades,
+servicios ni participaciones anidadas mutadas sin traza.
+
 Nota 2026-05-31: Conciliacion/Etapa 3 alinea creacion de movimientos
 bancarios, match exacto local y auditoria en una transaccion unica.
 `MovimientoBancarioListCreateView.perform_create()` persiste el movimiento,
