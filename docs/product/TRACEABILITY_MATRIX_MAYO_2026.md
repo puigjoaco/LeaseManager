@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Compliance/Etapa 0 alinea accesos denegados de exportaciones
+sensibles con auditoria atomica. `ExportacionContentView` ejecuta
+`get_export_payload()` y el evento `compliance.exportacion_sensible.access_denied`
+o `accessed` en una sola transaccion; si falla la auditoria al negar una
+descarga vencida, no queda la exportacion normalizada a `expirada` sin traza.
+
 Nota 2026-05-31: Conciliacion/Etapa 3 alinea supersesiones de resoluciones
 manuales con auditoria atomica. `supersede_manual_resolutions_for_movement()`
 ejecuta la marca `superseded` y el evento `audit.manual_resolution.superseded`

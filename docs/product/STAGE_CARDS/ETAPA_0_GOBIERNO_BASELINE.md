@@ -53,6 +53,10 @@ evidencia respalda el root limpio.
   no se descargan, no se revocan, una exportacion ya revocada no se revoca de
   nuevo y las exportaciones preparadas vencidas sin hold se normalizan a
   `expirada` antes de rechazar operaciones terminales incompatibles.
+- La descarga de exportaciones sensibles y sus eventos `accessed` o
+  `access_denied` se ejecutan dentro de la misma transaccion que cualquier
+  normalizacion terminal de estado; si falla la auditoria de acceso denegado,
+  no queda una exportacion marcada `expirada` sin traza.
 - Compliance no expone `evento_inicio` sensible heredado de politicas de
   retencion en API ni admin: nuevas escrituras siguen bloqueadas por dominio y
   los valores heredados se representan redactados. El admin de politicas y

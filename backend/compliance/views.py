@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -204,25 +205,26 @@ class ExportacionContentView(APIView):
             pk=pk,
         )
         _ensure_export_scope_allowed(request.user, export.export_kind, export.scope_resumen)
-        try:
-            payload = get_export_payload(export)
-        except ValueError as error:
+        with transaction.atomic():
+            try:
+                payload = get_export_payload(export)
+            except ValueError as error:
+                create_export_audit_event(
+                    event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+                    export=export,
+                    summary='Acceso a exportacion sensible denegado',
+                    severity='warning',
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                )
+                return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
             create_export_audit_event(
-                event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+                event_type=EXPORT_ACCESSED_EVENT_TYPE,
                 export=export,
-                summary='Acceso a exportacion sensible denegado',
-                severity='warning',
+                summary='Contenido de exportacion sensible accedido',
                 actor_user=request.user,
                 ip_address=request.META.get('REMOTE_ADDR'),
             )
-            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
-        create_export_audit_event(
-            event_type=EXPORT_ACCESSED_EVENT_TYPE,
-            export=export,
-            summary='Contenido de exportacion sensible accedido',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-        )
         return Response(
             {
                 'id': export.id,

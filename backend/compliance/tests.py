@@ -1045,6 +1045,38 @@ class ComplianceAPITests(APITestCase):
             ).exists()
         )
 
+    def test_export_expiration_rolls_back_when_access_denied_audit_fails(self):
+        self._create_context('EXP-AUDIT-ROLLBACK')
+        self._create_policy('operativo')
+        prepared = self.client.post(
+            reverse('compliance-export-prepare'),
+            {
+                'categoria_dato': 'operativo',
+                'export_kind': 'dashboard_operativo',
+                'motivo': 'Revision operativa',
+            },
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+
+        export = ExportacionSensible.objects.get(pk=prepared.data['id'])
+        export.expires_at = timezone.now() - timedelta(days=1)
+        export.save(update_fields=['expires_at'])
+
+        with patch('compliance.audit.create_audit_event', side_effect=RuntimeError('access denied audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'access denied audit unavailable'):
+                self.client.get(reverse('compliance-export-content', args=[export.id]))
+
+        export.refresh_from_db()
+        self.assertEqual(export.estado, EstadoExportacionSensible.PREPARED)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+                entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+                entity_id=str(export.id),
+            ).exists()
+        )
+
     def test_prepare_tax_export_returns_traceability_error_without_annual_process(self):
         self._create_context('EXP-TAX-MISSING')
         self._create_policy('tributario')
