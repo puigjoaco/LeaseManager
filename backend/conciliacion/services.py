@@ -71,6 +71,7 @@ def ensure_manual_resolution_for_movement(movimiento, category, summary):
     )
 
 
+@transaction.atomic
 def supersede_manual_resolutions_for_movement(
     movimiento,
     *,

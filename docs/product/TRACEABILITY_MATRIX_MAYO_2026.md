@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Conciliacion/Etapa 3 alinea supersesiones de resoluciones
+manuales con auditoria atomica. `supersede_manual_resolutions_for_movement()`
+ejecuta la marca `superseded` y el evento `audit.manual_resolution.superseded`
+en una sola transaccion; si falla la auditoria, la resolucion manual conserva
+su estado abierto y no queda una supersesion sin traza.
+
 Nota 2026-05-31: Cobranza/WebPay Etapa 2 alinea el gate local de
 confirmacion manual con la auditoria requerida. `audit_stage2_cobranza_readiness`
 clasifica intentos `confirmado_manual` heredados si falta el evento
