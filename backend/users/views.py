@@ -5,6 +5,7 @@ import secrets
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.cache import cache
+from django.db import transaction
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -225,15 +226,16 @@ class LoginView(APIView):
             )
             return Response({'detail': 'Credenciales inválidas.'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        token, _ = Token.objects.get_or_create(user=user)
-        create_audit_event(
-            event_type='auth.login.succeeded',
-            entity_type='user',
-            entity_id=str(user.id),
-            summary='Login exitoso en PlataformaBase',
-            actor_user=user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-        )
+        with transaction.atomic():
+            token, _ = Token.objects.get_or_create(user=user)
+            create_audit_event(
+                event_type='auth.login.succeeded',
+                entity_type='user',
+                entity_id=str(user.id),
+                summary='Login exitoso en PlataformaBase',
+                actor_user=user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
         user_payload = CurrentUserSerializer(user).data
         return Response({'token': token.key, 'user': user_payload, 'bootstrap': build_login_bootstrap(user)})
 
@@ -250,16 +252,17 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        with transaction.atomic():
+            Token.objects.filter(user=request.user).delete()
+            create_audit_event(
+                event_type='auth.logout',
+                entity_type='user',
+                entity_id=str(request.user.id),
+                summary='Logout ejecutado',
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
         clear_demo_login_response_cache(request.user)
-        Token.objects.filter(user=request.user).delete()
-        create_audit_event(
-            event_type='auth.logout',
-            entity_type='user',
-            entity_id=str(request.user.id),
-            summary='Logout ejecutado',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

@@ -27,6 +27,9 @@ evidencia respalda el root limpio.
   devuelven metadata redactada, la firma interna de cache demo no viaja al
   cliente y el admin muestra metadata y `legacy_reference` solo redactados, sin
   permitir borrado manual de usuarios.
+- Login y logout persistente mantienen tokens y auditoria en una unica
+  transaccion: si falla `auth.login.succeeded`, no queda token creado; si falla
+  `auth.logout`, no queda token eliminado sin traza.
 - El detector transversal de referencias sensibles redacta valores y claves de
   metadata como `authorization` y `private_key`, sin tratar refs operativas no
   sensibles como secretos por su nombre de valor.
