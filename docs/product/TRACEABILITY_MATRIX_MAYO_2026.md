@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Canales/Etapa 2 alinea servicios de mensajes con el guard de
+dominio. `prepare_message()` valida el `MensajeSaliente` antes de persistir
+mensajes preparados o bloqueados, y `mark_message_as_sent()` revalida antes de
+marcar envio manual, impidiendo que llamadas internas usen un
+`CanalMensajeria` de otro canal.
+
 Nota 2026-05-31: Compliance/Etapa 0 exige trazabilidad minima tambien desde
 el servicio de preparacion. `prepare_sensitive_export()` rechaza llamadas
 internas sin motivo operativo o sin actor creador trazable antes de persistir

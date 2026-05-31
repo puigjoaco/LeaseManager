@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` tras integrar PR #586 en `b94006b`, `docs/product/STAGE_CARDS/ETAPA_0_GOBIERNO_BASELINE.md`, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna. Ultimo paquete cerrado: Compliance exige actor trazable desde `revoke_export()` antes de mutar exportaciones sensibles o crear eventos `revoked`. |
-| Motivo de prioridad | El paquete cerro una brecha local verificable de Etapa 0: alinear el servicio de revocacion con readiness para que no nazcan auditorias de revocacion sin actor. |
-| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-compliance-revoke-actor-traceability`. |
-| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/compliance-revoke-actor-traceability`. |
-| Estado | Paquete Compliance / Etapa 0 cerrado; luego de este ajuste de cursor, queda libre para diagnosticar el siguiente frente seguro. |
-| Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
-| Estado al cerrar paquete | Focal Compliance/readiness 3 tests OK; suite Compliance/readiness 100 tests OK; `manage.py check` OK; `makemigrations --check --dry-run --noinput` sin cambios; readiness local Compliance `classification=parcial`, `ready_for_compliance_data=false`; `npm ci`, `npm run build`, `npm run lint` OK; acceptance local 1122 tests OK; higiene repo y `git diff --check` OK; CI GitHub acceptance OK; PR #586 mergeado en `b94006b`; worktree tactico y rama local/remota eliminados. |
-| Bloqueos relacionados | BLK-010 sigue abierto para cierre legal-operativo de Compliance. No requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
+| Frente activo | Etapa 2 / Canales: alinear servicio `prepare_message()` con el guard de dominio que exige gate del mismo canal del mensaje. |
+| Fuente exacta | Estado real de `main` en `6e12d45` tras cerrar cursor de Compliance, `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`, trazabilidad y readiness vigentes. |
+| Brecha activa | `MensajeSaliente.clean()` rechaza mensajes preparados/enviados cuyo `canal_mensajeria.canal` no coincide con `MensajeSaliente.canal`, pero `prepare_message()` no valida ese cruce antes de persistir y puede crear un mensaje preparado desde una llamada interna con gate de otro canal. |
+| Motivo de prioridad | Es una brecha local verificable en el siguiente frente seguro: evita bypass de servicio sobre el gate de Canales sin depender de Email/WebPay/WhatsApp reales. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-message-gate-channel-guard`. |
+| Rama | `codex/stage2-message-gate-channel-guard`. |
+| Estado | Implementacion y validaciones locales completadas; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Tests focales de Canales/readiness, suite impactada Stage 2/Canales/Cobranza, `manage.py check`, `makemigrations --check --dry-run --noinput`, readiness local Etapa 2 como `classification=parcial`, frontend build/lint segun impacto, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Focal Canales 4 tests OK; suite impactada Canales/Stage2 143 tests OK; `manage.py check` OK; `makemigrations --check --dry-run --noinput` sin cambios; readiness local Etapa 2 `classification=parcial`, `ready_for_stage2_cobranza=false`; `npm ci`, `npm run build`, `npm run lint` OK; acceptance local 1124 tests OK; higiene repo y `git diff --check` OK. |
+| Bloqueos relacionados | Etapa 2 sigue parcial para cierre externo por falta de fuente autorizada y pruebas controladas de Email/WebPay. Este paquete no requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Siguiente accion | Implementar guard en servicio, cubrirlo con tests y validar sin usar integraciones externas. |
 
 ## Actualizacion
 
