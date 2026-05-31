@@ -26,6 +26,11 @@ sistema igual a saldo banco.
   sensible y no duplicado dentro de la misma conexion por modelo y constraint
   DB; toda `referencia` bancaria de movimiento debe ser no sensible, y la
   carga manual controlada exige `evidencia_importacion_ref` no sensible.
+- La creacion API de movimientos bancarios debe persistir el movimiento,
+  registrar auditoria `created`, ejecutar match exacto local y registrar
+  auditoria `match_attempted` en una unica transaccion; si falla cualquiera de
+  esas trazas, no deben quedar movimientos, pagos, ingresos desconocidos ni
+  estados de conciliacion mutados sin auditoria completa.
 - Movimientos conciliados exactos existentes deben conservar coherencia con su
   target: abonos apuntan a pago mensual pagado o codigo residual pagado de la
   misma cuenta recaudadora; el pago mensual target debe pertenecer al mismo

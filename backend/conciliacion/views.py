@@ -38,20 +38,21 @@ class AuditCreateUpdateMixin:
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='created')
+            self._create_audit_event(instance=instance, action='created')
         return instance
 
     def perform_update(self, serializer):
         previous_state = self._extract_state(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='updated')
-        if previous_state != self._extract_state(instance):
-            self._create_audit_event(
-                instance=instance,
-                action='state_changed',
-                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
-            )
+            self._create_audit_event(instance=instance, action='updated')
+            if previous_state != self._extract_state(instance):
+                self._create_audit_event(
+                    instance=instance,
+                    action='state_changed',
+                    summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                )
+        return instance
 
     def _extract_state(self, instance):
         if hasattr(instance, 'estado_conexion'):
@@ -232,17 +233,20 @@ class MovimientoBancarioListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMix
     audit_entity_label = 'movimiento bancario'
 
     def perform_create(self, serializer):
-        instance = super().perform_create(serializer)
-        result = reconcile_exact_movement(instance)
-        create_audit_event(
-            event_type='conciliacion.movimiento_bancario.match_attempted',
-            entity_type='movimiento_bancario',
-            entity_id=str(instance.pk),
-            summary='Intento de match exacto sobre movimiento bancario',
-            actor_user=self.request.user,
-            ip_address=self.request.META.get('REMOTE_ADDR'),
-            metadata=result,
-        )
+        with transaction.atomic():
+            instance = serializer.save()
+            self._create_audit_event(instance=instance, action='created')
+            result = reconcile_exact_movement(instance)
+            create_audit_event(
+                event_type='conciliacion.movimiento_bancario.match_attempted',
+                entity_type='movimiento_bancario',
+                entity_id=str(instance.pk),
+                summary='Intento de match exacto sobre movimiento bancario',
+                actor_user=self.request.user,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
+                metadata=result,
+            )
+        return instance
 
 
 class MovimientoBancarioDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):

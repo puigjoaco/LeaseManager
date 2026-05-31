@@ -472,6 +472,29 @@ class ConciliacionAPITests(APITestCase):
             response = client.get(url)
             self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_bank_connection_create_rolls_back_when_audit_fails(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CONN-AUDIT-FAIL')
+
+        with patch('conciliacion.views.create_audit_event', side_effect=RuntimeError('connection audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'connection audit unavailable'):
+                self.client.post(
+                    reverse('conciliacion-conexion-list'),
+                    {
+                        'cuenta_recaudadora': cuenta.pk,
+                        'provider_key': 'banco_atomicity',
+                        'credencial_ref': 'cred-banco-atomicity',
+                        'scope': 'read_movements',
+                        'evidencia_gate_ref': 'gate-banco-atomicity',
+                        'prueba_conectividad_ref': 'connectivity-banco-atomicity',
+                        'prueba_movimientos_ref': 'movements-banco-atomicity',
+                        'estado_conexion': 'activa',
+                        'primaria_movimientos': True,
+                    },
+                    format='json',
+                )
+
+        self.assertFalse(ConexionBancaria.objects.filter(provider_key='banco_atomicity').exists())
+
     def test_can_create_square_balance_record(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BALANCE-SQUARE')
 
@@ -986,6 +1009,33 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
         self.assertEqual(pago.estado_pago, EstadoPago.PAID)
         self.assertEqual(pago.dias_mora, 3)
+
+    def test_bank_movement_create_rolls_back_when_match_audit_fails(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MATCH-AUDIT-FAIL', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+
+        from audit.services import create_audit_event as real_create_audit_event
+
+        def fail_match_attempt_audit(**kwargs):
+            if kwargs.get('event_type') == 'conciliacion.movimiento_bancario.match_attempted':
+                raise RuntimeError('match audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('conciliacion.views.create_audit_event', side_effect=fail_match_attempt_audit):
+            with self.assertRaisesRegex(RuntimeError, 'match audit unavailable'):
+                self.client.post(
+                    reverse('conciliacion-movimiento-list'),
+                    self._movement_payload(conexion),
+                    format='json',
+                )
+
+        pago.refresh_from_db()
+        self.assertEqual(pago.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(str(pago.monto_pagado_clp), '0.00')
+        self.assertFalse(MovimientoBancarioImportado.objects.exists())
+        self.assertFalse(
+            AuditEvent.objects.filter(event_type__startswith='conciliacion.movimiento_bancario').exists()
+        )
 
     def test_exact_match_payment_requires_same_economic_period(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-PAY-PERIOD', amount='100111.00')
