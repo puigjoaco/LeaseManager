@@ -52,19 +52,21 @@ class AuditCreateUpdateMixin:
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='created')
+            self._create_audit_event(instance=instance, action='created')
+        return instance
 
     def perform_update(self, serializer):
         previous_state = self._extract_state(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='updated')
-        if previous_state != self._extract_state(instance):
-            self._create_audit_event(
-                instance=instance,
-                action='state_changed',
-                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
-            )
+            self._create_audit_event(instance=instance, action='updated')
+            if previous_state != self._extract_state(instance):
+                self._create_audit_event(
+                    instance=instance,
+                    action='state_changed',
+                    summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                )
+        return instance
 
     def _extract_state(self, instance):
         for field in ('estado_contacto', 'estado'):
@@ -333,7 +335,8 @@ class ArrendatarioListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, ge
                     actor_user=self.request.user,
                     ip_address=self.request.META.get('REMOTE_ADDR'),
                 )
-        self._create_audit_event(instance=instance, action='created')
+            self._create_audit_event(instance=instance, action='created')
+        return instance
 
 
 class ArrendatarioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
@@ -366,13 +369,14 @@ class ArrendatarioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generi
                     actor_user=self.request.user,
                     ip_address=self.request.META.get('REMOTE_ADDR'),
                 )
-        self._create_audit_event(instance=instance, action='updated')
-        if previous_state != self._extract_state(instance):
-            self._create_audit_event(
-                instance=instance,
-                action='state_changed',
-                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
-            )
+            self._create_audit_event(instance=instance, action='updated')
+            if previous_state != self._extract_state(instance):
+                self._create_audit_event(
+                    instance=instance,
+                    action='state_changed',
+                    summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                )
+        return instance
 
 
 class ArrendatarioWhatsappBlockView(ScopedQuerysetMixin, generics.GenericAPIView):
@@ -476,28 +480,29 @@ class ContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generi
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='created')
-        if instance.requires_retroactive_manual_notification():
-            create_audit_event(
-                event_type='contratos.contrato.retroactive_manual_notification_alert',
-                entity_type='contrato',
-                entity_id=str(instance.pk),
-                summary='Contrato retroactivo requiere revisar posible notificacion manual.',
-                actor_user=self.request.user,
-                ip_address=self.request.META.get('REMOTE_ADDR'),
-                metadata={
-                    'codigo_contrato': instance.codigo_contrato,
-                    'fecha_inicio': instance.fecha_inicio.isoformat(),
-                    'fecha_registro_operativo': (
-                        instance.fecha_registro_operativo.isoformat()
-                        if instance.fecha_registro_operativo
-                        else ''
-                    ),
-                    'dia_corte': 5,
-                },
-            )
-        if instance.has_partial_early_termination_month():
-            create_early_termination_proration_trace(contract=instance, request=self.request)
+            self._create_audit_event(instance=instance, action='created')
+            if instance.requires_retroactive_manual_notification():
+                create_audit_event(
+                    event_type='contratos.contrato.retroactive_manual_notification_alert',
+                    entity_type='contrato',
+                    entity_id=str(instance.pk),
+                    summary='Contrato retroactivo requiere revisar posible notificacion manual.',
+                    actor_user=self.request.user,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                    metadata={
+                        'codigo_contrato': instance.codigo_contrato,
+                        'fecha_inicio': instance.fecha_inicio.isoformat(),
+                        'fecha_registro_operativo': (
+                            instance.fecha_registro_operativo.isoformat()
+                            if instance.fecha_registro_operativo
+                            else ''
+                        ),
+                        'dia_corte': 5,
+                    },
+                )
+            if instance.has_partial_early_termination_month():
+                create_early_termination_proration_trace(contract=instance, request=self.request)
+        return instance
 
 
 class ContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
@@ -522,21 +527,22 @@ class ContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.R
         previous_proration_trace = contract_proration_trace_key(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='updated')
-        if previous_state != self._extract_state(instance):
-            self._create_audit_event(
-                instance=instance,
-                action='state_changed',
-                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
-            )
-        if (
-            instance.has_partial_early_termination_month()
-            and (
-                contract_proration_trace_key(instance) != previous_proration_trace
-                or not instance.has_early_termination_proration_audit()
-            )
-        ):
-            create_early_termination_proration_trace(contract=instance, request=self.request)
+            self._create_audit_event(instance=instance, action='updated')
+            if previous_state != self._extract_state(instance):
+                self._create_audit_event(
+                    instance=instance,
+                    action='state_changed',
+                    summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                )
+            if (
+                instance.has_partial_early_termination_month()
+                and (
+                    contract_proration_trace_key(instance) != previous_proration_trace
+                    or not instance.has_early_termination_proration_audit()
+                )
+            ):
+                create_early_termination_proration_trace(contract=instance, request=self.request)
+        return instance
 
 
 class ContratoAutomaticRenewalView(ScopedQuerysetMixin, generics.GenericAPIView):
