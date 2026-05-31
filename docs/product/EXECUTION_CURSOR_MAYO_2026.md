@@ -23,14 +23,14 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` tras integrar el paquete Etapa 3 / Conciliacion / Django admin / redaccion de cuenta recaudadora, PRD canonico, `docs/product/STAGE_CARDS/ETAPA_3_BANCO_CONCILIACION.md`, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna. Ultimo paquete cerrado: `ConexionBancariaAdmin`, `IngresoDesconocidoAdmin` y `CuadraturaBancariaAdmin` ya no exponen labels crudos de `cuenta_recaudadora` ni buscan por `cuenta_recaudadora__numero_cuenta`. |
-| Motivo de prioridad | La ficha de Etapa 3 exige que el admin de Conciliacion no exponga ni busque refs bancarias crudas ni numeros de cuenta; el paquete deja esa superficie cerrada localmente. |
-| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-stage3-admin-bank-account-redaction`. |
-| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/stage3-admin-bank-account-redaction`. |
-| Estado | Paquete de Conciliacion/admin cerrado en este frente; luego de merge, el cursor queda libre para diagnosticar el siguiente frente seguro. |
+| Fuente exacta | Estado real de `main` tras integrar el paquete Etapa 1 / Operacion / Django admin / redaccion de datos bancarios directos, PRD canonico, `docs/product/STAGE_CARDS/ETAPA_1_DATOS_REALES.md`, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna. Ultimo paquete cerrado: `CuentaRecaudadoraAdmin` ya no expone ni busca `numero_cuenta` ni `titular_rut` crudos, y `MandatoOperacionAdmin` ya no muestra cuentas recaudadoras mediante labels con numero bancario. |
+| Motivo de prioridad | La ficha de Etapa 1 exige inspeccion operativa redactada y cambios auditados; el paquete deja cerrada la superficie local de datos bancarios directos en admin. |
+| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-stage1-operation-admin-account-redaction`. |
+| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/stage1-operation-admin-account-redaction`. |
+| Estado | Paquete de Operacion/admin cerrado en este frente; luego de merge, el cursor queda libre para diagnosticar el siguiente frente seguro. |
 | Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
-| Estado al cerrar paquete | Etapa 3 / Conciliacion / admin de cuenta recaudadora: focal 1 test OK, suite impactada 142 tests OK, `manage.py check`, migraciones dry-run, gate local Etapa 3 `classification=parcial`, `ready_for_stage3_conciliacion=false`, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1115 tests OK, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Etapa 1 / Operacion / admin de datos bancarios directos: focal 1 test OK, suite impactada 172 tests OK, `manage.py check`, migraciones dry-run, readiness local Etapa 1 diagnostico no evidencial OK, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1115 tests OK, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. No requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |

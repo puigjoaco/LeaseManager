@@ -535,6 +535,20 @@ class OperacionAPITests(APITestCase):
 
         self.assertNotIn('evidencia_operativa_ref', cuenta_admin.search_fields)
         self.assertNotIn('evidencia_operativa_ref', cuenta_admin.fields)
+        self.assertNotIn('numero_cuenta', cuenta_admin.fields)
+        self.assertNotIn('numero_cuenta', cuenta_admin.list_display)
+        self.assertNotIn('numero_cuenta', cuenta_admin.search_fields)
+        self.assertNotIn('titular_rut', cuenta_admin.fields)
+        self.assertNotIn('titular_rut', cuenta_admin.search_fields)
+        self.assertIn('numero_cuenta_redacted', cuenta_admin.fields)
+        self.assertIn('numero_cuenta_redacted', cuenta_admin.list_display)
+        self.assertIn('numero_cuenta_redacted', cuenta_admin.readonly_fields)
+        self.assertIn('titular_rut_redacted', cuenta_admin.fields)
+        self.assertIn('titular_rut_redacted', cuenta_admin.readonly_fields)
+        account_label = cuenta_admin.numero_cuenta_redacted(cuenta)
+        self.assertIn(str(cuenta.pk), account_label)
+        self.assertNotIn(cuenta.numero_cuenta, account_label)
+        self.assertEqual(cuenta_admin.titular_rut_redacted(cuenta), '<redacted-rut>')
         self.assertEqual(cuenta_admin.evidencia_operativa_ref_redacted(cuenta), REDACTED_SENSITIVE_REFERENCE)
         self.assertFalse(cuenta_admin.has_add_permission(None))
         self.assertFalse(cuenta_admin.has_change_permission(None, cuenta))
@@ -549,6 +563,14 @@ class OperacionAPITests(APITestCase):
 
         self.assertNotIn('autoridad_operativa_evidencia_ref', mandato_admin.search_fields)
         self.assertNotIn('autoridad_operativa_evidencia_ref', mandato_admin.fields)
+        self.assertNotIn('cuenta_recaudadora', mandato_admin.fields)
+        self.assertNotIn('cuenta_recaudadora', mandato_admin.list_display)
+        self.assertIn('cuenta_recaudadora_redacted', mandato_admin.fields)
+        self.assertIn('cuenta_recaudadora_redacted', mandato_admin.list_display)
+        self.assertIn('cuenta_recaudadora_redacted', mandato_admin.readonly_fields)
+        mandate_account_label = mandato_admin.cuenta_recaudadora_redacted(mandato)
+        self.assertIn(str(cuenta.pk), mandate_account_label)
+        self.assertNotIn(cuenta.numero_cuenta, mandate_account_label)
         self.assertEqual(
             mandato_admin.autoridad_operativa_evidencia_ref_redacted(mandato),
             REDACTED_SENSITIVE_REFERENCE,

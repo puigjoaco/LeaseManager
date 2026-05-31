@@ -103,7 +103,10 @@ contra datos reales o snapshot controlado.
   uso operativo, modo `manual_controlado` o `gate_bancario`, y evidencia
   operativa trazable no sensible; API, snapshot y admin/backoffice redactan
   referencias sensibles heredadas antes de exponerlas, y el auditor Etapa 1
-  detecta faltantes o referencias sensibles heredadas.
+  detecta faltantes o referencias sensibles heredadas. El admin Django no
+  expone ni busca `numero_cuenta` ni `titular_rut` crudos en cuentas
+  recaudadoras ni muestra cuentas asociadas a mandatos mediante labels con
+  numero bancario.
 - Validacion de cuenta activa para facturacion operativa: un
   `MandatoOperacion` activo con `entidad_facturadora` requiere que esa empresa
   tenga una cuenta recaudadora activa propia ademas de la cuenta activa del

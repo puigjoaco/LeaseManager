@@ -5,20 +5,37 @@ from core.reference_validation import redact_sensitive_reference
 from .models import AsignacionCanalOperacion, CuentaRecaudadora, IdentidadDeEnvio, MandatoOperacion
 
 
+def _redacted_account_label(account):
+    if not account:
+        return '-'
+    return f'Cuenta recaudadora #{account.pk}'
+
+
+def _redacted_rut(value):
+    return '<redacted-rut>' if value else ''
+
+
 @admin.register(CuentaRecaudadora)
 class CuentaRecaudadoraAdmin(admin.ModelAdmin):
-    list_display = ('institucion', 'numero_cuenta', 'owner_tipo', 'owner_display', 'modo_operativo', 'estado_operativo')
+    list_display = (
+        'institucion',
+        'numero_cuenta_redacted',
+        'owner_tipo',
+        'owner_display',
+        'modo_operativo',
+        'estado_operativo',
+    )
     list_filter = ('estado_operativo', 'modo_operativo', 'moneda_operativa', 'institucion')
-    search_fields = ('institucion', 'numero_cuenta', 'titular_nombre', 'titular_rut')
+    search_fields = ('institucion', 'titular_nombre')
     fields = (
         'empresa_owner',
         'comunidad_owner',
         'socio_owner',
         'institucion',
-        'numero_cuenta',
+        'numero_cuenta_redacted',
         'tipo_cuenta',
         'titular_nombre',
-        'titular_rut',
+        'titular_rut_redacted',
         'moneda_operativa',
         'uso_operativo',
         'modo_operativo',
@@ -27,7 +44,21 @@ class CuentaRecaudadoraAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = ('evidencia_operativa_ref_redacted', 'created_at', 'updated_at')
+    readonly_fields = (
+        'numero_cuenta_redacted',
+        'titular_rut_redacted',
+        'evidencia_operativa_ref_redacted',
+        'created_at',
+        'updated_at',
+    )
+
+    @admin.display(description='numero_cuenta')
+    def numero_cuenta_redacted(self, obj):
+        return _redacted_account_label(obj)
+
+    @admin.display(description='titular_rut')
+    def titular_rut_redacted(self, obj):
+        return _redacted_rut(obj.titular_rut)
 
     def has_add_permission(self, request):
         return False
@@ -81,7 +112,7 @@ class MandatoOperacionAdmin(admin.ModelAdmin):
         'administrador_operativo_tipo',
         'recaudador_tipo',
         'autoridad_operativa_nombre',
-        'cuenta_recaudadora',
+        'cuenta_recaudadora_redacted',
         'estado',
         'vigencia_desde',
     )
@@ -104,7 +135,7 @@ class MandatoOperacionAdmin(admin.ModelAdmin):
         'recaudador_comunidad_owner',
         'recaudador_socio_owner',
         'entidad_facturadora',
-        'cuenta_recaudadora',
+        'cuenta_recaudadora_redacted',
         'tipo_relacion_operativa',
         'autoriza_recaudacion',
         'autoriza_facturacion',
@@ -118,7 +149,16 @@ class MandatoOperacionAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
-    readonly_fields = ('autoridad_operativa_evidencia_ref_redacted', 'created_at', 'updated_at')
+    readonly_fields = (
+        'cuenta_recaudadora_redacted',
+        'autoridad_operativa_evidencia_ref_redacted',
+        'created_at',
+        'updated_at',
+    )
+
+    @admin.display(description='cuenta_recaudadora')
+    def cuenta_recaudadora_redacted(self, obj):
+        return _redacted_account_label(obj.cuenta_recaudadora)
 
     def has_add_permission(self, request):
         return False
