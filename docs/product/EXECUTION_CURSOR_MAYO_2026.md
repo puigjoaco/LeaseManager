@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 Canales - realineacion de fallback WhatsApp existente. |
-| Fuente exacta | Estado real de `main` en `605ca80`, `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`, `backend/canales/services.py`, `backend/canales/tests.py`, readiness Etapa 2, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | `ensure_whatsapp_fallback_resolution()` reutiliza una `ManualResolution` abierta del mismo mensaje, pero no refresca metadata ni crea el evento `canales.whatsapp.fallback_required` si la traza existente quedo incompleta o desalineada. |
-| Motivo de prioridad | Cierra una brecha local verificable de Etapa 2: todo WhatsApp bloqueado/fallido debe quedar con fallback/alerta critica trazable, actor y evento dedicado alineado, sin depender de que readiness lo detecte tarde. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-whatsapp-fallback-realign`. |
-| Rama | `codex/stage2-whatsapp-fallback-realign`. |
-| Estado | Paquete abierto para implementacion y validacion. |
-| Gate esperado | Test focal de `mark_whatsapp_message_as_failed` con fallback preexistente desalineado; suite impactada `canales core.tests_stage2_cobranza_readiness`; `manage.py check`; `makemigrations --check --dry-run --noinput`; readiness local Etapa 2 como parcial esperado; frontend build/lint si corresponde; acceptance local; higiene repo y `git diff --check`; CI GitHub antes de merge. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Etapa 2 sigue parcial para cierre real por fuente autorizada y pruebas Email/WebPay controladas. Este paquete no requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
+| Frente activo | Ningun paquete tactico abierto. |
+| Fuente exacta | Estado real de `main` en `53ab8af` despues de PR #594, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna seleccionada en este cursor. |
+| Motivo de prioridad | PR #594 cerro la realineacion local de fallbacks WhatsApp reutilizados; el siguiente frente debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Listo para diagnosticar el siguiente frente seguro. |
+| Gate esperado | No aplica hasta abrir un nuevo paquete. |
+| Estado al cerrar paquete | PR #594 mergeado en `53ab8af`: `ensure_whatsapp_fallback_resolution()` refresca fallbacks abiertos, asigna actor faltante y crea evento `canales.whatsapp.fallback_required` si la traza existente falta, es actorless o esta desalineada. Validado con focal 4 tests, impactada 144 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, gate Etapa 2 parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1127 tests, higiene, `git diff --check` y CI GitHub. |
+| Bloqueos relacionados | Etapa 2 sigue parcial para cierre real por fuente autorizada y pruebas Email/WebPay controladas. El paquete cerrado no uso `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Implementar realineacion idempotente de fallback WhatsApp y validar. |
+| Siguiente accion | Confirmar `main` limpio y diagnosticar el siguiente frente seguro por orden de construccion y trazabilidad vigente. |
 
 ## Actualizacion
 
