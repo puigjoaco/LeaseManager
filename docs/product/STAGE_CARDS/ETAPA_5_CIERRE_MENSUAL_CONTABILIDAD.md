@@ -72,6 +72,12 @@ contables desde hechos conciliados.
   en payloads, `storage_ref` o `centro_resultado_ref`.
 - APIs de contabilidad y reporting de libros redactan payloads y referencias
   sensibles heredadas antes de exponerlas al backoffice.
+- Las mutaciones API de Contabilidad deben persistir cambios operativos y
+  auditoria de vista en una unica transaccion. Esto cubre altas/ediciones de
+  catalogos contables, creacion y reintento de contabilizacion de eventos,
+  preparacion, aprobacion y reapertura de cierres mensuales; si falla la
+  auditoria, no deben quedar entidades, asientos, obligaciones, snapshots,
+  estados de cierre ni efectos de reapertura mutados sin traza.
 - El admin Django de Contabilidad no expone refs/payloads crudos de eventos,
   asientos, movimientos, obligaciones, libros, balances, cierres ni efectos
   de reapertura; muestra versiones redactadas y mantiene cerrada el alta,
