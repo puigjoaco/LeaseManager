@@ -1854,6 +1854,98 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(event.ip_address, '127.0.0.1')
         self.assertEqual(event.metadata['blocking_reason'], failed.motivo_bloqueo)
 
+    def test_mark_whatsapp_message_as_failed_realigns_existing_fallback_trace(self):
+        empresa, contrato = self._create_contract_context(
+            codigo='CH-WA-FAIL-REALIGN',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='optin-controlled-fail-realign',
+        )
+        gate = self._create_gate(canal='whatsapp', restricciones_operativas={'templates_aprobados': True})
+        identidad = self._create_identity(empresa, canal='whatsapp')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='whatsapp',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+        with patch(
+            'canales.services.timezone.localtime',
+            return_value=datetime(2026, 5, 21, 10, 0, tzinfo=ZoneInfo('America/Santiago')),
+        ):
+            prepared = self.client.post(
+                reverse('canales-mensaje-preparar'),
+                {
+                    'canal': 'whatsapp',
+                    'canal_mensajeria': gate['id'],
+                    'contrato': contrato.id,
+                    'cuerpo': 'Recordatorio',
+                },
+                format='json',
+            )
+        self.assertEqual(prepared.status_code, status.HTTP_201_CREATED)
+        message = MensajeSaliente.objects.get(pk=prepared.data['id'])
+        existing = ManualResolution.objects.create(
+            category=WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
+            scope_type='canales',
+            scope_reference=str(message.pk),
+            summary='Fallback heredado desalineado',
+            requested_by=None,
+            metadata={
+                'scope_reference': str(message.pk),
+                'message_id': message.pk,
+                'canal': 'whatsapp',
+                'fallback_canal_base': 'email',
+                'blocking_reason': 'old-provider-error',
+            },
+        )
+        final_metadata = {
+            'scope_reference': str(message.pk),
+            'message_id': message.pk,
+            'canal': 'whatsapp',
+            'fallback_canal_base': 'email',
+            'blocking_reason': 'provider-timeout-realigned',
+            'contrato_id': message.contrato_id,
+            'arrendatario_id': message.arrendatario_id,
+            'documento_emitido_id': message.documento_emitido_id,
+        }
+        AuditEvent.objects.create(
+            event_type=WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
+            entity_type='mensaje_saliente',
+            entity_id=str(message.pk),
+            summary='Evento heredado sin actor',
+            metadata=final_metadata,
+        )
+
+        failed = mark_whatsapp_message_as_failed(
+            message,
+            failure_reason='provider-timeout-realigned',
+            actor_user=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertEqual(
+            ManualResolution.objects.filter(
+                category=WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
+                scope_reference=str(failed.pk),
+            ).count(),
+            1,
+        )
+        existing.refresh_from_db()
+        self.assertEqual(existing.requested_by, self.user)
+        self.assertEqual(existing.summary, 'WhatsApp bloqueado o fallido requiere fallback por Email o alerta critica trazable.')
+        self.assertEqual(existing.metadata['blocking_reason'], failed.motivo_bloqueo)
+        self.assertNotIn('actor_identifier', existing.metadata)
+        event = AuditEvent.objects.get(
+            event_type=WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
+            entity_type='mensaje_saliente',
+            entity_id=str(failed.pk),
+            actor_user=self.user,
+        )
+        self.assertEqual(event.actor_user, self.user)
+        self.assertEqual(event.metadata['blocking_reason'], failed.motivo_bloqueo)
+        self.assertEqual(event.metadata['message_id'], failed.pk)
+
     def test_mark_whatsapp_message_as_failed_requires_actor_and_non_sensitive_reason(self):
         empresa, contrato = self._create_contract_context(
             codigo='CH-WA-FAIL-GUARD',

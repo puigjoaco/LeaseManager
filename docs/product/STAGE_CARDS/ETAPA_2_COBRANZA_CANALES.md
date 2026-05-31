@@ -187,7 +187,10 @@ condicionados sin envios reales accidentales.
   definitivo sin evento/alerta, con evidencia/motivo desalineados o con
   motivo heredado sensible. El modelo y el endpoint de bloqueo rechazan nuevos
   motivos con URLs, correos, tokens o credenciales, y APIs/snapshots redactan
-  motivos heredados sensibles antes de exponerlos al backoffice.
+  motivos heredados sensibles antes de exponerlos al backoffice. Si el
+  servicio reutiliza una alerta/fallback abierto para el mismo mensaje, debe
+  refrescar la metadata y crear un evento dedicado alineado cuando el existente
+  falta, no tiene actor o conserva motivo/contexto desactualizado.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
   `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y
   `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`

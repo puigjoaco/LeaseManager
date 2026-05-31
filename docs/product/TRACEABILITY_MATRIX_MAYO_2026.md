@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Canales/Etapa 2 realinea fallbacks WhatsApp
+preexistentes. `ensure_whatsapp_fallback_resolution()` ya no acepta una
+`ManualResolution` abierta como suficiente si su metadata o evento dedicado
+quedaron desactualizados: refresca la traza con el motivo/contexto actual y
+crea `canales.whatsapp.fallback_required` cuando no existe un evento alineado
+con actor.
+
 Nota 2026-05-31: Documentos/Etapa 5 alinea versiones correctivas con
 auditoria atomica. `DocumentoEmitidoListCreateView.perform_create()` persiste
 la version correctiva y los eventos `created` y
