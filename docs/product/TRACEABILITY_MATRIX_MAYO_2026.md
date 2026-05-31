@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Operacion/Etapa 1 cierra exposicion de datos bancarios
+directos en Django admin. `CuentaRecaudadoraAdmin` reemplaza `numero_cuenta`
+y `titular_rut` por versiones redactadas y deja de buscarlos; ademas
+`MandatoOperacionAdmin` muestra la cuenta asociada como
+`cuenta_recaudadora_redacted`, evitando labels basados en el `__str__` que
+incluyen numero bancario.
+
 Nota 2026-05-31: Conciliacion/Etapa 3 cierra exposicion de numeros de cuenta
 recaudadora en Django admin. `ConexionBancariaAdmin`,
 `IngresoDesconocidoAdmin` y `CuadraturaBancariaAdmin` reemplazan labels crudos
