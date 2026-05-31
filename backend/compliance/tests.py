@@ -40,6 +40,8 @@ from .services import (
     EXPORT_ALREADY_REVOKED_ERROR,
     PAYLOAD_HASH_MISMATCH_ERROR,
     PAYLOAD_UNREADABLE_ERROR,
+    REVOCATION_REASON_REQUIRED_ERROR,
+    REVOCATION_REASON_SENSITIVE_ERROR,
     SENSITIVE_EXPORT_METADATA_ERROR,
     encrypt_payload,
     prepare_sensitive_export,
@@ -746,6 +748,39 @@ class ComplianceAPITests(APITestCase):
                     revocation_reason='Rotacion controlada de evidencia',
                 )
 
+        export.refresh_from_db()
+        self.assertEqual(export.estado, EstadoExportacionSensible.PREPARED)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=EXPORT_REVOKED_EVENT_TYPE,
+                entity_id=str(export.id),
+            ).exists()
+        )
+
+    def test_revoke_export_service_requires_non_sensitive_reason(self):
+        self._create_policy('operativo')
+        export = prepare_sensitive_export(
+            categoria_dato='operativo',
+            export_kind='dashboard_operativo',
+            scope_resumen={},
+            motivo='Revision interna',
+            payload={'dashboard': 'controlado'},
+            created_by=self.user,
+            actor_user=self.user,
+        )
+
+        with self.assertRaisesMessage(ValueError, REVOCATION_REASON_REQUIRED_ERROR):
+            revoke_export(export, actor_user=self.user, ip_address='127.0.0.1')
+        export.refresh_from_db()
+        self.assertEqual(export.estado, EstadoExportacionSensible.PREPARED)
+
+        with self.assertRaisesMessage(ValueError, REVOCATION_REASON_SENSITIVE_ERROR):
+            revoke_export(
+                export,
+                actor_user=self.user,
+                ip_address='127.0.0.1',
+                revocation_reason='https://audit.example.test/revoke?token=secret',
+            )
         export.refresh_from_db()
         self.assertEqual(export.estado, EstadoExportacionSensible.PREPARED)
         self.assertFalse(

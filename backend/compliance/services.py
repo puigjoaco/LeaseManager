@@ -36,6 +36,10 @@ PAYLOAD_HASH_MISMATCH_ERROR = 'La integridad de la exportacion no coincide con s
 PAYLOAD_UNREADABLE_ERROR = 'El payload cifrado de la exportacion sensible no puede descifrarse.'
 EXPORT_ALREADY_REVOKED_ERROR = 'La exportacion ya fue revocada y no puede revocarse nuevamente.'
 EXPIRED_EXPORT_REVOKE_ERROR = 'La exportacion expirada es terminal y no puede revocarse.'
+REVOCATION_REASON_REQUIRED_ERROR = 'La revocacion de exportaciones sensibles requiere un motivo trazable.'
+REVOCATION_REASON_SENSITIVE_ERROR = (
+    'El motivo de revocacion no puede contener URLs, correos, tokens, bearer, claves ni credenciales.'
+)
 EXPORT_KIND_CATEGORY_MAP = {
     'dashboard_operativo': CategoriaDato.OPERATIONAL,
     'financiero_mensual': CategoriaDato.FINANCIAL,
@@ -207,6 +211,11 @@ def revoke_export(export, *, actor_user=None, ip_address=None, revocation_reason
         export.estado = EstadoExportacionSensible.EXPIRED
         export.save(update_fields=['estado', 'updated_at'])
         raise ValueError(EXPIRED_EXPORT_REVOKE_ERROR)
+    revocation_reason = revocation_reason.strip()
+    if not revocation_reason:
+        raise ValueError(REVOCATION_REASON_REQUIRED_ERROR)
+    if contains_sensitive_reference(revocation_reason, include_sensitive_keys=True):
+        raise ValueError(REVOCATION_REASON_SENSITIVE_ERROR)
     with transaction.atomic():
         export.estado = EstadoExportacionSensible.REVOKED
         export.save(update_fields=['estado', 'updated_at'])
@@ -216,7 +225,7 @@ def revoke_export(export, *, actor_user=None, ip_address=None, revocation_reason
             summary='Exportacion sensible revocada',
             actor_user=actor_user,
             ip_address=ip_address,
-            extra_metadata={'revocation_reason': revocation_reason} if revocation_reason else None,
+            extra_metadata={'revocation_reason': revocation_reason},
         )
         return export
 
