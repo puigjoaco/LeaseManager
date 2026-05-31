@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Contabilidad/Etapa 5 alinea la aprobacion de cierre mensual
+con readiness de liquidaciones. `approve_monthly_close()` exige una
+`LiquidacionMensual` de empresa preparada para el mismo cierre/periodo antes
+de pasar a `aprobado`, y deja la referencia de liquidacion en
+`resumen_obligaciones`; los bootstraps demo crean esa liquidacion local antes
+de aprobar.
+
 Nota 2026-05-31: Canales/Etapa 2 alinea servicios de mensajes con el guard de
 dominio. `prepare_message()` valida el `MensajeSaliente` antes de persistir
 mensajes preparados o bloqueados, y `mark_message_as_sent()` revalida antes de

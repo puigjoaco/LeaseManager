@@ -317,6 +317,25 @@ class ContabilidadAPITests(APITestCase):
             responsable_ref=f'bank-square-owner-{suffix}',
         )
 
+    def _create_company_liquidation_for_close(self, empresa, close):
+        if not isinstance(close, CierreMensualContable):
+            close = CierreMensualContable.objects.get(pk=close)
+        liquidation = LiquidacionMensual(
+            owner_tipo=TipoOwnerLiquidacion.COMPANY,
+            empresa=empresa,
+            cierre_contable=close,
+            anio=close.anio,
+            mes=close.mes,
+            estado=EstadoLiquidacionMensual.PREPARED,
+            comision_administracion_aplica=False,
+            saldo_final_clp=Decimal('0.00'),
+            evidencia_base_ref=f'stage5-liquidation-base-{close.pk}',
+            responsable_ref=f'stage5-liquidation-owner-{close.pk}',
+        )
+        liquidation.full_clean()
+        liquidation.save()
+        return liquidation
+
     def test_manual_event_without_fiscal_setup_stays_in_review(self):
         empresa = self._create_active_empresa()
         response = self.client.post(
@@ -1768,6 +1787,54 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(str(obligation.monto_calculado), '10011.10')
         self.assertEqual(obligation.estado_preparacion, 'preparado')
 
+    def test_approve_monthly_close_requires_company_liquidation(self):
+        empresa = self._create_active_empresa(nombre='CloseLiquidationCo', rut='42424242-4')
+        accounts = self._setup_contabilidad(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        config.tasa_ppm_vigente = '10.00'
+        config.save(update_fields=['tasa_ppm_vigente'])
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+
+        event_response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'close-liquidation-guard-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'close-liquidation-guard-1',
+            },
+            format='json',
+        )
+        self.assertEqual(event_response.status_code, status.HTTP_201_CREATED)
+
+        prepare = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+
+        denied = self.client.post(
+            reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
+            format='json',
+        )
+        self.assertEqual(denied.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('liquidacion mensual de empresa preparada', denied.data['detail'])
+
+        self._create_company_liquidation_for_close(empresa, prepare.data['id'])
+        approved = self.client.post(
+            reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
+            format='json',
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK)
+        self.assertEqual(approved.data['estado'], 'aprobado')
+        self.assertEqual(approved.data['resumen_obligaciones']['liquidacion_mensual']['owner_tipo'], 'empresa')
+
     def test_end_to_end_payment_reconciliation_close_lifecycle(self):
         empresa = self._create_active_empresa(nombre='WorkflowCo', rut='43434343-4')
         accounts = self._setup_contabilidad(empresa)
@@ -1860,6 +1927,7 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(len(libro_diario.resumen['asientos']), 1)
         self.assertEqual(len(libro_mayor.resumen['cuentas']), 2)
         self.assertTrue(balance.resumen['cuadrado'])
+        self._create_company_liquidation_for_close(empresa, close)
 
         approve = self.client.post(
             reverse('contabilidad-cierre-approve', args=[close.id]),
@@ -1935,6 +2003,7 @@ class ContabilidadAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        self._create_company_liquidation_for_close(empresa, prepare.data['id'])
 
         approve = self.client.post(
             reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
@@ -1985,6 +2054,7 @@ class ContabilidadAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        self._create_company_liquidation_for_close(empresa, prepare.data['id'])
         approve = self.client.post(
             reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
             format='json',
@@ -2041,6 +2111,7 @@ class ContabilidadAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        self._create_company_liquidation_for_close(empresa, prepare.data['id'])
         approve = self.client.post(
             reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
             format='json',
@@ -2110,6 +2181,7 @@ class ContabilidadAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        self._create_company_liquidation_for_close(empresa, prepare.data['id'])
 
         conexion = ConexionBancaria.objects.create(
             cuenta_recaudadora=cuenta,
@@ -2177,6 +2249,7 @@ class ContabilidadAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        self._create_company_liquidation_for_close(empresa, prepare.data['id'])
         approve = self.client.post(
             reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
             format='json',
@@ -2221,6 +2294,7 @@ class ContabilidadAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        self._create_company_liquidation_for_close(empresa, prepare.data['id'])
         approve = self.client.post(
             reverse('contabilidad-cierre-approve', args=[prepare.data['id']]),
             format='json',

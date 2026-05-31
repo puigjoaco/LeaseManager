@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` tras integrar PR #588 en `fcfa71d`, `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna. Ultimo paquete cerrado: Canales valida `MensajeSaliente.full_clean()` desde `prepare_message()` y `mark_message_as_sent()` para impedir mensajes preparados/enviados con gate de otro canal. |
-| Motivo de prioridad | El paquete cerro una brecha local verificable de Etapa 2: alinear servicios internos de mensaje con el guard de dominio y readiness heredada sin usar integraciones externas. |
-| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-stage2-message-gate-channel-guard`. |
-| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/stage2-message-gate-channel-guard`. |
-| Estado | Paquete Canales / Etapa 2 cerrado; luego de este ajuste de cursor, queda libre para diagnosticar el siguiente frente seguro. |
-| Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
-| Estado al cerrar paquete | Focal Canales 4 tests OK; suite impactada Canales/Stage2 143 tests OK; `manage.py check` OK; `makemigrations --check --dry-run --noinput` sin cambios; readiness local Etapa 2 `classification=parcial`, `ready_for_stage2_cobranza=false`; `npm ci`, `npm run build`, `npm run lint` OK; acceptance local 1124 tests OK; higiene repo y `git diff --check` OK; CI GitHub acceptance OK; PR #588 mergeado en `fcfa71d`; worktree tactico y rama local/remota eliminados. |
-| Bloqueos relacionados | Etapa 2 sigue parcial para cierre externo por falta de fuente autorizada y pruebas controladas de Email/WebPay. Este paquete no requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
+| Frente activo | Contabilidad / Etapa 5: guard de liquidacion mensual antes de aprobar cierre contable. |
+| Fuente exacta | Estado real de `main` en `1fa1944`, matriz de trazabilidad, `docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md` y readiness Etapa 5 vigentes. |
+| Brecha activa | `approve_monthly_close()` permite aprobar un `CierreMensualContable` sin `LiquidacionMensual` de empresa preparada/aprobada para el mismo periodo, aunque `audit_stage5_contabilidad_readiness` ya clasifica ese snapshot como `stage5.close_company_liquidation_missing`. |
+| Motivo de prioridad | Es una brecha local verificable entre servicio operacional y readiness: el cierre aprobado debe conservar liquidacion de empresa antes de alimentar reporting/cierre, sin usar banco real, SII, datos reales ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-close-liquidation-guard`. |
+| Rama | `codex/stage5-close-liquidation-guard`. |
+| Estado | Paquete abierto; implementar guard en servicio/API, ajustar flujos demo/tests necesarios y actualizar evidencia/trazabilidad. |
+| Gate esperado | Focal Contabilidad para aprobacion de cierre; suite impactada `contabilidad` + `core.tests_stage5_contabilidad_readiness`; `manage.py check`; `makemigrations --check --dry-run --noinput`; gate local Etapa 5 como diagnostico parcial; validaciones frontend/acceptance proporcionales antes de PR. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Etapa 5 sigue parcial para cierre real por Conciliacion/fuente autorizada/evidencia externa. Este paquete no requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
+| Politica de reanudacion | Si este worktree queda sucio, continuar o pausar este paquete antes de abrir otro frente. |
+| Siguiente accion | Implementar guard de liquidacion mensual en aprobacion de cierre y validar con pruebas proporcionales. |
 
 ## Actualizacion
 

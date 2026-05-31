@@ -4,7 +4,15 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.management.base import BaseCommand, CommandError
 
-from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoCierreMensual, ObligacionTributariaMensual
+from contabilidad.models import (
+    CierreMensualContable,
+    ConfiguracionFiscalEmpresa,
+    EstadoCierreMensual,
+    EstadoLiquidacionMensual,
+    LiquidacionMensual,
+    ObligacionTributariaMensual,
+    TipoOwnerLiquidacion,
+)
 from contabilidad.services import approve_monthly_close, prepare_monthly_close
 from patrimonio.models import Empresa
 from sii.models import CapacidadSII
@@ -61,6 +69,7 @@ class Command(BaseCommand):
                 close = prepare_monthly_close(empresa, fiscal_year, month)
                 prepared_months += 1
             if close.estado == EstadoCierreMensual.PREPARED:
+                self._ensure_company_liquidation(close)
                 close = approve_monthly_close(close)
                 approved_months += 1
             self._ensure_prepared_ppm_obligation(empresa=empresa, anio=fiscal_year, mes=month, ppm_rate=ppm_rate)
@@ -121,6 +130,36 @@ class Command(BaseCommand):
             capability.save(update_fields=["certificado_ref", "updated_at"])
             updated += 1
         return updated
+
+    def _ensure_company_liquidation(self, close: CierreMensualContable) -> LiquidacionMensual:
+        liquidation, _ = LiquidacionMensual.objects.get_or_create(
+            owner_tipo=TipoOwnerLiquidacion.COMPANY,
+            empresa=close.empresa,
+            cierre_contable=close,
+            anio=close.anio,
+            mes=close.mes,
+            defaults={
+                "estado": EstadoLiquidacionMensual.PREPARED,
+                "comision_administracion_aplica": False,
+                "saldo_final_clp": Decimal("0.00"),
+                "evidencia_base_ref": f"demo-tax-annual-liquidation-base-{close.pk}",
+                "responsable_ref": f"demo-tax-annual-liquidation-owner-{close.pk}",
+            },
+        )
+        dirty_fields = []
+        if liquidation.estado == EstadoLiquidacionMensual.DRAFT:
+            liquidation.estado = EstadoLiquidacionMensual.PREPARED
+            dirty_fields.append("estado")
+        if not liquidation.evidencia_base_ref:
+            liquidation.evidencia_base_ref = f"demo-tax-annual-liquidation-base-{close.pk}"
+            dirty_fields.append("evidencia_base_ref")
+        if not liquidation.responsable_ref:
+            liquidation.responsable_ref = f"demo-tax-annual-liquidation-owner-{close.pk}"
+            dirty_fields.append("responsable_ref")
+        liquidation.full_clean()
+        if dirty_fields:
+            liquidation.save(update_fields=[*dirty_fields, "updated_at"])
+        return liquidation
 
     def _ensure_prepared_ppm_obligation(self, *, empresa: Empresa, anio: int, mes: int, ppm_rate: Decimal) -> None:
         obligation, _ = ObligacionTributariaMensual.objects.get_or_create(
