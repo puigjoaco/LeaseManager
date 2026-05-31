@@ -194,8 +194,10 @@ class AuditAPITests(APITestCase):
             self.assertNotIn(raw_field, resolution_admin.search_fields)
 
         self.assertFalse(event_admin.has_add_permission(None))
+        self.assertFalse(event_admin.has_change_permission(None, event))
         self.assertFalse(event_admin.has_delete_permission(None, event))
         self.assertFalse(resolution_admin.has_add_permission(None))
+        self.assertFalse(resolution_admin.has_change_permission(None, resolution))
         self.assertFalse(resolution_admin.has_delete_permission(None, resolution))
 
         self.assertEqual(event_admin.actor_identifier_redacted(event), REDACTED_SENSITIVE_REFERENCE)

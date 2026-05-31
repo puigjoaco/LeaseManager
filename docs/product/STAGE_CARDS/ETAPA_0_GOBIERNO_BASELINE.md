@@ -42,6 +42,9 @@ evidencia respalda el root limpio.
   misma transaccion que la escritura: creacion, cambios de estado y ediciones
   comunes crean `AuditEvent` dedicado, y si falla esa auditoria se revierte la
   creacion o mutacion.
+- El admin Django de Auditoria es solo lectura para eventos y resoluciones
+  manuales: no permite alta, cambio ni borrado manual, y conserva campos
+  crudos sensibles solo como versiones redactadas.
 - Los admins RBAC de Core no exponen metadata ni permission sets crudos y no
   permiten borrado manual de roles, scopes, permisos por scope ni asignaciones.
 - `PlatformSettingAdmin` muestra valores de plataforma solo redactados y no
