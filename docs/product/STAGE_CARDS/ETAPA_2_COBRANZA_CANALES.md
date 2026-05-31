@@ -88,6 +88,12 @@ condicionados sin envios reales accidentales.
   no sensible alineado al mensaje. El servicio de registro manual crea esa
   auditoria en la misma transaccion que marca el mensaje como `enviado`, para
   cubrir tanto el endpoint HTTP como llamadas internas controladas.
+- Las APIs de Cobranza que mutan datos operativos deben persistir la mutacion
+  y la auditoria de vista en la misma transaccion. Esto cubre altas/ediciones
+  via `AuditCreateUpdateMixin`, cargas UF, actualizaciones de pagos, refresco
+  de mora, materializacion local de cobro existente, movimientos de garantia,
+  repactaciones y rebuild de estado de cuenta; si falla la auditoria, no debe
+  quedar cambio de Cobranza sin traza.
 - La preparacion de mensajes tambien queda auditada desde el servicio
   `prepare_message()`: persistencia del mensaje preparado/bloqueado y evento
   `canales.mensaje_saliente.prepared` ocurren en la misma transaccion, para
