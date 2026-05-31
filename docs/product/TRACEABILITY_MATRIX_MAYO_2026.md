@@ -7,6 +7,15 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Conciliacion/Etapa 3 alinea creacion de movimientos
+bancarios, match exacto local y auditoria en una transaccion unica.
+`MovimientoBancarioListCreateView.perform_create()` persiste el movimiento,
+crea `conciliacion.movimiento_bancario.created`, ejecuta
+`reconcile_exact_movement()` y registra
+`conciliacion.movimiento_bancario.match_attempted` de forma atomica; si falla
+la auditoria posterior, no quedan movimiento, pago mutado, ingreso desconocido
+ni match sin traza completa.
+
 Nota 2026-05-31: Compliance/Etapa 0 alinea accesos denegados de exportaciones
 sensibles con auditoria atomica. `ExportacionContentView` ejecuta
 `get_export_payload()` y el evento `compliance.exportacion_sensible.access_denied`

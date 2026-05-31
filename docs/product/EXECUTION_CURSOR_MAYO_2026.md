@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ningun paquete tactico abierto. |
-| Fuente exacta | Estado real de `main` en `8651741` despues de PR #602, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna seleccionada en este cursor. |
-| Motivo de prioridad | PR #602 cerro la atomicidad de acceso denegado en Compliance; el siguiente frente debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
-| Worktree | Ninguno. |
-| Rama | `main`. |
-| Estado | Listo para diagnosticar el siguiente frente seguro. |
-| Gate esperado | No aplica hasta abrir un nuevo paquete. |
+| Frente activo | Etapa 3 - atomicidad de auditoria en creacion de movimiento bancario y match de conciliacion. |
+| Fuente exacta | Estado real de `main` en `91dc7b2` despues de PR #603, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | `MovimientoBancarioListCreateView.perform_create` no mantiene en una unica transaccion la persistencia del movimiento, la auditoria `created`, el match local y la auditoria `match_attempted`; si falla la auditoria posterior, pueden quedar efectos de conciliacion sin traza completa. |
+| Motivo de prioridad | Etapa 3 exige que importaciones, matches y resoluciones pasen por APIs/servicios auditados; la correccion es local, verificable y no requiere banco real, snapshot, secretos ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage3-movement-audit-atomicity`. |
+| Rama | `codex/stage3-movement-audit-atomicity`. |
+| Estado | Paquete tactico abierto. |
+| Gate esperado | Etapa 3 local debe seguir `classification=parcial`, `ready_for_stage3_conciliacion=false`, sin cierre evidencial. |
 | Estado al cerrar paquete | PR #602 mergeado en `8651741`: `ExportacionContentView` ejecuta descarga/denegacion y eventos `accessed`/`access_denied` dentro de una transaccion. Si falla la auditoria de acceso denegado, la normalizacion de exportacion vencida a `expirada` se revierte. Validado con focal 3 tests, impactada Compliance/readiness 101 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, gate Compliance parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1135 tests, higiene, `git diff --check` y CI GitHub. |
 | Bloqueos relacionados | BLK-010 sigue abierto para cierre legal-operativo y fuente autorizada. El paquete cerrado no uso `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Confirmar `main` limpio y diagnosticar el siguiente frente seguro por orden de construccion y trazabilidad vigente. |
+| Siguiente accion | Implementar transaccion atomica para creacion/match de movimiento bancario, agregar prueba de rollback ante fallo de auditoria, validar suite impactada y cerrar con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 
