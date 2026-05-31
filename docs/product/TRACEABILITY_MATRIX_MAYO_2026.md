@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: CobranzaActiva/Etapa 2 alinea mutaciones API y auditoria
+de vista en una transaccion. `AuditCreateUpdateMixin` en Cobranza y los
+overrides de UF, pagos, refresco de mora, materializacion local, movimientos
+de garantia, repactaciones y rebuild de estado de cuenta persisten cambios y
+eventos auditables de forma atomica; si falla la auditoria, no quedan cambios
+operativos de Cobranza sin traza.
+
 Nota 2026-05-31: Contratos/Etapa 1 alinea altas y ediciones API con auditoria
 atomica. `AuditCreateUpdateMixin` y los overrides de arrendatario/contrato
 persisten `created`, `updated`, `state_changed` y trazas contractuales

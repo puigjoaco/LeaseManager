@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ningun paquete tactico abierto. |
-| Fuente exacta | Estado real de `main` en `264c346` despues de PR #610, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna seleccionada en este cursor. |
-| Motivo de prioridad | PR #610 cerro la atomicidad de auditoria en APIs de Contratos; el siguiente frente debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
-| Worktree | Ninguno. |
-| Rama | `main`. |
-| Estado | Listo para diagnosticar el siguiente frente seguro. |
-| Gate esperado | No aplica hasta abrir un nuevo paquete. |
-| Estado al cerrar paquete | PR #610 mergeado en `264c346`: `backend/contratos/views.py::AuditCreateUpdateMixin` y overrides de arrendatario/contrato persisten altas/ediciones contractuales y eventos `created`, `updated`, `state_changed` o trazas derivadas en una sola transaccion. Si falla la auditoria, no quedan contactos de pago, contratos anidados ni estados contractuales mutados sin traza. Validado con focal 6 tests, impactada Contratos/Etapa 1 256 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, readiness local Etapa 1 no evidencial, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1144 tests, higiene, `git diff --check` y CI GitHub. |
-| Bloqueos relacionados | BLK-002 sigue abierto para cierre evidencial de Etapa 1 con fuente `snapshot_controlado` o `real_autorizado`. El paquete cerrado no uso `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Confirmar `main` limpio y diagnosticar el siguiente frente seguro por orden de construccion y trazabilidad vigente. |
+| Frente activo | Etapa 2 - atomicidad de auditoria en APIs de CobranzaActiva. |
+| Fuente exacta | Estado real de `main` en `e9fd0a5` despues de PR #611, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | `backend/cobranza/views.py` persiste algunas mutaciones de Cobranza antes de crear la auditoria de vista. Si falla la auditoria, podrian quedar pagos, ajustes, garantias, repactaciones, UF o estados de cuenta mutados sin traza transaccional de la API. |
+| Motivo de prioridad | Tras cerrar la atomicidad equivalente en Contratos, CobranzaActiva es el siguiente frente del orden de construccion con brecha local, verificable y sin dependencia de fuentes externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-cobranza-audit-atomicity`. |
+| Rama | `codex/stage2-cobranza-audit-atomicity`. |
+| Estado | Paquete tactico abierto. |
+| Gate esperado | Tests focales de rollback API, suite impactada Cobranza/Etapa 2, `manage.py check`, migraciones dry-run, gate local Etapa 2 diagnostico, frontend build/lint, acceptance local, higiene y CI GitHub. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Los cierres evidenciales que requieran fuente `snapshot_controlado`, datos reales o integraciones externas siguen siendo condiciones de cierre, no prerequisito para este paquete local. |
+| Politica de reanudacion | Si este worktree aparece sucio, terminar o pausar este paquete antes de abrir otro frente. Si no existe, confirmar el cursor actualizado en `main` antes de diagnosticar el siguiente frente. |
+| Siguiente accion | Completar implementacion, pruebas focales, documentacion/evidencia, validaciones proporcionales, PR, CI, merge y limpieza. |
 
 ## Actualizacion
 

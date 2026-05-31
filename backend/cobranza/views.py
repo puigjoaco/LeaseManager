@@ -103,19 +103,21 @@ class AuditCreateUpdateMixin:
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='created')
+            self._create_audit_event(instance=instance, action='created')
+        return instance
 
     def perform_update(self, serializer):
         previous_state = self._extract_state(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='updated')
-        if previous_state != self._extract_state(instance):
-            self._create_audit_event(
-                instance=instance,
-                action='state_changed',
-                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
-            )
+            self._create_audit_event(instance=instance, action='updated')
+            if previous_state != self._extract_state(instance):
+                self._create_audit_event(
+                    instance=instance,
+                    action='state_changed',
+                    summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                )
+        return instance
 
     def _extract_state(self, instance):
         for field in ('estado_pago', 'estado_garantia'):
@@ -354,15 +356,17 @@ class ValorUFDiarioListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPI
 
     def perform_create(self, serializer):
         try:
-            instance, _ = save_uf_value(
-                validated_data=serializer.validated_data,
-                actor_user=self.request.user,
-                ip_address=self.request.META.get('REMOTE_ADDR'),
-            )
+            with transaction.atomic():
+                instance, _ = save_uf_value(
+                    validated_data=serializer.validated_data,
+                    actor_user=self.request.user,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                )
+                serializer.instance = instance
+                self._create_audit_event(instance=instance, action='created')
         except ValueError as error:
             raise ValidationError({'source_key': str(error)})
-        serializer.instance = instance
-        self._create_audit_event(instance=instance, action='created')
+        return instance
 
 
 class ValorUFDiarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
@@ -374,16 +378,18 @@ class ValorUFDiarioDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPI
 
     def perform_update(self, serializer):
         try:
-            instance, _ = save_uf_value(
-                uf_value=serializer.instance,
-                validated_data=serializer.validated_data,
-                actor_user=self.request.user,
-                ip_address=self.request.META.get('REMOTE_ADDR'),
-            )
+            with transaction.atomic():
+                instance, _ = save_uf_value(
+                    uf_value=serializer.instance,
+                    validated_data=serializer.validated_data,
+                    actor_user=self.request.user,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                )
+                serializer.instance = instance
+                self._create_audit_event(instance=instance, action='updated')
         except ValueError as error:
             raise ValidationError({'source_key': str(error)})
-        serializer.instance = instance
-        self._create_audit_event(instance=instance, action='updated')
+        return instance
 
 
 class AjusteContratoListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
@@ -437,22 +443,24 @@ class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
 
     def perform_update(self, serializer):
         try:
-            instance, previous_state, _ = update_payment_operational_fields(
-                payment=serializer.instance,
-                validated_data=serializer.validated_data,
-                actor_user=self.request.user,
-                ip_address=self.request.META.get('REMOTE_ADDR'),
-            )
+            with transaction.atomic():
+                instance, previous_state, _ = update_payment_operational_fields(
+                    payment=serializer.instance,
+                    validated_data=serializer.validated_data,
+                    actor_user=self.request.user,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                )
+                serializer.instance = instance
+                self._create_audit_event(instance=instance, action='updated')
+                if previous_state != self._extract_state(instance):
+                    self._create_audit_event(
+                        instance=instance,
+                        action='state_changed',
+                        summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                    )
         except ValueError as error:
             raise ValidationError({'estado_pago': str(error)})
-        serializer.instance = instance
-        self._create_audit_event(instance=instance, action='updated')
-        if previous_state != self._extract_state(instance):
-            self._create_audit_event(
-                instance=instance,
-                action='state_changed',
-                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
-            )
+        return instance
 
 
 class PagoMensualGenerateView(APIView):
@@ -473,22 +481,23 @@ class PagoMensualGenerateView(APIView):
 
         existing = PagoMensual.objects.filter(contrato=contrato, anio=anio, mes=mes).first()
         if existing:
-            materialized = materialize_payment_notification_schedule(existing)
-            if materialized['created_count']:
-                create_audit_event(
-                    event_type='canales.notificacion_cobranza.materialized',
-                    entity_type='pago_mensual',
-                    entity_id=str(existing.pk),
-                    summary='Notificaciones de cobranza programadas para pago existente',
-                    actor_user=request.user,
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    metadata={
-                        'contrato_id': contrato.id,
-                        'anio': anio,
-                        'mes': mes,
-                        'created_count': materialized['created_count'],
-                    },
-                )
+            with transaction.atomic():
+                materialized = materialize_payment_notification_schedule(existing)
+                if materialized['created_count']:
+                    create_audit_event(
+                        event_type='canales.notificacion_cobranza.materialized',
+                        entity_type='pago_mensual',
+                        entity_id=str(existing.pk),
+                        summary='Notificaciones de cobranza programadas para pago existente',
+                        actor_user=request.user,
+                        ip_address=request.META.get('REMOTE_ADDR'),
+                        metadata={
+                            'contrato_id': contrato.id,
+                            'anio': anio,
+                            'mes': mes,
+                            'created_count': materialized['created_count'],
+                        },
+                    )
             return Response(PagoMensualSerializer(existing).data, status=status.HTTP_200_OK)
 
         try:
@@ -556,20 +565,21 @@ class PagoMensualRefreshMoraView(APIView):
             property_paths=('contrato__mandato_operacion__propiedad_id',),
             bank_account_paths=('contrato__mandato_operacion__cuenta_recaudadora_id',),
         )
-        result = refresh_overdue_payments(
-            queryset=queryset,
-            reference_date=reference_date,
-            access=get_scope_access(request.user),
-        )
-        create_audit_event(
-            event_type='cobranza.pago_mensual.overdue_refreshed',
-            entity_type='pago_mensual',
-            entity_id='bulk',
-            summary='Mora de pagos vencidos refrescada',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            metadata=result,
-        )
+        with transaction.atomic():
+            result = refresh_overdue_payments(
+                queryset=queryset,
+                reference_date=reference_date,
+                access=get_scope_access(request.user),
+            )
+            create_audit_event(
+                event_type='cobranza.pago_mensual.overdue_refreshed',
+                entity_type='pago_mensual',
+                entity_id='bulk',
+                summary='Mora de pagos vencidos refrescada',
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                metadata=result,
+            )
         return Response(result, status=status.HTTP_200_OK)
 
 
@@ -737,45 +747,43 @@ class GarantiaMovimientoCreateView(APIView):
         serializer = GarantiaMovimientoSerializer(data=request.data, context={'garantia': garantia, 'request': request})
         serializer.is_valid(raise_exception=True)
 
+        from contabilidad.services import create_guarantee_event
+
         try:
             with transaction.atomic():
                 movimiento, garantia = serializer.save()
+                create_guarantee_event(movimiento)
+                create_audit_event(
+                    event_type='cobranza.historial_garantia.created',
+                    entity_type='historial_garantia',
+                    entity_id=str(movimiento.pk),
+                    summary='Movimiento de garantia registrado',
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    metadata={'garantia_id': garantia.id, 'tipo_movimiento': movimiento.tipo_movimiento},
+                )
+                create_audit_event(
+                    event_type='cobranza.garantia_contractual.updated',
+                    entity_type='garantia_contractual',
+                    entity_id=str(garantia.pk),
+                    summary='Garantia contractual actualizada por movimiento',
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                )
+                if previous_state != garantia.estado_garantia:
+                    create_audit_event(
+                        event_type='cobranza.garantia_contractual.state_changed',
+                        entity_type='garantia_contractual',
+                        entity_id=str(garantia.pk),
+                        summary='Cambio de estado de garantia contractual',
+                        actor_user=request.user,
+                        ip_address=request.META.get('REMOTE_ADDR'),
+                    )
         except DjangoValidationError as error:
             payload = error.message_dict if hasattr(error, 'message_dict') else {'detail': error.messages}
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
-
-        from contabilidad.services import create_guarantee_event
-
-        create_guarantee_event(movimiento)
-
-        create_audit_event(
-            event_type='cobranza.historial_garantia.created',
-            entity_type='historial_garantia',
-            entity_id=str(movimiento.pk),
-            summary='Movimiento de garantia registrado',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            metadata={'garantia_id': garantia.id, 'tipo_movimiento': movimiento.tipo_movimiento},
-        )
-        create_audit_event(
-            event_type='cobranza.garantia_contractual.updated',
-            entity_type='garantia_contractual',
-            entity_id=str(garantia.pk),
-            summary='Garantia contractual actualizada por movimiento',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-        )
-        if previous_state != garantia.estado_garantia:
-            create_audit_event(
-                event_type='cobranza.garantia_contractual.state_changed',
-                entity_type='garantia_contractual',
-                entity_id=str(garantia.pk),
-                summary='Cambio de estado de garantia contractual',
-                actor_user=request.user,
-                ip_address=request.META.get('REMOTE_ADDR'),
-            )
 
         return Response(HistorialGarantiaReadSerializer(movimiento).data, status=status.HTTP_201_CREATED)
 
@@ -793,15 +801,17 @@ class RepactacionDeudaListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin
 
     def perform_create(self, serializer):
         try:
-            instance, _ = save_repayment_plan(
-                validated_data=serializer.validated_data,
-                actor_user=self.request.user,
-                ip_address=self.request.META.get('REMOTE_ADDR'),
-            )
+            with transaction.atomic():
+                instance, _ = save_repayment_plan(
+                    validated_data=serializer.validated_data,
+                    actor_user=self.request.user,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                )
+                serializer.instance = instance
+                self._create_audit_event(instance=instance, action='created')
         except ValueError as error:
             raise ValidationError({'excepcion_parcial_ref': str(error)})
-        serializer.instance = instance
-        self._create_audit_event(instance=instance, action='created')
+        return instance
 
 
 class RepactacionDeudaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
@@ -817,16 +827,18 @@ class RepactacionDeudaDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, ge
 
     def perform_update(self, serializer):
         try:
-            instance, _ = save_repayment_plan(
-                repayment=serializer.instance,
-                validated_data=serializer.validated_data,
-                actor_user=self.request.user,
-                ip_address=self.request.META.get('REMOTE_ADDR'),
-            )
+            with transaction.atomic():
+                instance, _ = save_repayment_plan(
+                    repayment=serializer.instance,
+                    validated_data=serializer.validated_data,
+                    actor_user=self.request.user,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                )
+                serializer.instance = instance
+                self._create_audit_event(instance=instance, action='updated')
         except ValueError as error:
             raise ValidationError({'excepcion_parcial_ref': str(error)})
-        serializer.instance = instance
-        self._create_audit_event(instance=instance, action='updated')
+        return instance
 
 
 class CodigoCobroResidualListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
@@ -881,14 +893,15 @@ class EstadoCuentaArrendatarioRebuildView(APIView):
             request.user,
             property_paths=('contratos__mandato_operacion__propiedad_id',),
         )
-        estado = rebuild_account_state(arrendatario, access=get_scope_access(request.user))
-        create_audit_event(
-            event_type='cobranza.estado_cuenta_arrendatario.rebuilt',
-            entity_type='estado_cuenta_arrendatario',
-            entity_id=str(estado.pk),
-            summary='Estado de cuenta arrendatario recalculado',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            metadata={'arrendatario_id': arrendatario.pk},
-        )
+        with transaction.atomic():
+            estado = rebuild_account_state(arrendatario, access=get_scope_access(request.user))
+            create_audit_event(
+                event_type='cobranza.estado_cuenta_arrendatario.rebuilt',
+                entity_type='estado_cuenta_arrendatario',
+                entity_id=str(estado.pk),
+                summary='Estado de cuenta arrendatario recalculado',
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                metadata={'arrendatario_id': arrendatario.pk},
+            )
         return Response(EstadoCuentaArrendatarioSerializer(estado, context={'request': request}).data, status=status.HTTP_200_OK)

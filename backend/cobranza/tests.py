@@ -421,6 +421,38 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(account_state.resumen_operativo['pagos_atrasados'], 1)
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.overdue_refreshed').exists())
 
+    def test_refresh_overdue_payments_rolls_back_when_view_audit_fails(self):
+        payment = self._generate_monthly_payment(codigo='CON-MORA-AUDIT-ROLLBACK')
+
+        with patch('cobranza.views.create_audit_event', side_effect=RuntimeError('audit unavailable')):
+            with self.assertRaisesMessage(RuntimeError, 'audit unavailable'):
+                self.client.post(
+                    reverse('cobranza-pago-refresh-mora'),
+                    {'fecha_corte': '2026-01-10'},
+                    format='json',
+                )
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(payment.dias_mora, 0)
+        self.assertFalse(
+            AuditEvent.objects.filter(event_type='cobranza.pago_mensual.overdue_refreshed').exists()
+        )
+
+    def test_account_state_rebuild_rolls_back_when_view_audit_fails(self):
+        payment = self._generate_monthly_payment(codigo='CON-STATE-AUDIT-ROLLBACK')
+
+        with patch('cobranza.views.create_audit_event', side_effect=RuntimeError('audit unavailable')):
+            with self.assertRaisesMessage(RuntimeError, 'audit unavailable'):
+                self.client.post(
+                    reverse('cobranza-estado-cuenta-rebuild'),
+                    {'arrendatario_id': payment.contrato.arrendatario_id},
+                    format='json',
+                )
+
+        self.assertFalse(EstadoCuentaArrendatario.objects.filter(arrendatario=payment.contrato.arrendatario).exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type='cobranza.estado_cuenta_arrendatario.rebuilt').exists())
+
     def test_account_state_observations_reject_and_redact_sensitive_values(self):
         payment = self._generate_monthly_payment(codigo='CON-STATE-OBS')
         account_state = rebuild_account_state(payment.contrato.arrendatario)
@@ -607,6 +639,22 @@ class CobranzaAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('source_key', response.data)
+
+    def test_uf_create_rolls_back_when_view_audit_fails(self):
+        with patch('cobranza.views.create_audit_event', side_effect=RuntimeError('audit unavailable')):
+            with self.assertRaisesMessage(RuntimeError, 'audit unavailable'):
+                self.client.post(
+                    reverse('cobranza-valor-uf-list'),
+                    {
+                        'fecha': '2026-01-01',
+                        'valor': '35000.0000',
+                        'source_key': 'UF.BancoCentral',
+                    },
+                    format='json',
+                )
+
+        self.assertFalse(ValorUFDiario.objects.filter(fecha=date(2026, 1, 1)).exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type='cobranza.valor_uf.created').exists())
 
     def test_manual_uf_records_auditable_trace(self):
         response = self.client.post(
@@ -1011,6 +1059,27 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(update.status_code, status.HTTP_200_OK)
         self.assertEqual(update.data['estado_pago'], EstadoPago.OVERDUE)
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.state_changed').exists())
+
+    def test_payment_update_rolls_back_when_view_audit_fails(self):
+        payment = self._generate_monthly_payment(codigo='CON-PAY-AUDIT-ROLLBACK')
+
+        with patch('cobranza.views.create_audit_event', side_effect=RuntimeError('audit unavailable')):
+            with self.assertRaisesMessage(RuntimeError, 'audit unavailable'):
+                self.client.patch(
+                    reverse('cobranza-pago-detail', args=[payment.pk]),
+                    {'estado_pago': EstadoPago.OVERDUE},
+                    format='json',
+                )
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type__in=['cobranza.pago_mensual.updated', 'cobranza.pago_mensual.state_changed'],
+                entity_type='pago_mensual',
+                entity_id=str(payment.pk),
+            ).exists()
+        )
 
     def test_payment_update_rejects_forgiven_without_trace(self):
         payment = self._generate_monthly_payment(codigo='CON-FORGIVE-NOTRACE')
@@ -1857,6 +1926,24 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(final_detail.data['fecha_cierre'], '2027-01-10')
         self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.garantia_contractual.state_changed').exists())
 
+    def test_guarantee_movement_rolls_back_when_view_audit_fails(self):
+        contrato = self._create_active_contract(codigo='CON-GAR-AUDIT', monto_base='100000.00', code='111')
+        garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='50000.00')
+
+        with patch('cobranza.views.create_audit_event', side_effect=RuntimeError('audit unavailable')):
+            with self.assertRaisesMessage(RuntimeError, 'audit unavailable'):
+                self.client.post(
+                    reverse('cobranza-garantia-movimiento', args=[garantia.id]),
+                    {'tipo_movimiento': 'deposito', 'monto_clp': '50000.00', 'fecha': '2026-01-01'},
+                    format='json',
+                )
+
+        garantia.refresh_from_db()
+        self.assertEqual(garantia.monto_recibido, Decimal('0.00'))
+        self.assertEqual(garantia.estado_garantia, EstadoGarantia.PENDING)
+        self.assertFalse(HistorialGarantia.objects.filter(garantia_contractual=garantia).exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type='cobranza.historial_garantia.created').exists())
+
     def test_guarantee_deposit_above_pactado_requires_resolution(self):
         contrato = self._create_active_contract(codigo='CON-GAR-FAIL', monto_base='100000.00', code='111')
         garantia = GarantiaContractual.objects.create(contrato=contrato, monto_pactado='50000.00')
@@ -2354,6 +2441,29 @@ class CobranzaAPITests(APITestCase):
         self.assertIn('justificacion', response.data)
         self.assertFalse(AjusteContrato.objects.filter(contrato=contrato).exists())
 
+    def test_adjustment_create_rolls_back_when_view_audit_fails(self):
+        contrato = self._create_active_contract(codigo='CON-AJUSTE-AUDIT', monto_base='100000.00', code='111')
+
+        with patch('cobranza.views.create_audit_event', side_effect=RuntimeError('audit unavailable')):
+            with self.assertRaisesMessage(RuntimeError, 'audit unavailable'):
+                self.client.post(
+                    reverse('cobranza-ajuste-list'),
+                    {
+                        'contrato': contrato.id,
+                        'tipo_ajuste': 'cargo_controlado',
+                        'monto': '1000.00',
+                        'moneda': 'CLP',
+                        'mes_inicio': '2026-01-01',
+                        'mes_fin': '2026-01-01',
+                        'justificacion': 'Cargo operativo controlado',
+                        'activo': True,
+                    },
+                    format='json',
+                )
+
+        self.assertFalse(AjusteContrato.objects.filter(contrato=contrato).exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type='cobranza.ajuste_contrato.created').exists())
+
     def test_adjustment_apis_and_snapshot_redact_inherited_sensitive_justification(self):
         contrato = self._create_active_contract(codigo='CON-AJUSTE-RED', monto_base='100000.00', code='111')
         adjustment = AjusteContrato.objects.create(
@@ -2666,6 +2776,28 @@ class CobranzaAPITests(APITestCase):
                 metadata__excepcion_parcial_motivo='Excepcion formal autorizada por acuerdo operativo controlado.',
             ).exists()
         )
+
+    def test_repayment_create_rolls_back_when_view_audit_fails(self):
+        contrato = self._create_active_contract(codigo='CON-REP-AUDIT', monto_base='100000.00', code='111')
+
+        with patch('cobranza.views.create_audit_event', side_effect=RuntimeError('audit unavailable')):
+            with self.assertRaisesMessage(RuntimeError, 'audit unavailable'):
+                self.client.post(
+                    reverse('cobranza-repactacion-list'),
+                    {
+                        'arrendatario': contrato.arrendatario_id,
+                        'contrato_origen': contrato.id,
+                        'deuda_total_original': '50000.00',
+                        'cantidad_cuotas': 5,
+                        'monto_cuota': '10000.00',
+                        'saldo_pendiente': '50000.00',
+                        'estado': 'activa',
+                    },
+                    format='json',
+                )
+
+        self.assertFalse(RepactacionDeuda.objects.filter(contrato_origen=contrato).exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type='cobranza.repactacion_deuda.created').exists())
 
     def test_partial_repayment_service_creates_exception_audit_event(self):
         contrato = self._create_active_contract(codigo='CON-REP-PARTIAL-SVC', monto_base='100000.00', code='111')
