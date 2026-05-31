@@ -36,14 +36,14 @@ class AuditCreateUpdateMixin:
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='created')
-        if getattr(instance, 'documento_origen_id', None):
-            self._create_audit_event(
-                instance=instance,
-                action='corrective_version_created',
-                summary=f'Version correctiva de documento {instance.documento_origen_id}',
-                metadata=build_correction_audit_metadata(instance),
-            )
+            self._create_audit_event(instance=instance, action='created')
+            if getattr(instance, 'documento_origen_id', None):
+                self._create_audit_event(
+                    instance=instance,
+                    action='corrective_version_created',
+                    summary=f'Version correctiva de documento {instance.documento_origen_id}',
+                    metadata=build_correction_audit_metadata(instance),
+                )
         return instance
 
     def perform_update(self, serializer):
