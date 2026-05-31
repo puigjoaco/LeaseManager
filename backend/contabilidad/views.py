@@ -315,20 +315,20 @@ class AuditCreateUpdateMixin:
     def perform_create(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='created')
+            self._create_audit_event(instance=instance, action='created')
         return instance
 
     def perform_update(self, serializer):
         previous_state = self._extract_state(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='updated')
-        if previous_state != self._extract_state(instance):
-            self._create_audit_event(
-                instance=instance,
-                action='state_changed',
-                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
-            )
+            self._create_audit_event(instance=instance, action='updated')
+            if previous_state != self._extract_state(instance):
+                self._create_audit_event(
+                    instance=instance,
+                    action='state_changed',
+                    summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                )
 
     def _extract_state(self, instance):
         for field in ('estado', 'estado_contable'):
@@ -454,17 +454,20 @@ class EventoContableListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, 
     audit_entity_label = 'evento contable'
 
     def perform_create(self, serializer):
-        event = super().perform_create(serializer)
-        asiento = post_accounting_event(event)
-        create_audit_event(
-            event_type='contabilidad.evento_contable.post_attempted',
-            entity_type='evento_contable',
-            entity_id=str(event.pk),
-            summary='Intento de contabilizacion de evento',
-            actor_user=self.request.user,
-            ip_address=self.request.META.get('REMOTE_ADDR'),
-            metadata={'asiento_id': asiento.pk if asiento else None, 'estado_contable': event.estado_contable},
-        )
+        with transaction.atomic():
+            event = serializer.save()
+            self._create_audit_event(instance=event, action='created')
+            asiento = post_accounting_event(event)
+            create_audit_event(
+                event_type='contabilidad.evento_contable.post_attempted',
+                entity_type='evento_contable',
+                entity_id=str(event.pk),
+                summary='Intento de contabilizacion de evento',
+                actor_user=self.request.user,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
+                metadata={'asiento_id': asiento.pk if asiento else None, 'estado_contable': event.estado_contable},
+            )
+        return event
 
 
 class EventoContableDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
@@ -486,16 +489,18 @@ class EventoContablePostView(APIView):
             ),
             pk=pk,
         )
-        asiento = post_accounting_event(event)
-        create_audit_event(
-            event_type='contabilidad.evento_contable.post_retried',
-            entity_type='evento_contable',
-            entity_id=str(event.pk),
-            summary='Reintento de contabilizacion',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            metadata={'asiento_id': asiento.pk if asiento else None, 'estado_contable': event.estado_contable},
-        )
+        with transaction.atomic():
+            asiento = post_accounting_event(event)
+            create_audit_event(
+                event_type='contabilidad.evento_contable.post_retried',
+                entity_type='evento_contable',
+                entity_id=str(event.pk),
+                summary='Reintento de contabilizacion',
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                metadata={'asiento_id': asiento.pk if asiento else None, 'estado_contable': event.estado_contable},
+            )
+        event.refresh_from_db()
         return Response(EventoContableSerializer(event).data, status=status.HTTP_200_OK)
 
 
@@ -642,22 +647,24 @@ class CierreMensualPrepareView(APIView):
         serializer = CierreMensualPrepareSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         try:
-            close = prepare_monthly_close(
-                serializer.validated_data['empresa'],
-                serializer.validated_data['anio'],
-                serializer.validated_data['mes'],
-            )
+            with transaction.atomic():
+                close = prepare_monthly_close(
+                    serializer.validated_data['empresa'],
+                    serializer.validated_data['anio'],
+                    serializer.validated_data['mes'],
+                )
+                create_audit_event(
+                    event_type='contabilidad.cierre_mensual.prepared',
+                    entity_type='cierre_mensual_contable',
+                    entity_id=str(close.pk),
+                    summary='Cierre mensual preparado',
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
-        create_audit_event(
-            event_type='contabilidad.cierre_mensual.prepared',
-            entity_type='cierre_mensual_contable',
-            entity_id=str(close.pk),
-            summary='Cierre mensual preparado',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-        )
+        close.refresh_from_db()
         return Response(CierreMensualContableSerializer(close).data, status=status.HTTP_200_OK)
 
 
@@ -674,17 +681,19 @@ class CierreMensualApproveView(APIView):
             pk=pk,
         )
         try:
-            close = approve_monthly_close(close)
+            with transaction.atomic():
+                close = approve_monthly_close(close)
+                create_audit_event(
+                    event_type='contabilidad.cierre_mensual.approved',
+                    entity_type='cierre_mensual_contable',
+                    entity_id=str(close.pk),
+                    summary='Cierre mensual aprobado',
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
-        create_audit_event(
-            event_type='contabilidad.cierre_mensual.approved',
-            entity_type='cierre_mensual_contable',
-            entity_id=str(close.pk),
-            summary='Cierre mensual aprobado',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-        )
+        close.refresh_from_db()
         return Response(CierreMensualContableSerializer(close).data, status=status.HTTP_200_OK)
 
 
@@ -703,16 +712,18 @@ class CierreMensualReopenView(APIView):
             pk=pk,
         )
         try:
-            close, effect = reopen_monthly_close(close, **serializer.validated_data)
+            with transaction.atomic():
+                close, effect = reopen_monthly_close(close, **serializer.validated_data)
+                create_audit_event(
+                    event_type='contabilidad.cierre_mensual.reopened',
+                    entity_type='cierre_mensual_contable',
+                    entity_id=str(close.pk),
+                    summary='Cierre mensual reabierto',
+                    metadata={'efecto_reapertura_id': effect.pk, 'evento_contable_id': effect.evento_contable_id},
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
-        create_audit_event(
-            event_type='contabilidad.cierre_mensual.reopened',
-            entity_type='cierre_mensual_contable',
-            entity_id=str(close.pk),
-            summary='Cierre mensual reabierto',
-            metadata={'efecto_reapertura_id': effect.pk, 'evento_contable_id': effect.evento_contable_id},
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-        )
+        close.refresh_from_db()
         return Response(CierreMensualContableSerializer(close).data, status=status.HTTP_200_OK)

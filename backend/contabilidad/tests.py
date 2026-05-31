@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.core.cache import cache
@@ -336,6 +337,52 @@ class ContabilidadAPITests(APITestCase):
         liquidation.save()
         return liquidation
 
+    def _post_manual_accounting_event(self, empresa, suffix, amount='100000.00'):
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': f'atomicity-{suffix}',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': amount,
+                'payload_resumen': {},
+                'idempotency_key': f'atomicity-{suffix}',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        return response
+
+    def _prepare_monthly_close_for_audit_tests(self, suffix, *, with_reopen_rule=False):
+        empresa = self._create_active_empresa(
+            nombre=f'AtomicClose{suffix}',
+            rut=f'78{suffix[-6:].zfill(6)}-5',
+        )
+        accounts = self._setup_contabilidad(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        config.tasa_ppm_vigente = '10.00'
+        config.save(update_fields=['tasa_ppm_vigente'])
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        if with_reopen_rule:
+            self._create_rule_matrix(
+                empresa,
+                MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE,
+                accounts['cxc'],
+                accounts['bancos'],
+                vigencia_desde='2026-02-01',
+            )
+        self._post_manual_accounting_event(empresa, suffix)
+        prepare = self.client.post(
+            reverse('contabilidad-cierre-prepare'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(prepare.status_code, status.HTTP_200_OK)
+        return empresa, accounts, CierreMensualContable.objects.get(pk=prepare.data['id'])
+
     def test_manual_event_without_fiscal_setup_stays_in_review(self):
         empresa = self._create_active_empresa()
         response = self.client.post(
@@ -357,6 +404,87 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         event = EventoContable.objects.get(pk=response.data['id'])
         self.assertEqual(event.estado_contable, 'pendiente_revision_contable')
+        self.assertFalse(AsientoContable.objects.filter(evento_contable=event).exists())
+
+    def test_account_create_rolls_back_when_view_audit_fails(self):
+        empresa = self._create_active_empresa(nombre='AccountAuditFailCo', rut='78111111-1')
+        payload = {
+            'empresa': empresa.id,
+            'plan_cuentas_version': 'v1',
+            'codigo': '1999',
+            'nombre': 'Cuenta sin auditoria',
+            'naturaleza': 'deudora',
+            'nivel': 1,
+            'estado': 'activa',
+        }
+
+        with patch('contabilidad.views.create_audit_event', side_effect=RuntimeError('account audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'account audit unavailable'):
+                self.client.post(reverse('contabilidad-cuenta-list'), payload, format='json')
+
+        self.assertFalse(CuentaContable.objects.filter(empresa=empresa, codigo='1999').exists())
+
+    def test_event_create_rolls_back_when_post_attempt_audit_fails(self):
+        empresa = self._create_active_empresa(nombre='EventAuditFailCo', rut='78222222-2')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+
+        def fail_post_attempt_audit(**kwargs):
+            if kwargs['event_type'] == 'contabilidad.evento_contable.post_attempted':
+                raise RuntimeError('post attempt audit unavailable')
+            return None
+
+        with patch('contabilidad.views.create_audit_event', side_effect=fail_post_attempt_audit):
+            with self.assertRaisesRegex(RuntimeError, 'post attempt audit unavailable'):
+                self.client.post(
+                    reverse('contabilidad-evento-list'),
+                    {
+                        'empresa': empresa.id,
+                        'evento_tipo': 'PagoConciliadoArriendo',
+                        'entidad_origen_tipo': 'manual',
+                        'entidad_origen_id': 'post-attempt-audit-fail',
+                        'fecha_operativa': '2026-01-10',
+                        'moneda': 'CLP',
+                        'monto_base': '100000.00',
+                        'payload_resumen': {},
+                        'idempotency_key': 'post-attempt-audit-fail',
+                    },
+                    format='json',
+                )
+
+        self.assertFalse(EventoContable.objects.filter(idempotency_key='post-attempt-audit-fail').exists())
+        self.assertFalse(
+            AsientoContable.objects.filter(evento_contable__idempotency_key='post-attempt-audit-fail').exists()
+        )
+
+    def test_event_post_retry_rolls_back_when_view_audit_fails(self):
+        empresa = self._create_active_empresa(nombre='EventRetryAuditFailCo', rut='78233333-3')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='manual',
+            entidad_origen_id='post-retry-audit-fail',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100000.00',
+            payload_resumen={},
+            idempotency_key='post-retry-audit-fail',
+            estado_contable=EstadoEventoContable.REVIEW,
+        )
+
+        def fail_post_retry_audit(**kwargs):
+            if kwargs['event_type'] == 'contabilidad.evento_contable.post_retried':
+                raise RuntimeError('post retry audit unavailable')
+            return None
+
+        with patch('contabilidad.views.create_audit_event', side_effect=fail_post_retry_audit):
+            with self.assertRaisesRegex(RuntimeError, 'post retry audit unavailable'):
+                self.client.post(reverse('contabilidad-evento-post', args=[event.id]), format='json')
+
+        event.refresh_from_db()
+        self.assertEqual(event.estado_contable, EstadoEventoContable.REVIEW)
         self.assertFalse(AsientoContable.objects.filter(evento_contable=event).exists())
 
     def test_manual_event_rejects_non_positive_monto_base(self):
@@ -1787,6 +1915,34 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(str(obligation.monto_calculado), '10011.10')
         self.assertEqual(obligation.estado_preparacion, 'preparado')
 
+    def test_prepare_monthly_close_rolls_back_when_view_audit_fails(self):
+        empresa = self._create_active_empresa(nombre='PrepareAuditFailCo', rut='78333333-3')
+        accounts = self._setup_contabilidad(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        config.tasa_ppm_vigente = '10.00'
+        config.save(update_fields=['tasa_ppm_vigente'])
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        self._post_manual_accounting_event(empresa, '000333')
+
+        def fail_prepare_audit(**kwargs):
+            if kwargs['event_type'] == 'contabilidad.cierre_mensual.prepared':
+                raise RuntimeError('prepare audit unavailable')
+            return None
+
+        with patch('contabilidad.views.create_audit_event', side_effect=fail_prepare_audit):
+            with self.assertRaisesRegex(RuntimeError, 'prepare audit unavailable'):
+                self.client.post(
+                    reverse('contabilidad-cierre-prepare'),
+                    {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+                    format='json',
+                )
+
+        self.assertFalse(CierreMensualContable.objects.filter(empresa=empresa, anio=2026, mes=1).exists())
+        self.assertFalse(ObligacionTributariaMensual.objects.filter(empresa=empresa, anio=2026, mes=1).exists())
+        self.assertFalse(LibroDiario.objects.filter(empresa=empresa, periodo='2026-01').exists())
+        self.assertFalse(LibroMayor.objects.filter(empresa=empresa, periodo='2026-01').exists())
+        self.assertFalse(BalanceComprobacion.objects.filter(empresa=empresa, periodo='2026-01').exists())
+
     def test_approve_monthly_close_requires_company_liquidation(self):
         empresa = self._create_active_empresa(nombre='CloseLiquidationCo', rut='42424242-4')
         accounts = self._setup_contabilidad(empresa)
@@ -1834,6 +1990,29 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(approved.status_code, status.HTTP_200_OK)
         self.assertEqual(approved.data['estado'], 'aprobado')
         self.assertEqual(approved.data['resumen_obligaciones']['liquidacion_mensual']['owner_tipo'], 'empresa')
+
+    def test_approve_monthly_close_rolls_back_when_view_audit_fails(self):
+        empresa, _, close = self._prepare_monthly_close_for_audit_tests('000444')
+        self._create_company_liquidation_for_close(empresa, close)
+
+        def fail_approve_audit(**kwargs):
+            if kwargs['event_type'] == 'contabilidad.cierre_mensual.approved':
+                raise RuntimeError('approve audit unavailable')
+            return None
+
+        with patch('contabilidad.views.create_audit_event', side_effect=fail_approve_audit):
+            with self.assertRaisesRegex(RuntimeError, 'approve audit unavailable'):
+                self.client.post(reverse('contabilidad-cierre-approve', args=[close.id]), format='json')
+
+        close.refresh_from_db()
+        self.assertEqual(close.estado, 'preparado')
+        self.assertIsNone(close.fecha_aprobacion)
+        self.assertEqual(LibroDiario.objects.get(empresa=empresa, periodo='2026-01').estado_snapshot, 'preparado')
+        self.assertEqual(LibroMayor.objects.get(empresa=empresa, periodo='2026-01').estado_snapshot, 'preparado')
+        self.assertEqual(
+            BalanceComprobacion.objects.get(empresa=empresa, periodo='2026-01').estado_snapshot,
+            'preparado',
+        )
 
     def test_end_to_end_payment_reconciliation_close_lifecycle(self):
         empresa = self._create_active_empresa(nombre='WorkflowCo', rut='43434343-4')
@@ -1964,6 +2143,43 @@ class ContabilidadAPITests(APITestCase):
         reopen_event = EventoContable.objects.get(evento_tipo=MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE)
         self.assertEqual(reopen_event.estado_contable, 'contabilizado')
         self.assertEqual(str(reopen_event.fecha_operativa), '2026-02-01')
+
+    def test_reopen_monthly_close_rolls_back_when_view_audit_fails(self):
+        empresa, _, close = self._prepare_monthly_close_for_audit_tests('000555', with_reopen_rule=True)
+        self._create_company_liquidation_for_close(empresa, close)
+        approve = self.client.post(reverse('contabilidad-cierre-approve', args=[close.id]), format='json')
+        self.assertEqual(approve.status_code, status.HTTP_200_OK)
+        self._allow_monthly_close_reopen(empresa)
+
+        def fail_reopen_audit(**kwargs):
+            if kwargs['event_type'] == 'contabilidad.cierre_mensual.reopened':
+                raise RuntimeError('reopen audit unavailable')
+            return None
+
+        with patch('contabilidad.views.create_audit_event', side_effect=fail_reopen_audit):
+            with self.assertRaisesRegex(RuntimeError, 'reopen audit unavailable'):
+                self.client.post(
+                    reverse('contabilidad-cierre-reopen', args=[close.id]),
+                    self._reopen_effect_payload('audit-fail'),
+                    format='json',
+                )
+
+        close.refresh_from_db()
+        self.assertEqual(close.estado, 'aprobado')
+        self.assertFalse(EfectoReaperturaCierreMensual.objects.filter(cierre=close).exists())
+        self.assertFalse(
+            EventoContable.objects.filter(
+                evento_tipo=MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE,
+                entidad_origen_tipo='cierre_mensual_contable',
+                entidad_origen_id=str(close.pk),
+            ).exists()
+        )
+        self.assertEqual(LibroDiario.objects.get(empresa=empresa, periodo='2026-01').estado_snapshot, 'aprobado')
+        self.assertEqual(LibroMayor.objects.get(empresa=empresa, periodo='2026-01').estado_snapshot, 'aprobado')
+        self.assertEqual(
+            BalanceComprobacion.objects.get(empresa=empresa, periodo='2026-01').estado_snapshot,
+            'aprobado',
+        )
 
     def test_prepare_and_approve_and_reopen_monthly_close(self):
         empresa = self._create_active_empresa(nombre='ApproveCo', rut='56565656-5')
