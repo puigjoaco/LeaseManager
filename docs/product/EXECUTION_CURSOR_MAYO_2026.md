@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 Cobranza/WebPay - auditoria atomica de preparacion de intentos. |
-| Fuente exacta | Estado real de `main` en `f09e1f1`, `docs/product/STAGE_CARDS/ETAPA_2_COBRANZA_CANALES.md`, `backend/cobranza/services.py`, `backend/cobranza/views.py`, `backend/cobranza/tests.py`, readiness Etapa 2, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | `WebPayIntentPrepareView` crea `cobranza.webpay_intento.prepared` despues de que `prepare_webpay_intent()` ya persistio el intento. Si la auditoria falla o el servicio se invoca internamente, puede quedar un intento WebPay preparado/bloqueado sin evento atomico alineado. |
-| Motivo de prioridad | Cierra una brecha local verificable de Etapa 2: WebPay debe quedar cerrado/condicionado y trazable sin llamar Transbank ni depender de integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-webpay-prepare-audit`. |
-| Rama | `codex/stage2-webpay-prepare-audit`. |
-| Estado | Paquete abierto para implementacion y validacion. |
-| Gate esperado | Tests focales de preparacion WebPay con auditoria de servicio y rollback ante fallo de auditoria; suite impactada `cobranza core.tests_stage2_cobranza_readiness`; `manage.py check`; `makemigrations --check --dry-run --noinput`; readiness local Etapa 2 como parcial esperado; frontend build/lint si corresponde; acceptance local; higiene repo y `git diff --check`; CI GitHub antes de merge. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Etapa 2 sigue parcial para cierre real por fuente autorizada y pruebas Email/WebPay controladas. Este paquete no requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
+| Frente activo | Ningun paquete tactico abierto. |
+| Fuente exacta | Estado real de `main` en `c5a12f5` despues de PR #596, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna seleccionada en este cursor. |
+| Motivo de prioridad | PR #596 cerro la auditoria atomica de preparacion WebPay; el siguiente frente debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
+| Worktree | Ninguno. |
+| Rama | `main`. |
+| Estado | Listo para diagnosticar el siguiente frente seguro. |
+| Gate esperado | No aplica hasta abrir un nuevo paquete. |
+| Estado al cerrar paquete | PR #596 mergeado en `c5a12f5`: `prepare_webpay_intent()` crea o repara `cobranza.webpay_intento.prepared` dentro de la misma transaccion que persiste un intento preparado o bloqueado; si falla la auditoria, no queda intento WebPay sin traza. Validado con focal 4 tests, impactada 186 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, gate Etapa 2 parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1129 tests, higiene, `git diff --check` y CI GitHub. |
+| Bloqueos relacionados | Etapa 2 sigue parcial para cierre real por fuente autorizada y pruebas Email/WebPay controladas. El paquete cerrado no uso `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Mover/asegurar la auditoria de preparacion WebPay dentro del servicio atomico, cubrir rollback e idempotencia local, y validar. |
+| Siguiente accion | Confirmar `main` limpio y diagnosticar el siguiente frente seguro por orden de construccion y trazabilidad vigente. |
 
 ## Actualizacion
 
