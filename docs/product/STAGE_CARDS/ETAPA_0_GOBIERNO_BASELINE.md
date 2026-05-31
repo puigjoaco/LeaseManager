@@ -62,6 +62,10 @@ evidencia respalda el root limpio.
   los valores heredados se representan redactados. El admin de politicas y
   exportaciones sensibles mantiene cerrados el alta, edicion y borrado manual:
   las mutaciones deben pasar por API, servicios, dominio y auditoria.
+- Las altas y ediciones API de politicas de retencion persisten la politica y
+  los eventos `created`, `updated` o `state_changed` dentro de una unica
+  transaccion; si falla la auditoria de vista, no queda una politica creada o
+  mutada sin traza.
 - Compliance de datos sensibles permite a `RevisorFiscalExterno` preparar y
   descargar exportaciones sensibles solo dentro de un scope explicito asignado:
   el payload se renderiza con `ScopeAccess`, detalle/descarga/revocacion

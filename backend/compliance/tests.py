@@ -83,6 +83,60 @@ class ComplianceAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         return response.data
 
+    def test_retention_policy_create_rolls_back_when_view_audit_fails(self):
+        with patch('compliance.views.create_audit_event', side_effect=RuntimeError('policy audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'policy audit unavailable'):
+                self.client.post(
+                    reverse('compliance-politica-list'),
+                    {
+                        'categoria_dato': 'financiero',
+                        'evento_inicio': 'ultimo_evento_relevante',
+                        'plazo_minimo_anos': 6,
+                        'permite_borrado_logico': True,
+                        'permite_purga_fisica': False,
+                        'requiere_hold': False,
+                        'estado': 'activa',
+                    },
+                    format='json',
+                )
+
+        self.assertFalse(PoliticaRetencionDatos.objects.filter(categoria_dato='financiero').exists())
+
+    def test_retention_policy_update_rolls_back_when_state_change_audit_fails(self):
+        policy_data = self._create_policy('operativo')
+        policy = PoliticaRetencionDatos.objects.get(pk=policy_data['id'])
+
+        from audit.services import create_audit_event as real_create_audit_event
+
+        def fail_state_change_audit(**kwargs):
+            if kwargs.get('event_type') == 'compliance.politica_retencion.state_changed':
+                raise RuntimeError('policy state audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('compliance.views.create_audit_event', side_effect=fail_state_change_audit):
+            with self.assertRaisesRegex(RuntimeError, 'policy state audit unavailable'):
+                self.client.patch(
+                    reverse('compliance-politica-detail', args=[policy.id]),
+                    {'estado': 'inactiva', 'plazo_minimo_anos': 7},
+                    format='json',
+                )
+
+        policy.refresh_from_db()
+        self.assertEqual(policy.estado, 'activa')
+        self.assertEqual(policy.plazo_minimo_anos, 6)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='compliance.politica_retencion.updated',
+                entity_id=str(policy.id),
+            ).exists()
+        )
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='compliance.politica_retencion.state_changed',
+                entity_id=str(policy.id),
+            ).exists()
+        )
+
     def _create_scoped_reviewer_client(self, empresa, *, username_suffix=''):
         user_model = get_user_model()
         reviewer = user_model.objects.create_user(
