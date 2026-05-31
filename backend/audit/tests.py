@@ -18,6 +18,12 @@ from patrimonio.models import ComunidadPatrimonial, Empresa, ModoRepresentacionC
 
 from .admin import AuditEventAdmin, ManualResolutionAdmin
 from .models import AuditEvent, ManualResolution
+from .services import (
+    GENERIC_MANUAL_RESOLUTION_CREATED_EVENT_TYPE,
+    GENERIC_MANUAL_RESOLUTION_STATUS_CHANGED_EVENT_TYPE,
+    GENERIC_MANUAL_RESOLUTION_UPDATED_EVENT_TYPE,
+    MANUAL_RESOLUTION_AUDIT_ENTITY_TYPE,
+)
 
 
 class AuditAPITests(APITestCase):
@@ -301,6 +307,34 @@ class AuditAPITests(APITestCase):
         self.assertEqual(response.data['requested_by'], self.user.pk)
         self.assertIsNone(response.data['resolved_by'])
         self.assertEqual(response.data['status'], ManualResolution.Status.OPEN)
+        event = AuditEvent.objects.get(
+            event_type=GENERIC_MANUAL_RESOLUTION_CREATED_EVENT_TYPE,
+            entity_type=MANUAL_RESOLUTION_AUDIT_ENTITY_TYPE,
+            entity_id=str(resolution.pk),
+        )
+        self.assertEqual(event.actor_user, self.user)
+        self.assertEqual(event.metadata['resolution_category'], resolution.category)
+        self.assertEqual(event.metadata['scope_type'], resolution.scope_type)
+        self.assertEqual(event.metadata['status'], ManualResolution.Status.OPEN)
+
+    def test_generic_resolution_create_rolls_back_when_audit_event_fails(self):
+        with patch(
+            'audit.views.create_manual_resolution_lifecycle_event',
+            side_effect=RuntimeError('audit unavailable'),
+        ):
+            with self.assertRaises(RuntimeError):
+                self.client.post(
+                    reverse('manual-resolution-list'),
+                    {
+                        'category': 'operacion.revision_manual',
+                        'scope_type': 'operacion',
+                        'scope_reference': 'operacion-review-rollback',
+                        'summary': 'Revision operativa sin auditoria',
+                    },
+                    format='json',
+                )
+
+        self.assertFalse(ManualResolution.objects.filter(scope_reference='operacion-review-rollback').exists())
 
     def test_generic_resolution_cannot_be_created_closed(self):
         response = self.client.post(
@@ -350,6 +384,96 @@ class AuditAPITests(APITestCase):
         self.assertIsNotNone(resolution.resolved_at)
         self.assertEqual(response.data['resolved_by'], closer.pk)
         self.assertIsNotNone(response.data['resolved_at'])
+        event = AuditEvent.objects.get(
+            event_type=GENERIC_MANUAL_RESOLUTION_STATUS_CHANGED_EVENT_TYPE,
+            entity_type=MANUAL_RESOLUTION_AUDIT_ENTITY_TYPE,
+            entity_id=str(resolution.pk),
+        )
+        self.assertEqual(event.actor_user, closer)
+        self.assertEqual(event.metadata['previous_status'], ManualResolution.Status.OPEN)
+        self.assertEqual(event.metadata['status'], ManualResolution.Status.RESOLVED)
+        self.assertEqual(event.metadata['changed_fields'], ['rationale', 'status'])
+
+    def test_generic_resolution_close_rolls_back_when_audit_event_fails(self):
+        resolution = ManualResolution.objects.create(
+            category='operacion.revision_manual',
+            scope_type='operacion',
+            scope_reference='operacion-review-close-rollback',
+            summary='Revision operativa',
+            requested_by=self.user,
+            status=ManualResolution.Status.OPEN,
+        )
+
+        with patch(
+            'audit.views.create_manual_resolution_lifecycle_event',
+            side_effect=RuntimeError('audit unavailable'),
+        ):
+            with self.assertRaises(RuntimeError):
+                self.client.patch(
+                    reverse('manual-resolution-detail', args=[resolution.pk]),
+                    {'status': ManualResolution.Status.RESOLVED, 'rationale': 'Cierre operativo trazable'},
+                    format='json',
+                )
+
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.status, ManualResolution.Status.OPEN)
+        self.assertIsNone(resolution.resolved_by)
+        self.assertIsNone(resolution.resolved_at)
+
+    def test_generic_resolution_update_creates_audit_event(self):
+        resolution = ManualResolution.objects.create(
+            category='operacion.revision_manual',
+            scope_type='operacion',
+            scope_reference='operacion-review-update',
+            summary='Revision operativa',
+            requested_by=self.user,
+            status=ManualResolution.Status.OPEN,
+        )
+
+        response = self.client.patch(
+            reverse('manual-resolution-detail', args=[resolution.pk]),
+            {
+                'summary': 'Revision operativa ajustada',
+                'metadata': {'tracking_ref': 'manual-resolution-update-001'},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.summary, 'Revision operativa ajustada')
+        event = AuditEvent.objects.get(
+            event_type=GENERIC_MANUAL_RESOLUTION_UPDATED_EVENT_TYPE,
+            entity_type=MANUAL_RESOLUTION_AUDIT_ENTITY_TYPE,
+            entity_id=str(resolution.pk),
+        )
+        self.assertEqual(event.actor_user, self.user)
+        self.assertEqual(event.metadata['status'], ManualResolution.Status.OPEN)
+        self.assertEqual(event.metadata['changed_fields'], ['metadata', 'summary'])
+
+    def test_generic_resolution_update_rolls_back_when_audit_event_fails(self):
+        resolution = ManualResolution.objects.create(
+            category='operacion.revision_manual',
+            scope_type='operacion',
+            scope_reference='operacion-review-update-rollback',
+            summary='Revision operativa',
+            requested_by=self.user,
+            status=ManualResolution.Status.OPEN,
+        )
+
+        with patch(
+            'audit.views.create_manual_resolution_lifecycle_event',
+            side_effect=RuntimeError('audit unavailable'),
+        ):
+            with self.assertRaises(RuntimeError):
+                self.client.patch(
+                    reverse('manual-resolution-detail', args=[resolution.pk]),
+                    {'summary': 'Revision operativa sin auditoria'},
+                    format='json',
+                )
+
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.summary, 'Revision operativa')
 
     def test_generic_resolution_close_requires_rationale(self):
         resolution = ManualResolution.objects.create(

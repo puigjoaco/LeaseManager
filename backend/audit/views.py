@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics, status
@@ -27,7 +28,13 @@ from .serializers import (
     ResolveMigrationPropertyOwnerSerializer,
     ResolveUnknownIncomeSerializer,
 )
-from .services import resolve_migration_property_owner_manual_resolution
+from .services import (
+    GENERIC_MANUAL_RESOLUTION_CREATED_EVENT_TYPE,
+    GENERIC_MANUAL_RESOLUTION_STATUS_CHANGED_EVENT_TYPE,
+    GENERIC_MANUAL_RESOLUTION_UPDATED_EVENT_TYPE,
+    create_manual_resolution_lifecycle_event,
+    resolve_migration_property_owner_manual_resolution,
+)
 from conciliacion.services import (
     resolve_charge_movement_manual_resolution,
     resolve_internal_transfer_manual_resolution,
@@ -89,6 +96,23 @@ def _actor_display(event):
     if event.actor_user_id:
         return event.actor_user.display_name or event.actor_user.username
     return redact_sensitive_reference(event.actor_identifier) or 'Sistema'
+
+
+def _manual_resolution_changed_fields(instance, validated_data):
+    tracked_fields = (
+        'category',
+        'status',
+        'scope_type',
+        'scope_reference',
+        'summary',
+        'rationale',
+        'metadata',
+    )
+    return [
+        field_name
+        for field_name in tracked_fields
+        if field_name in validated_data and getattr(instance, field_name) != validated_data[field_name]
+    ]
 
 
 class AuditEventListView(generics.ListAPIView):
@@ -170,10 +194,18 @@ class ManualResolutionListCreateView(generics.ListCreateAPIView):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(
-            requested_by=self.request.user,
-            status=ManualResolution.Status.OPEN,
-        )
+        with transaction.atomic():
+            resolution = serializer.save(
+                requested_by=self.request.user,
+                status=ManualResolution.Status.OPEN,
+            )
+            create_manual_resolution_lifecycle_event(
+                resolution=resolution,
+                event_type=GENERIC_MANUAL_RESOLUTION_CREATED_EVENT_TYPE,
+                summary='Resolucion manual generica creada.',
+                actor_user=self.request.user,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
+            )
 
 
 class ManualResolutionDetailView(generics.RetrieveUpdateAPIView):
@@ -185,13 +217,35 @@ class ManualResolutionDetailView(generics.RetrieveUpdateAPIView):
         return _manual_resolution_queryset_for_user(self.request.user)
 
     def perform_update(self, serializer):
-        instance = self.get_object()
+        instance = serializer.instance
         next_status = serializer.validated_data.get('status', instance.status)
+        previous_status = instance.status
+        changed_fields = _manual_resolution_changed_fields(instance, serializer.validated_data)
         terminal_statuses = {ManualResolution.Status.RESOLVED, ManualResolution.Status.SUPERSEDED}
-        if next_status in terminal_statuses and instance.status != next_status:
-            serializer.save(resolved_by=self.request.user, resolved_at=timezone.now())
-            return
-        serializer.save()
+        with transaction.atomic():
+            if next_status in terminal_statuses and instance.status != next_status:
+                resolution = serializer.save(resolved_by=self.request.user, resolved_at=timezone.now())
+            else:
+                resolution = serializer.save()
+            if 'status' in changed_fields:
+                create_manual_resolution_lifecycle_event(
+                    resolution=resolution,
+                    event_type=GENERIC_MANUAL_RESOLUTION_STATUS_CHANGED_EVENT_TYPE,
+                    summary='Resolucion manual generica cambio de estado.',
+                    actor_user=self.request.user,
+                    previous_status=previous_status,
+                    changed_fields=changed_fields,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                )
+            elif changed_fields:
+                create_manual_resolution_lifecycle_event(
+                    resolution=resolution,
+                    event_type=GENERIC_MANUAL_RESOLUTION_UPDATED_EVENT_TYPE,
+                    summary='Resolucion manual generica actualizada.',
+                    actor_user=self.request.user,
+                    changed_fields=changed_fields,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                )
 
 
 class ResolveMigrationPropertyOwnerView(APIView):

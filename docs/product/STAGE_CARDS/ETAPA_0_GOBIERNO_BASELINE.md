@@ -38,6 +38,10 @@ evidencia respalda el root limpio.
   trazable: la API crea casos abiertos con `requested_by` del usuario actual,
   no acepta cierres al crear, exige rationale para cerrar y estampa
   `resolved_by`/`resolved_at` desde el usuario autenticado.
+- Las resoluciones manuales genericas registran eventos de ciclo de vida en la
+  misma transaccion que la escritura: creacion, cambios de estado y ediciones
+  comunes crean `AuditEvent` dedicado, y si falla esa auditoria se revierte la
+  creacion o mutacion.
 - Los admins RBAC de Core no exponen metadata ni permission sets crudos y no
   permiten borrado manual de roles, scopes, permisos por scope ni asignaciones.
 - `PlatformSettingAdmin` muestra valores de plataforma solo redactados y no

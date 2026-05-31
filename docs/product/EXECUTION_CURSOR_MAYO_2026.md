@@ -23,14 +23,14 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
-| Fuente exacta | Estado real de `main` tras integrar el paquete Etapa 0 / Auditoria / actores y cierre trazable de resoluciones manuales genericas, PRD canonico, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna. Ultimo paquete cerrado: Etapa 0 / Auditoria / actores y cierre trazable de resoluciones manuales genericas. |
+| Fuente exacta | Estado real de `main` tras integrar el paquete Etapa 0 / Auditoria / eventos de ciclo de vida de resoluciones manuales genericas, PRD canonico, `docs/product/TRACEABILITY_MATRIX_MAYO_2026.md`, stage cards, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna. Ultimo paquete cerrado: Etapa 0 / Auditoria / eventos auditables transaccionales para resoluciones manuales genericas. |
 | Motivo de prioridad | No hay paquete tactico abierto; corresponde diagnosticar el siguiente frente seguro desde trazabilidad y stage cards. |
-| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-audit-resolution-actors`. |
-| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/audit-resolution-actors`. |
+| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-audit-resolution-lifecycle-events`. |
+| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/audit-resolution-lifecycle-events`. |
 | Estado | Paquete de Auditoria cerrado en este frente; luego de merge, el cursor queda libre para diagnosticar el siguiente frente seguro. |
 | Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
-| Estado al cerrar paquete | Etapa 0 / Auditoria / actores y cierre trazable: focal 7 tests OK, suite impactada 58 tests OK, `manage.py check`, migraciones dry-run, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1111 tests OK, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Etapa 0 / Auditoria / eventos de ciclo de vida: focal 6 tests OK, suite impactada 62 tests OK, `manage.py check`, migraciones dry-run, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1115 tests OK, higiene repo y `git diff --check`. |
 | Bloqueos relacionados | Sin bloqueo externo nuevo. No requiere `.env`, secretos, DB historica, datos reales, backfills, deploys ni integraciones externas. |
 | Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
 | Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
