@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Cobranza/WebPay Etapa 2 alinea el gate local de
+confirmacion manual con la auditoria requerida. `audit_stage2_cobranza_readiness`
+clasifica intentos `confirmado_manual` heredados si falta el evento
+`cobranza.webpay_intento.confirmed_manually`, si no tiene actor o si su metadata
+no coincide con `external_ref`, `pago_mensual_id` y `fecha_pago_webpay`; el
+servicio mantiene la confirmacion y su auditoria en una sola transaccion.
+
 Nota 2026-05-31: Cobranza/WebPay Etapa 2 alinea la preparacion de intentos
 con auditoria atomica. `prepare_webpay_intent()` crea o repara el evento
 `cobranza.webpay_intento.prepared` dentro de la misma transaccion que persiste

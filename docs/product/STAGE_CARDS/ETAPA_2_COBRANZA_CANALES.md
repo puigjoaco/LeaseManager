@@ -198,6 +198,8 @@ condicionados sin envios reales accidentales.
   confirmado debe quedar alineado con un `PagoMensual` pagado y la misma fecha
   WebPay, y el servicio de confirmacion manual debe conservar auditoria
   dedicada con actor y referencia externa alineada en la misma transaccion. El
+  readiness de Etapa 2 bloquea intentos confirmados heredados sin ese evento
+  `cobranza.webpay_intento.confirmed_manually` completo y alineado.
   servicio de preparacion tambien conserva auditoria dedicada con actor dentro
   de la misma transaccion para intentos preparados o bloqueados; si reutiliza un
   intento preparado existente, debe crear la traza si falta o quedo
@@ -260,7 +262,8 @@ condicionados sin envios reales accidentales.
   UF manual sin evento auditable, refs sensibles en gates, `external_ref`, `return_url_ref`,
   `motivo_bloqueo` o `provider_payload` sensible en intentos WebPay,
   intentos WebPay confirmados desalineados con el
-  pago mensual, pagos pendientes vencidos, mora desactualizada, efecto de
+  pago mensual o sin auditoria manual completa y alineada, pagos pendientes
+  vencidos, mora desactualizada, efecto de
   codigo efectivo descuadrado o sin evento auditable, motivos de bloqueo de
   mensajes salientes sensibles heredados, pagos por acuerdo de
   termino o condonados sin resolucion trazable o sin evento auditable, y
