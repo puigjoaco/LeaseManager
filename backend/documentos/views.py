@@ -50,13 +50,13 @@ class AuditCreateUpdateMixin:
         previous_state = self._extract_state(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
-        self._create_audit_event(instance=instance, action='updated')
-        if previous_state != self._extract_state(instance):
-            self._create_audit_event(
-                instance=instance,
-                action='state_changed',
-                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
-            )
+            self._create_audit_event(instance=instance, action='updated')
+            if previous_state != self._extract_state(instance):
+                self._create_audit_event(
+                    instance=instance,
+                    action='state_changed',
+                    summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                )
 
     def _extract_state(self, instance):
         if hasattr(instance, 'estado'):

@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Documentos/Etapa 5 alinea updates genericos y auditoria de
+vista en una transaccion. `AuditCreateUpdateMixin.perform_update()` persiste
+la mutacion documental junto con `documentos.*.updated` y, cuando aplica,
+`documentos.*.state_changed` dentro de `transaction.atomic()`; si falla la
+auditoria, no quedan expedientes, politicas, plantillas ni documentos mutados
+sin traza de endpoint.
+
 Nota 2026-05-31: Auth/Etapa 0 alinea tokens persistentes y auditoria de
 sesion en una transaccion. `LoginView.post()` crea o reutiliza `Token` y
 registra `auth.login.succeeded` dentro de `transaction.atomic()`, y
