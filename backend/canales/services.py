@@ -4,7 +4,7 @@ from datetime import date
 from django.db import transaction
 from django.utils import timezone
 
-from audit.models import ManualResolution
+from audit.models import AuditEvent, ManualResolution
 from audit.services import create_audit_event
 from core.reference_validation import is_non_sensitive_reference
 from cobranza.models import EstadoPago
@@ -68,6 +68,7 @@ def ensure_manual_resolution(
         actor_user=actor_user,
         actor_identifier=actor_identifier,
     )
+    audit_entity_id = str(metadata.get('message_id') or metadata.get('scope_reference', ''))
     existing = ManualResolution.objects.filter(
         category=category,
         scope_type=metadata.get('scope_type', 'canales'),
@@ -80,12 +81,29 @@ def ensure_manual_resolution(
         if actor_user is not None and existing.requested_by_id is None:
             existing.requested_by = actor_user
             updates.append('requested_by')
-        if actor_identifier and not existing_metadata.get('actor_identifier'):
-            existing_metadata['actor_identifier'] = actor_identifier
+        if existing.summary != message:
+            existing.summary = message
+            updates.append('summary')
+        for key, value in metadata.items():
+            if existing_metadata.get(key) != value:
+                existing_metadata[key] = value
+        if existing_metadata != (existing.metadata or {}):
             existing.metadata = existing_metadata
             updates.append('metadata')
         if updates:
             existing.save(update_fields=updates)
+        if audit_event_type and not _has_matching_audit_event(audit_event_type, audit_entity_id, metadata):
+            create_audit_event(
+                event_type=audit_event_type,
+                entity_type='mensaje_saliente',
+                entity_id=audit_entity_id,
+                summary=message,
+                severity='warning',
+                actor_user=actor_user,
+                actor_identifier=actor_identifier,
+                ip_address=ip_address,
+                metadata=metadata,
+            )
         return existing
     resolution = ManualResolution.objects.create(
         category=category,
@@ -96,11 +114,10 @@ def ensure_manual_resolution(
         metadata=metadata,
     )
     if audit_event_type:
-        entity_id = str(metadata.get('message_id') or metadata.get('scope_reference', ''))
         create_audit_event(
             event_type=audit_event_type,
             entity_type='mensaje_saliente',
-            entity_id=entity_id,
+            entity_id=audit_entity_id,
             summary=message,
             severity='warning',
             actor_user=actor_user,
@@ -109,6 +126,21 @@ def ensure_manual_resolution(
             metadata=metadata,
         )
     return resolution
+
+
+def _has_matching_audit_event(event_type, entity_id, metadata):
+    events = AuditEvent.objects.filter(
+        event_type=event_type,
+        entity_type='mensaje_saliente',
+        entity_id=entity_id,
+    )
+    for event in events:
+        event_metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if not event.actor_user_id and not event.actor_identifier.strip():
+            continue
+        if all(str(event_metadata.get(key, '')) == str(value) for key, value in metadata.items()):
+            return True
+    return False
 
 
 def ensure_whatsapp_fallback_resolution(
