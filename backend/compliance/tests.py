@@ -26,6 +26,8 @@ from .models import (
     CategoriaDato,
     EstadoExportacionSensible,
     ENCRYPTED_REF_SENSITIVE_ERROR,
+    EXPORT_CREATED_BY_REQUIRED_ERROR,
+    EXPORT_MOTIVE_REQUIRED_ERROR,
     EXPIRED_EXPORT_STATE_ERROR,
     ExportacionSensible,
     MAX_EXPORT_WINDOW_ERROR,
@@ -197,6 +199,31 @@ class ComplianceAPITests(APITestCase):
                 )
 
         self.assertFalse(ExportacionSensible.objects.filter(motivo='Revision sin auditoria').exists())
+
+    def test_prepare_sensitive_export_service_requires_motive_and_creator(self):
+        self._create_policy('financiero')
+
+        with self.assertRaisesMessage(ValueError, EXPORT_MOTIVE_REQUIRED_ERROR):
+            prepare_sensitive_export(
+                categoria_dato='financiero',
+                export_kind='financiero_mensual',
+                scope_resumen={'anio': 2026, 'mes': 1},
+                motivo='   ',
+                payload={'total': 'controlado'},
+                created_by=self.user,
+            )
+
+        with self.assertRaisesMessage(ValueError, EXPORT_CREATED_BY_REQUIRED_ERROR):
+            prepare_sensitive_export(
+                categoria_dato='financiero',
+                export_kind='financiero_mensual',
+                scope_resumen={'anio': 2026, 'mes': 1},
+                motivo='Revision mensual trazable',
+                payload={'total': 'controlado'},
+                created_by=None,
+            )
+
+        self.assertFalse(ExportacionSensible.objects.exists())
 
     def test_scoped_reviewer_can_prepare_and_download_in_scope_sensitive_export(self):
         socio, empresa, *_rest = self._create_context('CMP-SCOPE-A')
@@ -489,6 +516,26 @@ class ComplianceAPITests(APITestCase):
         with self.assertRaises(ValidationError) as context:
             export.full_clean()
         self.assertIn('scope_resumen', context.exception.message_dict)
+
+    def test_export_model_requires_traceable_motive_and_creator(self):
+        encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = ExportacionSensible(
+            categoria_dato='financiero',
+            export_kind='financiero_mensual',
+            scope_resumen={'periodo': '2026-01'},
+            motivo=' ',
+            encrypted_payload=encrypted_payload,
+            payload_hash=payload_hash,
+            encrypted_ref=f'export-ref-financiero_mensual-{payload_hash[:12]}',
+            expires_at=timezone.now() + timedelta(days=1),
+            created_by=None,
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            export.full_clean()
+
+        self.assertEqual(context.exception.message_dict['motivo'][0], EXPORT_MOTIVE_REQUIRED_ERROR)
+        self.assertEqual(context.exception.message_dict['created_by'][0], EXPORT_CREATED_BY_REQUIRED_ERROR)
 
     def test_export_model_and_service_reject_secret_category(self):
         encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})

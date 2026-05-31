@@ -196,6 +196,8 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
             counts['encrypted_ref_sensitive'] += 1
         if export.categoria_dato == CategoriaDato.SECRET:
             counts['secret_category_exports'] += 1
+        if not str(export.motivo or '').strip():
+            counts['motive_missing'] += 1
         if not export.created_by_id:
             counts['created_by_missing'] += 1
         has_encrypted_payload = bool(export.encrypted_payload.strip())
@@ -404,6 +406,11 @@ def collect_compliance_data_readiness(
             'No debe existir exportacion operativa sobre categoria secreto.',
         ),
         (
+            'motive_missing',
+            'compliance.export_motive_missing',
+            'Toda exportacion sensible requiere motivo operativo trazable.',
+        ),
+        (
             'created_by_missing',
             'compliance.export_actor_missing',
             'Toda exportacion sensible requiere actor creador trazable.',
@@ -594,6 +601,7 @@ def collect_compliance_data_readiness(
                 'sensitive_visible_metadata': export_issues.get('sensitive_visible_metadata', 0),
                 'encrypted_ref_sensitive': export_issues.get('encrypted_ref_sensitive', 0),
                 'secret_category_exports': export_issues.get('secret_category_exports', 0),
+                'motive_missing': export_issues.get('motive_missing', 0),
                 'created_by_missing': export_issues.get('created_by_missing', 0),
                 'integrity_fields_missing': export_issues.get('integrity_fields_missing', 0),
                 'payload_hash_invalid': export_issues.get('payload_hash_invalid', 0),

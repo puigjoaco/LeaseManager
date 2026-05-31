@@ -22,6 +22,8 @@ from .models import (
     CategoriaDato,
     EstadoExportacionSensible,
     EstadoRegistro,
+    EXPORT_CREATED_BY_REQUIRED_ERROR,
+    EXPORT_MOTIVE_REQUIRED_ERROR,
     ExportacionSensible,
     SENSITIVE_EXPORT_MAX_DAYS,
     PoliticaRetencionDatos,
@@ -155,6 +157,12 @@ def prepare_sensitive_export(
     actor_user=None,
     ip_address=None,
 ):
+    motivo = str(motivo or '').strip()
+    if not motivo:
+        raise ValueError(EXPORT_MOTIVE_REQUIRED_ERROR)
+    if not getattr(created_by, 'pk', None):
+        raise ValueError(EXPORT_CREATED_BY_REQUIRED_ERROR)
+    actor_user = actor_user or created_by
     ensure_export_metadata_is_non_sensitive(scope_resumen=scope_resumen, motivo=motivo)
     validate_sensitive_export_controls(categoria_dato=categoria_dato, export_kind=export_kind)
     encrypted_payload, payload_hash = encrypt_payload(payload)
@@ -178,7 +186,7 @@ def prepare_sensitive_export(
             event_type=EXPORT_PREPARED_EVENT_TYPE,
             export=export,
             summary='Exportacion sensible preparada y cifrada',
-            actor_user=actor_user or created_by,
+            actor_user=actor_user,
             ip_address=ip_address,
         )
         return export
