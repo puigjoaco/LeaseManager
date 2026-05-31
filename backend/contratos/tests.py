@@ -505,6 +505,13 @@ class ContratosAPITests(APITestCase):
         periodo_admin = PeriodoContractualAdmin(PeriodoContractual, site)
         aviso_admin = AvisoTerminoAdmin(AvisoTermino, site)
         codeudor_admin = CodeudorSolidarioAdmin(CodeudorSolidario, site)
+        read_only_admins = [
+            (contrato_admin, contrato),
+            (contrato_propiedad_admin, contrato_propiedad),
+            (periodo_admin, periodo),
+            (aviso_admin, aviso),
+            (codeudor_admin, codeudor),
+        ]
 
         self.assertNotIn('entrega_llaves_autorizacion_ref', contrato_admin.fields)
         self.assertNotIn('entrega_llaves_autorizacion_motivo', contrato_admin.fields)
@@ -515,14 +522,10 @@ class ContratosAPITests(APITestCase):
         self.assertNotIn('causal', aviso_admin.fields)
         self.assertNotIn('resolucion_conflicto_renovacion_ref', aviso_admin.fields)
         self.assertNotIn('resolucion_conflicto_renovacion_motivo', aviso_admin.fields)
-        self.assertFalse(contrato_admin.has_add_permission(None))
-        self.assertFalse(periodo_admin.has_add_permission(None))
-        self.assertFalse(aviso_admin.has_add_permission(None))
-        self.assertFalse(contrato_admin.has_delete_permission(None, contrato))
-        self.assertFalse(contrato_propiedad_admin.has_delete_permission(None, contrato_propiedad))
-        self.assertFalse(periodo_admin.has_delete_permission(None, periodo))
-        self.assertFalse(aviso_admin.has_delete_permission(None, aviso))
-        self.assertFalse(codeudor_admin.has_delete_permission(None, codeudor))
+        for model_admin, obj in read_only_admins:
+            self.assertFalse(model_admin.has_add_permission(None))
+            self.assertFalse(model_admin.has_change_permission(None, obj))
+            self.assertFalse(model_admin.has_delete_permission(None, obj))
         self.assertEqual(
             contrato_admin.entrega_llaves_autorizacion_ref_redacted(contrato),
             REDACTED_SENSITIVE_REFERENCE,
@@ -744,6 +747,8 @@ class ContratosAPITests(APITestCase):
             arrendatario_admin.whatsapp_rehabilitacion_ref_redacted(arrendatario),
             REDACTED_SENSITIVE_REFERENCE,
         )
+        self.assertFalse(arrendatario_admin.has_add_permission(None))
+        self.assertFalse(arrendatario_admin.has_change_permission(None, arrendatario))
         self.assertFalse(arrendatario_admin.has_delete_permission(None, arrendatario))
 
     def test_payment_contact_admin_redacts_sensitive_authorization_evidence(self):
@@ -766,6 +771,8 @@ class ContratosAPITests(APITestCase):
             contact_admin.evidencia_autorizacion_ref_redacted(contact),
             REDACTED_SENSITIVE_REFERENCE,
         )
+        self.assertFalse(contact_admin.has_add_permission(None))
+        self.assertFalse(contact_admin.has_change_permission(None, contact))
         self.assertFalse(contact_admin.has_delete_permission(None, contact))
 
     def test_create_arrendatario_rejects_opt_in_when_whatsapp_blocked(self):
