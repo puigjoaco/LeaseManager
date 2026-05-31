@@ -168,6 +168,11 @@ contra datos reales o snapshot controlado.
   arrendatarios, contactos de pago, contratos, relaciones contrato-propiedad,
   periodos, codeudores ni avisos de termino. Las altas, bajas y cambios
   contractuales deben expresarse por API, estado, vigencia o flujo auditado.
+- Las altas y ediciones API de Contratos deben persistir la mutacion y los
+  eventos `created`, `updated`, `state_changed` y trazas contractuales
+  derivadas de forma atomica; si falla la auditoria, no deben quedar
+  arrendatarios, contactos de pago, contratos anidados ni estados
+  contractuales mutados sin traza.
 - Validacion de telefonos para mensajeria: si un arrendatario usa WhatsApp
   operativo, el telefono debe estar en formato internacional; numeros locales
   o ambiguos quedan bloqueados para Canales y clasificados por el auditor

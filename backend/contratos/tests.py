@@ -1136,6 +1136,23 @@ class ContratosAPITests(APITestCase):
             AuditEvent.objects.filter(event_type='contratos.contacto_pago_arrendatario.created').exists()
         )
 
+    def test_payment_contact_create_rolls_back_when_audit_creation_fails(self):
+        arrendatario = self._create_arrendatario(rut='44444440-1', with_payment_contact=False)
+        payload = {
+            'arrendatario': arrendatario.id,
+            'nombre': 'Contacto Pago Rollback',
+            'rol_operativo': 'pago_arriendo',
+            'email': 'pagos-rollback@example.com',
+            'es_principal': True,
+            'estado': 'activo',
+        }
+
+        with patch('contratos.views.create_audit_event', side_effect=RuntimeError('audit failed')):
+            with self.assertRaisesMessage(RuntimeError, 'audit failed'):
+                self.client.post(reverse('contratos-contacto-pago-list'), payload, format='json')
+
+        self.assertFalse(ContactoPagoArrendatario.objects.filter(email='pagos-rollback@example.com').exists())
+
     def test_payment_contact_apis_and_snapshot_redact_sensitive_evidence(self):
         arrendatario = self._create_arrendatario(rut='12345674-2')
         contact = ContactoPagoArrendatario.objects.create(
@@ -1176,6 +1193,20 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(len(response.data['periodos_contractuales_detail']), 1)
         self.assertEqual(len(response.data['codeudores_solidarios_detail']), 1)
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.created').exists())
+
+    def test_contract_create_rolls_back_when_audit_creation_fails(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-AUDIT', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='12345670-K')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-AUDIT')
+
+        with patch('contratos.views.create_audit_event', side_effect=RuntimeError('audit failed')):
+            with self.assertRaisesMessage(RuntimeError, 'audit failed'):
+                self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-101-AUDIT').exists())
+        self.assertFalse(ContratoPropiedad.objects.filter(contrato__codigo_contrato='CTR-101-AUDIT').exists())
+        self.assertFalse(PeriodoContractual.objects.filter(contrato__codigo_contrato='CTR-101-AUDIT').exists())
+        self.assertFalse(CodeudorSolidario.objects.filter(contrato__codigo_contrato='CTR-101-AUDIT').exists())
 
     def test_create_active_contract_requires_active_operational_channel(self):
         mandato = self._create_active_mandato(
@@ -3215,6 +3246,36 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.updated').exists())
         self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.state_changed').exists())
+
+    def test_contract_update_rolls_back_when_audit_state_change_fails(self):
+        mandato = self._create_active_mandato(codigo='MAND-108-AUDIT', owner_rut='18181817-8')
+        arrendatario = self._create_arrendatario(rut='19191918-5')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-108-AUDIT')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        def fail_on_state_changed(*, event_type, **kwargs):
+            if event_type == 'contratos.contrato.state_changed':
+                raise RuntimeError('audit state failed')
+            return None
+
+        with patch('contratos.views.create_audit_event', side_effect=fail_on_state_changed):
+            with self.assertRaisesMessage(RuntimeError, 'audit state failed'):
+                self.client.patch(
+                    reverse('contratos-contrato-detail', args=[create_response.data['id']]),
+                    {'estado': EstadoContrato.FINISHED},
+                    format='json',
+                )
+
+        contrato = Contrato.objects.get(pk=create_response.data['id'])
+        self.assertEqual(contrato.estado, EstadoContrato.ACTIVE)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type__in=['contratos.contrato.updated', 'contratos.contrato.state_changed'],
+                entity_type='contrato',
+                entity_id=str(contrato.id),
+            ).exists()
+        )
 
     def test_contract_can_be_canceled_without_irreversible_effects(self):
         mandato = self._create_active_mandato(codigo='MAND-109-CANCEL-OK', owner_rut='18181819-4')
