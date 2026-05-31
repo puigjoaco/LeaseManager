@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Contabilidad / Etapa 5: guard de liquidacion mensual antes de aprobar cierre contable. |
-| Fuente exacta | Estado real de `main` en `1fa1944`, matriz de trazabilidad, `docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md` y readiness Etapa 5 vigentes. |
-| Brecha activa | `approve_monthly_close()` permite aprobar un `CierreMensualContable` sin `LiquidacionMensual` de empresa preparada/aprobada para el mismo periodo, aunque `audit_stage5_contabilidad_readiness` ya clasifica ese snapshot como `stage5.close_company_liquidation_missing`. |
-| Motivo de prioridad | Es una brecha local verificable entre servicio operacional y readiness: el cierre aprobado debe conservar liquidacion de empresa antes de alimentar reporting/cierre, sin usar banco real, SII, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-close-liquidation-guard`. |
-| Rama | `codex/stage5-close-liquidation-guard`. |
-| Estado | Paquete abierto; implementar guard en servicio/API, ajustar flujos demo/tests necesarios y actualizar evidencia/trazabilidad. |
-| Gate esperado | Focal Contabilidad para aprobacion de cierre; suite impactada `contabilidad` + `core.tests_stage5_contabilidad_readiness`; `manage.py check`; `makemigrations --check --dry-run --noinput`; gate local Etapa 5 como diagnostico parcial; validaciones frontend/acceptance proporcionales antes de PR. |
-| Estado al cerrar paquete | Pendiente. |
+| Frente activo | Sin paquete tactico abierto posterior a integrar este paquete. |
+| Fuente exacta | Estado real de `main` tras integrar PR #590 en `c2a584b`, `docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md`, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Ninguna. Ultimo paquete cerrado: `approve_monthly_close()` exige `LiquidacionMensual` de empresa preparada para el mismo cierre/periodo antes de aprobar un cierre mensual contable. |
+| Motivo de prioridad | El paquete cerro una brecha local verificable de Etapa 5: alinear servicio operacional, readiness de liquidaciones y bootstraps demo sin usar fuentes externas. |
+| Worktree | Ninguno tras merge. El laboratorio usado por este paquete fue `D:/Proyectos/LeaseManager-stage5-close-liquidation-guard`. |
+| Rama | `main` limpio tras merge; laboratorio cerrado: `codex/stage5-close-liquidation-guard`. |
+| Estado | Paquete Contabilidad / Etapa 5 cerrado; luego de este ajuste de cursor, queda libre para diagnosticar el siguiente frente seguro. |
+| Gate esperado | No aplica a paquete cerrado. El siguiente paquete debe definir gates proporcionales antes de editar. |
+| Estado al cerrar paquete | Focal Contabilidad 3 tests OK; suite impactada Contabilidad/Stage5 69 tests OK; `manage.py check` OK; `makemigrations --check --dry-run --noinput` sin cambios; readiness local Etapa 5 `classification=parcial`, `ready_for_stage5_contabilidad=false`; `npm run build`, `npm run lint` OK; acceptance local 1125 tests OK; higiene repo y `git diff --check` OK; CI GitHub acceptance OK; PR #590 mergeado en `c2a584b`; worktree tactico y rama local/remota eliminados. |
 | Bloqueos relacionados | Etapa 5 sigue parcial para cierre real por Conciliacion/fuente autorizada/evidencia externa. Este paquete no requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si este worktree queda sucio, continuar o pausar este paquete antes de abrir otro frente. |
-| Siguiente accion | Implementar guard de liquidacion mensual en aprobacion de cierre y validar con pruebas proporcionales. |
+| Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
+| Siguiente accion | Diagnosticar el siguiente frente seguro desde el estado real del repo. |
 
 ## Actualizacion
 
