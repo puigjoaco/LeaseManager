@@ -39,6 +39,9 @@ contables desde hechos conciliados.
   aprobacion.
 - Un cierre mensual aprobado debe conservar `LiquidacionMensual` de empresa
   preparada o aprobada para el mismo periodo y cierre contable.
+  `approve_monthly_close()` exige esa liquidacion antes de pasar el cierre a
+  `aprobado`, y agrega la referencia no sensible de liquidacion al resumen del
+  cierre.
 - Si la liquidacion mensual declara comision de administracion aplicable, debe
   existir una `LineaLiquidacionMensual` explicita de
   `comision_administracion` con beneficiario, monto positivo y evidencia no

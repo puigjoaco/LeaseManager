@@ -2,6 +2,7 @@ from calendar import monthrange
 from datetime import date
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -26,11 +27,13 @@ from .models import (
     EstadoAsientoContable,
     EstadoCierreMensual,
     EstadoEventoContable,
+    EstadoLiquidacionMensual,
     EstadoPreparacionTributaria,
     EstadoRegistro,
     EventoContable,
     LibroDiario,
     LibroMayor,
+    LiquidacionMensual,
     MatrizReglasContables,
     MovimientoAsiento,
     ObligacionTributariaMensual,
@@ -39,6 +42,7 @@ from .models import (
     ReglaContable,
     TipoEfectoReaperturaCierre,
     TipoMovimientoAsiento,
+    TipoOwnerLiquidacion,
     has_text,
 )
 
@@ -706,6 +710,30 @@ def assert_company_period_accounting_ready(empresa, anio, mes):
                 raise ValueError('Existen asientos con hash de integridad desactualizado.')
 
 
+def assert_company_period_liquidation_ready(close):
+    liquidation = (
+        LiquidacionMensual.objects.filter(
+            owner_tipo=TipoOwnerLiquidacion.COMPANY,
+            empresa=close.empresa,
+            cierre_contable=close,
+            anio=close.anio,
+            mes=close.mes,
+            estado__in=[EstadoLiquidacionMensual.PREPARED, EstadoLiquidacionMensual.APPROVED],
+        )
+        .order_by('-updated_at', '-id')
+        .first()
+    )
+    if liquidation is None:
+        raise ValueError(
+            'Aprobar cierre mensual requiere liquidacion mensual de empresa preparada para el mismo periodo.'
+        )
+    try:
+        liquidation.full_clean()
+    except DjangoValidationError as error:
+        raise ValueError('La liquidacion mensual de empresa no esta lista para aprobar el cierre.') from error
+    return liquidation
+
+
 @transaction.atomic
 def prepare_monthly_close(empresa, anio, mes):
     existing_close = CierreMensualContable.objects.filter(empresa=empresa, anio=anio, mes=mes).first()
@@ -748,10 +776,16 @@ def approve_monthly_close(close):
         raise ValueError('Solo se puede aprobar un cierre mensual en estado preparado.')
     conciliacion_summary = assert_company_period_conciliacion_ready(close.empresa, close.anio, close.mes)
     assert_company_period_accounting_ready(close.empresa, close.anio, close.mes)
+    liquidation = assert_company_period_liquidation_ready(close)
 
     close.resumen_obligaciones = {
         **(close.resumen_obligaciones or {}),
         'conciliacion': conciliacion_summary,
+        'liquidacion_mensual': {
+            'id': liquidation.pk,
+            'estado': liquidation.estado,
+            'owner_tipo': liquidation.owner_tipo,
+        },
     }
     update_ledger_snapshot_state(close.empresa, close.anio, close.mes, EstadoCierreMensual.APPROVED)
     close.estado = EstadoCierreMensual.APPROVED

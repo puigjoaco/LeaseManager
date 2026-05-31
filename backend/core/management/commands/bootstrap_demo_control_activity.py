@@ -5,7 +5,14 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.management.base import BaseCommand, CommandError
 
-from contabilidad.models import CierreMensualContable, EstadoCierreMensual, EventoContable
+from contabilidad.models import (
+    CierreMensualContable,
+    EstadoCierreMensual,
+    EstadoLiquidacionMensual,
+    EventoContable,
+    LiquidacionMensual,
+    TipoOwnerLiquidacion,
+)
 from contabilidad.services import (
     create_accounting_event,
     approve_monthly_close,
@@ -96,6 +103,7 @@ class Command(BaseCommand):
         close = self._prepare_or_reuse_close(empresa=empresa, anio=anio, mes=mes)
         close_approved = False
         if close.estado == EstadoCierreMensual.PREPARED:
+            self._ensure_company_liquidation(close)
             close = approve_monthly_close(close)
             close_approved = True
 
@@ -144,6 +152,36 @@ class Command(BaseCommand):
         if close and close.estado in {EstadoCierreMensual.APPROVED, EstadoCierreMensual.REOPENED}:
             return close
         return prepare_monthly_close(empresa, anio, mes)
+
+    def _ensure_company_liquidation(self, close: CierreMensualContable) -> LiquidacionMensual:
+        liquidation, _ = LiquidacionMensual.objects.get_or_create(
+            owner_tipo=TipoOwnerLiquidacion.COMPANY,
+            empresa=close.empresa,
+            cierre_contable=close,
+            anio=close.anio,
+            mes=close.mes,
+            defaults={
+                "estado": EstadoLiquidacionMensual.PREPARED,
+                "comision_administracion_aplica": False,
+                "saldo_final_clp": Decimal("0.00"),
+                "evidencia_base_ref": f"demo-control-liquidation-base-{close.pk}",
+                "responsable_ref": f"demo-control-liquidation-owner-{close.pk}",
+            },
+        )
+        dirty_fields = []
+        if liquidation.estado == EstadoLiquidacionMensual.DRAFT:
+            liquidation.estado = EstadoLiquidacionMensual.PREPARED
+            dirty_fields.append("estado")
+        if not liquidation.evidencia_base_ref:
+            liquidation.evidencia_base_ref = f"demo-control-liquidation-base-{close.pk}"
+            dirty_fields.append("evidencia_base_ref")
+        if not liquidation.responsable_ref:
+            liquidation.responsable_ref = f"demo-control-liquidation-owner-{close.pk}"
+            dirty_fields.append("responsable_ref")
+        liquidation.full_clean()
+        if dirty_fields:
+            liquidation.save(update_fields=[*dirty_fields, "updated_at"])
+        return liquidation
 
     def _ensure_demo_sii_refs(self, empresa: Empresa) -> int:
         updated = 0
