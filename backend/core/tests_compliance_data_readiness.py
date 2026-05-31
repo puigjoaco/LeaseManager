@@ -285,6 +285,24 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertIn('compliance.export_sensitive_visible_metadata', issue_codes)
         self.assertNotIn('files.example.test', json.dumps(result))
 
+    def test_missing_export_motive_is_blocking(self):
+        self._create_policies()
+        encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        export = self._create_raw_export(
+            motivo='   ',
+            encrypted_payload=encrypted_payload,
+            payload_hash=payload_hash,
+            encrypted_ref=f'export-ref-financiero_mensual-{payload_hash[:12]}',
+        )
+        self._create_prepared_audit_event(export, user=export.created_by)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.export_motive_missing', issue_codes)
+        self.assertEqual(result['sections']['exports']['motive_missing'], 1)
+
     def test_sensitive_encrypted_ref_is_blocking_without_exposing_values(self):
         self._create_policies()
         export = self._create_raw_export(encrypted_ref='https://files.example.test/export?token=secret')

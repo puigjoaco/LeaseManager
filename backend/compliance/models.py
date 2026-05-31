@@ -44,6 +44,8 @@ RETENTION_NO_PHYSICAL_PURGE_CATEGORIES = {
     CategoriaDato.SECRET.value,
 }
 SECRET_EXPORT_ERROR = 'No se permite preparar exportaciones operativas sobre categoria secreto.'
+EXPORT_MOTIVE_REQUIRED_ERROR = 'La exportacion sensible requiere un motivo operativo trazable.'
+EXPORT_CREATED_BY_REQUIRED_ERROR = 'La exportacion sensible requiere actor creador trazable.'
 EXPIRED_EXPORT_STATE_ERROR = 'La exportacion expirada debe representar una exportacion ya vencida sin hold activo.'
 PAYLOAD_HASH_FORMAT_ERROR = 'payload_hash debe ser un digest SHA-256 hexadecimal de 64 caracteres.'
 SENSITIVE_EXPORT_MAX_DAYS = 30
@@ -131,6 +133,10 @@ class ExportacionSensible(TimestampedModel):
             errors['payload_hash'] = PAYLOAD_HASH_FORMAT_ERROR
         if self.categoria_dato == CategoriaDato.SECRET:
             errors['categoria_dato'] = SECRET_EXPORT_ERROR
+        if not str(self.motivo or '').strip():
+            errors['motivo'] = EXPORT_MOTIVE_REQUIRED_ERROR
+        if not self.created_by_id:
+            errors['created_by'] = EXPORT_CREATED_BY_REQUIRED_ERROR
         if contains_sensitive_reference(self.motivo, include_sensitive_keys=True):
             errors['motivo'] = 'El motivo no puede contener URLs, correos, tokens, bearer, claves ni credenciales.'
         if contains_sensitive_reference(self.scope_resumen, include_sensitive_keys=True):
