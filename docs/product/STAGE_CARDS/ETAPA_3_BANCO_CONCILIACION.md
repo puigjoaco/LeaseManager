@@ -31,6 +31,11 @@ sistema igual a saldo banco.
   auditoria `match_attempted` en una unica transaccion; si falla cualquiera de
   esas trazas, no deben quedar movimientos, pagos, ingresos desconocidos ni
   estados de conciliacion mutados sin auditoria completa.
+- El reintento manual de match exacto debe ejecutar el match local y registrar
+  `conciliacion.movimiento_bancario.match_retried` en una unica transaccion;
+  si falla esa auditoria, no deben quedar pagos, ingresos desconocidos,
+  resoluciones manuales, eventos contables ni movimientos mutados por el
+  reintento.
 - Movimientos conciliados exactos existentes deben conservar coherencia con su
   target: abonos apuntan a pago mensual pagado o codigo residual pagado de la
   misma cuenta recaudadora; el pago mensual target debe pertenecer al mismo

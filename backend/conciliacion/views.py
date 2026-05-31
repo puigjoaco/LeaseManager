@@ -273,18 +273,19 @@ class MovimientoBancarioRetryMatchView(APIView):
             pk=pk,
         )
         try:
-            result = reconcile_exact_movement(movimiento)
+            with transaction.atomic():
+                result = reconcile_exact_movement(movimiento)
+                create_audit_event(
+                    event_type='conciliacion.movimiento_bancario.match_retried',
+                    entity_type='movimiento_bancario',
+                    entity_id=str(movimiento.pk),
+                    summary='Reintento manual de match exacto',
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    metadata=result,
+                )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
-        create_audit_event(
-            event_type='conciliacion.movimiento_bancario.match_retried',
-            entity_type='movimiento_bancario',
-            entity_id=str(movimiento.pk),
-            summary='Reintento manual de match exacto',
-            actor_user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            metadata=result,
-        )
         movimiento.refresh_from_db()
         return Response(MovimientoBancarioImportadoSerializer(movimiento).data, status=status.HTTP_200_OK)
 

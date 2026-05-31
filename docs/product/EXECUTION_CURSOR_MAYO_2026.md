@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ningun paquete tactico abierto. |
-| Fuente exacta | Estado real de `main` en `ffccaeb` despues de PR #612, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Ninguna seleccionada en este cursor. |
-| Motivo de prioridad | PR #612 cerro la atomicidad de auditoria en APIs de CobranzaActiva; el siguiente frente debe diagnosticarse desde `main` limpio y la trazabilidad vigente. |
-| Worktree | Ninguno. |
-| Rama | `main`. |
-| Estado | Listo para diagnosticar el siguiente frente seguro. |
-| Gate esperado | No aplica hasta abrir un nuevo paquete. |
-| Estado al cerrar paquete | PR #612 mergeado en `ffccaeb`: `backend/cobranza/views.py::AuditCreateUpdateMixin` y overrides de UF, pagos, refresco de mora, materializacion local, movimientos de garantia, repactaciones y rebuild de estado de cuenta persisten mutacion y auditoria de vista en una sola transaccion. Si falla la auditoria, no quedan cambios operativos de Cobranza sin traza. Validado con focal 7 tests, impactada Cobranza/Etapa 2 197 tests, `manage.py check`, `makemigrations --check --dry-run --noinput`, readiness local Etapa 2 parcial, `npm ci`, `npm run build`, `npm run lint`, acceptance local 1151 tests, higiene, `git diff --check` y CI GitHub. |
-| Bloqueos relacionados | Los cierres evidenciales que requieran fuente `snapshot_controlado`, datos reales o integraciones externas siguen como condiciones de cierre, no como prerequisito para diagnosticar el siguiente frente local seguro. El paquete cerrado no uso `.env`, secretos, DB historicas, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si `git status` y `git worktree list` muestran solo `main` limpio, diagnosticar el siguiente frente seguro; si aparece un worktree sucio, terminar o pausar ese paquete antes de abrir otro frente. |
-| Siguiente accion | Confirmar `main` limpio y diagnosticar el siguiente frente seguro por orden de construccion y trazabilidad vigente. |
+| Frente activo | Etapa 3 - atomicidad del reintento manual de match exacto. |
+| Fuente exacta | Estado real de `main` en `e87c81b` despues de PR #613, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | `backend/conciliacion/views.py::MovimientoBancarioRetryMatchView` ejecuta `reconcile_exact_movement()` antes de registrar `conciliacion.movimiento_bancario.match_retried`. Si falla esa auditoria de vista, podrian quedar pago, ingreso desconocido, supersesion o movimiento mutados sin traza del reintento manual. |
+| Motivo de prioridad | Conciliacion es el siguiente frente del orden de construccion despues de CobranzaActiva, y la brecha es local, verificable y no depende de banco real ni snapshot autorizado. |
+| Worktree | `D:/Proyectos/LeaseManager-stage3-retry-match-audit-atomicity`. |
+| Rama | `codex/stage3-retry-match-audit-atomicity`. |
+| Estado | Paquete tactico abierto. |
+| Gate esperado | Test focal de rollback de reintento, suite impactada Conciliacion/Etapa 3, `manage.py check`, migraciones dry-run, gate local Etapa 3 diagnostico, frontend build/lint, acceptance local, higiene y CI GitHub. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | El cierre evidencial de Etapa 3 sigue condicionado por fuente `snapshot_controlado` o `real_autorizado`, prueba bancaria y cuadratura autorizada. Este paquete local no usa `.env`, secretos, DB historicas, datos reales, banco real, snapshots autorizados, backfills, deploys ni integraciones externas. |
+| Politica de reanudacion | Si este worktree aparece sucio, terminar o pausar este paquete antes de abrir otro frente. Si no existe, confirmar el cursor actualizado en `main` antes de diagnosticar el siguiente frente. |
+| Siguiente accion | Completar implementacion, pruebas focales, documentacion/evidencia, validaciones proporcionales, PR, CI, merge y limpieza. |
 
 ## Actualizacion
 
