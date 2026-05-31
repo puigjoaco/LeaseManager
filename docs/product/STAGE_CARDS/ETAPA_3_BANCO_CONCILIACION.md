@@ -81,8 +81,9 @@ sistema igual a saldo banco.
 - Resoluciones manuales abiertas que quedan obsoletas por match exacto o por
   otra resolucion manual no se marcan como resueltas manualmente: se cierran
   como `superseded` con motivo, metadata de origen/target y evento de
-  auditoria alineado; la readiness bloquea supersesiones sin metadata, motivo
-  o evento suficiente.
+  auditoria alineado dentro de la misma transaccion; si falla la escritura del
+  evento no queda la resolucion marcada como supersedida. La readiness bloquea
+  supersesiones sin metadata, motivo o evento suficiente.
 - Las categorias especializadas de resolucion manual de Conciliacion no pueden
   crearse, convertirse, retargetearse ni cerrarse desde el endpoint generico de
   `ManualResolution`; deben nacer y mutar desde los servicios auditados de

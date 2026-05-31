@@ -1,5 +1,6 @@
 import json
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
@@ -34,6 +35,7 @@ from .models import (
     MovimientoBancarioImportado,
     TransferenciaIntercuenta,
 )
+from .services import supersede_manual_resolutions_for_movement
 
 
 class ConciliacionAPITests(APITestCase):
@@ -1857,6 +1859,56 @@ class ConciliacionAPITests(APITestCase):
                 entity_type='manual_resolution',
                 entity_id=str(resolution.pk),
                 metadata__superseded_by='conciliacion.exact_match',
+            ).exists()
+        )
+
+    def test_manual_resolution_supersede_rolls_back_when_audit_creation_fails(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-SUP-AUDIT-FAIL', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto=Decimal('777777.00'),
+            descripcion_origen='Abono sin match para rollback de supersesion',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            estado_conciliacion=EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+        )
+        resolution = ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Ingreso sin match exacto requiere clasificacion manual.',
+            metadata={'movimiento_id': movimiento.pk},
+        )
+
+        with patch('audit.services.create_audit_event', side_effect=RuntimeError('supersede audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'supersede audit unavailable'):
+                supersede_manual_resolutions_for_movement(
+                    movimiento,
+                    superseded_by='conciliacion.exact_match',
+                    match_type='payment',
+                    rationale='Supersedida porque el movimiento obtuvo match exacto con pago mensual trazable.',
+                    target_metadata={
+                        'pago_mensual_id': pago.pk,
+                        'contrato_id': pago.contrato_id,
+                    },
+                    actor_user=self.user,
+                    ip_address='127.0.0.1',
+                )
+
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.status, ManualResolution.Status.OPEN)
+        self.assertIsNone(resolution.resolved_at)
+        self.assertIsNone(resolution.resolved_by)
+        self.assertEqual(resolution.rationale, '')
+        self.assertNotIn('superseded_by', resolution.metadata)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='audit.manual_resolution.superseded',
+                entity_type='manual_resolution',
+                entity_id=str(resolution.pk),
             ).exists()
         )
 
