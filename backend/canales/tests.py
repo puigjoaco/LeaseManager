@@ -368,6 +368,64 @@ class CanalesAPITests(APITestCase):
             'email-readiness-validado-controlled',
         )
 
+    def test_channel_gate_create_rolls_back_when_view_audit_fails(self):
+        audit_count = AuditEvent.objects.count()
+
+        with patch('canales.views.create_audit_event', side_effect=RuntimeError('channel audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'channel audit unavailable'):
+                self.client.post(
+                    reverse('canales-gate-list'),
+                    {
+                        'canal': 'email',
+                        'provider_key': 'gmail_api',
+                        'estado_gate': 'abierto',
+                        'restricciones_operativas': {
+                            'prueba_aislada_ref': 'email-readiness-controlled',
+                            'oauth_validado_ref': 'oauth-readiness-controlled',
+                        },
+                        'evidencia_ref': 'email-gate-evidence-controlled',
+                    },
+                    format='json',
+                )
+
+        self.assertFalse(CanalMensajeria.objects.filter(canal='email').exists())
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
+    def test_notification_config_update_rolls_back_when_state_audit_fails(self):
+        from audit.services import create_audit_event as real_create_audit_event
+
+        empresa, contrato = self._create_contract_context(codigo='NTF-AUDIT')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        created = self.client.post(
+            reverse('canales-notificacion-contrato-list'),
+            {
+                'contrato': contrato.pk,
+                'canal': 'email',
+                'dias_notificacion': [1, 3, 5, 10, 15, 20, 25],
+                'activa': True,
+            },
+            format='json',
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        audit_count = AuditEvent.objects.count()
+
+        def fail_state_change_audit(**kwargs):
+            if kwargs.get('event_type') == 'canales.configuracion_notificacion_contrato.state_changed':
+                raise RuntimeError('notification state audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('canales.views.create_audit_event', side_effect=fail_state_change_audit):
+            with self.assertRaisesRegex(RuntimeError, 'notification state audit unavailable'):
+                self.client.patch(
+                    reverse('canales-notificacion-contrato-detail', args=[created.data['id']]),
+                    {'activa': False},
+                    format='json',
+                )
+
+        stored = ConfiguracionNotificacionContrato.objects.get(pk=created.data['id'])
+        self.assertTrue(stored.activa)
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
     def test_notification_config_requires_enabled_channel_and_normalizes_days(self):
         empresa, contrato = self._create_contract_context(codigo='NTF-001')
         self._enable_channel_for_contract(empresa, contrato, canal='email')
