@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: SII/Etapa 4 alinea mutaciones API y auditoria de vista en
+una transaccion. `AuditCreateUpdateMixin`, generacion DTE/F29/anual y cambios
+de estado DTE, F29, DDJJ y F22 persisten cambios y eventos auditables dentro
+de `transaction.atomic()`; si falla la auditoria, no quedan capacidades,
+borradores, procesos anuales ni estados tributarios mutados sin traza de
+endpoint.
+
 Nota 2026-05-31: Canales/Etapa 2 alinea altas y ediciones API de gates y
 configuraciones de notificacion con auditoria atomica. `AuditCreateUpdateMixin`
 en Canales persiste `created`, `updated` y `state_changed` dentro de
