@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-05-31: Canales/Etapa 2 alinea altas y ediciones API de gates y
+configuraciones de notificacion con auditoria atomica. `AuditCreateUpdateMixin`
+en Canales persiste `created`, `updated` y `state_changed` dentro de
+`transaction.atomic()`; si falla la auditoria, no quedan gates ni
+configuraciones mutadas sin traza de endpoint.
+
 Nota 2026-05-31: Documentos/Etapa 5 alinea updates genericos y auditoria de
 vista en una transaccion. `AuditCreateUpdateMixin.perform_update()` persiste
 la mutacion documental junto con `documentos.*.updated` y, cuando aplica,

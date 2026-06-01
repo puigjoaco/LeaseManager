@@ -99,6 +99,10 @@ condicionados sin envios reales accidentales.
   `canales.mensaje_saliente.prepared` ocurren en la misma transaccion, para
   cubrir endpoint HTTP y llamadas internas controladas sin dejar mensajes sin
   auditoria.
+- Las APIs de Canales que mutan gates y configuraciones de notificacion
+  persisten la entidad y los eventos `created`, `updated` o `state_changed`
+  dentro de la misma transaccion. Si falla la auditoria de vista, no debe
+  quedar gate ni configuracion mutada sin traza de endpoint.
 - Registro manual de envio solo con `external_ref` trazable no sensible y
   revalidacion del gate abierto, identidad activa, destinatario y mandato
   operativo activo.

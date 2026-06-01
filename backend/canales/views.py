@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -30,19 +31,21 @@ class AuditCreateUpdateMixin:
     audit_entity_label = ''
 
     def perform_create(self, serializer):
-        instance = serializer.save()
-        self._create_audit_event(instance=instance, action='created')
+        with transaction.atomic():
+            instance = serializer.save()
+            self._create_audit_event(instance=instance, action='created')
 
     def perform_update(self, serializer):
         previous_state = self._extract_state(serializer.instance)
-        instance = serializer.save()
-        self._create_audit_event(instance=instance, action='updated')
-        if previous_state != self._extract_state(instance):
-            self._create_audit_event(
-                instance=instance,
-                action='state_changed',
-                summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
-            )
+        with transaction.atomic():
+            instance = serializer.save()
+            self._create_audit_event(instance=instance, action='updated')
+            if previous_state != self._extract_state(instance):
+                self._create_audit_event(
+                    instance=instance,
+                    action='state_changed',
+                    summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                )
 
     def _extract_state(self, instance):
         if hasattr(instance, 'estado_gate'):
