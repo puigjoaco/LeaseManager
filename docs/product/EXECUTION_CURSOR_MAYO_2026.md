@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Documentos - atomicidad de updates genericos y auditoria de vista. |
-| Fuente exacta | Estado real de `main` en `9186bed` despues de PR #621, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | `backend/documentos/views.py` guarda updates genericos dentro de transaccion pero registra `updated` y `state_changed` fuera de ella. Si falla esa auditoria, puede quedar una politica, expediente, plantilla o documento mutado sin traza de endpoint. |
-| Motivo de prioridad | La brecha es local, verificable, afecta el gate documental y no depende de datos reales, DB historicas, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-documents-update-audit-atomicity`. |
-| Rama | `codex/documents-update-audit-atomicity`. |
-| Estado | Paquete tactico abierto. |
-| Gate esperado | Tests focales de rollback ante falla de auditoria, suite impactada Documentos/readiness, `manage.py check`, migraciones dry-run, frontend build/lint, acceptance local, higiene y CI GitHub. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | No hay bloqueo externo para este paquete local. No usa `.env`, secretos, DB historicas, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Politica de reanudacion | Si este worktree aparece sucio, terminar o pausar este paquete antes de abrir otro frente. Si no existe, confirmar el cursor actualizado en `main` antes de diagnosticar el siguiente frente. |
-| Siguiente accion | Implementar atomicidad, pruebas focales, documentacion/evidencia, validaciones proporcionales, PR, CI, merge y limpieza. |
+| Frente activo | Ninguno. |
+| Fuente exacta | Estado real de `main` en `d7f8e39` despues de PR #622, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Sin paquete tactico abierto. |
+| Motivo de prioridad | PR #622 cerro la atomicidad de updates genericos y auditoria de vista en Documentos. |
+| Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
+| Rama | `main`. |
+| Estado | Main limpio y listo para diagnosticar el siguiente frente seguro por trazabilidad. |
+| Gate esperado | Para el siguiente paquete, definir tests focales, suite impactada, checks, gates locales, frontend si aplica, acceptance local, higiene y CI antes de PR. |
+| Estado al cerrar paquete | PR #622 mergeado en `d7f8e39`; CI GitHub acceptance OK; worktree `D:/Proyectos/LeaseManager-documents-update-audit-atomicity` eliminado; rama tactica local/remota eliminada. |
+| Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
+| Politica de reanudacion | Si no hay worktree tactico abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; luego elegir el siguiente paquete pequeno, local, verificable y cerrable. |
 
 ## Actualizacion
 
