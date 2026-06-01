@@ -33,6 +33,10 @@ cierres mensuales.
 - El dominio SII rechaza F29, ProcesoRentaAnual, DDJJ y F22 en estados
   aprobados, presentados, observados o rectificados si falta la referencia
   final trazable correspondiente.
+- Las APIs que generan ProcesoRentaAnual/DDJJ/F22 o actualizan estados DDJJ/F22
+  persisten la mutacion y su auditoria de vista en una misma transaccion. Si
+  falla la auditoria, no debe quedar proceso anual, preparacion ni referencia
+  final mutada sin traza de endpoint.
 - `audit_stage6_renta_anual_readiness` clasifica explicitamente como
   bloqueantes las referencias finales sensibles en ProcesoRentaAnual, DDJJ y
   F22, sin exponer esos valores.

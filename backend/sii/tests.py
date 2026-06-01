@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
@@ -283,6 +284,198 @@ class SiiAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_sii_capability_create_rolls_back_when_view_audit_fails(self):
+        empresa = self._create_active_empresa(nombre='SII Audit Create SpA', rut='38383838-3')
+        self._activate_fiscal_config(empresa)
+        audit_count = AuditEvent.objects.count()
+
+        with patch('sii.views.create_audit_event', side_effect=RuntimeError('sii capability audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'sii capability audit unavailable'):
+                self.client.post(
+                    reverse('sii-capacidad-list'),
+                    {
+                        'empresa': empresa.id,
+                        'capacidad_key': 'DTEEmision',
+                        **self._sii_readiness_fields('dte-audit-create'),
+                        'ambiente': 'certificacion',
+                        'estado_gate': 'abierto',
+                        'ultimo_resultado': {},
+                    },
+                    format='json',
+                )
+
+        self.assertFalse(
+            CapacidadTributariaSII.objects.filter(empresa=empresa, capacidad_key='DTEEmision').exists()
+        )
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
+    def test_sii_capability_update_rolls_back_when_state_audit_fails(self):
+        from audit.services import create_audit_event as real_create_audit_event
+
+        empresa = self._create_active_empresa(nombre='SII Audit Update SpA', rut='39393939-3')
+        self._activate_fiscal_config(empresa)
+        created = self._activate_capability(empresa)
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        audit_count = AuditEvent.objects.count()
+
+        def fail_state_change_audit(**kwargs):
+            if kwargs.get('event_type') == 'sii.capacidad_sii.state_changed':
+                raise RuntimeError('sii capability state audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('sii.views.create_audit_event', side_effect=fail_state_change_audit):
+            with self.assertRaisesRegex(RuntimeError, 'sii capability state audit unavailable'):
+                self.client.patch(
+                    reverse('sii-capacidad-detail', args=[created.data['id']]),
+                    {'estado_gate': 'condicionado'},
+                    format='json',
+                )
+
+        stored = CapacidadTributariaSII.objects.get(pk=created.data['id'])
+        self.assertEqual(stored.estado_gate, 'abierto')
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
+    def test_generate_dte_draft_rolls_back_when_view_audit_fails(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa)
+        audit_count = AuditEvent.objects.count()
+
+        with patch('sii.views.create_audit_event', side_effect=RuntimeError('dte draft audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'dte draft audit unavailable'):
+                self.client.post(
+                    reverse('sii-dte-generate'),
+                    {'pago_mensual_id': pago.id},
+                    format='json',
+                )
+
+        self.assertFalse(DTEEmitido.objects.filter(pago_mensual=pago).exists())
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
+    def test_update_dte_status_rolls_back_when_view_audit_fails(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa)
+        generated = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        audit_count = AuditEvent.objects.count()
+
+        with patch('sii.views.create_audit_event', side_effect=RuntimeError('dte status audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'dte status audit unavailable'):
+                self.client.post(
+                    reverse('sii-dte-status', args=[generated.data['id']]),
+                    {
+                        'estado_dte': 'enviado_manual_controlado',
+                        'sii_track_id': '0245399452',
+                        'ultimo_estado_sii': 'Recibido',
+                    },
+                    format='json',
+                )
+
+        stored = DTEEmitido.objects.get(pk=generated.data['id'])
+        self.assertEqual(stored.estado_dte, 'borrador')
+        self.assertEqual(stored.sii_track_id, '')
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
+    def test_generate_f29_draft_rolls_back_when_view_audit_fails(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa, capacidad_key='F29Preparacion', prefix='f29-audit')
+        self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        audit_count = AuditEvent.objects.count()
+
+        with patch('sii.views.create_audit_event', side_effect=RuntimeError('f29 draft audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'f29 draft audit unavailable'):
+                self.client.post(
+                    reverse('sii-f29-generate'),
+                    {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+                    format='json',
+                )
+
+        self.assertFalse(F29PreparacionMensual.objects.filter(empresa=empresa, anio=2026, mes=1).exists())
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
+    def test_update_f29_status_rolls_back_when_view_audit_fails(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa, capacidad_key='F29Preparacion', prefix='f29-audit-status')
+        self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        generated = self.client.post(
+            reverse('sii-f29-generate'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        audit_count = AuditEvent.objects.count()
+
+        with patch('sii.views.create_audit_event', side_effect=RuntimeError('f29 status audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'f29 status audit unavailable'):
+                self.client.post(
+                    reverse('sii-f29-status', args=[generated.data['id']]),
+                    {
+                        'estado_preparacion': 'aprobado_para_presentacion',
+                        'borrador_ref': 'f29-2026-01',
+                    },
+                    format='json',
+                )
+
+        stored = F29PreparacionMensual.objects.get(pk=generated.data['id'])
+        self.assertEqual(stored.estado_preparacion, 'preparado')
+        self.assertEqual(stored.borrador_ref, '')
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
+    def test_generate_annual_preparation_rolls_back_when_view_audit_fails(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        audit_count = AuditEvent.objects.count()
+
+        with patch('sii.views.create_audit_event', side_effect=RuntimeError('annual preparation audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'annual preparation audit unavailable'):
+                self.client.post(
+                    reverse('sii-anual-generate'),
+                    {'empresa_id': empresa.id, 'anio_tributario': 2027},
+                    format='json',
+                )
+
+        self.assertFalse(ProcesoRentaAnual.objects.filter(empresa=empresa, anio_tributario=2027).exists())
+        self.assertFalse(DDJJPreparacionAnual.objects.filter(empresa=empresa, anio_tributario=2027).exists())
+        self.assertFalse(F22PreparacionAnual.objects.filter(empresa=empresa, anio_tributario=2027).exists())
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
+    def test_update_annual_status_rolls_back_when_view_audit_fails(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        audit_count = AuditEvent.objects.count()
+
+        with patch('sii.views.create_audit_event', side_effect=RuntimeError('annual status audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'annual status audit unavailable'):
+                self.client.post(
+                    reverse('sii-ddjj-status', args=[generated.data['ddjj_preparacion']['id']]),
+                    {
+                        'estado_preparacion': 'aprobado_para_presentacion',
+                        'ref_value': 'ddjj-2027',
+                        'observaciones': 'Paquete DDJJ listo.',
+                    },
+                    format='json',
+                )
+
+        process = ProcesoRentaAnual.objects.get(pk=generated.data['proceso_renta_anual']['id'])
+        ddjj = DDJJPreparacionAnual.objects.get(pk=generated.data['ddjj_preparacion']['id'])
+        self.assertEqual(process.paquete_ddjj_ref, '')
+        self.assertEqual(ddjj.estado_preparacion, 'preparado')
+        self.assertEqual(ddjj.paquete_ref, '')
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
 
     def test_tax_artifacts_reject_wrong_sii_capability_kind(self):
         empresa, pago = self._setup_paid_payment()

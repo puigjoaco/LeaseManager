@@ -60,6 +60,10 @@ produccion por defecto.
   asociadas a empresas sin `ConfiguracionFiscalEmpresa` activa propia.
 - Los eventos de auditoria de cambios de estado DTE registran `sii_track_id`
   redactado si existe una referencia sensible heredada.
+- Las APIs SII que mutan capacidades, borradores DTE/F29, procesos anuales y
+  estados tributarios persisten la mutacion y el evento auditable de vista en
+  la misma transaccion. Si falla la auditoria, no debe quedar capacidad,
+  borrador, proceso ni estado tributario mutado sin traza de endpoint.
 - Los borradores DTE/F29/anuales y los cambios de estado externo revalidan el
   gate antes de avanzar. Los DTE marcados `enviado_manual_controlado`
   revalidan `DTEEmision`; los estados finales `aceptado`, `rechazado` o
