@@ -94,6 +94,10 @@ firma y notaria trazables.
 - El cambio de estado de `formalizar/` y sus eventos de auditoria deben quedar
   en la misma transaccion, evitando documentos formalizados sin auditoria si
   falla la escritura del evento.
+- Las actualizaciones genericas de expedientes, politicas, plantillas y
+  documentos emitidos persisten `updated` y `state_changed` dentro de la misma
+  transaccion que la mutacion; si falla esa auditoria, no queda cambio
+  documental persistido sin traza de endpoint.
 - El endpoint `formalizar/` debe aplicar el scope del usuario tambien sobre
   `comprobante_notarial`; un operador no puede usar como respaldo un documento
   notarial de un expediente fuera de su cartera visible.

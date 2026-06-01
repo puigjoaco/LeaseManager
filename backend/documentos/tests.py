@@ -820,6 +820,45 @@ class DocumentosAPITests(APITestCase):
         self.assertFalse(stored.requiere_notaria)
         self.assertEqual(stored.modo_firma_permitido, 'firma_simple')
 
+    def test_policy_update_rolls_back_when_view_audit_fails(self):
+        policy = self._create_politica()
+        audit_count = AuditEvent.objects.count()
+
+        with patch('documentos.views.create_audit_event', side_effect=RuntimeError('policy audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'policy audit unavailable'):
+                self.client.patch(
+                    reverse('documentos-politica-detail', args=[policy['id']]),
+                    {'requiere_codeudor': True},
+                    format='json',
+                )
+
+        stored = PoliticaFirmaYNotaria.objects.get(pk=policy['id'])
+        self.assertFalse(stored.requiere_codeudor)
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
+    def test_expediente_state_update_rolls_back_when_state_audit_fails(self):
+        from audit.services import create_audit_event as real_create_audit_event
+
+        expediente = self._create_expediente(entidad_id='expediente-state-audit-rollback')
+        audit_count = AuditEvent.objects.count()
+
+        def fail_state_change_audit(**kwargs):
+            if kwargs.get('event_type') == 'documentos.expediente.state_changed':
+                raise RuntimeError('expediente state audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('documentos.views.create_audit_event', side_effect=fail_state_change_audit):
+            with self.assertRaisesRegex(RuntimeError, 'expediente state audit unavailable'):
+                self.client.patch(
+                    reverse('documentos-expediente-detail', args=[expediente['id']]),
+                    {'estado': 'cerrado'},
+                    format='json',
+                )
+
+        stored = ExpedienteDocumental.objects.get(pk=expediente['id'])
+        self.assertEqual(stored.estado, 'abierto')
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
     def test_document_storage_ref_must_be_non_sensitive_pdf_reference(self):
         expediente = self._create_expediente(entidad_id='pdf-sensitive-guard')
         self._create_politica()
