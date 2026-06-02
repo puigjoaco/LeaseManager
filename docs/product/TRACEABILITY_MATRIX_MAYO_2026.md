@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-02: Reporting/Etapa 7 alinea la API de resumen tributario anual
+con readiness de referencias finales del proceso anual. El endpoint bloquea
+`ProcesoRentaAnual` aprobado, observado, rectificado o presentado si falta
+`paquete_ddjj_ref` o `borrador_f22_ref`, o si esas referencias contienen URLs,
+tokens o credenciales, sin exponer los valores en la respuesta.
+
 Nota 2026-05-31: SII/Etapa 4 alinea mutaciones API y auditoria de vista en
 una transaccion. `AuditCreateUpdateMixin`, generacion DTE/F29/anual y cambios
 de estado DTE, F29, DDJJ y F22 persisten cambios y eventos auditables dentro

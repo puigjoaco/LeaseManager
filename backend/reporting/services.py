@@ -22,7 +22,7 @@ from conciliacion.models import (
     IngresoDesconocido,
     MovimientoBancarioImportado,
 )
-from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
+from core.reference_validation import is_non_sensitive_reference, redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 from contabilidad.models import (
     AsientoContable,
@@ -126,6 +126,15 @@ def _annual_document_process_mismatch(document, process) -> bool:
         or document.empresa_id != process.empresa_id
         or document.anio_tributario != process.anio_tributario
     )
+
+
+def _has_text(value) -> bool:
+    return bool(str(value or '').strip())
+
+
+def _sensitive_reference(value) -> bool:
+    normalized = str(value or '').strip()
+    return bool(normalized) and not is_non_sensitive_reference(normalized)
 
 
 def _values_set(queryset, field: str) -> set[int]:
@@ -543,6 +552,30 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                     'fiscal_year': _annual_summary_fiscal_year(summary),
                     'expected_fiscal_year': int(anio_tributario) - 1,
                 },
+            )
+        if process.estado in ANNUAL_STATES_REQUIRING_REF and not _has_text(process.paquete_ddjj_ref):
+            _raise_traceability_error(
+                'reporting.annual_process_ddjj_ref_missing',
+                'El reporte tributario anual requiere paquete_ddjj_ref para procesos aprobados, observados, rectificados o presentados.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if process.estado in ANNUAL_STATES_REQUIRING_REF and not _has_text(process.borrador_f22_ref):
+            _raise_traceability_error(
+                'reporting.annual_process_f22_ref_missing',
+                'El reporte tributario anual requiere borrador_f22_ref para procesos aprobados, observados, rectificados o presentados.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if _sensitive_reference(process.paquete_ddjj_ref):
+            _raise_traceability_error(
+                'reporting.annual_process_ddjj_ref_sensitive',
+                'El reporte tributario anual no puede exponer ni validar paquete_ddjj_ref sensible del proceso anual.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if _sensitive_reference(process.borrador_f22_ref):
+            _raise_traceability_error(
+                'reporting.annual_process_f22_ref_sensitive',
+                'El reporte tributario anual no puede exponer ni validar borrador_f22_ref sensible del proceso anual.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
 
         ddjj = ddjj_by_process.get(process.id)
