@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | Estado real de `main` en `2d831d5` despues de PR #632, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Sin paquete tactico abierto. |
-| Motivo de prioridad | PR #632 cerro el vinculo exacto entre liquidacion mensual de empresa y cierre aprobado en readiness Etapa 5. |
-| Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
-| Rama | `main`. |
-| Estado | Main limpio y listo para diagnosticar el siguiente frente seguro por trazabilidad. |
-| Gate esperado | Para el siguiente paquete, definir tests focales, suite impactada, checks, gates locales, frontend si aplica, acceptance local, higiene y CI antes de PR. |
-| Estado al cerrar paquete | PR #632 mergeado en `2d831d5`; validacion local completa OK; worktree `D:/Proyectos/LeaseManager-stage5-liquidation-close-link` eliminado; rama tactica local/remota eliminada. |
-| Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
+| Frente activo | Compliance / auditoria historica de exportaciones sensibles. |
+| Fuente exacta | Estado real de `main` en `b461a99` despues de PR #633, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Verificar y corregir falsos bloqueos de readiness cuando eventos historicos de acceso a exportaciones sensibles conservan el estado valido del momento, pero la exportacion cambia despues a revocada o expirada. |
+| Motivo de prioridad | Compliance es frente temprano parcial; la brecha es local, verificable y no requiere secretos, datos reales ni fuente externa. |
+| Worktree | `D:/Proyectos/LeaseManager-compliance-audit-event-state`. |
+| Rama | `codex/compliance-audit-event-state`. |
+| Estado | Paquete tactico abierto para confirmar la brecha con test focal, corregir readiness si aplica y cerrar con validacion proporcional. |
+| Gate esperado | Test focal de readiness Compliance, suite impactada `compliance` + `core.tests_compliance_data_readiness`, `manage.py check`, `makemigrations --check --dry-run`, gate Compliance local, frontend si aplica, acceptance local, higiene, diff-check y CI. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Cierre evidencial de Compliance sigue condicionado por fuente autorizada y referencias externas no sensibles; este paquete solo corrige preparacion local. |
 | Politica de reanudacion | Si no hay worktree tactico abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. |
 | Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; luego elegir el siguiente paquete pequeno, local, verificable y cerrable. |
 

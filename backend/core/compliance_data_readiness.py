@@ -111,8 +111,14 @@ def _expected_export_audit_metadata(event: AuditEvent, export: ExportacionSensib
     state_override = {}
     if event.event_type == EXPORT_PREPARED_EVENT_TYPE:
         state_override['estado'] = EstadoExportacionSensible.PREPARED
+    elif event.event_type == EXPORT_ACCESSED_EVENT_TYPE:
+        state_override['estado'] = EstadoExportacionSensible.PREPARED
     elif event.event_type == EXPORT_REVOKED_EVENT_TYPE:
         state_override['estado'] = EstadoExportacionSensible.REVOKED
+    elif event.event_type == EXPORT_ACCESS_DENIED_EVENT_TYPE:
+        event_state = str((event.metadata or {}).get('estado') or '').strip()
+        if event_state in EstadoExportacionSensible.values:
+            state_override['estado'] = event_state
     return build_export_audit_metadata(export, extra_metadata=state_override)
 
 
