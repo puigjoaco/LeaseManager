@@ -187,7 +187,10 @@ condicionados sin envios reales accidentales.
   servicio de bloqueo crea la alerta y el evento con actor en la misma
   transaccion. La rehabilitacion manual conserva la traza del bloqueo, usa
   referencia no sensible y resuelve alertas desde servicio con auditoria
-  dedicada. Todo mensaje WhatsApp bloqueado o fallido debe quedar con Email
+  dedicada. La readiness bloquea rehabilitaciones heredadas sin traza original
+  de bloqueo, sin evento original completo, sin alerta administrativa resuelta,
+  sin evento dedicado de rehabilitacion o con alertas de bloqueo aun abiertas.
+  Todo mensaje WhatsApp bloqueado o fallido debe quedar con Email
   alternativo preparado/enviado o con alerta critica/fallback trazable; el
   servicio de preparacion crea esa alerta con actor y evento dedicado cuando
   bloquea WhatsApp, y el servicio interno de fallo controlado hace lo mismo al

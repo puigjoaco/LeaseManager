@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils import timezone
 
 from audit.models import AuditEvent, ManualResolution
@@ -56,6 +57,7 @@ from contratos.models import (
     MonedaBaseContrato,
     WHATSAPP_BLOCK_ALERT_CATEGORY,
     WHATSAPP_BLOCK_EVENT_TYPE,
+    WHATSAPP_REHABILITATION_EVENT_TYPE,
     is_international_phone_number,
 )
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
@@ -396,6 +398,66 @@ def _whatsapp_block_alert_is_complete(tenant: Arrendatario) -> bool:
             continue
         return True
     return False
+
+
+def _collect_whatsapp_rehabilitation_issues(rehabilitated_tenants) -> dict[str, int]:
+    counts = Counter()
+
+    for tenant in rehabilitated_tenants:
+        if not tenant.whatsapp_rehabilitacion_ref.strip() or tenant.whatsapp_rehabilitado_at is None:
+            counts['whatsapp_rehabilitation_trace_missing'] += 1
+        if tenant.whatsapp_rehabilitacion_ref.strip() and not _non_sensitive_reference(
+            tenant.whatsapp_rehabilitacion_ref
+        ):
+            counts['whatsapp_rehabilitation_sensitive_refs'] += 1
+        if (
+            not tenant.whatsapp_bloqueo_motivo.strip()
+            or not tenant.whatsapp_bloqueo_evidencia_ref.strip()
+            or tenant.whatsapp_bloqueado_at is None
+        ):
+            counts['whatsapp_rehabilitation_block_trace_missing'] += 1
+        if not _whatsapp_block_event_is_complete(tenant):
+            counts['whatsapp_rehabilitation_block_event_missing'] += 1
+        if not _whatsapp_block_alert_is_complete(tenant):
+            counts['whatsapp_rehabilitation_block_alert_missing'] += 1
+        if not _whatsapp_rehabilitation_event_is_complete(tenant):
+            counts['whatsapp_rehabilitation_event_missing'] += 1
+        if _whatsapp_rehabilitation_has_open_block_alert(tenant):
+            counts['whatsapp_rehabilitation_open_alerts'] += 1
+
+    return dict(sorted(counts.items()))
+
+
+def _whatsapp_rehabilitation_event_is_complete(tenant: Arrendatario) -> bool:
+    if not tenant.whatsapp_rehabilitacion_ref.strip() or tenant.whatsapp_rehabilitado_at is None:
+        return False
+    expected_rehabilitated_at = tenant.whatsapp_rehabilitado_at.isoformat()
+    events = AuditEvent.objects.filter(
+        event_type=WHATSAPP_REHABILITATION_EVENT_TYPE,
+        entity_type='arrendatario',
+        entity_id=str(tenant.pk),
+    )
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if not event.actor_user_id and not event.actor_identifier.strip():
+            continue
+        if str(metadata.get('rehabilitacion_ref') or '').strip() != tenant.whatsapp_rehabilitacion_ref.strip():
+            continue
+        if str(metadata.get('whatsapp_rehabilitado_at') or '').strip() != expected_rehabilitated_at:
+            continue
+        if not _non_sensitive_reference(metadata.get('rehabilitacion_ref') or ''):
+            continue
+        return True
+    return False
+
+
+def _whatsapp_rehabilitation_has_open_block_alert(tenant: Arrendatario) -> bool:
+    return ManualResolution.objects.filter(
+        category=WHATSAPP_BLOCK_ALERT_CATEGORY,
+        scope_type='arrendatario',
+        scope_reference=str(tenant.pk),
+        status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
+    ).exists()
 
 
 def _sent_message_event_is_complete(event: AuditEvent, message: MensajeSaliente) -> bool:
@@ -853,11 +915,10 @@ def collect_stage2_cobranza_readiness(
     )
     whatsapp_blocked_tenants = Arrendatario.objects.filter(whatsapp_bloqueado=True)
     whatsapp_block_issues = _collect_whatsapp_block_issues(whatsapp_blocked_tenants)
-    whatsapp_rehabilitation_sensitive_refs = sum(
-        1
-        for tenant in Arrendatario.objects.exclude(whatsapp_rehabilitacion_ref='')
-        if not _non_sensitive_reference(tenant.whatsapp_rehabilitacion_ref)
+    whatsapp_rehabilitated_tenants = Arrendatario.objects.filter(
+        Q(whatsapp_rehabilitacion_ref__gt='') | Q(whatsapp_rehabilitado_at__isnull=False)
     )
+    whatsapp_rehabilitation_issues = _collect_whatsapp_rehabilitation_issues(whatsapp_rehabilitated_tenants)
 
     channel_gates = CanalMensajeria.objects.all()
     email_open_gates = channel_gates.filter(canal=CanalOperacion.EMAIL, estado_gate=EstadoGateCanal.OPEN)
@@ -1430,12 +1491,60 @@ def collect_stage2_cobranza_readiness(
                 count=whatsapp_block_issues['whatsapp_block_alert_missing'],
             )
         )
-    if whatsapp_rehabilitation_sensitive_refs:
+    if whatsapp_rehabilitation_issues.get('whatsapp_rehabilitation_trace_missing'):
+        issues.append(
+            _issue(
+                'stage2.whatsapp.rehabilitation_trace_missing',
+                'Existen rehabilitaciones WhatsApp sin referencia o fecha trazable.',
+                count=whatsapp_rehabilitation_issues['whatsapp_rehabilitation_trace_missing'],
+            )
+        )
+    if whatsapp_rehabilitation_issues.get('whatsapp_rehabilitation_sensitive_refs'):
         issues.append(
             _issue(
                 'stage2.whatsapp.rehabilitation_ref_sensitive',
                 'Existen rehabilitaciones WhatsApp con referencia sensible.',
-                count=whatsapp_rehabilitation_sensitive_refs,
+                count=whatsapp_rehabilitation_issues['whatsapp_rehabilitation_sensitive_refs'],
+            )
+        )
+    if whatsapp_rehabilitation_issues.get('whatsapp_rehabilitation_block_trace_missing'):
+        issues.append(
+            _issue(
+                'stage2.whatsapp.rehabilitation_block_trace_missing',
+                'Existen rehabilitaciones WhatsApp sin conservar motivo, evidencia o fecha del bloqueo original.',
+                count=whatsapp_rehabilitation_issues['whatsapp_rehabilitation_block_trace_missing'],
+            )
+        )
+    if whatsapp_rehabilitation_issues.get('whatsapp_rehabilitation_block_event_missing'):
+        issues.append(
+            _issue(
+                'stage2.whatsapp.rehabilitation_block_event_missing',
+                'Existen rehabilitaciones WhatsApp sin evento de bloqueo original completo.',
+                count=whatsapp_rehabilitation_issues['whatsapp_rehabilitation_block_event_missing'],
+            )
+        )
+    if whatsapp_rehabilitation_issues.get('whatsapp_rehabilitation_block_alert_missing'):
+        issues.append(
+            _issue(
+                'stage2.whatsapp.rehabilitation_block_alert_missing',
+                'Existen rehabilitaciones WhatsApp sin alerta administrativa original resuelta y alineada.',
+                count=whatsapp_rehabilitation_issues['whatsapp_rehabilitation_block_alert_missing'],
+            )
+        )
+    if whatsapp_rehabilitation_issues.get('whatsapp_rehabilitation_event_missing'):
+        issues.append(
+            _issue(
+                'stage2.whatsapp.rehabilitation_event_missing',
+                'Existen rehabilitaciones WhatsApp sin evento auditable dedicado con actor y referencia alineada.',
+                count=whatsapp_rehabilitation_issues['whatsapp_rehabilitation_event_missing'],
+            )
+        )
+    if whatsapp_rehabilitation_issues.get('whatsapp_rehabilitation_open_alerts'):
+        issues.append(
+            _issue(
+                'stage2.whatsapp.rehabilitation_alert_open',
+                'Existen rehabilitaciones WhatsApp que dejaron alertas administrativas abiertas.',
+                count=whatsapp_rehabilitation_issues['whatsapp_rehabilitation_open_alerts'],
             )
         )
     if whatsapp_open_gates.count() > 0 and whatsapp_active_identities.count() <= 0:
@@ -1751,7 +1860,8 @@ def collect_stage2_cobranza_readiness(
                 'whatsapp_opt_in_sensitive_refs': whatsapp_opt_in_sensitive_refs,
                 'whatsapp_blocked_tenants': whatsapp_blocked_tenants.count(),
                 **whatsapp_block_issues,
-                'whatsapp_rehabilitation_sensitive_refs': whatsapp_rehabilitation_sensitive_refs,
+                'whatsapp_rehabilitated_tenants': whatsapp_rehabilitated_tenants.count(),
+                **whatsapp_rehabilitation_issues,
                 'invalid_identities': invalid_identities,
                 'assignments_total': channel_assignments.count(),
                 'assignments_by_channel': _count_by(channel_assignments, 'canal'),

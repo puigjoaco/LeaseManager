@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-02: Canales/Etapa 2 endurece rehabilitaciones WhatsApp.
+`audit_stage2_cobranza_readiness` exige que una rehabilitacion heredada
+conserve la traza original del bloqueo, evento y alerta administrativa
+alineados, evento dedicado de rehabilitacion con actor/ref/fecha y sin alertas
+de bloqueo aun abiertas.
+
 Nota 2026-06-02: Canales/Etapa 2 endurece la traza de fallback WhatsApp.
 `audit_stage2_cobranza_readiness` ya no acepta un Email preparado/enviado
 anterior al bloqueo o fallo WhatsApp como alternativa valida solo por compartir
