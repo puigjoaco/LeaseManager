@@ -658,8 +658,8 @@ else {
             'restore_backup_file_not_allowed' { 'La evidencia de restore debe usar backup_ref o backup_evidence_ref no sensible; backup_file crudo no habilita cierre.' }
             'restore_authorization_ref_sensitive' { 'La evidencia de restore contiene authorization_ref sensible.' }
             'restore_authorization_ref_missing' { 'La evidencia de restore requiere authorization_ref no sensible.' }
-            'restore_backup_ref_sensitive' { 'La evidencia de restore contiene backup_ref o backup_file sensible.' }
-            'restore_backup_ref_missing' { 'La evidencia de restore requiere backup_ref o backup_file no sensible.' }
+            'restore_backup_ref_sensitive' { 'La evidencia de restore contiene backup_ref o backup_evidence_ref sensible.' }
+            'restore_backup_ref_missing' { 'La evidencia de restore requiere backup_ref o backup_evidence_ref no sensible.' }
             default { 'La evidencia de restore debe declarar source_kind snapshot_controlado, real_autorizado, backup_autorizado o restore_autorizado.' }
         }
         $issues += [ordered]@{
