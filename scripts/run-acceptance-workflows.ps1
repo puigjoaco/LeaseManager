@@ -490,6 +490,61 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7SensitiveRefReadiness.public_smoke_evidence.environment_ref_sensitive -eq $true) 'Smoke debe marcar environment_ref_sensitive=true.'
         Assert-Condition ($stage7SensitiveRefReadiness.final_acceptance_evidence.acceptance_ref_sensitive -eq $true) 'Aceptacion final debe marcar acceptance_ref_sensitive=true.'
 
+        $smokeUnredactedOutputPath = Join-Path $stage7AcceptanceDir 'smoke_unredacted_operational_output.json'
+        $stage7UnredactedSmokeOutputPath = Join-Path $stage7AcceptanceDir 'stage7_unredacted_smoke_output.json'
+
+        [ordered]@{
+            source_kind = 'public_smoke_autorizado'
+            authorization_ref = 'smoke-authorization-v1'
+            environment_ref = 'staging-env-v1'
+            target_ref = 'deployment-target-v1'
+            results = @(
+                [ordered]@{
+                    label = 'admin'
+                    ok = $true
+                    authFlow = 'ui-login'
+                    username = 'demo-admin'
+                    excerpt = 'Dashboard body must not be persisted as release evidence.'
+                },
+                [ordered]@{
+                    label = 'operator'
+                    ok = $true
+                    authFlow = 'ui-login'
+                    screenshotPath = 'D:\private\screenshots\smoke-operator.png'
+                },
+                [ordered]@{
+                    label = 'reviewer'
+                    ok = $true
+                    authFlow = 'ui-login'
+                    error = 'Raw browser error with https://example.test/?token=dummy'
+                },
+                [ordered]@{ label = 'partner'; ok = $true; authFlow = 'ui-login' }
+            )
+        } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $smokeUnredactedOutputPath -Encoding UTF8
+
+        $stage7UnredactedSmokeOutput = & $stage7ReadinessScript `
+            -PythonExe $pythonExe `
+            -DatabaseUrl $BackendTestDb `
+            -OutputPath $stage7UnredactedSmokeOutputPath `
+            -RestoreEvidencePath $restoreMissingAuthorizationPath `
+            -PublicSmokeEvidencePath $smokeUnredactedOutputPath `
+            -FinalAcceptanceEvidencePath $finalAcceptanceAuthorizedPath `
+            -SkipMigrations | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage7-readiness-gate fallo al validar smoke no redactado.'
+        if ($stage7UnredactedSmokeOutput.Trim()) {
+            Write-Host $stage7UnredactedSmokeOutput
+        }
+
+        $stage7UnredactedSmokeReadiness = Get-Content -LiteralPath $stage7UnredactedSmokeOutputPath -Raw | ConvertFrom-Json
+        $stage7UnredactedSmokeIssueCodes = @($stage7UnredactedSmokeReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage7UnredactedSmokeIssueCodes -contains 'stage7.public_smoke_output_not_redacted') 'Smoke con username/excerpt/screenshotPath/error crudos debe tener codigo especifico.'
+        Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.output_redacted -eq $false) 'Smoke no redactado debe marcar output_redacted=false.'
+        Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.has_raw_username -eq $true) 'Smoke no redactado debe marcar has_raw_username=true.'
+        Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.has_raw_excerpt -eq $true) 'Smoke no redactado debe marcar has_raw_excerpt=true.'
+        Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.has_raw_screenshot_path -eq $true) 'Smoke no redactado debe marcar has_raw_screenshot_path=true.'
+        Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.has_raw_error -eq $true) 'Smoke no redactado debe marcar has_raw_error=true.'
+        Assert-Condition ($stage7UnredactedSmokeReadiness.checks.public_smoke_authorized_evidence -eq $false) 'Smoke no redactado no debe quedar autorizado para cierre.'
+
         Step "Readiness wrappers output guards"
         Assert-ReadinessOutputGuard $stage1LocalReadinessScript 'Stage 1 local readiness' 'stage1-local-readiness-should-not-be-versioned.json'
         Assert-ReadinessOutputGuard $stage1SnapshotGateScript 'Stage 1 snapshot gate' 'stage1-snapshot-gate-should-not-be-versioned.json' @{

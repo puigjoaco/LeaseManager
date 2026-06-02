@@ -65,6 +65,9 @@ runbook, smoke y aceptacion.
   pantalla, rutas de screenshot ni errores crudos; las validaciones de pantalla
   quedan dentro del script y la evidencia solo conserva estado, rol, flujo,
   metricas resumidas y confirmacion booleana de screenshot.
+- El release gate rechaza evidencia JSON de smoke publico que conserve esos
+  campos diagnosticos crudos, aun cuando los roles, login UI y refs de ambiente
+  esten presentes.
 - La aceptacion final para cierre requiere evidencia JSON autorizada con
   `accepted=true`, responsable, alcance/candidato, decision y referencias no
   sensibles; una referencia simple no reemplaza la aceptacion final.
