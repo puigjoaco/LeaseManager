@@ -10,6 +10,7 @@ from core.models import (
     RuntimeSignalSourceKind,
     RuntimeSignalStatus,
 )
+from core.operational_observability import public_runtime_signal_value
 
 
 class Command(BaseCommand):
@@ -62,12 +63,12 @@ class Command(BaseCommand):
                     'status': signal.status,
                     'source_kind': signal.source_kind,
                     'observed_at': signal.observed_at.isoformat(),
-                    'evidence_ref': signal.evidence_ref,
+                    'has_evidence_ref': bool(signal.evidence_ref.strip()),
                     'source_trace': {
                         'source_label': bool(signal.source_label.strip()),
                         'authorization_ref': bool(signal.authorization_ref.strip()),
                     },
-                    'value': signal.value,
+                    'value': public_runtime_signal_value(signal.signal_key, signal.value),
                 },
                 indent=2,
                 ensure_ascii=True,
