@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Reporting / Etapa 7. |
-| Fuente exacta | Estado real de `main` en `c0697a5` despues de PR #627, stage card Etapa 7, readiness Reporting y trazabilidad vigente. |
-| Brecha activa | La API de resumen tributario anual debe bloquear `ProcesoRentaAnual` final sin `paquete_ddjj_ref`/`borrador_f22_ref` trazable o con referencias sensibles, alineada con readiness Etapa 7. |
-| Motivo de prioridad | Reporting es el siguiente frente seguro por orden arquitectonico; la brecha es local, verificable y no requiere secretos, datos reales ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-reporting-annual-process-refs`. |
-| Rama | `codex/reporting-annual-process-refs`. |
-| Estado | Paquete tactico validado localmente; pendiente PR, CI remoto, merge y limpieza. |
-| Gate esperado | Focal Reporting anual, suite impactada `reporting core.tests_stage7_reporting_readiness core.tests_stage6_renta_anual_readiness`, `manage.py check`, `makemigrations --check --dry-run`, gate Etapa 7 local, frontend build/lint si aplica, acceptance local, higiene y CI remoto. |
-| Estado al cerrar paquete | Pendiente. Al cerrar, registrar PR/merge, limpiar worktree/rama y volver el cursor a `Ninguno` desde `main` sincronizado. |
+| Frente activo | Ninguno. |
+| Fuente exacta | Estado real de `main` en `744df59` despues de PR #628, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | Sin paquete tactico abierto. |
+| Motivo de prioridad | PR #628 cerro la validacion de referencias finales del proceso anual en Reporting. |
+| Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
+| Rama | `main`. |
+| Estado | Main limpio y listo para diagnosticar el siguiente frente seguro por trazabilidad. |
+| Gate esperado | Para el siguiente paquete, definir tests focales, suite impactada, checks, gates locales, frontend si aplica, acceptance local, higiene y CI antes de PR. |
+| Estado al cerrar paquete | PR #628 mergeado en `744df59`; CI GitHub acceptance OK; worktree `D:/Proyectos/LeaseManager-reporting-annual-process-refs` eliminado; rama tactica local/remota eliminada. |
 | Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
 | Politica de reanudacion | Si no hay worktree tactico abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. |
 | Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; luego elegir el siguiente paquete pequeno, local, verificable y cerrable. |
