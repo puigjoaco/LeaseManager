@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-02: Operacion productiva alinea mensajes y acceptance del restore
+autorizado. El release gate de Etapa 7 exige `backup_ref` o
+`backup_evidence_ref` no sensible, prueba que `backup_evidence_ref` habilita el
+subgate de restore y elimina referencias residuales a `backup_file` como
+alternativa valida.
+
 Nota 2026-06-02: Operacion productiva endurece evidencia de restore. El release
 gate de Etapa 7 clasifica `stage7.restore_backup_file_not_allowed` si una
 evidencia autorizada intenta usar `backup_file` crudo como respaldo; para cierre

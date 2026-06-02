@@ -506,6 +506,8 @@ if (-not $OnlySmoke) {
 
         $restoreRawBackupFilePath = Join-Path $stage7AcceptanceDir 'restore_raw_backup_file.json'
         $stage7RawBackupFileOutputPath = Join-Path $stage7AcceptanceDir 'stage7_raw_restore_backup_file.json'
+        $restoreBackupEvidenceRefPath = Join-Path $stage7AcceptanceDir 'restore_backup_evidence_ref.json'
+        $stage7BackupEvidenceRefOutputPath = Join-Path $stage7AcceptanceDir 'stage7_restore_backup_evidence_ref.json'
 
         [ordered]@{
             restore_verified = $true
@@ -533,6 +535,34 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7RawBackupFileReadiness.restore_evidence.has_backup_file -eq $true) 'Restore con backup_file crudo debe marcar has_backup_file=true.'
         Assert-Condition ($stage7RawBackupFileReadiness.restore_evidence.has_backup_ref -eq $false) 'Restore con solo backup_file no debe marcar has_backup_ref=true.'
         Assert-Condition ($stage7RawBackupFileReadiness.checks.restore_authorized_evidence -eq $false) 'Restore con backup_file crudo no debe quedar autorizado para cierre.'
+
+        [ordered]@{
+            restore_verified = $true
+            source_kind = 'backup_autorizado'
+            authorization_ref = 'restore-authorization-v1'
+            backup_evidence_ref = 'restore-backup-evidence-v1'
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $restoreBackupEvidenceRefPath -Encoding UTF8
+
+        $stage7BackupEvidenceRefOutput = & $stage7ReadinessScript `
+            -PythonExe $pythonExe `
+            -DatabaseUrl $BackendTestDb `
+            -OutputPath $stage7BackupEvidenceRefOutputPath `
+            -RestoreEvidencePath $restoreBackupEvidenceRefPath `
+            -PublicSmokeEvidencePath $smokeAuthorizedPath `
+            -FinalAcceptanceEvidencePath $finalAcceptanceAuthorizedPath `
+            -SkipMigrations | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage7-readiness-gate fallo al validar restore con backup_evidence_ref.'
+        if ($stage7BackupEvidenceRefOutput.Trim()) {
+            Write-Host $stage7BackupEvidenceRefOutput
+        }
+
+        $stage7BackupEvidenceRefReadiness = Get-Content -LiteralPath $stage7BackupEvidenceRefOutputPath -Raw | ConvertFrom-Json
+        $stage7BackupEvidenceRefIssueCodes = @($stage7BackupEvidenceRefReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage7BackupEvidenceRefIssueCodes -notcontains 'stage7.restore_backup_ref_missing') 'Restore con backup_evidence_ref no debe reportar backup_ref faltante.'
+        Assert-Condition ($stage7BackupEvidenceRefIssueCodes -notcontains 'stage7.restore_backup_file_not_allowed') 'Restore con backup_evidence_ref no debe reportar backup_file crudo.'
+        Assert-Condition ($stage7BackupEvidenceRefReadiness.restore_evidence.has_backup_file -eq $false) 'Restore con backup_evidence_ref no debe marcar has_backup_file=true.'
+        Assert-Condition ($stage7BackupEvidenceRefReadiness.restore_evidence.has_backup_ref -eq $true) 'Restore con backup_evidence_ref debe marcar has_backup_ref=true.'
+        Assert-Condition ($stage7BackupEvidenceRefReadiness.checks.restore_authorized_evidence -eq $true) 'Restore con backup_evidence_ref debe quedar autorizado dentro del subgate de restore.'
 
         $smokeUnredactedOutputPath = Join-Path $stage7AcceptanceDir 'smoke_unredacted_operational_output.json'
         $stage7UnredactedSmokeOutputPath = Join-Path $stage7AcceptanceDir 'stage7_unredacted_smoke_output.json'
