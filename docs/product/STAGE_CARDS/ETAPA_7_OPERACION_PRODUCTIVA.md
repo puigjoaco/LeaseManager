@@ -26,6 +26,10 @@ runbook, smoke y aceptacion.
 - `run-postgres-restore-rehearsal.ps1` rechaza `OutputPath` dentro del repo
   fuera de `local-evidence/` antes de generar plan, tocar Docker o producir
   evidencia de restore.
+- La evidencia de restore para cierre debe conservar `backup_ref` o
+  `backup_evidence_ref` no sensible; un campo crudo `backup_file` no habilita
+  cierre aunque `source_kind`, `restore_verified` y `authorization_ref` sean
+  validos.
 - Auditoria local de observabilidad operativa con gates, integraciones,
   backlogs y senales runtime minimas.
 - `audit_operational_observability` rechaza `--output` dentro del repo fuera

@@ -382,6 +382,7 @@ if (-not $OnlySmoke) {
 
         $restoreMissingAuthorizationPath = Join-Path $stage7AcceptanceDir 'restore_missing_authorization_ref.json'
         $smokeMissingAuthorizationPath = Join-Path $stage7AcceptanceDir 'smoke_missing_authorization_ref.json'
+        $smokeAuthorizedPath = Join-Path $stage7AcceptanceDir 'smoke_authorized.json'
         $finalAcceptanceAuthorizedPath = Join-Path $stage7AcceptanceDir 'final_acceptance_authorized.json'
         $stage7AuthorizationOutputPath = Join-Path $stage7AcceptanceDir 'stage7_restore_smoke_missing_authorization_ref.json'
 
@@ -404,6 +405,19 @@ if (-not $OnlySmoke) {
                 [ordered]@{ label = 'partner'; ok = $true; authFlow = 'ui-login' }
             )
         } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $smokeMissingAuthorizationPath -Encoding UTF8
+
+        [ordered]@{
+            source_kind = 'public_smoke_autorizado'
+            authorization_ref = 'smoke-authorization-v1'
+            environment_ref = 'staging-env-v1'
+            target_ref = 'deployment-target-v1'
+            results = @(
+                [ordered]@{ label = 'admin'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'operator'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'reviewer'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'partner'; ok = $true; authFlow = 'ui-login' }
+            )
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $smokeAuthorizedPath -Encoding UTF8
 
         [ordered]@{
             accepted = $true
@@ -489,6 +503,36 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7SensitiveRefReadiness.restore_evidence.authorization_ref_sensitive -eq $true) 'Restore debe marcar authorization_ref_sensitive=true.'
         Assert-Condition ($stage7SensitiveRefReadiness.public_smoke_evidence.environment_ref_sensitive -eq $true) 'Smoke debe marcar environment_ref_sensitive=true.'
         Assert-Condition ($stage7SensitiveRefReadiness.final_acceptance_evidence.acceptance_ref_sensitive -eq $true) 'Aceptacion final debe marcar acceptance_ref_sensitive=true.'
+
+        $restoreRawBackupFilePath = Join-Path $stage7AcceptanceDir 'restore_raw_backup_file.json'
+        $stage7RawBackupFileOutputPath = Join-Path $stage7AcceptanceDir 'stage7_raw_restore_backup_file.json'
+
+        [ordered]@{
+            restore_verified = $true
+            source_kind = 'backup_autorizado'
+            authorization_ref = 'restore-authorization-v1'
+            backup_file = 'D:\private\backups\lease-manager-prod.dump'
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $restoreRawBackupFilePath -Encoding UTF8
+
+        $stage7RawBackupFileOutput = & $stage7ReadinessScript `
+            -PythonExe $pythonExe `
+            -DatabaseUrl $BackendTestDb `
+            -OutputPath $stage7RawBackupFileOutputPath `
+            -RestoreEvidencePath $restoreRawBackupFilePath `
+            -PublicSmokeEvidencePath $smokeAuthorizedPath `
+            -FinalAcceptanceEvidencePath $finalAcceptanceAuthorizedPath `
+            -SkipMigrations | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage7-readiness-gate fallo al validar restore con backup_file crudo.'
+        if ($stage7RawBackupFileOutput.Trim()) {
+            Write-Host $stage7RawBackupFileOutput
+        }
+
+        $stage7RawBackupFileReadiness = Get-Content -LiteralPath $stage7RawBackupFileOutputPath -Raw | ConvertFrom-Json
+        $stage7RawBackupFileIssueCodes = @($stage7RawBackupFileReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage7RawBackupFileIssueCodes -contains 'stage7.restore_backup_file_not_allowed') 'Restore con backup_file crudo debe tener codigo especifico.'
+        Assert-Condition ($stage7RawBackupFileReadiness.restore_evidence.has_backup_file -eq $true) 'Restore con backup_file crudo debe marcar has_backup_file=true.'
+        Assert-Condition ($stage7RawBackupFileReadiness.restore_evidence.has_backup_ref -eq $false) 'Restore con solo backup_file no debe marcar has_backup_ref=true.'
+        Assert-Condition ($stage7RawBackupFileReadiness.checks.restore_authorized_evidence -eq $false) 'Restore con backup_file crudo no debe quedar autorizado para cierre.'
 
         $smokeUnredactedOutputPath = Join-Path $stage7AcceptanceDir 'smoke_unredacted_operational_output.json'
         $stage7UnredactedSmokeOutputPath = Join-Path $stage7AcceptanceDir 'stage7_unredacted_smoke_output.json'
