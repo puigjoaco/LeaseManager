@@ -508,6 +508,14 @@ if (-not $OnlySmoke) {
         $stage7RawBackupFileOutputPath = Join-Path $stage7AcceptanceDir 'stage7_raw_restore_backup_file.json'
         $restoreBackupEvidenceRefPath = Join-Path $stage7AcceptanceDir 'restore_backup_evidence_ref.json'
         $stage7BackupEvidenceRefOutputPath = Join-Path $stage7AcceptanceDir 'stage7_restore_backup_evidence_ref.json'
+        $restoreSyntheticSourcePath = Join-Path $stage7AcceptanceDir 'restore_synthetic_source.json'
+        $smokeSyntheticSourcePath = Join-Path $stage7AcceptanceDir 'smoke_synthetic_source.json'
+        $finalAcceptanceSyntheticSourcePath = Join-Path $stage7AcceptanceDir 'final_acceptance_synthetic_source.json'
+        $stage7SyntheticSourceOutputPath = Join-Path $stage7AcceptanceDir 'stage7_synthetic_source_kinds.json'
+        $restoreInvalidSourcePath = Join-Path $stage7AcceptanceDir 'restore_invalid_source_kind.json'
+        $smokeInvalidSourcePath = Join-Path $stage7AcceptanceDir 'smoke_invalid_source_kind.json'
+        $finalAcceptanceInvalidSourcePath = Join-Path $stage7AcceptanceDir 'final_acceptance_invalid_source_kind.json'
+        $stage7InvalidSourceOutputPath = Join-Path $stage7AcceptanceDir 'stage7_invalid_source_kinds.json'
 
         [ordered]@{
             restore_verified = $true
@@ -563,6 +571,108 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7BackupEvidenceRefReadiness.restore_evidence.has_backup_file -eq $false) 'Restore con backup_evidence_ref no debe marcar has_backup_file=true.'
         Assert-Condition ($stage7BackupEvidenceRefReadiness.restore_evidence.has_backup_ref -eq $true) 'Restore con backup_evidence_ref debe marcar has_backup_ref=true.'
         Assert-Condition ($stage7BackupEvidenceRefReadiness.checks.restore_authorized_evidence -eq $true) 'Restore con backup_evidence_ref debe quedar autorizado dentro del subgate de restore.'
+
+        [ordered]@{
+            restore_verified = $true
+            source_kind = 'synthetic_fixture'
+            authorization_ref = 'restore-authorization-v1'
+            backup_ref = 'restore-backup-v1'
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $restoreSyntheticSourcePath -Encoding UTF8
+
+        [ordered]@{
+            source_kind = 'synthetic_fixture'
+            authorization_ref = 'smoke-authorization-v1'
+            environment_ref = 'staging-env-v1'
+            target_ref = 'deployment-target-v1'
+            results = @(
+                [ordered]@{ label = 'admin'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'operator'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'reviewer'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'partner'; ok = $true; authFlow = 'ui-login' }
+            )
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $smokeSyntheticSourcePath -Encoding UTF8
+
+        [ordered]@{
+            accepted = $true
+            source_kind = 'synthetic_fixture'
+            authorization_ref = 'final-authorization-v1'
+            responsible_ref = 'final-owner-v1'
+            scope_ref = 'release-candidate-v1'
+            acceptance_ref = 'final-decision-v1'
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $finalAcceptanceSyntheticSourcePath -Encoding UTF8
+
+        $stage7SyntheticSourceOutput = & $stage7ReadinessScript `
+            -PythonExe $pythonExe `
+            -DatabaseUrl $BackendTestDb `
+            -OutputPath $stage7SyntheticSourceOutputPath `
+            -RestoreEvidencePath $restoreSyntheticSourcePath `
+            -PublicSmokeEvidencePath $smokeSyntheticSourcePath `
+            -FinalAcceptanceEvidencePath $finalAcceptanceSyntheticSourcePath `
+            -SkipMigrations | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage7-readiness-gate fallo al validar source_kind sintetico.'
+        if ($stage7SyntheticSourceOutput.Trim()) {
+            Write-Host $stage7SyntheticSourceOutput
+        }
+
+        $stage7SyntheticSourceReadiness = Get-Content -LiteralPath $stage7SyntheticSourceOutputPath -Raw | ConvertFrom-Json
+        $stage7SyntheticSourceIssueCodes = @($stage7SyntheticSourceReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage7SyntheticSourceIssueCodes -contains 'stage7.restore_synthetic_not_authorized') 'Restore sintetico debe tener codigo especifico.'
+        Assert-Condition ($stage7SyntheticSourceIssueCodes -contains 'stage7.public_smoke_synthetic_not_authorized') 'Smoke sintetico debe tener codigo especifico.'
+        Assert-Condition ($stage7SyntheticSourceIssueCodes -contains 'stage7.final_acceptance_synthetic_not_authorized') 'Aceptacion final sintetica debe tener codigo especifico.'
+        Assert-Condition ($stage7SyntheticSourceReadiness.restore_evidence.synthetic_only -eq $true) 'Restore sintetico debe marcar synthetic_only=true.'
+        Assert-Condition ($stage7SyntheticSourceReadiness.public_smoke_evidence.synthetic_only -eq $true) 'Smoke sintetico debe marcar synthetic_only=true.'
+        Assert-Condition ($stage7SyntheticSourceReadiness.final_acceptance_evidence.synthetic_only -eq $true) 'Aceptacion final sintetica debe marcar synthetic_only=true.'
+
+        [ordered]@{
+            restore_verified = $true
+            source_kind = 'backup_no_autorizado'
+            authorization_ref = 'restore-authorization-v1'
+            backup_ref = 'restore-backup-v1'
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $restoreInvalidSourcePath -Encoding UTF8
+
+        [ordered]@{
+            source_kind = 'smoke_no_autorizado'
+            authorization_ref = 'smoke-authorization-v1'
+            environment_ref = 'staging-env-v1'
+            target_ref = 'deployment-target-v1'
+            results = @(
+                [ordered]@{ label = 'admin'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'operator'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'reviewer'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'partner'; ok = $true; authFlow = 'ui-login' }
+            )
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $smokeInvalidSourcePath -Encoding UTF8
+
+        [ordered]@{
+            accepted = $true
+            source_kind = 'aceptacion_no_autorizada'
+            authorization_ref = 'final-authorization-v1'
+            responsible_ref = 'final-owner-v1'
+            scope_ref = 'release-candidate-v1'
+            acceptance_ref = 'final-decision-v1'
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $finalAcceptanceInvalidSourcePath -Encoding UTF8
+
+        $stage7InvalidSourceOutput = & $stage7ReadinessScript `
+            -PythonExe $pythonExe `
+            -DatabaseUrl $BackendTestDb `
+            -OutputPath $stage7InvalidSourceOutputPath `
+            -RestoreEvidencePath $restoreInvalidSourcePath `
+            -PublicSmokeEvidencePath $smokeInvalidSourcePath `
+            -FinalAcceptanceEvidencePath $finalAcceptanceInvalidSourcePath `
+            -SkipMigrations | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage7-readiness-gate fallo al validar source_kind invalido.'
+        if ($stage7InvalidSourceOutput.Trim()) {
+            Write-Host $stage7InvalidSourceOutput
+        }
+
+        $stage7InvalidSourceReadiness = Get-Content -LiteralPath $stage7InvalidSourceOutputPath -Raw | ConvertFrom-Json
+        $stage7InvalidSourceIssueCodes = @($stage7InvalidSourceReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage7InvalidSourceIssueCodes -contains 'stage7.restore_source_kind_invalid') 'Restore con source_kind invalido debe tener codigo especifico.'
+        Assert-Condition ($stage7InvalidSourceIssueCodes -contains 'stage7.public_smoke_source_kind_invalid') 'Smoke con source_kind invalido debe tener codigo especifico.'
+        Assert-Condition ($stage7InvalidSourceIssueCodes -contains 'stage7.final_acceptance_source_kind_invalid') 'Aceptacion final con source_kind invalido debe tener codigo especifico.'
+        Assert-Condition ($stage7InvalidSourceIssueCodes -notcontains 'stage7.restore_authorized_backup_missing') 'Restore con source_kind invalido no debe caer en codigo generico de backup.'
+        Assert-Condition ($stage7InvalidSourceIssueCodes -notcontains 'stage7.public_smoke_authorized_environment_missing') 'Smoke con source_kind invalido no debe caer en codigo generico de ambiente.'
+        Assert-Condition ($stage7InvalidSourceIssueCodes -notcontains 'stage7.final_acceptance_authorized_evidence_missing') 'Aceptacion final con source_kind invalido no debe caer en codigo generico.'
 
         $smokeUnredactedOutputPath = Join-Path $stage7AcceptanceDir 'smoke_unredacted_operational_output.json'
         $stage7UnredactedSmokeOutputPath = Join-Path $stage7AcceptanceDir 'stage7_unredacted_smoke_output.json'

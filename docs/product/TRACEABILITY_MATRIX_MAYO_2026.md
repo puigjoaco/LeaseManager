@@ -7,6 +7,11 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-02: Operacion productiva separa codigos de fuente evidencial en
+Etapa 7. `run-stage7-readiness-gate.ps1` emite codigos especificos para
+restore, smoke publico y aceptacion final con `source_kind` sintetico/local o
+invalido, sin agruparlos como refs faltantes o evidencia autorizada incompleta.
+
 Nota 2026-06-02: Operacion productiva alinea mensajes y acceptance del restore
 autorizado. El release gate de Etapa 7 exige `backup_ref` o
 `backup_evidence_ref` no sensible, prueba que `backup_evidence_ref` habilita el
