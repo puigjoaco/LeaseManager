@@ -54,6 +54,9 @@ from contratos.models import (
     PeriodoContractual,
     RolContratoPropiedad,
     TipoArrendatario,
+    WHATSAPP_BLOCK_ALERT_CATEGORY,
+    WHATSAPP_BLOCK_EVENT_TYPE,
+    WHATSAPP_REHABILITATION_EVENT_TYPE,
 )
 from core.stage2_cobranza_readiness import collect_stage2_cobranza_readiness
 from documentos.models import (
@@ -242,6 +245,72 @@ class Stage2CobranzaReadinessTests(TestCase):
             responsible_ref='stage2-responsibles-v1',
             reference_date=self.READINESS_REFERENCE_DATE,
         )
+
+    def _create_complete_whatsapp_rehabilitation_trace(
+        self,
+        tenant,
+        *,
+        block_ref='wa-block-rehab-readiness-001',
+        rehab_ref='wa-rehab-readiness-001',
+        include_rehab_event=True,
+        alert_status=ManualResolution.Status.RESOLVED,
+    ):
+        tenant.block_whatsapp(
+            motivo='Proveedor reporto bloqueo definitivo controlado.',
+            evidencia_ref=block_ref,
+        )
+        tenant.rehabilitate_whatsapp(rehabilitacion_ref=rehab_ref)
+        tenant.save()
+        rehabilitated_at = tenant.whatsapp_rehabilitado_at.isoformat()
+        AuditEvent.objects.create(
+            event_type=WHATSAPP_BLOCK_EVENT_TYPE,
+            entity_type='arrendatario',
+            entity_id=str(tenant.pk),
+            summary='Bloqueo definitivo WhatsApp controlado.',
+            actor_identifier='stage2-operator',
+            metadata={
+                'motivo': tenant.whatsapp_bloqueo_motivo,
+                'evidencia_ref': tenant.whatsapp_bloqueo_evidencia_ref,
+            },
+        )
+        alert_metadata = {
+            'actor_identifier': 'stage2-operator',
+            'evidencia_ref': tenant.whatsapp_bloqueo_evidencia_ref,
+        }
+        alert_fields = {}
+        if alert_status == ManualResolution.Status.RESOLVED:
+            alert_metadata.update(
+                {
+                    'rehabilitacion_ref': tenant.whatsapp_rehabilitacion_ref,
+                    'whatsapp_rehabilitado_at': rehabilitated_at,
+                    'resolved_actor_identifier': 'stage2-operator',
+                }
+            )
+            alert_fields['resolved_at'] = timezone.now()
+        alert = ManualResolution.objects.create(
+            category=WHATSAPP_BLOCK_ALERT_CATEGORY,
+            status=alert_status,
+            scope_type='arrendatario',
+            scope_reference=str(tenant.pk),
+            summary='Bloqueo definitivo WhatsApp requiere seguimiento administrativo.',
+            rationale=tenant.whatsapp_bloqueo_motivo,
+            metadata=alert_metadata,
+            **alert_fields,
+        )
+        if include_rehab_event:
+            AuditEvent.objects.create(
+                event_type=WHATSAPP_REHABILITATION_EVENT_TYPE,
+                entity_type='arrendatario',
+                entity_id=str(tenant.pk),
+                summary='Rehabilitacion manual WhatsApp controlada.',
+                actor_identifier='stage2-operator',
+                metadata={
+                    'rehabilitacion_ref': tenant.whatsapp_rehabilitacion_ref,
+                    'whatsapp_rehabilitado_at': rehabilitated_at,
+                    'alertas_resueltas': 1 if alert_status == ManualResolution.Status.RESOLVED else 0,
+                },
+            )
+        return tenant, alert
 
     def test_empty_database_reports_partial_without_sensitive_values(self):
         result = collect_stage2_cobranza_readiness(reference_date=self.READINESS_REFERENCE_DATE)
@@ -2568,6 +2637,94 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertEqual(result['sections']['channel_identities']['whatsapp_rehabilitation_sensitive_refs'], 1)
         self.assertNotIn('wa.example.test', json.dumps(result))
         self.assertNotIn('token=secret', json.dumps(result))
+
+    def test_whatsapp_rehabilitation_without_dedicated_event_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        self._create_complete_whatsapp_rehabilitation_trace(
+            fixture['tenant'],
+            include_rehab_event=False,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.rehabilitation_event_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.rehabilitation_block_event_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.rehabilitation_block_alert_missing', issue_codes)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_rehabilitation_event_missing'], 1)
+
+    def test_whatsapp_rehabilitation_with_open_block_alert_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        self._create_complete_whatsapp_rehabilitation_trace(
+            fixture['tenant'],
+            alert_status=ManualResolution.Status.OPEN,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.rehabilitation_alert_open', issue_codes)
+        self.assertNotIn('stage2.whatsapp.rehabilitation_event_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.rehabilitation_block_alert_missing', issue_codes)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_rehabilitation_open_alerts'], 1)
+
+    def test_whatsapp_rehabilitation_without_preserved_block_trace_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        tenant = fixture['tenant']
+        rehabilitated_at = timezone.now()
+        Arrendatario.objects.filter(pk=tenant.pk).update(
+            whatsapp_bloqueado=False,
+            whatsapp_bloqueo_motivo='',
+            whatsapp_bloqueo_evidencia_ref='',
+            whatsapp_bloqueado_at=None,
+            whatsapp_rehabilitacion_ref='wa-rehab-readiness-missing-block',
+            whatsapp_rehabilitado_at=rehabilitated_at,
+        )
+        AuditEvent.objects.create(
+            event_type=WHATSAPP_REHABILITATION_EVENT_TYPE,
+            entity_type='arrendatario',
+            entity_id=str(tenant.pk),
+            summary='Rehabilitacion manual WhatsApp heredada.',
+            actor_identifier='stage2-operator',
+            metadata={
+                'rehabilitacion_ref': 'wa-rehab-readiness-missing-block',
+                'whatsapp_rehabilitado_at': rehabilitated_at.isoformat(),
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.rehabilitation_block_trace_missing', issue_codes)
+        self.assertIn('stage2.whatsapp.rehabilitation_block_event_missing', issue_codes)
+        self.assertIn('stage2.whatsapp.rehabilitation_block_alert_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.rehabilitation_event_missing', issue_codes)
+
+    def test_whatsapp_rehabilitation_with_complete_trace_is_accepted(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        self._create_complete_whatsapp_rehabilitation_trace(fixture['tenant'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertNotIn('stage2.whatsapp.rehabilitation_trace_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.rehabilitation_block_trace_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.rehabilitation_block_event_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.rehabilitation_block_alert_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.rehabilitation_event_missing', issue_codes)
+        self.assertNotIn('stage2.whatsapp.rehabilitation_alert_open', issue_codes)
+        self.assertEqual(result['sections']['channel_identities']['whatsapp_rehabilitated_tenants'], 1)
 
     def test_webpay_gate_with_sensitive_reference_is_blocking(self):
         self._create_payment_matrix()
