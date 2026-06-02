@@ -508,6 +508,7 @@ if (-not $OnlySmoke) {
         $stage7RawBackupFileOutputPath = Join-Path $stage7AcceptanceDir 'stage7_raw_restore_backup_file.json'
         $restoreBackupEvidenceRefPath = Join-Path $stage7AcceptanceDir 'restore_backup_evidence_ref.json'
         $stage7BackupEvidenceRefOutputPath = Join-Path $stage7AcceptanceDir 'stage7_restore_backup_evidence_ref.json'
+        $stage7SensitiveSimpleFinalRefOutputPath = Join-Path $stage7AcceptanceDir 'stage7_sensitive_simple_final_acceptance_ref.json'
         $restoreSyntheticSourcePath = Join-Path $stage7AcceptanceDir 'restore_synthetic_source.json'
         $smokeSyntheticSourcePath = Join-Path $stage7AcceptanceDir 'smoke_synthetic_source.json'
         $finalAcceptanceSyntheticSourcePath = Join-Path $stage7AcceptanceDir 'final_acceptance_synthetic_source.json'
@@ -571,6 +572,27 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7BackupEvidenceRefReadiness.restore_evidence.has_backup_file -eq $false) 'Restore con backup_evidence_ref no debe marcar has_backup_file=true.'
         Assert-Condition ($stage7BackupEvidenceRefReadiness.restore_evidence.has_backup_ref -eq $true) 'Restore con backup_evidence_ref debe marcar has_backup_ref=true.'
         Assert-Condition ($stage7BackupEvidenceRefReadiness.checks.restore_authorized_evidence -eq $true) 'Restore con backup_evidence_ref debe quedar autorizado dentro del subgate de restore.'
+
+        $stage7SensitiveSimpleFinalRefOutput = & $stage7ReadinessScript `
+            -PythonExe $pythonExe `
+            -DatabaseUrl $BackendTestDb `
+            -OutputPath $stage7SensitiveSimpleFinalRefOutputPath `
+            -RestoreEvidencePath $restoreBackupEvidenceRefPath `
+            -PublicSmokeEvidencePath $smokeAuthorizedPath `
+            -FinalAcceptanceRef 'https://decision.example.test/signoff?token=dummy' `
+            -SkipMigrations | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage7-readiness-gate fallo al validar FinalAcceptanceRef simple sensible.'
+        if ($stage7SensitiveSimpleFinalRefOutput.Trim()) {
+            Write-Host $stage7SensitiveSimpleFinalRefOutput
+        }
+
+        $stage7SensitiveSimpleFinalRefReadiness = Get-Content -LiteralPath $stage7SensitiveSimpleFinalRefOutputPath -Raw | ConvertFrom-Json
+        $stage7SensitiveSimpleFinalRefIssueCodes = @($stage7SensitiveSimpleFinalRefReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage7SensitiveSimpleFinalRefIssueCodes -contains 'stage7.final_acceptance_ref_sensitive') 'FinalAcceptanceRef simple sensible debe tener codigo especifico.'
+        Assert-Condition ($stage7SensitiveSimpleFinalRefIssueCodes -notcontains 'stage7.final_acceptance_missing') 'FinalAcceptanceRef simple sensible no debe caer en aceptacion faltante generica.'
+        Assert-Condition ($stage7SensitiveSimpleFinalRefIssueCodes -notcontains 'stage7.final_acceptance_evidence_missing') 'FinalAcceptanceRef simple sensible no debe caer en evidencia faltante generica.'
+        Assert-Condition ($stage7SensitiveSimpleFinalRefReadiness.checks.final_acceptance_ref_sensitive -eq $true) 'FinalAcceptanceRef simple sensible debe marcar final_acceptance_ref_sensitive=true.'
+        Assert-Condition ($stage7SensitiveSimpleFinalRefReadiness.final_acceptance_evidence.acceptance_ref_sensitive -eq $true) 'FinalAcceptanceRef simple sensible debe marcar acceptance_ref_sensitive=true sin exponer valor.'
 
         [ordered]@{
             restore_verified = $true
