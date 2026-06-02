@@ -152,6 +152,8 @@ class OperationalRuntimeSignal(models.Model):
             errors['source_label'] = 'source_label debe ser una etiqueta no sensible.'
         if self.authorization_ref and SENSITIVE_EVIDENCE_REF_PATTERN.search(self.authorization_ref):
             errors['authorization_ref'] = 'authorization_ref debe ser una referencia no sensible.'
+        if self.notes and SENSITIVE_EVIDENCE_REF_PATTERN.search(self.notes):
+            errors['notes'] = 'notes debe ser una nota operativa no sensible.'
         if (
             self.status == RuntimeSignalStatus.OK
             and self.source_kind in AUTHORIZED_RUNTIME_SIGNAL_MODEL_SOURCE_KINDS
