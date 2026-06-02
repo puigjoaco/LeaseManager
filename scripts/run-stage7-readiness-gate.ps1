@@ -201,6 +201,32 @@ function Test-SmokeEvidence($payload) {
     return $true
 }
 
+function Test-JsonPropertyPresent($value, [string]$propertyName) {
+    if ($null -eq $value) {
+        return $false
+    }
+    if ($value -is [array]) {
+        foreach ($item in $value) {
+            if (Test-JsonPropertyPresent $item $propertyName) {
+                return $true
+            }
+        }
+        return $false
+    }
+    if ($value -isnot [pscustomobject]) {
+        return $false
+    }
+    foreach ($property in $value.PSObject.Properties) {
+        if ($property.Name -eq $propertyName) {
+            return $true
+        }
+        if (Test-JsonPropertyPresent $property.Value $propertyName) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Test-AuthorizedSmokeEvidence($payload) {
     $sourceKind = Get-PayloadTextProperty $payload @('source_kind', 'smoke_source_kind', 'source')
     $mode = Get-PayloadTextProperty $payload @('mode')
@@ -218,7 +244,13 @@ function Test-AuthorizedSmokeEvidence($payload) {
     $authorizationRefSensitive = Test-SensitiveReference $authorizationRef
     $environmentRefSensitive = Test-SensitiveReference $environmentRef
     $targetRefSensitive = Test-SensitiveReference $targetRef
+    $hasRawUsername = Test-JsonPropertyPresent $payload 'username'
+    $hasRawExcerpt = Test-JsonPropertyPresent $payload 'excerpt'
+    $hasRawScreenshotPath = Test-JsonPropertyPresent $payload 'screenshotPath'
+    $hasRawError = Test-JsonPropertyPresent $payload 'error'
+    $outputRedacted = -not ($hasRawUsername -or $hasRawExcerpt -or $hasRawScreenshotPath -or $hasRawError)
     $authorized = $verified `
+        -and $outputRedacted `
         -and (-not $syntheticOnly) `
         -and ($allowedSourceKinds -contains $sourceKind) `
         -and $hasAuthorizationRef `
@@ -228,6 +260,9 @@ function Test-AuthorizedSmokeEvidence($payload) {
     $reason = ''
     if (-not $verified) {
         $reason = 'public_smoke_invalid'
+    }
+    elseif (-not $outputRedacted) {
+        $reason = 'public_smoke_output_not_redacted'
     }
     elseif ($syntheticOnly) {
         $reason = 'public_smoke_synthetic_not_authorized'
@@ -265,6 +300,11 @@ function Test-AuthorizedSmokeEvidence($payload) {
         authorization_ref_sensitive = $authorizationRefSensitive
         environment_ref_sensitive = $environmentRefSensitive
         target_ref_sensitive = $targetRefSensitive
+        output_redacted = $outputRedacted
+        has_raw_username = $hasRawUsername
+        has_raw_excerpt = $hasRawExcerpt
+        has_raw_screenshot_path = $hasRawScreenshotPath
+        has_raw_error = $hasRawError
         reason = $reason
     }
 }
@@ -427,6 +467,11 @@ $publicSmokeEvidenceSummary = [ordered]@{
     authorization_ref_sensitive = $false
     environment_ref_sensitive = $false
     target_ref_sensitive = $false
+    output_redacted = $false
+    has_raw_username = $false
+    has_raw_excerpt = $false
+    has_raw_screenshot_path = $false
+    has_raw_error = $false
 }
 $finalAcceptanceEvidenceSummary = [ordered]@{
     provided = $false
@@ -639,6 +684,11 @@ else {
         authorization_ref_sensitive = $smokeCheck.authorization_ref_sensitive
         environment_ref_sensitive = $smokeCheck.environment_ref_sensitive
         target_ref_sensitive = $smokeCheck.target_ref_sensitive
+        output_redacted = $smokeCheck.output_redacted
+        has_raw_username = $smokeCheck.has_raw_username
+        has_raw_excerpt = $smokeCheck.has_raw_excerpt
+        has_raw_screenshot_path = $smokeCheck.has_raw_screenshot_path
+        has_raw_error = $smokeCheck.has_raw_error
     }
     if (-not $smokeCheck.verified) {
         $issues += [ordered]@{
@@ -649,6 +699,7 @@ else {
     }
     elseif (-not $smokeCheck.authorized) {
         $issueCode = switch ($smokeCheck.reason) {
+            'public_smoke_output_not_redacted' { 'stage7.public_smoke_output_not_redacted' }
             'public_smoke_authorization_ref_sensitive' { 'stage7.public_smoke_authorization_ref_sensitive' }
             'public_smoke_authorization_ref_missing' { 'stage7.public_smoke_authorization_ref_missing' }
             'public_smoke_environment_ref_sensitive' { 'stage7.public_smoke_environment_ref_sensitive' }
@@ -658,6 +709,7 @@ else {
             default { 'stage7.public_smoke_authorized_environment_missing' }
         }
         $issueMessage = switch ($smokeCheck.reason) {
+            'public_smoke_output_not_redacted' { 'La evidencia de smoke publico contiene campos diagnosticos crudos y debe emitirse redactada.' }
             'public_smoke_synthetic_not_authorized' { 'El smoke local/sintetico prepara el gate, pero no reemplaza un smoke publico con ambiente autorizado.' }
             'public_smoke_authorization_ref_sensitive' { 'La evidencia de smoke publico contiene authorization_ref sensible.' }
             'public_smoke_authorization_ref_missing' { 'La evidencia de smoke publico requiere authorization_ref no sensible.' }
