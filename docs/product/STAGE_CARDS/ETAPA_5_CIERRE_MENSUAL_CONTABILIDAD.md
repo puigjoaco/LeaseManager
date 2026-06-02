@@ -41,7 +41,8 @@ contables desde hechos conciliados.
   preparada o aprobada para el mismo periodo y cierre contable.
   `approve_monthly_close()` exige esa liquidacion antes de pasar el cierre a
   `aprobado`, y agrega la referencia no sensible de liquidacion al resumen del
-  cierre.
+  cierre. La readiness Etapa 5 detecta cierres heredados cuya liquidacion de
+  empresa existe para el periodo pero no esta vinculada al cierre aprobado.
 - Si la liquidacion mensual declara comision de administracion aplicable, debe
   existir una `LineaLiquidacionMensual` explicita de
   `comision_administracion` con beneficiario, monto positivo y evidencia no

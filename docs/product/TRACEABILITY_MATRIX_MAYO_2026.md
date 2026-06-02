@@ -13,6 +13,12 @@ credenciales, el comando `record_operational_runtime_signal` hereda ese guard
 y `audit_operational_observability` clasifica notas heredadas sensibles sin
 exponer valores.
 
+Nota 2026-06-02: Contabilidad/Etapa 5 exige vinculo exacto entre cierre
+aprobado y liquidacion mensual de empresa. `audit_stage5_contabilidad_readiness`
+reporta `stage5.liquidation_missing_for_approved_close` cuando un snapshot
+heredado conserva una `LiquidacionMensual` preparada/aprobada del mismo periodo
+pero sin `cierre_contable` apuntando al `CierreMensualContable` aprobado.
+
 Nota 2026-06-02: Reporting/Etapa 7 alinea la API de resumen tributario anual
 con readiness de referencias finales del proceso anual. El endpoint bloquea
 `ProcesoRentaAnual` aprobado, observado, rectificado o presentado si falta

@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | Estado real de `main` en `337a4ad` despues de PR #630, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Sin paquete tactico abierto. |
-| Motivo de prioridad | PR #630 cerro el guard de notas operativas sensibles en observabilidad runtime. |
-| Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
-| Rama | `main`. |
-| Estado | Main limpio y listo para diagnosticar el siguiente frente seguro por trazabilidad. |
-| Gate esperado | Para el siguiente paquete, definir tests focales, suite impactada, checks, gates locales, frontend si aplica, acceptance local, higiene y CI antes de PR. |
-| Estado al cerrar paquete | PR #630 mergeado en `337a4ad`; CI GitHub acceptance OK; worktree `D:/Proyectos/LeaseManager-operational-runtime-notes` eliminado; rama tactica local/remota eliminada. |
+| Frente activo | Etapa 5 Contabilidad - vinculo exacto liquidacion/cierre aprobado. |
+| Fuente exacta | Estado real de `main` en `1dd11f8` despues de PR #631, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Brecha activa | `audit_stage5_contabilidad_readiness` debe exigir que la `LiquidacionMensual` de empresa preparada/aprobada pertenezca al mismo `CierreMensualContable` aprobado, no solo al mismo periodo. |
+| Motivo de prioridad | El servicio `approve_monthly_close()` ya exige ese vinculo exacto; readiness debe detectar snapshots heredados que conserven una liquidacion de periodo desanclada del cierre. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-liquidation-close-link`. |
+| Rama | `codex/stage5-liquidation-close-link`. |
+| Estado | Paquete tactico abierto para corregir readiness, test focal, trazabilidad y evidencia. |
+| Gate esperado | Test focal de readiness Etapa 5, suite impactada Contabilidad/Stage5, `manage.py check`, migraciones dry-run, gate local Etapa 5, frontend build/lint si aplica, acceptance local, higiene, `git diff --check` y CI antes de merge. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
 | Politica de reanudacion | Si no hay worktree tactico abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. |
 | Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; luego elegir el siguiente paquete pequeno, local, verificable y cerrable. |

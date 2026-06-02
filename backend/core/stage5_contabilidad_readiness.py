@@ -184,6 +184,7 @@ def _count_approved_closes_without_company_liquidation(approved_closes) -> int:
         if not LiquidacionMensual.objects.filter(
             owner_tipo=TipoOwnerLiquidacion.COMPANY,
             empresa=close.empresa,
+            cierre_contable=close,
             anio=close.anio,
             mes=close.mes,
             estado__in=[EstadoLiquidacionMensual.PREPARED, EstadoLiquidacionMensual.APPROVED],

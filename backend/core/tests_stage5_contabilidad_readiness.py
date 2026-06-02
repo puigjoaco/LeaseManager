@@ -457,6 +457,18 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertIn('stage5.liquidation_missing_for_approved_close', issue_codes)
         self.assertEqual(result['sections']['liquidations']['approved_closes_without_company_liquidation'], 1)
 
+    def test_approved_close_with_unlinked_company_liquidation_is_blocking(self):
+        self._create_valid_local_matrix()
+        LiquidacionMensual.objects.update(cierre_contable=None)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.liquidation_missing_for_approved_close', issue_codes)
+        self.assertIn('stage5.liquidation_invalid', issue_codes)
+        self.assertEqual(result['sections']['liquidations']['approved_closes_without_company_liquidation'], 1)
+
     def test_liquidation_admin_fee_line_required_when_applicable(self):
         self._create_valid_local_matrix()
         LineaLiquidacionMensual.objects.all().delete()
