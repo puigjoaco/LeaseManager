@@ -527,6 +527,28 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertEqual(result['sections']['exports']['revoked_audit_reason_missing'], 0)
         self.assertEqual(result['sections']['exports']['revoked_audit_reason_sensitive'], 0)
 
+    def test_historical_access_event_does_not_block_after_revocation(self):
+        self._create_policies()
+        export = self._create_valid_export()
+        AuditEvent.objects.create(
+            event_type=EXPORT_ACCESSED_EVENT_TYPE,
+            entity_type=EXPORT_AUDIT_ENTITY_TYPE,
+            entity_id=str(export.pk),
+            summary='Contenido de exportacion sensible accedido',
+            actor_user=export.created_by,
+            metadata=build_export_audit_metadata(export),
+        )
+        ExportacionSensible.objects.filter(pk=export.pk).update(estado=EstadoExportacionSensible.REVOKED)
+        export.refresh_from_db()
+        self._create_revoked_audit_event(export)
+
+        result = self._collect_with_final_refs()
+
+        self.assertEqual(result['classification'], 'resuelto_confirmado')
+        self.assertTrue(result['ready_for_compliance_data'])
+        self.assertEqual(result['issues'], [])
+        self.assertEqual(result['sections']['audit']['metadata_unaligned_events'], 0)
+
     def test_access_denied_events_are_counted_without_blocking(self):
         self._create_policies()
         export = self._create_valid_export()

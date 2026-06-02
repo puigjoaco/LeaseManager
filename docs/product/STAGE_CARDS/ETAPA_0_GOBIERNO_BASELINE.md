@@ -60,6 +60,11 @@ evidencia respalda el root limpio.
   `access_denied` se ejecutan dentro de la misma transaccion que cualquier
   normalizacion terminal de estado; si falla la auditoria de acceso denegado,
   no queda una exportacion marcada `expirada` sin traza.
+- La readiness de Compliance valida la metadata historica de eventos de
+  exportacion sensible sin convertir cambios posteriores de estado en falsos
+  positivos: `prepared` y `accessed` conservan estado `preparada`, `revoked`
+  conserva `revocada` y `access_denied` conserva el estado observado al negar
+  el acceso.
 - Compliance no expone `evento_inicio` sensible heredado de politicas de
   retencion en API ni admin: nuevas escrituras siguen bloqueadas por dominio y
   los valores heredados se representan redactados. El admin de politicas y
