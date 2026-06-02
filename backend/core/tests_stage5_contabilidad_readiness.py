@@ -481,6 +481,49 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertIn('stage5.liquidation_invalid', issue_codes)
         self.assertEqual(result['sections']['liquidations']['required_admin_fee_line_missing'], 1)
 
+    def test_liquidation_final_balance_line_required_and_must_match_total(self):
+        self._create_valid_local_matrix()
+        liquidation = LiquidacionMensual.objects.get()
+        LiquidacionMensual.objects.filter(pk=liquidation.pk).update(
+            saldo_final_clp=Decimal('25000.00'),
+            saldo_final_explicacion='Saldo final por ajuste operacional controlado',
+            saldo_final_evidencia_ref='stage5-liquidation-final-balance-evidence-v1',
+        )
+
+        missing_result = self._collect_with_final_refs()
+        missing_issue_codes = {issue['code'] for issue in missing_result['issues']}
+
+        self.assertFalse(missing_result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.liquidation_final_balance_line_missing', missing_issue_codes)
+        self.assertIn('stage5.liquidation_invalid', missing_issue_codes)
+        self.assertEqual(missing_result['sections']['liquidations']['final_balance_line_missing'], 1)
+
+        line = LineaLiquidacionMensual.objects.create(
+            liquidacion=liquidation,
+            tipo_linea=TipoLineaLiquidacion.FINAL_BALANCE,
+            descripcion='Saldo final explicado enero controlado',
+            monto_clp=Decimal('20000.00'),
+            evidencia_ref='stage5-liquidation-final-balance-line-v1',
+        )
+
+        mismatch_result = self._collect_with_final_refs()
+        mismatch_issue_codes = {issue['code'] for issue in mismatch_result['issues']}
+
+        self.assertFalse(mismatch_result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.liquidation_final_balance_line_mismatch', mismatch_issue_codes)
+        self.assertIn('stage5.liquidation_invalid', mismatch_issue_codes)
+        self.assertEqual(mismatch_result['sections']['liquidations']['final_balance_line_mismatch'], 1)
+
+        line.monto_clp = Decimal('25000.00')
+        line.save(update_fields=['monto_clp'])
+
+        resolved_result = self._collect_with_final_refs()
+        resolved_issue_codes = {issue['code'] for issue in resolved_result['issues']}
+
+        self.assertTrue(resolved_result['ready_for_stage5_contabilidad'])
+        self.assertNotIn('stage5.liquidation_final_balance_line_missing', resolved_issue_codes)
+        self.assertNotIn('stage5.liquidation_final_balance_line_mismatch', resolved_issue_codes)
+
     def test_prepared_liquidation_economic_line_requires_accounting_trace(self):
         self._create_valid_local_matrix()
         LineaLiquidacionMensual.objects.update(evento_contable=None)

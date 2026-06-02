@@ -47,6 +47,10 @@ contables desde hechos conciliados.
   existir una `LineaLiquidacionMensual` explicita de
   `comision_administracion` con beneficiario, monto positivo y evidencia no
   sensible.
+- Si la liquidacion mensual preparada o aprobada conserva
+  `saldo_final_clp` distinto de cero, debe existir una
+  `LineaLiquidacionMensual` explicita de `saldo_final_explicado` cuyo total
+  cuadre con ese saldo final y tenga evidencia no sensible.
 - Las lineas economicas de liquidaciones preparadas o aprobadas deben trazar a
   `EventoContable`, y las explicaciones/evidencias de saldo final no pueden
   contener URLs, correos, tokens, credenciales ni referencias sensibles.

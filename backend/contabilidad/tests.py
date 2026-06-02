@@ -1101,6 +1101,80 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(prepared.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('comision_administracion_aplica', prepared.data)
 
+    def test_liquidacion_prepared_requires_matching_final_balance_line(self):
+        empresa = self._create_active_empresa(nombre='LiquidationBalanceCo', rut='72727274-7')
+        self._setup_contabilidad(empresa)
+        close = CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='preparado',
+            fecha_preparacion=timezone.now(),
+        )
+
+        created = self.client.post(
+            reverse('contabilidad-liquidacion-list'),
+            {
+                'owner_tipo': TipoOwnerLiquidacion.COMPANY,
+                'empresa': empresa.id,
+                'cierre_contable': close.id,
+                'anio': 2026,
+                'mes': 1,
+                'estado': EstadoLiquidacionMensual.DRAFT,
+                'comision_administracion_aplica': False,
+                'saldo_final_clp': '25000.00',
+                'saldo_final_explicacion': 'Saldo final por ajuste operacional controlado',
+                'saldo_final_evidencia_ref': 'liquidation-final-balance-evidence-001',
+                'evidencia_base_ref': 'liquidation-base-controlled-003',
+                'responsable_ref': 'liquidation-owner-controlled-003',
+            },
+            format='json',
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        missing_line = self.client.patch(
+            reverse('contabilidad-liquidacion-detail', args=[created.data['id']]),
+            {'estado': EstadoLiquidacionMensual.PREPARED},
+            format='json',
+        )
+        self.assertEqual(missing_line.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('saldo_final_clp', missing_line.data)
+
+        line = self.client.post(
+            reverse('contabilidad-linea-liquidacion-list'),
+            {
+                'liquidacion': created.data['id'],
+                'tipo_linea': TipoLineaLiquidacion.FINAL_BALANCE,
+                'descripcion': 'Saldo final explicado enero controlado',
+                'monto_clp': '20000.00',
+                'evidencia_ref': 'liquidation-final-balance-line-001',
+            },
+            format='json',
+        )
+        self.assertEqual(line.status_code, status.HTTP_201_CREATED)
+
+        mismatched_line = self.client.patch(
+            reverse('contabilidad-liquidacion-detail', args=[created.data['id']]),
+            {'estado': EstadoLiquidacionMensual.PREPARED},
+            format='json',
+        )
+        self.assertEqual(mismatched_line.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('saldo_final_clp', mismatched_line.data)
+
+        updated_line = self.client.patch(
+            reverse('contabilidad-linea-liquidacion-detail', args=[line.data['id']]),
+            {'monto_clp': '25000.00'},
+            format='json',
+        )
+        self.assertEqual(updated_line.status_code, status.HTTP_200_OK)
+
+        prepared = self.client.patch(
+            reverse('contabilidad-liquidacion-detail', args=[created.data['id']]),
+            {'estado': EstadoLiquidacionMensual.PREPARED},
+            format='json',
+        )
+        self.assertEqual(prepared.status_code, status.HTTP_200_OK)
+
     def test_liquidacion_api_creates_line_and_snapshot_redacts_sensitive_fields(self):
         empresa = self._create_active_empresa(nombre='LiquidationSnapshotCo', rut='72727273-7')
         self._setup_contabilidad(empresa)

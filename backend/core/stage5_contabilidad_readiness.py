@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -203,6 +204,18 @@ def _count_required_admin_fee_line_missing(liquidations) -> int:
     return missing
 
 
+def _count_final_balance_line_issues(liquidations) -> dict[str, int]:
+    issues = {'missing': 0, 'mismatch': 0}
+    for liquidation in liquidations:
+        if liquidation.saldo_final_clp == Decimal('0.00'):
+            continue
+        if not liquidation.has_saldo_final_line():
+            issues['missing'] += 1
+        elif liquidation.saldo_final_line_total() != liquidation.saldo_final_clp:
+            issues['mismatch'] += 1
+    return issues
+
+
 def _count_prepared_economic_lines_without_event(lines) -> int:
     economic_line_types = {
         TipoLineaLiquidacion.RENT_INCOME,
@@ -370,6 +383,7 @@ def collect_stage5_contabilidad_readiness(
     invalid_liquidation_lines = _count_invalid(liquidation_lines)
     approved_closes_without_company_liquidation = _count_approved_closes_without_company_liquidation(approved_closes)
     required_admin_fee_line_missing = _count_required_admin_fee_line_missing(prepared_or_approved_liquidations)
+    final_balance_line_issues = _count_final_balance_line_issues(prepared_or_approved_liquidations)
     prepared_economic_lines_without_event = _count_prepared_economic_lines_without_event(liquidation_lines)
     liquidation_sensitive_references = sum(
         [
@@ -686,6 +700,22 @@ def collect_stage5_contabilidad_readiness(
                 count=required_admin_fee_line_missing,
             )
         )
+    if final_balance_line_issues['missing']:
+        issues.append(
+            _issue(
+                'stage5.liquidation_final_balance_line_missing',
+                'Existen liquidaciones con saldo final distinto de cero sin linea explicita de saldo final explicado.',
+                count=final_balance_line_issues['missing'],
+            )
+        )
+    if final_balance_line_issues['mismatch']:
+        issues.append(
+            _issue(
+                'stage5.liquidation_final_balance_line_mismatch',
+                'Existen liquidaciones cuyas lineas de saldo final explicado no cuadran con saldo_final_clp.',
+                count=final_balance_line_issues['mismatch'],
+            )
+        )
     if prepared_economic_lines_without_event:
         issues.append(
             _issue(
@@ -856,6 +886,8 @@ def collect_stage5_contabilidad_readiness(
                 'invalid_liquidations': invalid_liquidations,
                 'invalid_liquidation_lines': invalid_liquidation_lines,
                 'required_admin_fee_line_missing': required_admin_fee_line_missing,
+                'final_balance_line_missing': final_balance_line_issues['missing'],
+                'final_balance_line_mismatch': final_balance_line_issues['mismatch'],
                 'prepared_economic_lines_without_event': prepared_economic_lines_without_event,
                 'liquidation_sensitive_references': liquidation_sensitive_references,
             },

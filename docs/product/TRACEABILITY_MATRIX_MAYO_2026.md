@@ -13,6 +13,14 @@ credenciales, el comando `record_operational_runtime_signal` hereda ese guard
 y `audit_operational_observability` clasifica notas heredadas sensibles sin
 exponer valores.
 
+Nota 2026-06-02: Contabilidad/Etapa 5 exige linea explicita para saldos
+finales de liquidacion. `LiquidacionMensual.clean()` bloquea liquidaciones
+preparadas/aprobadas con `saldo_final_clp` distinto de cero si no tienen
+`LineaLiquidacionMensual` `saldo_final_explicado` o si el total de esas lineas
+no cuadra con el saldo final; `audit_stage5_contabilidad_readiness` reporta
+`stage5.liquidation_final_balance_line_missing` o
+`stage5.liquidation_final_balance_line_mismatch` para snapshots heredados.
+
 Nota 2026-06-02: Contabilidad/Etapa 5 exige vinculo exacto entre cierre
 aprobado y liquidacion mensual de empresa. `audit_stage5_contabilidad_readiness`
 reporta `stage5.liquidation_missing_for_approved_close` cuando un snapshot
