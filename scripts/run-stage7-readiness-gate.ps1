@@ -129,10 +129,11 @@ function Test-AuthorizedRestoreEvidence($payload) {
     $rehearsalKind = Get-PayloadTextProperty $payload @('rehearsal_kind')
     $mode = Get-PayloadTextProperty $payload @('mode')
     $authorizationRef = Get-PayloadTextProperty $payload @('authorization_ref')
-    $backupRef = Get-PayloadTextProperty $payload @('backup_ref', 'backup_evidence_ref', 'backup_file')
+    $backupRef = Get-PayloadTextProperty $payload @('backup_ref', 'backup_evidence_ref')
     $allowedSourceKinds = @('snapshot_controlado', 'real_autorizado', 'backup_autorizado', 'restore_autorizado')
     $verified = ($payload.PSObject.Properties.Name -contains 'restore_verified') -and $payload.restore_verified -eq $true
     $syntheticOnly = $sourceKind -eq 'synthetic_fixture' -or $rehearsalKind -eq 'postgres_local_synthetic_restore' -or $mode -eq 'plan_only'
+    $hasBackupFile = Test-JsonPropertyPresent $payload 'backup_file'
     $hasAuthorizationRef = Test-NonSensitiveReference $authorizationRef
     $hasBackupRef = Test-NonSensitiveReference $backupRef
     $authorizationRefSensitive = Test-SensitiveReference $authorizationRef
@@ -140,6 +141,7 @@ function Test-AuthorizedRestoreEvidence($payload) {
     $authorized = $verified `
         -and (-not $syntheticOnly) `
         -and ($allowedSourceKinds -contains $sourceKind) `
+        -and (-not $hasBackupFile) `
         -and $hasAuthorizationRef `
         -and $hasBackupRef
 
@@ -152,6 +154,9 @@ function Test-AuthorizedRestoreEvidence($payload) {
     }
     elseif (-not ($allowedSourceKinds -contains $sourceKind)) {
         $reason = 'restore_source_kind_invalid'
+    }
+    elseif ($hasBackupFile) {
+        $reason = 'restore_backup_file_not_allowed'
     }
     elseif ($authorizationRefSensitive) {
         $reason = 'restore_authorization_ref_sensitive'
@@ -171,6 +176,7 @@ function Test-AuthorizedRestoreEvidence($payload) {
         authorized = $authorized
         source_kind = $sourceKind
         synthetic_only = $syntheticOnly
+        has_backup_file = $hasBackupFile
         has_authorization_ref = $hasAuthorizationRef
         has_backup_ref = $hasBackupRef
         authorization_ref_sensitive = $authorizationRefSensitive
@@ -450,6 +456,7 @@ $restoreEvidenceSummary = [ordered]@{
     authorized = $false
     source_kind = ''
     synthetic_only = $false
+    has_backup_file = $false
     has_authorization_ref = $false
     has_backup_ref = $false
     authorization_ref_sensitive = $false
@@ -624,6 +631,7 @@ else {
         authorized = $restoreCheck.authorized
         source_kind = $restoreCheck.source_kind
         synthetic_only = $restoreCheck.synthetic_only
+        has_backup_file = $restoreCheck.has_backup_file
         has_authorization_ref = $restoreCheck.has_authorization_ref
         has_backup_ref = $restoreCheck.has_backup_ref
         authorization_ref_sensitive = $restoreCheck.authorization_ref_sensitive
@@ -638,6 +646,7 @@ else {
     }
     elseif (-not $restoreCheck.authorized) {
         $issueCode = switch ($restoreCheck.reason) {
+            'restore_backup_file_not_allowed' { 'stage7.restore_backup_file_not_allowed' }
             'restore_authorization_ref_sensitive' { 'stage7.restore_authorization_ref_sensitive' }
             'restore_authorization_ref_missing' { 'stage7.restore_authorization_ref_missing' }
             'restore_backup_ref_sensitive' { 'stage7.restore_backup_ref_sensitive' }
@@ -646,6 +655,7 @@ else {
         }
         $issueMessage = switch ($restoreCheck.reason) {
             'synthetic_restore_not_authorized' { 'El restore sintetico prepara el gate, pero no reemplaza restore de backup/snapshot autorizado.' }
+            'restore_backup_file_not_allowed' { 'La evidencia de restore debe usar backup_ref o backup_evidence_ref no sensible; backup_file crudo no habilita cierre.' }
             'restore_authorization_ref_sensitive' { 'La evidencia de restore contiene authorization_ref sensible.' }
             'restore_authorization_ref_missing' { 'La evidencia de restore requiere authorization_ref no sensible.' }
             'restore_backup_ref_sensitive' { 'La evidencia de restore contiene backup_ref o backup_file sensible.' }
