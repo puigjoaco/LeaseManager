@@ -446,6 +446,7 @@ $checks = [ordered]@{
     public_smoke_evidence = $false
     public_smoke_authorized_evidence = $false
     final_acceptance_ref = $false
+    final_acceptance_ref_sensitive = $false
     final_acceptance_evidence = $false
     final_acceptance_authorized_evidence = $false
 }
@@ -741,12 +742,16 @@ else {
     }
 }
 
+$finalAcceptanceRefSensitive = Test-SensitiveReference $FinalAcceptanceRef
 $checks.final_acceptance_ref = Test-NonSensitiveReference $FinalAcceptanceRef
+$checks.final_acceptance_ref_sensitive = $finalAcceptanceRefSensitive
+$finalAcceptanceEvidenceSummary['has_acceptance_ref'] = $checks.final_acceptance_ref
+$finalAcceptanceEvidenceSummary['acceptance_ref_sensitive'] = $finalAcceptanceRefSensitive
 if ([string]::IsNullOrWhiteSpace($FinalAcceptanceEvidencePath)) {
     $issues += [ordered]@{
-        code = if ($checks.final_acceptance_ref) { 'stage7.final_acceptance_evidence_missing' } else { 'stage7.final_acceptance_missing' }
+        code = if ($finalAcceptanceRefSensitive) { 'stage7.final_acceptance_ref_sensitive' } elseif ($checks.final_acceptance_ref) { 'stage7.final_acceptance_evidence_missing' } else { 'stage7.final_acceptance_missing' }
         severity = 'blocking'
-        message = if ($checks.final_acceptance_ref) { 'La referencia simple de aceptacion final no reemplaza evidencia JSON autorizada.' } else { 'Falta evidencia JSON de aceptacion final autorizada.' }
+        message = if ($finalAcceptanceRefSensitive) { 'FinalAcceptanceRef contiene una referencia sensible y no reemplaza evidencia JSON autorizada.' } elseif ($checks.final_acceptance_ref) { 'La referencia simple de aceptacion final no reemplaza evidencia JSON autorizada.' } else { 'Falta evidencia JSON de aceptacion final autorizada.' }
     }
 }
 else {
