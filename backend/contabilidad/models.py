@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
@@ -615,6 +615,19 @@ class LiquidacionMensual(TimestampedModel):
     def __str__(self):
         return f'{self.owner_tipo} {self.anio}-{self.mes:02d}'
 
+    def saldo_final_line_total(self):
+        if not self.pk:
+            return Decimal('0.00')
+        return self.lineas.filter(tipo_linea=TipoLineaLiquidacion.FINAL_BALANCE).aggregate(
+            total=Sum('monto_clp')
+        )['total'] or Decimal('0.00')
+
+    def has_saldo_final_line(self):
+        return bool(
+            self.pk
+            and self.lineas.filter(tipo_linea=TipoLineaLiquidacion.FINAL_BALANCE).exists()
+        )
+
     def clean(self):
         super().clean()
         errors = {}
@@ -650,6 +663,15 @@ class LiquidacionMensual(TimestampedModel):
                 errors['saldo_final_explicacion'] = 'Un saldo final distinto de cero requiere explicacion.'
             if not has_text(self.saldo_final_evidencia_ref):
                 errors['saldo_final_evidencia_ref'] = 'Un saldo final distinto de cero requiere evidencia no sensible.'
+            if prepared_or_approved:
+                if not self.has_saldo_final_line():
+                    errors['saldo_final_clp'] = (
+                        'Un saldo final distinto de cero debe quedar como linea explicita de saldo final explicado.'
+                    )
+                elif self.saldo_final_line_total() != self.saldo_final_clp:
+                    errors['saldo_final_clp'] = (
+                        'Las lineas de saldo final explicado deben cuadrar con saldo_final_clp.'
+                    )
 
         if self.cierre_contable_id:
             if self.cierre_contable.anio != self.anio or self.cierre_contable.mes != self.mes:
