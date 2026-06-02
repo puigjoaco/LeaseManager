@@ -237,6 +237,18 @@ def _message_context_matches(left: MensajeSaliente, right: MensajeSaliente) -> b
     return False
 
 
+def _fallback_email_matches(message: MensajeSaliente, fallback: MensajeSaliente) -> bool:
+    if not _message_context_matches(message, fallback):
+        return False
+    message_state_at = message.updated_at or message.created_at
+    fallback_ready_at = fallback.created_at
+    if fallback.estado == EstadoMensajeSaliente.SENT and fallback.enviado_at:
+        fallback_ready_at = fallback.enviado_at
+    if message_state_at and fallback_ready_at and fallback_ready_at < message_state_at:
+        return False
+    return True
+
+
 def _fallback_resolution_matches(message: MensajeSaliente, resolution: ManualResolution) -> bool:
     metadata = resolution.metadata if isinstance(resolution.metadata, dict) else {}
     if not resolution.requested_by_id and not str(metadata.get('actor_identifier') or '').strip():
@@ -304,7 +316,7 @@ def _collect_whatsapp_fallback_issues(messages) -> dict[str, int]:
             continue
         if message.estado not in {EstadoMensajeSaliente.BLOCKED, EstadoMensajeSaliente.FAILED}:
             continue
-        if any(_message_context_matches(message, fallback) for fallback in email_fallbacks):
+        if any(_fallback_email_matches(message, fallback) for fallback in email_fallbacks):
             continue
         if any(_fallback_resolution_matches(message, resolution) for resolution in fallback_resolutions) and (
             _fallback_event_matches(message)

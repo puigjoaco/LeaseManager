@@ -191,8 +191,11 @@ condicionados sin envios reales accidentales.
   alternativo preparado/enviado o con alerta critica/fallback trazable; el
   servicio de preparacion crea esa alerta con actor y evento dedicado cuando
   bloquea WhatsApp, y el servicio interno de fallo controlado hace lo mismo al
-  marcar un mensaje WhatsApp preparado como fallido. La readiness bloquea
-  snapshots heredados sin esa traza, sin
+  marcar un mensaje WhatsApp preparado como fallido. Si la traza usa Email
+  alternativo preparado/enviado en vez de alerta, debe pertenecer al mismo
+  contexto operativo y quedar preparado/enviado despues del bloqueo o fallo de
+  WhatsApp; un Email historico anterior no satisface el fallback. La readiness
+  bloquea snapshots heredados sin esa traza, sin
   actor, sin evento dedicado, con motivo/contexto desalineado, con bloqueo
   definitivo sin evento/alerta, con evidencia/motivo desalineados o con
   motivo heredado sensible. El modelo y el endpoint de bloqueo rechazan nuevos
