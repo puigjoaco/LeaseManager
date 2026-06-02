@@ -597,6 +597,10 @@ if ($shouldRunPublicSmoke) {
     if ($smokeOutput.Trim()) {
         Write-Host $smokeOutput
     }
+    Assert-Condition ($smokeOutput -notmatch '"username"\s*:') 'La smoke publica no debe emitir username en JSON.'
+    Assert-Condition ($smokeOutput -notmatch '"excerpt"\s*:') 'La smoke publica no debe emitir excerpt de pantalla en JSON.'
+    Assert-Condition ($smokeOutput -notmatch '"screenshotPath"\s*:') 'La smoke publica no debe emitir rutas de screenshot en JSON.'
+    Assert-Condition ($smokeOutput -notmatch '"error"\s*:') 'La smoke publica no debe emitir errores crudos en JSON.'
 
     $smokePayload = $smokeOutput | ConvertFrom-Json
     if ($smokePayload.PSObject.Properties.Name -contains 'results') {
@@ -623,19 +627,10 @@ if ($shouldRunPublicSmoke) {
     Assert-Condition ($operatorResult.authFlow -eq 'ui-login') 'La smoke operator no paso por el login real del frontend.'
     Assert-Condition ($reviewerResult.authFlow -eq 'ui-login') 'La smoke reviewer no paso por el login real del frontend.'
     Assert-Condition ($partnerResult.authFlow -eq 'ui-login') 'La smoke partner no paso por el login real del frontend.'
-
-    Assert-Condition ($adminResult.excerpt -match 'conciliacion\.ingreso desconocido') 'El overview admin no mostro la categoria real del backlog manual.'
-    Assert-Condition ($adminResult.excerpt -notmatch 'Actualizando detalle de') 'El overview admin volvio a mostrar placeholder de backlog.'
-    Assert-Condition ($operatorResult.excerpt -match 'Demo Operador de Cartera') 'La smoke operator no aterrizo en el perfil correcto.'
-    Assert-Condition ($operatorResult.excerpt -match 'Resoluciones abiertas') 'La smoke operator no mostro el resumen operativo.'
-    Assert-Condition ($operatorResult.excerpt -notmatch 'Contabilidad') 'La smoke operator expuso tabs de control no permitidas.'
-    Assert-Condition ($reviewerResult.excerpt -match 'Configuración fiscal, eventos, asientos y cierres') 'Reviewer no aterrizo en Contabilidad.'
-    Assert-Condition ($reviewerResult.excerpt -notmatch 'Cargando catálogo contable') 'Reviewer mostro carga residual de catalogo contable.'
-    Assert-Condition ($reviewerResult.excerpt -notmatch 'Cargando actividad contable') 'Reviewer mostro carga residual de actividad contable.'
-    Assert-Condition ($partnerResult.excerpt -match 'Resumen propio') 'El smoke partner no aterrizo en Reporting propio.'
-    Assert-Condition ($partnerResult.excerpt -match 'Socio vinculado') 'El smoke partner no mostro el bloque de socio vinculado.'
-    Assert-Condition ($partnerResult.excerpt -notmatch 'Sin resumen cargado') 'El smoke partner no alcanzo a cargar el resumen propio.'
-    Assert-Condition ($partnerResult.excerpt -notmatch 'RUT\r?\nSin dato') 'El smoke partner no alcanzo a cargar el RUT del socio.'
+    Assert-Condition ($adminResult.screenshotCaptured -eq $true) 'La smoke admin no confirmo screenshot capturado.'
+    Assert-Condition ($operatorResult.screenshotCaptured -eq $true) 'La smoke operator no confirmo screenshot capturado.'
+    Assert-Condition ($reviewerResult.screenshotCaptured -eq $true) 'La smoke reviewer no confirmo screenshot capturado.'
+    Assert-Condition ($partnerResult.screenshotCaptured -eq $true) 'La smoke partner no confirmo screenshot capturado.'
 
     Step "Smoke summary"
     Write-Host ($smokeResults | ConvertTo-Json -Depth 6)

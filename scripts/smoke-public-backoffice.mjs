@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { chromium } from 'playwright';
 
@@ -48,7 +49,7 @@ function parseArgs(argv) {
       if (!password) {
         throw new Error('--username requires a following password argument.');
       }
-      options.accounts.push({ label: username, username, password });
+      options.accounts.push({ label: `custom-${options.accounts.length + 1}`, username, password });
       index += 2;
       continue;
     }
@@ -156,6 +157,93 @@ function validateEvidenceOptions(options) {
   }
 }
 
+function assertTextIncludes(body, expected, message) {
+  if (!body.includes(expected)) {
+    throw new Error(message);
+  }
+}
+
+function assertTextExcludes(body, unexpected, message) {
+  if (body.includes(unexpected)) {
+    throw new Error(message);
+  }
+}
+
+function validateSmokeBody(account, body) {
+  if (account.waitFor === 'contabilidad') {
+    assertTextIncludes(
+      body,
+      'Configuración fiscal, eventos, asientos y cierres',
+      'Reviewer accounting workspace was not ready.',
+    );
+    assertTextExcludes(body, 'Cargando catálogo contable', 'Reviewer accounting catalog was still loading.');
+    assertTextExcludes(body, 'Cargando actividad contable', 'Reviewer accounting activity was still loading.');
+    return;
+  }
+
+  if (account.waitFor === 'reporting') {
+    assertTextIncludes(body, 'Resumen propio', 'Partner reporting summary was not ready.');
+    assertTextIncludes(body, 'Socio vinculado', 'Partner linked owner block was not ready.');
+    assertTextExcludes(body, 'Sin resumen cargado', 'Partner reporting summary did not load.');
+    if (/RUT\r?\nSin dato/.test(body)) {
+      throw new Error('Partner RUT block did not load.');
+    }
+    return;
+  }
+
+  if (account.label === 'operator') {
+    assertTextIncludes(body, 'Resoluciones abiertas', 'Operator operational summary was not ready.');
+    assertTextExcludes(body, 'Contabilidad', 'Operator saw restricted accounting navigation.');
+    return;
+  }
+
+  if (account.label === 'admin') {
+    assertTextIncludes(body, 'conciliacion.ingreso desconocido', 'Admin manual backlog category was not ready.');
+    assertTextExcludes(body, 'Actualizando detalle de', 'Admin manual backlog kept a loading placeholder.');
+  }
+}
+
+function toPublicSmokeResult(result) {
+  const publicResult = {
+    ok: Boolean(result.ok),
+    label: result.label,
+    authFlow: result.authFlow,
+  };
+
+  if (typeof result.seconds === 'number') {
+    publicResult.seconds = result.seconds;
+  }
+  if (result.dashboard) {
+    publicResult.dashboard = result.dashboard;
+  }
+  if (typeof result.hasReadonlyBanner === 'boolean') {
+    publicResult.hasReadonlyBanner = result.hasReadonlyBanner;
+  }
+  if (result.screenshotCaptured) {
+    publicResult.screenshotCaptured = true;
+  }
+  if (!result.ok) {
+    publicResult.errorCode = result.errorCode || 'smoke_step_failed';
+  }
+  return publicResult;
+}
+
+function buildSmokeOutput(options, results) {
+  const publicResults = results.map(toPublicSmokeResult);
+  if (!shouldEmitEvidenceEnvelope(options)) {
+    return publicResults;
+  }
+  return {
+    source_kind: options.evidenceSourceKind,
+    authorization_ref: options.authorizationRef,
+    environment_ref: options.environmentRef,
+    target_ref: options.targetRef,
+    responsible_ref: options.responsibleRef || undefined,
+    generated_at: new Date().toISOString(),
+    results: publicResults,
+  };
+}
+
 async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1200 } });
@@ -202,9 +290,7 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
     }
 
     const body = await page.locator('body').innerText();
-    const tabs = await page
-      .locator('button')
-      .evaluateAll((elements) => elements.map((element) => (element.textContent || '').trim()).filter(Boolean));
+    validateSmokeBody(account, body);
 
     await fs.mkdir(screenshotDir, { recursive: true });
     const screenshotPath = path.join(screenshotDir, `smoke-${account.label}.png`);
@@ -213,10 +299,8 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
     return {
       ok: true,
       label: account.label,
-      username: account.username,
       authFlow: 'ui-login',
       seconds: Number(((Date.now() - start) / 1000).toFixed(1)),
-      tabs,
       dashboard: {
         propiedades: /Propiedades activas\s+(\d+)/.exec(body)?.[1] || null,
         contratos: /Contratos vigentes\s+(\d+)/.exec(body)?.[1] || null,
@@ -224,16 +308,14 @@ async function runSmoke({ frontendUrl, apiBaseUrl, account, screenshotDir }) {
         dtes: /DTE borrador\s+(\d+)/.exec(body)?.[1] || null,
       },
       hasReadonlyBanner: body.toLowerCase().includes('solo lectura'),
-      screenshotPath,
-      excerpt: body.slice(0, 5000),
+      screenshotCaptured: true,
     };
   } catch (error) {
     return {
       ok: false,
       label: account.label,
-      username: account.username,
       authFlow: 'ui-login',
-      error: String(error),
+      errorCode: 'smoke_step_failed',
     };
   } finally {
     await context.close();
@@ -248,24 +330,25 @@ async function main() {
     // Keep the run sequential to reduce noise from concurrent public requests.
     results.push(await runSmoke({ ...options, account }));
   }
-  const output = shouldEmitEvidenceEnvelope(options)
-    ? {
-        source_kind: options.evidenceSourceKind,
-        authorization_ref: options.authorizationRef,
-        environment_ref: options.environmentRef,
-        target_ref: options.targetRef,
-        responsible_ref: options.responsibleRef || undefined,
-        generated_at: new Date().toISOString(),
-        results,
-      }
-    : results;
+  const output = buildSmokeOutput(options, results);
   console.log(JSON.stringify(output, null, 2));
   if (results.some((result) => !result.ok)) {
     process.exitCode = 1;
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+export {
+  buildSmokeOutput,
+  isNonSensitiveReference,
+  parseArgs,
+  toPublicSmokeResult,
+  validateSmokeBody,
+};
+
+const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+if (invokedPath && fileURLToPath(import.meta.url) === invokedPath) {
+  main().catch((error) => {
+    console.error(error.message || error);
+    process.exit(1);
+  });
+}
