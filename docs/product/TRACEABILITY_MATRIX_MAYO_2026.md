@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-02: Conciliacion/Etapa 3 deja de contar conexiones bancarias con
+error proveedor reciente como listas para `provider_sync`. Si `ultimo_error_at`
+es posterior a `ultimo_exito_at`, `bank_provider_sync_blocking_reason` bloquea
+nuevas importaciones provider sync y `audit_stage3_conciliacion_readiness`
+mantiene `ready_primary_movements=0`, `stage3.bank_connection.recent_error` y
+`stage3.movement.provider_sync_connection_not_ready` para snapshots heredados.
+
 Nota 2026-06-02: Cobranza y Canales cubre auditoria de preparacion WebPay en
 readiness. `audit_stage2_cobranza_readiness` emite
 `stage2.webpay_intent.prepared_event_missing` para intentos WebPay preparados o

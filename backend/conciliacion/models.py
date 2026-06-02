@@ -725,6 +725,10 @@ def bank_provider_sync_blocking_reason(conexion):
         return 'Banca.Movimientos requiere prueba_conectividad_ref no sensible.'
     if not is_non_sensitive_reference(conexion.prueba_movimientos_ref):
         return 'Banca.Movimientos requiere prueba_movimientos_ref no sensible.'
+    if conexion.ultimo_error_at and (
+        conexion.ultimo_exito_at is None or conexion.ultimo_error_at > conexion.ultimo_exito_at
+    ):
+        return 'Banca.Movimientos requiere un ultimo exito posterior al ultimo error del proveedor.'
     return ''
 
 

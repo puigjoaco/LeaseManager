@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -8,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -953,6 +955,29 @@ class ConciliacionAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('conexion_bancaria', response.data)
+
+    def test_provider_sync_rejects_connection_with_recent_bank_error(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-PROVIDER-ERR')
+        conexion = self._create_connection(cuenta)
+        now = timezone.now()
+        conexion.ultimo_exito_at = now - timedelta(hours=2)
+        conexion.ultimo_error_at = now - timedelta(hours=1)
+        conexion.save(update_fields=['ultimo_exito_at', 'ultimo_error_at', 'updated_at'])
+
+        response = self.client.post(
+            reverse('conciliacion-movimiento-list'),
+            self._movement_payload(
+                conexion,
+                origen_importacion='provider_sync',
+                evidencia_importacion_ref='',
+                transaction_id_banco='bank-provider-recent-error-001',
+            ),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('conexion_bancaria', response.data)
+        self.assertIn('ultimo error', str(response.data['conexion_bancaria']).lower())
 
     def test_provider_sync_rejects_sensitive_transaction_id(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-PROVIDER-SENSITIVE')

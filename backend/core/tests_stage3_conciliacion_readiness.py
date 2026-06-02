@@ -1,6 +1,7 @@
 import json
 from calendar import monthrange
 from datetime import date
+from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
@@ -10,6 +11,7 @@ from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
+from django.utils import timezone
 
 from audit.models import AuditEvent, ManualResolution
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
@@ -1032,6 +1034,37 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.movement.provider_sync_transaction_missing', issue_codes)
         self.assertIn('stage3.movement.provider_sync_connection_not_ready', issue_codes)
+
+    def test_provider_sync_with_recent_bank_error_is_not_ready(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-PROVIDER-ERR')
+        conexion = self._create_ready_connection(cuenta)
+        now = timezone.now()
+        conexion.ultimo_exito_at = now - timedelta(hours=2)
+        conexion.ultimo_error_at = now - timedelta(hours=1)
+        conexion.save(update_fields=['ultimo_exito_at', 'ultimo_error_at', 'updated_at'])
+        MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=payment.monto_calculado_clp,
+            descripcion_origen='Provider con error reciente',
+            origen_importacion=OrigenImportacionMovimiento.PROVIDER_SYNC,
+            transaction_id_banco='bank-provider-recent-error-001',
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+            pago_mensual=payment,
+            saldo_reportado=Decimal('1000000.00'),
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.bank_connection.primary_movements_missing', issue_codes)
+        self.assertIn('stage3.bank_connection.recent_error', issue_codes)
+        self.assertIn('stage3.movement.provider_sync_connection_not_ready', issue_codes)
+        self.assertEqual(result['sections']['bank_connections']['ready_primary_movements'], 0)
+        self.assertEqual(result['sections']['bank_connections']['recent_error_after_success'], 1)
+        self.assertEqual(result['sections']['movements']['provider_sync_connection_not_ready'], 1)
 
     def test_manual_import_without_evidence_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-MANUAL')
