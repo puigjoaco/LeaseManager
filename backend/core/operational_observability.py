@@ -301,8 +301,18 @@ def collect_operational_observability_audit():
     ).count()
 
     runtime_signals, issues = _collect_runtime_signals()
+    sensitive_runtime_notes = sum(
+        1
+        for signal in OperationalRuntimeSignal.objects.all()
+        if signal.notes and SENSITIVE_EVIDENCE_REF_PATTERN.search(signal.notes)
+    )
 
     for code, count, message in [
+        (
+            'observability.runtime_signal_notes_sensitive',
+            sensitive_runtime_notes,
+            'Existen senales runtime con notas operativas sensibles.',
+        ),
         (
             'observability.channel_gate_invalid',
             invalid_channel_gates,
@@ -417,6 +427,7 @@ def collect_operational_observability_audit():
                 'documentos_cancelados': canceled_documents,
             },
             'runtime_signals': runtime_signals,
+            'runtime_signal_sensitive_notes': sensitive_runtime_notes,
         },
         'limitations': [
             'Auditoria local de solo lectura; no conecta proveedores externos.',

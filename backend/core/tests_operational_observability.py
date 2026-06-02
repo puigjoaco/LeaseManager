@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -310,6 +311,43 @@ class OperationalObservabilityAuditTests(TestCase):
                 value_json='{"healthy": true, "access_token": "opaque-runtime-value"}',
                 stdout=StringIO(),
             )
+
+    def test_runtime_signal_rejects_sensitive_notes_and_audit_classifies_inherited_values(self):
+        signal = OperationalRuntimeSignal(
+            signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+            status=RuntimeSignalStatus.OK,
+            evidence_ref='queue-runtime-controlled-v1',
+            value={'healthy': True},
+            notes='Nota sensible en https://runtime.example.test/metric?token=secret',
+        )
+        with self.assertRaises(ValidationError):
+            signal.full_clean()
+
+        with self.assertRaises(CommandError):
+            call_command(
+                'record_operational_runtime_signal',
+                signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+                status=RuntimeSignalStatus.OK,
+                evidence_ref='queue-runtime-controlled-v1',
+                value_json='{"healthy": true}',
+                notes='Nota sensible en https://runtime.example.test/metric?token=secret',
+                stdout=StringIO(),
+            )
+
+        create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO)
+        OperationalRuntimeSignal.objects.filter(signal_key=RuntimeSignalKey.QUEUE_RUNTIME).update(
+            notes='Nota sensible heredada con https://runtime.example.test/metric?token=secret',
+        )
+
+        result = collect_operational_observability_audit()
+        rendered = json.dumps(result, default=str)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_observability'])
+        self.assertIn('observability.runtime_signal_notes_sensitive', issue_codes)
+        self.assertEqual(result['sections']['runtime_signal_sensitive_notes'], 1)
+        self.assertNotIn('runtime.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
 
 
 class OperationalObservabilityAPITests(APITestCase):

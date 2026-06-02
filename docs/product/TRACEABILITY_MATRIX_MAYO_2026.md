@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-02: Operacion productiva refuerza notas de senales runtime.
+`OperationalRuntimeSignal.clean()` rechaza `notes` con URLs, tokens o
+credenciales, el comando `record_operational_runtime_signal` hereda ese guard
+y `audit_operational_observability` clasifica notas heredadas sensibles sin
+exponer valores.
+
 Nota 2026-06-02: Reporting/Etapa 7 alinea la API de resumen tributario anual
 con readiness de referencias finales del proceso anual. El endpoint bloquea
 `ProcesoRentaAnual` aprobado, observado, rectificado o presentado si falta

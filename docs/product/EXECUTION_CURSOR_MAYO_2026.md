@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno. |
-| Fuente exacta | Estado real de `main` en `744df59` despues de PR #628, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
-| Brecha activa | Sin paquete tactico abierto. |
-| Motivo de prioridad | PR #628 cerro la validacion de referencias finales del proceso anual en Reporting. |
-| Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
-| Rama | `main`. |
-| Estado | Main limpio y listo para diagnosticar el siguiente frente seguro por trazabilidad. |
-| Gate esperado | Para el siguiente paquete, definir tests focales, suite impactada, checks, gates locales, frontend si aplica, acceptance local, higiene y CI antes de PR. |
-| Estado al cerrar paquete | PR #628 mergeado en `744df59`; CI GitHub acceptance OK; worktree `D:/Proyectos/LeaseManager-reporting-annual-process-refs` eliminado; rama tactica local/remota eliminada. |
+| Frente activo | Operacion productiva / observabilidad runtime. |
+| Fuente exacta | Estado real de `main` en `ad4430a` despues de PR #629, stage card Etapa 7 Operacion productiva y trazabilidad vigente. |
+| Brecha activa | `OperationalRuntimeSignal.notes` debe rechazarse si contiene URLs, tokens, credenciales o referencias sensibles, y la auditoria local debe clasificar notas heredadas sensibles sin exponer valores. |
+| Motivo de prioridad | Es una brecha local de seguridad operativa: el comando define `--notes` como no sensible y el admin redacta notas, pero el dominio/auditor aun no bloquean ni clasifican notas sensibles persistidas. |
+| Worktree | `D:/Proyectos/LeaseManager-operational-runtime-notes`. |
+| Rama | `codex/operational-runtime-notes`. |
+| Estado | Paquete tactico abierto; pendiente implementacion, validacion, evidencia, PR, CI, merge y limpieza. |
+| Gate esperado | Focal `core.tests_operational_observability`, suite impactada `core.tests_operational_observability core.tests`, `manage.py check`, `makemigrations --check --dry-run`, gate observabilidad local, frontend build/lint si aplica, acceptance local, higiene y CI remoto. |
+| Estado al cerrar paquete | Pendiente. Al cerrar, registrar PR/merge, limpiar worktree/rama y volver el cursor a `Ninguno` desde `main` sincronizado. |
 | Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
 | Politica de reanudacion | Si no hay worktree tactico abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. |
 | Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; luego elegir el siguiente paquete pequeno, local, verificable y cerrable. |
