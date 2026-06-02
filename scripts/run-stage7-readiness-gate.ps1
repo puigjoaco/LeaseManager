@@ -646,6 +646,8 @@ else {
     }
     elseif (-not $restoreCheck.authorized) {
         $issueCode = switch ($restoreCheck.reason) {
+            'synthetic_restore_not_authorized' { 'stage7.restore_synthetic_not_authorized' }
+            'restore_source_kind_invalid' { 'stage7.restore_source_kind_invalid' }
             'restore_backup_file_not_allowed' { 'stage7.restore_backup_file_not_allowed' }
             'restore_authorization_ref_sensitive' { 'stage7.restore_authorization_ref_sensitive' }
             'restore_authorization_ref_missing' { 'stage7.restore_authorization_ref_missing' }
@@ -710,6 +712,8 @@ else {
     elseif (-not $smokeCheck.authorized) {
         $issueCode = switch ($smokeCheck.reason) {
             'public_smoke_output_not_redacted' { 'stage7.public_smoke_output_not_redacted' }
+            'public_smoke_synthetic_not_authorized' { 'stage7.public_smoke_synthetic_not_authorized' }
+            'public_smoke_source_kind_invalid' { 'stage7.public_smoke_source_kind_invalid' }
             'public_smoke_authorization_ref_sensitive' { 'stage7.public_smoke_authorization_ref_sensitive' }
             'public_smoke_authorization_ref_missing' { 'stage7.public_smoke_authorization_ref_missing' }
             'public_smoke_environment_ref_sensitive' { 'stage7.public_smoke_environment_ref_sensitive' }
@@ -774,6 +778,8 @@ else {
     }
     elseif (-not $finalAcceptanceCheck.authorized) {
         $issueCode = switch ($finalAcceptanceCheck.reason) {
+            'final_acceptance_synthetic_not_authorized' { 'stage7.final_acceptance_synthetic_not_authorized' }
+            'final_acceptance_source_kind_invalid' { 'stage7.final_acceptance_source_kind_invalid' }
             'final_acceptance_authorization_ref_sensitive' { 'stage7.final_acceptance_authorization_ref_sensitive' }
             'final_acceptance_authorization_ref_missing' { 'stage7.final_acceptance_authorization_ref_missing' }
             'final_acceptance_responsible_ref_sensitive' { 'stage7.final_acceptance_responsible_ref_sensitive' }

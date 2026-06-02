@@ -78,6 +78,9 @@ runbook, smoke y aceptacion.
 - El release gate clasifica referencias sensibles en evidencia de restore,
   smoke publico y aceptacion final con codigos especificos, sin exponer sus
   valores ni tratarlas como simples faltantes.
+- El release gate clasifica `source_kind` sintetico/local e invalido en
+  restore, smoke publico y aceptacion final con codigos especificos; no debe
+  mezclarlos con faltantes de refs autorizadas ni con evidencia incompleta.
 - Restore probado.
 - Bloqueos criticos cerrados.
 - Aceptacion registrada.
