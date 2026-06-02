@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-02: Canales/Etapa 2 endurece la traza de fallback WhatsApp.
+`audit_stage2_cobranza_readiness` ya no acepta un Email preparado/enviado
+anterior al bloqueo o fallo WhatsApp como alternativa valida solo por compartir
+contrato, arrendatario o documento; el Email fallback debe estar alineado por
+contexto y preparado/enviado despues del estado bloqueado/fallido, o debe
+existir alerta/fallback con evento dedicado.
+
 Nota 2026-06-02: Conciliacion/Etapa 3 deja de contar conexiones bancarias con
 error proveedor reciente como listas para `provider_sync`. Si `ultimo_error_at`
 es posterior a `ultimo_exito_at`, `bank_provider_sync_blocking_reason` bloquea

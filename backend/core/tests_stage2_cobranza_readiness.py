@@ -1,5 +1,5 @@
 import json
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
@@ -1720,6 +1720,93 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.whatsapp.fallback_trace_missing', issue_codes)
         self.assertEqual(result['sections']['messages']['without_fallback_trace'], 1)
+
+    def test_blocked_whatsapp_with_older_email_same_context_is_still_blocking(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        old_email = MensajeSaliente.objects.create(
+            canal=CanalOperacion.EMAIL,
+            canal_mensajeria=email_gate,
+            identidad_envio=fixture['identity'],
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario=fixture['tenant'].email,
+            asunto='Email anterior',
+            cuerpo='No debe contar como fallback posterior.',
+            estado=EstadoMensajeSaliente.PREPARED,
+        )
+        whatsapp_gate = CanalMensajeria.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            provider_key='twilio',
+            estado_gate=EstadoGateCanal.CONDITIONED,
+            evidencia_ref='whatsapp-gate-v1',
+        )
+        message = MensajeSaliente.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            canal_mensajeria=whatsapp_gate,
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario='',
+            asunto='Aviso WhatsApp',
+            cuerpo='Cobranza controlada',
+            estado=EstadoMensajeSaliente.BLOCKED,
+            motivo_bloqueo='WhatsApp bloqueado sin fallback posterior.',
+        )
+        old_timestamp = message.created_at - timedelta(minutes=5)
+        MensajeSaliente.objects.filter(pk=old_email.pk).update(created_at=old_timestamp, updated_at=old_timestamp)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.whatsapp.fallback_trace_missing', issue_codes)
+        self.assertEqual(result['sections']['messages']['without_fallback_trace'], 1)
+
+    def test_blocked_whatsapp_with_later_email_same_context_is_traced(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        whatsapp_gate = CanalMensajeria.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            provider_key='twilio',
+            estado_gate=EstadoGateCanal.CONDITIONED,
+            evidencia_ref='whatsapp-gate-v1',
+        )
+        message = MensajeSaliente.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            canal_mensajeria=whatsapp_gate,
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario='',
+            asunto='Aviso WhatsApp',
+            cuerpo='Cobranza controlada',
+            estado=EstadoMensajeSaliente.BLOCKED,
+            motivo_bloqueo='WhatsApp bloqueado con email posterior.',
+        )
+        fallback_email = MensajeSaliente.objects.create(
+            canal=CanalOperacion.EMAIL,
+            canal_mensajeria=email_gate,
+            identidad_envio=fixture['identity'],
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario=fixture['tenant'].email,
+            asunto='Email fallback',
+            cuerpo='Email alternativo posterior.',
+            estado=EstadoMensajeSaliente.PREPARED,
+        )
+        fallback_timestamp = message.updated_at + timedelta(minutes=5)
+        MensajeSaliente.objects.filter(pk=fallback_email.pk).update(
+            created_at=fallback_timestamp,
+            updated_at=fallback_timestamp,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage2_cobranza'])
+        self.assertNotIn('stage2.whatsapp.fallback_trace_missing', issue_codes)
+        self.assertNotIn('without_fallback_trace', result['sections']['messages'])
 
     def test_blocked_whatsapp_with_fallback_resolution_is_traced(self):
         fixture = self._create_payment_matrix()
