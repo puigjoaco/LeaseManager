@@ -169,8 +169,7 @@ def _runtime_signal_payload(signal):
     }
 
 
-def _public_runtime_value(signal_key, payload):
-    value = payload.get('value') if isinstance(payload, dict) else {}
+def public_runtime_signal_value(signal_key, value):
     if not isinstance(value, dict):
         return {}
     if signal_key == RuntimeSignalKey.MONTHLY_CALCULATION_LATENCY:
@@ -183,6 +182,11 @@ def _public_runtime_value(signal_key, payload):
         failed_count = value.get('failed_count')
         return {'failed_count': failed_count} if isinstance(failed_count, int) and not isinstance(failed_count, bool) else {}
     return {}
+
+
+def _public_runtime_value(signal_key, payload):
+    value = payload.get('value') if isinstance(payload, dict) else {}
+    return public_runtime_signal_value(signal_key, value)
 
 
 def _is_public_number(value):

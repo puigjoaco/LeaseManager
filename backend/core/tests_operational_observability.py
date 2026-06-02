@@ -258,6 +258,34 @@ class OperationalObservabilityAuditTests(TestCase):
                 stdout=StringIO(),
             )
 
+    def test_record_runtime_signal_command_outputs_redacted_payload(self):
+        output = StringIO()
+        call_command(
+            'record_operational_runtime_signal',
+            signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+            status=RuntimeSignalStatus.OK,
+            source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
+            evidence_ref='queue-runtime-controlled-v1',
+            source_label='queue-runtime-controlled-source-v1',
+            authorization_ref='stage7-runtime-authorization-v1',
+            value_json='{"healthy": true, "worker_count": 3}',
+            stdout=output,
+        )
+
+        rendered = output.getvalue()
+        payload = json.loads(rendered)
+        signal = OperationalRuntimeSignal.objects.get(signal_key=RuntimeSignalKey.QUEUE_RUNTIME)
+
+        self.assertEqual(signal.value['worker_count'], 3)
+        self.assertTrue(payload['has_evidence_ref'])
+        self.assertEqual(payload['source_trace'], {'source_label': True, 'authorization_ref': True})
+        self.assertEqual(payload['value'], {'healthy': True})
+        self.assertNotIn('evidence_ref', payload)
+        self.assertNotIn('worker_count', rendered)
+        self.assertNotIn('queue-runtime-controlled-v1', rendered)
+        self.assertNotIn('queue-runtime-controlled-source-v1', rendered)
+        self.assertNotIn('stage7-runtime-authorization-v1', rendered)
+
     def test_command_writes_json_output_and_fail_on_attention_blocks_close(self):
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'observability.json'

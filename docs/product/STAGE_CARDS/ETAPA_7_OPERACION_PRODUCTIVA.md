@@ -39,6 +39,10 @@ runbook, smoke y aceptacion.
   heredadas sensibles sin exponer valores. Para cierre, una senal OK debe estar
   observada dentro de las ultimas 24 horas; mediciones antiguas quedan como
   diagnostico historico, no como evidencia operativa vigente.
+- `record_operational_runtime_signal` persiste el payload validado, pero su
+  stdout solo expone resumen publico: existencia de evidencia, traza booleana y
+  valor canonico por tipo de senal, sin `evidence_ref`, refs de autorizacion ni
+  payload bruto.
 - Para cierre productivo, las cuatro senales runtime obligatorias deben venir
   de `snapshot_controlado` o `real_autorizado`; mediciones locales, fixture o
   demo solo preparan el gate.
