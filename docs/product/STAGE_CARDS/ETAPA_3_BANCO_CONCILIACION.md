@@ -20,7 +20,9 @@ sistema igual a saldo banco.
 - Modo no productivo por defecto.
 - Conexion bancaria operativa/primaria solo con `credencial_ref`,
   `evidencia_gate_ref`, `prueba_conectividad_ref` y prueba de movimientos o
-  saldos segun capacidad marcada, todas como referencias no sensibles.
+  saldos segun capacidad marcada, todas como referencias no sensibles. Si la
+  conexion conserva `ultimo_error_at` posterior a `ultimo_exito_at`, no cuenta
+  como lista para `provider_sync` hasta registrar un nuevo exito posterior.
 - Movimiento importado por `provider_sync` solo contra conexion activa,
   primaria de movimientos, readiness trazable y `transaction_id_banco` no
   sensible y no duplicado dentro de la misma conexion por modelo y constraint
