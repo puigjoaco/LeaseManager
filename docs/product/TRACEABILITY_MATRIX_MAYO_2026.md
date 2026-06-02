@@ -7,6 +7,11 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-02: Cobranza y Canales cubre auditoria de preparacion WebPay en
+readiness. `audit_stage2_cobranza_readiness` emite
+`stage2.webpay_intent.prepared_event_missing` para intentos WebPay preparados o
+bloqueados sin evento `cobranza.webpay_intento.prepared` completo y alineado.
+
 Nota 2026-06-02: Operacion productiva clasifica `FinalAcceptanceRef` simple
 sensible. El release gate de Etapa 7 emite `stage7.final_acceptance_ref_sensitive`
 cuando se entrega una referencia simple sensible sin evidencia JSON final, sin

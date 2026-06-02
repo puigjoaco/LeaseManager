@@ -213,7 +213,9 @@ condicionados sin envios reales accidentales.
   servicio de preparacion tambien conserva auditoria dedicada con actor dentro
   de la misma transaccion para intentos preparados o bloqueados; si reutiliza un
   intento preparado existente, debe crear la traza si falta o quedo
-  desalineada.
+  desalineada. La readiness bloquea snapshots heredados con intentos preparados
+  o bloqueados sin evento `cobranza.webpay_intento.prepared` completo y
+  alineado.
   `provider_payload` no puede contener URLs, tokens, credenciales, correos ni
   claves sensibles; `motivo_bloqueo` de intentos WebPay tampoco puede contener
   referencias sensibles; `restricciones_operativas` del gate WebPay aplica la

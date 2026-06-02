@@ -46,6 +46,7 @@ from cobranza.models import (
     RepactacionDeuda,
     ValorUFDiario,
     WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
+    WEBPAY_PREPARE_EVENT_TYPE,
 )
 from cobranza.services import build_account_state_summary
 from contratos.models import (
@@ -511,6 +512,30 @@ def _webpay_manual_confirmation_event_is_complete(intent: IntentoPagoWebPay) -> 
     return False
 
 
+def _webpay_prepare_event_is_complete(intent: IntentoPagoWebPay) -> bool:
+    events = AuditEvent.objects.filter(
+        event_type=WEBPAY_PREPARE_EVENT_TYPE,
+        entity_type='webpay_intento',
+        entity_id=str(intent.pk),
+    )
+    expected_metadata = {
+        'estado': intent.estado,
+        'pago_mensual_id': intent.pago_mensual_id,
+        'gate_cobro_id': intent.gate_cobro_id,
+        'provider_key': intent.provider_key,
+        'return_url_ref': intent.return_url_ref,
+    }
+    if intent.motivo_bloqueo.strip():
+        expected_metadata['motivo_bloqueo'] = intent.motivo_bloqueo
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if not event.actor_user_id and not event.actor_identifier.strip():
+            continue
+        if all(str(metadata.get(key, '')) == str(value) for key, value in expected_metadata.items()):
+            return True
+    return False
+
+
 def _collect_webpay_intent_issues(intents) -> dict[str, int]:
     counts = Counter()
     for intent in intents:
@@ -524,6 +549,9 @@ def _collect_webpay_intent_issues(intents) -> dict[str, int]:
             counts['sensitive_block_reason'] += 1
         if intent.return_url_ref.strip() and not _non_sensitive_reference(intent.return_url_ref):
             counts['sensitive_return_url_ref'] += 1
+        if intent.estado in {EstadoIntentoPagoWebPay.PREPARED, EstadoIntentoPagoWebPay.BLOCKED}:
+            if not _webpay_prepare_event_is_complete(intent):
+                counts['prepared_event_missing'] += 1
         if intent.estado == EstadoIntentoPagoWebPay.CONFIRMED_MANUAL:
             if not intent.external_ref.strip():
                 counts['confirmed_without_external_ref'] += 1
@@ -1593,6 +1621,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.webpay_intent.confirmed_manual_event_missing',
                 'Existen intentos WebPay confirmados sin auditoria manual completa y alineada.',
                 count=webpay_intent_issues['confirmed_manual_event_missing'],
+            )
+        )
+    if webpay_intent_issues.get('prepared_event_missing'):
+        issues.append(
+            _issue(
+                'stage2.webpay_intent.prepared_event_missing',
+                'Existen intentos WebPay preparados o bloqueados sin auditoria prepared completa y alineada.',
+                count=webpay_intent_issues['prepared_event_missing'],
             )
         )
 
