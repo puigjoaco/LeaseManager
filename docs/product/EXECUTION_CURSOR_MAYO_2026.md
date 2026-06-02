@@ -23,14 +23,14 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Ninguno. |
-| Fuente exacta | `main` en `fd6e14e` despues de PR #638, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
+| Fuente exacta | `main` en `d43b96f` despues de PR #640, stage cards, trazabilidad, evidencia y bloqueos vigentes. |
 | Brecha activa | Sin paquete tactico abierto. |
-| Motivo de prioridad | PR #638 cerro la redaccion de stdout para `record_operational_runtime_signal`, manteniendo payload validado persistido sin exponer `evidence_ref`, refs de autorizacion ni payload bruto en salida operativa. |
+| Motivo de prioridad | PR #640 cerro la salida evidencial del smoke publico de Etapa 7: mantiene validaciones internas de pantalla/login UI, pero el JSON ya no emite `username`, extractos de pantalla, rutas de screenshot ni errores crudos. |
 | Worktree | Solo root principal esperado: `D:/Proyectos/LeaseManager`. |
 | Rama | `main`. |
 | Estado | Main limpio y listo para diagnosticar el siguiente frente seguro por trazabilidad. |
 | Gate esperado | Para el siguiente paquete, definir tests focales, suite impactada, checks, gates locales, frontend si aplica, acceptance local, higiene y CI antes de PR. |
-| Estado al cerrar paquete | PR #638 mergeado en `fd6e14e`; validacion local completa OK; CI GitHub acceptance OK; worktree `D:/Proyectos/LeaseManager-stage7-runtime-command-redaction` eliminado y rama local/remota cerrada. |
+| Estado al cerrar paquete | PR #640 mergeado en `d43b96f`; validacion local completa OK; CI GitHub acceptance OK; worktree `D:/Proyectos/LeaseManager-stage7-smoke-evidence-redaction` eliminado y rama local/remota cerrada. |
 | Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
 | Politica de reanudacion | Si no hay worktree tactico abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. |
 | Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; luego elegir el siguiente paquete pequeno, local, verificable y cerrable. |
