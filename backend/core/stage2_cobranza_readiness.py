@@ -12,9 +12,11 @@ from django.utils import timezone
 from audit.models import AuditEvent, ManualResolution
 from canales.models import (
     CanalMensajeria,
+    COLLECTABLE_NOTIFICATION_PAYMENT_STATES,
     ConfiguracionNotificacionContrato,
     EstadoGateCanal,
     EstadoMensajeSaliente,
+    EstadoNotificacionCobranza,
     MensajeSaliente,
     NotificacionCobranzaProgramada,
     gate_restrictions_contain_sensitive_reference,
@@ -556,7 +558,10 @@ def _collect_notification_schedule_issues(payments, active_notification_configs,
             notification.full_clean()
         except ValidationError:
             counts['invalid_model'] += 1
-        if notification.pago_mensual.estado_pago not in COLLECTABLE_PAYMENT_STATES:
+        payment_is_collectable = notification.pago_mensual.estado_pago in COLLECTABLE_NOTIFICATION_PAYMENT_STATES
+        if not payment_is_collectable:
+            if notification.estado == EstadoNotificacionCobranza.SCHEDULED:
+                counts['scheduled_for_non_collectable_payment'] += 1
             continue
         actual_keys.add((notification.pago_mensual_id, notification.canal, notification.dia_notificacion))
         if notification.estado == 'preparada' and not notification.mensaje_saliente_id:
@@ -1429,6 +1434,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.notification_schedule.prepared_without_message',
                 'Existen recordatorios marcados preparados sin mensaje saliente trazable.',
                 count=notification_schedule_issues['prepared_without_message'],
+            )
+        )
+    if notification_schedule_issues.get('scheduled_for_non_collectable_payment'):
+        issues.append(
+            _issue(
+                'stage2.notification_schedule.scheduled_for_non_collectable_payment',
+                'Existen recordatorios programados sobre pagos que ya no estan pendientes ni atrasados.',
+                count=notification_schedule_issues['scheduled_for_non_collectable_payment'],
             )
         )
     if whatsapp_open_without_template:

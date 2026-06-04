@@ -43,6 +43,7 @@ from .models import (
 )
 from .services import (
     MESSAGE_PREPARED_EVENT_TYPE,
+    NON_COLLECTABLE_PAYMENT_NOTIFICATION_SKIP_REASON,
     WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
     WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
     mark_message_as_sent,
@@ -611,6 +612,40 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(notification.motivo_estado, 'arrendatario-notificado-por-llamada-controlada')
         self.assertEqual(NotificacionCobranzaProgramada.objects.filter(pago_mensual=payment).count(), 7)
 
+    def test_materialize_payment_notification_schedule_omits_stale_scheduled_for_closed_payment(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-SCH-CLOSED')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payment = self._create_payment_for_contract(contrato)
+        ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
+        materialize_payment_notification_schedule(payment)
+        PagoMensual.objects.filter(pk=payment.pk).update(estado_pago='pagado')
+        payment.refresh_from_db()
+
+        result = materialize_payment_notification_schedule(payment)
+
+        self.assertEqual(result['created_count'], 0)
+        self.assertEqual(result['omitted_count'], 7)
+        self.assertEqual(
+            NotificacionCobranzaProgramada.objects.filter(
+                pago_mensual=payment,
+                estado='programada',
+            ).count(),
+            0,
+        )
+        self.assertEqual(
+            NotificacionCobranzaProgramada.objects.filter(
+                pago_mensual=payment,
+                estado='omitida',
+                motivo_estado=NON_COLLECTABLE_PAYMENT_NOTIFICATION_SKIP_REASON,
+            ).count(),
+            7,
+        )
+
     def test_notification_schedule_rejects_inactive_configuration(self):
         empresa, contrato = self._create_contract_context(codigo='NTF-INACTIVE')
         self._enable_channel_for_contract(empresa, contrato, canal='email')
@@ -633,6 +668,32 @@ class CanalesAPITests(APITestCase):
             notification.full_clean()
 
         self.assertIn('configuracion', error.exception.message_dict)
+
+    def test_scheduled_notification_rejects_non_collectable_payment(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-PAID')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payment = self._create_payment_for_contract(contrato)
+        PagoMensual.objects.filter(pk=payment.pk).update(estado_pago='pagado')
+        payment.refresh_from_db()
+        configuration = ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
+        notification = NotificacionCobranzaProgramada(
+            pago_mensual=payment,
+            configuracion=configuration,
+            canal='email',
+            dia_notificacion=5,
+            fecha_programada=date(2026, 1, 5),
+            estado='programada',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            notification.full_clean()
+
+        self.assertIn('estado', error.exception.message_dict)
 
     def test_prepared_notification_requires_message_aligned_to_payment_context(self):
         empresa, contrato = self._create_contract_context(codigo='NTF-MSG-ALIGN')
