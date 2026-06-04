@@ -17,7 +17,12 @@ from reporting.services import (
     build_period_books_summary,
 )
 
-from .audit import EXPORT_PREPARED_EVENT_TYPE, EXPORT_REVOKED_EVENT_TYPE, create_export_audit_event
+from .audit import (
+    EXPORT_ACCESS_DENIED_EVENT_TYPE,
+    EXPORT_PREPARED_EVENT_TYPE,
+    EXPORT_REVOKED_EVENT_TYPE,
+    create_export_audit_event,
+)
 from .models import (
     CategoriaDato,
     EstadoExportacionSensible,
@@ -219,8 +224,18 @@ def revoke_export(export, *, actor_user=None, ip_address=None, revocation_reason
     if not getattr(actor_user, 'pk', None):
         raise ValueError(REVOCATION_ACTOR_REQUIRED_ERROR)
     if not export.hold_activo and export.expires_at <= timezone.now():
-        export.estado = EstadoExportacionSensible.EXPIRED
-        export.save(update_fields=['estado', 'updated_at'])
+        with transaction.atomic():
+            export.estado = EstadoExportacionSensible.EXPIRED
+            export.save(update_fields=['estado', 'updated_at'])
+            create_export_audit_event(
+                event_type=EXPORT_ACCESS_DENIED_EVENT_TYPE,
+                export=export,
+                summary='Revocacion de exportacion sensible denegada por expiracion',
+                severity='warning',
+                actor_user=actor_user,
+                ip_address=ip_address,
+                extra_metadata={'denied_operation': 'revoke'},
+            )
         raise ValueError(EXPIRED_EXPORT_REVOKE_ERROR)
     revocation_reason = revocation_reason.strip()
     if not revocation_reason:
