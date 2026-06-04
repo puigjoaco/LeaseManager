@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-03: Canales/Etapa 2 alinea recordatorios de cobranza con mensajes
+ya enviados. `NotificacionCobranzaProgramada.full_clean()` acepta que una
+notificacion `preparada` conserve un `MensajeSaliente` alineado en estado
+`preparado`, `bloqueado` o `enviado`; readiness sigue bloqueando mensajes
+desalineados o invalidos, sin abrir proveedores ni usar datos reales.
+
 Nota 2026-06-03: Canales/Etapa 2 endurece la ventana operativa WhatsApp.
 `MensajeSaliente.full_clean()` y `audit_stage2_cobranza_readiness` detectan
 mensajes WhatsApp heredados preparados/enviados fuera de `08:00-21:00
