@@ -134,7 +134,7 @@ $testTargets = @(
 if (-not $OnlySmoke) {
     Step "Repo hygiene guard"
     Assert-Condition (Test-Path $repoHygieneScript) "No existe el guard de higiene del repo en $repoHygieneScript"
-    & $repoHygieneScript
+    & $repoHygieneScript -IncludeUntracked
     Assert-Condition ($LASTEXITCODE -eq 0) 'assert-repo-hygiene fallo.'
 
     Step "Backend acceptance suite"
