@@ -458,6 +458,26 @@ class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
                         action='state_changed',
                         summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
                     )
+                materialized = materialize_payment_notification_schedule(instance)
+                if materialized['created_count'] or materialized.get('omitted_count'):
+                    create_audit_event(
+                        event_type='canales.notificacion_cobranza.materialized',
+                        entity_type='pago_mensual',
+                        entity_id=str(instance.pk),
+                        summary='Notificaciones de cobranza sincronizadas tras actualizar pago',
+                        actor_user=self.request.user,
+                        ip_address=self.request.META.get('REMOTE_ADDR'),
+                        metadata={
+                            'contrato_id': instance.contrato_id,
+                            'anio': instance.anio,
+                            'mes': instance.mes,
+                            'created_count': materialized['created_count'],
+                            'omitted_count': materialized.get('omitted_count', 0),
+                        },
+                    )
+        except DjangoValidationError as error:
+            payload = error.message_dict if hasattr(error, 'message_dict') else {'detail': error.messages}
+            raise ValidationError(payload)
         except ValueError as error:
             raise ValidationError({'estado_pago': str(error)})
         return instance

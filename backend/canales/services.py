@@ -7,13 +7,13 @@ from django.utils import timezone
 from audit.models import AuditEvent, ManualResolution
 from audit.services import create_audit_event
 from core.reference_validation import is_non_sensitive_reference
-from cobranza.models import EstadoPago
 from contratos.models import Arrendatario, Contrato, is_international_phone_number
 from operacion.models import AsignacionCanalOperacion, CanalOperacion, EstadoIdentidadEnvio, EstadoMandatoOperacion
 
 from .models import (
     EMAIL_CREDENTIAL_REF_KEYS,
     EMAIL_READINESS_REF_KEYS,
+    COLLECTABLE_NOTIFICATION_PAYMENT_STATES,
     CanalMensajeria,
     ConfiguracionNotificacionContrato,
     EstadoGateCanal,
@@ -33,7 +33,8 @@ from .models import (
 MESSAGE_PREPARED_EVENT_TYPE = 'canales.mensaje_saliente.prepared'
 WHATSAPP_FALLBACK_REQUIRED_CATEGORY = 'canales.whatsapp.fallback_requerido'
 WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE = 'canales.whatsapp.fallback_required'
-COLLECTABLE_PAYMENT_STATES = {EstadoPago.PENDING, EstadoPago.OVERDUE}
+COLLECTABLE_PAYMENT_STATES = COLLECTABLE_NOTIFICATION_PAYMENT_STATES
+NON_COLLECTABLE_PAYMENT_NOTIFICATION_SKIP_REASON = 'pago-no-cobrable'
 
 
 def _service_actor_identifier(actor_user=None, actor_identifier='', default='system:canales.prepare_message'):
@@ -305,7 +306,20 @@ def expected_payment_notification_schedule(payment, configuration):
 @transaction.atomic
 def materialize_payment_notification_schedule(payment):
     if payment.estado_pago not in COLLECTABLE_PAYMENT_STATES:
-        return {'rows': [], 'created_count': 0}
+        rows = []
+        omitted_count = 0
+        stale_notifications = NotificacionCobranzaProgramada.objects.filter(
+            pago_mensual=payment,
+            estado=EstadoNotificacionCobranza.SCHEDULED,
+        ).select_related('pago_mensual', 'configuracion')
+        for notification in stale_notifications:
+            notification.estado = EstadoNotificacionCobranza.SKIPPED
+            notification.motivo_estado = NON_COLLECTABLE_PAYMENT_NOTIFICATION_SKIP_REASON
+            notification.full_clean()
+            notification.save(update_fields=['estado', 'motivo_estado', 'updated_at'])
+            rows.append(notification)
+            omitted_count += 1
+        return {'rows': rows, 'created_count': 0, 'omitted_count': omitted_count}
 
     configurations = ConfiguracionNotificacionContrato.objects.filter(
         contrato=payment.contrato,
@@ -339,7 +353,7 @@ def materialize_payment_notification_schedule(payment):
             else:
                 created_count += 1
             rows.append(notification)
-    return {'rows': rows, 'created_count': created_count}
+    return {'rows': rows, 'created_count': created_count, 'omitted_count': 0}
 
 
 @transaction.atomic

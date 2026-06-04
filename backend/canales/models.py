@@ -6,7 +6,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from cobranza.models import PagoMensual
+from cobranza.models import EstadoPago, PagoMensual
 from contratos.models import Arrendatario, Contrato, is_international_phone_number
 from documentos.models import DocumentoEmitido, EstadoDocumento
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
@@ -30,6 +30,7 @@ CHANNEL_GATE_ALLOWED_SENSITIVE_REF_KEYS = (
     'templates_aprobados',
 )
 NOTIFICATION_BASE_SUGGESTED_DAYS = (1, 3, 5, 10, 15, 20, 25)
+COLLECTABLE_NOTIFICATION_PAYMENT_STATES = {EstadoPago.PENDING, EstadoPago.OVERDUE}
 WHATSAPP_WINDOW_START_HOUR = 8
 WHATSAPP_WINDOW_END_HOUR = 21
 
@@ -527,6 +528,11 @@ class NotificacionCobranzaProgramada(TimestampedModel):
                     'El dia programado debe existir en la cadencia configurada.'
                 )
         if self.pago_mensual_id:
+            if (
+                self.estado == EstadoNotificacionCobranza.SCHEDULED
+                and self.pago_mensual.estado_pago not in COLLECTABLE_NOTIFICATION_PAYMENT_STATES
+            ):
+                errors['estado'] = 'Una notificacion programada requiere pago pendiente o atrasado.'
             try:
                 expected_date = date(
                     int(self.pago_mensual.anio),

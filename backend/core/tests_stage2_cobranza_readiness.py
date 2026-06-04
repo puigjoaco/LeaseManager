@@ -522,11 +522,14 @@ class Stage2CobranzaReadinessTests(TestCase):
                 'resolucion_pago_excepcional_motivo': 'Condonacion aprobada por acuerdo operativo controlado.',
             },
         )
+        fixture['payment'].refresh_from_db()
+        materialized = materialize_payment_notification_schedule(fixture['payment'])
         rebuild_account_state(fixture['tenant'], reference_date=self.READINESS_REFERENCE_DATE)
 
         result = self._collect_with_final_refs()
         issue_codes = {issue['code'] for issue in result['issues']}
 
+        self.assertEqual(materialized['omitted_count'], 7)
         self.assertTrue(result['ready_for_stage2_cobranza'])
         self.assertNotIn('stage2.payment.exceptional_resolution_missing', issue_codes)
         self.assertNotIn('stage2.payment.exceptional_resolution_event_missing', issue_codes)
@@ -702,6 +705,20 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.notification_schedule.invalid_model', issue_codes)
         self.assertEqual(result['sections']['notification_schedules']['invalid_model'], 1)
+
+    def test_scheduled_notification_for_non_collectable_payment_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(estado_pago=EstadoPago.PAID)
+        fixture['payment'].refresh_from_db()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.notification_schedule.scheduled_for_non_collectable_payment', issue_codes)
+        self.assertEqual(result['sections']['notification_schedules']['scheduled_for_non_collectable_payment'], 7)
 
     def test_prepared_notification_with_unaligned_message_is_blocking(self):
         fixture = self._create_payment_matrix()
