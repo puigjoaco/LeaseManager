@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-03: Canales/Etapa 2 endurece la ventana operativa WhatsApp.
+`MensajeSaliente.full_clean()` y `audit_stage2_cobranza_readiness` detectan
+mensajes WhatsApp heredados preparados/enviados fuera de `08:00-21:00
+America/Santiago`; la readiness emite `stage2.message.whatsapp_window_violation`
+sin abrir proveedores ni usar datos reales.
+
 Nota 2026-06-02: Canales/Etapa 2 endurece rehabilitaciones WhatsApp.
 `audit_stage2_cobranza_readiness` exige que una rehabilitacion heredada
 conserve la traza original del bloqueo, evento y alerta administrativa

@@ -182,7 +182,9 @@ condicionados sin envios reales accidentales.
   referencia trazable no sensible; APIs y snapshots deben redactar evidencia
   sensible heredada y readiness debe bloquearla sin imprimir el valor. La
   readiness tambien debe bloquear opt-ins heredados con telefono local o
-  ambiguo. El bloqueo definitivo del contacto debe registrar motivo,
+  ambiguo, y mensajes WhatsApp heredados preparados/enviados fuera de la
+  ventana `08:00-21:00 America/Santiago`. El bloqueo definitivo del contacto
+  debe registrar motivo,
   evidencia no sensible, fecha, evento auditable y alerta administrativa; el
   servicio de bloqueo crea la alerta y el evento con actor en la misma
   transaccion. La rehabilitacion manual conserva la traza del bloqueo, usa

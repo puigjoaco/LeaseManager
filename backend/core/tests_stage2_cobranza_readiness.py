@@ -1,9 +1,10 @@
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.core.management import call_command
@@ -1430,6 +1431,61 @@ class Stage2CobranzaReadinessTests(TestCase):
 
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.whatsapp.template_missing', issue_codes)
+
+    def test_prepared_whatsapp_outside_operational_window_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        Arrendatario.objects.filter(pk=fixture['tenant'].pk).update(
+            telefono='+56912345678',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='wa-optin-stage2-controlled',
+        )
+        whatsapp_gate = CanalMensajeria.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            provider_key='twilio',
+            estado_gate=EstadoGateCanal.OPEN,
+            evidencia_ref='whatsapp-gate-v1',
+            restricciones_operativas={'templates_aprobados': True},
+        )
+        whatsapp_identity = IdentidadDeEnvio.objects.create(
+            empresa_owner=fixture['empresa'],
+            canal=CanalOperacion.WHATSAPP,
+            remitente_visible='LeaseManager WhatsApp',
+            direccion_o_numero='+56900000000',
+            credencial_ref='cred-whatsapp-stage2',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=fixture['mandato'],
+            canal=CanalOperacion.WHATSAPP,
+            identidad_envio=whatsapp_identity,
+            prioridad=1,
+            estado='activa',
+        )
+        message = MensajeSaliente.objects.create(
+            canal=CanalOperacion.WHATSAPP,
+            canal_mensajeria=whatsapp_gate,
+            identidad_envio=whatsapp_identity,
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario='+56912345678',
+            asunto='Aviso WhatsApp',
+            cuerpo='Cobranza controlada',
+            estado=EstadoMensajeSaliente.PREPARED,
+        )
+        outside_window = datetime(2026, 5, 21, 22, 30, tzinfo=ZoneInfo('America/Santiago'))
+        MensajeSaliente.objects.filter(pk=message.pk).update(
+            created_at=outside_window,
+            updated_at=outside_window,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.message.whatsapp_window_violation', issue_codes)
+        self.assertEqual(result['sections']['messages']['whatsapp_window_violation'], 1)
 
     def test_sent_message_without_external_ref_is_blocking(self):
         fixture = self._create_payment_matrix()
