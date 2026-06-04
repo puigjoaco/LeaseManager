@@ -741,6 +741,47 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.notification_schedule.invalid_model', issue_codes)
         self.assertEqual(result['sections']['notification_schedules']['invalid_model'], 1)
 
+    def test_prepared_notification_with_sent_aligned_message_is_accepted(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        sent_at = timezone.now()
+        message = MensajeSaliente.objects.create(
+            canal=CanalOperacion.EMAIL,
+            canal_mensajeria=email_gate,
+            identidad_envio=fixture['identity'],
+            contrato=fixture['contract'],
+            arrendatario=fixture['tenant'],
+            destinatario=fixture['tenant'].email,
+            asunto='Aviso',
+            cuerpo='Cobranza controlada enviada',
+            estado=EstadoMensajeSaliente.SENT,
+            external_ref='email-sent-stage2-controlled',
+            enviado_at=sent_at,
+        )
+        AuditEvent.objects.create(
+            event_type='canales.mensaje_saliente.sent_manually',
+            entity_type='mensaje_saliente',
+            entity_id=str(message.pk),
+            summary='Envio manual registrado',
+            actor_identifier='stage2-operator',
+            metadata={'external_ref': message.external_ref},
+        )
+        notification = NotificacionCobranzaProgramada.objects.filter(
+            pago_mensual=fixture['payment'],
+            dia_notificacion=5,
+        ).get()
+        notification.estado = 'preparada'
+        notification.mensaje_saliente = message
+        notification.save(update_fields=['estado', 'mensaje_saliente', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertTrue(result['ready_for_stage2_cobranza'])
+        self.assertNotIn('stage2.notification_schedule.invalid_model', issue_codes)
+        self.assertEqual(result['sections']['notification_schedules'].get('invalid_model', 0), 0)
+
     def test_notification_schedule_with_inactive_config_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()

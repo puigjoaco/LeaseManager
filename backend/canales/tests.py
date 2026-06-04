@@ -681,6 +681,44 @@ class CanalesAPITests(APITestCase):
 
         self.assertIn('mensaje_saliente', error.exception.message_dict)
 
+    def test_prepared_notification_accepts_sent_message_aligned_to_payment_context(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-MSG-SENT')
+        identity = self._enable_channel_for_contract(empresa, contrato, canal='email')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+        payment = self._create_payment_for_contract(contrato)
+        configuration = ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
+        message = MensajeSaliente.objects.create(
+            canal='email',
+            canal_mensajeria=gate,
+            identidad_envio=identity,
+            contrato=contrato,
+            arrendatario=contrato.arrendatario,
+            destinatario=contrato.arrendatario.email,
+            asunto='Cobro mensual',
+            cuerpo='Mensaje enviado controlado',
+            estado=EstadoMensajeSaliente.SENT,
+            external_ref='email-sent-controlled-ref',
+            enviado_at=timezone.now(),
+            usuario=self.user,
+        )
+        notification = NotificacionCobranzaProgramada(
+            pago_mensual=payment,
+            configuracion=configuration,
+            canal='email',
+            dia_notificacion=5,
+            fecha_programada=date(2026, 1, 5),
+            estado='preparada',
+            mensaje_saliente=message,
+        )
+
+        notification.full_clean()
+
     def test_skipped_notification_requires_non_sensitive_reason(self):
         empresa, contrato = self._create_contract_context(codigo='NTF-SKIPPED')
         self._enable_channel_for_contract(empresa, contrato, canal='email')

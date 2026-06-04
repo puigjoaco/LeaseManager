@@ -561,10 +561,12 @@ class NotificacionCobranzaProgramada(TimestampedModel):
                     and self.mensaje_saliente.arrendatario_id != expected_tenant_id
                 ):
                     errors['mensaje_saliente'] = 'El mensaje asociado debe pertenecer al arrendatario del pago mensual.'
-            if self.estado == EstadoNotificacionCobranza.PREPARED and (
-                self.mensaje_saliente.estado not in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.BLOCKED}
-            ):
-                errors['estado'] = 'Una notificacion preparada requiere mensaje preparado o bloqueado.'
+            if self.estado == EstadoNotificacionCobranza.PREPARED and self.mensaje_saliente.estado not in {
+                EstadoMensajeSaliente.PREPARED,
+                EstadoMensajeSaliente.BLOCKED,
+                EstadoMensajeSaliente.SENT,
+            }:
+                errors['estado'] = 'Una notificacion preparada requiere mensaje preparado, bloqueado o enviado.'
         if errors:
             raise ValidationError(errors)
 
