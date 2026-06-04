@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-03: Contratos/Etapa 1 exige actor trazable en auditorias de
+ciclo contractual guiado. `execute_automatic_contract_renewal()` y
+`execute_tenant_replacement()` fallan antes de mutar si una llamada interna no
+entrega usuario o `actor_identifier`; los eventos de renovacion automatica y
+cambio de arrendatario guardan ese actor, y `Contrato.full_clean()`,
+`PeriodoContractual.full_clean()` y `audit_stage1_matrix` ya no aceptan eventos
+heredados sin actor como traza suficiente.
+
 Nota 2026-06-03: Canales/Etapa 2 bloquea recordatorios programados obsoletos.
 `NotificacionCobranzaProgramada.full_clean()` exige que una notificacion
 `programada` pertenezca a un pago `pendiente` o `atrasado`, y
