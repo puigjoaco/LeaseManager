@@ -15,6 +15,13 @@ cambio de arrendatario guardan ese actor, y `Contrato.full_clean()`,
 `PeriodoContractual.full_clean()` y `audit_stage1_matrix` ya no aceptan eventos
 heredados sin actor como traza suficiente.
 
+Nota 2026-06-03: Contratos/Etapa 1 endurece la trazabilidad de terminaciones
+anticipadas con ultimo mes parcial. `Contrato.full_clean()` y
+`audit_stage1_matrix` ya no aceptan eventos de prorrata sin actor o con
+metadata desalineada frente a `terminacion_anticipada_prorrata_ref`,
+`terminacion_anticipada_prorrata_motivo` y `fecha_fin_vigente`; el endpoint de
+contratos sigue generando esa auditoria completa dentro de la transaccion.
+
 Nota 2026-06-03: Canales/Etapa 2 bloquea recordatorios programados obsoletos.
 `NotificacionCobranzaProgramada.full_clean()` exige que una notificacion
 `programada` pertenezca a un pago `pendiente` o `atrasado`, y

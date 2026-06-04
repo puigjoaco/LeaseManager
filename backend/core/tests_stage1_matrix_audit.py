@@ -2596,7 +2596,7 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertNotIn('contracts.example.test', str(result))
         self.assertNotIn('token=secret', str(result))
 
-    def test_early_terminated_partial_month_with_audit_event_can_pass_stage1_matrix_gate(self):
+    def test_early_terminated_partial_month_with_actorless_audit_event_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         partial_contract = Contrato.objects.create(
             codigo_contrato='CON-EARLY-PARTIAL-AUDIT',
@@ -2633,6 +2633,108 @@ class Stage1MatrixAuditTests(TestCase):
             summary='Decision auditada para prorrata de termino anticipado.',
             metadata={
                 'terminacion_anticipada_prorrata_ref': 'early-term-proration-audited',
+                'terminacion_anticipada_prorrata_motivo': 'Prorrata aprobada por decision controlada.',
+                'fecha_fin_vigente': '2025-06-15',
+            },
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.terminacion_anticipada_prorrata_sin_auditoria', issue_codes)
+
+    def test_early_terminated_partial_month_with_misaligned_audit_event_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        partial_contract = Contrato.objects.create(
+            codigo_contrato='CON-EARLY-PARTIAL-META',
+            mandato_operacion=contrato.mandato_operacion,
+            arrendatario=contrato.arrendatario,
+            fecha_inicio=date(2025, 1, 1),
+            fecha_fin_vigente=date(2025, 6, 15),
+            terminacion_anticipada_prorrata_ref='early-term-proration-meta',
+            terminacion_anticipada_prorrata_motivo='Prorrata aprobada por decision controlada.',
+            dia_pago_mensual=5,
+            estado=EstadoContrato.EARLY_TERMINATED,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=partial_contract,
+            propiedad=contrato.mandato_operacion.propiedad,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='004',
+        )
+        PeriodoContractual.objects.create(
+            contrato=partial_contract,
+            numero_periodo=1,
+            fecha_inicio=date(2025, 1, 1),
+            fecha_fin=date(2025, 6, 15),
+            monto_base='250000.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='terminacion_anticipada',
+            origen_periodo='decision_controlada',
+        )
+        AuditEvent.objects.create(
+            event_type=EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
+            entity_type='contrato',
+            entity_id=str(partial_contract.pk),
+            summary='Decision auditada para prorrata de termino anticipado.',
+            actor_identifier='stage1-early-termination-actor',
+            metadata={
+                'terminacion_anticipada_prorrata_ref': 'early-term-proration-meta',
+                'terminacion_anticipada_prorrata_motivo': 'Motivo distinto al contrato.',
+                'fecha_fin_vigente': '2025-06-15',
+            },
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contrato.terminacion_anticipada_prorrata_sin_auditoria', issue_codes)
+
+    def test_early_terminated_partial_month_with_audit_actor_can_pass_stage1_matrix_gate(self):
+        contrato = self._create_valid_stage1_matrix()
+        partial_contract = Contrato.objects.create(
+            codigo_contrato='CON-EARLY-PARTIAL-AUDIT-OK',
+            mandato_operacion=contrato.mandato_operacion,
+            arrendatario=contrato.arrendatario,
+            fecha_inicio=date(2025, 1, 1),
+            fecha_fin_vigente=date(2025, 6, 15),
+            terminacion_anticipada_prorrata_ref='early-term-proration-audited-ok',
+            terminacion_anticipada_prorrata_motivo='Prorrata aprobada por decision controlada.',
+            dia_pago_mensual=5,
+            estado=EstadoContrato.EARLY_TERMINATED,
+        )
+        ContratoPropiedad.objects.create(
+            contrato=partial_contract,
+            propiedad=contrato.mandato_operacion.propiedad,
+            rol_en_contrato=RolContratoPropiedad.PRIMARY,
+            porcentaje_distribucion_interna='100.00',
+            codigo_conciliacion_efectivo_snapshot='004',
+        )
+        PeriodoContractual.objects.create(
+            contrato=partial_contract,
+            numero_periodo=1,
+            fecha_inicio=date(2025, 1, 1),
+            fecha_fin=date(2025, 6, 15),
+            monto_base='250000.00',
+            moneda_base=MonedaBaseContrato.CLP,
+            tipo_periodo='terminacion_anticipada',
+            origen_periodo='decision_controlada',
+        )
+        AuditEvent.objects.create(
+            event_type=EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
+            entity_type='contrato',
+            entity_id=str(partial_contract.pk),
+            summary='Decision auditada para prorrata de termino anticipado.',
+            actor_identifier='stage1-early-termination-actor',
+            metadata={
+                'terminacion_anticipada_prorrata_ref': 'early-term-proration-audited-ok',
+                'terminacion_anticipada_prorrata_motivo': 'Prorrata aprobada por decision controlada.',
+                'fecha_fin_vigente': '2025-06-15',
             },
         )
 
