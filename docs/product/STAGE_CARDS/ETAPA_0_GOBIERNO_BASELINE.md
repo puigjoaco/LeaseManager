@@ -20,7 +20,11 @@ evidencia respalda el root limpio.
 - Worktree policy documentada.
 - Cursor operativo vigente para reanudaciones, worktrees y metatareas cerradas.
 - Artefactos locales de herramienta quedan fuera del versionado y no deben
-  ensuciar `git status` del root limpio ni confundirse con paquete activo.
+  ensuciar `git status` del root limpio ni confundirse con paquete activo:
+  `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y
+  archivos manuales marcados `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados sin
+  leer su contenido; acceptance ejecuta `assert-repo-hygiene.ps1
+  -IncludeUntracked` para detectar nuevos artefactos sensibles no ignorados.
 - Superficies publicas con errores seguros, sin mensajes internos ni nombres de
   configuracion expuestos.
 - Auth no expone metadata de usuario sensible: login, login demo y `/me`

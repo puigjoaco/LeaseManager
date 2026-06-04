@@ -29,5 +29,9 @@ migration/bundles/*.png
 screenshots/
 local-evidence/
 .codex-spreadsheet/
+.playwright-cli/
+/*.png
+/*CONFIDENCIAL*NO_SUBIR*.txt
+/*_NO_SUBIR.*
 backend/test-*.sqlite3
 backend/test-*.db

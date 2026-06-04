@@ -101,11 +101,12 @@ function Add-ViolationsForPaths([string[]]$paths, [string]$source) {
     }
 }
 
-$trackedPaths = Get-GitOutput @('ls-files')
+$trackedPaths = @(Get-GitOutput @('ls-files'))
 Add-ViolationsForPaths -paths $trackedPaths -source 'tracked'
 
+$untrackedPaths = @()
 if ($IncludeUntracked) {
-    $untrackedPaths = Get-GitOutput @('ls-files', '--others', '--exclude-standard')
+    $untrackedPaths = @(Get-GitOutput @('ls-files', '--others', '--exclude-standard'))
     Add-ViolationsForPaths -paths $untrackedPaths -source 'untracked'
 }
 
@@ -115,4 +116,11 @@ if ($violations.Count -gt 0) {
     throw 'El repo contiene artefactos sensibles/locales que no deben versionarse.'
 }
 
-Write-Host "Repo hygiene OK: $($trackedPaths.Count) tracked paths reviewed; no sensitive local artifacts are versioned." -ForegroundColor Green
+if ($IncludeUntracked) {
+    Write-Host (
+        "Repo hygiene OK: $($trackedPaths.Count) tracked paths and " +
+        "$($untrackedPaths.Count) untracked paths reviewed; no sensitive local artifacts are versioned or left unignored."
+    ) -ForegroundColor Green
+} else {
+    Write-Host "Repo hygiene OK: $($trackedPaths.Count) tracked paths reviewed; no sensitive local artifacts are versioned." -ForegroundColor Green
+}
