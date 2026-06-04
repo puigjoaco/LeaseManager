@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from cobranza.models import PagoMensual
 from contratos.models import Arrendatario, Contrato, is_international_phone_number
@@ -29,6 +30,8 @@ CHANNEL_GATE_ALLOWED_SENSITIVE_REF_KEYS = (
     'templates_aprobados',
 )
 NOTIFICATION_BASE_SUGGESTED_DAYS = (1, 3, 5, 10, 15, 20, 25)
+WHATSAPP_WINDOW_START_HOUR = 8
+WHATSAPP_WINDOW_END_HOUR = 21
 
 
 def normalize_notification_days(value):
@@ -78,6 +81,21 @@ def whatsapp_gate_has_approved_template(canal_mensajeria):
         restrictions,
         ('template_aprobado_ref', 'template_ref'),
     )
+
+
+def is_within_whatsapp_operational_window(timestamp):
+    if timestamp is None:
+        return False
+    local_timestamp = timezone.localtime(timestamp)
+    return WHATSAPP_WINDOW_START_HOUR <= local_timestamp.hour < WHATSAPP_WINDOW_END_HOUR
+
+
+def whatsapp_message_window_timestamp(message):
+    if message.estado == EstadoMensajeSaliente.SENT:
+        return message.enviado_at
+    if message.estado == EstadoMensajeSaliente.PREPARED:
+        return message.created_at
+    return None
 
 
 def document_delivery_blocking_reason(documento_emitido):
@@ -441,6 +459,11 @@ class MensajeSaliente(TimestampedModel):
                     errors['arrendatario'] = 'WhatsApp preparado/enviado requiere telefono internacional.'
                 elif not whatsapp_gate_has_approved_template(self.canal_mensajeria):
                     errors['canal_mensajeria'] = 'WhatsApp preparado/enviado requiere template aprobado.'
+                window_timestamp = whatsapp_message_window_timestamp(self)
+                if window_timestamp and not is_within_whatsapp_operational_window(window_timestamp):
+                    errors['estado'] = (
+                        'WhatsApp preparado/enviado debe registrarse dentro de 08:00-21:00 America/Santiago.'
+                    )
             if reason := document_delivery_blocking_reason(self.documento_emitido):
                 errors['documento_emitido'] = reason
         if errors:

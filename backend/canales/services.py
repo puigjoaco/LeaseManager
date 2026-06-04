@@ -21,6 +21,8 @@ from .models import (
     EstadoNotificacionCobranza,
     MensajeSaliente,
     NotificacionCobranzaProgramada,
+    WHATSAPP_WINDOW_END_HOUR,
+    WHATSAPP_WINDOW_START_HOUR,
     document_delivery_blocking_reason,
     has_non_sensitive_operational_ref,
     message_identity_authorization_issue,
@@ -28,8 +30,6 @@ from .models import (
 )
 
 
-WHATSAPP_WINDOW_START_HOUR = 8
-WHATSAPP_WINDOW_END_HOUR = 21
 MESSAGE_PREPARED_EVENT_TYPE = 'canales.mensaje_saliente.prepared'
 WHATSAPP_FALLBACK_REQUIRED_CATEGORY = 'canales.whatsapp.fallback_requerido'
 WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE = 'canales.whatsapp.fallback_required'
@@ -252,8 +252,8 @@ def resolve_recipient(canal, arrendatario):
 
 
 def is_within_whatsapp_window(now=None):
-    current_time = timezone.localtime(now).time() if now else timezone.localtime().time()
-    return WHATSAPP_WINDOW_START_HOUR <= current_time.hour < WHATSAPP_WINDOW_END_HOUR
+    current_timestamp = timezone.localtime(now) if now else timezone.localtime()
+    return WHATSAPP_WINDOW_START_HOUR <= current_timestamp.hour < WHATSAPP_WINDOW_END_HOUR
 
 
 def whatsapp_blocking_reason(arrendatario, canal_mensajeria):

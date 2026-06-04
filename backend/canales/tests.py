@@ -1480,6 +1480,48 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(response.data['estado'], EstadoMensajeSaliente.PREPARED)
         self.assertEqual(response.data['destinatario'], contrato.arrendatario.telefono)
 
+    def test_prepared_whatsapp_message_full_clean_rejects_outside_window_timestamp(self):
+        empresa, contrato = self._create_contract_context(
+            codigo='CH-WA-FULLCLEAN',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref='optin-controlled-fullclean',
+        )
+        gate = self._create_gate(canal='whatsapp', restricciones_operativas={'templates_aprobados': True})
+        identidad = self._create_identity(empresa, canal='whatsapp')
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=contrato.mandato_operacion,
+            canal='whatsapp',
+            identidad_envio=identidad,
+            prioridad=1,
+            estado='activa',
+        )
+
+        with patch(
+            'canales.services.timezone.localtime',
+            return_value=datetime(2026, 5, 21, 10, 0, tzinfo=ZoneInfo('America/Santiago')),
+        ):
+            response = self.client.post(
+                reverse('canales-mensaje-preparar'),
+                {
+                    'canal': 'whatsapp',
+                    'canal_mensajeria': gate['id'],
+                    'contrato': contrato.id,
+                    'cuerpo': 'Recordatorio',
+                },
+                format='json',
+            )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['estado'], EstadoMensajeSaliente.PREPARED)
+        outside_window = datetime(2026, 5, 21, 22, 30, tzinfo=ZoneInfo('America/Santiago'))
+        MensajeSaliente.objects.filter(pk=response.data['id']).update(
+            created_at=outside_window,
+            updated_at=outside_window,
+        )
+
+        message = MensajeSaliente.objects.get(pk=response.data['id'])
+        with self.assertRaisesMessage(ValidationError, '08:00-21:00 America/Santiago'):
+            message.full_clean()
+
     def test_register_manual_whatsapp_send_rechecks_allowed_window(self):
         empresa, contrato = self._create_contract_context(
             codigo='CH-WA-SEND-WIN',

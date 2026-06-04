@@ -18,7 +18,9 @@ from canales.models import (
     MensajeSaliente,
     NotificacionCobranzaProgramada,
     gate_restrictions_contain_sensitive_reference,
+    is_within_whatsapp_operational_window,
     message_identity_authorization_issue,
+    whatsapp_message_window_timestamp,
 )
 from canales.services import (
     COLLECTABLE_PAYMENT_STATES,
@@ -225,7 +227,11 @@ def _message_operational_issue(message: MensajeSaliente) -> str:
     if message.contrato_id and message.contrato.mandato_operacion.estado != EstadoMandatoOperacion.ACTIVE:
         return 'Mensaje preparado/enviado sin mandato operativo activo.'
     if message.canal == CanalOperacion.WHATSAPP:
-        return _whatsapp_contact_static_issue(message)
+        if issue := _whatsapp_contact_static_issue(message):
+            return issue
+        window_timestamp = whatsapp_message_window_timestamp(message)
+        if window_timestamp and not is_within_whatsapp_operational_window(window_timestamp):
+            return 'Mensaje WhatsApp preparado/enviado fuera de ventana operativa.'
     return ''
 
 
@@ -505,6 +511,12 @@ def _collect_message_issues(messages) -> dict[str, int]:
         if _message_operational_issue(message):
             counts['prepared_or_sent_not_ready'] += 1
         if message.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}:
+            if (
+                message.canal == CanalOperacion.WHATSAPP
+                and (window_timestamp := whatsapp_message_window_timestamp(message))
+                and not is_within_whatsapp_operational_window(window_timestamp)
+            ):
+                counts['whatsapp_window_violation'] += 1
             if document_delivery_blocking_reason(message.documento_emitido):
                 counts['document_not_formalized'] += 1
     return dict(sorted(counts.items()))
@@ -1623,6 +1635,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.message.prepared_or_sent_not_ready',
                 'Existen mensajes preparados/enviados sin gate, identidad, destinatario o mandato operativo valido.',
                 count=message_issues['prepared_or_sent_not_ready'],
+            )
+        )
+    if message_issues.get('whatsapp_window_violation'):
+        issues.append(
+            _issue(
+                'stage2.message.whatsapp_window_violation',
+                'Existen mensajes WhatsApp preparados/enviados fuera de 08:00-21:00 America/Santiago.',
+                count=message_issues['whatsapp_window_violation'],
             )
         )
     if message_issues.get('document_not_formalized'):
