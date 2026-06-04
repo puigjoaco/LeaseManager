@@ -62,7 +62,12 @@ from .admin import (
     ContratoPropiedadAdmin,
     PeriodoContractualAdmin,
 )
-from .services import block_whatsapp_contact, rehabilitate_whatsapp_contact
+from .services import (
+    block_whatsapp_contact,
+    execute_automatic_contract_renewal,
+    execute_tenant_replacement,
+    rehabilitate_whatsapp_contact,
+)
 
 
 class ContratosAPITests(APITestCase):
@@ -1902,9 +1907,53 @@ class ContratosAPITests(APITestCase):
             entity_type='periodo_contractual',
             entity_id=str(renewal.pk),
             summary='Renovacion automatica auditada.',
+            actor_user=self.user,
         )
 
         renewal.full_clean()
+
+    def test_automatic_renewal_service_requires_traceable_actor(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REN-ACTOR', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REN-ACTOR')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        contrato = Contrato.objects.get(pk=create_response.data['id'])
+
+        with self.assertRaisesMessage(
+            ValueError,
+            'La renovacion automatica de contrato requiere un actor trazable para auditoria.',
+        ):
+            execute_automatic_contract_renewal(
+                contract=contrato,
+                fecha_fin=date(2027, 12, 31),
+            )
+
+        contrato.refresh_from_db()
+        self.assertEqual(contrato.fecha_fin_vigente, date(2026, 12, 31))
+        self.assertEqual(contrato.periodos_contractuales.count(), 1)
+        self.assertFalse(AuditEvent.objects.filter(event_type=AUTOMATIC_RENEWAL_EVENT_TYPE).exists())
+
+    def test_automatic_renewal_service_accepts_actor_identifier_for_internal_calls(self):
+        mandato = self._create_active_mandato(codigo='MAND-101-REN-SVC', owner_rut='11111112-K')
+        arrendatario = self._create_arrendatario(rut='22222222-2')
+        payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-101-REN-SVC')
+        create_response = self.client.post(reverse('contratos-contrato-list'), payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        contrato = Contrato.objects.get(pk=create_response.data['id'])
+
+        renewal = execute_automatic_contract_renewal(
+            contract=contrato,
+            fecha_fin=date(2027, 12, 31),
+            actor_identifier='ops-renewal-job',
+        )
+
+        event = AuditEvent.objects.get(
+            event_type=AUTOMATIC_RENEWAL_EVENT_TYPE,
+            entity_type='periodo_contractual',
+            entity_id=str(renewal.pk),
+        )
+        self.assertEqual(event.actor_identifier, 'ops-renewal-job')
 
     def test_automatic_renewal_endpoint_appends_period_and_audit_event(self):
         mandato = self._create_active_mandato(codigo='MAND-101-REN-AUTO', owner_rut='11111112-K')
@@ -1929,13 +1978,12 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(renewal.monto_base, Decimal('1000000.00'))
         self.assertEqual(renewal.tipo_periodo, 'renovacion')
         self.assertEqual(renewal.origen_periodo, 'renovacion_automatica')
-        self.assertTrue(
-            AuditEvent.objects.filter(
-                event_type=AUTOMATIC_RENEWAL_EVENT_TYPE,
-                entity_type='periodo_contractual',
-                entity_id=str(renewal.pk),
-            ).exists()
+        event = AuditEvent.objects.get(
+            event_type=AUTOMATIC_RENEWAL_EVENT_TYPE,
+            entity_type='periodo_contractual',
+            entity_id=str(renewal.pk),
         )
+        self.assertEqual(event.actor_user_id, self.user.pk)
         self.assertEqual(response.data['periodo_renovacion']['id'], renewal.pk)
 
     def test_automatic_renewal_endpoint_rejects_registered_notice(self):
@@ -3183,8 +3231,61 @@ class ContratosAPITests(APITestCase):
                 metadata__aviso_termino_id=aviso.pk,
                 metadata__arrendatario_anterior_id=arrendatario.id,
                 metadata__arrendatario_nuevo_id=nuevo_arrendatario.id,
+                actor_user=self.user,
             ).exists()
         )
+
+    def test_tenant_replacement_service_requires_traceable_actor(self):
+        mandato = self._create_active_mandato(codigo='MAND-TEN-ACTOR', owner_rut='20202024-5')
+        arrendatario = self._create_arrendatario(rut='21212125-3')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-TEN-ACTOR-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+        current_contract = Contrato.objects.get(pk=current_response.data['id'])
+        nuevo_arrendatario = self._create_arrendatario(rut='25252525-K')
+
+        with self.assertRaisesMessage(
+            ValueError,
+            'El cambio guiado de arrendatario requiere un actor trazable para auditoria.',
+        ):
+            execute_tenant_replacement(
+                contract=current_contract,
+                arrendatario=nuevo_arrendatario,
+                codigo_contrato='CTR-TEN-ACTOR-F',
+                fecha_inicio=date(2027, 1, 1),
+                fecha_fin_vigente=date(2027, 12, 31),
+                causal_aviso='Cambio controlado sin actor',
+            )
+
+        self.assertFalse(AvisoTermino.objects.filter(contrato=current_contract).exists())
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-TEN-ACTOR-F').exists())
+        self.assertFalse(AuditEvent.objects.filter(event_type=TENANT_REPLACEMENT_EVENT_TYPE).exists())
+
+    def test_tenant_replacement_service_accepts_actor_identifier_for_internal_calls(self):
+        mandato = self._create_active_mandato(codigo='MAND-TEN-SVC', owner_rut='20202025-3')
+        arrendatario = self._create_arrendatario(rut='21212126-1')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-TEN-SVC-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+        current_contract = Contrato.objects.get(pk=current_response.data['id'])
+        nuevo_arrendatario = self._create_arrendatario(rut='26262626-8')
+
+        _, future_contract = execute_tenant_replacement(
+            contract=current_contract,
+            arrendatario=nuevo_arrendatario,
+            codigo_contrato='CTR-TEN-SVC-F',
+            fecha_inicio=date(2027, 1, 1),
+            fecha_fin_vigente=date(2027, 12, 31),
+            causal_aviso='Cambio controlado por servicio interno',
+            actor_identifier='ops-contract-lifecycle',
+        )
+
+        event = AuditEvent.objects.get(
+            event_type=TENANT_REPLACEMENT_EVENT_TYPE,
+            entity_type='contrato',
+            entity_id=str(future_contract.pk),
+        )
+        self.assertEqual(event.actor_identifier, 'ops-contract-lifecycle')
 
     def test_tenant_replacement_endpoint_rejects_same_tenant(self):
         mandato = self._create_active_mandato(codigo='MAND-TEN-SAME', owner_rut='20202022-9')

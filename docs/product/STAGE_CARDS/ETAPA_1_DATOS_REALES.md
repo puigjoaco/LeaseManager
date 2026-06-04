@@ -204,10 +204,11 @@ contra datos reales o snapshot controlado.
   `PeriodoContractual` de origen `renovacion_automatica`, extiende
   `fecha_fin_vigente`, usa por defecto la base del ultimo tramo, bloquea la
   operacion si existe `AvisoTermino` registrado y deja evento auditable
-  dedicado. `PeriodoContractual.full_clean()` bloquea nuevas escrituras con
-  origen `renovacion_automatica` sin ese evento y la API de contratos no acepta
-  ese origen en payloads anidados; el auditor Etapa 1 marca como defectuosas
-  renovaciones automaticas heredadas sin ese evento.
+  dedicado con actor trazable. `PeriodoContractual.full_clean()` bloquea
+  nuevas escrituras con origen `renovacion_automatica` sin ese evento o sin
+  actor, y la API de contratos no acepta ese origen en payloads anidados; el
+  auditor Etapa 1 marca como defectuosas renovaciones automaticas heredadas sin
+  ese evento completo.
 - Validacion de garantias: montos/estado coherentes, fechas de recepcion y
   cierre consistentes, y saldos recibidos, devueltos o aplicados conciliados
   contra `HistorialGarantia`, incluyendo que devoluciones, retenciones o
@@ -287,12 +288,13 @@ contra datos reales o snapshot controlado.
   registrado y contrato futuro con nuevo arrendatario en una transaccion,
   conserva el contrato/deuda historica sin reescribir identidad, copia las
   propiedades contractuales, inicia un periodo de origen `cambio_arrendatario`
-  y registra auditoria dedicada. `Contrato.full_clean()` y la API bloquean la
-  escritura directa de contratos futuros con arrendatario distinto al vigente
-  si no provienen del flujo guiado o no conservan el evento auditable exacto.
-  El auditor Etapa 1 marca como defectuosos contratos futuros heredados con
-  arrendatario distinto al vigente si no existe el evento auditable que vincula
-  contrato anterior, aviso y contrato nuevo.
+  y registra auditoria dedicada con actor trazable. `Contrato.full_clean()` y
+  la API bloquean la escritura directa de contratos futuros con arrendatario
+  distinto al vigente si no provienen del flujo guiado o no conservan el evento
+  auditable exacto con actor. El auditor Etapa 1 marca como defectuosos
+  contratos futuros heredados con arrendatario distinto al vigente si no existe
+  el evento auditable completo que vincula contrato anterior, aviso y contrato
+  nuevo.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe conservar `moneda_calculo`, fecha, valor y
   fuente UF usados. La fecha UF debe coincidir con `fecha_vencimiento` y debe

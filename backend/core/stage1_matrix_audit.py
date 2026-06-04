@@ -44,6 +44,7 @@ from contratos.models import (
     TENANT_REPLACEMENT_EVENT_TYPE,
     RolContratoPropiedad,
     TipoArrendatario,
+    audit_event_has_actor,
     is_international_phone_number,
     normalize_representante_legal_snapshot,
 )
@@ -1217,7 +1218,7 @@ def _audit_contract_periods(issues: list[dict[str, Any]], contrato: Contrato) ->
                 code='stage1.periodo.renovacion_automatica_sin_auditoria',
                 entity='PeriodoContractual',
                 entity_id=period.pk,
-                message='Renovacion automatica sin evento auditable dedicado.',
+                message='Renovacion automatica sin evento auditable dedicado con actor trazable.',
             )
 
     if contrato.tiene_tramos:
@@ -1328,15 +1329,18 @@ def _audit_future_contract_closure_evidence(
                     'la resolucion guiada contiene motivo sensible.'
                 ),
             )
-        elif contrato.arrendatario_id != current_contract.arrendatario_id and not AuditEvent.objects.filter(
-            event_type=TENANT_REPLACEMENT_EVENT_TYPE,
-            entity_type='contrato',
-            entity_id=str(contrato.pk),
-            metadata__contrato_anterior_id=current_contract.pk,
-            metadata__aviso_termino_id=aviso.pk,
-            metadata__arrendatario_anterior_id=current_contract.arrendatario_id,
-            metadata__arrendatario_nuevo_id=contrato.arrendatario_id,
-        ).exists():
+        elif contrato.arrendatario_id != current_contract.arrendatario_id and not any(
+            audit_event_has_actor(event)
+            for event in AuditEvent.objects.filter(
+                event_type=TENANT_REPLACEMENT_EVENT_TYPE,
+                entity_type='contrato',
+                entity_id=str(contrato.pk),
+                metadata__contrato_anterior_id=current_contract.pk,
+                metadata__aviso_termino_id=aviso.pk,
+                metadata__arrendatario_anterior_id=current_contract.arrendatario_id,
+                metadata__arrendatario_nuevo_id=contrato.arrendatario_id,
+            ).only('actor_user_id', 'actor_identifier')
+        ):
             _issue(
                 issues,
                 code='stage1.contrato_futuro.cambio_arrendatario_sin_auditoria',
@@ -1344,7 +1348,7 @@ def _audit_future_contract_closure_evidence(
                 entity_id=contrato.pk,
                 message=(
                     'Contrato futuro con cambio de arrendatario requiere flujo guiado y evento auditable '
-                    'que vincule contrato anterior, aviso de termino y contrato nuevo.'
+                    'con actor trazable que vincule contrato anterior, aviso de termino y contrato nuevo.'
                 ),
             )
         return

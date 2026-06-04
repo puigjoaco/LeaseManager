@@ -45,6 +45,10 @@ def is_international_phone_number(value):
     return bool(INTERNATIONAL_PHONE_RE.fullmatch(str(value or '').strip()))
 
 
+def audit_event_has_actor(event):
+    return bool(event.actor_user_id or str(event.actor_identifier or '').strip())
+
+
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -824,15 +828,18 @@ class Contrato(TimestampedModel):
             if self.arrendatario_id != current_contract.arrendatario_id:
                 if getattr(self, '_allow_guided_tenant_replacement', False):
                     return
-                has_replacement_audit = self.pk and AuditEvent.objects.filter(
-                    event_type=TENANT_REPLACEMENT_EVENT_TYPE,
-                    entity_type='contrato',
-                    entity_id=str(self.pk),
-                    metadata__contrato_anterior_id=current_contract.pk,
-                    metadata__aviso_termino_id=aviso.pk,
-                    metadata__arrendatario_anterior_id=current_contract.arrendatario_id,
-                    metadata__arrendatario_nuevo_id=self.arrendatario_id,
-                ).exists()
+                replacement_audit_events = AuditEvent.objects.none()
+                if self.pk:
+                    replacement_audit_events = AuditEvent.objects.filter(
+                        event_type=TENANT_REPLACEMENT_EVENT_TYPE,
+                        entity_type='contrato',
+                        entity_id=str(self.pk),
+                        metadata__contrato_anterior_id=current_contract.pk,
+                        metadata__aviso_termino_id=aviso.pk,
+                        metadata__arrendatario_anterior_id=current_contract.arrendatario_id,
+                        metadata__arrendatario_nuevo_id=self.arrendatario_id,
+                    ).only('actor_user_id', 'actor_identifier')
+                has_replacement_audit = any(audit_event_has_actor(event) for event in replacement_audit_events)
                 if not has_replacement_audit:
                     raise ValidationError(
                         {
@@ -1108,11 +1115,12 @@ class PeriodoContractual(TimestampedModel):
     def has_automatic_renewal_audit(self):
         if not self.pk or not self.is_automatic_renewal_origin():
             return False
-        return AuditEvent.objects.filter(
+        events = AuditEvent.objects.filter(
             event_type=AUTOMATIC_RENEWAL_EVENT_TYPE,
             entity_type='periodo_contractual',
             entity_id=str(self.pk),
-        ).exists()
+        ).only('actor_user_id', 'actor_identifier')
+        return any(audit_event_has_actor(event) for event in events)
 
     def previous_period(self):
         if not self.contrato_id:

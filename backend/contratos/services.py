@@ -305,8 +305,14 @@ def execute_automatic_contract_renewal(
     politica_base_renovacion_ref='',
     politica_base_renovacion_motivo='',
     actor_user=None,
+    actor_identifier='',
     ip_address=None,
 ):
+    actor_identifier = _require_audit_actor(
+        'La renovacion automatica de contrato requiere un actor trazable para auditoria.',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+    )
     contract = (
         Contrato.objects.select_for_update()
         .select_related('mandato_operacion', 'arrendatario', 'politica_documental')
@@ -387,6 +393,7 @@ def execute_automatic_contract_renewal(
         entity_id=str(renewal_period.pk),
         summary='Se ejecuto renovacion automatica de contrato por PeriodoContractual.',
         actor_user=actor_user,
+        actor_identifier=actor_identifier,
         ip_address=ip_address,
         metadata={
             'contrato_id': contract.pk,
@@ -424,8 +431,14 @@ def execute_tenant_replacement(
     resolucion_conflicto_renovacion_ref='',
     resolucion_conflicto_renovacion_motivo='',
     actor_user=None,
+    actor_identifier='',
     ip_address=None,
 ):
+    actor_identifier = _require_audit_actor(
+        'El cambio guiado de arrendatario requiere un actor trazable para auditoria.',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+    )
     contract = (
         Contrato.objects.select_for_update()
         .select_related('mandato_operacion', 'arrendatario', 'politica_documental', 'identidad_envio_override')
@@ -545,6 +558,7 @@ def execute_tenant_replacement(
         entity_id=str(future_contract.pk),
         summary='Se ejecuto cambio de arrendatario mediante aviso de termino y contrato futuro.',
         actor_user=actor_user,
+        actor_identifier=actor_identifier,
         ip_address=ip_address,
         metadata={
             'contrato_anterior_id': contract.pk,
