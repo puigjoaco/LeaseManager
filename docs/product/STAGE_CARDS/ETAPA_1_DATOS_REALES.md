@@ -256,11 +256,12 @@ contra datos reales o snapshot controlado.
   conserven.
 - Terminacion anticipada con ultimo mes parcial: solo se permite si el
   contrato conserva una referencia no sensible a regla o decision de prorrata,
-  un motivo trazable y un evento auditable dedicado. `Contrato.full_clean()` y
-  la API bloquean nuevas escrituras sin esa auditoria o con motivo sensible, y
-  el auditor Etapa 1 bloquea snapshots heredados sin esa decision, sin
-  auditoria o con motivo sensible; API/snapshot/admin/backoffice exponen
-  refs/motivos heredados solo mediante version redactada.
+  un motivo trazable y un evento auditable dedicado con actor y metadata
+  alineada a referencia, motivo y fecha fin vigente. `Contrato.full_clean()` y
+  la API bloquean nuevas escrituras sin esa auditoria completa o con motivo
+  sensible, y el auditor Etapa 1 bloquea snapshots heredados sin esa decision,
+  sin auditoria alineada o con motivo sensible; API/snapshot/admin/backoffice
+  exponen refs/motivos heredados solo mediante version redactada.
 - Validacion de pagos y distribuciones existentes en el snapshot: si existen,
   deben cuadrar devengo, conciliacion, porcentaje y entidad facturadora.
 - Validacion de que pagos mensuales existentes queden dentro de la vigencia

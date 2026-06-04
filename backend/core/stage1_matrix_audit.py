@@ -1416,7 +1416,7 @@ def _audit_early_termination_proration(issues: list[dict[str, Any]]) -> None:
                 entity_id=contrato.pk,
                 message=(
                     'Contrato terminado anticipadamente con ultimo mes parcial conserva decision, '
-                    'pero no tiene evento auditable dedicado para esa prorrata.'
+                    'pero no tiene evento auditable dedicado con actor y metadata alineada para esa prorrata.'
                 ),
             )
 

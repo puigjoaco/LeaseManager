@@ -573,14 +573,21 @@ class Contrato(TimestampedModel):
             return False
 
         expected_ref = (self.terminacion_anticipada_prorrata_ref or '').strip()
+        expected_motive = (self.terminacion_anticipada_prorrata_motivo or '').strip()
+        expected_end = self.fecha_fin_vigente.isoformat() if self.fecha_fin_vigente else ''
         events = AuditEvent.objects.filter(
             event_type=EARLY_TERMINATION_PARTIAL_MONTH_EVENT_TYPE,
             entity_type='contrato',
             entity_id=str(self.pk),
-        )
+        ).only('actor_user_id', 'actor_identifier', 'metadata')
         for event in events:
             metadata = event.metadata if isinstance(event.metadata, dict) else {}
-            if metadata.get('terminacion_anticipada_prorrata_ref') == expected_ref:
+            if (
+                audit_event_has_actor(event)
+                and metadata.get('terminacion_anticipada_prorrata_ref') == expected_ref
+                and metadata.get('terminacion_anticipada_prorrata_motivo') == expected_motive
+                and metadata.get('fecha_fin_vigente') == expected_end
+            ):
                 return True
         return False
 
@@ -638,7 +645,8 @@ class Contrato(TimestampedModel):
         raise ValidationError(
             {
                 'terminacion_anticipada_prorrata_ref': (
-                    'El ultimo mes parcial por terminacion anticipada requiere evento auditable dedicado.'
+                    'El ultimo mes parcial por terminacion anticipada requiere evento auditable dedicado '
+                    'con actor trazable y metadata alineada.'
                 )
             }
         )
