@@ -147,7 +147,9 @@ vista en una transaccion. `AuditCreateUpdateMixin.perform_update()` persiste
 la mutacion documental junto con `documentos.*.updated` y, cuando aplica,
 `documentos.*.state_changed` dentro de `transaction.atomic()`; si falla la
 auditoria, no quedan expedientes, politicas, plantillas ni documentos mutados
-sin traza de endpoint.
+sin traza de endpoint. Nota 2026-06-05: los eventos
+`documentos.*.state_changed`, incluyendo formalizacion, incorporan metadata
+minima con campo de estado, estado anterior y estado nuevo.
 
 Nota 2026-05-31: Auth/Etapa 0 alinea tokens persistentes y auditoria de
 sesion en una transaccion. `LoginView.post()` crea o reutiliza `Token` y
