@@ -15,6 +15,13 @@ Documentos y Compliance ahora reportan issues bloqueantes especificos cuando
 la traza historica no conserva esos campos, sin exponer valores sensibles ni
 usar fuentes externas.
 
+Nota 2026-06-05: SII/Etapa 4 y Renta Anual/Etapa 6 extienden esa cobertura a
+eventos `status_updated` tributarios. `audit_stage4_sii_readiness` bloquea
+`sii.*.status_updated` sin metadata minima de transicion, y
+`audit_stage6_renta_anual_readiness` bloquea `sii.ddjj_preparacion.status_updated`
+o `sii.f22_preparacion.status_updated` incompletos, manteniendo el cierre de
+ambas etapas condicionado a fuente autorizada y evidencia suficiente.
+
 Nota 2026-06-03: Contratos/Etapa 1 exige actor trazable en auditorias de
 ciclo contractual guiado. `execute_automatic_contract_renewal()` y
 `execute_tenant_replacement()` fallan antes de mutar si una llamada interna no

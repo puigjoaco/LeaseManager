@@ -16,6 +16,7 @@ from contabilidad.models import (
     ObligacionTributariaMensual,
 )
 from core.reference_validation import contains_sensitive_reference
+from core.state_transition_audit_readiness import count_audit_events_without_transition_metadata
 from documentos.models import DocumentoEmitido, EstadoDocumento, TipoDocumental
 from sii.models import (
     AmbienteSII,
@@ -35,6 +36,10 @@ SENSITIVE_REFERENCE_PATTERN = re.compile(
 )
 
 AUTHORIZED_STAGE6_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+STAGE6_ANNUAL_STATUS_UPDATE_EVENT_TYPES = (
+    'sii.ddjj_preparacion.status_updated',
+    'sii.f22_preparacion.status_updated',
+)
 
 ANNUAL_TRACEABLE_STATES = {
     EstadoPreparacionTributaria.PREPARED,
@@ -299,6 +304,9 @@ def collect_stage6_renta_anual_readiness(
         'authorization_ref': _non_sensitive_reference(authorization_ref),
     }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE6_SOURCE_KINDS
+    annual_status_transition_metadata_missing = count_audit_events_without_transition_metadata(
+        event_types=STAGE6_ANNUAL_STATUS_UPDATE_EVENT_TYPES
+    )
 
     issues: list[dict[str, Any]] = []
     if not source_kind_authorized_for_close:
@@ -323,6 +331,14 @@ def collect_stage6_renta_anual_readiness(
         ]:
             if not source_trace[key]:
                 issues.append(_issue(code, message))
+    if annual_status_transition_metadata_missing:
+        issues.append(
+            _issue(
+                'stage6.audit.annual_status_transition_metadata_missing',
+                'Existen eventos status_updated de DDJJ/F22 sin campo_estado, estado_anterior o estado_nuevo.',
+                count=annual_status_transition_metadata_missing,
+            )
+        )
     if active_fiscal_configs.count() == 0:
         issues.append(
             _issue(
@@ -679,6 +695,9 @@ def collect_stage6_renta_anual_readiness(
                 'usable': usable_tax_support_documents.count(),
                 'invalid_usable': invalid_tax_support_documents,
                 'by_state': _count_by(tax_support_documents, 'estado'),
+            },
+            'audit': {
+                'annual_status_transition_metadata_missing': annual_status_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,

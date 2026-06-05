@@ -287,6 +287,21 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertIn('stage4.audit.state_transition_metadata_missing', issue_codes)
         self.assertEqual(result['sections']['audit']['state_transition_metadata_missing'], 1)
 
+    def test_status_updated_event_without_transition_metadata_is_blocking(self):
+        AuditEvent.objects.create(
+            event_type='sii.f29_preparacion.status_updated',
+            entity_type='f29_preparacion',
+            entity_id='1',
+            summary='Actualizacion SII heredada sin metadata de transicion.',
+            metadata={'estado_nuevo': EstadoPreparacionTributaria.PREPARED},
+        )
+
+        result = collect_stage4_sii_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage4.audit.status_transition_metadata_missing', issue_codes)
+        self.assertEqual(result['sections']['audit']['status_transition_metadata_missing'], 1)
+
     def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         self._create_valid_local_matrix()
 

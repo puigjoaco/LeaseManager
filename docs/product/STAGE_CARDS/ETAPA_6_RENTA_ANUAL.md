@@ -37,6 +37,11 @@ cierres mensuales.
   persisten la mutacion y su auditoria de vista en una misma transaccion. Si
   falla la auditoria, no debe quedar proceso anual, preparacion ni referencia
   final mutada sin traza de endpoint.
+- Los eventos `sii.ddjj_preparacion.status_updated` y
+  `sii.f22_preparacion.status_updated` deben conservar metadata minima de
+  transicion con `campo_estado`, `estado_anterior` y `estado_nuevo`;
+  `audit_stage6_renta_anual_readiness` bloquea snapshots heredados sin esa
+  metadata.
 - `audit_stage6_renta_anual_readiness` clasifica explicitamente como
   bloqueantes las referencias finales sensibles en ProcesoRentaAnual, DDJJ y
   F22, sin exponer esos valores.
