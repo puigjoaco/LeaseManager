@@ -137,7 +137,10 @@ Nota 2026-05-31: Canales/Etapa 2 alinea altas y ediciones API de gates y
 configuraciones de notificacion con auditoria atomica. `AuditCreateUpdateMixin`
 en Canales persiste `created`, `updated` y `state_changed` dentro de
 `transaction.atomic()`; si falla la auditoria, no quedan gates ni
-configuraciones mutadas sin traza de endpoint.
+configuraciones mutadas sin traza de endpoint. Nota 2026-06-05: los eventos
+`canales.*.state_changed` incorporan metadata minima con campo de estado,
+estado anterior y estado nuevo para auditar la transicion sin reconstruccion
+externa.
 
 Nota 2026-05-31: Documentos/Etapa 5 alinea updates genericos y auditoria de
 vista en una transaccion. `AuditCreateUpdateMixin.perform_update()` persiste
@@ -180,7 +183,10 @@ de vista en una transaccion. `AuditCreateUpdateMixin` en Cobranza y los
 overrides de UF, pagos, refresco de mora, materializacion local, movimientos
 de garantia, repactaciones y rebuild de estado de cuenta persisten cambios y
 eventos auditables de forma atomica; si falla la auditoria, no quedan cambios
-operativos de Cobranza sin traza.
+operativos de Cobranza sin traza. Nota 2026-06-05: los eventos
+`cobranza.*.state_changed` incorporan metadata minima con campo de estado,
+estado anterior y estado nuevo para pagos, garantias, gates y estados
+expuestos por el mixin de vista.
 
 Nota 2026-05-31: Contratos/Etapa 1 alinea altas y ediciones API con auditoria
 atomica. `AuditCreateUpdateMixin` y los overrides de arrendatario/contrato

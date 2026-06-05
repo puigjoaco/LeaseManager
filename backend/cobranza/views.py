@@ -99,6 +99,7 @@ def create_effective_code_applied_event(payment, request):
 class AuditCreateUpdateMixin:
     audit_entity_type = ''
     audit_entity_label = ''
+    audit_state_fields = ('estado_pago', 'estado_garantia', 'estado_gate', 'estado', 'activo', 'activa')
 
     def perform_create(self, serializer):
         with transaction.atomic():
@@ -107,25 +108,39 @@ class AuditCreateUpdateMixin:
         return instance
 
     def perform_update(self, serializer):
-        previous_state = self._extract_state(serializer.instance)
+        previous_state_field, previous_state = self._extract_state(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
             self._create_audit_event(instance=instance, action='updated')
-            if previous_state != self._extract_state(instance):
+            current_state_field, current_state = self._extract_state(instance)
+            if previous_state != current_state:
                 self._create_audit_event(
                     instance=instance,
                     action='state_changed',
                     summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                    metadata=self._state_change_metadata(
+                        previous_field=previous_state_field,
+                        previous_state=previous_state,
+                        current_field=current_state_field,
+                        current_state=current_state,
+                    ),
                 )
         return instance
 
     def _extract_state(self, instance):
-        for field in ('estado_pago', 'estado_garantia'):
+        for field in self.audit_state_fields:
             if hasattr(instance, field):
-                return getattr(instance, field)
-        return None
+                return field, getattr(instance, field)
+        return None, None
 
-    def _create_audit_event(self, *, instance, action, summary=''):
+    def _state_change_metadata(self, *, previous_field, previous_state, current_field, current_state):
+        return {
+            'campo_estado': current_field or previous_field,
+            'estado_anterior': previous_state,
+            'estado_nuevo': current_state,
+        }
+
+    def _create_audit_event(self, *, instance, action, summary='', metadata=None):
         create_audit_event(
             event_type=f'cobranza.{self.audit_entity_type}.{action}',
             entity_type=self.audit_entity_type,
@@ -133,6 +148,7 @@ class AuditCreateUpdateMixin:
             summary=summary or f'{self.audit_entity_label} {action}',
             actor_user=self.request.user,
             ip_address=self.request.META.get('REMOTE_ADDR'),
+            metadata=metadata,
         )
 
 
@@ -452,11 +468,18 @@ class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
                 )
                 serializer.instance = instance
                 self._create_audit_event(instance=instance, action='updated')
-                if previous_state != self._extract_state(instance):
+                current_state_field, current_state = self._extract_state(instance)
+                if previous_state != current_state:
                     self._create_audit_event(
                         instance=instance,
                         action='state_changed',
                         summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                        metadata=self._state_change_metadata(
+                            previous_field=current_state_field,
+                            previous_state=previous_state,
+                            current_field=current_state_field,
+                            current_state=current_state,
+                        ),
                     )
                 materialized = materialize_payment_notification_schedule(instance)
                 if materialized['created_count'] or materialized.get('omitted_count'):
@@ -798,6 +821,11 @@ class GarantiaMovimientoCreateView(APIView):
                         summary='Cambio de estado de garantia contractual',
                         actor_user=request.user,
                         ip_address=request.META.get('REMOTE_ADDR'),
+                        metadata={
+                            'campo_estado': 'estado_garantia',
+                            'estado_anterior': previous_state,
+                            'estado_nuevo': garantia.estado_garantia,
+                        },
                     )
         except DjangoValidationError as error:
             payload = error.message_dict if hasattr(error, 'message_dict') else {'detail': error.messages}

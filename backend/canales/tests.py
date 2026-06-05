@@ -392,6 +392,66 @@ class CanalesAPITests(APITestCase):
         self.assertFalse(CanalMensajeria.objects.filter(canal='email').exists())
         self.assertEqual(AuditEvent.objects.count(), audit_count)
 
+    def test_channel_gate_state_change_audit_includes_metadata(self):
+        gate = self._create_gate(canal='email', estado_gate=EstadoGateCanal.OPEN)
+
+        response = self.client.patch(
+            reverse('canales-gate-detail', args=[gate['id']]),
+            {'estado_gate': EstadoGateCanal.CLOSED},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        state_event = AuditEvent.objects.get(
+            event_type='canales.canal_mensajeria.state_changed',
+            entity_type='canal_mensajeria',
+            entity_id=str(gate['id']),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado_gate',
+                'estado_anterior': EstadoGateCanal.OPEN,
+                'estado_nuevo': EstadoGateCanal.CLOSED,
+            },
+        )
+
+    def test_notification_config_state_change_audit_includes_metadata(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-AUDIT-META')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        created = self.client.post(
+            reverse('canales-notificacion-contrato-list'),
+            {
+                'contrato': contrato.pk,
+                'canal': 'email',
+                'dias_notificacion': [1, 3, 5, 10, 15, 20, 25],
+                'activa': True,
+            },
+            format='json',
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('canales-notificacion-contrato-detail', args=[created.data['id']]),
+            {'activa': False},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        state_event = AuditEvent.objects.get(
+            event_type='canales.configuracion_notificacion_contrato.state_changed',
+            entity_type='configuracion_notificacion_contrato',
+            entity_id=str(created.data['id']),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'activa',
+                'estado_anterior': True,
+                'estado_nuevo': False,
+            },
+        )
+
     def test_notification_config_update_rolls_back_when_state_audit_fails(self):
         from audit.services import create_audit_event as real_create_audit_event
 

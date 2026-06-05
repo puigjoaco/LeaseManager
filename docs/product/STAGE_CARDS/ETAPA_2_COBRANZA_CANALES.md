@@ -93,7 +93,9 @@ condicionados sin envios reales accidentales.
   via `AuditCreateUpdateMixin`, cargas UF, actualizaciones de pagos, refresco
   de mora, materializacion local de cobro existente, movimientos de garantia,
   repactaciones y rebuild de estado de cuenta; si falla la auditoria, no debe
-  quedar cambio de Cobranza sin traza.
+  quedar cambio de Cobranza sin traza. Los eventos `cobranza.*.state_changed`
+  deben conservar metadata minima de transicion con `campo_estado`,
+  `estado_anterior` y `estado_nuevo`.
 - La preparacion de mensajes tambien queda auditada desde el servicio
   `prepare_message()`: persistencia del mensaje preparado/bloqueado y evento
   `canales.mensaje_saliente.prepared` ocurren en la misma transaccion, para
@@ -102,7 +104,9 @@ condicionados sin envios reales accidentales.
 - Las APIs de Canales que mutan gates y configuraciones de notificacion
   persisten la entidad y los eventos `created`, `updated` o `state_changed`
   dentro de la misma transaccion. Si falla la auditoria de vista, no debe
-  quedar gate ni configuracion mutada sin traza de endpoint.
+  quedar gate ni configuracion mutada sin traza de endpoint. Los eventos
+  `canales.*.state_changed` deben conservar metadata minima de transicion con
+  `campo_estado`, `estado_anterior` y `estado_nuevo`.
 - Registro manual de envio solo con `external_ref` trazable no sensible y
   revalidacion del gate abierto, identidad activa, destinatario y mandato
   operativo activo.

@@ -1058,7 +1058,19 @@ class CobranzaAPITests(APITestCase):
 
         self.assertEqual(update.status_code, status.HTTP_200_OK)
         self.assertEqual(update.data['estado_pago'], EstadoPago.OVERDUE)
-        self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.state_changed').exists())
+        state_event = AuditEvent.objects.get(
+            event_type='cobranza.pago_mensual.state_changed',
+            entity_type='pago_mensual',
+            entity_id=str(generate.data['id']),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado_pago',
+                'estado_anterior': EstadoPago.PENDING,
+                'estado_nuevo': EstadoPago.OVERDUE,
+            },
+        )
 
     def test_payment_update_rolls_back_when_view_audit_fails(self):
         payment = self._generate_monthly_payment(codigo='CON-PAY-AUDIT-ROLLBACK')
@@ -1924,7 +1936,22 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(final_detail.data['estado_garantia'], EstadoGarantia.APPLIED)
         self.assertEqual(final_detail.data['monto_aplicado'], '70000.00')
         self.assertEqual(final_detail.data['fecha_cierre'], '2027-01-10')
-        self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.garantia_contractual.state_changed').exists())
+        state_event_metadata = [
+            event.metadata
+            for event in AuditEvent.objects.filter(
+                event_type='cobranza.garantia_contractual.state_changed',
+                entity_type='garantia_contractual',
+                entity_id=str(garantia.data['id']),
+            ).order_by('id')
+        ]
+        self.assertIn(
+            {
+                'campo_estado': 'estado_garantia',
+                'estado_anterior': EstadoGarantia.PARTIALLY_RETURNED,
+                'estado_nuevo': EstadoGarantia.APPLIED,
+            },
+            state_event_metadata,
+        )
 
     def test_guarantee_movement_rolls_back_when_view_audit_fails(self):
         contrato = self._create_active_contract(codigo='CON-GAR-AUDIT', monto_base='100000.00', code='111')
