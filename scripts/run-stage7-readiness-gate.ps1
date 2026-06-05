@@ -289,6 +289,39 @@ function Test-JsonPropertyPresent($value, [string]$propertyName) {
     return $false
 }
 
+function Test-RawScreenshotPathPresent($value) {
+    if ($null -eq $value) {
+        return $false
+    }
+    if ($value -is [array]) {
+        foreach ($item in $value) {
+            if (Test-RawScreenshotPathPresent $item) {
+                return $true
+            }
+        }
+        return $false
+    }
+    if ($value -isnot [pscustomobject]) {
+        return $false
+    }
+    foreach ($property in $value.PSObject.Properties) {
+        if ($property.Name -match '(?i)^screenshot(?:path|_path|file|_file|url|_url|uri|_uri|location|_location)$') {
+            return $true
+        }
+        if (
+            $property.Name -match '(?i)^screenshot$' `
+            -and $property.Value -is [string] `
+            -and $property.Value -match '(?i)([a-z]:[\\/]|\\\\|/|\.png$|\.jpe?g$|\.webp$)'
+        ) {
+            return $true
+        }
+        if (Test-RawScreenshotPathPresent $property.Value) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Test-AuthorizedSmokeEvidence($payload) {
     $sourceKind = Get-PayloadTextProperty $payload @('source_kind', 'smoke_source_kind', 'source')
     $mode = Get-PayloadTextProperty $payload @('mode')
@@ -308,7 +341,7 @@ function Test-AuthorizedSmokeEvidence($payload) {
     $targetRefSensitive = Test-SensitiveReference $targetRef
     $hasRawUsername = Test-JsonPropertyPresent $payload 'username'
     $hasRawExcerpt = Test-JsonPropertyPresent $payload 'excerpt'
-    $hasRawScreenshotPath = Test-JsonPropertyPresent $payload 'screenshotPath'
+    $hasRawScreenshotPath = Test-RawScreenshotPathPresent $payload
     $hasRawError = Test-JsonPropertyPresent $payload 'error'
     $outputRedacted = -not ($hasRawUsername -or $hasRawExcerpt -or $hasRawScreenshotPath -or $hasRawError)
     $payloadSensitive = Test-PayloadContainsSensitiveReference $payload
