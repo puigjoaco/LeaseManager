@@ -29,7 +29,9 @@ runbook, smoke y aceptacion.
 - La evidencia de restore para cierre debe conservar `backup_ref` o
   `backup_evidence_ref` no sensible; un campo crudo `backup_file` no habilita
   cierre aunque `source_kind`, `restore_verified` y `authorization_ref` sean
-  validos.
+  validos. Tambien se rechazan aliases de archivo, ruta, URL o ubicacion como
+  `backupPath`, `backup_url`, `snapshotPath`, `dumpFile` o
+  `planned_backup_file`.
 - Auditoria local de observabilidad operativa con gates, integraciones,
   backlogs y senales runtime minimas.
 - `audit_operational_observability` rechaza `--output` dentro del repo fuera
