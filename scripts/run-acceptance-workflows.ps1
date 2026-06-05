@@ -786,7 +786,7 @@ if (-not $OnlySmoke) {
                     label = 'operator'
                     ok = $true
                     authFlow = 'ui-login'
-                    screenshotPath = 'D:\private\screenshots\smoke-operator.png'
+                    screenshot_path = 'D:\private\screenshots\smoke-operator.png'
                 },
                 [ordered]@{
                     label = 'reviewer'
@@ -813,7 +813,7 @@ if (-not $OnlySmoke) {
 
         $stage7UnredactedSmokeReadiness = Get-Content -LiteralPath $stage7UnredactedSmokeOutputPath -Raw | ConvertFrom-Json
         $stage7UnredactedSmokeIssueCodes = @($stage7UnredactedSmokeReadiness.issues | ForEach-Object { $_.code })
-        Assert-Condition ($stage7UnredactedSmokeIssueCodes -contains 'stage7.public_smoke_output_not_redacted') 'Smoke con username/excerpt/screenshotPath/error crudos debe tener codigo especifico.'
+        Assert-Condition ($stage7UnredactedSmokeIssueCodes -contains 'stage7.public_smoke_output_not_redacted') 'Smoke con username/excerpt/screenshot_path/error crudos debe tener codigo especifico.'
         Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.output_redacted -eq $false) 'Smoke no redactado debe marcar output_redacted=false.'
         Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.has_raw_username -eq $true) 'Smoke no redactado debe marcar has_raw_username=true.'
         Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.has_raw_excerpt -eq $true) 'Smoke no redactado debe marcar has_raw_excerpt=true.'
@@ -930,7 +930,7 @@ if ($shouldRunPublicSmoke) {
     }
     Assert-Condition ($smokeOutput -notmatch '"username"\s*:') 'La smoke publica no debe emitir username en JSON.'
     Assert-Condition ($smokeOutput -notmatch '"excerpt"\s*:') 'La smoke publica no debe emitir excerpt de pantalla en JSON.'
-    Assert-Condition ($smokeOutput -notmatch '"screenshotPath"\s*:') 'La smoke publica no debe emitir rutas de screenshot en JSON.'
+    Assert-Condition ($smokeOutput -notmatch '"screenshot(?:Path|_path|File|_file|Url|_url|Uri|_uri|Location|_location)"\s*:') 'La smoke publica no debe emitir rutas de screenshot en JSON.'
     Assert-Condition ($smokeOutput -notmatch '"error"\s*:') 'La smoke publica no debe emitir errores crudos en JSON.'
 
     $smokePayload = $smokeOutput | ConvertFrom-Json
