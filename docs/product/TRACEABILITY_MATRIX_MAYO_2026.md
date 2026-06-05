@@ -187,7 +187,10 @@ atomica. `AuditCreateUpdateMixin` y los overrides de arrendatario/contrato
 persisten `created`, `updated`, `state_changed` y trazas contractuales
 derivadas dentro de la misma transaccion que `serializer.save()`; si falla la
 auditoria, no quedan arrendatarios, contactos, contratos anidados ni estados
-contractuales mutados sin traza.
+contractuales mutados sin traza. Nota 2026-06-05: los eventos
+`contratos.*.state_changed` incorporan metadata minima con campo de estado,
+estado anterior y estado nuevo para dejar la transicion auditable sin
+reconstruirla desde el historial.
 
 Nota 2026-05-31: Operacion/Etapa 1 alinea altas y ediciones API con auditoria
 atomica. `AuditCreateUpdateMixin` en Operacion persiste `created`, `updated`

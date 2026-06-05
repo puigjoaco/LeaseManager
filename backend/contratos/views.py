@@ -60,21 +60,43 @@ class AuditCreateUpdateMixin:
         with transaction.atomic():
             instance = serializer.save()
             self._create_audit_event(instance=instance, action='updated')
-            if previous_state != self._extract_state(instance):
+            current_state = self._extract_state(instance)
+            if previous_state != current_state:
                 self._create_audit_event(
                     instance=instance,
                     action='state_changed',
                     summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                    metadata=self._state_change_metadata(
+                        instance=instance,
+                        previous_state=previous_state,
+                        current_state=current_state,
+                    ),
                 )
         return instance
 
     def _extract_state(self, instance):
-        for field in ('estado_contacto', 'estado'):
-            if hasattr(instance, field):
-                return getattr(instance, field)
+        field = self._extract_state_field(instance)
+        if field:
+            return getattr(instance, field)
         return None
 
-    def _create_audit_event(self, *, instance, action, summary=''):
+    def _extract_state_field(self, instance):
+        for field in ('estado_contacto', 'estado'):
+            if hasattr(instance, field):
+                return field
+        return None
+
+    def _state_change_metadata(self, *, instance, previous_state, current_state):
+        field = self._extract_state_field(instance)
+        metadata = {
+            'estado_anterior': previous_state,
+            'estado_nuevo': current_state,
+        }
+        if field:
+            metadata['campo_estado'] = field
+        return metadata
+
+    def _create_audit_event(self, *, instance, action, summary='', metadata=None):
         create_audit_event(
             event_type=f'contratos.{self.audit_entity_type}.{action}',
             entity_type=self.audit_entity_type,
@@ -82,6 +104,7 @@ class AuditCreateUpdateMixin:
             summary=summary or f'{self.audit_entity_label} {action}',
             actor_user=self.request.user,
             ip_address=self.request.META.get('REMOTE_ADDR'),
+            metadata=metadata,
         )
 
 
@@ -370,11 +393,17 @@ class ArrendatarioDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generi
                     ip_address=self.request.META.get('REMOTE_ADDR'),
                 )
             self._create_audit_event(instance=instance, action='updated')
-            if previous_state != self._extract_state(instance):
+            current_state = self._extract_state(instance)
+            if previous_state != current_state:
                 self._create_audit_event(
                     instance=instance,
                     action='state_changed',
                     summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                    metadata=self._state_change_metadata(
+                        instance=instance,
+                        previous_state=previous_state,
+                        current_state=current_state,
+                    ),
                 )
         return instance
 
@@ -528,11 +557,17 @@ class ContratoDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.R
         with transaction.atomic():
             instance = serializer.save()
             self._create_audit_event(instance=instance, action='updated')
-            if previous_state != self._extract_state(instance):
+            current_state = self._extract_state(instance)
+            if previous_state != current_state:
                 self._create_audit_event(
                     instance=instance,
                     action='state_changed',
                     summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                    metadata=self._state_change_metadata(
+                        instance=instance,
+                        previous_state=previous_state,
+                        current_state=current_state,
+                    ),
                 )
             if (
                 instance.has_partial_early_termination_month()
