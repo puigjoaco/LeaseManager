@@ -11,7 +11,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from audit.models import ManualResolution
+from audit.models import AuditEvent, ManualResolution
 from cobranza.models import EstadoPago, GarantiaContractual, PagoMensual
 from conciliacion.models import (
     ConexionBancaria,
@@ -423,6 +423,71 @@ class ContabilidadAPITests(APITestCase):
                 self.client.post(reverse('contabilidad-cuenta-list'), payload, format='json')
 
         self.assertFalse(CuentaContable.objects.filter(empresa=empresa, codigo='1999').exists())
+
+    def test_account_state_change_audit_includes_metadata(self):
+        empresa = self._create_active_empresa(nombre='AccountStateMetaCo', rut='78121212-1')
+        cuenta = CuentaContable.objects.create(
+            empresa=empresa,
+            plan_cuentas_version='v1',
+            codigo='1998',
+            nombre='Cuenta con metadata de estado',
+            naturaleza='deudora',
+            nivel=1,
+            estado='activa',
+        )
+
+        response = self.client.patch(
+            reverse('contabilidad-cuenta-detail', args=[cuenta.pk]),
+            {'estado': 'inactiva'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        state_event = AuditEvent.objects.get(
+            event_type='contabilidad.cuenta_contable.state_changed',
+            entity_type='cuenta_contable',
+            entity_id=str(cuenta.pk),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado',
+                'estado_anterior': 'activa',
+                'estado_nuevo': 'inactiva',
+            },
+        )
+
+    def test_account_state_change_rolls_back_when_state_audit_fails(self):
+        from audit.services import create_audit_event as real_create_audit_event
+
+        empresa = self._create_active_empresa(nombre='AccountStateRollbackCo', rut='78131313-1')
+        cuenta = CuentaContable.objects.create(
+            empresa=empresa,
+            plan_cuentas_version='v1',
+            codigo='1997',
+            nombre='Cuenta con rollback de estado',
+            naturaleza='deudora',
+            nivel=1,
+            estado='activa',
+        )
+        audit_count = AuditEvent.objects.count()
+
+        def fail_state_change_audit(**kwargs):
+            if kwargs.get('event_type') == 'contabilidad.cuenta_contable.state_changed':
+                raise RuntimeError('account state audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('contabilidad.views.create_audit_event', side_effect=fail_state_change_audit):
+            with self.assertRaisesRegex(RuntimeError, 'account state audit unavailable'):
+                self.client.patch(
+                    reverse('contabilidad-cuenta-detail', args=[cuenta.pk]),
+                    {'estado': 'inactiva'},
+                    format='json',
+                )
+
+        cuenta.refresh_from_db()
+        self.assertEqual(cuenta.estado, 'activa')
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
 
     def test_event_create_rolls_back_when_post_attempt_audit_fails(self):
         empresa = self._create_active_empresa(nombre='EventAuditFailCo', rut='78222222-2')

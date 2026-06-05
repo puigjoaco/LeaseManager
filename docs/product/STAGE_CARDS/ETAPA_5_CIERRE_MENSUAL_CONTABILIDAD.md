@@ -83,6 +83,11 @@ contables desde hechos conciliados.
   preparacion, aprobacion y reapertura de cierres mensuales; si falla la
   auditoria, no deben quedar entidades, asientos, obligaciones, snapshots,
   estados de cierre ni efectos de reapertura mutados sin traza.
+- Las mutaciones API de Contabilidad que actualizan entidades con estado deben
+  persistir `updated` y, cuando corresponda, `state_changed` en la misma
+  transaccion. Los eventos `contabilidad.*.state_changed` deben conservar
+  metadata minima de transicion con `campo_estado`, `estado_anterior` y
+  `estado_nuevo`.
 - El admin Django de Contabilidad no expone refs/payloads crudos de eventos,
   asientos, movimientos, obligaciones, libros, balances, cierres ni efectos
   de reapertura; muestra versiones redactadas y mantiene cerrada el alta,
