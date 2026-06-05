@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoPreparacionTributaria, EstadoRegistro
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.state_transition_audit_readiness import count_state_changed_events_without_transition_metadata
 from sii.models import (
     AmbienteSII,
     CapacidadSII,
@@ -49,6 +50,7 @@ TAX_GATE_REQUIRED_STATES = {
 }
 
 AUTHORIZED_STAGE4_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+STAGE4_STATE_CHANGE_EVENT_PREFIXES = ('sii',)
 CAPABILITY_REFERENCE_FIELDS = (
     'certificado_ref',
     'evidencia_ref',
@@ -304,6 +306,9 @@ def collect_stage4_sii_readiness(
         'authorization_ref': _non_sensitive_reference(authorization_ref),
     }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE4_SOURCE_KINDS
+    state_transition_metadata_missing = count_state_changed_events_without_transition_metadata(
+        STAGE4_STATE_CHANGE_EVENT_PREFIXES
+    )
 
     issues: list[dict[str, Any]] = []
     if not source_kind_authorized_for_close:
@@ -328,6 +333,14 @@ def collect_stage4_sii_readiness(
         ]:
             if not source_trace[key]:
                 issues.append(_issue(code, message))
+    if state_transition_metadata_missing:
+        issues.append(
+            _issue(
+                'stage4.audit.state_transition_metadata_missing',
+                'Existen eventos state_changed de SII sin campo_estado, estado_anterior o estado_nuevo.',
+                count=state_transition_metadata_missing,
+            )
+        )
     if active_fiscal_configs.count() == 0:
         issues.append(
             _issue(
@@ -703,6 +716,9 @@ def collect_stage4_sii_readiness(
                 'f22_total': f22_preparations.count(),
                 'f22_by_state': _count_by(f22_preparations, 'estado_preparacion'),
                 **annual_issues,
+            },
+            'audit': {
+                'state_transition_metadata_missing': state_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,

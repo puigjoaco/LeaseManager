@@ -11,6 +11,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
+from audit.models import AuditEvent
 from conciliacion.models import (
     ConexionBancaria,
     CuadraturaBancaria,
@@ -418,6 +419,21 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertIn('stage5.approved_close_missing', issue_codes)
         self.assertIn('stage5.stage3_evidence_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
+
+    def test_state_changed_event_without_transition_metadata_is_blocking(self):
+        AuditEvent.objects.create(
+            event_type='contabilidad.cuenta_contable.state_changed',
+            entity_type='cuenta_contable',
+            entity_id='1',
+            summary='Cuenta contable heredada sin metadata de transicion.',
+            metadata={'estado_nuevo': 'activa'},
+        )
+
+        result = collect_stage5_contabilidad_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage5.audit.state_transition_metadata_missing', issue_codes)
+        self.assertEqual(result['sections']['audit']['state_transition_metadata_missing'], 1)
 
     def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         self._create_valid_local_matrix()

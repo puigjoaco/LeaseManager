@@ -412,6 +412,21 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.balance_square_record_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
 
+    def test_state_changed_event_without_transition_metadata_is_blocking(self):
+        AuditEvent.objects.create(
+            event_type='conciliacion.conexion_bancaria.state_changed',
+            entity_type='conexion_bancaria',
+            entity_id='1',
+            summary='Conexion bancaria heredada sin metadata de transicion.',
+            metadata={'estado_nuevo': EstadoConexionBancaria.ACTIVE},
+        )
+
+        result = collect_stage3_conciliacion_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage3.audit.state_transition_metadata_missing', issue_codes)
+        self.assertEqual(result['sections']['audit']['state_transition_metadata_missing'], 1)
+
     def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         cuenta, payment = self._create_payment_matrix()
         conexion = self._create_ready_connection(cuenta)

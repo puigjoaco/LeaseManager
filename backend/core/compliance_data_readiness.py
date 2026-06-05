@@ -26,9 +26,11 @@ from compliance.models import (
 )
 from compliance.services import MAX_EXPORT_DAYS, inspect_export_payload_integrity
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.state_transition_audit_readiness import count_state_changed_events_without_transition_metadata
 
 
 AUTHORIZED_COMPLIANCE_DATA_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+COMPLIANCE_STATE_CHANGE_EVENT_PREFIXES = ('compliance',)
 COMPLIANCE_DATA_READINESS_DEADLINE = date(2026, 12, 1)
 REQUIRED_RETENTION_CATEGORIES = {choice.value for choice in CategoriaDato}
 HOLD_REQUIRED_CATEGORIES = {
@@ -326,6 +328,9 @@ def collect_compliance_data_readiness(
         'authorization_ref': _sensitive_reference(authorization_ref),
     }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_COMPLIANCE_DATA_SOURCE_KINDS
+    state_transition_metadata_missing = count_state_changed_events_without_transition_metadata(
+        COMPLIANCE_STATE_CHANGE_EVENT_PREFIXES
+    )
 
     issues: list[dict[str, Any]] = []
     if not source_kind_authorized_for_close:
@@ -356,6 +361,14 @@ def collect_compliance_data_readiness(
                 issues.append(_issue(sensitive_code, sensitive_message))
             elif not source_trace[key]:
                 issues.append(_issue(missing_code, missing_message))
+    if state_transition_metadata_missing:
+        issues.append(
+            _issue(
+                'compliance.audit_state_transition_metadata_missing',
+                'Existen eventos state_changed de Compliance sin campo_estado, estado_anterior o estado_nuevo.',
+                count=state_transition_metadata_missing,
+            )
+        )
 
     if missing_active_categories:
         issues.append(
@@ -641,6 +654,7 @@ def collect_compliance_data_readiness(
                 'actor_missing_events': audit_events_missing_actor,
                 'invalid_target_events': audit_events_invalid_target,
                 'metadata_unaligned_events': audit_events_unaligned_metadata,
+                'state_transition_metadata_missing': state_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
             'final_evidence_sensitive': final_evidence_sensitive,

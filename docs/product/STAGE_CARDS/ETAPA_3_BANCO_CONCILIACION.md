@@ -37,6 +37,9 @@ sistema igual a saldo banco.
   `updated` y, cuando corresponda, `state_changed` en la misma transaccion. Los
   eventos `conciliacion.*.state_changed` deben conservar metadata minima de
   transicion con `campo_estado`, `estado_anterior` y `estado_nuevo`.
+- `audit_stage3_conciliacion_readiness` bloquea eventos `state_changed`
+  heredados de Conciliacion que no conserven esa metadata minima de
+  transicion.
 - El reintento manual de match exacto debe ejecutar el match local y registrar
   `conciliacion.movimiento_bancario.match_retried` en una unica transaccion;
   si falla esa auditoria, no deben quedar pagos, ingresos desconocidos,

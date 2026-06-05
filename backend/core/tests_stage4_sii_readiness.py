@@ -11,6 +11,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
+from audit.models import AuditEvent
 from cobranza.models import PagoMensual
 from cobranza.services import sync_payment_distribution
 from contabilidad.models import (
@@ -270,6 +271,21 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertIn('stage4.f29_missing', issue_codes)
         self.assertIn('stage4.environment_proof_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
+
+    def test_state_changed_event_without_transition_metadata_is_blocking(self):
+        AuditEvent.objects.create(
+            event_type='sii.capacidad_sii.state_changed',
+            entity_type='capacidad_sii',
+            entity_id='1',
+            summary='Capacidad SII heredada sin metadata de transicion.',
+            metadata={'estado_nuevo': EstadoGateSII.OPEN},
+        )
+
+        result = collect_stage4_sii_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage4.audit.state_transition_metadata_missing', issue_codes)
+        self.assertEqual(result['sections']['audit']['state_transition_metadata_missing'], 1)
 
     def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         self._create_valid_local_matrix()
