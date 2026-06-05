@@ -41,6 +41,11 @@ class SiiAPITests(APITestCase):
         )
         self.client.force_authenticate(self.user)
 
+    def _assert_transition_metadata(self, event, *, field, previous, current):
+        self.assertEqual(event.metadata['campo_estado'], field)
+        self.assertEqual(event.metadata['estado_anterior'], previous)
+        self.assertEqual(event.metadata['estado_nuevo'], current)
+
     def _create_socio(self, nombre, rut, activo=True):
         return Socio.objects.create(nombre=nombre, rut=rut, activo=activo)
 
@@ -335,6 +340,31 @@ class SiiAPITests(APITestCase):
         stored = CapacidadTributariaSII.objects.get(pk=created.data['id'])
         self.assertEqual(stored.estado_gate, 'abierto')
         self.assertEqual(AuditEvent.objects.count(), audit_count)
+
+    def test_sii_capability_state_change_audit_includes_metadata(self):
+        empresa = self._create_active_empresa(nombre='SII Audit Metadata SpA', rut='39393939-4')
+        self._activate_fiscal_config(empresa)
+        created = self._activate_capability(empresa)
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('sii-capacidad-detail', args=[created.data['id']]),
+            {'estado_gate': 'condicionado'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        event = AuditEvent.objects.get(
+            event_type='sii.capacidad_sii.state_changed',
+            entity_type='capacidad_sii',
+            entity_id=str(created.data['id']),
+        )
+        self._assert_transition_metadata(
+            event,
+            field='estado_gate',
+            previous='abierto',
+            current='condicionado',
+        )
 
     def test_generate_dte_draft_rolls_back_when_view_audit_fails(self):
         empresa, pago = self._setup_paid_payment()
@@ -1448,6 +1478,18 @@ class SiiAPITests(APITestCase):
         self.assertEqual(update.status_code, status.HTTP_200_OK)
         self.assertEqual(update.data['estado_dte'], 'enviado_manual_controlado')
         self.assertEqual(update.data['sii_track_id'], '0245399452')
+        event = AuditEvent.objects.get(
+            event_type='sii.dte_emitido.status_updated',
+            entity_type='dte_emitido',
+            entity_id=str(generated.data['id']),
+        )
+        self._assert_transition_metadata(
+            event,
+            field='estado_dte',
+            previous='borrador',
+            current='enviado_manual_controlado',
+        )
+        self.assertEqual(event.metadata['sii_track_id'], '0245399452')
 
     def test_dte_status_audit_metadata_redacts_inherited_sensitive_tracking_ref(self):
         empresa, pago = self._setup_paid_payment()
@@ -1833,6 +1875,17 @@ class SiiAPITests(APITestCase):
         )
         self.assertEqual(update.status_code, status.HTTP_200_OK)
         self.assertEqual(update.data['estado_preparacion'], 'aprobado_para_presentacion')
+        event = AuditEvent.objects.get(
+            event_type='sii.f29_preparacion.status_updated',
+            entity_type='f29_preparacion',
+            entity_id=str(generated.data['id']),
+        )
+        self._assert_transition_metadata(
+            event,
+            field='estado_preparacion',
+            previous='preparado',
+            current='aprobado_para_presentacion',
+        )
 
     def test_update_f29_status_requires_borrador_ref_for_approved_state(self):
         empresa, _ = self._setup_paid_payment()
@@ -2011,6 +2064,17 @@ class SiiAPITests(APITestCase):
         self.assertEqual(ddjj_status.status_code, status.HTTP_200_OK)
         self.assertEqual(ddjj_status.data['estado_preparacion'], 'aprobado_para_presentacion')
         self.assertEqual(ddjj_status.data['paquete_ref'], 'ddjj-2027')
+        ddjj_event = AuditEvent.objects.get(
+            event_type='sii.ddjj_preparacion.status_updated',
+            entity_type='ddjj_preparacion',
+            entity_id=str(generated.data['ddjj_preparacion']['id']),
+        )
+        self._assert_transition_metadata(
+            ddjj_event,
+            field='estado_preparacion',
+            previous='preparado',
+            current='aprobado_para_presentacion',
+        )
 
         f22_status = self.client.post(
             reverse('sii-f22-status', args=[generated.data['f22_preparacion']['id']]),
@@ -2024,6 +2088,17 @@ class SiiAPITests(APITestCase):
         self.assertEqual(f22_status.status_code, status.HTTP_200_OK)
         self.assertEqual(f22_status.data['estado_preparacion'], 'aprobado_para_presentacion')
         self.assertEqual(f22_status.data['borrador_ref'], 'f22-2027')
+        f22_event = AuditEvent.objects.get(
+            event_type='sii.f22_preparacion.status_updated',
+            entity_type='f22_preparacion',
+            entity_id=str(generated.data['f22_preparacion']['id']),
+        )
+        self._assert_transition_metadata(
+            f22_event,
+            field='estado_preparacion',
+            previous='preparado',
+            current='aprobado_para_presentacion',
+        )
 
         process = ProcesoRentaAnual.objects.get(pk=generated.data['proceso_renta_anual']['id'])
         ddjj = DDJJPreparacionAnual.objects.get(pk=generated.data['ddjj_preparacion']['id'])

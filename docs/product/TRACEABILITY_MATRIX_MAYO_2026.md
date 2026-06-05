@@ -131,7 +131,9 @@ una transaccion. `AuditCreateUpdateMixin`, generacion DTE/F29/anual y cambios
 de estado DTE, F29, DDJJ y F22 persisten cambios y eventos auditables dentro
 de `transaction.atomic()`; si falla la auditoria, no quedan capacidades,
 borradores, procesos anuales ni estados tributarios mutados sin traza de
-endpoint.
+endpoint. Nota 2026-06-05: los eventos SII de cambio o actualizacion de estado
+incorporan metadata minima con campo de estado, estado anterior y estado nuevo,
+manteniendo refs sensibles redactadas como `sii_track_id`.
 
 Nota 2026-05-31: Canales/Etapa 2 alinea altas y ediciones API de gates y
 configuraciones de notificacion con auditoria atomica. `AuditCreateUpdateMixin`

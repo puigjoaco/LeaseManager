@@ -39,6 +39,7 @@ from .models import DDJJPreparacionAnual, F22PreparacionAnual, ProcesoRentaAnual
 class AuditCreateUpdateMixin:
     audit_entity_type = ''
     audit_entity_label = ''
+    audit_state_fields = ('estado_gate', 'estado_dte', 'estado_preparacion', 'estado')
 
     def perform_create(self, serializer):
         with transaction.atomic():
@@ -46,33 +47,51 @@ class AuditCreateUpdateMixin:
             self._create_audit_event(instance=instance, action='created')
 
     def perform_update(self, serializer):
-        previous_state = self._extract_state(serializer.instance)
+        previous_state_field, previous_state = self._extract_state(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
             self._create_audit_event(instance=instance, action='updated')
-            if previous_state != self._extract_state(instance):
+            current_state_field, current_state = self._extract_state(instance)
+            if previous_state != current_state:
                 self._create_audit_event(
                     instance=instance,
                     action='state_changed',
                     summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                    metadata=build_state_change_metadata(
+                        previous_field=previous_state_field,
+                        previous_state=previous_state,
+                        current_field=current_state_field,
+                        current_state=current_state,
+                    ),
                 )
 
     def _extract_state(self, instance):
-        if hasattr(instance, 'estado_gate'):
-            return instance.estado_gate
-        if hasattr(instance, 'estado_dte'):
-            return instance.estado_dte
-        return None
+        for field in self.audit_state_fields:
+            if hasattr(instance, field):
+                return field, getattr(instance, field)
+        return None, None
 
-    def _create_audit_event(self, *, instance, action, summary=''):
+    def _create_audit_event(self, *, instance, action, summary='', metadata=None):
         create_audit_event(
             event_type=f'sii.{self.audit_entity_type}.{action}',
             entity_type=self.audit_entity_type,
             entity_id=str(instance.pk),
             summary=summary or f'{self.audit_entity_label} {action}',
             actor_user=self.request.user,
+            metadata=metadata,
             ip_address=self.request.META.get('REMOTE_ADDR'),
         )
+
+
+def build_state_change_metadata(*, previous_field, previous_state, current_field, current_state, extra=None):
+    metadata = {
+        'campo_estado': current_field or previous_field,
+        'estado_anterior': previous_state,
+        'estado_nuevo': current_state,
+    }
+    if extra:
+        metadata.update(extra)
+    return metadata
 
 
 class SiiSnapshotView(APIView):
@@ -312,6 +331,7 @@ class DTEStatusUpdateView(APIView):
         )
         serializer = DTEStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        previous_state = dte.estado_dte
         try:
             with transaction.atomic():
                 dte = register_dte_status(dte, **serializer.validated_data)
@@ -322,7 +342,13 @@ class DTEStatusUpdateView(APIView):
                     summary='Estado DTE actualizado manualmente',
                     actor_user=request.user,
                     ip_address=request.META.get('REMOTE_ADDR'),
-                    metadata={'estado_dte': dte.estado_dte, 'sii_track_id': redact_sensitive_reference(dte.sii_track_id)},
+                    metadata=build_state_change_metadata(
+                        previous_field='estado_dte',
+                        previous_state=previous_state,
+                        current_field='estado_dte',
+                        current_state=dte.estado_dte,
+                        extra={'sii_track_id': redact_sensitive_reference(dte.sii_track_id)},
+                    ),
                 )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
@@ -387,6 +413,7 @@ class F29StatusUpdateView(APIView):
         )
         serializer = F29StatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        previous_state = draft.estado_preparacion
         try:
             with transaction.atomic():
                 draft = register_f29_status(draft, **serializer.validated_data)
@@ -397,7 +424,12 @@ class F29StatusUpdateView(APIView):
                     summary='Estado de F29 actualizado manualmente',
                     actor_user=request.user,
                     ip_address=request.META.get('REMOTE_ADDR'),
-                    metadata={'estado_preparacion': draft.estado_preparacion},
+                    metadata=build_state_change_metadata(
+                        previous_field='estado_preparacion',
+                        previous_state=previous_state,
+                        current_field='estado_preparacion',
+                        current_state=draft.estado_preparacion,
+                    ),
                 )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
@@ -472,6 +504,7 @@ class DDJJStatusUpdateView(APIView):
         )
         serializer = AnnualStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        previous_state = document.estado_preparacion
         try:
             with transaction.atomic():
                 document = register_annual_status(document, **serializer.validated_data)
@@ -482,7 +515,12 @@ class DDJJStatusUpdateView(APIView):
                     summary='Estado de DDJJ actualizado manualmente',
                     actor_user=request.user,
                     ip_address=request.META.get('REMOTE_ADDR'),
-                    metadata={'estado_preparacion': document.estado_preparacion},
+                    metadata=build_state_change_metadata(
+                        previous_field='estado_preparacion',
+                        previous_state=previous_state,
+                        current_field='estado_preparacion',
+                        current_state=document.estado_preparacion,
+                    ),
                 )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
@@ -503,6 +541,7 @@ class F22StatusUpdateView(APIView):
         )
         serializer = AnnualStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        previous_state = document.estado_preparacion
         try:
             with transaction.atomic():
                 document = register_annual_status(document, **serializer.validated_data)
@@ -513,7 +552,12 @@ class F22StatusUpdateView(APIView):
                     summary='Estado de F22 actualizado manualmente',
                     actor_user=request.user,
                     ip_address=request.META.get('REMOTE_ADDR'),
-                    metadata={'estado_preparacion': document.estado_preparacion},
+                    metadata=build_state_change_metadata(
+                        previous_field='estado_preparacion',
+                        previous_state=previous_state,
+                        current_field='estado_preparacion',
+                        current_state=document.estado_preparacion,
+                    ),
                 )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
