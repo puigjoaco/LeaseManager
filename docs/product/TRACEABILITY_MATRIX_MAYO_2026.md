@@ -169,6 +169,9 @@ vista en una transaccion. `AuditCreateUpdateMixin`,
 `CierreMensualReopenView` persisten cambios y eventos auditables de forma
 atomica; si falla la auditoria, no quedan catalogos, eventos, asientos,
 obligaciones, snapshots, cierres ni efectos de reapertura mutados sin traza.
+Nota 2026-06-05: los eventos `contabilidad.*.state_changed` incorporan
+metadata minima con campo de estado, estado anterior y estado nuevo para
+catalogos contables actualizados por API.
 
 Nota 2026-05-31: Conciliacion/Etapa 3 alinea el reintento manual de match
 exacto con auditoria atomica. `MovimientoBancarioRetryMatchView.post()`
