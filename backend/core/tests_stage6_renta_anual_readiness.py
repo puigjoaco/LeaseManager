@@ -12,6 +12,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
+from audit.models import AuditEvent
 from contabilidad.models import (
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
@@ -249,6 +250,21 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertIn('stage6.tax_support_document_missing', issue_codes)
         self.assertIn('stage6.fiscal_rule_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
+
+    def test_annual_status_updated_event_without_transition_metadata_is_blocking(self):
+        AuditEvent.objects.create(
+            event_type='sii.ddjj_preparacion.status_updated',
+            entity_type='ddjj_preparacion',
+            entity_id='1',
+            summary='Actualizacion anual heredada sin metadata de transicion.',
+            metadata={'estado_nuevo': EstadoPreparacionTributaria.APPROVED},
+        )
+
+        result = collect_stage6_renta_anual_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage6.audit.annual_status_transition_metadata_missing', issue_codes)
+        self.assertEqual(result['sections']['audit']['annual_status_transition_metadata_missing'], 1)
 
     def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         self._create_valid_local_matrix()

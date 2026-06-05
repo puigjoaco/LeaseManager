@@ -8,7 +8,10 @@ from django.utils import timezone
 
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoPreparacionTributaria, EstadoRegistro
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
-from core.state_transition_audit_readiness import count_state_changed_events_without_transition_metadata
+from core.state_transition_audit_readiness import (
+    count_audit_events_without_transition_metadata,
+    count_state_changed_events_without_transition_metadata,
+)
 from sii.models import (
     AmbienteSII,
     CapacidadSII,
@@ -51,6 +54,7 @@ TAX_GATE_REQUIRED_STATES = {
 
 AUTHORIZED_STAGE4_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 STAGE4_STATE_CHANGE_EVENT_PREFIXES = ('sii',)
+STAGE4_STATUS_UPDATE_EVENT_PREFIXES = ('sii',)
 CAPABILITY_REFERENCE_FIELDS = (
     'certificado_ref',
     'evidencia_ref',
@@ -309,6 +313,10 @@ def collect_stage4_sii_readiness(
     state_transition_metadata_missing = count_state_changed_events_without_transition_metadata(
         STAGE4_STATE_CHANGE_EVENT_PREFIXES
     )
+    status_transition_metadata_missing = count_audit_events_without_transition_metadata(
+        event_type_prefixes=STAGE4_STATUS_UPDATE_EVENT_PREFIXES,
+        event_type_suffixes=('.status_updated',),
+    )
 
     issues: list[dict[str, Any]] = []
     if not source_kind_authorized_for_close:
@@ -339,6 +347,14 @@ def collect_stage4_sii_readiness(
                 'stage4.audit.state_transition_metadata_missing',
                 'Existen eventos state_changed de SII sin campo_estado, estado_anterior o estado_nuevo.',
                 count=state_transition_metadata_missing,
+            )
+        )
+    if status_transition_metadata_missing:
+        issues.append(
+            _issue(
+                'stage4.audit.status_transition_metadata_missing',
+                'Existen eventos status_updated de SII sin campo_estado, estado_anterior o estado_nuevo.',
+                count=status_transition_metadata_missing,
             )
         )
     if active_fiscal_configs.count() == 0:
@@ -719,6 +735,7 @@ def collect_stage4_sii_readiness(
             },
             'audit': {
                 'state_transition_metadata_missing': state_transition_metadata_missing,
+                'status_transition_metadata_missing': status_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,
