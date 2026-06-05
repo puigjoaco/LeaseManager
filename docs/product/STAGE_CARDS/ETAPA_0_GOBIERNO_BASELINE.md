@@ -79,6 +79,9 @@ evidencia respalda el root limpio.
   los eventos `created`, `updated` o `state_changed` dentro de una unica
   transaccion; si falla la auditoria de vista, no queda una politica creada o
   mutada sin traza.
+- Los eventos `compliance.politica_retencion.state_changed` deben conservar
+  metadata minima de transicion con `campo_estado`, `estado_anterior` y
+  `estado_nuevo`.
 - Compliance de datos sensibles permite a `RevisorFiscalExterno` preparar y
   descargar exportaciones sensibles solo dentro de un scope explicito asignado:
   el payload se renderiza con `ScopeAccess`, detalle/descarga/revocacion
