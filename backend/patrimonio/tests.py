@@ -1294,8 +1294,50 @@ class PatrimonioAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
-        self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.empresa.updated').exists())
-        self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.empresa.state_changed').exists())
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='patrimonio.empresa.updated',
+                entity_type='empresa',
+                entity_id=str(create_response.data['id']),
+            ).exists()
+        )
+        state_event = AuditEvent.objects.get(
+            event_type='patrimonio.empresa.state_changed',
+            entity_type='empresa',
+            entity_id=str(create_response.data['id']),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado',
+                'estado_anterior': EstadoPatrimonial.DRAFT,
+                'estado_nuevo': EstadoPatrimonial.ACTIVE,
+            },
+        )
+
+    def test_socio_update_emits_active_state_change_metadata(self):
+        socio = self._create_socio('Socio Metadata', '12121212-8')
+
+        patch_response = self.client.patch(
+            reverse('patrimonio-socio-detail', args=[socio.id]),
+            {'activo': False},
+            format='json',
+        )
+
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+        state_event = AuditEvent.objects.get(
+            event_type='patrimonio.socio.state_changed',
+            entity_type='socio',
+            entity_id=str(socio.id),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'activo',
+                'estado_anterior': True,
+                'estado_nuevo': False,
+            },
+        )
 
     def test_empresa_update_rolls_back_when_state_change_audit_fails(self):
         create_response = self.client.post(

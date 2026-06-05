@@ -196,13 +196,19 @@ Nota 2026-05-31: Operacion/Etapa 1 alinea altas y ediciones API con auditoria
 atomica. `AuditCreateUpdateMixin` en Operacion persiste `created`, `updated`
 y `state_changed` dentro de la misma transaccion que `serializer.save()`; si
 falla la auditoria, no quedan cuentas recaudadoras, identidades, mandatos ni
-asignaciones de canal mutadas sin traza.
+asignaciones de canal mutadas sin traza. Nota 2026-06-05: los eventos
+`operacion.*.state_changed` incorporan metadata minima con campo de estado,
+estado anterior y estado nuevo para dejar la transicion auditable sin
+reconstruirla desde el historial.
 
 Nota 2026-05-31: Patrimonio/Etapa 1 alinea altas y ediciones API con auditoria
 atomica. `AuditCreateUpdateMixin` en Patrimonio persiste `created`, `updated`
 y `state_changed` dentro de la misma transaccion que `serializer.save()`; si
 falla la auditoria, no quedan socios, empresas, comunidades, propiedades,
-servicios ni participaciones anidadas mutadas sin traza.
+servicios ni participaciones anidadas mutadas sin traza. Nota 2026-06-05: los
+eventos `patrimonio.*.state_changed` incorporan metadata minima con campo de
+estado, estado anterior y estado nuevo para dejar la transicion auditable sin
+reconstruirla desde el historial.
 
 Nota 2026-05-31: Conciliacion/Etapa 3 alinea creacion de movimientos
 bancarios, match exacto local y auditoria en una transaccion unica.
