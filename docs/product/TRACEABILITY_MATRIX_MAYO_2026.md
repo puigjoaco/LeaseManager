@@ -223,7 +223,10 @@ crea `conciliacion.movimiento_bancario.created`, ejecuta
 `reconcile_exact_movement()` y registra
 `conciliacion.movimiento_bancario.match_attempted` de forma atomica; si falla
 la auditoria posterior, no quedan movimiento, pago mutado, ingreso desconocido
-ni match sin traza completa.
+ni match sin traza completa. Nota 2026-06-05: los eventos
+`conciliacion.*.state_changed` incorporan metadata minima con campo de estado,
+estado anterior y estado nuevo para conexiones bancarias y cuadraturas
+actualizadas por API.
 
 Nota 2026-05-31: Compliance/Etapa 0 alinea accesos denegados de exportaciones
 sensibles con auditoria atomica. `ExportacionContentView` ejecuta

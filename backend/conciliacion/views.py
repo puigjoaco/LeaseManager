@@ -34,6 +34,7 @@ from .services import reconcile_exact_movement
 class AuditCreateUpdateMixin:
     audit_entity_type = ''
     audit_entity_label = ''
+    audit_state_fields = ('estado_conexion', 'estado', 'estado_conciliacion')
 
     def perform_create(self, serializer):
         with transaction.atomic():
@@ -42,28 +43,39 @@ class AuditCreateUpdateMixin:
         return instance
 
     def perform_update(self, serializer):
-        previous_state = self._extract_state(serializer.instance)
+        previous_state_field, previous_state = self._extract_state(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
             self._create_audit_event(instance=instance, action='updated')
-            if previous_state != self._extract_state(instance):
+            current_state_field, current_state = self._extract_state(instance)
+            if previous_state != current_state:
                 self._create_audit_event(
                     instance=instance,
                     action='state_changed',
                     summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                    metadata=self._state_change_metadata(
+                        previous_field=previous_state_field,
+                        previous_state=previous_state,
+                        current_field=current_state_field,
+                        current_state=current_state,
+                    ),
                 )
         return instance
 
     def _extract_state(self, instance):
-        if hasattr(instance, 'estado_conexion'):
-            return instance.estado_conexion
-        if hasattr(instance, 'estado'):
-            return instance.estado
-        if hasattr(instance, 'estado_conciliacion'):
-            return instance.estado_conciliacion
-        return None
+        for field in self.audit_state_fields:
+            if hasattr(instance, field):
+                return field, getattr(instance, field)
+        return None, None
 
-    def _create_audit_event(self, *, instance, action, summary=''):
+    def _state_change_metadata(self, *, previous_field, previous_state, current_field, current_state):
+        return {
+            'campo_estado': current_field or previous_field,
+            'estado_anterior': previous_state,
+            'estado_nuevo': current_state,
+        }
+
+    def _create_audit_event(self, *, instance, action, summary='', metadata=None):
         create_audit_event(
             event_type=f'conciliacion.{self.audit_entity_type}.{action}',
             entity_type=self.audit_entity_type,
@@ -71,6 +83,7 @@ class AuditCreateUpdateMixin:
             summary=summary or f'{self.audit_entity_label} {action}',
             actor_user=self.request.user,
             ip_address=self.request.META.get('REMOTE_ADDR'),
+            metadata=metadata,
         )
 
 
