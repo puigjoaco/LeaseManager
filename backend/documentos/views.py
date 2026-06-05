@@ -29,9 +29,18 @@ def serialize_validation_error(error):
     return {'detail': error.messages}
 
 
+def build_state_change_metadata(*, previous_field, previous_state, current_field, current_state):
+    return {
+        'campo_estado': current_field or previous_field,
+        'estado_anterior': previous_state,
+        'estado_nuevo': current_state,
+    }
+
+
 class AuditCreateUpdateMixin:
     audit_entity_type = ''
     audit_entity_label = ''
+    audit_state_fields = ('estado',)
 
     def perform_create(self, serializer):
         with transaction.atomic():
@@ -47,21 +56,29 @@ class AuditCreateUpdateMixin:
         return instance
 
     def perform_update(self, serializer):
-        previous_state = self._extract_state(serializer.instance)
+        previous_state_field, previous_state = self._extract_state(serializer.instance)
         with transaction.atomic():
             instance = serializer.save()
             self._create_audit_event(instance=instance, action='updated')
-            if previous_state != self._extract_state(instance):
+            current_state_field, current_state = self._extract_state(instance)
+            if previous_state != current_state:
                 self._create_audit_event(
                     instance=instance,
                     action='state_changed',
                     summary=f'Se cambio el estado de {self.audit_entity_label} {instance.pk}',
+                    metadata=build_state_change_metadata(
+                        previous_field=previous_state_field,
+                        previous_state=previous_state,
+                        current_field=current_state_field,
+                        current_state=current_state,
+                    ),
                 )
 
     def _extract_state(self, instance):
-        if hasattr(instance, 'estado'):
-            return instance.estado
-        return None
+        for field in self.audit_state_fields:
+            if hasattr(instance, field):
+                return field, getattr(instance, field)
+        return None, None
 
     def _create_audit_event(self, *, instance, action, summary='', metadata=None):
         create_audit_event(
@@ -322,6 +339,12 @@ class DocumentoFormalizarView(APIView):
                         entity_id=str(document.pk),
                         summary='Cambio de estado documental',
                         actor_user=request.user,
+                        metadata=build_state_change_metadata(
+                            previous_field='estado',
+                            previous_state=previous_state,
+                            current_field='estado',
+                            current_state=document.estado,
+                        ),
                         ip_address=request.META.get('REMOTE_ADDR'),
                     )
         except DjangoValidationError as error:

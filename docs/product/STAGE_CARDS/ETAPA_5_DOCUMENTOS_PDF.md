@@ -98,6 +98,9 @@ firma y notaria trazables.
   documentos emitidos persisten `updated` y `state_changed` dentro de la misma
   transaccion que la mutacion; si falla esa auditoria, no queda cambio
   documental persistido sin traza de endpoint.
+- Los eventos `documentos.*.state_changed`, incluidos los emitidos por
+  `formalizar/`, deben conservar metadata minima de transicion con
+  `campo_estado`, `estado_anterior` y `estado_nuevo`.
 - El endpoint `formalizar/` debe aplicar el scope del usuario tambien sobre
   `comprobante_notarial`; un operador no puede usar como respaldo un documento
   notarial de un expediente fuera de su cartera visible.

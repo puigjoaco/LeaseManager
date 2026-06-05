@@ -859,6 +859,30 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(stored.estado, 'abierto')
         self.assertEqual(AuditEvent.objects.count(), audit_count)
 
+    def test_expediente_state_change_audit_includes_metadata(self):
+        expediente = self._create_expediente(entidad_id='expediente-state-audit-metadata')
+
+        response = self.client.patch(
+            reverse('documentos-expediente-detail', args=[expediente['id']]),
+            {'estado': 'cerrado'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        state_event = AuditEvent.objects.get(
+            event_type='documentos.expediente.state_changed',
+            entity_type='expediente',
+            entity_id=str(expediente['id']),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado',
+                'estado_anterior': 'abierto',
+                'estado_nuevo': 'cerrado',
+            },
+        )
+
     def test_document_storage_ref_must_be_non_sensitive_pdf_reference(self):
         expediente = self._create_expediente(entidad_id='pdf-sensitive-guard')
         self._create_politica()
@@ -1167,6 +1191,19 @@ class DocumentosAPITests(APITestCase):
         self.assertFalse(event.metadata['firma_codeudor_registrada'])
         self.assertTrue(event.metadata['recepcion_notarial_registrada'])
         self.assertEqual(event.metadata['comprobante_notarial_id'], str(receipt['id']))
+        state_event = AuditEvent.objects.get(
+            event_type='documentos.documento_emitido.state_changed',
+            entity_type='documento_emitido',
+            entity_id=str(formalize.data['id']),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado',
+                'estado_anterior': EstadoDocumento.ISSUED,
+                'estado_nuevo': EstadoDocumento.FORMALIZED,
+            },
+        )
 
     def test_formalization_rolls_back_when_audit_creation_fails(self):
         from audit.services import create_audit_event as real_create_audit_event
