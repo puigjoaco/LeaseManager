@@ -45,6 +45,11 @@ documentos o procesos tributarios trazables.
 - `audit_stage7_reporting_readiness` clasifica explicitamente como bloqueantes
   DDJJ/F22 heredados asociados a un proceso anual de otra empresa o ano
   tributario.
+- Los eventos `sii.ddjj_preparacion.status_updated` y
+  `sii.f22_preparacion.status_updated` que sustentan reporting tributario anual
+  deben conservar metadata minima de transicion con `campo_estado`,
+  `estado_anterior` y `estado_nuevo`; readiness bloquea snapshots heredados
+  sin esa auditoria trazable.
 - Si falta alguno de esos origenes, la API responde con bloqueo de
   trazabilidad y no entrega el reporte como valido.
 - `audit_stage7_reporting_readiness` consolida readiness local de resumen
