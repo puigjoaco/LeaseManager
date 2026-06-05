@@ -33,6 +33,8 @@ from .models import (
     CuadraturaBancaria,
     ConexionBancaria,
     EstadoConciliacionMovimiento,
+    EstadoConexionBancaria,
+    EstadoCuadraturaBancaria,
     IngresoDesconocido,
     MovimientoBancarioImportado,
     TransferenciaIntercuenta,
@@ -497,6 +499,62 @@ class ConciliacionAPITests(APITestCase):
 
         self.assertFalse(ConexionBancaria.objects.filter(provider_key='banco_atomicity').exists())
 
+    def test_bank_connection_state_change_audit_includes_metadata(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CONN-STATE-META')
+        conexion = self._create_connection(cuenta, provider='banco_state_meta')
+
+        response = self.client.patch(
+            reverse('conciliacion-conexion-detail', args=[conexion.pk]),
+            {
+                'estado_conexion': EstadoConexionBancaria.PAUSED,
+                'primaria_movimientos': False,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        state_event = AuditEvent.objects.get(
+            event_type='conciliacion.conexion_bancaria.state_changed',
+            entity_type='conexion_bancaria',
+            entity_id=str(conexion.pk),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado_conexion',
+                'estado_anterior': EstadoConexionBancaria.ACTIVE,
+                'estado_nuevo': EstadoConexionBancaria.PAUSED,
+            },
+        )
+
+    def test_bank_connection_state_change_rolls_back_when_audit_fails(self):
+        from audit.services import create_audit_event as real_create_audit_event
+
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-CONN-STATE-ROLLBACK')
+        conexion = self._create_connection(cuenta, provider='banco_state_rollback')
+        audit_count = AuditEvent.objects.count()
+
+        def fail_state_change_audit(**kwargs):
+            if kwargs.get('event_type') == 'conciliacion.conexion_bancaria.state_changed':
+                raise RuntimeError('connection state audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('conciliacion.views.create_audit_event', side_effect=fail_state_change_audit):
+            with self.assertRaisesRegex(RuntimeError, 'connection state audit unavailable'):
+                self.client.patch(
+                    reverse('conciliacion-conexion-detail', args=[conexion.pk]),
+                    {
+                        'estado_conexion': EstadoConexionBancaria.PAUSED,
+                        'primaria_movimientos': False,
+                    },
+                    format='json',
+                )
+
+        conexion.refresh_from_db()
+        self.assertEqual(conexion.estado_conexion, EstadoConexionBancaria.ACTIVE)
+        self.assertTrue(conexion.primaria_movimientos)
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
     def test_can_create_square_balance_record(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BALANCE-SQUARE')
 
@@ -524,6 +582,49 @@ class ConciliacionAPITests(APITestCase):
                 diferencia_clp='0.00',
                 estado='cuadrada',
             ).exists()
+        )
+
+    def test_balance_state_change_audit_includes_metadata(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BALANCE-STATE-META')
+        create_response = self.client.post(
+            reverse('conciliacion-cuadratura-list'),
+            {
+                'cuenta_recaudadora': cuenta.pk,
+                'periodo_economico': '2026-01',
+                'fecha_cuadratura': '2026-01-31',
+                'saldo_sistema_clp': '1000000.00',
+                'saldo_banco_clp': '999990.00',
+                'estado': EstadoCuadraturaBancaria.OPEN_DIFFERENCE,
+                'evidencia_cuadratura_ref': 'balance-square-controlled-2026-01',
+                'responsable_ref': 'stage3-balance-owner',
+                'rationale': 'Diferencia bancaria pendiente de explicacion operacional.',
+            },
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.patch(
+            reverse('conciliacion-cuadratura-detail', args=[create_response.data['id']]),
+            {
+                'estado': EstadoCuadraturaBancaria.EXPLAINED_DIFFERENCE,
+                'rationale': 'Diferencia bancaria explicada con evidencia operacional controlada.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        state_event = AuditEvent.objects.get(
+            event_type='conciliacion.cuadratura_bancaria.state_changed',
+            entity_type='cuadratura_bancaria',
+            entity_id=str(create_response.data['id']),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado',
+                'estado_anterior': EstadoCuadraturaBancaria.OPEN_DIFFERENCE,
+                'estado_nuevo': EstadoCuadraturaBancaria.EXPLAINED_DIFFERENCE,
+            },
         )
 
     def test_balance_square_rejects_nonzero_difference_as_squared(self):

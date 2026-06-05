@@ -33,6 +33,10 @@ sistema igual a saldo banco.
   auditoria `match_attempted` en una unica transaccion; si falla cualquiera de
   esas trazas, no deben quedar movimientos, pagos, ingresos desconocidos ni
   estados de conciliacion mutados sin auditoria completa.
+- Las APIs de Conciliacion que actualizan entidades con estado deben persistir
+  `updated` y, cuando corresponda, `state_changed` en la misma transaccion. Los
+  eventos `conciliacion.*.state_changed` deben conservar metadata minima de
+  transicion con `campo_estado`, `estado_anterior` y `estado_nuevo`.
 - El reintento manual de match exacto debe ejecutar el match local y registrar
   `conciliacion.movimiento_bancario.match_retried` en una unica transaccion;
   si falla esa auditoria, no deben quedar pagos, ingresos desconocidos,
