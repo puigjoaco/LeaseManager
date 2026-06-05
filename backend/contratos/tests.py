@@ -3416,8 +3416,26 @@ class ContratosAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
-        self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.updated').exists())
-        self.assertTrue(AuditEvent.objects.filter(event_type='contratos.contrato.state_changed').exists())
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='contratos.contrato.updated',
+                entity_type='contrato',
+                entity_id=str(create_response.data['id']),
+            ).exists()
+        )
+        state_event = AuditEvent.objects.get(
+            event_type='contratos.contrato.state_changed',
+            entity_type='contrato',
+            entity_id=str(create_response.data['id']),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado',
+                'estado_anterior': EstadoContrato.ACTIVE,
+                'estado_nuevo': EstadoContrato.FINISHED,
+            },
+        )
 
     def test_contract_update_rolls_back_when_audit_state_change_fails(self):
         mandato = self._create_active_mandato(codigo='MAND-108-AUDIT', owner_rut='18181817-8')

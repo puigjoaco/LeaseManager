@@ -174,7 +174,8 @@ contra datos reales o snapshot controlado.
   eventos `created`, `updated`, `state_changed` y trazas contractuales
   derivadas de forma atomica; si falla la auditoria, no deben quedar
   arrendatarios, contactos de pago, contratos anidados ni estados
-  contractuales mutados sin traza.
+  contractuales mutados sin traza. Los eventos `state_changed` deben conservar
+  metadata minima con campo de estado, estado anterior y estado nuevo.
 - Validacion de telefonos para mensajeria: si un arrendatario usa WhatsApp
   operativo, el telefono debe estar en formato internacional; numeros locales
   o ambiguos quedan bloqueados para Canales y clasificados por el auditor
@@ -243,7 +244,7 @@ contra datos reales o snapshot controlado.
   impiden regresiones directas como `vigente` -> `pendiente_activacion` y
   reaperturas de estados terminales como `finalizado` o `cancelado`. Los
   cambios deben avanzar por el ciclo operativo permitido y conservar la
-  auditoria de cambio de estado.
+  auditoria de cambio de estado con estado anterior y nuevo trazables.
 - Cancelacion contractual: un contrato solo puede quedar `cancelado` si no
   conserva efectos irreversibles operativos o economicos, como pagos
   mensuales generados, garantia recibida/devuelta/aplicada o con historial,
