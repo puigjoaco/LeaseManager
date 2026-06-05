@@ -142,7 +142,7 @@ rehearsal sintetico con `restore_verified=true`
 prepara el gate, pero no reemplaza una evidencia de restore con
 `source_kind`/`restore_source_kind` en `snapshot_controlado`,
 `real_autorizado`, `backup_autorizado` o `restore_autorizado`, mas
-`authorization_ref` y `backup_ref`/`backup_file` no sensibles. Del mismo modo,
+`authorization_ref` y `backup_ref`/`backup_evidence_ref` no sensibles. Del mismo modo,
 un arreglo de resultados de smoke con cuatro roles OK no cierra Operacion
 productiva si no viene envuelto como evidencia de ambiente autorizado con
 `authorization_ref`, `environment_ref` y `target_ref`/`deployment_ref` no
@@ -155,6 +155,9 @@ el cierre exige evidencia JSON con `accepted=true`,
 `cutover_autorizado`, `ambiente_autorizado` o `real_autorizado`, mas
 `authorization_ref`, `responsible_ref`, `scope_ref`/`release_candidate_ref` y
 `acceptance_ref`/`decision_ref`/`signoff_ref` no sensibles.
+La evidencia JSON de restore, smoke publico y aceptacion final tampoco puede
+conservar payload sensible ni claves de credenciales como `authorization`,
+`access_token` o `private_key`.
 
 La readiness de Reporting dentro del guard ejecuta
 `audit_stage7_reporting_readiness` contra la misma base configurada. Para cierre
