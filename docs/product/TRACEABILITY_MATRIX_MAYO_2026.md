@@ -164,7 +164,9 @@ Nota 2026-05-31: Compliance/Etapa 0 alinea altas y ediciones API de
 politicas de retencion con auditoria atomica. `AuditCreateUpdateMixin` en
 Compliance persiste `created`, `updated` y `state_changed` dentro de la misma
 transaccion que `serializer.save()`; si falla la auditoria, no quedan
-politicas de retencion creadas o mutadas sin traza de vista.
+politicas de retencion creadas o mutadas sin traza de vista. Nota 2026-06-05:
+los eventos `compliance.politica_retencion.state_changed` incorporan metadata
+minima con campo de estado, estado anterior y estado nuevo.
 
 Nota 2026-05-31: Contabilidad/Etapa 5 alinea mutaciones API y auditoria de
 vista en una transaccion. `AuditCreateUpdateMixin`,

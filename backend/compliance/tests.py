@@ -137,6 +137,30 @@ class ComplianceAPITests(APITestCase):
             ).exists()
         )
 
+    def test_retention_policy_state_change_audit_includes_metadata(self):
+        policy_data = self._create_policy('documental_sensible')
+
+        response = self.client.patch(
+            reverse('compliance-politica-detail', args=[policy_data['id']]),
+            {'estado': 'inactiva'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        event = AuditEvent.objects.get(
+            event_type='compliance.politica_retencion.state_changed',
+            entity_type='politica_retencion',
+            entity_id=str(policy_data['id']),
+        )
+        self.assertEqual(
+            event.metadata,
+            {
+                'campo_estado': 'estado',
+                'estado_anterior': 'activa',
+                'estado_nuevo': 'inactiva',
+            },
+        )
+
     def _create_scoped_reviewer_client(self, empresa, *, username_suffix=''):
         user_model = get_user_model()
         reviewer = user_model.objects.create_user(
