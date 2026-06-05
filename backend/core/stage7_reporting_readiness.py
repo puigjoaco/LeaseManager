@@ -25,6 +25,7 @@ from contabilidad.models import (
     ObligacionTributariaMensual,
 )
 from core.reference_validation import contains_sensitive_reference
+from core.state_transition_audit_readiness import count_audit_events_without_transition_metadata
 from sii.models import DDJJPreparacionAnual, F22PreparacionAnual, ProcesoRentaAnual, has_text
 
 
@@ -34,6 +35,10 @@ SENSITIVE_REFERENCE_PATTERN = re.compile(
 )
 
 AUTHORIZED_STAGE7_REPORTING_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+STAGE7_ANNUAL_STATUS_UPDATE_EVENT_TYPES = (
+    'sii.ddjj_preparacion.status_updated',
+    'sii.f22_preparacion.status_updated',
+)
 
 ANNUAL_TRACEABLE_STATES = {
     EstadoPreparacionTributaria.PREPARED,
@@ -337,6 +342,9 @@ def collect_stage7_reporting_readiness(
         'authorization_ref': _non_sensitive_reference(authorization_ref),
     }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE7_REPORTING_SOURCE_KINDS
+    annual_status_transition_metadata_missing = count_audit_events_without_transition_metadata(
+        event_types=STAGE7_ANNUAL_STATUS_UPDATE_EVENT_TYPES
+    )
 
     issues: list[dict[str, Any]] = []
     if not source_kind_authorized_for_close:
@@ -361,6 +369,14 @@ def collect_stage7_reporting_readiness(
         ]:
             if not source_trace[key]:
                 issues.append(_issue(code, message))
+    if annual_status_transition_metadata_missing:
+        issues.append(
+            _issue(
+                'stage7.reporting.audit_annual_status_transition_metadata_missing',
+                'Existen eventos status_updated de DDJJ/F22 usados por reporting sin campo_estado, estado_anterior o estado_nuevo.',
+                count=annual_status_transition_metadata_missing,
+            )
+        )
     if approved_closes.count() == 0:
         issues.append(
             _issue(
@@ -717,6 +733,9 @@ def collect_stage7_reporting_readiness(
                 'f22_by_state': _count_by(f22_preparations, 'estado_preparacion'),
                 'f22_without_active_fiscal_config': f22_without_fiscal_config,
                 **annual_issues,
+            },
+            'audit': {
+                'annual_status_transition_metadata_missing': annual_status_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,

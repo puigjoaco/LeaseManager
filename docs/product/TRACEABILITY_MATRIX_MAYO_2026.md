@@ -22,6 +22,13 @@ eventos `status_updated` tributarios. `audit_stage4_sii_readiness` bloquea
 o `sii.f22_preparacion.status_updated` incompletos, manteniendo el cierre de
 ambas etapas condicionado a fuente autorizada y evidencia suficiente.
 
+Nota 2026-06-05: Reporting/Etapa 7 replica el guard anual sobre
+`sii.ddjj_preparacion.status_updated` y `sii.f22_preparacion.status_updated`.
+`audit_stage7_reporting_readiness` reporta
+`stage7.reporting.audit_annual_status_transition_metadata_missing` si la traza
+que sustenta el resumen tributario anual no conserva metadata minima de
+transicion.
+
 Nota 2026-06-03: Contratos/Etapa 1 exige actor trazable en auditorias de
 ciclo contractual guiado. `execute_automatic_contract_renewal()` y
 `execute_tenant_replacement()` fallan antes de mutar si una llamada interna no
