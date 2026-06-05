@@ -779,8 +779,8 @@ if (-not $OnlySmoke) {
                     label = 'admin'
                     ok = $true
                     authFlow = 'ui-login'
-                    username = 'demo-admin'
-                    excerpt = 'Dashboard body must not be persisted as release evidence.'
+                    user_name = 'demo-admin'
+                    screen_text = 'Dashboard body must not be persisted as release evidence.'
                 },
                 [ordered]@{
                     label = 'operator'
@@ -792,7 +792,7 @@ if (-not $OnlySmoke) {
                     label = 'reviewer'
                     ok = $true
                     authFlow = 'ui-login'
-                    error = 'Raw browser error with https://example.test/?token=dummy'
+                    errorMessage = 'Raw browser error message must not be persisted as release evidence.'
                 },
                 [ordered]@{ label = 'partner'; ok = $true; authFlow = 'ui-login' }
             )
@@ -813,7 +813,7 @@ if (-not $OnlySmoke) {
 
         $stage7UnredactedSmokeReadiness = Get-Content -LiteralPath $stage7UnredactedSmokeOutputPath -Raw | ConvertFrom-Json
         $stage7UnredactedSmokeIssueCodes = @($stage7UnredactedSmokeReadiness.issues | ForEach-Object { $_.code })
-        Assert-Condition ($stage7UnredactedSmokeIssueCodes -contains 'stage7.public_smoke_output_not_redacted') 'Smoke con username/excerpt/screenshot_path/error crudos debe tener codigo especifico.'
+        Assert-Condition ($stage7UnredactedSmokeIssueCodes -contains 'stage7.public_smoke_output_not_redacted') 'Smoke con user_name/screen_text/screenshot_path/errorMessage crudos debe tener codigo especifico.'
         Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.output_redacted -eq $false) 'Smoke no redactado debe marcar output_redacted=false.'
         Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.has_raw_username -eq $true) 'Smoke no redactado debe marcar has_raw_username=true.'
         Assert-Condition ($stage7UnredactedSmokeReadiness.public_smoke_evidence.has_raw_excerpt -eq $true) 'Smoke no redactado debe marcar has_raw_excerpt=true.'
@@ -928,10 +928,10 @@ if ($shouldRunPublicSmoke) {
     if ($smokeOutput.Trim()) {
         Write-Host $smokeOutput
     }
-    Assert-Condition ($smokeOutput -notmatch '"username"\s*:') 'La smoke publica no debe emitir username en JSON.'
-    Assert-Condition ($smokeOutput -notmatch '"excerpt"\s*:') 'La smoke publica no debe emitir excerpt de pantalla en JSON.'
+    Assert-Condition ($smokeOutput -notmatch '"(?:user|username|user_name|userName|account_username|accountUsername|login|login_name|loginName)"\s*:') 'La smoke publica no debe emitir usuarios crudos en JSON.'
+    Assert-Condition ($smokeOutput -notmatch '"(?:excerpt|screen_excerpt|screenExcerpt|screen_text|screenText|body|body_text|bodyText|page_text|pageText|html|page_html|pageHtml|dom_text|domText)"\s*:') 'La smoke publica no debe emitir extractos de pantalla en JSON.'
     Assert-Condition ($smokeOutput -notmatch '"screenshot(?:Path|_path|File|_file|Url|_url|Uri|_uri|Location|_location)"\s*:') 'La smoke publica no debe emitir rutas de screenshot en JSON.'
-    Assert-Condition ($smokeOutput -notmatch '"error"\s*:') 'La smoke publica no debe emitir errores crudos en JSON.'
+    Assert-Condition ($smokeOutput -notmatch '"(?:error|raw_error|rawError|error_message|errorMessage|error_detail|errorDetail|error_text|errorText|exception|stack|stack_trace|stackTrace|traceback|browser_error|browserError)"\s*:') 'La smoke publica no debe emitir errores crudos en JSON.'
 
     $smokePayload = $smokeOutput | ConvertFrom-Json
     if ($smokePayload.PSObject.Properties.Name -contains 'results') {

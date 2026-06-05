@@ -289,6 +289,32 @@ function Test-JsonPropertyPresent($value, [string]$propertyName) {
     return $false
 }
 
+function Test-JsonPropertyNameMatches($value, [string]$pattern) {
+    if ($null -eq $value) {
+        return $false
+    }
+    if ($value -is [array]) {
+        foreach ($item in $value) {
+            if (Test-JsonPropertyNameMatches $item $pattern) {
+                return $true
+            }
+        }
+        return $false
+    }
+    if ($value -isnot [pscustomobject]) {
+        return $false
+    }
+    foreach ($property in $value.PSObject.Properties) {
+        if ($property.Name -match $pattern) {
+            return $true
+        }
+        if (Test-JsonPropertyNameMatches $property.Value $pattern) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Test-RawScreenshotPathPresent($value) {
     if ($null -eq $value) {
         return $false
@@ -339,10 +365,10 @@ function Test-AuthorizedSmokeEvidence($payload) {
     $authorizationRefSensitive = Test-SensitiveReference $authorizationRef
     $environmentRefSensitive = Test-SensitiveReference $environmentRef
     $targetRefSensitive = Test-SensitiveReference $targetRef
-    $hasRawUsername = Test-JsonPropertyPresent $payload 'username'
-    $hasRawExcerpt = Test-JsonPropertyPresent $payload 'excerpt'
+    $hasRawUsername = Test-JsonPropertyNameMatches $payload '(?i)^(user|username|user_name|userName|account_username|accountUsername|login|login_name|loginName)$'
+    $hasRawExcerpt = Test-JsonPropertyNameMatches $payload '(?i)^(excerpt|screen_excerpt|screenExcerpt|screen_text|screenText|body|body_text|bodyText|page_text|pageText|html|page_html|pageHtml|dom_text|domText)$'
     $hasRawScreenshotPath = Test-RawScreenshotPathPresent $payload
-    $hasRawError = Test-JsonPropertyPresent $payload 'error'
+    $hasRawError = Test-JsonPropertyNameMatches $payload '(?i)^(error|raw_error|rawError|error_message|errorMessage|error_detail|errorDetail|error_text|errorText|exception|stack|stack_trace|stackTrace|traceback|browser_error|browserError)$'
     $outputRedacted = -not ($hasRawUsername -or $hasRawExcerpt -or $hasRawScreenshotPath -or $hasRawError)
     $payloadSensitive = Test-PayloadContainsSensitiveReference $payload
     $authorized = $verified `

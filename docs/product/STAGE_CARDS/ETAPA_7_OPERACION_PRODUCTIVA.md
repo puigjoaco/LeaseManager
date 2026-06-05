@@ -73,7 +73,10 @@ runbook, smoke y aceptacion.
   campos diagnosticos crudos, aun cuando los roles, login UI y refs de ambiente
   esten presentes. Las rutas de screenshot se detectan tambien si vienen con
   variantes como `screenshot_path`, `screenshot_file`, `screenshotUrl` o
-  `screenshotLocation`; solo se permite confirmacion booleana resumida.
+  `screenshotLocation`; usuarios, extractos de pantalla y errores crudos se
+  detectan tambien con aliases comunes como `user_name`, `screen_text` o
+  `errorMessage`; solo se permiten etiquetas de rol, metricas resumidas,
+  `errorCode` y confirmacion booleana resumida.
 - La aceptacion final para cierre requiere evidencia JSON autorizada con
   `accepted=true`, responsable, alcance/candidato, decision y referencias no
   sensibles; una referencia simple no reemplaza la aceptacion final.
