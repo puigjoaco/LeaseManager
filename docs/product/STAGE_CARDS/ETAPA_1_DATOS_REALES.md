@@ -84,7 +84,8 @@ contra datos reales o snapshot controlado.
 - Las altas y ediciones API de Patrimonio deben persistir la mutacion y los
   eventos `created`, `updated` o `state_changed` de forma atomica; si falla la
   auditoria, no deben quedar entidades patrimoniales ni participaciones
-  anidadas persistidas sin traza.
+  anidadas persistidas sin traza. Los eventos `state_changed` deben conservar
+  metadata minima con campo de estado, estado anterior y estado nuevo.
 - La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
   historicos no constituyen evidencia operativa de Etapa 1.
 - Validacion de no duplicar propiedades activas por rol de avaluo normalizado
@@ -109,7 +110,9 @@ contra datos reales o snapshot controlado.
 - Las altas y ediciones API de Operacion deben persistir la mutacion y los
   eventos `created`, `updated` o `state_changed` de forma atomica; si falla la
   auditoria, no deben quedar cuentas recaudadoras, identidades, mandatos ni
-  asignaciones de canal mutadas sin traza.
+  asignaciones de canal mutadas sin traza. Los eventos `state_changed` deben
+  conservar metadata minima con campo de estado, estado anterior y estado
+  nuevo.
 - Validacion de cuentas recaudadoras activas: una cuenta activa debe declarar
   uso operativo, modo `manual_controlado` o `gate_bancario`, y evidencia
   operativa trazable no sensible; API, snapshot y admin/backoffice redactan

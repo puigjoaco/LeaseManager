@@ -370,6 +370,31 @@ class OperacionAPITests(APITestCase):
             ).exists()
         )
 
+    def test_account_update_emits_operational_state_change_metadata(self):
+        empresa = self._create_active_empresa('AdminCo Audit Metadata', '88888888-8')
+        cuenta = self._create_active_account(empresa=empresa, numero='999012')
+
+        response = self.client.patch(
+            reverse('operacion-cuenta-detail', args=[cuenta.id]),
+            {'estado_operativo': EstadoCuentaRecaudadora.INACTIVE},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        state_event = AuditEvent.objects.get(
+            event_type='operacion.cuenta_recaudadora.state_changed',
+            entity_type='cuenta_recaudadora',
+            entity_id=str(cuenta.id),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado_operativo',
+                'estado_anterior': EstadoCuentaRecaudadora.ACTIVE,
+                'estado_nuevo': EstadoCuentaRecaudadora.INACTIVE,
+            },
+        )
+
     def test_create_active_account_for_comunidad_owner(self):
         comunidad = self._create_active_comunidad('Comunidad Operativa')
         payload = {
@@ -1414,5 +1439,23 @@ class OperacionAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
-        self.assertTrue(AuditEvent.objects.filter(event_type='operacion.mandato_operacion.updated').exists())
-        self.assertTrue(AuditEvent.objects.filter(event_type='operacion.mandato_operacion.state_changed').exists())
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type='operacion.mandato_operacion.updated',
+                entity_type='mandato_operacion',
+                entity_id=str(create_response.data['id']),
+            ).exists()
+        )
+        state_event = AuditEvent.objects.get(
+            event_type='operacion.mandato_operacion.state_changed',
+            entity_type='mandato_operacion',
+            entity_id=str(create_response.data['id']),
+        )
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado',
+                'estado_anterior': EstadoMandatoOperacion.ACTIVE,
+                'estado_nuevo': EstadoMandatoOperacion.INACTIVE,
+            },
+        )
