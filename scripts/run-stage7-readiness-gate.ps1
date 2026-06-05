@@ -97,6 +97,56 @@ function Test-SensitiveReference([string]$value) {
     return $value -match '(?i)(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)'
 }
 
+function ConvertTo-CompactPayloadKey([string]$value) {
+    return ([string]$value).ToLowerInvariant() -replace '[\s_-]+', ''
+}
+
+function Test-SensitivePayloadKey([string]$key) {
+    if ([string]::IsNullOrWhiteSpace($key)) {
+        return $false
+    }
+    $compactKey = ConvertTo-CompactPayloadKey $key
+    $sensitiveKeyAliases = @('authorization', 'authorizationheader', 'authheader', 'privatekey')
+    return ($sensitiveKeyAliases -contains $compactKey) `
+        -or ($key -match '(?i)(password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)')
+}
+
+function Test-PayloadContainsSensitiveReference($value, [bool]$underSensitiveKey = $false) {
+    if ($null -eq $value) {
+        return $underSensitiveKey
+    }
+    if ($value -is [string]) {
+        return $underSensitiveKey -or (Test-SensitiveReference $value)
+    }
+    if ($value -is [System.Collections.IDictionary]) {
+        foreach ($key in $value.Keys) {
+            $nextSensitiveKey = $underSensitiveKey -or (Test-SensitivePayloadKey ([string]$key))
+            if (Test-PayloadContainsSensitiveReference $value[$key] $nextSensitiveKey) {
+                return $true
+            }
+        }
+        return $false
+    }
+    if ($value -is [array]) {
+        foreach ($item in $value) {
+            if (Test-PayloadContainsSensitiveReference $item $underSensitiveKey) {
+                return $true
+            }
+        }
+        return $false
+    }
+    if ($value -is [pscustomobject]) {
+        foreach ($property in $value.PSObject.Properties) {
+            $nextSensitiveKey = $underSensitiveKey -or (Test-SensitivePayloadKey $property.Name)
+            if (Test-PayloadContainsSensitiveReference $property.Value $nextSensitiveKey) {
+                return $true
+            }
+        }
+        return $false
+    }
+    return $underSensitiveKey
+}
+
 function Get-PayloadTextProperty($payload, [string[]]$names) {
     foreach ($name in $names) {
         if ($payload.PSObject.Properties.Name -contains $name) {
@@ -138,12 +188,14 @@ function Test-AuthorizedRestoreEvidence($payload) {
     $hasBackupRef = Test-NonSensitiveReference $backupRef
     $authorizationRefSensitive = Test-SensitiveReference $authorizationRef
     $backupRefSensitive = Test-SensitiveReference $backupRef
+    $payloadSensitive = Test-PayloadContainsSensitiveReference $payload
     $authorized = $verified `
         -and (-not $syntheticOnly) `
         -and ($allowedSourceKinds -contains $sourceKind) `
         -and (-not $hasBackupFile) `
         -and $hasAuthorizationRef `
-        -and $hasBackupRef
+        -and $hasBackupRef `
+        -and (-not $payloadSensitive)
 
     $reason = ''
     if (-not $verified) {
@@ -170,6 +222,9 @@ function Test-AuthorizedRestoreEvidence($payload) {
     elseif (-not $hasBackupRef) {
         $reason = 'restore_backup_ref_missing'
     }
+    elseif ($payloadSensitive) {
+        $reason = 'restore_payload_sensitive'
+    }
 
     return [ordered]@{
         verified = $verified
@@ -181,6 +236,7 @@ function Test-AuthorizedRestoreEvidence($payload) {
         has_backup_ref = $hasBackupRef
         authorization_ref_sensitive = $authorizationRefSensitive
         backup_ref_sensitive = $backupRefSensitive
+        payload_sensitive = $payloadSensitive
         reason = $reason
     }
 }
@@ -255,13 +311,15 @@ function Test-AuthorizedSmokeEvidence($payload) {
     $hasRawScreenshotPath = Test-JsonPropertyPresent $payload 'screenshotPath'
     $hasRawError = Test-JsonPropertyPresent $payload 'error'
     $outputRedacted = -not ($hasRawUsername -or $hasRawExcerpt -or $hasRawScreenshotPath -or $hasRawError)
+    $payloadSensitive = Test-PayloadContainsSensitiveReference $payload
     $authorized = $verified `
         -and $outputRedacted `
         -and (-not $syntheticOnly) `
         -and ($allowedSourceKinds -contains $sourceKind) `
         -and $hasAuthorizationRef `
         -and $hasEnvironmentRef `
-        -and $hasTargetRef
+        -and $hasTargetRef `
+        -and (-not $payloadSensitive)
 
     $reason = ''
     if (-not $verified) {
@@ -294,6 +352,9 @@ function Test-AuthorizedSmokeEvidence($payload) {
     elseif (-not $hasTargetRef) {
         $reason = 'public_smoke_target_ref_missing'
     }
+    elseif ($payloadSensitive) {
+        $reason = 'public_smoke_payload_sensitive'
+    }
 
     return [ordered]@{
         verified = $verified
@@ -311,6 +372,7 @@ function Test-AuthorizedSmokeEvidence($payload) {
         has_raw_excerpt = $hasRawExcerpt
         has_raw_screenshot_path = $hasRawScreenshotPath
         has_raw_error = $hasRawError
+        payload_sensitive = $payloadSensitive
         reason = $reason
     }
 }
@@ -338,13 +400,15 @@ function Test-AuthorizedFinalAcceptanceEvidence($payload, [string]$fallbackAccep
     $responsibleRefSensitive = Test-SensitiveReference $responsibleRef
     $scopeRefSensitive = Test-SensitiveReference $scopeRef
     $acceptanceRefSensitive = Test-SensitiveReference $acceptanceRef
+    $payloadSensitive = Test-PayloadContainsSensitiveReference $payload
     $authorized = $accepted `
         -and (-not $syntheticOnly) `
         -and ($allowedSourceKinds -contains $sourceKind) `
         -and $hasAuthorizationRef `
         -and $hasResponsibleRef `
         -and $hasScopeRef `
-        -and $hasAcceptanceRef
+        -and $hasAcceptanceRef `
+        -and (-not $payloadSensitive)
 
     $reason = ''
     if (-not $accepted) {
@@ -380,6 +444,9 @@ function Test-AuthorizedFinalAcceptanceEvidence($payload, [string]$fallbackAccep
     elseif (-not $hasAcceptanceRef) {
         $reason = 'final_acceptance_ref_missing'
     }
+    elseif ($payloadSensitive) {
+        $reason = 'final_acceptance_payload_sensitive'
+    }
 
     return [ordered]@{
         accepted = $accepted
@@ -394,6 +461,7 @@ function Test-AuthorizedFinalAcceptanceEvidence($payload, [string]$fallbackAccep
         responsible_ref_sensitive = $responsibleRefSensitive
         scope_ref_sensitive = $scopeRefSensitive
         acceptance_ref_sensitive = $acceptanceRefSensitive
+        payload_sensitive = $payloadSensitive
         reason = $reason
     }
 }
@@ -462,6 +530,7 @@ $restoreEvidenceSummary = [ordered]@{
     has_backup_ref = $false
     authorization_ref_sensitive = $false
     backup_ref_sensitive = $false
+    payload_sensitive = $false
 }
 $publicSmokeEvidenceSummary = [ordered]@{
     provided = $false
@@ -480,6 +549,7 @@ $publicSmokeEvidenceSummary = [ordered]@{
     has_raw_excerpt = $false
     has_raw_screenshot_path = $false
     has_raw_error = $false
+    payload_sensitive = $false
 }
 $finalAcceptanceEvidenceSummary = [ordered]@{
     provided = $false
@@ -495,6 +565,7 @@ $finalAcceptanceEvidenceSummary = [ordered]@{
     responsible_ref_sensitive = $false
     scope_ref_sensitive = $false
     acceptance_ref_sensitive = $false
+    payload_sensitive = $false
 }
 
 Step 'Backend local checks'
@@ -637,6 +708,7 @@ else {
         has_backup_ref = $restoreCheck.has_backup_ref
         authorization_ref_sensitive = $restoreCheck.authorization_ref_sensitive
         backup_ref_sensitive = $restoreCheck.backup_ref_sensitive
+        payload_sensitive = $restoreCheck.payload_sensitive
     }
     if (-not $restoreCheck.verified) {
         $issues += [ordered]@{
@@ -654,6 +726,7 @@ else {
             'restore_authorization_ref_missing' { 'stage7.restore_authorization_ref_missing' }
             'restore_backup_ref_sensitive' { 'stage7.restore_backup_ref_sensitive' }
             'restore_backup_ref_missing' { 'stage7.restore_backup_ref_missing' }
+            'restore_payload_sensitive' { 'stage7.restore_payload_sensitive' }
             default { 'stage7.restore_authorized_backup_missing' }
         }
         $issueMessage = switch ($restoreCheck.reason) {
@@ -663,6 +736,7 @@ else {
             'restore_authorization_ref_missing' { 'La evidencia de restore requiere authorization_ref no sensible.' }
             'restore_backup_ref_sensitive' { 'La evidencia de restore contiene backup_ref o backup_evidence_ref sensible.' }
             'restore_backup_ref_missing' { 'La evidencia de restore requiere backup_ref o backup_evidence_ref no sensible.' }
+            'restore_payload_sensitive' { 'La evidencia de restore contiene payload sensible o claves de credenciales y no habilita cierre.' }
             default { 'La evidencia de restore debe declarar source_kind snapshot_controlado, real_autorizado, backup_autorizado o restore_autorizado.' }
         }
         $issues += [ordered]@{
@@ -702,6 +776,7 @@ else {
         has_raw_excerpt = $smokeCheck.has_raw_excerpt
         has_raw_screenshot_path = $smokeCheck.has_raw_screenshot_path
         has_raw_error = $smokeCheck.has_raw_error
+        payload_sensitive = $smokeCheck.payload_sensitive
     }
     if (-not $smokeCheck.verified) {
         $issues += [ordered]@{
@@ -721,6 +796,7 @@ else {
             'public_smoke_environment_ref_missing' { 'stage7.public_smoke_environment_ref_missing' }
             'public_smoke_target_ref_sensitive' { 'stage7.public_smoke_target_ref_sensitive' }
             'public_smoke_target_ref_missing' { 'stage7.public_smoke_target_ref_missing' }
+            'public_smoke_payload_sensitive' { 'stage7.public_smoke_payload_sensitive' }
             default { 'stage7.public_smoke_authorized_environment_missing' }
         }
         $issueMessage = switch ($smokeCheck.reason) {
@@ -732,6 +808,7 @@ else {
             'public_smoke_environment_ref_missing' { 'La evidencia de smoke publico requiere environment_ref no sensible.' }
             'public_smoke_target_ref_sensitive' { 'La evidencia de smoke publico contiene target_ref o deployment_ref sensible.' }
             'public_smoke_target_ref_missing' { 'La evidencia de smoke publico requiere target_ref o deployment_ref no sensible.' }
+            'public_smoke_payload_sensitive' { 'La evidencia de smoke publico contiene payload sensible o claves de credenciales y no habilita cierre.' }
             default { 'La evidencia de smoke publico debe declarar source_kind public_smoke_autorizado, ambiente_autorizado, staging_autorizado o real_autorizado.' }
         }
         $issues += [ordered]@{
@@ -773,6 +850,7 @@ else {
         responsible_ref_sensitive = $finalAcceptanceCheck.responsible_ref_sensitive
         scope_ref_sensitive = $finalAcceptanceCheck.scope_ref_sensitive
         acceptance_ref_sensitive = $finalAcceptanceCheck.acceptance_ref_sensitive
+        payload_sensitive = $finalAcceptanceCheck.payload_sensitive
     }
     if (-not $finalAcceptanceCheck.accepted) {
         $issues += [ordered]@{
@@ -793,6 +871,7 @@ else {
             'final_acceptance_scope_ref_missing' { 'stage7.final_acceptance_scope_ref_missing' }
             'final_acceptance_ref_sensitive' { 'stage7.final_acceptance_ref_sensitive' }
             'final_acceptance_ref_missing' { 'stage7.final_acceptance_ref_missing' }
+            'final_acceptance_payload_sensitive' { 'stage7.final_acceptance_payload_sensitive' }
             default { 'stage7.final_acceptance_authorized_evidence_missing' }
         }
         $issueMessage = switch ($finalAcceptanceCheck.reason) {
@@ -805,6 +884,7 @@ else {
             'final_acceptance_scope_ref_missing' { 'La evidencia de aceptacion final requiere scope_ref, acceptance_scope_ref o release_candidate_ref no sensible.' }
             'final_acceptance_ref_sensitive' { 'La evidencia de aceptacion final contiene acceptance_ref, decision_ref, signoff_ref o FinalAcceptanceRef sensible.' }
             'final_acceptance_ref_missing' { 'La evidencia de aceptacion final requiere acceptance_ref, decision_ref, signoff_ref o FinalAcceptanceRef no sensible.' }
+            'final_acceptance_payload_sensitive' { 'La evidencia de aceptacion final contiene payload sensible o claves de credenciales y no habilita cierre.' }
             default { 'La evidencia de aceptacion final debe declarar source_kind aceptacion_final_autorizada, final_acceptance_autorizada, cutover_autorizado, ambiente_autorizado o real_autorizado.' }
         }
         $issues += [ordered]@{

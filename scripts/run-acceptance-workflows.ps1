@@ -504,6 +504,76 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage7SensitiveRefReadiness.public_smoke_evidence.environment_ref_sensitive -eq $true) 'Smoke debe marcar environment_ref_sensitive=true.'
         Assert-Condition ($stage7SensitiveRefReadiness.final_acceptance_evidence.acceptance_ref_sensitive -eq $true) 'Aceptacion final debe marcar acceptance_ref_sensitive=true.'
 
+        $restoreSensitivePayloadPath = Join-Path $stage7AcceptanceDir 'restore_sensitive_payload.json'
+        $smokeSensitivePayloadPath = Join-Path $stage7AcceptanceDir 'smoke_sensitive_payload.json'
+        $finalAcceptanceSensitivePayloadPath = Join-Path $stage7AcceptanceDir 'final_acceptance_sensitive_payload.json'
+        $stage7SensitivePayloadOutputPath = Join-Path $stage7AcceptanceDir 'stage7_sensitive_release_payload.json'
+
+        [ordered]@{
+            restore_verified = $true
+            source_kind = 'backup_autorizado'
+            authorization_ref = 'restore-authorization-v1'
+            backup_ref = 'backup-snapshot-v1'
+            provider_metadata = [ordered]@{
+                headers = [ordered]@{
+                    authorization = 'Bearer inherited-restore-secret'
+                }
+            }
+        } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $restoreSensitivePayloadPath -Encoding UTF8
+
+        [ordered]@{
+            source_kind = 'public_smoke_autorizado'
+            authorization_ref = 'smoke-authorization-v1'
+            environment_ref = 'staging-env-v1'
+            target_ref = 'deployment-target-v1'
+            diagnostic_metadata = [ordered]@{
+                private_key = 'opaque-private-key'
+            }
+            results = @(
+                [ordered]@{ label = 'admin'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'operator'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'reviewer'; ok = $true; authFlow = 'ui-login' },
+                [ordered]@{ label = 'partner'; ok = $true; authFlow = 'ui-login' }
+            )
+        } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $smokeSensitivePayloadPath -Encoding UTF8
+
+        [ordered]@{
+            accepted = $true
+            source_kind = 'aceptacion_final_autorizada'
+            authorization_ref = 'final-authorization-v1'
+            responsible_ref = 'final-owner-v1'
+            scope_ref = 'release-candidate-v1'
+            acceptance_ref = 'final-decision-v1'
+            approval_metadata = [ordered]@{
+                access_token = 'opaque-final-token'
+            }
+        } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $finalAcceptanceSensitivePayloadPath -Encoding UTF8
+
+        $stage7SensitivePayloadOutput = & $stage7ReadinessScript `
+            -PythonExe $pythonExe `
+            -DatabaseUrl $BackendTestDb `
+            -OutputPath $stage7SensitivePayloadOutputPath `
+            -RestoreEvidencePath $restoreSensitivePayloadPath `
+            -PublicSmokeEvidencePath $smokeSensitivePayloadPath `
+            -FinalAcceptanceEvidencePath $finalAcceptanceSensitivePayloadPath `
+            -SkipMigrations | Out-String
+        Assert-Condition ($LASTEXITCODE -eq 0) 'run-stage7-readiness-gate fallo al validar payload sensible de release.'
+        if ($stage7SensitivePayloadOutput.Trim()) {
+            Write-Host $stage7SensitivePayloadOutput
+        }
+
+        $stage7SensitivePayloadReadiness = Get-Content -LiteralPath $stage7SensitivePayloadOutputPath -Raw | ConvertFrom-Json
+        $stage7SensitivePayloadIssueCodes = @($stage7SensitivePayloadReadiness.issues | ForEach-Object { $_.code })
+        Assert-Condition ($stage7SensitivePayloadIssueCodes -contains 'stage7.restore_payload_sensitive') 'Restore con payload sensible debe tener codigo especifico.'
+        Assert-Condition ($stage7SensitivePayloadIssueCodes -contains 'stage7.public_smoke_payload_sensitive') 'Smoke con payload sensible debe tener codigo especifico.'
+        Assert-Condition ($stage7SensitivePayloadIssueCodes -contains 'stage7.final_acceptance_payload_sensitive') 'Aceptacion final con payload sensible debe tener codigo especifico.'
+        Assert-Condition ($stage7SensitivePayloadReadiness.restore_evidence.payload_sensitive -eq $true) 'Restore debe marcar payload_sensitive=true.'
+        Assert-Condition ($stage7SensitivePayloadReadiness.public_smoke_evidence.payload_sensitive -eq $true) 'Smoke debe marcar payload_sensitive=true.'
+        Assert-Condition ($stage7SensitivePayloadReadiness.final_acceptance_evidence.payload_sensitive -eq $true) 'Aceptacion final debe marcar payload_sensitive=true.'
+        Assert-Condition ($stage7SensitivePayloadReadiness.checks.restore_authorized_evidence -eq $false) 'Restore con payload sensible no debe quedar autorizado para cierre.'
+        Assert-Condition ($stage7SensitivePayloadReadiness.checks.public_smoke_authorized_evidence -eq $false) 'Smoke con payload sensible no debe quedar autorizado para cierre.'
+        Assert-Condition ($stage7SensitivePayloadReadiness.checks.final_acceptance_authorized_evidence -eq $false) 'Aceptacion final con payload sensible no debe quedar autorizada para cierre.'
+
         $restoreRawBackupFilePath = Join-Path $stage7AcceptanceDir 'restore_raw_backup_file.json'
         $stage7RawBackupFileOutputPath = Join-Path $stage7AcceptanceDir 'stage7_raw_restore_backup_file.json'
         $restoreBackupEvidenceRefPath = Join-Path $stage7AcceptanceDir 'restore_backup_evidence_ref.json'
