@@ -183,7 +183,7 @@ function Test-AuthorizedRestoreEvidence($payload) {
     $allowedSourceKinds = @('snapshot_controlado', 'real_autorizado', 'backup_autorizado', 'restore_autorizado')
     $verified = ($payload.PSObject.Properties.Name -contains 'restore_verified') -and $payload.restore_verified -eq $true
     $syntheticOnly = $sourceKind -eq 'synthetic_fixture' -or $rehearsalKind -eq 'postgres_local_synthetic_restore' -or $mode -eq 'plan_only'
-    $hasBackupFile = Test-JsonPropertyPresent $payload 'backup_file'
+    $hasBackupFile = Test-JsonPropertyNameMatches $payload '(?i)^(backup|dump|snapshot|restore)(?:_?(file|path|url|uri|location))$|^planned_?backup_?file$'
     $hasAuthorizationRef = Test-NonSensitiveReference $authorizationRef
     $hasBackupRef = Test-NonSensitiveReference $backupRef
     $authorizationRefSensitive = Test-SensitiveReference $authorizationRef
