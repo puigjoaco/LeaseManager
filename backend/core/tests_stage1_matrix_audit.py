@@ -298,6 +298,22 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'implementado_sin_evidencia')
 
+    def test_state_changed_event_without_transition_metadata_is_blocking(self):
+        AuditEvent.objects.create(
+            event_type='contratos.contrato.state_changed',
+            entity_type='contrato',
+            entity_id='1',
+            summary='Contrato cambio de estado heredado sin metadata completa.',
+            metadata={'estado_nuevo': EstadoContrato.ACTIVE},
+        )
+
+        result = collect_stage1_matrix_audit(source_kind='local')
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage1.audit.state_transition_metadata_missing', issue_codes)
+        self.assertEqual(result['audit']['state_transition_metadata_missing'], 1)
+        self.assertEqual(result['classification'], 'defectuoso')
+
     def test_required_snapshot_reports_aggregate_classification_for_missing_data(self):
         result = self._collect_controlled_snapshot()
         aggregates = result['aggregate_classification']

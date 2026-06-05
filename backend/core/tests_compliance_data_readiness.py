@@ -140,6 +140,21 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertIn('retention_policies', result['sections'])
         self.assertNotIn('://', json.dumps(result))
 
+    def test_state_changed_event_without_transition_metadata_is_blocking(self):
+        AuditEvent.objects.create(
+            event_type='compliance.politica_retencion.state_changed',
+            entity_type='politica_retencion_datos',
+            entity_id='1',
+            summary='Politica de retencion heredada sin metadata de transicion.',
+            metadata={'estado_nuevo': EstadoRegistro.ACTIVE},
+        )
+
+        result = collect_compliance_data_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('compliance.audit_state_transition_metadata_missing', issue_codes)
+        self.assertEqual(result['sections']['audit']['state_transition_metadata_missing'], 1)
+
     def test_bootstrap_demo_compliance_policies_validates_before_persisting(self):
         output = StringIO()
 

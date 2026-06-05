@@ -82,6 +82,8 @@ evidencia respalda el root limpio.
 - Los eventos `compliance.politica_retencion.state_changed` deben conservar
   metadata minima de transicion con `campo_estado`, `estado_anterior` y
   `estado_nuevo`.
+- `audit_compliance_data_readiness` bloquea eventos `state_changed` heredados
+  de Compliance que no conserven esa metadata minima de transicion.
 - Compliance de datos sensibles permite a `RevisorFiscalExterno` preparar y
   descargar exportaciones sensibles solo dentro de un scope explicito asignado:
   el payload se renderiza con `ScopeAccess`, detalle/descarga/revocacion

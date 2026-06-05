@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from audit.models import AuditEvent
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.state_transition_audit_readiness import count_state_changed_events_without_transition_metadata
 from cobranza.models import (
     AjusteContrato,
     CANONICAL_UF_SOURCE_KEYS,
@@ -74,6 +75,7 @@ from patrimonio.validators import validate_rut
 
 
 EVIDENCE_GRADE_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+STAGE1_STATE_CHANGE_EVENT_PREFIXES = ('patrimonio', 'operacion', 'contratos')
 SENSITIVE_SOURCE_LABEL_RE = re.compile(
     r'://|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial|[0-9]{7,}-?[0-9kK]',
     re.IGNORECASE,
@@ -2358,6 +2360,19 @@ def collect_stage1_matrix_audit(
     _audit_operacion(issues)
     _audit_facturacion(issues)
     _audit_contratos(issues)
+    state_transition_metadata_missing = count_state_changed_events_without_transition_metadata(
+        STAGE1_STATE_CHANGE_EVENT_PREFIXES
+    )
+    if state_transition_metadata_missing:
+        _issue(
+            issues,
+            code='stage1.audit.state_transition_metadata_missing',
+            entity='AuditEvent',
+            message=(
+                'Existen eventos state_changed de Etapa 1 sin campo_estado, estado_anterior '
+                'o estado_nuevo; no pueden contar como trazabilidad completa.'
+            ),
+        )
 
     issue_counts = defaultdict(int)
     for issue in issues:
@@ -2395,6 +2410,9 @@ def collect_stage1_matrix_audit(
         'require_data': require_data,
         'summary': summary,
         'aggregate_classification': aggregate_classification,
+        'audit': {
+            'state_transition_metadata_missing': state_transition_metadata_missing,
+        },
         'has_required_stage1_data': has_required_data,
         'evidence_grade': evidence_grade,
         'classification': classification,

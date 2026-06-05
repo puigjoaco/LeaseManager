@@ -29,9 +29,11 @@ from conciliacion.models import (
 )
 from contabilidad.models import EventoContable
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.state_transition_audit_readiness import count_state_changed_events_without_transition_metadata
 
 
 AUTHORIZED_STAGE3_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+STAGE3_STATE_CHANGE_EVENT_PREFIXES = ('conciliacion',)
 CONNECTION_REFERENCE_FIELDS = (
     'credencial_ref',
     'evidencia_gate_ref',
@@ -813,6 +815,9 @@ def collect_stage3_conciliacion_readiness(
         'authorization_ref': _non_sensitive_reference(authorization_ref),
     }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE3_SOURCE_KINDS
+    state_transition_metadata_missing = count_state_changed_events_without_transition_metadata(
+        STAGE3_STATE_CHANGE_EVENT_PREFIXES
+    )
 
     issues: list[dict[str, Any]] = []
     if not source_kind_authorized_for_close:
@@ -837,6 +842,14 @@ def collect_stage3_conciliacion_readiness(
         ]:
             if not source_trace[key]:
                 issues.append(_issue(code, message))
+    if state_transition_metadata_missing:
+        issues.append(
+            _issue(
+                'stage3.audit.state_transition_metadata_missing',
+                'Existen eventos state_changed de Conciliacion sin campo_estado, estado_anterior o estado_nuevo.',
+                count=state_transition_metadata_missing,
+            )
+        )
     if bank_connections.count() == 0:
         issues.append(
             _issue(
@@ -1315,6 +1328,9 @@ def collect_stage3_conciliacion_readiness(
                 'by_category': _count_by(manual_resolutions, 'category'),
                 'by_status': _count_by(manual_resolutions, 'status'),
                 **manual_resolution_issues,
+            },
+            'audit': {
+                'state_transition_metadata_missing': state_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,

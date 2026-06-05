@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-05: Los gates/readiness detectan eventos `state_changed`
+heredados sin metadata minima de transicion. `core.state_transition_audit_readiness`
+centraliza la verificacion de `campo_estado`, `estado_anterior` y
+`estado_nuevo`; Etapa 1, Etapa 2, Etapa 3, Etapa 4, Etapa 5 Contabilidad,
+Documentos y Compliance ahora reportan issues bloqueantes especificos cuando
+la traza historica no conserva esos campos, sin exponer valores sensibles ni
+usar fuentes externas.
+
 Nota 2026-06-03: Contratos/Etapa 1 exige actor trazable en auditorias de
 ciclo contractual guiado. `execute_automatic_contract_renewal()` y
 `execute_tenant_replacement()` fallan antes de mutar si una llamada interna no

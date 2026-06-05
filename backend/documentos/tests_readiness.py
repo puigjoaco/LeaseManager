@@ -326,6 +326,21 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertIn('documents.controlled_pdf_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
 
+    def test_state_changed_event_without_transition_metadata_is_blocking(self):
+        AuditEvent.objects.create(
+            event_type='documentos.expediente.state_changed',
+            entity_type='expediente_documental',
+            entity_id='1',
+            summary='Expediente heredado sin metadata de transicion.',
+            metadata={'estado_nuevo': 'cerrado'},
+        )
+
+        result = collect_document_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('documents.audit_state_transition_metadata_missing', issue_codes)
+        self.assertEqual(result['sections']['audit']['state_transition_metadata_missing'], 1)
+
     def test_sensitive_document_audit_metadata_is_blocking(self):
         create_all_active_policies()
         user = create_user('docs-readiness-sensitive-audit-metadata')

@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from audit.models import AuditEvent
 from core.reference_validation import is_non_sensitive_reference, redact_sensitive_reference
+from core.state_transition_audit_readiness import count_state_changed_events_without_transition_metadata
 
 from .correction_audit import (
     CORRECTION_AUDIT_ENTITY_TYPE,
@@ -40,6 +41,7 @@ from .pdf_generation import (
 REQUIRED_POLICY_TYPES = set(TipoDocumental.values)
 REQUIRED_TEMPLATE_TYPES = set(TipoDocumental.values)
 AUTHORIZED_DOCUMENT_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+DOCUMENT_STATE_CHANGE_EVENT_PREFIXES = ('documentos',)
 
 
 def _non_sensitive_reference(value):
@@ -380,6 +382,9 @@ def collect_document_readiness(
         'authorization_ref': _non_sensitive_reference(authorization_ref),
     }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_DOCUMENT_SOURCE_KINDS
+    state_transition_metadata_missing = count_state_changed_events_without_transition_metadata(
+        DOCUMENT_STATE_CHANGE_EVENT_PREFIXES
+    )
 
     issues = []
     if not source_kind_authorized_for_close:
@@ -404,6 +409,14 @@ def collect_document_readiness(
         ]:
             if not source_trace[key]:
                 issues.append(_issue(code, message))
+    if state_transition_metadata_missing:
+        issues.append(
+            _issue(
+                'documents.audit_state_transition_metadata_missing',
+                'Existen eventos state_changed de Documentos sin campo_estado, estado_anterior o estado_nuevo.',
+                count=state_transition_metadata_missing,
+            )
+        )
     if missing_policy_types:
         issues.append(
             _issue(
@@ -783,6 +796,9 @@ def collect_document_readiness(
                 'by_entity_type': _count_by(expedientes, 'entidad_tipo'),
                 'invalid': invalid_expedientes,
                 'sensitive_references': sensitive_expediente_refs,
+            },
+            'audit': {
+                'state_transition_metadata_missing': state_transition_metadata_missing,
             },
             'final_evidence': checks,
             'source_trace': source_trace,

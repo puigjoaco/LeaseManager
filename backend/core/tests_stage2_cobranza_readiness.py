@@ -328,6 +328,21 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.source_kind_not_authorized', issue_codes)
         self.assertNotIn('://', json.dumps(result))
 
+    def test_state_changed_event_without_transition_metadata_is_blocking(self):
+        AuditEvent.objects.create(
+            event_type='canales.canal_mensajeria.state_changed',
+            entity_type='canal_mensajeria',
+            entity_id='1',
+            summary='Gate de canal heredado sin metadata completa.',
+            metadata={'estado_nuevo': EstadoGateCanal.OPEN},
+        )
+
+        result = collect_stage2_cobranza_readiness(reference_date=self.READINESS_REFERENCE_DATE)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage2.audit.state_transition_metadata_missing', issue_codes)
+        self.assertEqual(result['sections']['audit']['state_transition_metadata_missing'], 1)
+
     def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         self._create_payment_matrix()
         self._create_valid_email_gate()

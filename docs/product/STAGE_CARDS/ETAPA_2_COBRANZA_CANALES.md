@@ -107,6 +107,9 @@ condicionados sin envios reales accidentales.
   quedar gate ni configuracion mutada sin traza de endpoint. Los eventos
   `canales.*.state_changed` deben conservar metadata minima de transicion con
   `campo_estado`, `estado_anterior` y `estado_nuevo`.
+- `audit_stage2_cobranza_readiness` bloquea eventos `state_changed`
+  heredados de Cobranza o Canales que no conserven esa metadata minima de
+  transicion.
 - Registro manual de envio solo con `external_ref` trazable no sensible y
   revalidacion del gate abierto, identidad activa, destinatario y mandato
   operativo activo.

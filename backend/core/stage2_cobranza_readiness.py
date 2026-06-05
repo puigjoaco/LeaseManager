@@ -65,6 +65,7 @@ from contratos.models import (
     is_international_phone_number,
 )
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.state_transition_audit_readiness import count_state_changed_events_without_transition_metadata
 from operacion.models import (
     AsignacionCanalOperacion,
     CanalOperacion,
@@ -76,6 +77,7 @@ from operacion.models import (
 
 
 AUTHORIZED_STAGE2_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+STAGE2_STATE_CHANGE_EVENT_PREFIXES = ('cobranza', 'canales')
 SENT_MESSAGE_EVENT_TYPE = 'canales.mensaje_saliente.sent_manually'
 
 
@@ -1039,6 +1041,9 @@ def collect_stage2_cobranza_readiness(
         'authorization_ref': _non_sensitive_reference(authorization_ref),
     }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE2_SOURCE_KINDS
+    state_transition_metadata_missing = count_state_changed_events_without_transition_metadata(
+        STAGE2_STATE_CHANGE_EVENT_PREFIXES
+    )
 
     issues: list[dict[str, Any]] = []
     if not source_kind_authorized_for_close:
@@ -1063,6 +1068,14 @@ def collect_stage2_cobranza_readiness(
         ]:
             if not source_trace[key]:
                 issues.append(_issue(code, message))
+    if state_transition_metadata_missing:
+        issues.append(
+            _issue(
+                'stage2.audit.state_transition_metadata_missing',
+                'Existen eventos state_changed de Cobranza/Canales sin campo_estado, estado_anterior o estado_nuevo.',
+                count=state_transition_metadata_missing,
+            )
+        )
     if payments_total == 0:
         issues.append(
             _issue(
@@ -1920,6 +1933,9 @@ def collect_stage2_cobranza_readiness(
                 'intents_by_state': _count_by(webpay_intents, 'estado'),
                 'invalid_intents': invalid_webpay_intents,
                 **webpay_intent_issues,
+            },
+            'audit': {
+                'state_transition_metadata_missing': state_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,

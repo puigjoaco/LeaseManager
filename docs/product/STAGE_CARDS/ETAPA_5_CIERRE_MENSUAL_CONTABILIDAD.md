@@ -88,6 +88,9 @@ contables desde hechos conciliados.
   transaccion. Los eventos `contabilidad.*.state_changed` deben conservar
   metadata minima de transicion con `campo_estado`, `estado_anterior` y
   `estado_nuevo`.
+- `audit_stage5_contabilidad_readiness` bloquea eventos `state_changed`
+  heredados de Contabilidad que no conserven esa metadata minima de
+  transicion.
 - El admin Django de Contabilidad no expone refs/payloads crudos de eventos,
   asientos, movimientos, obligaciones, libros, balances, cierres ni efectos
   de reapertura; muestra versiones redactadas y mantiene cerrada el alta,

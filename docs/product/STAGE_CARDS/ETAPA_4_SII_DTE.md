@@ -67,6 +67,8 @@ produccion por defecto.
 - Los eventos SII de cambio o actualizacion de estado deben conservar metadata
   minima de transicion con `campo_estado`, `estado_anterior` y `estado_nuevo`,
   manteniendo redactadas las refs sensibles como `sii_track_id`.
+- `audit_stage4_sii_readiness` bloquea eventos `state_changed` heredados de
+  SII que no conserven esa metadata minima de transicion.
 - Los borradores DTE/F29/anuales y los cambios de estado externo revalidan el
   gate antes de avanzar. Los DTE marcados `enviado_manual_controlado`
   revalidan `DTEEmision`; los estados finales `aceptado`, `rechazado` o

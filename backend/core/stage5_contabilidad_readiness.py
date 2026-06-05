@@ -46,9 +46,11 @@ from contabilidad.services import (
 )
 from conciliacion.models import TransferenciaIntercuenta
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.state_transition_audit_readiness import count_state_changed_events_without_transition_metadata
 
 
 AUTHORIZED_STAGE5_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
+STAGE5_CONTABILIDAD_STATE_CHANGE_EVENT_PREFIXES = ('contabilidad',)
 
 
 def _non_sensitive_reference(value: str) -> bool:
@@ -407,6 +409,9 @@ def collect_stage5_contabilidad_readiness(
         'authorization_ref': _non_sensitive_reference(authorization_ref),
     }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE5_SOURCE_KINDS
+    state_transition_metadata_missing = count_state_changed_events_without_transition_metadata(
+        STAGE5_CONTABILIDAD_STATE_CHANGE_EVENT_PREFIXES
+    )
 
     issues: list[dict[str, Any]] = []
     if not source_kind_authorized_for_close:
@@ -431,6 +436,14 @@ def collect_stage5_contabilidad_readiness(
         ]:
             if not source_trace[key]:
                 issues.append(_issue(code, message))
+    if state_transition_metadata_missing:
+        issues.append(
+            _issue(
+                'stage5.audit.state_transition_metadata_missing',
+                'Existen eventos state_changed de Contabilidad sin campo_estado, estado_anterior o estado_nuevo.',
+                count=state_transition_metadata_missing,
+            )
+        )
     if active_fiscal_configs.count() == 0:
         issues.append(
             _issue(
@@ -890,6 +903,9 @@ def collect_stage5_contabilidad_readiness(
                 'final_balance_line_mismatch': final_balance_line_issues['mismatch'],
                 'prepared_economic_lines_without_event': prepared_economic_lines_without_event,
                 'liquidation_sensitive_references': liquidation_sensitive_references,
+            },
+            'audit': {
+                'state_transition_metadata_missing': state_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,

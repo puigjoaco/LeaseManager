@@ -86,6 +86,8 @@ contra datos reales o snapshot controlado.
   auditoria, no deben quedar entidades patrimoniales ni participaciones
   anidadas persistidas sin traza. Los eventos `state_changed` deben conservar
   metadata minima con campo de estado, estado anterior y estado nuevo.
+- El auditor Etapa 1 bloquea eventos `state_changed` heredados de Patrimonio,
+  Operacion o Contratos que no conserven esa metadata minima de transicion.
 - La matriz debe incluir al menos un contrato vigente o futuro; contratos solo
   historicos no constituyen evidencia operativa de Etapa 1.
 - Validacion de no duplicar propiedades activas por rol de avaluo normalizado
