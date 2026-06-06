@@ -278,6 +278,10 @@ snapshots heredados donde movimientos en `ingreso_desconocido`,
 `manual_requerida` o `conciliado_exacto` no conservan `match_attempted` o
 `match_retried` alineado al movimiento, o conservan metadata de movimiento
 desalineada.
+Nota 2026-06-06: la alineacion de auditoria de match exige metadata no
+sensible completa (`status`, movimiento, conexion bancaria, cuenta
+recaudadora, estado de conciliacion, tipo y fecha). Un evento de match hueco o
+parcial ya no cuenta como evidencia suficiente para readiness de Etapa 3.
 
 Nota 2026-05-31: CobranzaActiva/Etapa 2 alinea mutaciones API y auditoria
 de vista en una transaccion. `AuditCreateUpdateMixin` en Cobranza y los
