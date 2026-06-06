@@ -736,6 +736,10 @@ Assert-Condition (
     -and ($null -ne $reporting.sections.source_trace_sensitive)
 ) 'La auditoria Reporting debe exponer sections.source_trace_sensitive.'
 Assert-Condition (
+    ($reporting.sections.PSObject.Properties.Name -contains 'final_evidence') `
+    -and ($null -ne $reporting.sections.final_evidence)
+) 'La auditoria Reporting debe exponer sections.final_evidence.'
+Assert-Condition (
     ($reporting.sections.PSObject.Properties.Name -contains 'final_evidence_sensitive') `
     -and ($null -ne $reporting.sections.final_evidence_sensitive)
 ) 'La auditoria Reporting debe exponer sections.final_evidence_sensitive.'
@@ -745,6 +749,11 @@ if ($reportingSourceKindAuthorizedByParam) {
     Assert-Condition ($reporting.sections.source_trace.authorization_ref -eq $true) 'La fuente evidencial Reporting debe tener authorization_ref trazable.'
     Assert-Condition ($reporting.sections.source_trace_sensitive.source_label -eq $false) 'La fuente evidencial Reporting no debe tener source_label sensible.'
     Assert-Condition ($reporting.sections.source_trace_sensitive.authorization_ref -eq $false) 'La fuente evidencial Reporting no debe tener authorization_ref sensible.'
+    Assert-Condition ($reporting.sections.final_evidence.stage5_evidence_ref -eq $true) 'La evidencia Etapa 5 de Reporting debe ser trazable.'
+    Assert-Condition ($reporting.sections.final_evidence.stage6_evidence_ref -eq $true) 'La evidencia Etapa 6 de Reporting debe ser trazable.'
+    Assert-Condition ($reporting.sections.final_evidence.reporting_api_proof_ref -eq $true) 'La prueba API de Reporting debe ser trazable.'
+    Assert-Condition ($reporting.sections.final_evidence.backoffice_visual_ref -eq $true) 'La prueba visual backoffice de Reporting debe ser trazable.'
+    Assert-Condition ($reporting.sections.final_evidence.responsible_ref -eq $true) 'La referencia de responsables de Reporting debe ser trazable.'
     Assert-Condition ($reporting.sections.final_evidence_sensitive.stage5_evidence_ref -eq $false) 'La evidencia Etapa 5 de Reporting no debe ser sensible.'
     Assert-Condition ($reporting.sections.final_evidence_sensitive.stage6_evidence_ref -eq $false) 'La evidencia Etapa 6 de Reporting no debe ser sensible.'
     Assert-Condition ($reporting.sections.final_evidence_sensitive.reporting_api_proof_ref -eq $false) 'La prueba API de Reporting no debe ser sensible.'

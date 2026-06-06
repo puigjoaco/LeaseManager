@@ -192,6 +192,7 @@ Assert-Condition ($audit.PSObject.Properties.Name -contains 'source_kind_authori
 Assert-Condition ($audit.PSObject.Properties.Name -contains 'ready_for_stage5_contabilidad') 'El JSON debe exponer ready_for_stage5_contabilidad.'
 Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace') 'El JSON debe exponer source_trace.'
 Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace_sensitive') 'El JSON debe exponer source_trace_sensitive.'
+Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'final_evidence') 'El JSON debe exponer final_evidence.'
 Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'final_evidence_sensitive') 'El JSON debe exponer final_evidence_sensitive.'
 if ($isAuthorizedSourceKind) {
     Assert-Condition ($audit.source_kind_authorized_for_close -eq $true) 'La fuente evidencial debe quedar autorizada por tipo.'
@@ -199,6 +200,10 @@ if ($isAuthorizedSourceKind) {
     Assert-Condition ($audit.sections.source_trace.authorization_ref -eq $true) 'La fuente evidencial debe tener authorization_ref trazable.'
     Assert-Condition ($audit.sections.source_trace_sensitive.source_label -eq $false) 'La fuente evidencial no debe tener source_label sensible.'
     Assert-Condition ($audit.sections.source_trace_sensitive.authorization_ref -eq $false) 'La fuente evidencial no debe tener authorization_ref sensible.'
+    Assert-Condition ($audit.sections.final_evidence.stage3_evidence_ref -eq $true) 'La evidencia Etapa 3 debe ser trazable.'
+    Assert-Condition ($audit.sections.final_evidence.ledger_proof_ref -eq $true) 'La prueba de ledger debe ser trazable.'
+    Assert-Condition ($audit.sections.final_evidence.reports_proof_ref -eq $true) 'La prueba de reportes debe ser trazable.'
+    Assert-Condition ($audit.sections.final_evidence.responsible_ref -eq $true) 'La referencia de responsables debe ser trazable.'
     Assert-Condition ($audit.sections.final_evidence_sensitive.stage3_evidence_ref -eq $false) 'La evidencia Etapa 3 no debe ser sensible.'
     Assert-Condition ($audit.sections.final_evidence_sensitive.ledger_proof_ref -eq $false) 'La prueba de ledger no debe ser sensible.'
     Assert-Condition ($audit.sections.final_evidence_sensitive.reports_proof_ref -eq $false) 'La prueba de reportes no debe ser sensible.'
