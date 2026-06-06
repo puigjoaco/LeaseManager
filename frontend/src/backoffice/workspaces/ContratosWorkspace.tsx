@@ -13,7 +13,8 @@ type AvisoItem = { id: number; contrato: number; fecha_efectiva: string; causal:
 
 type ArrendatarioDraft = { tipo_arrendatario: string; nombre_razon_social: string; rut: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; nacionalidad: string; estado_civil: string; profesion: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean; whatsapp_bloqueo_motivo: string; whatsapp_bloqueo_evidencia_ref: string; whatsapp_rehabilitacion_ref: string }
 type ContactoPagoDraft = { arrendatario: string; nombre: string; rol_operativo: string; email: string; telefono: string; evidencia_autorizacion_ref: string; es_principal: boolean; estado: string }
-type ContratoDraft = { codigo_contrato: string; mandato_operacion: string; arrendatario: string; identidad_envio_override: string; politica_documental: string; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; representante_legal_nombre: string; representante_legal_rut: string; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; dia_pago_mensual: string; plazo_notificacion_termino_dias: string; dias_prealerta_admin: string; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string }
+type CodeudorDraft = { nombre: string; rut: string; fecha_inclusion: string; estado: string }
+type ContratoDraft = { codigo_contrato: string; mandato_operacion: string; arrendatario: string; identidad_envio_override: string; politica_documental: string; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; representante_legal_nombre: string; representante_legal_rut: string; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; dia_pago_mensual: string; plazo_notificacion_termino_dias: string; dias_prealerta_admin: string; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string; codeudores_solidarios: CodeudorDraft[] }
 type AvisoDraft = { contrato: string; fecha_efectiva: string; causal: string; estado: string; resolucion_conflicto_renovacion_ref: string; resolucion_conflicto_renovacion_motivo: string }
 
 export function ContratosWorkspace({
@@ -100,6 +101,18 @@ export function ContratosWorkspace({
   const requiresCompanyRepresentative = Boolean(isCompanyContractTenant && (contratoDraft.estado === 'vigente' || contratoDraft.estado === 'futuro'))
   const paymentContacts = arrendatarios.flatMap((tenant) => (tenant.contactos_pago ?? []).map((contact) => ({ ...contact, arrendatario: contact.arrendatario ?? tenant.id, arrendatario_display: contact.arrendatario_display || tenant.nombre_razon_social })))
   const activePaymentContacts = (tenant: ArrendatarioItem) => (tenant.contactos_pago ?? []).filter((contact) => contact.estado === 'activo')
+  const codebtors = contratos.flatMap((contract) => contract.codeudores_solidarios_detail.map((codebtor) => ({
+    ...codebtor,
+    contrato: contract.id,
+    contrato_codigo: contract.codigo_contrato,
+  })))
+
+  function updateCodeudorDraft(index: number, values: Partial<CodeudorDraft>) {
+    setContratoDraft((current) => ({
+      ...current,
+      codeudores_solidarios: current.codeudores_solidarios.map((item, itemIndex) => itemIndex === index ? { ...item, ...values } : item),
+    }))
+  }
 
   function representativeSnapshotBadge(row: ContratoItem) {
     const tenant = arrendatarioById.get(row.arrendatario)
@@ -120,6 +133,17 @@ export function ContratosWorkspace({
       return <Badge label="activo" tone="positive" />
     }
     return <Badge label="pendiente" tone="warning" />
+  }
+
+  function codebtorBadge(row: ContratoItem) {
+    const activeCount = row.codeudores_solidarios_detail.filter((item) => item.estado === 'activo').length
+    if (activeCount > 0) {
+      return <Badge label={`${activeCount} activo${activeCount === 1 ? '' : 's'}`} tone="positive" />
+    }
+    if (row.codeudores_solidarios_detail.length > 0) {
+      return <Badge label="histórico" tone="neutral" />
+    }
+    return <Badge label="sin codeudor" tone="neutral" />
   }
 
   return (
@@ -227,6 +251,14 @@ export function ContratosWorkspace({
             <input placeholder="Prealerta admin" value={contratoDraft.dias_prealerta_admin} onChange={(event) => setContratoDraft((current) => ({ ...current, dias_prealerta_admin: event.target.value }))} />
             <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_tramos} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_tramos: event.target.checked }))} />Tiene tramos</label>
             <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_gastos_comunes} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_gastos_comunes: event.target.checked }))} />Tiene gastos comunes</label>
+            {contratoDraft.codeudores_solidarios.map((codeudor, index) => (
+              <div className="inline-actions" key={`codeudor-${index}`}>
+                <input placeholder={`Codeudor ${index + 1}`} value={codeudor.nombre} onChange={(event) => updateCodeudorDraft(index, { nombre: event.target.value })} />
+                <input placeholder="RUT codeudor" value={codeudor.rut} onChange={(event) => updateCodeudorDraft(index, { rut: event.target.value })} />
+                <input type="date" value={codeudor.fecha_inclusion} onChange={(event) => updateCodeudorDraft(index, { fecha_inclusion: event.target.value })} />
+                <select value={codeudor.estado} onChange={(event) => updateCodeudorDraft(index, { estado: event.target.value })}><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select>
+              </div>
+            ))}
             <div className="inline-actions">
               <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos || !contratoDraft.codigo_contrato || !contratoDraft.mandato_operacion || !contratoDraft.arrendatario || !contratoDraft.monto_base || (requiresDocumentPolicy && !contratoDraft.politica_documental) || (requiresCompanyRepresentative && (!contratoDraft.representante_legal_nombre.trim() || !contratoDraft.representante_legal_rut.trim())) || (requiresTerminationProrationTrace && (!contratoDraft.terminacion_anticipada_prorrata_ref || !contratoDraft.terminacion_anticipada_prorrata_motivo))}>{editingContratoId ? 'Guardar cambios' : 'Guardar contrato'}</button>
               {editingContratoId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditContrato}>Cancelar</button> : null}
@@ -276,9 +308,17 @@ export function ContratosWorkspace({
         { label: 'Entrega', render: (row) => row.fecha_entrega ? row.entrega_llaves_autorizacion_ref ? <Badge label="autorizada" tone="positive" /> : <Badge label="registrada" tone="neutral" /> : <Badge label="pendiente" tone="neutral" /> },
         { label: 'Renovación', render: (row) => row.periodos_contractuales_detail.some((periodo) => periodo.politica_base_renovacion_ref) ? <Badge label="política base" tone="positive" /> : <Badge label="base tramo" tone="neutral" /> },
         { label: 'Prorrata', render: (row) => row.terminacion_anticipada_prorrata_ref ? <Badge label="trazada" tone="positive" /> : row.estado === 'terminado_anticipadamente' ? <Badge label="sin traza" tone="warning" /> : <Badge label="no aplica" tone="neutral" /> },
+        { label: 'Codeudores', render: (row) => codebtorBadge(row) },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
         { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditContrato(row)}>Editar</button> },
         { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => goToContratoContext(row.id)}>Cobranza</button><button type="button" className="button-ghost inline-action" onClick={() => prepareExpedienteForContract(row)}>Documentos</button></div> },
+      ]} />
+      <TableBlock title="Codeudores solidarios" subtitle="Snapshots de identidad asociados a contratos." rows={codebtors} empty="No hay codeudores para este filtro." isLoading={isLoading} loadingLabel="Cargando contratos..." columns={[
+        { label: 'Contrato', render: (row) => row.contrato_codigo },
+        { label: 'Nombre', render: (row) => row.snapshot_identidad?.nombre || 'Sin nombre' },
+        { label: 'RUT', render: (row) => row.snapshot_identidad?.rut || 'Sin RUT' },
+        { label: 'Inclusión', render: (row) => row.fecha_inclusion },
+        { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
       <TableBlock title="Contactos de pago" subtitle="Contactos activos e históricos por arrendatario." rows={paymentContacts} empty="No hay contactos de pago para este filtro." isLoading={isLoading} loadingLabel="Cargando contratos..." columns={[
         { label: 'Arrendatario', render: (row) => row.arrendatario_display || arrendatarioById.get(row.arrendatario || 0)?.nombre_razon_social || row.arrendatario || 'Sin arrendatario' },

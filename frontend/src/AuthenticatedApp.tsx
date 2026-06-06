@@ -510,8 +510,16 @@ function isSimpleInlineEditableContract(contract: Contrato) {
     contract.contrato_propiedades_detail.length === 1
     && contract.contrato_propiedades_detail[0]?.rol_en_contrato === 'principal'
     && contract.periodos_contractuales_detail.length === 1
-    && contract.codeudores_solidarios_detail.length === 0
   )
+}
+
+function blankCodeudorDraft() {
+  return {
+    nombre: '',
+    rut: '',
+    fecha_inclusion: todayIso(),
+    estado: 'activo',
+  }
 }
 
 type Socio = {
@@ -1645,6 +1653,7 @@ function App() {
     moneda_base: 'CLP',
     tipo_periodo: 'base',
     origen_periodo: 'backoffice',
+    codeudores_solidarios: [blankCodeudorDraft(), blankCodeudorDraft(), blankCodeudorDraft()],
   })
   const [expedienteDraft, setExpedienteDraft] = useState({
     entidad_tipo: 'contrato',
@@ -2276,6 +2285,7 @@ function App() {
       moneda_base: 'CLP',
       tipo_periodo: 'base',
       origen_periodo: 'backoffice',
+      codeudores_solidarios: [blankCodeudorDraft(), blankCodeudorDraft(), blankCodeudorDraft()],
     })
     setExpedienteDraft({
       entidad_tipo: 'contrato',
@@ -3716,6 +3726,18 @@ function App() {
     const representativeSnapshot = representativeName && representativeRut
       ? { nombre: representativeName, rut: representativeRut, source: 'frontend_backoffice' }
       : {}
+    const codeudores = contratoDraft.codeudores_solidarios
+      .map((item) => ({
+        nombre: item.nombre.trim(),
+        rut: item.rut.trim(),
+        fecha_inclusion: item.fecha_inclusion,
+        estado: item.estado,
+      }))
+      .filter((item) => item.nombre || item.rut)
+    if (codeudores.some((item) => !item.nombre || !item.rut)) {
+      setFormError('Cada codeudor solidario informado debe tener nombre y RUT.')
+      return
+    }
     const code = effectiveCodeFromPropertyCode(selectedMandate.propiedad_codigo)
     const isEdit = editingContratoId != null
     const ok = await submitMutation(
@@ -3760,7 +3782,15 @@ function App() {
             origen_periodo: contratoDraft.origen_periodo,
           },
         ],
-        codeudores_solidarios: [],
+        codeudores_solidarios: codeudores.map((item) => ({
+          snapshot_identidad: {
+            nombre: item.nombre,
+            rut: item.rut,
+            source: 'frontend_backoffice',
+          },
+          fecha_inclusion: item.fecha_inclusion,
+          estado: item.estado,
+        })),
       },
       isEdit ? 'Contrato actualizado correctamente.' : 'Contrato creado correctamente.',
     )
@@ -3790,6 +3820,7 @@ function App() {
         moneda_base: 'CLP',
         tipo_periodo: 'base',
         origen_periodo: 'backoffice',
+        codeudores_solidarios: [blankCodeudorDraft(), blankCodeudorDraft(), blankCodeudorDraft()],
       })
       setEditingContratoId(null)
     }
@@ -4074,7 +4105,7 @@ function App() {
 
   function startEditContrato(row: Contrato) {
     if (!isSimpleInlineEditableContract(row)) {
-      setFormError('Este contrato requiere un editor completo porque tiene propiedades vinculadas, múltiples períodos o codeudores.')
+      setFormError('Este contrato requiere un editor completo porque tiene propiedades vinculadas o múltiples períodos.')
       return
     }
     setEditingContratoId(row.id)
@@ -4103,6 +4134,17 @@ function App() {
       moneda_base: row.periodos_contractuales_detail[0]?.moneda_base || 'CLP',
       tipo_periodo: row.periodos_contractuales_detail[0]?.tipo_periodo || 'base',
       origen_periodo: row.periodos_contractuales_detail[0]?.origen_periodo || 'backoffice',
+      codeudores_solidarios: [
+        ...row.codeudores_solidarios_detail.map((item) => ({
+          nombre: item.snapshot_identidad?.nombre || '',
+          rut: item.snapshot_identidad?.rut || '',
+          fecha_inclusion: item.fecha_inclusion || todayIso(),
+          estado: item.estado,
+        })),
+        blankCodeudorDraft(),
+        blankCodeudorDraft(),
+        blankCodeudorDraft(),
+      ].slice(0, 3),
     })
     navigateWithContext('contratos', row.codigo_contrato, `Editando contrato: ${row.codigo_contrato}`)
   }
@@ -4134,6 +4176,7 @@ function App() {
       moneda_base: 'CLP',
       tipo_periodo: 'base',
       origen_periodo: 'backoffice',
+      codeudores_solidarios: [blankCodeudorDraft(), blankCodeudorDraft(), blankCodeudorDraft()],
     })
     clearContextNavigation()
   }
