@@ -290,10 +290,14 @@ class CobranzaSnapshotView(APIView):
                         'provider_key': item.provider_key,
                         'monto_clp_snapshot': item.monto_clp_snapshot,
                         'buy_order': item.buy_order,
+                        'session_id': item.session_id,
+                        'return_url_ref': redact_sensitive_reference(item.return_url_ref),
                         'estado': item.estado,
                         'motivo_bloqueo': redact_sensitive_reference(item.motivo_bloqueo),
                         'external_ref': redact_sensitive_reference(item.external_ref),
                         'fecha_pago_webpay': item.fecha_pago_webpay,
+                        'confirmado_at': item.confirmado_at,
+                        'provider_payload': redact_sensitive_payload(item.provider_payload),
                     }
                     for item in intentos_webpay
                 ],

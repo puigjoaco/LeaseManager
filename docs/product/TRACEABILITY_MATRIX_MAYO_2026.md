@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-06: Backoffice Cobranza expone WebPay local controlado.
+El workspace permite preparar intentos WebPay desde un pago mensual con
+gate/provider y `return_url_ref` no sensible, confirmar manualmente intentos
+`preparado` con `external_ref` y `fecha_pago_webpay`, y mostrar gates/intentos
+desde API/snapshot redactados. No abre Transbank ni cambia el estado de cierre
+de Etapa 2.
+
 Nota 2026-06-06: Backoffice Contratos expone cambio guiado de arrendatario.
 La UI permite preparar el cambio desde un contrato vigente, seleccionar nuevo
 arrendatario, codigo y vigencia del contrato futuro, causal del aviso,

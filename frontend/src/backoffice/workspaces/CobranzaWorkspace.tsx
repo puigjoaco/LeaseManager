@@ -7,7 +7,9 @@ type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
 type ValorUFItem = { id: number; fecha: string; valor: string; source_key: string; evidencia_ref: string; motivo_carga: string; responsable_ref: string }
 type AjusteContratoItem = { id: number; contrato: number; tipo_ajuste: string; monto: string; moneda: string; mes_inicio: string; mes_fin: string; activo: boolean }
-type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_efecto_codigo_efectivo_clp: string; moneda_calculo: string; uf_fecha_usada: string | null; uf_valor_usado: string | null; uf_source_key: string; monto_pagado_clp: string; fecha_vencimiento: string; estado_pago: string; dias_mora: number; resolucion_pago_excepcional_ref: string; resolucion_pago_excepcional_motivo: string }
+type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_efecto_codigo_efectivo_clp: string; moneda_calculo: string; uf_fecha_usada: string | null; uf_valor_usado: string | null; uf_source_key: string; monto_pagado_clp: string; fecha_vencimiento: string; fecha_pago_webpay: string | null; estado_pago: string; dias_mora: number; resolucion_pago_excepcional_ref: string; resolucion_pago_excepcional_motivo: string }
+type GateCobroExternoItem = { id: number; capacidad_key: string; provider_key: string; estado_gate: string; restricciones_operativas: Record<string, unknown>; evidencia_ref: string }
+type IntentoPagoWebPayItem = { id: number; pago_mensual: number; gate_cobro: number; provider_key: string; monto_clp_snapshot: string; buy_order: string; session_id?: string; return_url_ref?: string; estado: string; motivo_bloqueo: string; external_ref: string; fecha_pago_webpay: string | null; confirmado_at?: string | null; provider_payload?: Record<string, unknown> }
 type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; brecha_garantia_clp: string; exceso_garantia_clp: string; garantia_incompleta: boolean; garantia_parcial_aceptada: boolean; aceptacion_parcial_ref: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string; tiene_resolucion_exceso_garantia: boolean; estado_garantia: string }
 type HistorialGarantiaItem = { id: number; contrato_id: number; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string }
 type EstadoCuentaItem = { id: number; arrendatario: number; score_pago: number | null; resumen_operativo: { pagos_abiertos?: number; pagos_atrasados?: number; score_meses_evaluados?: number; score_pagos_en_plazo?: number; score_pagos_fuera_plazo?: number; score_meses_sin_registro_operativo?: number; saldo_total_clp?: string } }
@@ -22,6 +24,8 @@ type GarantiaDraft = { contrato: string; monto_pactado: string }
 type GarantiaMovimientoDraft = { garantiaId: string; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string }
 type GarantiaTraceDraft = { garantiaId: string; aceptacion_parcial_ref: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string }
 type EstadoCuentaDraft = { arrendatario_id: string }
+type WebpayPrepareDraft = { pago_mensual: string; gate_cobro: string; provider_key: string; return_url_ref: string }
+type WebpayConfirmDraft = { intento_id: string; external_ref: string; fecha_pago_webpay: string }
 
 const UF_SOURCE_OPTIONS = [
   { value: 'UF.BancoCentral', label: 'Banco Central' },
@@ -33,6 +37,11 @@ const REDACTED_SENSITIVE_REFERENCE = '<redacted-sensitive-reference>'
 
 function editableReference(value?: string) {
   return value === REDACTED_SENSITIVE_REFERENCE ? '' : value || ''
+}
+
+function formatPayload(value?: Record<string, unknown>) {
+  if (!value || Object.keys(value).length === 0) return '-'
+  return JSON.stringify(value)
 }
 
 export function CobranzaWorkspace({
@@ -61,12 +70,23 @@ export function CobranzaWorkspace({
   estadoCuentaDraft,
   setEstadoCuentaDraft,
   handleRebuildEstadoCuenta,
+  webpayPrepareDraft,
+  setWebpayPrepareDraft,
+  handlePrepareWebpayIntent,
+  webpayConfirmDraft,
+  setWebpayConfirmDraft,
+  handleConfirmWebpayIntent,
   contratos,
+  pagos,
+  gatesCobro,
+  intentosWebPay,
   garantias,
   arrendatarios,
   filteredValoresUf,
   filteredAjustes,
   filteredPagos,
+  filteredGatesCobro,
+  filteredIntentosWebPay,
   filteredGarantias,
   filteredHistorialGarantias,
   filteredEstadosCuenta,
@@ -104,12 +124,23 @@ export function CobranzaWorkspace({
   estadoCuentaDraft: EstadoCuentaDraft
   setEstadoCuentaDraft: Dispatch<SetStateAction<EstadoCuentaDraft>>
   handleRebuildEstadoCuenta: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  webpayPrepareDraft: WebpayPrepareDraft
+  setWebpayPrepareDraft: Dispatch<SetStateAction<WebpayPrepareDraft>>
+  handlePrepareWebpayIntent: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  webpayConfirmDraft: WebpayConfirmDraft
+  setWebpayConfirmDraft: Dispatch<SetStateAction<WebpayConfirmDraft>>
+  handleConfirmWebpayIntent: (event: FormEvent<HTMLFormElement>) => Promise<void>
   contratos: ContratoItem[]
+  pagos: PagoMensualItem[]
+  gatesCobro: GateCobroExternoItem[]
+  intentosWebPay: IntentoPagoWebPayItem[]
   garantias: GarantiaItem[]
   arrendatarios: ArrendatarioItem[]
   filteredValoresUf: ValorUFItem[]
   filteredAjustes: AjusteContratoItem[]
   filteredPagos: PagoMensualItem[]
+  filteredGatesCobro: GateCobroExternoItem[]
+  filteredIntentosWebPay: IntentoPagoWebPayItem[]
   filteredGarantias: GarantiaItem[]
   filteredHistorialGarantias: HistorialGarantiaItem[]
   filteredEstadosCuenta: EstadoCuentaItem[]
@@ -130,6 +161,9 @@ export function CobranzaWorkspace({
     garantiaTraceDraft.resolucion_exceso_garantia_motivo.trim(),
   ]
   const guaranteeExcessTraceIncomplete = guaranteeExcessTraceFields.some(Boolean) && !guaranteeExcessTraceFields.every(Boolean)
+  const pagoById = new Map(pagos.map((item) => [item.id, item]))
+  const webpayGates = gatesCobro.filter((item) => item.capacidad_key === 'WebPay.IntentoPago')
+  const preparedWebpayIntents = intentosWebPay.filter((item) => item.estado === 'preparado')
 
   return (
     <>
@@ -269,6 +303,36 @@ export function CobranzaWorkspace({
             <button type="submit" className="button-primary" disabled={isSubmitting || !canEditCobranza || !estadoCuentaDraft.arrendatario_id}>Recalcular estado</button>
           </form>
         </section>
+
+        <section className="panel">
+          <div className="section-heading"><div><h2>WebPay local</h2><p>Preparación controlada y confirmación manual sin proveedor externo.</p></div></div>
+          <form className="entity-form" onSubmit={handlePrepareWebpayIntent}>
+            <select value={webpayPrepareDraft.pago_mensual} onChange={(event) => setWebpayPrepareDraft((current) => ({ ...current, pago_mensual: event.target.value }))}>
+              <option value="">Selecciona pago</option>
+              {pagos.map((item) => <option key={item.id} value={item.id}>{contratoById.get(item.contrato)?.codigo_contrato || item.contrato} · {item.mes}/{item.anio} · {item.estado_pago}</option>)}
+            </select>
+            <select value={webpayPrepareDraft.gate_cobro} onChange={(event) => setWebpayPrepareDraft((current) => ({ ...current, gate_cobro: event.target.value }))}>
+              <option value="">Gate por provider</option>
+              {webpayGates.map((item) => <option key={item.id} value={item.id}>{item.provider_key} · {item.estado_gate}</option>)}
+            </select>
+            <input placeholder="Provider" value={webpayPrepareDraft.provider_key} onChange={(event) => setWebpayPrepareDraft((current) => ({ ...current, provider_key: event.target.value }))} />
+            <input placeholder="Return ref no sensible" value={webpayPrepareDraft.return_url_ref} onChange={(event) => setWebpayPrepareDraft((current) => ({ ...current, return_url_ref: event.target.value }))} />
+            <button type="submit" className="button-primary" disabled={isSubmitting || !canEditCobranza || !webpayPrepareDraft.pago_mensual || !webpayPrepareDraft.return_url_ref}>Preparar intento</button>
+          </form>
+          <form className="entity-form subform" onSubmit={handleConfirmWebpayIntent}>
+            <select value={webpayConfirmDraft.intento_id} onChange={(event) => setWebpayConfirmDraft((current) => ({ ...current, intento_id: event.target.value }))}>
+              <option value="">Selecciona intento preparado</option>
+              {preparedWebpayIntents.map((item) => {
+                const pago = pagoById.get(item.pago_mensual)
+                const label = pago ? `${contratoById.get(pago.contrato)?.codigo_contrato || pago.contrato} · ${pago.mes}/${pago.anio}` : `Pago ${item.pago_mensual}`
+                return <option key={item.id} value={item.id}>{label} · {item.buy_order || item.id}</option>
+              })}
+            </select>
+            <input placeholder="External ref no sensible" value={webpayConfirmDraft.external_ref} onChange={(event) => setWebpayConfirmDraft((current) => ({ ...current, external_ref: event.target.value }))} />
+            <input type="date" value={webpayConfirmDraft.fecha_pago_webpay} onChange={(event) => setWebpayConfirmDraft((current) => ({ ...current, fecha_pago_webpay: event.target.value }))} />
+            <button type="submit" className="button-secondary" disabled={isSubmitting || !canEditCobranza || !webpayConfirmDraft.intento_id || !webpayConfirmDraft.external_ref || !webpayConfirmDraft.fecha_pago_webpay}>Confirmar manual</button>
+          </form>
+        </section>
       </section>
 
       <TableBlock title="Valores UF" subtitle="Fuente de conversión mensual para contratos en UF." rows={filteredValoresUf} empty="No hay valores UF para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
@@ -294,10 +358,33 @@ export function CobranzaWorkspace({
         { label: 'UF usada', render: (row) => row.moneda_calculo === 'UF' ? `${row.uf_valor_usado || '-'} · ${row.uf_fecha_usada || '-'} · ${row.uf_source_key || '-'}` : row.moneda_calculo },
         { label: 'Pagado', render: (row) => row.monto_pagado_clp },
         { label: 'Vence', render: (row) => row.fecha_vencimiento },
+        { label: 'WebPay', render: (row) => row.fecha_pago_webpay || '-' },
         { label: 'Estado', render: (row) => <Badge label={row.estado_pago} tone={toneFor(row.estado_pago)} /> },
         { label: 'Resolución', render: (row) => row.resolucion_pago_excepcional_ref || row.resolucion_pago_excepcional_motivo || 'Sin resolución' },
         { label: 'Mora', render: (row) => count(row.dias_mora) },
         { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => navigateToConciliacion(row)}>Conciliar</button>{canOpenSii ? <button type="button" className="button-ghost inline-action" onClick={() => goToPagoContext(row.id)}>DTE</button> : null}</div> },
+      ]} />
+      <TableBlock title="Gates WebPay" subtitle="Estado local de la capacidad WebPay.IntentoPago y evidencia no sensible." rows={filteredGatesCobro} empty="No hay gates WebPay para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
+        { label: 'Capacidad', render: (row) => row.capacidad_key },
+        { label: 'Provider', render: (row) => row.provider_key },
+        { label: 'Estado', render: (row) => <Badge label={row.estado_gate} tone={toneFor(row.estado_gate)} /> },
+        { label: 'Evidencia', render: (row) => row.evidencia_ref || '-' },
+        { label: 'Restricciones', render: (row) => formatPayload(row.restricciones_operativas) },
+      ]} />
+      <TableBlock title="Intentos WebPay" subtitle="Intentos locales preparados, bloqueados o confirmados manualmente." rows={filteredIntentosWebPay} empty="No hay intentos WebPay para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
+        { label: 'Pago', render: (row) => {
+          const pago = pagoById.get(row.pago_mensual)
+          return pago ? `${contratoById.get(pago.contrato)?.codigo_contrato || pago.contrato} · ${pago.mes}/${pago.anio}` : row.pago_mensual
+        } },
+        { label: 'Provider', render: (row) => row.provider_key },
+        { label: 'Monto', render: (row) => row.monto_clp_snapshot },
+        { label: 'Buy order', render: (row) => row.buy_order || '-' },
+        { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+        { label: 'Return ref', render: (row) => row.return_url_ref || '-' },
+        { label: 'Motivo', render: (row) => row.motivo_bloqueo || '-' },
+        { label: 'External ref', render: (row) => row.external_ref || '-' },
+        { label: 'Fecha pago', render: (row) => row.fecha_pago_webpay || '-' },
+        { label: 'Payload', render: (row) => formatPayload(row.provider_payload) },
       ]} />
       <TableBlock title="Garantías" subtitle="Saldos y estado actual de cada contrato." rows={filteredGarantias} empty="No hay garantías para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
