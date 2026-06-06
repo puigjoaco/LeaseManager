@@ -9,6 +9,7 @@ type CanalMensajeriaItem = {
   canal: string
   provider_key: string
   estado_gate: string
+  restricciones_operativas: Record<string, unknown>
   evidencia_ref: string
 }
 
@@ -77,6 +78,8 @@ type GateCanalDraft = {
   evidencia_ref: string
   prueba_aislada_ref: string
   oauth_validado_ref: string
+  credencial_validada_ref: string
+  template_aprobado_ref: string
 }
 
 type MensajeDraft = {
@@ -161,6 +164,23 @@ export function CanalesWorkspace({
   toneFor: (value: string) => Tone
 }) {
   const documentoById = new Map(documentosEmitidos.map((item) => [item.id, item]))
+  const refValue = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : '')
+  const gateRefs = (row: CanalMensajeriaItem) => {
+    const refs = row.restricciones_operativas || {}
+    const visibleRefs = [
+      ['prueba', refValue(refs.prueba_aislada_ref) || refValue(refs.prueba_envio_ref)],
+      ['oauth', refValue(refs.oauth_validado_ref)],
+      ['credencial', refValue(refs.credencial_validada_ref)],
+      ['template', refValue(refs.template_aprobado_ref) || refValue(refs.template_ref)],
+    ].filter(([, value]) => value)
+    if (visibleRefs.length) {
+      return visibleRefs.map(([label, value]) => `${label}: ${value}`).join(' · ')
+    }
+    if (refs.templates_aprobados === true) {
+      return 'template aprobado'
+    }
+    return 'Sin refs'
+  }
 
   return (
     <>
@@ -184,6 +204,8 @@ export function CanalesWorkspace({
               <input placeholder="Evidencia ref" value={gateCanalDraft.evidencia_ref} onChange={(event) => setGateCanalDraft((current) => ({ ...current, evidencia_ref: event.target.value }))} />
               <input placeholder="Prueba aislada ref" value={gateCanalDraft.prueba_aislada_ref} onChange={(event) => setGateCanalDraft((current) => ({ ...current, prueba_aislada_ref: event.target.value }))} />
               <input placeholder="OAuth ref" value={gateCanalDraft.oauth_validado_ref} onChange={(event) => setGateCanalDraft((current) => ({ ...current, oauth_validado_ref: event.target.value }))} />
+              <input placeholder="Credencial validada ref" value={gateCanalDraft.credencial_validada_ref} onChange={(event) => setGateCanalDraft((current) => ({ ...current, credencial_validada_ref: event.target.value }))} />
+              <input placeholder="Template aprobado ref" value={gateCanalDraft.template_aprobado_ref} onChange={(event) => setGateCanalDraft((current) => ({ ...current, template_aprobado_ref: event.target.value }))} />
               <button type="submit" className="button-primary" disabled={isSubmitting || !gateCanalDraft.provider_key}>Guardar gate</button>
             </form>
           </section>
@@ -272,6 +294,7 @@ export function CanalesWorkspace({
         { label: 'Provider', render: (row) => row.provider_key },
         { label: 'Estado', render: (row) => <Badge label={row.estado_gate} tone={toneFor(row.estado_gate)} /> },
         { label: 'Evidencia', render: (row) => row.evidencia_ref || 'Sin evidencia' },
+        { label: 'Refs operativas', render: gateRefs },
       ]} />
 
       <TableBlock title="Cadencias de notificación" subtitle="Configuración local por contrato y canal habilitado." rows={filteredConfiguracionesNotificacion} empty="No hay cadencias configuradas." isLoading={isLoading} loadingLabel="Cargando canales..." columns={[

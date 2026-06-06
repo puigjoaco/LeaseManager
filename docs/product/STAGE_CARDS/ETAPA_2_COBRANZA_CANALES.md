@@ -225,6 +225,10 @@ condicionados sin envios reales accidentales.
   servicio reutiliza una alerta/fallback abierto para el mismo mensaje, debe
   refrescar la metadata y crear un evento dedicado alineado cuando el existente
   falta, no tiene actor o conserva motivo/contexto desactualizado.
+- El backoffice de Canales debe permitir capturar y visualizar las referencias
+  operativas no sensibles del gate: prueba aislada/envio, OAuth o credencial
+  validada para Email, y template aprobado para WhatsApp. Estas refs siguen
+  siendo metadata de preparacion local y no abren proveedores externos.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
   `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y
   `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`

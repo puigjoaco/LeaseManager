@@ -1634,6 +1634,8 @@ function App() {
     evidencia_ref: '',
     prueba_aislada_ref: '',
     oauth_validado_ref: '',
+    credencial_validada_ref: '',
+    template_aprobado_ref: '',
   })
   const [mensajeDraft, setMensajeDraft] = useState({
     canal: 'email',
@@ -2251,6 +2253,8 @@ function App() {
       evidencia_ref: '',
       prueba_aislada_ref: '',
       oauth_validado_ref: '',
+      credencial_validada_ref: '',
+      template_aprobado_ref: '',
     })
     setMensajeDraft({
       canal: 'email',
@@ -4678,6 +4682,8 @@ function App() {
         restricciones_operativas: {
           prueba_aislada_ref: gateCanalDraft.prueba_aislada_ref,
           oauth_validado_ref: gateCanalDraft.oauth_validado_ref,
+          credencial_validada_ref: gateCanalDraft.credencial_validada_ref,
+          template_aprobado_ref: gateCanalDraft.template_aprobado_ref,
         },
       },
       'Gate de canal creado correctamente.',
