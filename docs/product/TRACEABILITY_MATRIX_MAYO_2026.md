@@ -26,6 +26,13 @@ crea, realinea u omite recordatorios, y `audit_stage2_cobranza_readiness`
 reporta `stage2.notification_schedule.materialization_audit_missing` para
 snapshots heredados sin evento con actor y periodo alineado.
 
+Nota 2026-06-06: Backoffice Canales alinea el formulario y la tabla de gates
+con las refs operativas aceptadas por dominio/readiness. El alta de
+`CanalMensajeria` ahora puede enviar `credencial_validada_ref` como alternativa
+de credencial Email y `template_aprobado_ref` para WhatsApp, y la tabla muestra
+prueba, OAuth, credencial o template desde `restricciones_operativas`
+redactadas, sin abrir proveedores externos.
+
 Nota 2026-06-05: Etapas 2, 3, 4, 5 Contabilidad, Documentos, Etapa 6 y
 Reporting alinean el contrato de `source_trace` con Compliance. Las readiness
 ahora exponen `sections.source_trace_sensitive` y clasifican `source_label` o
