@@ -503,6 +503,119 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['control_cierre_mensual'][0]['f29_estado'], 'preparado')
         self.assertEqual(response.data['control_cierre_mensual'][0]['bloqueadores_periodo'], [])
 
+    def test_financial_monthly_summary_flags_unresolved_bank_movements_in_close_control(self):
+        _, empresa, _, cuenta, contrato, periodo = self._create_context('FINBANK', owner_kind='empresa', with_facturadora=True)
+        self._activate_fiscal_config(empresa)
+        pago = PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp='100000.00',
+            monto_calculado_clp='100111.00',
+            monto_pagado_clp='100111.00',
+            fecha_vencimiento='2026-01-05',
+            estado_pago='pagado',
+            codigo_conciliacion_efectivo='111',
+        )
+        sync_payment_distribution(pago)
+        event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='manual',
+            entidad_origen_id='bank-control-1',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100111.00',
+            payload_resumen={},
+            idempotency_key='rep-fin-bank-control-1',
+            estado_contable='contabilizado',
+        )
+        AsientoContable.objects.create(
+            evento_contable=event,
+            fecha_contable='2026-01-10',
+            periodo_contable='2026-01',
+            estado='contabilizado',
+            debe_total='100111.00',
+            haber_total='100111.00',
+        )
+        ObligacionTributariaMensual.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            obligacion_tipo='PPM',
+            base_imponible='100111.00',
+            monto_calculado='10011.10',
+            estado_preparacion='preparado',
+        )
+        close = CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='aprobado',
+        )
+        f29_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F29Preparacion',
+            certificado_ref='cert-f29-bank-control',
+            ambiente='certificacion',
+            estado_gate='condicionado',
+        )
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion='preparado',
+            resumen_formulario={'periodo': '2026-01', 'obligaciones': ['PPM']},
+        )
+        conexion = ConexionBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            provider_key='banco_de_chile',
+            credencial_ref='cred-bank-control',
+            estado_conexion='activa',
+            primaria_movimientos=True,
+        )
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='50000.00',
+            descripcion_origen='Ingreso sin resolver para control mensual',
+            estado_conciliacion='ingreso_desconocido',
+        )
+        IngresoDesconocido.objects.create(
+            movimiento_bancario=movimiento,
+            cuenta_recaudadora=cuenta,
+            monto='50000.00',
+            fecha_movimiento='2026-01-08',
+            descripcion_origen='Ingreso sin resolver para control mensual',
+            estado='pendiente_revision',
+        )
+        CuadraturaBancaria.objects.create(
+            cuenta_recaudadora=cuenta,
+            periodo_economico='2026-01',
+            fecha_cuadratura='2026-01-31',
+            saldo_sistema_clp='50000.00',
+            saldo_banco_clp='50000.00',
+            diferencia_clp='0.00',
+            estado=EstadoCuadraturaBancaria.SQUARED,
+            evidencia_cuadratura_ref='bank-square-evidence-control',
+            responsable_ref='ops-bank-square-control',
+            rationale='Cuadratura controlada para test local.',
+        )
+
+        response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        control = response.data['control_cierre_mensual'][0]
+        self.assertEqual(control['estado_control'], 'bloqueado')
+        self.assertTrue(control['cierre_contable_aprobado'])
+        self.assertTrue(control['banco_cuadrado'])
+        self.assertEqual(control['movimientos_bancarios_sin_resolver'], 1)
+        self.assertEqual(control['bloqueadores_periodo'], ['movimientos_bancarios_sin_resolver'])
+
     def test_financial_monthly_summary_exposes_monthly_close_control_blockers(self):
         _, empresa, _, _, contrato, periodo = self._create_context('FINCTRL', owner_kind='empresa', with_facturadora=True)
         self._activate_fiscal_config(empresa)
