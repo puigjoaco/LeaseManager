@@ -1189,7 +1189,15 @@ type NotificacionCobranzaItem = {
   id: number
   pago_mensual: number
   contrato: number
+  arrendatario: number | null
+  pago_anio: number
+  pago_mes: number
+  pago_estado: string
+  pago_fecha_vencimiento: string
+  pago_monto_facturable_clp: string
   configuracion: number
+  configuracion_activa: boolean
+  configuracion_dias_notificacion: number[]
   canal: string
   dia_notificacion: number
   fecha_programada: string
@@ -5697,7 +5705,15 @@ function App() {
           item.estado,
           item.motivo_estado,
           item.contrato,
+          item.arrendatario,
           item.pago_mensual,
+          item.pago_anio,
+          item.pago_mes,
+          item.pago_estado,
+          item.pago_fecha_vencimiento,
+          item.pago_monto_facturable_clp,
+          item.configuracion,
+          item.configuracion_dias_notificacion.join(','),
         ]),
       ),
     [notificacionesCobranza, normalizedSearch],

@@ -164,6 +164,12 @@ condicionados sin envios reales accidentales.
   sensible, y la rematerializacion idempotente no debe reactivarlo ni borrar
   esa decision. Esta programacion no envia Email, WhatsApp ni proveedores
   externos.
+- El backoffice de Canales debe mostrar la programacion local de recordatorios
+  con contexto operativo suficiente desde snapshot: contrato, arrendatario,
+  mes/ano del pago, estado del pago, vencimiento, monto facturable, cadencia
+  activa, fecha programada, estado del recordatorio, mensaje asociado o motivo
+  omitido redactado. Esto permite auditar la cobertura de cadencias sin abrir
+  Cobranza ni llamar proveedores externos.
 - Los pagos mensuales abiertos vencidos deben refrescarse contra una fecha de
   corte operativa: un pago `pendiente` vencido pasa a `atrasado`, `dias_mora`
   se recalcula, y el estado de cuenta del arrendatario queda sincronizado. La

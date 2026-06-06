@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-06: Backoffice Canales muestra trazabilidad de recordatorios
+programados. El snapshot de `notificaciones_cobranza` ahora expone
+arrendatario, mes/ano, estado, vencimiento y monto facturable del pago, ademas
+de estado/dias de configuracion; el workspace resuelve esos datos para revisar
+cadencia y mensaje asociado sin abrir proveedores externos.
+
 Nota 2026-06-06: Backoffice Canales muestra trazabilidad operativa de mensajes
 salientes. El snapshot expone gate/canal, identidad de envio, contrato,
 arrendatario, documento, usuario, `enviado_at`, traza y `provider_payload`
