@@ -344,7 +344,9 @@ contra datos reales o snapshot controlado.
   auditable exacto con actor. El auditor Etapa 1 marca como defectuosos
   contratos futuros heredados con arrendatario distinto al vigente si no existe
   el evento auditable completo que vincula contrato anterior, aviso y contrato
-  nuevo.
+  nuevo. El backoffice de Contratos expone el flujo guiado, prepara el cambio
+  desde contratos vigentes y envia el alta al endpoint auditado sin reescribir
+  contrato/deuda historica.
 - Validacion de respaldo UF para pagos existentes: si el pago mensual depende
   de periodo o ajuste en UF, debe conservar `moneda_calculo`, fecha, valor y
   fuente UF usados. La fecha UF debe coincidir con `fecha_vencimiento` y debe
