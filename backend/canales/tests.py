@@ -44,6 +44,7 @@ from .models import (
 from .services import (
     MESSAGE_PREPARED_EVENT_TYPE,
     NON_COLLECTABLE_PAYMENT_NOTIFICATION_SKIP_REASON,
+    NOTIFICATION_MATERIALIZED_EVENT_TYPE,
     WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
     WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
     mark_message_as_sent,
@@ -605,7 +606,11 @@ class CanalesAPITests(APITestCase):
         second = materialize_payment_notification_schedule(payment)
 
         self.assertEqual(first['created_count'], 7)
+        self.assertEqual(first['updated_count'], 0)
+        self.assertIsNotNone(first['audit_event_id'])
         self.assertEqual(second['created_count'], 0)
+        self.assertEqual(second['updated_count'], 0)
+        self.assertIsNone(second['audit_event_id'])
         self.assertEqual(NotificacionCobranzaProgramada.objects.count(), 7)
         self.assertEqual(
             list(
@@ -642,6 +647,54 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(snapshot_response.data['notificaciones_cobranza'][0]['canal'], 'email')
         self.assertEqual(snapshot_response.data['notificaciones_cobranza'][0]['pago_mensual'], payment.id)
 
+    def test_materialize_payment_notification_schedule_creates_audit_event_from_service(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-SCH-AUDIT')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payment = self._create_payment_for_contract(contrato)
+        ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
+
+        result = materialize_payment_notification_schedule(
+            payment,
+            actor_user=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        event = AuditEvent.objects.get(
+            event_type=NOTIFICATION_MATERIALIZED_EVENT_TYPE,
+            entity_type='pago_mensual',
+            entity_id=str(payment.pk),
+        )
+        self.assertEqual(result['audit_event_id'], event.pk)
+        self.assertEqual(event.actor_user, self.user)
+        self.assertEqual(event.metadata['contrato_id'], contrato.pk)
+        self.assertEqual(event.metadata['anio'], payment.anio)
+        self.assertEqual(event.metadata['mes'], payment.mes)
+        self.assertEqual(event.metadata['created_count'], 7)
+        self.assertEqual(event.metadata['updated_count'], 0)
+        self.assertEqual(event.metadata['omitted_count'], 0)
+
+    def test_materialize_payment_notification_schedule_rolls_back_when_audit_fails(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-SCH-AUDIT-RB')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payment = self._create_payment_for_contract(contrato)
+        ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
+
+        with patch('canales.services.create_audit_event', side_effect=RuntimeError('audit unavailable')):
+            with self.assertRaises(RuntimeError):
+                materialize_payment_notification_schedule(payment)
+
+        self.assertFalse(NotificacionCobranzaProgramada.objects.filter(pago_mensual=payment).exists())
+
     def test_materialize_payment_notification_schedule_preserves_skipped_reason(self):
         empresa, contrato = self._create_contract_context(codigo='NTF-SCH-SKIP')
         self._enable_channel_for_contract(empresa, contrato, canal='email')
@@ -668,6 +721,8 @@ class CanalesAPITests(APITestCase):
         notification.refresh_from_db()
 
         self.assertEqual(result['created_count'], 0)
+        self.assertEqual(result['updated_count'], 0)
+        self.assertIsNone(result['audit_event_id'])
         self.assertEqual(notification.estado, 'omitida')
         self.assertEqual(notification.motivo_estado, 'arrendatario-notificado-por-llamada-controlada')
         self.assertEqual(NotificacionCobranzaProgramada.objects.filter(pago_mensual=payment).count(), 7)
@@ -689,7 +744,9 @@ class CanalesAPITests(APITestCase):
         result = materialize_payment_notification_schedule(payment)
 
         self.assertEqual(result['created_count'], 0)
+        self.assertEqual(result['updated_count'], 0)
         self.assertEqual(result['omitted_count'], 7)
+        self.assertIsNotNone(result['audit_event_id'])
         self.assertEqual(
             NotificacionCobranzaProgramada.objects.filter(
                 pago_mensual=payment,

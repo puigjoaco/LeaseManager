@@ -138,10 +138,13 @@ condicionados sin envios reales accidentales.
   materializar recordatorios programados por pago/canal/dia. La generacion de
   `PagoMensual` crea la programacion local de forma idempotente, el snapshot de
   Canales la expone al backoffice y readiness bloquea pagos cobrables sin
-  recordatorios programados, con programacion heredada invalida o ligada a una
-  configuracion inactiva. Un recordatorio en estado `programada` solo puede
-  quedar sobre pagos `pendiente` o `atrasado`; readiness bloquea snapshots
-  heredados con programaciones activas sobre pagos no cobrables. Al
+  recordatorios programados, con programacion heredada invalida, sin evento
+  auditable de materializacion o ligada a una configuracion inactiva. El
+  servicio que materializa o rematerializa recordatorios crea el evento
+  `canales.notificacion_cobranza.materialized` en la misma transaccion que
+  crea, realinea u omite recordatorios. Un recordatorio en estado `programada`
+  solo puede quedar sobre pagos `pendiente` o `atrasado`; readiness bloquea
+  snapshots heredados con programaciones activas sobre pagos no cobrables. Al
   rematerializar un pago no cobrable, el servicio retira recordatorios
   `programada` pasandolos a `omitida` con motivo no sensible. Un recordatorio
   preparado requiere mensaje saliente preparado, bloqueado o ya enviado,

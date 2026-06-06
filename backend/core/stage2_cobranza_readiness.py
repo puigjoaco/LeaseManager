@@ -26,6 +26,7 @@ from canales.models import (
 )
 from canales.services import (
     COLLECTABLE_PAYMENT_STATES,
+    NOTIFICATION_MATERIALIZED_EVENT_TYPE,
     WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
     WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
     document_delivery_blocking_reason,
@@ -547,20 +548,24 @@ def _collect_notification_config_issues(configs) -> dict[str, int]:
 
 def _collect_notification_schedule_issues(payments, active_notification_configs, notification_schedules) -> dict[str, int]:
     counts = Counter()
+    payments_by_id = {payment.id: payment for payment in payments}
     configs_by_contract: dict[int, list[ConfiguracionNotificacionContrato]] = {}
     for config in active_notification_configs:
         configs_by_contract.setdefault(config.contrato_id, []).append(config)
 
     expected_keys = set()
+    payments_requiring_audit = set()
     for payment in payments:
         if payment.estado_pago not in COLLECTABLE_PAYMENT_STATES:
             continue
         for config in configs_by_contract.get(payment.contrato_id, []):
             for day, _scheduled_date in expected_payment_notification_schedule(payment, config):
                 expected_keys.add((payment.id, config.canal, day))
+                payments_requiring_audit.add(payment.id)
 
     actual_keys = set()
     for notification in notification_schedules:
+        payments_requiring_audit.add(notification.pago_mensual_id)
         try:
             notification.full_clean()
         except ValidationError:
@@ -576,7 +581,41 @@ def _collect_notification_schedule_issues(payments, active_notification_configs,
 
     counts['expected_for_collectable_payments'] = len(expected_keys)
     counts['missing_for_collectable_payments'] = len(expected_keys - actual_keys)
+    counts['materialization_audit_missing'] = sum(
+        1
+        for payment_id in payments_requiring_audit
+        if payment_id
+        and not _notification_materialization_event_is_complete(payments_by_id[payment_id])
+    )
     return dict(sorted(counts.items()))
+
+
+def _notification_materialization_event_is_complete(payment: PagoMensual) -> bool:
+    events = AuditEvent.objects.filter(
+        event_type=NOTIFICATION_MATERIALIZED_EVENT_TYPE,
+        entity_type='pago_mensual',
+        entity_id=str(payment.pk),
+    )
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if not event.actor_user_id and not event.actor_identifier.strip():
+            continue
+        if str(metadata.get('contrato_id') or '').strip() != str(payment.contrato_id):
+            continue
+        if str(metadata.get('anio') or '').strip() != str(payment.anio):
+            continue
+        if str(metadata.get('mes') or '').strip() != str(payment.mes):
+            continue
+        try:
+            total_changes = sum(
+                int(metadata.get(key) or 0)
+                for key in ('created_count', 'updated_count', 'omitted_count')
+            )
+        except (TypeError, ValueError):
+            continue
+        if total_changes > 0:
+            return True
+    return False
 
 
 def _gate_contains_sensitive_reference(gate) -> bool:
@@ -1476,6 +1515,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.notification_schedule.scheduled_for_non_collectable_payment',
                 'Existen recordatorios programados sobre pagos que ya no estan pendientes ni atrasados.',
                 count=notification_schedule_issues['scheduled_for_non_collectable_payment'],
+            )
+        )
+    if notification_schedule_issues.get('materialization_audit_missing'):
+        issues.append(
+            _issue(
+                'stage2.notification_schedule.materialization_audit_missing',
+                'Existen recordatorios de cobranza sin evento auditable de materializacion con actor y periodo alineado.',
+                count=notification_schedule_issues['materialization_audit_missing'],
             )
         )
     if whatsapp_open_without_template:
