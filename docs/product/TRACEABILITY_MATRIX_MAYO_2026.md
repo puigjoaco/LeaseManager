@@ -45,6 +45,12 @@ incluye `credencial_ref` redactada, y la UI de identidades la tipa, filtra y
 muestra como referencia operativa visible sin exponer secretos ni conectar
 proveedores.
 
+Nota 2026-06-06: Backoffice Operacion ahora permite crear y editar
+`IdentidadDeEnvio` desde la API auditada. El formulario conserva owner
+empresa/socio, canal, remitente, direccion, estado y `credencial_ref` no
+sensible para identidades activas, permitiendo preparar cobertura operativa
+sin abrir Email, WhatsApp ni proveedores externos.
+
 Nota 2026-06-06: Operacion/Etapa 1 alinea el backoffice de Mandatos con la
 trazabilidad de autoridad operativa ya expuesta por snapshot/API. La UI ahora
 filtra y muestra nombre, RUT, evidencia redactada, autorizaciones y vigencia

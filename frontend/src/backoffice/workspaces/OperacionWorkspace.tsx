@@ -5,7 +5,7 @@ import { Badge, TableBlock } from '../shared'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type OwnerOption = { tipo: string; id: number; label: string }
 type CuentaItem = { id: number; institucion: string; numero_cuenta: string; tipo_cuenta: string; owner_tipo: string; owner_id: number; owner_display: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; uso_operativo: string; modo_operativo: string; evidencia_operativa_ref: string; estado_operativo: string }
-type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; credencial_ref: string; owner_tipo: string; owner_display: string; estado: string }
+type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; credencial_ref: string; owner_tipo: string; owner_id: number; owner_display: string; estado: string }
 type MandatoItem = {
   id: number
   propiedad_id: number
@@ -49,6 +49,7 @@ type AsignacionCanalItem = {
 type PropiedadOption = { id: number; codigo_propiedad: string; direccion: string }
 
 type CuentaDraft = { institucion: string; numero_cuenta: string; tipo_cuenta: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; uso_operativo: string; modo_operativo: string; evidencia_operativa_ref: string; estado_operativo: string; owner_tipo: string; owner_id: string }
+type IdentidadDraft = { canal: string; remitente_visible: string; direccion_o_numero: string; credencial_ref: string; estado: string; owner_tipo: string; owner_id: string }
 type MandatoDraft = { propiedad_id: string; propietario_tipo: string; propietario_id: string; administrador_operativo_tipo: string; administrador_operativo_id: string; recaudador_tipo: string; recaudador_id: string; entidad_facturadora_id: string; cuenta_recaudadora_id: string; tipo_relacion_operativa: string; autoriza_recaudacion: boolean; autoriza_facturacion: boolean; autoriza_comunicacion: boolean; autoridad_operativa_nombre: string; autoridad_operativa_rut: string; autoridad_operativa_evidencia_ref: string; vigencia_desde: string; vigencia_hasta: string; estado: string }
 type AsignacionDraft = { mandato_operacion_id: string; canal: string; identidad_envio_id: string; prioridad: string; estado: string }
 
@@ -95,6 +96,11 @@ export function OperacionWorkspace({
   setCuentaDraft,
   handleCreateCuenta,
   cancelEditCuenta,
+  editingIdentidadId,
+  identidadDraft,
+  setIdentidadDraft,
+  handleCreateIdentidad,
+  cancelEditIdentidad,
   editingMandatoId,
   mandatoDraft,
   setMandatoDraft,
@@ -119,6 +125,7 @@ export function OperacionWorkspace({
   isSubmitting,
   isLoading,
   startEditCuenta,
+  startEditIdentidad,
   startEditMandato,
   startEditAsignacion,
   goToCuentaConciliacion,
@@ -130,6 +137,11 @@ export function OperacionWorkspace({
   setCuentaDraft: Dispatch<SetStateAction<CuentaDraft>>
   handleCreateCuenta: (event: FormEvent<HTMLFormElement>) => Promise<void>
   cancelEditCuenta: () => void
+  editingIdentidadId: number | null
+  identidadDraft: IdentidadDraft
+  setIdentidadDraft: Dispatch<SetStateAction<IdentidadDraft>>
+  handleCreateIdentidad: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  cancelEditIdentidad: () => void
   editingMandatoId: number | null
   mandatoDraft: MandatoDraft
   setMandatoDraft: Dispatch<SetStateAction<MandatoDraft>>
@@ -154,6 +166,7 @@ export function OperacionWorkspace({
   isSubmitting: boolean
   isLoading: boolean
   startEditCuenta: (row: CuentaItem) => void
+  startEditIdentidad: (row: IdentidadItem) => void
   startEditMandato: (row: MandatoItem) => void
   startEditAsignacion: (row: AsignacionCanalItem) => void
   goToCuentaConciliacion: (cuentaId: number, numeroCuenta: string) => void
@@ -232,6 +245,33 @@ export function OperacionWorkspace({
         </section>
 
         <section className="panel">
+          <div className="section-heading"><div><h2>{editingIdentidadId ? 'Editar identidad' : 'Alta rápida de identidad'}</h2><p>Remitente operativo con owner y referencia de credencial no sensible.</p></div></div>
+          <form className="entity-form" onSubmit={handleCreateIdentidad}>
+            <select value={identidadDraft.canal} onChange={(event) => setIdentidadDraft((current) => ({ ...current, canal: event.target.value }))}>
+              <option value="email">Email</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
+            <input placeholder="Remitente visible" value={identidadDraft.remitente_visible} onChange={(event) => setIdentidadDraft((current) => ({ ...current, remitente_visible: event.target.value }))} />
+            <input placeholder={identidadDraft.canal === 'email' ? 'correo@dominio.cl' : '+569...'} value={identidadDraft.direccion_o_numero} onChange={(event) => setIdentidadDraft((current) => ({ ...current, direccion_o_numero: event.target.value }))} />
+            <input placeholder="Credencial ref no sensible" value={identidadDraft.credencial_ref} onChange={(event) => setIdentidadDraft((current) => ({ ...current, credencial_ref: event.target.value }))} />
+            <select value={identidadDraft.owner_id ? `${identidadDraft.owner_tipo}:${identidadDraft.owner_id}` : ''} onChange={(event) => { const [tipo, id] = event.target.value.split(':'); setIdentidadDraft((current) => ({ ...current, owner_tipo: tipo || 'empresa', owner_id: id || '' })) }}>
+              <option value="">Selecciona owner</option>
+              {simpleOwners.map((owner) => <option key={`identity-${owner.tipo}:${owner.id}`} value={`${owner.tipo}:${owner.id}`}>{owner.label} · {owner.tipo}</option>)}
+            </select>
+            <select value={identidadDraft.estado} onChange={(event) => setIdentidadDraft((current) => ({ ...current, estado: event.target.value }))}>
+              <option value="borrador">Borrador</option>
+              <option value="activa">Activa</option>
+              <option value="suspendida">Suspendida</option>
+              <option value="inactiva">Inactiva</option>
+            </select>
+            <div className="inline-actions">
+              <button type="submit" className="button-primary" disabled={isSubmitting || !canEditOperacion || !identidadDraft.remitente_visible || !identidadDraft.direccion_o_numero || !identidadDraft.owner_id || (identidadDraft.estado === 'activa' && !identidadDraft.credencial_ref)}>{editingIdentidadId ? 'Guardar cambios' : 'Guardar identidad'}</button>
+              {editingIdentidadId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditIdentidad}>Cancelar</button> : null}
+            </div>
+          </form>
+        </section>
+
+        <section className="panel">
           <div className="section-heading"><div><h2>{editingAsignacionId ? 'Editar asignación' : 'Alta rápida de asignación'}</h2><p>Cobertura de canal entre mandato operativo e identidad de envío.</p></div></div>
           <form className="entity-form" onSubmit={handleCreateAsignacion}>
             <select value={asignacionDraft.mandato_operacion_id} onChange={(event) => setAsignacionDraft((current) => ({ ...current, mandato_operacion_id: event.target.value }))}>
@@ -275,6 +315,7 @@ export function OperacionWorkspace({
         { label: 'Credencial', render: (row) => row.credencial_ref || 'Sin credencial' },
         { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo}` },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+        { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditIdentidad(row)}>Editar</button> },
       ]} />
       <TableBlock title="Asignaciones de canal" subtitle="Cobertura activa entre mandato operativo e identidad de envío." rows={filteredAsignacionesCanal} empty="No hay asignaciones para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[
         { label: 'Mandato', render: (row) => row.mandato_propiedad_codigo || `Mandato ${row.mandato_operacion_id}` },
