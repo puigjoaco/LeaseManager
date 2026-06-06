@@ -669,6 +669,7 @@ type Contrato = {
   estado: string
   tiene_tramos: boolean
   tiene_gastos_comunes: boolean
+  snapshot_representante_legal: { nombre?: string; rut?: string }
   contrato_propiedades_detail: Array<{
     propiedad: number
     propiedad_codigo: string
@@ -1607,6 +1608,8 @@ function App() {
     fecha_entrega: todayIso(),
     entrega_llaves_autorizacion_ref: '',
     entrega_llaves_autorizacion_motivo: '',
+    representante_legal_nombre: '',
+    representante_legal_rut: '',
     terminacion_anticipada_prorrata_ref: '',
     terminacion_anticipada_prorrata_motivo: '',
     dia_pago_mensual: '5',
@@ -2226,6 +2229,8 @@ function App() {
       fecha_entrega: todayIso(),
       entrega_llaves_autorizacion_ref: '',
       entrega_llaves_autorizacion_motivo: '',
+      representante_legal_nombre: '',
+      representante_legal_rut: '',
       terminacion_anticipada_prorrata_ref: '',
       terminacion_anticipada_prorrata_motivo: '',
       dia_pago_mensual: '5',
@@ -3636,6 +3641,21 @@ function App() {
       setFormError('Debes seleccionar un mandato operativo válido.')
       return
     }
+    const selectedTenant = arrendatarios.find((item) => item.id === Number(contratoDraft.arrendatario))
+    if (!selectedTenant) {
+      setFormError('Debes seleccionar un arrendatario válido.')
+      return
+    }
+    const representativeName = contratoDraft.representante_legal_nombre.trim()
+    const representativeRut = contratoDraft.representante_legal_rut.trim()
+    const requiresCompanyRepresentative = selectedTenant.tipo_arrendatario === 'empresa' && (contratoDraft.estado === 'vigente' || contratoDraft.estado === 'futuro')
+    if (requiresCompanyRepresentative && (!representativeName || !representativeRut)) {
+      setFormError('Los contratos vigentes o futuros con arrendatario empresa requieren representante legal con nombre y RUT.')
+      return
+    }
+    const representativeSnapshot = representativeName && representativeRut
+      ? { nombre: representativeName, rut: representativeRut, source: 'frontend_backoffice' }
+      : {}
     const code = effectiveCodeFromPropertyCode(selectedMandate.propiedad_codigo)
     const isEdit = editingContratoId != null
     const ok = await submitMutation(
@@ -3660,7 +3680,7 @@ function App() {
         estado: contratoDraft.estado,
         tiene_tramos: contratoDraft.tiene_tramos,
         tiene_gastos_comunes: contratoDraft.tiene_gastos_comunes,
-        snapshot_representante_legal: { source: 'frontend_backoffice' },
+        snapshot_representante_legal: representativeSnapshot,
         contrato_propiedades: [
           {
             propiedad_id: selectedMandate.propiedad_id,
@@ -3696,6 +3716,8 @@ function App() {
         fecha_entrega: todayIso(),
         entrega_llaves_autorizacion_ref: '',
         entrega_llaves_autorizacion_motivo: '',
+        representante_legal_nombre: '',
+        representante_legal_rut: '',
         terminacion_anticipada_prorrata_ref: '',
         terminacion_anticipada_prorrata_motivo: '',
         dia_pago_mensual: '5',
@@ -4007,6 +4029,8 @@ function App() {
       fecha_entrega: row.fecha_entrega || '',
       entrega_llaves_autorizacion_ref: row.entrega_llaves_autorizacion_ref || '',
       entrega_llaves_autorizacion_motivo: row.entrega_llaves_autorizacion_motivo || '',
+      representante_legal_nombre: row.snapshot_representante_legal?.nombre || '',
+      representante_legal_rut: row.snapshot_representante_legal?.rut || '',
       terminacion_anticipada_prorrata_ref: row.terminacion_anticipada_prorrata_ref || '',
       terminacion_anticipada_prorrata_motivo: row.terminacion_anticipada_prorrata_motivo || '',
       dia_pago_mensual: String(row.dia_pago_mensual),
@@ -4036,6 +4060,8 @@ function App() {
       fecha_entrega: todayIso(),
       entrega_llaves_autorizacion_ref: '',
       entrega_llaves_autorizacion_motivo: '',
+      representante_legal_nombre: '',
+      representante_legal_rut: '',
       terminacion_anticipada_prorrata_ref: '',
       terminacion_anticipada_prorrata_motivo: '',
       dia_pago_mensual: '5',

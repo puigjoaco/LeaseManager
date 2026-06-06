@@ -7,11 +7,11 @@ type ArrendatarioItem = { id: number; nombre_razon_social: string; rut: string; 
 type MandatoItem = { id: number; propiedad_codigo: string; propietario_display: string }
 type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; estado: string }
 type PoliticaFirmaItem = { id: number; tipo_documental: string; estado: string }
-type ContratoItem = { id: number; codigo_contrato: string; mandato_operacion: number; arrendatario: number; identidad_envio_override: number | null; identidad_envio_override_display: string | null; politica_documental: number | null; politica_documental_tipo: string | null; politica_documental_estado: string | null; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string | null; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; fecha_registro_operativo: string | null; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; requiere_notificacion_manual_retroactiva: boolean; alerta_notificacion_manual_retroactiva: string; dia_pago_mensual: number; plazo_notificacion_termino_dias: number; dias_prealerta_admin: number; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; contrato_propiedades_detail: Array<{ propiedad: number; propiedad_codigo: string; propiedad_direccion: string; rol_en_contrato: string }>; periodos_contractuales_detail: Array<{ numero_periodo: number; fecha_inicio: string; fecha_fin: string; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string; politica_base_renovacion_ref: string; politica_base_renovacion_motivo: string }>; codeudores_solidarios_detail: Array<{ id: number; snapshot_identidad: { nombre?: string; rut?: string }; fecha_inclusion: string; estado: string }> }
+type ContratoItem = { id: number; codigo_contrato: string; mandato_operacion: number; arrendatario: number; identidad_envio_override: number | null; identidad_envio_override_display: string | null; politica_documental: number | null; politica_documental_tipo: string | null; politica_documental_estado: string | null; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string | null; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; fecha_registro_operativo: string | null; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; requiere_notificacion_manual_retroactiva: boolean; alerta_notificacion_manual_retroactiva: string; dia_pago_mensual: number; plazo_notificacion_termino_dias: number; dias_prealerta_admin: number; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; snapshot_representante_legal: { nombre?: string; rut?: string }; contrato_propiedades_detail: Array<{ propiedad: number; propiedad_codigo: string; propiedad_direccion: string; rol_en_contrato: string }>; periodos_contractuales_detail: Array<{ numero_periodo: number; fecha_inicio: string; fecha_fin: string; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string; politica_base_renovacion_ref: string; politica_base_renovacion_motivo: string }>; codeudores_solidarios_detail: Array<{ id: number; snapshot_identidad: { nombre?: string; rut?: string }; fecha_inclusion: string; estado: string }> }
 type AvisoItem = { id: number; contrato: number; fecha_efectiva: string; causal: string; estado: string; resolucion_conflicto_renovacion_ref: string; resolucion_conflicto_renovacion_motivo: string; registrado_at: string | null; fecha_limite_registro_oportuno: string | null; registrado_fuera_plazo: boolean; alerta_registro_fuera_plazo: string }
 
 type ArrendatarioDraft = { tipo_arrendatario: string; nombre_razon_social: string; rut: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; nacionalidad: string; estado_civil: string; profesion: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean; whatsapp_bloqueo_motivo: string; whatsapp_bloqueo_evidencia_ref: string; whatsapp_rehabilitacion_ref: string }
-type ContratoDraft = { codigo_contrato: string; mandato_operacion: string; arrendatario: string; identidad_envio_override: string; politica_documental: string; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; dia_pago_mensual: string; plazo_notificacion_termino_dias: string; dias_prealerta_admin: string; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string }
+type ContratoDraft = { codigo_contrato: string; mandato_operacion: string; arrendatario: string; identidad_envio_override: string; politica_documental: string; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; representante_legal_nombre: string; representante_legal_rut: string; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; dia_pago_mensual: string; plazo_notificacion_termino_dias: string; dias_prealerta_admin: string; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string }
 type AvisoDraft = { contrato: string; fecha_efectiva: string; causal: string; estado: string; resolucion_conflicto_renovacion_ref: string; resolucion_conflicto_renovacion_motivo: string }
 
 export function ContratosWorkspace({
@@ -86,6 +86,20 @@ export function ContratosWorkspace({
   const contractPolicies = politicasFirma.filter((item) => item.tipo_documental === 'contrato_principal' && item.estado === 'activa')
   const requiresDocumentPolicy = contratoDraft.estado === 'vigente' || contratoDraft.estado === 'futuro'
   const requiresTerminationProrationTrace = contratoDraft.estado === 'terminado_anticipadamente'
+  const selectedContractTenant = arrendatarios.find((item) => item.id === Number(contratoDraft.arrendatario))
+  const isCompanyContractTenant = selectedContractTenant?.tipo_arrendatario === 'empresa'
+  const showCompanyRepresentativeFields = Boolean(isCompanyContractTenant || contratoDraft.representante_legal_nombre || contratoDraft.representante_legal_rut)
+  const requiresCompanyRepresentative = Boolean(isCompanyContractTenant && (contratoDraft.estado === 'vigente' || contratoDraft.estado === 'futuro'))
+
+  function representativeSnapshotBadge(row: ContratoItem) {
+    const tenant = arrendatarioById.get(row.arrendatario)
+    if (tenant?.tipo_arrendatario !== 'empresa') {
+      return <Badge label="no aplica" tone="neutral" />
+    }
+    return row.snapshot_representante_legal?.nombre && row.snapshot_representante_legal?.rut
+      ? <Badge label="snapshot" tone="positive" />
+      : <Badge label="pendiente" tone="warning" />
+  }
 
   return (
     <>
@@ -154,6 +168,12 @@ export function ContratosWorkspace({
             <input type="date" value={contratoDraft.fecha_entrega} onChange={(event) => setContratoDraft((current) => ({ ...current, fecha_entrega: event.target.value }))} />
             <input placeholder="Ref. autorización entrega" value={contratoDraft.entrega_llaves_autorizacion_ref} onChange={(event) => setContratoDraft((current) => ({ ...current, entrega_llaves_autorizacion_ref: event.target.value }))} />
             <input placeholder="Motivo autorización entrega" value={contratoDraft.entrega_llaves_autorizacion_motivo} onChange={(event) => setContratoDraft((current) => ({ ...current, entrega_llaves_autorizacion_motivo: event.target.value }))} />
+            {showCompanyRepresentativeFields ? (
+              <>
+                <input placeholder="Representante legal" value={contratoDraft.representante_legal_nombre} onChange={(event) => setContratoDraft((current) => ({ ...current, representante_legal_nombre: event.target.value }))} />
+                <input placeholder="RUT representante legal" value={contratoDraft.representante_legal_rut} onChange={(event) => setContratoDraft((current) => ({ ...current, representante_legal_rut: event.target.value }))} />
+              </>
+            ) : null}
             <input placeholder="Monto base" value={contratoDraft.monto_base} onChange={(event) => setContratoDraft((current) => ({ ...current, monto_base: event.target.value }))} />
             <select value={contratoDraft.moneda_base} onChange={(event) => setContratoDraft((current) => ({ ...current, moneda_base: event.target.value }))}><option value="CLP">CLP</option><option value="UF">UF</option></select>
             <select value={contratoDraft.estado} onChange={(event) => setContratoDraft((current) => ({ ...current, estado: event.target.value }))}><option value="vigente">Vigente</option><option value="pendiente_activacion">Pendiente activación</option><option value="futuro">Futuro</option><option value="terminado_anticipadamente">Terminado anticipadamente</option></select>
@@ -169,7 +189,7 @@ export function ContratosWorkspace({
             <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_tramos} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_tramos: event.target.checked }))} />Tiene tramos</label>
             <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_gastos_comunes} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_gastos_comunes: event.target.checked }))} />Tiene gastos comunes</label>
             <div className="inline-actions">
-              <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos || !contratoDraft.codigo_contrato || !contratoDraft.mandato_operacion || !contratoDraft.arrendatario || !contratoDraft.monto_base || (requiresDocumentPolicy && !contratoDraft.politica_documental) || (requiresTerminationProrationTrace && (!contratoDraft.terminacion_anticipada_prorrata_ref || !contratoDraft.terminacion_anticipada_prorrata_motivo))}>{editingContratoId ? 'Guardar cambios' : 'Guardar contrato'}</button>
+              <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos || !contratoDraft.codigo_contrato || !contratoDraft.mandato_operacion || !contratoDraft.arrendatario || !contratoDraft.monto_base || (requiresDocumentPolicy && !contratoDraft.politica_documental) || (requiresCompanyRepresentative && (!contratoDraft.representante_legal_nombre.trim() || !contratoDraft.representante_legal_rut.trim())) || (requiresTerminationProrationTrace && (!contratoDraft.terminacion_anticipada_prorrata_ref || !contratoDraft.terminacion_anticipada_prorrata_motivo))}>{editingContratoId ? 'Guardar cambios' : 'Guardar contrato'}</button>
               {editingContratoId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditContrato}>Cancelar</button> : null}
             </div>
           </form>
@@ -209,6 +229,7 @@ export function ContratosWorkspace({
         { label: 'Mandato', render: (row) => mandatoById.get(row.mandato_operacion)?.propiedad_codigo || row.mandato_operacion },
         { label: 'Identidad', render: (row) => row.identidad_envio_override_display || 'Mandato' },
         { label: 'Política', render: (row) => row.politica_documental_tipo === 'contrato_principal' && row.politica_documental_estado === 'activa' ? <Badge label="contrato" tone="positive" /> : <Badge label="pendiente" tone="warning" /> },
+        { label: 'Rep. legal', render: (row) => representativeSnapshotBadge(row) },
         { label: 'Propiedad', render: (row) => row.contrato_propiedades_detail[0] ? `${row.contrato_propiedades_detail[0].propiedad_codigo} · ${row.contrato_propiedades_detail[0].propiedad_direccion}` : 'Sin propiedad' },
         { label: 'Periodo', render: (row) => `${row.fecha_inicio} → ${row.fecha_fin_vigente}` },
         { label: 'Retroactivo', render: (row) => row.requiere_notificacion_manual_retroactiva ? <Badge label="aviso manual" tone="warning" /> : <Badge label="sin alerta" tone="neutral" /> },
