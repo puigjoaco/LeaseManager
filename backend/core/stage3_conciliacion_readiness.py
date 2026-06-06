@@ -53,6 +53,10 @@ STAGE3_MANUAL_RESOLUTION_CATEGORIES = (
     'conciliacion.ingreso_desconocido',
     'conciliacion.movimiento_cargo',
 )
+MOVEMENT_MATCH_AUDIT_EVENT_TYPES = (
+    'conciliacion.movimiento_bancario.match_attempted',
+    'conciliacion.movimiento_bancario.match_retried',
+)
 CHARGE_MANUAL_CLASSIFICATION_REQUIRED_METADATA_FIELDS = (
     'categoria_movimiento',
     'entidad_afectada_tipo',
@@ -440,11 +444,13 @@ def _collect_movement_issues(
     *,
     internal_transfer_destination_ids=None,
     resolved_charge_movement_ids=None,
+    match_audit_events_by_movement=None,
 ) -> dict[str, int]:
     counts = Counter()
     transaction_keys = Counter()
     internal_transfer_destination_ids = internal_transfer_destination_ids or set()
     resolved_charge_movement_ids = resolved_charge_movement_ids or set()
+    match_audit_events_by_movement = match_audit_events_by_movement or {}
     for movement in movements:
         try:
             movement.full_clean()
@@ -468,6 +474,21 @@ def _collect_movement_issues(
                 counts['provider_sync_transaction_missing'] += 1
             if bank_provider_sync_blocking_reason(movement.conexion_bancaria):
                 counts['provider_sync_connection_not_ready'] += 1
+
+        if movement.estado_conciliacion in {
+            EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+            EstadoConciliacionMovimiento.MANUAL_REQUIRED,
+            EstadoConciliacionMovimiento.EXACT_MATCH,
+        }:
+            audit_events = match_audit_events_by_movement.get(str(movement.pk), [])
+            if not audit_events:
+                counts['match_audit_missing'] += 1
+            elif any(
+                has_text((event.metadata or {}).get('movimiento_id'))
+                and str((event.metadata or {}).get('movimiento_id')) != str(movement.pk)
+                for event in audit_events
+            ):
+                counts['match_audit_metadata_mismatch'] += 1
 
         if (
             movement.tipo_movimiento == TipoMovimientoBancario.CREDIT
@@ -767,10 +788,20 @@ def collect_stage3_conciliacion_readiness(
 
     internal_transfer_issues = _collect_internal_transfer_issues(internal_transfers)
     internal_transfer_destination_ids = set(internal_transfers.values_list('movimiento_destino_id', flat=True))
+    movement_ids = [str(pk) for pk in movements.values_list('pk', flat=True)]
+    match_audit_events_by_movement: dict[str, list[AuditEvent]] = {}
+    if movement_ids:
+        for event in AuditEvent.objects.filter(
+            event_type__in=MOVEMENT_MATCH_AUDIT_EVENT_TYPES,
+            entity_type='movimiento_bancario',
+            entity_id__in=movement_ids,
+        ):
+            match_audit_events_by_movement.setdefault(event.entity_id, []).append(event)
     movement_issues = _collect_movement_issues(
         movements,
         internal_transfer_destination_ids=internal_transfer_destination_ids,
         resolved_charge_movement_ids=resolved_charge_movement_ids,
+        match_audit_events_by_movement=match_audit_events_by_movement,
     )
     reported_balance_issues = _collect_reported_balance_issues(movements)
     balance_squares = CuadraturaBancaria.objects.select_related('cuenta_recaudadora').all()
@@ -970,6 +1001,22 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.movement.sensitive_admin_notes',
                 'Existen movimientos bancarios con notas administrativas sensibles.',
                 count=movement_issues['sensitive_admin_notes'],
+            )
+        )
+    if movement_issues.get('match_audit_missing'):
+        issues.append(
+            _issue(
+                'stage3.movement.match_audit_missing',
+                'Existen movimientos conciliados o clasificados sin auditoria de intento/reintento de match exacto.',
+                count=movement_issues['match_audit_missing'],
+            )
+        )
+    if movement_issues.get('match_audit_metadata_mismatch'):
+        issues.append(
+            _issue(
+                'stage3.movement.match_audit_metadata_mismatch',
+                'Existen auditorias de match exacto con metadata de movimiento desalineada.',
+                count=movement_issues['match_audit_metadata_mismatch'],
             )
         )
     if movement_issues.get('credit_exact_match_without_target'):

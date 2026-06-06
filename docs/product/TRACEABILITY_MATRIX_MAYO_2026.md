@@ -273,6 +273,11 @@ Nota 2026-06-06: Conciliacion/Etapa 3 centraliza esa auditoria en
 muta pagos, codigos residuales, ingresos desconocidos, resoluciones manuales y
 eventos contables, cubriendo tambien llamadas internas controladas; si falla
 esa auditoria de servicio, no quedan mutaciones de conciliacion sin traza.
+Nota 2026-06-06: `audit_stage3_conciliacion_readiness` tambien bloquea
+snapshots heredados donde movimientos en `ingreso_desconocido`,
+`manual_requerida` o `conciliado_exacto` no conservan `match_attempted` o
+`match_retried` alineado al movimiento, o conservan metadata de movimiento
+desalineada.
 
 Nota 2026-05-31: CobranzaActiva/Etapa 2 alinea mutaciones API y auditoria
 de vista en una transaccion. `AuditCreateUpdateMixin` en Cobranza y los
@@ -326,6 +331,8 @@ actualizadas por API.
 Nota 2026-06-06: el evento `match_attempted` ya no depende de la vista; lo
 emite `reconcile_exact_movement()` con metadata no sensible de movimiento,
 conexion, cuenta, tipo, fecha, estado y resultado del match.
+La readiness de Etapa 3 clasifica como bloqueante la ausencia de esa traza o
+su metadata desalineada en movimientos ya clasificados/conciliados.
 
 Nota 2026-05-31: Compliance/Etapa 0 alinea accesos denegados de exportaciones
 sensibles con auditoria atomica. `ExportacionContentView` ejecuta

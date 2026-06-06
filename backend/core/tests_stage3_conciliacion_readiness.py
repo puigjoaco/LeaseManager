@@ -193,10 +193,30 @@ class Stage3ConciliacionReadinessTests(TestCase):
             source_kind='snapshot_controlado',
         )
 
-    def _create_reconciled_movement(self, conexion, payment):
+    def _create_match_audit_event(self, movimiento, *, status='matched_payment', metadata_extra=None):
+        metadata = {
+            'status': status,
+            'movimiento_id': movimiento.pk,
+            'conexion_bancaria_id': movimiento.conexion_bancaria_id,
+            'cuenta_recaudadora_id': movimiento.conexion_bancaria.cuenta_recaudadora_id,
+            'estado_conciliacion': movimiento.estado_conciliacion,
+            'tipo_movimiento': movimiento.tipo_movimiento,
+            'fecha_movimiento': movimiento.fecha_movimiento.isoformat(),
+        }
+        metadata.update(metadata_extra or {})
+        return AuditEvent.objects.create(
+            actor_identifier='system.conciliacion.exact_match',
+            event_type='conciliacion.movimiento_bancario.match_attempted',
+            entity_type='movimiento_bancario',
+            entity_id=str(movimiento.pk),
+            summary='Intento de match exacto sobre movimiento bancario',
+            metadata=metadata,
+        )
+
+    def _create_reconciled_movement(self, conexion, payment, *, with_match_audit=True):
         payment.fecha_deposito_banco = date(2026, 1, 8)
         payment.save(update_fields=['fecha_deposito_banco', 'updated_at'])
-        return MovimientoBancarioImportado.objects.create(
+        movimiento = MovimientoBancarioImportado.objects.create(
             conexion_bancaria=conexion,
             fecha_movimiento=date(2026, 1, 8),
             tipo_movimiento=TipoMovimientoBancario.CREDIT,
@@ -208,9 +228,16 @@ class Stage3ConciliacionReadinessTests(TestCase):
             estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
             pago_mensual=payment,
         )
+        if with_match_audit:
+            self._create_match_audit_event(
+                movimiento,
+                status='matched_payment',
+                metadata_extra={'pago_mensual_id': payment.pk},
+            )
+        return movimiento
 
-    def _create_reconciled_charge_movement(self, conexion):
-        return MovimientoBancarioImportado.objects.create(
+    def _create_reconciled_charge_movement(self, conexion, *, with_match_audit=True):
+        movimiento = MovimientoBancarioImportado.objects.create(
             conexion_bancaria=conexion,
             fecha_movimiento=date(2026, 1, 9),
             tipo_movimiento=TipoMovimientoBancario.DEBIT,
@@ -220,6 +247,9 @@ class Stage3ConciliacionReadinessTests(TestCase):
             evidencia_importacion_ref='manual-import-stage3-charge',
             estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
         )
+        if with_match_audit:
+            self._create_match_audit_event(movimiento, status='manual_required')
+        return movimiento
 
     def _create_charge_accounting_event(self, cuenta, charge):
         return EventoContable.objects.create(
@@ -315,6 +345,8 @@ class Stage3ConciliacionReadinessTests(TestCase):
             evidencia_importacion_ref='manual-import-transfer-destination',
             estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
         )
+        self._create_match_audit_event(movimiento_origen, status='manual_required')
+        self._create_match_audit_event(movimiento_destino, status='unknown_income')
         transfer = TransferenciaIntercuenta.objects.create(
             movimiento_origen=movimiento_origen,
             movimiento_destino=movimiento_destino,
@@ -440,6 +472,37 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
 
+    def test_exact_matched_movement_without_match_audit_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-MATCH-AUDIT-MISSING')
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment, with_match_audit=False)
+        self._create_square_balance(cuenta)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.match_audit_missing', issue_codes)
+        self.assertEqual(result['sections']['movements']['match_audit_missing'], 1)
+
+    def test_match_audit_metadata_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-MATCH-AUDIT-MISMATCH')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment, with_match_audit=False)
+        self._create_match_audit_event(
+            movimiento,
+            status='matched_payment',
+            metadata_extra={'movimiento_id': movimiento.pk + 1},
+        )
+        self._create_square_balance(cuenta)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.match_audit_metadata_mismatch', issue_codes)
+        self.assertEqual(result['sections']['movements']['match_audit_metadata_mismatch'], 1)
+
     def test_exact_match_payment_period_mismatch_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-PAY-PERIOD')
         conexion = self._create_ready_connection(cuenta)
@@ -507,6 +570,7 @@ class Stage3ConciliacionReadinessTests(TestCase):
             estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
             pago_mensual=payment,
         )
+        self._create_match_audit_event(movimiento, status='unknown_income')
         ManualResolution.objects.create(
             category='conciliacion.ingreso_desconocido',
             status=ManualResolution.Status.RESOLVED,

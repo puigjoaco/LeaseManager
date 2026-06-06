@@ -54,6 +54,10 @@ sistema igual a saldo banco.
   buscar codigos solo dentro de la cuenta recaudadora del movimiento; una
   referencia residual de otra cuenta queda como ingreso desconocido para
   resolucion manual auditada.
+- Los movimientos que ya quedaron como ingreso desconocido, clasificacion
+  manual requerida o conciliado exacto deben conservar auditoria
+  `match_attempted` o `match_retried` alineada al movimiento; readiness bloquea
+  snapshots heredados sin ese evento o con metadata de movimiento desalineada.
 - Abonos parciales o complementarios conciliados a un `PagoMensual` solo son
   validos con resolucion manual auditada de ingreso desconocido; readiness
   bloquea snapshots donde el movimiento parcial quedo como match exacto sin
