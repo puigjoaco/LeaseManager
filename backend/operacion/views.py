@@ -235,6 +235,7 @@ class OperationSnapshotView(APIView):
                         'direccion_o_numero': identidad.direccion_o_numero,
                         'credencial_ref': redact_sensitive_reference(identidad.credencial_ref),
                         'owner_tipo': identidad.owner_tipo,
+                        'owner_id': identidad.owner_id,
                         'owner_display': identidad.owner_display,
                         'estado': identidad.estado,
                     }

@@ -113,7 +113,9 @@ contra datos reales o snapshot controlado.
   version redactada para verificar cobertura de canal sin exponer secretos. El
   backoffice de Operacion tambien permite crear y editar identidades de envio
   mediante la API auditada, restringiendo owner a empresa o socio y exigiendo
-  referencia de credencial cuando la identidad queda activa.
+  referencia de credencial cuando la identidad queda activa. El snapshot
+  operativo conserva `owner_id` junto a `owner_tipo` para que la edicion desde
+  backoffice mantenga el owner exacto sin depender de consultas auxiliares.
 - Validacion de transiciones operativas: cuentas recaudadoras, mandatos,
   identidades de envio y asignaciones de canal no pueden pausarse,
   suspenderse o inactivarse si dejan contratos vigentes/futuros, mandatos o
