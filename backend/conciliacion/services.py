@@ -4,6 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from audit.models import ManualResolution
+from audit.services import create_audit_event
 from cobranza.models import CodigoCobroResidual, EstadoCobroResidual, EstadoPago, PagoMensual
 from cobranza.services import sync_payment_distribution, sync_payment_state
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
@@ -24,6 +25,8 @@ RETRIABLE_EXACT_MATCH_STATES = {
     EstadoConciliacionMovimiento.UNKNOWN_INCOME,
 }
 ECONOMIC_PERIOD_RE = re.compile(r'^\d{4}-(0[1-9]|1[0-2])$')
+MOVEMENT_MATCH_ATTEMPTED_EVENT_TYPE = 'conciliacion.movimiento_bancario.match_attempted'
+MOVEMENT_MATCH_RETRIED_EVENT_TYPE = 'conciliacion.movimiento_bancario.match_retried'
 
 
 def require_manual_resolution_rationale(rationale):
@@ -151,6 +154,41 @@ def ensure_movement_can_attempt_exact_match(movimiento):
     raise ValueError('El movimiento ya fue conciliado y no admite reintento.')
 
 
+def _create_exact_match_audit_event(
+    *,
+    movimiento,
+    result,
+    event_type=MOVEMENT_MATCH_ATTEMPTED_EVENT_TYPE,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    metadata = {
+        **(result or {}),
+        'movimiento_id': movimiento.pk,
+        'conexion_bancaria_id': movimiento.conexion_bancaria_id,
+        'cuenta_recaudadora_id': movimiento.conexion_bancaria.cuenta_recaudadora_id,
+        'estado_conciliacion': movimiento.estado_conciliacion,
+        'tipo_movimiento': movimiento.tipo_movimiento,
+        'fecha_movimiento': movimiento.fecha_movimiento.isoformat(),
+    }
+    summary = (
+        'Reintento manual de match exacto'
+        if event_type == MOVEMENT_MATCH_RETRIED_EVENT_TYPE
+        else 'Intento de match exacto sobre movimiento bancario'
+    )
+    return create_audit_event(
+        event_type=event_type,
+        entity_type='movimiento_bancario',
+        entity_id=str(movimiento.pk),
+        summary=summary,
+        actor_user=actor_user,
+        actor_identifier=actor_identifier if actor_user is None else '',
+        ip_address=ip_address,
+        metadata=metadata,
+    )
+
+
 @transaction.atomic
 def handle_unknown_income(movimiento, suggestion=None):
     unknown, _ = IngresoDesconocido.objects.update_or_create(
@@ -183,7 +221,14 @@ def handle_unknown_income(movimiento, suggestion=None):
 
 
 @transaction.atomic
-def reconcile_exact_movement(movimiento):
+def reconcile_exact_movement(
+    movimiento,
+    *,
+    audit_event_type=MOVEMENT_MATCH_ATTEMPTED_EVENT_TYPE,
+    audit_actor_user=None,
+    audit_actor_identifier='system.conciliacion.exact_match',
+    audit_ip_address=None,
+):
     ensure_movement_can_attempt_exact_match(movimiento)
 
     if movimiento.tipo_movimiento == TipoMovimientoBancario.DEBIT:
@@ -202,7 +247,16 @@ def reconcile_exact_movement(movimiento):
             'empresa_owner_id': movimiento.conexion_bancaria.cuenta_recaudadora.empresa_owner_id,
         }
         resolution.save(update_fields=['metadata'])
-        return {'status': 'manual_required', 'resolution_id': str(resolution.pk)}
+        result = {'status': 'manual_required', 'resolution_id': str(resolution.pk)}
+        _create_exact_match_audit_event(
+            movimiento=movimiento,
+            result=result,
+            event_type=audit_event_type,
+            actor_user=audit_actor_user,
+            actor_identifier=audit_actor_identifier,
+            ip_address=audit_ip_address,
+        )
+        return result
 
     if movimiento.referencia:
         residual_matches = list(
@@ -236,7 +290,16 @@ def reconcile_exact_movement(movimiento):
                     'contrato_id': residual.contrato_origen_id,
                 },
             )
-            return {'status': 'matched_residual', 'codigo_cobro_residual_id': residual.pk}
+            result = {'status': 'matched_residual', 'codigo_cobro_residual_id': residual.pk}
+            _create_exact_match_audit_event(
+                movimiento=movimiento,
+                result=result,
+                event_type=audit_event_type,
+                actor_user=audit_actor_user,
+                actor_identifier=audit_actor_identifier,
+                ip_address=audit_ip_address,
+            )
+            return result
 
     payment_matches = list(
         PagoMensual.objects.filter(
@@ -286,11 +349,29 @@ def reconcile_exact_movement(movimiento):
         from contabilidad.services import create_payment_reconciled_event
 
         create_payment_reconciled_event(payment, movimiento)
-        return {'status': 'matched_payment', 'pago_mensual_id': payment.pk}
+        result = {'status': 'matched_payment', 'pago_mensual_id': payment.pk}
+        _create_exact_match_audit_event(
+            movimiento=movimiento,
+            result=result,
+            event_type=audit_event_type,
+            actor_user=audit_actor_user,
+            actor_identifier=audit_actor_identifier,
+            ip_address=audit_ip_address,
+        )
+        return result
 
     suggestion = {'payment_candidate_ids': [payment.pk for payment in payment_matches]}
     unknown = handle_unknown_income(movimiento, suggestion=suggestion)
-    return {'status': 'unknown_income', 'ingreso_desconocido_id': unknown.pk}
+    result = {'status': 'unknown_income', 'ingreso_desconocido_id': unknown.pk}
+    _create_exact_match_audit_event(
+        movimiento=movimiento,
+        result=result,
+        event_type=audit_event_type,
+        actor_user=audit_actor_user,
+        actor_identifier=audit_actor_identifier,
+        ip_address=audit_ip_address,
+    )
+    return result
 
 
 @transaction.atomic

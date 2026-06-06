@@ -28,7 +28,7 @@ from .serializers import (
     MovimientoBancarioImportadoSerializer,
     TransferenciaIntercuentaSerializer,
 )
-from .services import reconcile_exact_movement
+from .services import MOVEMENT_MATCH_RETRIED_EVENT_TYPE, reconcile_exact_movement
 
 
 class AuditCreateUpdateMixin:
@@ -249,15 +249,10 @@ class MovimientoBancarioListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMix
         with transaction.atomic():
             instance = serializer.save()
             self._create_audit_event(instance=instance, action='created')
-            result = reconcile_exact_movement(instance)
-            create_audit_event(
-                event_type='conciliacion.movimiento_bancario.match_attempted',
-                entity_type='movimiento_bancario',
-                entity_id=str(instance.pk),
-                summary='Intento de match exacto sobre movimiento bancario',
-                actor_user=self.request.user,
-                ip_address=self.request.META.get('REMOTE_ADDR'),
-                metadata=result,
+            reconcile_exact_movement(
+                instance,
+                audit_actor_user=self.request.user,
+                audit_ip_address=self.request.META.get('REMOTE_ADDR'),
             )
         return instance
 
@@ -287,15 +282,11 @@ class MovimientoBancarioRetryMatchView(APIView):
         )
         try:
             with transaction.atomic():
-                result = reconcile_exact_movement(movimiento)
-                create_audit_event(
-                    event_type='conciliacion.movimiento_bancario.match_retried',
-                    entity_type='movimiento_bancario',
-                    entity_id=str(movimiento.pk),
-                    summary='Reintento manual de match exacto',
-                    actor_user=request.user,
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    metadata=result,
+                reconcile_exact_movement(
+                    movimiento,
+                    audit_event_type=MOVEMENT_MATCH_RETRIED_EVENT_TYPE,
+                    audit_actor_user=request.user,
+                    audit_ip_address=request.META.get('REMOTE_ADDR'),
                 )
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
