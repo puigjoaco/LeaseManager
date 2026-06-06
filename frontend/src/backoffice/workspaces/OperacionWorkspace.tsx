@@ -50,6 +50,7 @@ type PropiedadOption = { id: number; codigo_propiedad: string; direccion: string
 
 type CuentaDraft = { institucion: string; numero_cuenta: string; tipo_cuenta: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; uso_operativo: string; modo_operativo: string; evidencia_operativa_ref: string; estado_operativo: string; owner_tipo: string; owner_id: string }
 type MandatoDraft = { propiedad_id: string; propietario_tipo: string; propietario_id: string; administrador_operativo_tipo: string; administrador_operativo_id: string; recaudador_tipo: string; recaudador_id: string; entidad_facturadora_id: string; cuenta_recaudadora_id: string; tipo_relacion_operativa: string; autoriza_recaudacion: boolean; autoriza_facturacion: boolean; autoriza_comunicacion: boolean; autoridad_operativa_nombre: string; autoridad_operativa_rut: string; autoridad_operativa_evidencia_ref: string; vigencia_desde: string; vigencia_hasta: string; estado: string }
+type AsignacionDraft = { mandato_operacion_id: string; canal: string; identidad_envio_id: string; prioridad: string; estado: string }
 
 const authorizationLabels = (row: MandatoItem) => {
   const labels: string[] = []
@@ -99,10 +100,17 @@ export function OperacionWorkspace({
   setMandatoDraft,
   handleCreateMandato,
   cancelEditMandato,
+  editingAsignacionId,
+  asignacionDraft,
+  setAsignacionDraft,
+  handleCreateAsignacion,
+  cancelEditAsignacion,
   simpleOwners,
   patrimonioOwners,
   propiedades,
   cuentas,
+  mandatos,
+  identidades,
   filteredCuentas,
   filteredIdentidades,
   filteredMandatos,
@@ -112,6 +120,7 @@ export function OperacionWorkspace({
   isLoading,
   startEditCuenta,
   startEditMandato,
+  startEditAsignacion,
   goToCuentaConciliacion,
   goToMandatoContext,
 }: {
@@ -126,10 +135,17 @@ export function OperacionWorkspace({
   setMandatoDraft: Dispatch<SetStateAction<MandatoDraft>>
   handleCreateMandato: (event: FormEvent<HTMLFormElement>) => Promise<void>
   cancelEditMandato: () => void
+  editingAsignacionId: number | null
+  asignacionDraft: AsignacionDraft
+  setAsignacionDraft: Dispatch<SetStateAction<AsignacionDraft>>
+  handleCreateAsignacion: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  cancelEditAsignacion: () => void
   simpleOwners: OwnerOption[]
   patrimonioOwners: OwnerOption[]
   propiedades: PropiedadOption[]
   cuentas: CuentaItem[]
+  mandatos: MandatoItem[]
+  identidades: IdentidadItem[]
   filteredCuentas: CuentaItem[]
   filteredIdentidades: IdentidadItem[]
   filteredMandatos: MandatoItem[]
@@ -139,9 +155,11 @@ export function OperacionWorkspace({
   isLoading: boolean
   startEditCuenta: (row: CuentaItem) => void
   startEditMandato: (row: MandatoItem) => void
+  startEditAsignacion: (row: AsignacionCanalItem) => void
   goToCuentaConciliacion: (cuentaId: number, numeroCuenta: string) => void
   goToMandatoContext: (mandatoId: number) => void
 }) {
+  const assignmentIdentities = identidades.filter((item) => item.canal === asignacionDraft.canal)
   return (
     <>
       {!canEditOperacion ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Operación.</div> : null}
@@ -212,6 +230,33 @@ export function OperacionWorkspace({
             </div>
           </form>
         </section>
+
+        <section className="panel">
+          <div className="section-heading"><div><h2>{editingAsignacionId ? 'Editar asignación' : 'Alta rápida de asignación'}</h2><p>Cobertura de canal entre mandato operativo e identidad de envío.</p></div></div>
+          <form className="entity-form" onSubmit={handleCreateAsignacion}>
+            <select value={asignacionDraft.mandato_operacion_id} onChange={(event) => setAsignacionDraft((current) => ({ ...current, mandato_operacion_id: event.target.value }))}>
+              <option value="">Selecciona mandato</option>
+              {mandatos.map((item) => <option key={item.id} value={item.id}>{item.propiedad_codigo} · {item.administrador_operativo_display}</option>)}
+            </select>
+            <select value={asignacionDraft.canal} onChange={(event) => setAsignacionDraft((current) => ({ ...current, canal: event.target.value, identidad_envio_id: '' }))}>
+              <option value="email">Email</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
+            <select value={asignacionDraft.identidad_envio_id} onChange={(event) => setAsignacionDraft((current) => ({ ...current, identidad_envio_id: event.target.value }))}>
+              <option value="">Selecciona identidad</option>
+              {assignmentIdentities.map((item) => <option key={item.id} value={item.id}>{item.remitente_visible} · {item.owner_display} · {item.estado}</option>)}
+            </select>
+            <input type="number" min="1" placeholder="Prioridad" value={asignacionDraft.prioridad} onChange={(event) => setAsignacionDraft((current) => ({ ...current, prioridad: event.target.value }))} />
+            <select value={asignacionDraft.estado} onChange={(event) => setAsignacionDraft((current) => ({ ...current, estado: event.target.value }))}>
+              <option value="activa">Activa</option>
+              <option value="inactiva">Inactiva</option>
+            </select>
+            <div className="inline-actions">
+              <button type="submit" className="button-primary" disabled={isSubmitting || !canEditOperacion || !asignacionDraft.mandato_operacion_id || !asignacionDraft.identidad_envio_id || !asignacionDraft.prioridad}>{editingAsignacionId ? 'Guardar cambios' : 'Guardar asignación'}</button>
+              {editingAsignacionId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditAsignacion}>Cancelar</button> : null}
+            </div>
+          </form>
+        </section>
       </section>
 
       <TableBlock title="Cuentas recaudadoras" subtitle="Ownership bancario operativo." rows={filteredCuentas} empty="No hay cuentas para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[
@@ -239,6 +284,7 @@ export function OperacionWorkspace({
         { label: 'Prioridad', render: (row) => row.prioridad },
         { label: 'Estado identidad', render: (row) => <Badge label={row.identidad_envio_estado || 'sin estado'} tone={toneFor(row.identidad_envio_estado || '')} /> },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+        { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditAsignacion(row)}>Editar</button> },
       ]} />
       <TableBlock title="Mandatos operativos" subtitle="Separación entre propietario, administrador, recaudador y facturadora." rows={filteredMandatos} empty="No hay mandatos para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[
         { label: 'Propiedad', render: (row) => row.propiedad_codigo },
