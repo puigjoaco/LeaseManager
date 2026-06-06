@@ -39,6 +39,12 @@ comunes con proveedor o administracion, numero de cliente, estado y
 `evidencia_ref` ya redactada por API, de modo que la cobertura exigida por
 Contratos/Etapa 1 sea visible sin usar datos reales ni abrir integraciones.
 
+Nota 2026-06-06: Operacion/Etapa 1 alinea `OperationSnapshotView` y
+backoffice con la redaccion de credenciales de `IdentidadDeEnvio`. El snapshot
+incluye `credencial_ref` redactada, y la UI de identidades la tipa, filtra y
+muestra como referencia operativa visible sin exponer secretos ni conectar
+proveedores.
+
 Nota 2026-06-05: Etapas 2, 3, 4, 5 Contabilidad, Documentos, Etapa 6 y
 Reporting alinean el contrato de `source_trace` con Compliance. Las readiness
 ahora exponen `sections.source_trace_sensitive` y clasifican `source_label` o

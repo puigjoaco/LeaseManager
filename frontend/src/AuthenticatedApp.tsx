@@ -596,6 +596,7 @@ type Identidad = {
   canal: string
   remitente_visible: string
   direccion_o_numero: string
+  credencial_ref: string
   owner_tipo: string
   owner_display: string
   estado: string
@@ -5015,6 +5016,7 @@ function App() {
           item.canal,
           item.owner_display,
           item.direccion_o_numero,
+          item.credencial_ref,
           item.estado,
         ]),
       ),

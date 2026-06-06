@@ -5,7 +5,7 @@ import { Badge, TableBlock } from '../shared'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type OwnerOption = { tipo: string; id: number; label: string }
 type CuentaItem = { id: number; institucion: string; numero_cuenta: string; tipo_cuenta: string; owner_tipo: string; owner_id: number; owner_display: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; uso_operativo: string; modo_operativo: string; evidencia_operativa_ref: string; estado_operativo: string }
-type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; owner_tipo: string; owner_display: string; estado: string }
+type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; credencial_ref: string; owner_tipo: string; owner_display: string; estado: string }
 type MandatoItem = {
   id: number
   propiedad_id: number
@@ -177,6 +177,7 @@ export function OperacionWorkspace({
         { label: 'Remitente', render: (row) => row.remitente_visible },
         { label: 'Canal', render: (row) => row.canal.replaceAll('_', ' ') },
         { label: 'Destino', render: (row) => row.direccion_o_numero },
+        { label: 'Credencial', render: (row) => row.credencial_ref || 'Sin credencial' },
         { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo}` },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />

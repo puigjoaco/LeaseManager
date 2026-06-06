@@ -103,7 +103,9 @@ contra datos reales o snapshot controlado.
   el auditor Etapa 1 bloquean contratos nuevos o heredados sin esa cobertura.
 - Validacion de que las identidades de envio activas usen `credencial_ref`
   trazable no sensible; API y admin/backoffice deben redactar referencias
-  sensibles heredadas antes de exponerlas.
+  sensibles heredadas antes de exponerlas. El snapshot operativo y la tabla de
+  identidades del backoffice muestran la referencia de credencial solo en su
+  version redactada para verificar cobertura de canal sin exponer secretos.
 - Validacion de transiciones operativas: cuentas recaudadoras, mandatos,
   identidades de envio y asignaciones de canal no pueden pausarse,
   suspenderse o inactivarse si dejan contratos vigentes/futuros, mandatos o
