@@ -21,6 +21,10 @@ contra datos reales o snapshot controlado.
 - Sin secretos versionados.
 - Referencias trazables no sensibles de `AuthorizationRef` y `ResponsibleRef`
   en el gate evidencial.
+- El JSON del auditor debe exponer `sections.source_trace`,
+  `sections.source_trace_sensitive`, `sections.final_evidence` y
+  `sections.final_evidence_sensitive` para distinguir trazas faltantes de
+  valores sensibles sin publicar valores crudos.
 - Guard deterministico de higiene del repo: `scripts/assert-repo-hygiene.ps1`
   debe pasar y acceptance lo ejecuta con `-IncludeUntracked` para evitar
   reintroducir `.env`, DBs locales/historicas, bundles generados, dumps,

@@ -138,6 +138,12 @@ Assert-Condition ($audit.source_kind -eq 'local') 'El readiness local debe repor
 Assert-Condition ($audit.evidence_grade -eq $false) 'El readiness local no debe calificar como evidencia de cierre.'
 Assert-Condition ($audit.ready_for_stage1_close -eq $false) 'El readiness local no puede cerrar Etapa 1.'
 Assert-Condition ($audit.classification -eq 'implementado_sin_evidencia') 'El readiness local debe quedar como implementado_sin_evidencia.'
+Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace') 'El JSON debe exponer sections.source_trace.'
+Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace_sensitive') 'El JSON debe exponer sections.source_trace_sensitive.'
+Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'final_evidence') 'El JSON debe exponer sections.final_evidence.'
+Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'final_evidence_sensitive') 'El JSON debe exponer sections.final_evidence_sensitive.'
+Assert-Condition ($audit.sections.source_trace.source_label -eq $true) 'El readiness local debe tener source_label trazable.'
+Assert-Condition ($audit.sections.source_trace_sensitive.source_label -eq $false) 'El source_label local no debe ser sensible.'
 Assert-Condition (-not ($issueCodes -contains 'stage1.data_missing')) 'stage1.data_missing corresponde al gate evidencial con require-data, no al readiness local.'
 Assert-Condition ($aggregateNames -contains 'socios') 'El JSON debe incluir aggregate_classification.'
 if ($usesDefaultDatabase) {
