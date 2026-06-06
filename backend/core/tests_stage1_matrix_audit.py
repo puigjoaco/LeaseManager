@@ -1310,6 +1310,8 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.source_label.faltante', issue_codes)
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace_sensitive']['source_label'])
 
     def test_evidence_grade_source_redacts_sensitive_source_label(self):
         self._create_valid_stage1_matrix()
@@ -1327,6 +1329,9 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage1_close'])
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.source_label.sensible', issue_codes)
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['source_label'])
+        self.assertNotIn('stage1.source_label.faltante', issue_codes)
 
     def test_evidence_grade_source_requires_authorization_and_responsible_refs(self):
         self._create_valid_stage1_matrix()
@@ -1345,6 +1350,11 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.authorization_ref.faltante', issue_codes)
         self.assertIn('stage1.responsible_ref.faltante', issue_codes)
+        self.assertTrue(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+        self.assertFalse(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertFalse(result['sections']['final_evidence']['responsible_ref'])
+        self.assertFalse(result['sections']['final_evidence_sensitive']['responsible_ref'])
 
     def test_evidence_grade_source_redacts_sensitive_authorization_refs(self):
         self._create_valid_stage1_matrix()
@@ -1364,6 +1374,34 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.authorization_ref.sensible', issue_codes)
         self.assertIn('stage1.responsible_ref.sensible', issue_codes)
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertFalse(result['sections']['final_evidence']['responsible_ref'])
+        self.assertTrue(result['sections']['final_evidence_sensitive']['responsible_ref'])
+        self.assertNotIn('stage1.authorization_ref.faltante', issue_codes)
+        self.assertNotIn('stage1.responsible_ref.faltante', issue_codes)
+
+    def test_evidence_grade_source_flags_short_refs_as_sensitive_sections(self):
+        self._create_valid_stage1_matrix()
+
+        result = collect_stage1_matrix_audit(
+            source_kind='snapshot_controlado',
+            source_label='ab',
+            authorization_ref='cd',
+            responsible_ref='ef',
+            require_data=True,
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage1.source_label.sensible', issue_codes)
+        self.assertIn('stage1.authorization_ref.sensible', issue_codes)
+        self.assertIn('stage1.responsible_ref.sensible', issue_codes)
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertFalse(result['sections']['final_evidence']['responsible_ref'])
+        self.assertTrue(result['sections']['final_evidence_sensitive']['responsible_ref'])
 
     def test_controlled_snapshot_with_payment_distribution_can_pass_stage1_matrix_gate(self):
         contrato = self._create_valid_stage1_matrix()
@@ -1385,6 +1423,18 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertEqual(result['summary']['pagos_mensuales'], 1)
         self.assertEqual(result['summary']['distribuciones_cobro_mensual'], 1)
+
+    def test_valid_controlled_snapshot_exposes_trace_sections(self):
+        self._create_valid_stage1_matrix()
+
+        result = self._collect_controlled_snapshot()
+
+        self.assertTrue(result['sections']['source_trace']['source_label'])
+        self.assertTrue(result['sections']['source_trace']['authorization_ref'])
+        self.assertFalse(result['sections']['source_trace_sensitive']['source_label'])
+        self.assertFalse(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertTrue(result['sections']['final_evidence']['responsible_ref'])
+        self.assertFalse(result['sections']['final_evidence_sensitive']['responsible_ref'])
 
     def test_existing_contract_adjustment_with_invalid_dates_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()

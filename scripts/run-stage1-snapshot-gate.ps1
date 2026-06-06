@@ -149,6 +149,16 @@ try {
     $audit = Get-Content -LiteralPath $resolvedOutput -Raw | ConvertFrom-Json
     Assert-Condition ($audit.ready_for_stage1_close -eq $true) 'El auditor no marco ready_for_stage1_close=true.'
     Assert-Condition ($audit.evidence_grade -eq $true) 'La fuente no califica como evidencia de cierre.'
+    Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace') 'El JSON debe exponer sections.source_trace.'
+    Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace_sensitive') 'El JSON debe exponer sections.source_trace_sensitive.'
+    Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'final_evidence') 'El JSON debe exponer sections.final_evidence.'
+    Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'final_evidence_sensitive') 'El JSON debe exponer sections.final_evidence_sensitive.'
+    Assert-Condition ($audit.sections.source_trace.source_label -eq $true) 'La fuente evidencial debe tener source_label trazable.'
+    Assert-Condition ($audit.sections.source_trace.authorization_ref -eq $true) 'La fuente evidencial debe tener authorization_ref trazable.'
+    Assert-Condition ($audit.sections.source_trace_sensitive.source_label -eq $false) 'La fuente evidencial no debe tener source_label sensible.'
+    Assert-Condition ($audit.sections.source_trace_sensitive.authorization_ref -eq $false) 'La fuente evidencial no debe tener authorization_ref sensible.'
+    Assert-Condition ($audit.sections.final_evidence.responsible_ref -eq $true) 'La fuente evidencial debe tener responsible_ref trazable.'
+    Assert-Condition ($audit.sections.final_evidence_sensitive.responsible_ref -eq $false) 'La referencia de responsable no debe ser sensible.'
     Write-Host "Stage 1 matrix gate OK." -ForegroundColor Green
 }
 finally {

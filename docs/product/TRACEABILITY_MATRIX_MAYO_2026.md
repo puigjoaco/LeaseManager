@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-05: Etapa 1 alinea `audit_stage1_matrix` con el contrato de
+trazabilidad usado por etapas posteriores. El auditor y los wrappers exponen
+`sections.source_trace`, `sections.source_trace_sensitive`,
+`sections.final_evidence` y `sections.final_evidence_sensitive`, separando
+fuente/responsable faltante de refs sensibles sin imprimir valores.
+
 Nota 2026-06-05: Etapas 2, 3, 4, 5 Contabilidad, Documentos, Etapa 6 y
 Reporting alinean el contrato de `source_trace` con Compliance. Las readiness
 ahora exponen `sections.source_trace_sensitive` y clasifican `source_label` o

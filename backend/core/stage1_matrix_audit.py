@@ -361,6 +361,20 @@ def _safe_reference(value: str) -> str:
     return normalized
 
 
+def _non_sensitive_trace_reference(value: str) -> bool:
+    normalized = (value or '').strip()
+    return (
+        bool(normalized)
+        and len(normalized) >= 3
+        and not _source_label_looks_sensitive(normalized)
+    )
+
+
+def _sensitive_or_invalid_trace_reference(value: str) -> bool:
+    normalized = (value or '').strip()
+    return bool(normalized) and not _non_sensitive_trace_reference(normalized)
+
+
 def _audit_evidence_source_metadata(
     issues: list[dict[str, Any]],
     *,
@@ -2337,6 +2351,20 @@ def collect_stage1_matrix_audit(
     safe_source_label = _safe_source_label(source_label)
     safe_authorization_ref = _safe_reference(authorization_ref)
     safe_responsible_ref = _safe_reference(responsible_ref)
+    source_trace = {
+        'source_label': _non_sensitive_trace_reference(raw_source_label),
+        'authorization_ref': _non_sensitive_trace_reference(raw_authorization_ref),
+    }
+    source_trace_sensitive = {
+        'source_label': _sensitive_or_invalid_trace_reference(raw_source_label),
+        'authorization_ref': _sensitive_or_invalid_trace_reference(raw_authorization_ref),
+    }
+    final_evidence = {
+        'responsible_ref': _non_sensitive_trace_reference(raw_responsible_ref),
+    }
+    final_evidence_sensitive = {
+        'responsible_ref': _sensitive_or_invalid_trace_reference(raw_responsible_ref),
+    }
     summary = _build_summary()
     has_required_data = _has_required_stage1_data(summary)
 
@@ -2412,6 +2440,12 @@ def collect_stage1_matrix_audit(
         'aggregate_classification': aggregate_classification,
         'audit': {
             'state_transition_metadata_missing': state_transition_metadata_missing,
+        },
+        'sections': {
+            'source_trace': source_trace,
+            'source_trace_sensitive': source_trace_sensitive,
+            'final_evidence': final_evidence,
+            'final_evidence_sensitive': final_evidence_sensitive,
         },
         'has_required_stage1_data': has_required_data,
         'evidence_grade': evidence_grade,
