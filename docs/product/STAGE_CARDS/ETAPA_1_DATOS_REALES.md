@@ -331,7 +331,9 @@ contra datos reales o snapshot controlado.
   renovacion, o con motivo de resolucion sensible, sin cancelar ni reescribir
   efectos producidos; la causal del aviso y sus refs/motivos deben ser no
   sensibles, y API/snapshot/admin/backoffice exponen causales, refs o motivos
-  heredados sensibles solo mediante version redactada.
+  heredados sensibles solo mediante version redactada. La tabla de avisos del
+  backoffice muestra el detalle redactado de registro fuera de plazo y de la
+  resolucion guiada de conflicto de renovacion.
 - Cambio de arrendatario: el flujo operacional guiado crea `AvisoTermino`
   registrado y contrato futuro con nuevo arrendatario en una transaccion,
   conserva el contrato/deuda historica sin reescribir identidad, copia las

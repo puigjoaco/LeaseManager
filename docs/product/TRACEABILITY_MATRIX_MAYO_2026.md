@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-06: Backoffice Contratos expone resolucion guiada de avisos.
+La tabla de `AvisoTermino` muestra registro oportuno o fuera de plazo con su
+alerta, y expone la referencia/motivo de `resolucion_conflicto_renovacion`
+ya redactados por API para revisar conflictos entre aviso, renovacion ejecutada
+y contrato futuro sin reescribir efectos producidos.
+
 Nota 2026-06-05: Etapa 1 alinea `audit_stage1_matrix` con el contrato de
 trazabilidad usado por etapas posteriores. El auditor y los wrappers exponen
 `sections.source_trace`, `sections.source_trace_sensitive`,

@@ -213,6 +213,29 @@ export function ContratosWorkspace({
     return <Badge label="sin codeudor" tone="neutral" />
   }
 
+  function noticeRegistrationTrace(row: AvisoItem) {
+    if (row.registrado_fuera_plazo) {
+      return <div className="inline-actions"><Badge label="fuera plazo" tone="warning" />{row.alerta_registro_fuera_plazo ? <span>{row.alerta_registro_fuera_plazo}</span> : null}</div>
+    }
+    if (row.registrado_at) {
+      return <div className="inline-actions"><Badge label="oportuno" tone="neutral" /><span>{row.registrado_at.slice(0, 10)}</span>{row.fecha_limite_registro_oportuno ? <span>limite {row.fecha_limite_registro_oportuno}</span> : null}</div>
+    }
+    return <Badge label="sin timestamp" tone="danger" />
+  }
+
+  function renewalResolutionTrace(row: AvisoItem) {
+    if (!row.resolucion_conflicto_renovacion_ref) {
+      return <Badge label="sin ref" tone="neutral" />
+    }
+    return (
+      <div className="inline-actions">
+        <Badge label="renovacion resuelta" tone="positive" />
+        <span>{row.resolucion_conflicto_renovacion_ref}</span>
+        {row.resolucion_conflicto_renovacion_motivo ? <span>{row.resolucion_conflicto_renovacion_motivo}</span> : null}
+      </div>
+    )
+  }
+
   return (
     <>
       {!canEditContratos ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Contratos.</div> : null}
@@ -412,9 +435,8 @@ export function ContratosWorkspace({
       <TableBlock title="Avisos de término" subtitle="Base para no renovación y contratos futuros." rows={filteredAvisos} empty="No hay avisos para este filtro." isLoading={isLoading} loadingLabel="Cargando contratos..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
         { label: 'Fecha efectiva', render: (row) => row.fecha_efectiva },
-        { label: 'Registro', render: (row) => row.registrado_fuera_plazo ? <Badge label="fuera plazo" tone="warning" /> : <Badge label={row.registrado_at ? 'oportuno' : 'sin timestamp'} tone={row.registrado_at ? 'neutral' : 'danger'} /> },
-        { label: 'Registrado', render: (row) => row.registrado_at ? row.registrado_at.slice(0, 10) : 'Sin timestamp' },
-        { label: 'Resolución', render: (row) => row.resolucion_conflicto_renovacion_ref ? <Badge label="renovación resuelta" tone="positive" /> : <Badge label="sin ref" tone="neutral" /> },
+        { label: 'Registro', render: (row) => noticeRegistrationTrace(row) },
+        { label: 'Resolucion', render: (row) => renewalResolutionTrace(row) },
         { label: 'Causal', render: (row) => row.causal },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
