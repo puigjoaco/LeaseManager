@@ -282,6 +282,10 @@ Nota 2026-06-06: la alineacion de auditoria de match exige metadata no
 sensible completa (`status`, movimiento, conexion bancaria, cuenta
 recaudadora, estado de conciliacion, tipo y fecha). Un evento de match hueco o
 parcial ya no cuenta como evidencia suficiente para readiness de Etapa 3.
+Nota 2026-06-06: la readiness tambien valida que `metadata.status` sea
+compatible con el camino de conciliacion permitido: match automatico a pago o
+codigo residual, ingreso desconocido, clasificacion manual de cargo o
+regularizacion manual posterior de ingreso desconocido.
 
 Nota 2026-05-31: CobranzaActiva/Etapa 2 alinea mutaciones API y auditoria
 de vista en una transaccion. `AuditCreateUpdateMixin` en Cobranza y los

@@ -57,9 +57,10 @@ sistema igual a saldo banco.
 - Los movimientos que ya quedaron como ingreso desconocido, clasificacion
   manual requerida o conciliado exacto deben conservar auditoria
   `match_attempted` o `match_retried` alineada al movimiento y con metadata no
-  sensible completa de estado, movimiento, conexion, cuenta, tipo y fecha;
-  readiness bloquea snapshots heredados sin ese evento, con metadata incompleta
-  o con metadata de movimiento desalineada.
+  sensible completa de status, movimiento, conexion, cuenta, estado, tipo y
+  fecha; readiness bloquea snapshots heredados sin ese evento, con metadata
+  incompleta, con metadata de movimiento desalineada o con status incompatible
+  con el camino de conciliacion permitido.
 - Abonos parciales o complementarios conciliados a un `PagoMensual` solo son
   validos con resolucion manual auditada de ingreso desconocido; readiness
   bloquea snapshots donde el movimiento parcial quedo como match exacto sin
