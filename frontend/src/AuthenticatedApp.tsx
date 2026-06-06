@@ -522,6 +522,29 @@ function blankCodeudorDraft() {
   }
 }
 
+function addDaysIso(value: string, days: number) {
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day + days))
+  return date.toISOString().slice(0, 10)
+}
+
+function blankTenantReplacementDraft() {
+  return {
+    contrato: '',
+    arrendatario: '',
+    codigo_contrato: '',
+    fecha_inicio: todayIso(),
+    fecha_fin_vigente: todayIso(),
+    causal_aviso: '',
+    monto_base: '',
+    moneda_base: 'CLP',
+    representante_legal_nombre: '',
+    representante_legal_rut: '',
+    resolucion_conflicto_renovacion_ref: '',
+    resolucion_conflicto_renovacion_motivo: '',
+  }
+}
+
 type Socio = {
   id: number
   nombre: string
@@ -1747,6 +1770,7 @@ function App() {
     resolucion_conflicto_renovacion_ref: '',
     resolucion_conflicto_renovacion_motivo: '',
   })
+  const [tenantReplacementDraft, setTenantReplacementDraft] = useState(blankTenantReplacementDraft())
   const [ufDraft, setUfDraft] = useState({
     fecha: todayIso(),
     valor: '',
@@ -2373,6 +2397,7 @@ function App() {
       resolucion_conflicto_renovacion_ref: '',
       resolucion_conflicto_renovacion_motivo: '',
     })
+    setTenantReplacementDraft(blankTenantReplacementDraft())
     setUfDraft({
       fecha: todayIso(),
       valor: '',
@@ -4154,6 +4179,26 @@ function App() {
     navigateWithContext('contratos', row.codigo_contrato, `Editando contrato: ${row.codigo_contrato}`)
   }
 
+  function startTenantReplacementFromContract(row: Contrato) {
+    if (row.estado !== 'vigente') {
+      setFormError('El cambio guiado de arrendatario solo parte desde un contrato vigente.')
+      return
+    }
+    const replacementStart = addDaysIso(row.fecha_fin_vigente, 1)
+    const basePeriod = row.periodos_contractuales_detail[0]
+    setTenantReplacementDraft({
+      ...blankTenantReplacementDraft(),
+      contrato: String(row.id),
+      codigo_contrato: `${row.codigo_contrato}-CAMBIO`,
+      fecha_inicio: replacementStart,
+      fecha_fin_vigente: addDaysIso(row.fecha_fin_vigente, 365),
+      causal_aviso: 'Cambio de arrendatario acordado',
+      monto_base: basePeriod?.monto_base || '',
+      moneda_base: basePeriod?.moneda_base || 'CLP',
+    })
+    navigateWithContext('contratos', row.codigo_contrato, `Cambio de arrendatario: ${row.codigo_contrato}`)
+  }
+
   function cancelEditContrato() {
     setEditingContratoId(null)
     setContratoDraft({
@@ -4185,6 +4230,49 @@ function App() {
       codeudores_solidarios: [blankCodeudorDraft(), blankCodeudorDraft(), blankCodeudorDraft()],
     })
     clearContextNavigation()
+  }
+
+  async function handleTenantReplacement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditContratos) return
+    const currentContract = contratos.find((item) => item.id === Number(tenantReplacementDraft.contrato))
+    const nextTenant = arrendatarios.find((item) => item.id === Number(tenantReplacementDraft.arrendatario))
+    if (!currentContract) {
+      setFormError('Debes seleccionar un contrato vigente para el cambio guiado.')
+      return
+    }
+    if (!nextTenant) {
+      setFormError('Debes seleccionar el nuevo arrendatario.')
+      return
+    }
+    if (currentContract.arrendatario === nextTenant.id) {
+      setFormError('El nuevo arrendatario debe ser distinto al contrato vigente.')
+      return
+    }
+    if (!tenantReplacementDraft.fecha_inicio || !tenantReplacementDraft.fecha_fin_vigente) {
+      setFormError('Debes informar inicio y fin vigente del contrato futuro.')
+      return
+    }
+    const representativeName = tenantReplacementDraft.representante_legal_nombre.trim()
+    const representativeRut = tenantReplacementDraft.representante_legal_rut.trim()
+    if (nextTenant.tipo_arrendatario === 'empresa' && (!representativeName || !representativeRut)) {
+      setFormError('El contrato futuro con arrendatario empresa requiere representante legal con nombre y RUT.')
+      return
+    }
+    const ok = await submitCreate(`/api/v1/contratos/contratos/${currentContract.id}/cambio-arrendatario/`, {
+      arrendatario: nextTenant.id,
+      codigo_contrato: tenantReplacementDraft.codigo_contrato,
+      fecha_inicio: tenantReplacementDraft.fecha_inicio,
+      fecha_fin_vigente: tenantReplacementDraft.fecha_fin_vigente,
+      causal_aviso: tenantReplacementDraft.causal_aviso,
+      ...(tenantReplacementDraft.monto_base ? { monto_base: tenantReplacementDraft.monto_base, moneda_base: tenantReplacementDraft.moneda_base } : {}),
+      ...(representativeName && representativeRut ? { snapshot_representante_legal: { nombre: representativeName, rut: representativeRut, source: 'frontend_backoffice' } } : {}),
+      resolucion_conflicto_renovacion_ref: tenantReplacementDraft.resolucion_conflicto_renovacion_ref,
+      resolucion_conflicto_renovacion_motivo: tenantReplacementDraft.resolucion_conflicto_renovacion_motivo,
+    }, 'Cambio de arrendatario ejecutado correctamente.')
+    if (ok) {
+      setTenantReplacementDraft(blankTenantReplacementDraft())
+    }
   }
 
   async function handleCreateAviso(event: FormEvent<HTMLFormElement>) {
@@ -5989,6 +6077,9 @@ function App() {
           avisoDraft={avisoDraft}
           setAvisoDraft={setAvisoDraft}
           handleCreateAviso={handleCreateAviso}
+          tenantReplacementDraft={tenantReplacementDraft}
+          setTenantReplacementDraft={setTenantReplacementDraft}
+          handleTenantReplacement={handleTenantReplacement}
           mandatos={mandatos}
           propiedades={propiedades}
           identidades={identidades}
@@ -6006,6 +6097,7 @@ function App() {
           isLoading={isContractsSnapshotLoading}
           startEditArrendatario={startEditArrendatario}
           startEditContrato={startEditContrato}
+          startTenantReplacementFromContract={startTenantReplacementFromContract}
           goToArrendatarioContext={goToArrendatarioContext}
           goToContratoContext={goToContratoContext}
           prepareExpedienteForContract={(row) => {

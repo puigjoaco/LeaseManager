@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-06: Backoffice Contratos expone cambio guiado de arrendatario.
+La UI permite preparar el cambio desde un contrato vigente, seleccionar nuevo
+arrendatario, codigo y vigencia del contrato futuro, causal del aviso,
+representante legal cuando aplica y resolucion de conflicto de renovacion,
+llamando al endpoint auditado `cambio-arrendatario/` sin reescribir deuda ni
+identidad historica del contrato saliente.
+
 Nota 2026-06-06: Backoffice Contratos expone resolucion guiada de avisos.
 La tabla de `AvisoTermino` muestra registro oportuno o fuera de plazo con su
 alerta, y expone la referencia/motivo de `resolucion_conflicto_renovacion`

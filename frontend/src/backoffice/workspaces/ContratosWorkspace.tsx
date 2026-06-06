@@ -18,6 +18,7 @@ type ContactoPagoDraft = { arrendatario: string; nombre: string; rol_operativo: 
 type CodeudorDraft = { nombre: string; rut: string; fecha_inclusion: string; estado: string }
 type ContratoDraft = { codigo_contrato: string; mandato_operacion: string; arrendatario: string; identidad_envio_override: string; politica_documental: string; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string; fecha_registro_operativo: string; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; representante_legal_nombre: string; representante_legal_rut: string; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; dia_pago_mensual: string; plazo_notificacion_termino_dias: string; dias_prealerta_admin: string; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string; codeudores_solidarios: CodeudorDraft[] }
 type AvisoDraft = { contrato: string; fecha_efectiva: string; causal: string; estado: string; resolucion_conflicto_renovacion_ref: string; resolucion_conflicto_renovacion_motivo: string }
+type TenantReplacementDraft = { contrato: string; arrendatario: string; codigo_contrato: string; fecha_inicio: string; fecha_fin_vigente: string; causal_aviso: string; monto_base: string; moneda_base: string; representante_legal_nombre: string; representante_legal_rut: string; resolucion_conflicto_renovacion_ref: string; resolucion_conflicto_renovacion_motivo: string }
 
 export function ContratosWorkspace({
   canEditContratos,
@@ -37,6 +38,9 @@ export function ContratosWorkspace({
   avisoDraft,
   setAvisoDraft,
   handleCreateAviso,
+  tenantReplacementDraft,
+  setTenantReplacementDraft,
+  handleTenantReplacement,
   mandatos,
   propiedades,
   identidades,
@@ -54,6 +58,7 @@ export function ContratosWorkspace({
   isLoading,
   startEditArrendatario,
   startEditContrato,
+  startTenantReplacementFromContract,
   goToArrendatarioContext,
   goToContratoContext,
   prepareExpedienteForContract,
@@ -75,6 +80,9 @@ export function ContratosWorkspace({
   avisoDraft: AvisoDraft
   setAvisoDraft: Dispatch<SetStateAction<AvisoDraft>>
   handleCreateAviso: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  tenantReplacementDraft: TenantReplacementDraft
+  setTenantReplacementDraft: Dispatch<SetStateAction<TenantReplacementDraft>>
+  handleTenantReplacement: (event: FormEvent<HTMLFormElement>) => Promise<void>
   mandatos: MandatoItem[]
   propiedades: PropiedadItem[]
   identidades: IdentidadItem[]
@@ -92,6 +100,7 @@ export function ContratosWorkspace({
   isLoading: boolean
   startEditArrendatario: (row: ArrendatarioItem) => void
   startEditContrato: (row: ContratoItem) => void
+  startTenantReplacementFromContract: (row: ContratoItem) => void
   goToArrendatarioContext: (arrendatarioId: number) => void
   goToContratoContext: (contratoId: number) => void
   prepareExpedienteForContract: (row: ContratoItem) => void
@@ -102,6 +111,11 @@ export function ContratosWorkspace({
   const selectedContractTenant = arrendatarios.find((item) => item.id === Number(contratoDraft.arrendatario))
   const selectedContractMandate = mandatos.find((item) => item.id === Number(contratoDraft.mandato_operacion))
   const selectedOverrideIdentity = identidades.find((item) => item.id === Number(contratoDraft.identidad_envio_override))
+  const activeContracts = contratos.filter((item) => item.estado === 'vigente')
+  const selectedReplacementContract = contratos.find((item) => item.id === Number(tenantReplacementDraft.contrato))
+  const selectedReplacementTenant = arrendatarios.find((item) => item.id === Number(tenantReplacementDraft.arrendatario))
+  const replacementIsSameTenant = Boolean(selectedReplacementContract && selectedReplacementTenant && selectedReplacementContract.arrendatario === selectedReplacementTenant.id)
+  const replacementRequiresCompanyRepresentative = selectedReplacementTenant?.tipo_arrendatario === 'empresa'
   const propiedadById = new Map<number, PropiedadItem>(propiedades.map((item) => [item.id, item]))
   const selectedMandateProperty = selectedContractMandate ? propiedadById.get(selectedContractMandate.propiedad_id) : undefined
   const selectedMandateCommonExpenseService = getActiveCommonExpenseService(selectedMandateProperty)
@@ -382,6 +396,36 @@ export function ContratosWorkspace({
             <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos || !avisoDraft.contrato || !avisoDraft.causal}>Guardar aviso</button>
           </form>
         </section>
+
+        <section className="panel">
+          <div className="section-heading"><div><h2>Cambio guiado de arrendatario</h2><p>Termina el contrato vigente y crea el contrato futuro sin reescribir deuda histórica.</p></div></div>
+          <form className="entity-form" onSubmit={handleTenantReplacement}>
+            <select value={tenantReplacementDraft.contrato} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, contrato: event.target.value }))}>
+              <option value="">Contrato vigente</option>
+              {activeContracts.map((item) => <option key={item.id} value={item.id}>{item.codigo_contrato} · {arrendatarioById.get(item.arrendatario)?.nombre_razon_social || item.arrendatario}</option>)}
+            </select>
+            <select value={tenantReplacementDraft.arrendatario} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, arrendatario: event.target.value }))}>
+              <option value="">Nuevo arrendatario</option>
+              {arrendatarios.map((item) => <option key={item.id} value={item.id}>{item.nombre_razon_social}</option>)}
+            </select>
+            <input placeholder="Código contrato futuro" value={tenantReplacementDraft.codigo_contrato} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, codigo_contrato: event.target.value }))} />
+            <input type="date" value={tenantReplacementDraft.fecha_inicio} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, fecha_inicio: event.target.value }))} />
+            <input type="date" value={tenantReplacementDraft.fecha_fin_vigente} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, fecha_fin_vigente: event.target.value }))} />
+            <input placeholder="Causal aviso término" value={tenantReplacementDraft.causal_aviso} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, causal_aviso: event.target.value }))} />
+            <input placeholder="Monto base futuro" value={tenantReplacementDraft.monto_base} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, monto_base: event.target.value }))} />
+            <select value={tenantReplacementDraft.moneda_base} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, moneda_base: event.target.value }))}><option value="CLP">CLP</option><option value="UF">UF</option></select>
+            {replacementRequiresCompanyRepresentative ? (
+              <>
+                <input placeholder="Representante legal nuevo contrato" value={tenantReplacementDraft.representante_legal_nombre} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, representante_legal_nombre: event.target.value }))} />
+                <input placeholder="RUT representante legal" value={tenantReplacementDraft.representante_legal_rut} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, representante_legal_rut: event.target.value }))} />
+              </>
+            ) : null}
+            <input placeholder="Ref. resolución renovación" value={tenantReplacementDraft.resolucion_conflicto_renovacion_ref} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, resolucion_conflicto_renovacion_ref: event.target.value }))} />
+            <input placeholder="Motivo resolución renovación" value={tenantReplacementDraft.resolucion_conflicto_renovacion_motivo} onChange={(event) => setTenantReplacementDraft((current) => ({ ...current, resolucion_conflicto_renovacion_motivo: event.target.value }))} />
+            {replacementIsSameTenant ? <div className="empty-state compact">El nuevo arrendatario debe ser distinto al contrato vigente.</div> : null}
+            <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos || !tenantReplacementDraft.contrato || !tenantReplacementDraft.arrendatario || !tenantReplacementDraft.codigo_contrato || !tenantReplacementDraft.fecha_inicio || !tenantReplacementDraft.fecha_fin_vigente || !tenantReplacementDraft.causal_aviso || replacementIsSameTenant || (replacementRequiresCompanyRepresentative && (!tenantReplacementDraft.representante_legal_nombre.trim() || !tenantReplacementDraft.representante_legal_rut.trim()))}>Ejecutar cambio guiado</button>
+          </form>
+        </section>
       </section>
 
       <TableBlock title="Arrendatarios" subtitle="Base actual de contraparte contractual." rows={filteredArrendatarios} empty="No hay arrendatarios para este filtro." isLoading={isLoading} loadingLabel="Cargando contratos..." columns={[
@@ -414,7 +458,7 @@ export function ContratosWorkspace({
         { label: 'Codeudores', render: (row) => codebtorBadge(row) },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
         { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditContrato(row)}>Editar</button> },
-        { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => goToContratoContext(row.id)}>Cobranza</button><button type="button" className="button-ghost inline-action" onClick={() => prepareExpedienteForContract(row)}>Documentos</button></div> },
+        { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => goToContratoContext(row.id)}>Cobranza</button><button type="button" className="button-ghost inline-action" onClick={() => prepareExpedienteForContract(row)}>Documentos</button>{row.estado === 'vigente' ? <button type="button" className="button-ghost inline-action" onClick={() => startTenantReplacementFromContract(row)}>Cambio arr.</button> : null}</div> },
       ]} />
       <TableBlock title="Codeudores solidarios" subtitle="Snapshots de identidad asociados a contratos." rows={codebtors} empty="No hay codeudores para este filtro." isLoading={isLoading} loadingLabel="Cargando contratos..." columns={[
         { label: 'Contrato', render: (row) => row.contrato_codigo },
