@@ -194,7 +194,11 @@ contra datos reales o snapshot controlado.
   notificaciones y al menos un contacto de pago activo estructurado. Los
   contactos de pago conservan nombre, rol operativo, email o telefono y
   evidencia opcional no sensible; API, snapshot y admin/backoffice exponen
-  evidencia heredada solo mediante version redactada.
+  evidencia heredada solo mediante version redactada. El backoffice de
+  Contratos captura contactos de pago estructurados desde la API auditada,
+  exige arrendatario, nombre y medio operativo antes de enviar, y muestra
+  cobertura de contacto de pago en la tabla de arrendatarios y en una lista
+  dedicada.
 - El admin Django de Contratos no permite alta, edicion ni borrado manual de
   arrendatarios, contactos de pago, contratos, relaciones contrato-propiedad,
   periodos, codeudores ni avisos de termino. Las altas, bajas y cambios

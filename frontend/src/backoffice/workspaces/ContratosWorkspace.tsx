@@ -3,7 +3,8 @@ import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { Badge, TableBlock } from '../shared'
 
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
-type ArrendatarioItem = { id: number; nombre_razon_social: string; rut: string; tipo_arrendatario: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; nacionalidad: string; estado_civil: string; profesion: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean; whatsapp_bloqueo_motivo: string; whatsapp_bloqueo_evidencia_ref: string; whatsapp_bloqueado_at: string | null; whatsapp_rehabilitacion_ref: string; whatsapp_rehabilitado_at: string | null }
+type ContactoPagoItem = { id: number; arrendatario?: number; arrendatario_display?: string; nombre: string; rol_operativo: string; email: string; telefono: string; evidencia_autorizacion_ref: string; es_principal: boolean; estado: string }
+type ArrendatarioItem = { id: number; nombre_razon_social: string; rut: string; tipo_arrendatario: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; nacionalidad: string; estado_civil: string; profesion: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean; whatsapp_bloqueo_motivo: string; whatsapp_bloqueo_evidencia_ref: string; whatsapp_bloqueado_at: string | null; whatsapp_rehabilitacion_ref: string; whatsapp_rehabilitado_at: string | null; contactos_pago?: ContactoPagoItem[] }
 type MandatoItem = { id: number; propiedad_codigo: string; propietario_display: string }
 type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; estado: string }
 type PoliticaFirmaItem = { id: number; tipo_documental: string; estado: string }
@@ -11,6 +12,7 @@ type ContratoItem = { id: number; codigo_contrato: string; mandato_operacion: nu
 type AvisoItem = { id: number; contrato: number; fecha_efectiva: string; causal: string; estado: string; resolucion_conflicto_renovacion_ref: string; resolucion_conflicto_renovacion_motivo: string; registrado_at: string | null; fecha_limite_registro_oportuno: string | null; registrado_fuera_plazo: boolean; alerta_registro_fuera_plazo: string }
 
 type ArrendatarioDraft = { tipo_arrendatario: string; nombre_razon_social: string; rut: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; nacionalidad: string; estado_civil: string; profesion: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean; whatsapp_bloqueo_motivo: string; whatsapp_bloqueo_evidencia_ref: string; whatsapp_rehabilitacion_ref: string }
+type ContactoPagoDraft = { arrendatario: string; nombre: string; rol_operativo: string; email: string; telefono: string; evidencia_autorizacion_ref: string; es_principal: boolean; estado: string }
 type ContratoDraft = { codigo_contrato: string; mandato_operacion: string; arrendatario: string; identidad_envio_override: string; politica_documental: string; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; representante_legal_nombre: string; representante_legal_rut: string; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; dia_pago_mensual: string; plazo_notificacion_termino_dias: string; dias_prealerta_admin: string; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string }
 type AvisoDraft = { contrato: string; fecha_efectiva: string; causal: string; estado: string; resolucion_conflicto_renovacion_ref: string; resolucion_conflicto_renovacion_motivo: string }
 
@@ -21,6 +23,9 @@ export function ContratosWorkspace({
   setArrendatarioDraft,
   handleCreateArrendatario,
   cancelEditArrendatario,
+  contactoPagoDraft,
+  setContactoPagoDraft,
+  handleCreateContactoPago,
   editingContratoId,
   contratoDraft,
   setContratoDraft,
@@ -55,6 +60,9 @@ export function ContratosWorkspace({
   setArrendatarioDraft: Dispatch<SetStateAction<ArrendatarioDraft>>
   handleCreateArrendatario: (event: FormEvent<HTMLFormElement>) => Promise<void>
   cancelEditArrendatario: () => void
+  contactoPagoDraft: ContactoPagoDraft
+  setContactoPagoDraft: Dispatch<SetStateAction<ContactoPagoDraft>>
+  handleCreateContactoPago: (event: FormEvent<HTMLFormElement>) => Promise<void>
   editingContratoId: number | null
   contratoDraft: ContratoDraft
   setContratoDraft: Dispatch<SetStateAction<ContratoDraft>>
@@ -90,6 +98,8 @@ export function ContratosWorkspace({
   const isCompanyContractTenant = selectedContractTenant?.tipo_arrendatario === 'empresa'
   const showCompanyRepresentativeFields = Boolean(isCompanyContractTenant || contratoDraft.representante_legal_nombre || contratoDraft.representante_legal_rut)
   const requiresCompanyRepresentative = Boolean(isCompanyContractTenant && (contratoDraft.estado === 'vigente' || contratoDraft.estado === 'futuro'))
+  const paymentContacts = arrendatarios.flatMap((tenant) => (tenant.contactos_pago ?? []).map((contact) => ({ ...contact, arrendatario: contact.arrendatario ?? tenant.id, arrendatario_display: contact.arrendatario_display || tenant.nombre_razon_social })))
+  const activePaymentContacts = (tenant: ArrendatarioItem) => (tenant.contactos_pago ?? []).filter((contact) => contact.estado === 'activo')
 
   function representativeSnapshotBadge(row: ContratoItem) {
     const tenant = arrendatarioById.get(row.arrendatario)
@@ -99,6 +109,17 @@ export function ContratosWorkspace({
     return row.snapshot_representante_legal?.nombre && row.snapshot_representante_legal?.rut
       ? <Badge label="snapshot" tone="positive" />
       : <Badge label="pendiente" tone="warning" />
+  }
+
+  function paymentContactBadge(row: ArrendatarioItem) {
+    const activeContacts = activePaymentContacts(row)
+    if (activeContacts.some((contact) => contact.es_principal)) {
+      return <Badge label="principal" tone="positive" />
+    }
+    if (activeContacts.length > 0) {
+      return <Badge label="activo" tone="positive" />
+    }
+    return <Badge label="pendiente" tone="warning" />
   }
 
   return (
@@ -140,6 +161,24 @@ export function ContratosWorkspace({
               <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos}>{editingArrendatarioId ? 'Guardar cambios' : 'Guardar arrendatario'}</button>
               {editingArrendatarioId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditArrendatario}>Cancelar</button> : null}
             </div>
+          </form>
+        </section>
+
+        <section className="panel">
+          <div className="section-heading"><div><h2>Contacto de pago</h2><p>Cobertura estructurada requerida para contratos vigentes o futuros.</p></div></div>
+          <form className="entity-form" onSubmit={handleCreateContactoPago}>
+            <select value={contactoPagoDraft.arrendatario} onChange={(event) => setContactoPagoDraft((current) => ({ ...current, arrendatario: event.target.value }))}>
+              <option value="">Selecciona arrendatario</option>
+              {arrendatarios.map((item) => <option key={item.id} value={item.id}>{item.nombre_razon_social}</option>)}
+            </select>
+            <input placeholder="Nombre contacto pago" value={contactoPagoDraft.nombre} onChange={(event) => setContactoPagoDraft((current) => ({ ...current, nombre: event.target.value }))} />
+            <input placeholder="Rol operativo" value={contactoPagoDraft.rol_operativo} onChange={(event) => setContactoPagoDraft((current) => ({ ...current, rol_operativo: event.target.value }))} />
+            <input placeholder="Email pago" value={contactoPagoDraft.email} onChange={(event) => setContactoPagoDraft((current) => ({ ...current, email: event.target.value }))} />
+            <input placeholder="Teléfono pago" value={contactoPagoDraft.telefono} onChange={(event) => setContactoPagoDraft((current) => ({ ...current, telefono: event.target.value }))} />
+            <input placeholder="Evidencia autorización" value={contactoPagoDraft.evidencia_autorizacion_ref} onChange={(event) => setContactoPagoDraft((current) => ({ ...current, evidencia_autorizacion_ref: event.target.value }))} />
+            <label className="checkbox-row"><input type="checkbox" checked={contactoPagoDraft.es_principal} onChange={(event) => setContactoPagoDraft((current) => ({ ...current, es_principal: event.target.checked }))} />Principal</label>
+            <select value={contactoPagoDraft.estado} onChange={(event) => setContactoPagoDraft((current) => ({ ...current, estado: event.target.value }))}><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select>
+            <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos || !contactoPagoDraft.arrendatario || !contactoPagoDraft.nombre.trim() || (!contactoPagoDraft.email.trim() && !contactoPagoDraft.telefono.trim())}>Guardar contacto pago</button>
           </form>
         </section>
 
@@ -218,6 +257,7 @@ export function ContratosWorkspace({
         { label: 'Tipo', render: (row) => row.tipo_arrendatario.replaceAll('_', ' ') },
         { label: 'Perfil doc.', render: (row) => row.nacionalidad || row.estado_civil || row.profesion ? <Badge label="perfil" tone="positive" /> : <Badge label="pendiente" tone="warning" /> },
         { label: 'Contacto', render: (row) => row.email || row.telefono || 'Sin dato' },
+        { label: 'Pago', render: (row) => paymentContactBadge(row) },
         { label: 'WhatsApp', render: (row) => row.whatsapp_bloqueado ? <Badge label={row.whatsapp_bloqueado_at ? 'bloqueado trazado' : 'bloqueado'} tone="danger" /> : row.whatsapp_rehabilitado_at ? <Badge label="rehabilitado" tone="positive" /> : row.whatsapp_opt_in ? <Badge label="opt-in" tone="positive" /> : <Badge label="sin opt-in" tone="warning" /> },
         { label: 'Estado', render: (row) => <Badge label={row.estado_contacto} tone={toneFor(row.estado_contacto)} /> },
         { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditArrendatario(row)}>Editar</button> },
@@ -239,6 +279,15 @@ export function ContratosWorkspace({
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
         { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditContrato(row)}>Editar</button> },
         { label: 'Siguiente paso', render: (row) => <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => goToContratoContext(row.id)}>Cobranza</button><button type="button" className="button-ghost inline-action" onClick={() => prepareExpedienteForContract(row)}>Documentos</button></div> },
+      ]} />
+      <TableBlock title="Contactos de pago" subtitle="Contactos activos e históricos por arrendatario." rows={paymentContacts} empty="No hay contactos de pago para este filtro." isLoading={isLoading} loadingLabel="Cargando contratos..." columns={[
+        { label: 'Arrendatario', render: (row) => row.arrendatario_display || arrendatarioById.get(row.arrendatario || 0)?.nombre_razon_social || row.arrendatario || 'Sin arrendatario' },
+        { label: 'Nombre', render: (row) => row.nombre },
+        { label: 'Rol', render: (row) => row.rol_operativo.replaceAll('_', ' ') },
+        { label: 'Contacto', render: (row) => row.email || row.telefono || 'Sin dato' },
+        { label: 'Evidencia', render: (row) => row.evidencia_autorizacion_ref || 'Sin ref' },
+        { label: 'Principal', render: (row) => row.es_principal ? <Badge label="principal" tone="positive" /> : <Badge label="secundario" tone="neutral" /> },
+        { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
       <TableBlock title="Avisos de término" subtitle="Base para no renovación y contratos futuros." rows={filteredAvisos} empty="No hay avisos para este filtro." isLoading={isLoading} loadingLabel="Cargando contratos..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },

@@ -544,6 +544,19 @@ type Arrendatario = {
   whatsapp_bloqueado_at: string | null
   whatsapp_rehabilitacion_ref: string
   whatsapp_rehabilitado_at: string | null
+  contactos_pago?: ContactoPagoArrendatario[]
+}
+type ContactoPagoArrendatario = {
+  id: number
+  arrendatario?: number
+  arrendatario_display?: string
+  nombre: string
+  rol_operativo: string
+  email: string
+  telefono: string
+  evidencia_autorizacion_ref: string
+  es_principal: boolean
+  estado: string
 }
 type Comunidad = {
   id: number
@@ -1597,6 +1610,16 @@ function App() {
     whatsapp_bloqueo_evidencia_ref: '',
     whatsapp_rehabilitacion_ref: '',
   })
+  const [contactoPagoDraft, setContactoPagoDraft] = useState({
+    arrendatario: '',
+    nombre: '',
+    rol_operativo: 'pago_arriendo',
+    email: '',
+    telefono: '',
+    evidencia_autorizacion_ref: '',
+    es_principal: true,
+    estado: 'activo',
+  })
   const [contratoDraft, setContratoDraft] = useState({
     codigo_contrato: '',
     mandato_operacion: '',
@@ -2217,6 +2240,16 @@ function App() {
       whatsapp_bloqueo_motivo: '',
       whatsapp_bloqueo_evidencia_ref: '',
       whatsapp_rehabilitacion_ref: '',
+    })
+    setContactoPagoDraft({
+      arrendatario: '',
+      nombre: '',
+      rol_operativo: 'pago_arriendo',
+      email: '',
+      telefono: '',
+      evidencia_autorizacion_ref: '',
+      es_principal: true,
+      estado: 'activo',
     })
     setContratoDraft({
       codigo_contrato: '',
@@ -3630,6 +3663,33 @@ function App() {
         whatsapp_rehabilitacion_ref: '',
       })
       setEditingArrendatarioId(null)
+    }
+  }
+
+  async function handleCreateContactoPago(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditContratos) return
+    const ok = await submitCreate('/api/v1/contratos/contactos-pago/', {
+      arrendatario: Number(contactoPagoDraft.arrendatario),
+      nombre: contactoPagoDraft.nombre,
+      rol_operativo: contactoPagoDraft.rol_operativo,
+      email: contactoPagoDraft.email,
+      telefono: contactoPagoDraft.telefono,
+      evidencia_autorizacion_ref: contactoPagoDraft.evidencia_autorizacion_ref,
+      es_principal: contactoPagoDraft.es_principal,
+      estado: contactoPagoDraft.estado,
+    }, 'Contacto de pago creado correctamente.')
+    if (ok) {
+      setContactoPagoDraft({
+        arrendatario: '',
+        nombre: '',
+        rol_operativo: 'pago_arriendo',
+        email: '',
+        telefono: '',
+        evidencia_autorizacion_ref: '',
+        es_principal: true,
+        estado: 'activo',
+      })
     }
   }
 
@@ -5869,6 +5929,9 @@ function App() {
           setArrendatarioDraft={setArrendatarioDraft}
           handleCreateArrendatario={handleCreateArrendatario}
           cancelEditArrendatario={cancelEditArrendatario}
+          contactoPagoDraft={contactoPagoDraft}
+          setContactoPagoDraft={setContactoPagoDraft}
+          handleCreateContactoPago={handleCreateContactoPago}
           editingContratoId={editingContratoId}
           contratoDraft={contratoDraft}
           setContratoDraft={setContratoDraft}
