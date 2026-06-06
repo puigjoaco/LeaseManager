@@ -61,6 +61,14 @@ type ExportacionPrepareDraft = {
   periodo: string
 }
 
+function formatScope(scope: Record<string, unknown>) {
+  const entries = Object.entries(scope ?? {}).filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+  if (entries.length === 0) return 'Sin scope'
+  return entries
+    .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`)
+    .join(' | ')
+}
+
 export function ComplianceWorkspace({
   canEditCompliance,
   politicaRetencionDraft,
@@ -72,6 +80,8 @@ export function ComplianceWorkspace({
   filteredCompliancePolicies,
   filteredComplianceExports,
   complianceExportPreview,
+  complianceRevocationReasons,
+  setComplianceRevocationReasons,
   handleViewExportacionContenido,
   handleRevokeExportacion,
   empresas,
@@ -88,8 +98,10 @@ export function ComplianceWorkspace({
   filteredCompliancePolicies: PoliticaRetencionItem[]
   filteredComplianceExports: ExportacionSensibleItem[]
   complianceExportPreview: ExportacionPreview
+  complianceRevocationReasons: Record<number, string>
+  setComplianceRevocationReasons: Dispatch<SetStateAction<Record<number, string>>>
   handleViewExportacionContenido: (exportId: number) => Promise<void>
-  handleRevokeExportacion: (exportId: number) => Promise<void>
+  handleRevokeExportacion: (exportId: number, motivo: string) => Promise<void>
   empresas: EmpresaItem[]
   socios: SocioItem[]
   isSubmitting: boolean
@@ -229,18 +241,39 @@ export function ComplianceWorkspace({
         columns={[
           { label: 'Categoría', render: (row) => row.categoria_dato },
           { label: 'Tipo', render: (row) => row.export_kind },
+          { label: 'Motivo', render: (row) => row.motivo || 'Sin motivo visible' },
+          { label: 'Scope', render: (row) => formatScope(row.scope_resumen) },
           { label: 'Ref', render: (row) => row.encrypted_ref || row.payload_hash.slice(0, 12) },
           { label: 'Expira', render: (row) => stamp(row.expires_at) },
           { label: 'Hold', render: (row) => row.hold_activo ? 'Sí' : 'No' },
           { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
           {
             label: 'Acción',
-            render: (row) => (
-              <div className="inline-actions">
-                <button type="button" className="button-ghost inline-action" onClick={() => void handleViewExportacionContenido(row.id)}>Ver</button>
-                <button type="button" className="button-ghost inline-action" onClick={() => void handleRevokeExportacion(row.id)} disabled={row.estado !== 'preparada'}>Revocar</button>
-              </div>
-            ),
+            render: (row) => {
+              const revocationReason = complianceRevocationReasons[row.id] ?? ''
+              const canRevoke = canEditCompliance && row.estado === 'preparada'
+              return (
+                <div className="inline-actions compliance-revoke-actions">
+                  <button type="button" className="button-ghost inline-action" onClick={() => void handleViewExportacionContenido(row.id)} disabled={isSubmitting}>Ver</button>
+                  {canRevoke ? (
+                    <input
+                      aria-label={`Motivo de revocacion exportacion ${row.id}`}
+                      placeholder="Motivo revocación"
+                      value={revocationReason}
+                      onChange={(event) => setComplianceRevocationReasons((current) => ({ ...current, [row.id]: event.target.value }))}
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    className="button-ghost inline-action"
+                    onClick={() => void handleRevokeExportacion(row.id, revocationReason)}
+                    disabled={!canRevoke || !revocationReason.trim() || isSubmitting}
+                  >
+                    Revocar
+                  </button>
+                </div>
+              )
+            },
           },
         ]}
       />

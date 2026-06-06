@@ -97,6 +97,9 @@ evidencia respalda el root limpio.
   servicio exige motivo operativo y actor creador trazable; la revocacion desde
   servicio tambien exige motivo operativo no sensible y actor trazable antes
   de persistir la revocacion.
+- El backoffice de Compliance muestra motivo y scope visible ya redactados de
+  exportaciones sensibles, exige motivo no sensible antes de revocar y envia
+  ese motivo a la API para que quede persistido como `revocation_reason`.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.

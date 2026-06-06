@@ -1454,6 +1454,7 @@ function App() {
   const [compliancePolicies, setCompliancePolicies] = useState<PoliticaRetencionDatos[]>([])
   const [complianceExports, setComplianceExports] = useState<ExportacionSensible[]>([])
   const [complianceExportPreview, setComplianceExportPreview] = useState<ExportacionSensiblePreview>(null)
+  const [complianceRevocationReasons, setComplianceRevocationReasons] = useState<Record<number, string>>({})
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -4574,17 +4575,29 @@ function App() {
     }
   }
 
-  async function handleRevokeExportacion(exportId: number) {
+  async function handleRevokeExportacion(exportId: number, motivo: string) {
     if (!canEditCompliance) return
+    const trimmedMotivo = motivo.trim()
+    if (!trimmedMotivo) {
+      setFormError('La revocacion requiere un motivo no sensible.')
+      return
+    }
     const success = await submitMutation(
       `/api/v1/compliance/exportes/${exportId}/revocar/`,
       'POST',
-      {},
+      { motivo: trimmedMotivo },
       'Exportación sensible revocada correctamente.',
       'compliance',
     )
     if (success && complianceExportPreview?.id === exportId) {
       setComplianceExportPreview(null)
+    }
+    if (success) {
+      setComplianceRevocationReasons((current) => {
+        const next = { ...current }
+        delete next[exportId]
+        return next
+      })
     }
   }
 
@@ -5402,6 +5415,7 @@ function App() {
           item.encrypted_ref,
           item.estado,
           item.motivo,
+          JSON.stringify(item.scope_resumen),
         ]),
       ),
     [complianceExports, normalizedSearch],
@@ -5918,6 +5932,8 @@ function App() {
           filteredCompliancePolicies={filteredCompliancePolicies}
           filteredComplianceExports={filteredComplianceExports}
           complianceExportPreview={complianceExportPreview}
+          complianceRevocationReasons={complianceRevocationReasons}
+          setComplianceRevocationReasons={setComplianceRevocationReasons}
           handleViewExportacionContenido={handleViewExportacionContenido}
           handleRevokeExportacion={handleRevokeExportacion}
           empresas={empresas}
