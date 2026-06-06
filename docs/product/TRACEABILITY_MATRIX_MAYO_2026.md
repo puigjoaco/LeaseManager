@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-06: Backoffice Cobranza muestra repactaciones y codigos
+residuales. El snapshot operativo ahora incluye `codigos_residuales`, y el
+workspace lista repactaciones con deuda, plan, saldo, estado y excepcion
+parcial redactada, ademas de codigos `CCR-XXXXXX` con arrendatario, contrato
+origen, saldo, estado y fecha de activacion.
+
 Nota 2026-06-06: Backoffice Cobranza expone WebPay local controlado.
 El workspace permite preparar intentos WebPay desde un pago mensual con
 gate/provider y `return_url_ref` no sensible, confirmar manualmente intentos

@@ -835,6 +835,31 @@ type IntentoPagoWebPay = {
   provider_payload?: Record<string, unknown>
 }
 
+type RepactacionDeuda = {
+  id: number
+  arrendatario: number
+  contrato_origen: number
+  deuda_total_original: string
+  cantidad_cuotas: number
+  monto_cuota: string
+  saldo_pendiente: string
+  estado: string
+  excepcion_parcial_ref: string
+  excepcion_parcial_motivo: string
+  es_repactacion_parcial: boolean
+  tiene_excepcion_parcial: boolean
+}
+
+type CodigoCobroResidual = {
+  id: number
+  referencia_visible: string
+  arrendatario: number
+  contrato_origen: number
+  saldo_actual: string
+  estado: string
+  fecha_activacion: string
+}
+
 type Garantia = {
   id: number
   contrato: number
@@ -1267,6 +1292,8 @@ type CobranzaSnapshot = {
   ajustes: AjusteContrato[]
   pagos: PagoMensual[]
   intentos_webpay: IntentoPagoWebPay[]
+  repactaciones: RepactacionDeuda[]
+  codigos_residuales: CodigoCobroResidual[]
   garantias: Garantia[]
   historial_garantias: HistorialGarantia[]
   estados_cuenta: EstadoCuenta[]
@@ -1528,6 +1555,8 @@ function App() {
   const [ajustes, setAjustes] = useState<AjusteContrato[]>([])
   const [pagos, setPagos] = useState<PagoMensual[]>([])
   const [intentosWebPay, setIntentosWebPay] = useState<IntentoPagoWebPay[]>([])
+  const [repactaciones, setRepactaciones] = useState<RepactacionDeuda[]>([])
+  const [codigosResiduales, setCodigosResiduales] = useState<CodigoCobroResidual[]>([])
   const [garantias, setGarantias] = useState<Garantia[]>([])
   const [historialGarantias, setHistorialGarantias] = useState<HistorialGarantia[]>([])
   const [estadosCuenta, setEstadosCuenta] = useState<EstadoCuenta[]>([])
@@ -2214,6 +2243,8 @@ function App() {
     setAjustes([])
     setPagos([])
     setIntentosWebPay([])
+    setRepactaciones([])
+    setCodigosResiduales([])
     setGarantias([])
     setHistorialGarantias([])
     setEstadosCuenta([])
@@ -2974,6 +3005,8 @@ function App() {
         setAjustes(cobranzaSnapshotPayload.ajustes)
         setPagos(cobranzaSnapshotPayload.pagos)
         setIntentosWebPay(cobranzaSnapshotPayload.intentos_webpay)
+        setRepactaciones(cobranzaSnapshotPayload.repactaciones)
+        setCodigosResiduales(cobranzaSnapshotPayload.codigos_residuales)
         setGarantias(cobranzaSnapshotPayload.garantias)
         setHistorialGarantias(cobranzaSnapshotPayload.historial_garantias)
         setEstadosCuenta(cobranzaSnapshotPayload.estados_cuenta)
@@ -5743,6 +5776,36 @@ function App() {
       ),
     [intentosWebPay, normalizedSearch],
   )
+  const filteredRepactaciones = useMemo(
+    () =>
+      repactaciones.filter((item) =>
+        matches(normalizedSearch, [
+          item.arrendatario,
+          item.contrato_origen,
+          item.deuda_total_original,
+          item.monto_cuota,
+          item.saldo_pendiente,
+          item.estado,
+          item.excepcion_parcial_ref,
+          item.excepcion_parcial_motivo,
+        ]),
+      ),
+    [repactaciones, normalizedSearch],
+  )
+  const filteredCodigosResiduales = useMemo(
+    () =>
+      codigosResiduales.filter((item) =>
+        matches(normalizedSearch, [
+          item.referencia_visible,
+          item.arrendatario,
+          item.contrato_origen,
+          item.saldo_actual,
+          item.estado,
+          item.fecha_activacion,
+        ]),
+      ),
+    [codigosResiduales, normalizedSearch],
+  )
   const filteredGarantias = useMemo(
     () =>
       garantias.filter((item) =>
@@ -6384,6 +6447,8 @@ function App() {
           pagos={pagos}
           gatesCobro={gatesCobro}
           intentosWebPay={intentosWebPay}
+          repactaciones={repactaciones}
+          codigosResiduales={codigosResiduales}
           garantias={garantias}
           arrendatarios={arrendatarios}
           filteredValoresUf={filteredValoresUf}
@@ -6391,6 +6456,8 @@ function App() {
           filteredPagos={filteredPagos}
           filteredGatesCobro={filteredGatesCobro}
           filteredIntentosWebPay={filteredIntentosWebPay}
+          filteredRepactaciones={filteredRepactaciones}
+          filteredCodigosResiduales={filteredCodigosResiduales}
           filteredGarantias={filteredGarantias}
           filteredHistorialGarantias={filteredHistorialGarantias}
           filteredEstadosCuenta={filteredEstadosCuenta}

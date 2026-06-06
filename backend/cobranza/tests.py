@@ -2755,6 +2755,14 @@ class CobranzaAPITests(APITestCase):
             excepcion_parcial_ref='partial-repayment-exception-2026-01',
             excepcion_parcial_motivo='Excepcion parcial heredada en https://example.test/approval?token=secret',
         )
+        residual = CodigoCobroResidual.objects.create(
+            referencia_visible='CCR-ABC123',
+            arrendatario=contrato.arrendatario,
+            contrato_origen=contrato,
+            saldo_actual=Decimal('25000.00'),
+            estado=EstadoCobroResidual.ACTIVE,
+            fecha_activacion=date(2027, 1, 1),
+        )
 
         list_response = self.client.get(reverse('cobranza-repactacion-list'))
         detail_response = self.client.get(reverse('cobranza-repactacion-detail', args=[repayment.id]))
@@ -2769,6 +2777,10 @@ class CobranzaAPITests(APITestCase):
             snapshot_response.data['repactaciones'][0]['excepcion_parcial_motivo'],
             REDACTED_SENSITIVE_REFERENCE,
         )
+        self.assertEqual(snapshot_response.data['codigos_residuales'][0]['id'], residual.id)
+        self.assertEqual(snapshot_response.data['codigos_residuales'][0]['referencia_visible'], 'CCR-ABC123')
+        self.assertEqual(snapshot_response.data['codigos_residuales'][0]['saldo_actual'], Decimal('25000.00'))
+        self.assertEqual(snapshot_response.data['codigos_residuales'][0]['estado'], EstadoCobroResidual.ACTIVE)
         rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
         self.assertNotIn('example.test', rendered)
         self.assertNotIn('token=secret', rendered)

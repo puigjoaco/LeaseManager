@@ -42,6 +42,11 @@ condicionados sin envios reales accidentales.
   heredados activos durante la vigencia del contrato origen. Su saldo debe ser
   coherente con el estado: `activa` conserva saldo pendiente mayor que cero, y
   `pagada` o `cancelada` deben quedar sin saldo pendiente.
+- Backoffice Cobranza debe mostrar repactaciones y codigos residuales desde el
+  snapshot operativo: deuda original, plan, saldo, estado, excepcion parcial
+  redactada, referencia `CCR-XXXXXX`, contrato origen, arrendatario, fecha de
+  activacion y saldo residual. Esto permite revisar el resumen de estado de
+  cuenta sin abrir mutaciones manuales ni datos externos.
 - Estados de cuenta existentes deben estar recalculados contra pagos abiertos,
   repactaciones activas, codigos residuales activos y score de pago; el resumen
   operativo debe exponer porcentaje, meses evaluados, pagos en plazo y pagos
