@@ -209,6 +209,7 @@ Assert-Condition ($audit.PSObject.Properties.Name -contains 'source_kind_authori
 Assert-Condition ($audit.PSObject.Properties.Name -contains 'ready_for_stage2_cobranza') 'El JSON debe exponer ready_for_stage2_cobranza.'
 Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace') 'El JSON debe exponer source_trace.'
 Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace_sensitive') 'El JSON debe exponer source_trace_sensitive.'
+Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'final_evidence') 'El JSON debe exponer final_evidence.'
 Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'final_evidence_sensitive') 'El JSON debe exponer final_evidence_sensitive.'
 if ($isAuthorizedSourceKind) {
     Assert-Condition ($audit.source_kind_authorized_for_close -eq $true) 'La fuente evidencial debe quedar autorizada por tipo.'
@@ -216,6 +217,10 @@ if ($isAuthorizedSourceKind) {
     Assert-Condition ($audit.sections.source_trace.authorization_ref -eq $true) 'La fuente evidencial debe tener authorization_ref trazable.'
     Assert-Condition ($audit.sections.source_trace_sensitive.source_label -eq $false) 'La fuente evidencial no debe tener source_label sensible.'
     Assert-Condition ($audit.sections.source_trace_sensitive.authorization_ref -eq $false) 'La fuente evidencial no debe tener authorization_ref sensible.'
+    Assert-Condition ($audit.sections.final_evidence.stage1_evidence_ref -eq $true) 'La evidencia Etapa 1 debe ser trazable.'
+    Assert-Condition ($audit.sections.final_evidence.email_proof_ref -eq $true) 'La prueba Email debe ser trazable.'
+    Assert-Condition ($audit.sections.final_evidence.webpay_proof_ref -eq $true) 'La prueba WebPay debe ser trazable.'
+    Assert-Condition ($audit.sections.final_evidence.responsible_ref -eq $true) 'La referencia de responsables debe ser trazable.'
     Assert-Condition ($audit.sections.final_evidence_sensitive.stage1_evidence_ref -eq $false) 'La evidencia Etapa 1 no debe ser sensible.'
     Assert-Condition ($audit.sections.final_evidence_sensitive.email_proof_ref -eq $false) 'La prueba Email no debe ser sensible.'
     Assert-Condition ($audit.sections.final_evidence_sensitive.webpay_proof_ref -eq $false) 'La prueba WebPay no debe ser sensible.'

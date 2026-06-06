@@ -13,6 +13,12 @@ trazabilidad usado por etapas posteriores. El auditor y los wrappers exponen
 `sections.final_evidence` y `sections.final_evidence_sensitive`, separando
 fuente/responsable faltante de refs sensibles sin imprimir valores.
 
+Nota 2026-06-06: Los wrappers de gates Etapas 2, 3, 4, 5 Contabilidad,
+Documentos, Etapa 6 y Etapa 7 ahora exigen tambien `sections.final_evidence`
+en el JSON de readiness y, para fuentes evidenciales, verifican que cada ref
+final quede trazable y no sensible. Esto evita aceptar un gate que solo pruebe
+ausencia de sensibilidad sin probar presencia de evidencia final.
+
 Nota 2026-06-05: Etapas 2, 3, 4, 5 Contabilidad, Documentos, Etapa 6 y
 Reporting alinean el contrato de `source_trace` con Compliance. Las readiness
 ahora exponen `sections.source_trace_sensitive` y clasifican `source_label` o
