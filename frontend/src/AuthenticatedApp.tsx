@@ -791,6 +791,7 @@ type PagoMensual = {
   monto_pagado_clp: string
   fecha_vencimiento: string
   fecha_deposito_banco: string | null
+  fecha_pago_webpay: string | null
   fecha_deteccion_sistema: string | null
   estado_pago: string
   dias_mora: number
@@ -806,6 +807,32 @@ type PagoMensual = {
     monto_facturable_clp: string
     requiere_dte: boolean
   }>
+}
+
+type GateCobroExterno = {
+  id: number
+  capacidad_key: string
+  provider_key: string
+  estado_gate: string
+  restricciones_operativas: Record<string, unknown>
+  evidencia_ref: string
+}
+
+type IntentoPagoWebPay = {
+  id: number
+  pago_mensual: number
+  gate_cobro: number
+  provider_key: string
+  monto_clp_snapshot: string
+  buy_order: string
+  session_id?: string
+  return_url_ref?: string
+  estado: string
+  motivo_bloqueo: string
+  external_ref: string
+  fecha_pago_webpay: string | null
+  confirmado_at?: string | null
+  provider_payload?: Record<string, unknown>
 }
 
 type Garantia = {
@@ -1235,9 +1262,11 @@ type ChannelsSnapshot = {
 type CobranzaSnapshot = {
   contratos: Contrato[]
   arrendatarios: Arrendatario[]
+  gates_cobro: GateCobroExterno[]
   valores_uf: ValorUF[]
   ajustes: AjusteContrato[]
   pagos: PagoMensual[]
+  intentos_webpay: IntentoPagoWebPay[]
   garantias: Garantia[]
   historial_garantias: HistorialGarantia[]
   estados_cuenta: EstadoCuenta[]
@@ -1494,9 +1523,11 @@ function App() {
   const [configuracionesNotificacion, setConfiguracionesNotificacion] = useState<ConfiguracionNotificacionItem[]>([])
   const [notificacionesCobranza, setNotificacionesCobranza] = useState<NotificacionCobranzaItem[]>([])
   const [avisos, setAvisos] = useState<AvisoTermino[]>([])
+  const [gatesCobro, setGatesCobro] = useState<GateCobroExterno[]>([])
   const [valoresUf, setValoresUf] = useState<ValorUF[]>([])
   const [ajustes, setAjustes] = useState<AjusteContrato[]>([])
   const [pagos, setPagos] = useState<PagoMensual[]>([])
+  const [intentosWebPay, setIntentosWebPay] = useState<IntentoPagoWebPay[]>([])
   const [garantias, setGarantias] = useState<Garantia[]>([])
   const [historialGarantias, setHistorialGarantias] = useState<HistorialGarantia[]>([])
   const [estadosCuenta, setEstadosCuenta] = useState<EstadoCuenta[]>([])
@@ -1820,6 +1851,17 @@ function App() {
   })
   const [estadoCuentaDraft, setEstadoCuentaDraft] = useState({
     arrendatario_id: '',
+  })
+  const [webpayPrepareDraft, setWebpayPrepareDraft] = useState({
+    pago_mensual: '',
+    gate_cobro: '',
+    provider_key: 'transbank_webpay',
+    return_url_ref: '',
+  })
+  const [webpayConfirmDraft, setWebpayConfirmDraft] = useState({
+    intento_id: '',
+    external_ref: '',
+    fecha_pago_webpay: todayIso(),
   })
   const [conexionDraft, setConexionDraft] = useState({
     cuenta_recaudadora: '',
@@ -2167,9 +2209,11 @@ function App() {
     setMensajesSalientes([])
     setConfiguracionesNotificacion([])
     setAvisos([])
+    setGatesCobro([])
     setValoresUf([])
     setAjustes([])
     setPagos([])
+    setIntentosWebPay([])
     setGarantias([])
     setHistorialGarantias([])
     setEstadosCuenta([])
@@ -2925,9 +2969,11 @@ function App() {
       if (cobranzaSnapshotPayload) {
         setContratos(cobranzaSnapshotPayload.contratos)
         setArrendatarios(cobranzaSnapshotPayload.arrendatarios)
+        setGatesCobro(cobranzaSnapshotPayload.gates_cobro)
         setValoresUf(cobranzaSnapshotPayload.valores_uf)
         setAjustes(cobranzaSnapshotPayload.ajustes)
         setPagos(cobranzaSnapshotPayload.pagos)
+        setIntentosWebPay(cobranzaSnapshotPayload.intentos_webpay)
         setGarantias(cobranzaSnapshotPayload.garantias)
         setHistorialGarantias(cobranzaSnapshotPayload.historial_garantias)
         setEstadosCuenta(cobranzaSnapshotPayload.estados_cuenta)
@@ -4452,6 +4498,56 @@ function App() {
     }
   }
 
+  async function handlePrepareWebpayIntent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCobranza) return
+    if (!webpayPrepareDraft.pago_mensual) {
+      setFormError('Debes seleccionar un pago mensual.')
+      return
+    }
+    const ok = await submitCreate(
+      `/api/v1/cobranza/pagos-mensuales/${Number(webpayPrepareDraft.pago_mensual)}/webpay/preparar/`,
+      {
+        gate_cobro: webpayPrepareDraft.gate_cobro ? Number(webpayPrepareDraft.gate_cobro) : undefined,
+        provider_key: webpayPrepareDraft.provider_key || 'transbank_webpay',
+        return_url_ref: webpayPrepareDraft.return_url_ref,
+      },
+      'Intento WebPay local preparado o bloqueado segun gate.',
+    )
+    if (ok) {
+      setWebpayPrepareDraft({
+        pago_mensual: '',
+        gate_cobro: '',
+        provider_key: 'transbank_webpay',
+        return_url_ref: '',
+      })
+    }
+  }
+
+  async function handleConfirmWebpayIntent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCobranza) return
+    if (!webpayConfirmDraft.intento_id) {
+      setFormError('Debes seleccionar un intento WebPay preparado.')
+      return
+    }
+    const ok = await submitCreate(
+      `/api/v1/cobranza/webpay-intentos/${Number(webpayConfirmDraft.intento_id)}/confirmar-manual/`,
+      {
+        external_ref: webpayConfirmDraft.external_ref,
+        fecha_pago_webpay: webpayConfirmDraft.fecha_pago_webpay,
+      },
+      'Confirmacion WebPay manual registrada correctamente.',
+    )
+    if (ok) {
+      setWebpayConfirmDraft({
+        intento_id: '',
+        external_ref: '',
+        fecha_pago_webpay: todayIso(),
+      })
+    }
+  }
+
   async function handleCreateConexion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditConciliacion) return
@@ -5617,6 +5713,36 @@ function App() {
       ),
     [pagos, normalizedSearch],
   )
+  const filteredGatesCobro = useMemo(
+    () =>
+      gatesCobro.filter((item) =>
+        matches(normalizedSearch, [
+          item.capacidad_key,
+          item.provider_key,
+          item.estado_gate,
+          item.evidencia_ref,
+          JSON.stringify(item.restricciones_operativas || {}),
+        ]),
+      ),
+    [gatesCobro, normalizedSearch],
+  )
+  const filteredIntentosWebPay = useMemo(
+    () =>
+      intentosWebPay.filter((item) =>
+        matches(normalizedSearch, [
+          item.pago_mensual,
+          item.gate_cobro,
+          item.provider_key,
+          item.estado,
+          item.buy_order,
+          item.return_url_ref,
+          item.motivo_bloqueo,
+          item.external_ref,
+          item.fecha_pago_webpay,
+        ]),
+      ),
+    [intentosWebPay, normalizedSearch],
+  )
   const filteredGarantias = useMemo(
     () =>
       garantias.filter((item) =>
@@ -6248,12 +6374,23 @@ function App() {
           estadoCuentaDraft={estadoCuentaDraft}
           setEstadoCuentaDraft={setEstadoCuentaDraft}
           handleRebuildEstadoCuenta={handleRebuildEstadoCuenta}
+          webpayPrepareDraft={webpayPrepareDraft}
+          setWebpayPrepareDraft={setWebpayPrepareDraft}
+          handlePrepareWebpayIntent={handlePrepareWebpayIntent}
+          webpayConfirmDraft={webpayConfirmDraft}
+          setWebpayConfirmDraft={setWebpayConfirmDraft}
+          handleConfirmWebpayIntent={handleConfirmWebpayIntent}
           contratos={contratos}
+          pagos={pagos}
+          gatesCobro={gatesCobro}
+          intentosWebPay={intentosWebPay}
           garantias={garantias}
           arrendatarios={arrendatarios}
           filteredValoresUf={filteredValoresUf}
           filteredAjustes={filteredAjustes}
           filteredPagos={filteredPagos}
+          filteredGatesCobro={filteredGatesCobro}
+          filteredIntentosWebPay={filteredIntentosWebPay}
           filteredGarantias={filteredGarantias}
           filteredHistorialGarantias={filteredHistorialGarantias}
           filteredEstadosCuenta={filteredEstadosCuenta}
