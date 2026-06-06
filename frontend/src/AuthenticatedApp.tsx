@@ -598,6 +598,7 @@ type Identidad = {
   direccion_o_numero: string
   credencial_ref: string
   owner_tipo: string
+  owner_id: number
   owner_display: string
   estado: string
 }
@@ -1500,6 +1501,7 @@ function App() {
   const [editingSocioId, setEditingSocioId] = useState<number | null>(null)
   const [editingPropiedadId, setEditingPropiedadId] = useState<number | null>(null)
   const [editingCuentaId, setEditingCuentaId] = useState<number | null>(null)
+  const [editingIdentidadId, setEditingIdentidadId] = useState<number | null>(null)
   const [editingMandatoId, setEditingMandatoId] = useState<number | null>(null)
   const [editingAsignacionId, setEditingAsignacionId] = useState<number | null>(null)
   const [editingConfigFiscalId, setEditingConfigFiscalId] = useState<number | null>(null)
@@ -1536,6 +1538,15 @@ function App() {
     modo_operativo: 'manual_controlado',
     evidencia_operativa_ref: '',
     estado_operativo: 'activa',
+    owner_tipo: 'empresa',
+    owner_id: '',
+  })
+  const [identidadDraft, setIdentidadDraft] = useState({
+    canal: 'email',
+    remitente_visible: '',
+    direccion_o_numero: '',
+    credencial_ref: '',
+    estado: 'borrador',
     owner_tipo: 'empresa',
     owner_id: '',
   })
@@ -3480,6 +3491,35 @@ function App() {
     }
   }
 
+  async function handleCreateIdentidad(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditOperacion) return
+    const isEdit = editingIdentidadId != null
+    const ok = await submitMutation(
+      isEdit
+        ? `/api/v1/operacion/identidades-envio/${editingIdentidadId}/`
+        : '/api/v1/operacion/identidades-envio/',
+      isEdit ? 'PATCH' : 'POST',
+      {
+        ...identidadDraft,
+        owner_id: Number(identidadDraft.owner_id),
+      },
+      isEdit ? 'Identidad de envío actualizada correctamente.' : 'Identidad de envío creada correctamente.',
+    )
+    if (ok) {
+      setIdentidadDraft({
+        canal: 'email',
+        remitente_visible: '',
+        direccion_o_numero: '',
+        credencial_ref: '',
+        estado: 'borrador',
+        owner_tipo: 'empresa',
+        owner_id: '',
+      })
+      setEditingIdentidadId(null)
+    }
+  }
+
   async function handleCreateMandato(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditOperacion) return
@@ -3790,6 +3830,34 @@ function App() {
       modo_operativo: 'manual_controlado',
       evidencia_operativa_ref: '',
       estado_operativo: 'activa',
+      owner_tipo: 'empresa',
+      owner_id: '',
+    })
+    clearContextNavigation()
+  }
+
+  function startEditIdentidad(row: Identidad) {
+    setEditingIdentidadId(row.id)
+    setIdentidadDraft({
+      canal: row.canal,
+      remitente_visible: row.remitente_visible,
+      direccion_o_numero: row.direccion_o_numero,
+      credencial_ref: row.credencial_ref,
+      estado: row.estado,
+      owner_tipo: row.owner_tipo,
+      owner_id: String(row.owner_id),
+    })
+    navigateWithContext('operacion', row.remitente_visible, `Editando identidad: ${row.remitente_visible}`)
+  }
+
+  function cancelEditIdentidad() {
+    setEditingIdentidadId(null)
+    setIdentidadDraft({
+      canal: 'email',
+      remitente_visible: '',
+      direccion_o_numero: '',
+      credencial_ref: '',
+      estado: 'borrador',
       owner_tipo: 'empresa',
       owner_id: '',
     })
@@ -5727,6 +5795,11 @@ function App() {
           setCuentaDraft={setCuentaDraft}
           handleCreateCuenta={handleCreateCuenta}
           cancelEditCuenta={cancelEditCuenta}
+          editingIdentidadId={editingIdentidadId}
+          identidadDraft={identidadDraft}
+          setIdentidadDraft={setIdentidadDraft}
+          handleCreateIdentidad={handleCreateIdentidad}
+          cancelEditIdentidad={cancelEditIdentidad}
           editingMandatoId={editingMandatoId}
           mandatoDraft={mandatoDraft}
           setMandatoDraft={setMandatoDraft}
@@ -5751,6 +5824,7 @@ function App() {
           isSubmitting={isSubmitting}
           isLoading={isOperationSnapshotLoading}
           startEditCuenta={startEditCuenta}
+          startEditIdentidad={startEditIdentidad}
           startEditMandato={startEditMandato}
           startEditAsignacion={startEditAsignacion}
           goToCuentaConciliacion={(cuentaId, numeroCuenta) => {

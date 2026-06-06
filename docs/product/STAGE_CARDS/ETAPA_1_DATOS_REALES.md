@@ -110,7 +110,10 @@ contra datos reales o snapshot controlado.
   trazable no sensible; API y admin/backoffice deben redactar referencias
   sensibles heredadas antes de exponerlas. El snapshot operativo y la tabla de
   identidades del backoffice muestran la referencia de credencial solo en su
-  version redactada para verificar cobertura de canal sin exponer secretos.
+  version redactada para verificar cobertura de canal sin exponer secretos. El
+  backoffice de Operacion tambien permite crear y editar identidades de envio
+  mediante la API auditada, restringiendo owner a empresa o socio y exigiendo
+  referencia de credencial cuando la identidad queda activa.
 - Validacion de transiciones operativas: cuentas recaudadoras, mandatos,
   identidades de envio y asignaciones de canal no pueden pausarse,
   suspenderse o inactivarse si dejan contratos vigentes/futuros, mandatos o
