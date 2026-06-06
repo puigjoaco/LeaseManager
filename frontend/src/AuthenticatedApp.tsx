@@ -1337,6 +1337,7 @@ type ReportingFinancialSummary = {
     cierre_contable_aprobado: boolean
     banco_cuadrado: boolean
     cuentas_bancarias_con_movimientos: number
+    movimientos_bancarios_sin_resolver: number
     obligaciones_total: number
     obligaciones_pendientes: number
     f29_requerido: boolean

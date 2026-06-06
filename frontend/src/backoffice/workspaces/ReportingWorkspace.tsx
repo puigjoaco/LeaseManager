@@ -64,6 +64,7 @@ type ReportingFinancialSummary = {
     cierre_contable_aprobado: boolean
     banco_cuadrado: boolean
     cuentas_bancarias_con_movimientos: number
+    movimientos_bancarios_sin_resolver: number
     obligaciones_total: number
     obligaciones_pendientes: number
     f29_requerido: boolean
@@ -309,12 +310,13 @@ export function ReportingWorkspace({
             <Metric label="Asientos" value={count(reportingFinancialSummary.asientos_contables)} tone="neutral" />
             <Metric label="DTE emitidos" value={count(reportingFinancialSummary.dtes_emitidos)} tone="neutral" />
           </section>
-          <TableBlock title="Control mensual" subtitle="Cierre, banco, obligaciones y F29 por empresa." rows={reportingFinancialSummary.control_cierre_mensual.map((item) => ({ id: item.empresa_id, ...item }))} empty="No hay control mensual para este resumen." columns={[
+          <TableBlock title="Control mensual" subtitle="Cierre, banco, movimientos no resueltos, obligaciones y F29 por empresa." rows={reportingFinancialSummary.control_cierre_mensual.map((item) => ({ id: item.empresa_id, ...item }))} empty="No hay control mensual para este resumen." columns={[
             { label: 'Empresa', render: (row) => empresaById.get(row.empresa_id)?.razon_social || row.empresa_id },
             { label: 'Control', render: (row) => <Badge label={row.estado_control} tone={row.estado_control === 'listo' ? 'positive' : 'warning'} /> },
             { label: 'Cierre', render: (row) => <Badge label={row.cierre_contable_estado} tone={row.cierre_contable_aprobado ? 'positive' : 'warning'} /> },
             { label: 'Banco', render: (row) => <Badge label={row.banco_cuadrado ? 'cuadrado' : 'bloqueado'} tone={row.banco_cuadrado ? 'positive' : 'danger'} /> },
             { label: 'Mov.', render: (row) => count(row.cuentas_bancarias_con_movimientos) },
+            { label: 'Sin resolver', render: (row) => <Badge label={count(row.movimientos_bancarios_sin_resolver)} tone={row.movimientos_bancarios_sin_resolver > 0 ? 'warning' : 'positive'} /> },
             { label: 'Obl.', render: (row) => `${count(row.obligaciones_total)} / ${count(row.obligaciones_pendientes)}` },
             { label: 'F29', render: (row) => <Badge label={row.f29_requerido ? row.f29_estado : 'no_aplica'} tone={row.f29_requerido ? toneFor(row.f29_estado) : 'neutral'} /> },
             { label: 'Bloqueadores', render: (row) => row.bloqueadores_periodo.join(', ') || 'Ninguno' },
