@@ -552,6 +552,15 @@ type Comunidad = {
   participaciones_detail: unknown[]
   representacion_vigente: { modo_representacion: string; socio_representante_nombre: string; evidencia_ref?: string } | null
 }
+type ServicioPropiedad = {
+  id: number
+  tipo_servicio: string
+  proveedor_nombre: string
+  numero_cliente: string
+  administrador_nombre: string
+  evidencia_ref: string
+  activo: boolean
+}
 type Propiedad = {
   id: number
   rol_avaluo: string
@@ -563,6 +572,7 @@ type Propiedad = {
   owner_tipo: string
   owner_id: number
   owner_display: string
+  servicios?: ServicioPropiedad[]
   estado: string
 }
 type Cuenta = {
@@ -4969,6 +4979,14 @@ function App() {
           item.region,
           item.owner_display,
           item.estado,
+          ...(item.servicios ?? []).flatMap((service) => [
+            service.tipo_servicio,
+            service.proveedor_nombre,
+            service.numero_cliente,
+            service.administrador_nombre,
+            service.evidencia_ref,
+            service.activo ? 'activo' : 'inactivo',
+          ]),
         ]),
       ),
     [propiedades, normalizedSearch],
