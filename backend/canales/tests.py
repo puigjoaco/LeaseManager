@@ -644,8 +644,17 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data), 7)
         self.assertEqual(len(snapshot_response.data['notificaciones_cobranza']), 7)
-        self.assertEqual(snapshot_response.data['notificaciones_cobranza'][0]['canal'], 'email')
-        self.assertEqual(snapshot_response.data['notificaciones_cobranza'][0]['pago_mensual'], payment.id)
+        first_notification = snapshot_response.data['notificaciones_cobranza'][0]
+        self.assertEqual(first_notification['canal'], 'email')
+        self.assertEqual(first_notification['pago_mensual'], payment.id)
+        self.assertEqual(first_notification['arrendatario'], contrato.arrendatario_id)
+        self.assertEqual(first_notification['pago_anio'], 2026)
+        self.assertEqual(first_notification['pago_mes'], 1)
+        self.assertEqual(first_notification['pago_estado'], 'pendiente')
+        self.assertEqual(first_notification['pago_fecha_vencimiento'], '2026-01-05')
+        self.assertEqual(first_notification['pago_monto_facturable_clp'], '100000.00')
+        self.assertTrue(first_notification['configuracion_activa'])
+        self.assertEqual(first_notification['configuracion_dias_notificacion'], [1, 3, 5, 10, 15, 20, 25])
 
     def test_materialize_payment_notification_schedule_creates_audit_event_from_service(self):
         empresa, contrato = self._create_contract_context(codigo='NTF-SCH-AUDIT')

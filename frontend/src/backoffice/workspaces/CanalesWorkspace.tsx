@@ -45,7 +45,15 @@ type NotificacionCobranzaItem = {
   id: number
   pago_mensual: number
   contrato: number
+  arrendatario: number | null
+  pago_anio: number
+  pago_mes: number
+  pago_estado: string
+  pago_fecha_vencimiento: string
+  pago_monto_facturable_clp: string
   configuracion: number
+  configuracion_activa: boolean
+  configuracion_dias_notificacion: number[]
   canal: string
   dia_notificacion: number
   fecha_programada: string
@@ -173,6 +181,8 @@ export function CanalesWorkspace({
   const gateById = new Map(gatesCanales.map((item) => [item.id, item]))
   const identidadById = new Map(identidades.map((item) => [item.id, item]))
   const arrendatarioById = new Map(arrendatarios.map((item) => [item.id, item]))
+  const configuracionById = new Map(filteredConfiguracionesNotificacion.map((item) => [item.id, item]))
+  const mensajeById = new Map(mensajesSalientes.map((item) => [item.id, item]))
   const refValue = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : '')
   const formatPayload = (value?: Record<string, unknown>) => {
     if (!value || Object.keys(value).length === 0) return '-'
@@ -320,12 +330,23 @@ export function CanalesWorkspace({
 
       <TableBlock title="Recordatorios programados" subtitle="Programación local por pago, sin envío externo." rows={filteredNotificacionesCobranza} empty="No hay recordatorios programados para este filtro." isLoading={isLoading} loadingLabel="Cargando canales..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },
-        { label: 'Pago', render: (row) => row.pago_mensual },
+        { label: 'Arrendatario', render: (row) => row.arrendatario ? (arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario) : 'Sin arrendatario' },
+        { label: 'Pago', render: (row) => `${row.pago_mes}/${row.pago_anio} · ${row.pago_estado}` },
+        { label: 'Vencimiento', render: (row) => row.pago_fecha_vencimiento },
+        { label: 'Monto', render: (row) => row.pago_monto_facturable_clp },
         { label: 'Canal', render: (row) => row.canal },
-        { label: 'Día', render: (row) => row.dia_notificacion },
+        { label: 'Cadencia', render: (row) => {
+          const config = configuracionById.get(row.configuracion)
+          const dias = config?.dias_notificacion || row.configuracion_dias_notificacion
+          const estadoConfig = row.configuracion_activa ? 'activa' : 'inactiva'
+          return `${row.dia_notificacion} de ${dias.join(', ')} · ${estadoConfig}`
+        } },
         { label: 'Fecha', render: (row) => row.fecha_programada },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-        { label: 'Mensaje', render: (row) => row.mensaje_saliente || row.motivo_estado || 'Pendiente local' },
+        { label: 'Mensaje', render: (row) => {
+          const message = row.mensaje_saliente ? mensajeById.get(row.mensaje_saliente) : null
+          return message ? `${message.estado} · ${message.destinatario || message.asunto || message.id}` : row.motivo_estado || 'Pendiente local'
+        } },
       ]} />
 
       <TableBlock title="Mensajes salientes" subtitle="Preparados, bloqueados o enviados manualmente." rows={filteredMensajesSalientes} empty="No hay mensajes salientes para este filtro." isLoading={isLoading} loadingLabel="Cargando canales..." columns={[
