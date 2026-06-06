@@ -181,7 +181,10 @@ contra datos reales o snapshot controlado.
   `CodigoConciliacionEfectivo` de la propiedad principal.
 - Validacion de codeudores solidarios: snapshot con nombre/RUT valido desde la
   API anidada y el auditor, sin duplicados activos y maximo 3 activos por
-  contrato.
+  contrato. El backoffice de Contratos permite informar hasta tres codeudores
+  solidarios al crear o editar contratos simples, conserva fecha de inclusion y
+  estado en el payload anidado auditado, y muestra cobertura y detalle de
+  codeudores desde el snapshot del contrato.
 - Validacion de contratos con arrendatario empresa: API/modelo exigen snapshot
   de representante legal con nombre y RUT valido normalizado, y el auditor
   detecta faltantes, incompletos o RUT invalido en datos heredados. El
