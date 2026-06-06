@@ -220,7 +220,10 @@ contra datos reales o snapshot controlado.
 - Override explicito de `IdentidadDeEnvio` por contrato: si existe, debe estar
   activo y pertenecer a la entidad facturadora o al administrador operativo
   autorizado por el mandato; Canales lo usa antes de la asignacion del mandato
-  cuando coincide con el canal solicitado.
+  cuando coincide con el canal solicitado. El backoffice de Contratos filtra el
+  selector de override segun el mandato elegido, solo ofrece identidades activas
+  cuyo owner sea administrador operativo o entidad facturadora autorizada, y
+  marca overrides heredados no elegibles para revision.
 - Politica documental contractual: cada contrato vigente o futuro debe
   referenciar una `PoliticaFirmaYNotaria` activa de tipo
   `contrato_principal`; API, snapshot y auditor Etapa 1 detectan politicas

@@ -5,8 +5,8 @@ import { Badge, TableBlock } from '../shared'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type ContactoPagoItem = { id: number; arrendatario?: number; arrendatario_display?: string; nombre: string; rol_operativo: string; email: string; telefono: string; evidencia_autorizacion_ref: string; es_principal: boolean; estado: string }
 type ArrendatarioItem = { id: number; nombre_razon_social: string; rut: string; tipo_arrendatario: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; nacionalidad: string; estado_civil: string; profesion: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean; whatsapp_bloqueo_motivo: string; whatsapp_bloqueo_evidencia_ref: string; whatsapp_bloqueado_at: string | null; whatsapp_rehabilitacion_ref: string; whatsapp_rehabilitado_at: string | null; contactos_pago?: ContactoPagoItem[] }
-type MandatoItem = { id: number; propiedad_codigo: string; propietario_display: string }
-type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; estado: string }
+type MandatoItem = { id: number; propiedad_codigo: string; propietario_tipo: string; propietario_id: number; propietario_display: string; administrador_operativo_tipo: string; administrador_operativo_id: number; entidad_facturadora_id: number | null; autoriza_comunicacion: boolean }
+type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; owner_tipo: string; owner_id: number; owner_display: string; estado: string }
 type PoliticaFirmaItem = { id: number; tipo_documental: string; estado: string }
 type ContratoItem = { id: number; codigo_contrato: string; mandato_operacion: number; arrendatario: number; identidad_envio_override: number | null; identidad_envio_override_display: string | null; politica_documental: number | null; politica_documental_tipo: string | null; politica_documental_estado: string | null; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string | null; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; fecha_registro_operativo: string | null; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; requiere_notificacion_manual_retroactiva: boolean; alerta_notificacion_manual_retroactiva: string; dia_pago_mensual: number; plazo_notificacion_termino_dias: number; dias_prealerta_admin: number; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; snapshot_representante_legal: { nombre?: string; rut?: string }; contrato_propiedades_detail: Array<{ propiedad: number; propiedad_codigo: string; propiedad_direccion: string; rol_en_contrato: string }>; periodos_contractuales_detail: Array<{ numero_periodo: number; fecha_inicio: string; fecha_fin: string; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string; politica_base_renovacion_ref: string; politica_base_renovacion_motivo: string }>; codeudores_solidarios_detail: Array<{ id: number; snapshot_identidad: { nombre?: string; rut?: string }; fecha_inclusion: string; estado: string }> }
 type AvisoItem = { id: number; contrato: number; fecha_efectiva: string; causal: string; estado: string; resolucion_conflicto_renovacion_ref: string; resolucion_conflicto_renovacion_motivo: string; registrado_at: string | null; fecha_limite_registro_oportuno: string | null; registrado_fuera_plazo: boolean; alerta_registro_fuera_plazo: string }
@@ -96,6 +96,8 @@ export function ContratosWorkspace({
   const requiresDocumentPolicy = contratoDraft.estado === 'vigente' || contratoDraft.estado === 'futuro'
   const requiresTerminationProrationTrace = contratoDraft.estado === 'terminado_anticipadamente'
   const selectedContractTenant = arrendatarios.find((item) => item.id === Number(contratoDraft.arrendatario))
+  const selectedContractMandate = mandatos.find((item) => item.id === Number(contratoDraft.mandato_operacion))
+  const selectedOverrideIdentity = identidades.find((item) => item.id === Number(contratoDraft.identidad_envio_override))
   const isCompanyContractTenant = selectedContractTenant?.tipo_arrendatario === 'empresa'
   const showCompanyRepresentativeFields = Boolean(isCompanyContractTenant || contratoDraft.representante_legal_nombre || contratoDraft.representante_legal_rut)
   const requiresCompanyRepresentative = Boolean(isCompanyContractTenant && (contratoDraft.estado === 'vigente' || contratoDraft.estado === 'futuro'))
@@ -106,6 +108,11 @@ export function ContratosWorkspace({
     contrato: contract.id,
     contrato_codigo: contract.codigo_contrato,
   })))
+  const eligibleOverrideIdentities = selectedContractMandate
+    ? identidades.filter((identity) => isIdentityOverrideEligible(identity, selectedContractMandate))
+    : []
+  const selectedOverrideIsEligible = !contratoDraft.identidad_envio_override
+    || Boolean(selectedContractMandate && selectedOverrideIdentity && isIdentityOverrideEligible(selectedOverrideIdentity, selectedContractMandate))
 
   function updateCodeudorDraft(index: number, values: Partial<CodeudorDraft>) {
     setContratoDraft((current) => ({
@@ -122,6 +129,34 @@ export function ContratosWorkspace({
     return row.snapshot_representante_legal?.nombre && row.snapshot_representante_legal?.rut
       ? <Badge label="snapshot" tone="positive" />
       : <Badge label="pendiente" tone="warning" />
+  }
+
+  function ownerKey(ownerType: string, ownerId: number | null) {
+    return `${ownerType}:${ownerId ?? ''}`
+  }
+
+  function isIdentityOverrideEligible(identity: IdentidadItem, mandato: MandatoItem) {
+    if (identity.estado !== 'activa') {
+      return false
+    }
+    const identityOwner = ownerKey(identity.owner_tipo, identity.owner_id)
+    const adminOwner = ownerKey(mandato.administrador_operativo_tipo, mandato.administrador_operativo_id)
+    const facturadoraOwner = mandato.entidad_facturadora_id ? ownerKey('empresa', mandato.entidad_facturadora_id) : null
+    const propietarioOwner = ownerKey(mandato.propietario_tipo, mandato.propietario_id)
+    const ownerIsAllowed = identityOwner === adminOwner || identityOwner === facturadoraOwner
+    return ownerIsAllowed && (identityOwner === propietarioOwner || mandato.autoriza_comunicacion)
+  }
+
+  function identityOverrideBadge(row: ContratoItem) {
+    if (!row.identidad_envio_override) {
+      return <Badge label="mandato" tone="neutral" />
+    }
+    const identity = identidades.find((item) => item.id === row.identidad_envio_override)
+    const mandate = mandatoById.get(row.mandato_operacion)
+    if (identity && mandate && isIdentityOverrideEligible(identity, mandate)) {
+      return <Badge label="override validado" tone="positive" />
+    }
+    return <Badge label="override revisar" tone="warning" />
   }
 
   function paymentContactBadge(row: ArrendatarioItem) {
@@ -220,7 +255,8 @@ export function ContratosWorkspace({
             </select>
             <select value={contratoDraft.identidad_envio_override} onChange={(event) => setContratoDraft((current) => ({ ...current, identidad_envio_override: event.target.value }))}>
               <option value="">Identidad por mandato</option>
-              {identidades.filter((item) => item.estado === 'activa').map((item) => <option key={item.id} value={item.id}>{item.canal} · {item.remitente_visible}</option>)}
+              {selectedOverrideIdentity && !selectedOverrideIsEligible ? <option value={selectedOverrideIdentity.id} disabled>{selectedOverrideIdentity.canal} · {selectedOverrideIdentity.remitente_visible} · no elegible</option> : null}
+              {eligibleOverrideIdentities.map((item) => <option key={item.id} value={item.id}>{item.canal} · {item.remitente_visible} · {item.owner_display}</option>)}
             </select>
             <select value={contratoDraft.politica_documental} onChange={(event) => setContratoDraft((current) => ({ ...current, politica_documental: event.target.value }))}>
               <option value="">Política documental</option>
@@ -260,7 +296,7 @@ export function ContratosWorkspace({
               </div>
             ))}
             <div className="inline-actions">
-              <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos || !contratoDraft.codigo_contrato || !contratoDraft.mandato_operacion || !contratoDraft.arrendatario || !contratoDraft.monto_base || (requiresDocumentPolicy && !contratoDraft.politica_documental) || (requiresCompanyRepresentative && (!contratoDraft.representante_legal_nombre.trim() || !contratoDraft.representante_legal_rut.trim())) || (requiresTerminationProrationTrace && (!contratoDraft.terminacion_anticipada_prorrata_ref || !contratoDraft.terminacion_anticipada_prorrata_motivo))}>{editingContratoId ? 'Guardar cambios' : 'Guardar contrato'}</button>
+              <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos || !contratoDraft.codigo_contrato || !contratoDraft.mandato_operacion || !contratoDraft.arrendatario || !contratoDraft.monto_base || !selectedOverrideIsEligible || (requiresDocumentPolicy && !contratoDraft.politica_documental) || (requiresCompanyRepresentative && (!contratoDraft.representante_legal_nombre.trim() || !contratoDraft.representante_legal_rut.trim())) || (requiresTerminationProrationTrace && (!contratoDraft.terminacion_anticipada_prorrata_ref || !contratoDraft.terminacion_anticipada_prorrata_motivo))}>{editingContratoId ? 'Guardar cambios' : 'Guardar contrato'}</button>
               {editingContratoId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditContrato}>Cancelar</button> : null}
             </div>
           </form>
@@ -299,7 +335,7 @@ export function ContratosWorkspace({
         { label: 'Código', render: (row) => row.codigo_contrato },
         { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
         { label: 'Mandato', render: (row) => mandatoById.get(row.mandato_operacion)?.propiedad_codigo || row.mandato_operacion },
-        { label: 'Identidad', render: (row) => row.identidad_envio_override_display || 'Mandato' },
+        { label: 'Identidad', render: (row) => identityOverrideBadge(row) },
         { label: 'Política', render: (row) => row.politica_documental_tipo === 'contrato_principal' && row.politica_documental_estado === 'activa' ? <Badge label="contrato" tone="positive" /> : <Badge label="pendiente" tone="warning" /> },
         { label: 'Rep. legal', render: (row) => representativeSnapshotBadge(row) },
         { label: 'Propiedad', render: (row) => row.contrato_propiedades_detail[0] ? `${row.contrato_propiedades_detail[0].propiedad_codigo} · ${row.contrato_propiedades_detail[0].propiedad_direccion}` : 'Sin propiedad' },
