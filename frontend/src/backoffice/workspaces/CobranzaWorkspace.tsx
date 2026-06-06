@@ -7,7 +7,8 @@ type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
 type ValorUFItem = { id: number; fecha: string; valor: string; source_key: string; evidencia_ref: string; motivo_carga: string; responsable_ref: string }
 type AjusteContratoItem = { id: number; contrato: number; tipo_ajuste: string; monto: string; moneda: string; mes_inicio: string; mes_fin: string; activo: boolean }
-type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_efecto_codigo_efectivo_clp: string; moneda_calculo: string; uf_fecha_usada: string | null; uf_valor_usado: string | null; uf_source_key: string; monto_pagado_clp: string; fecha_vencimiento: string; fecha_pago_webpay: string | null; estado_pago: string; dias_mora: number; resolucion_pago_excepcional_ref: string; resolucion_pago_excepcional_motivo: string }
+type DistribucionPagoItem = { id: number; beneficiario_tipo: string; beneficiario_id: number; beneficiario_display: string; porcentaje_snapshot: string; monto_devengado_clp: string; monto_facturable_clp: string; monto_conciliado_clp: string; requiere_dte: boolean }
+type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_efecto_codigo_efectivo_clp: string; moneda_calculo: string; uf_fecha_usada: string | null; uf_valor_usado: string | null; uf_source_key: string; monto_pagado_clp: string; fecha_vencimiento: string; fecha_pago_webpay: string | null; estado_pago: string; dias_mora: number; resolucion_pago_excepcional_ref: string; resolucion_pago_excepcional_motivo: string; distribuciones_detail: DistribucionPagoItem[] }
 type GateCobroExternoItem = { id: number; capacidad_key: string; provider_key: string; estado_gate: string; restricciones_operativas: Record<string, unknown>; evidencia_ref: string }
 type IntentoPagoWebPayItem = { id: number; pago_mensual: number; gate_cobro: number; provider_key: string; monto_clp_snapshot: string; buy_order: string; session_id?: string; return_url_ref?: string; estado: string; motivo_bloqueo: string; external_ref: string; fecha_pago_webpay: string | null; confirmado_at?: string | null; provider_payload?: Record<string, unknown> }
 type RepactacionDeudaItem = { id: number; arrendatario: number; contrato_origen: number; deuda_total_original: string; cantidad_cuotas: number; monto_cuota: string; saldo_pendiente: string; estado: string; excepcion_parcial_ref: string; excepcion_parcial_motivo: string; es_repactacion_parcial: boolean; tiene_excepcion_parcial: boolean }
@@ -61,6 +62,13 @@ function editableReference(value?: string) {
 function formatPayload(value?: Record<string, unknown>) {
   if (!value || Object.keys(value).length === 0) return '-'
   return JSON.stringify(value)
+}
+
+function formatDistribuciones(items?: DistribucionPagoItem[]) {
+  if (!items || items.length === 0) return 'Sin distribucion'
+  return items
+    .map((item) => `${item.beneficiario_display} ${item.porcentaje_snapshot}% dev ${item.monto_devengado_clp} fact ${item.monto_facturable_clp}${item.requiere_dte ? ' DTE' : ''}`)
+    .join(' | ')
 }
 
 export function CobranzaWorkspace({
@@ -383,6 +391,7 @@ export function CobranzaWorkspace({
         { label: 'Periodo', render: (row) => `${row.mes}/${row.anio}` },
         { label: 'Facturable', render: (row) => row.monto_facturable_clp },
         { label: 'Calculado', render: (row) => row.monto_calculado_clp },
+        { label: 'Distribución', render: (row) => formatDistribuciones(row.distribuciones_detail) },
         { label: 'Efecto código', render: (row) => row.monto_efecto_codigo_efectivo_clp },
         { label: 'UF usada', render: (row) => row.moneda_calculo === 'UF' ? `${row.uf_valor_usado || '-'} · ${row.uf_fecha_usada || '-'} · ${row.uf_source_key || '-'}` : row.moneda_calculo },
         { label: 'Pagado', render: (row) => row.monto_pagado_clp },

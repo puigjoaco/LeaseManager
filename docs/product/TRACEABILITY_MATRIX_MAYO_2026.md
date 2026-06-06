@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-06: Backoffice Cobranza muestra distribucion economica de pagos.
+El snapshot de `pagos` ahora incluye `distribuciones_detail` con beneficiario,
+porcentaje snapshot, monto devengado, monto facturable, monto conciliado y
+bandera DTE; el workspace muestra esos datos y el buscador global los cubre sin
+recalcular ni abrir fuentes externas.
+
 Nota 2026-06-06: Backoffice Canales muestra trazabilidad de recordatorios
 programados. El snapshot de `notificaciones_cobranza` ahora expone
 arrendatario, mes/ano, estado, vencimiento y monto facturable del pago, ademas

@@ -47,6 +47,10 @@ condicionados sin envios reales accidentales.
   redactada, referencia `CCR-XXXXXX`, contrato origen, arrendatario, fecha de
   activacion y saldo residual. Esto permite revisar el resumen de estado de
   cuenta sin abrir mutaciones manuales ni datos externos.
+- Backoffice Cobranza debe mostrar la distribucion economica de cada pago
+  mensual desde el snapshot operativo: beneficiario, porcentaje snapshot,
+  monto devengado, monto facturable, monto conciliado y bandera DTE. Esto
+  permite revisar atribucion economica sin recalcular ni abrir fuentes externas.
 - Estados de cuenta existentes deben estar recalculados contra pagos abiertos,
   repactaciones activas, codigos residuales activos y score de pago; el resumen
   operativo debe exponer porcentaje, meses evaluados, pagos en plazo y pagos
