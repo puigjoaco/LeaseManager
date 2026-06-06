@@ -172,7 +172,10 @@ contra datos reales o snapshot controlado.
   para no destruir cobertura operativa ni evidencia. El backoffice de
   Patrimonio muestra los servicios de cada propiedad desde el snapshot
   redaccionado para que la cobertura de gastos comunes sea verificable antes
-  de construir contratos dependientes.
+  de construir contratos dependientes. El backoffice de Contratos consume esa
+  cobertura del mandato seleccionado, muestra el estado del gasto comun activo
+  y bloquea el guardado de contratos vigentes/futuros con gastos comunes cuando
+  la propiedad principal no conserva ese servicio estructurado.
 - Validacion de roles contrato-propiedad: exactamente una propiedad principal
   y, si hay pareja, una propiedad vinculada.
 - Validacion de que cada contrato vigente o futuro cubra una sola propiedad o

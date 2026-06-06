@@ -5984,6 +5984,7 @@ function App() {
           setAvisoDraft={setAvisoDraft}
           handleCreateAviso={handleCreateAviso}
           mandatos={mandatos}
+          propiedades={propiedades}
           identidades={identidades}
           politicasFirma={politicasFirma}
           arrendatarios={arrendatarios}

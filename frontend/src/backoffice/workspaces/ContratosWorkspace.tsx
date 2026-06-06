@@ -5,7 +5,9 @@ import { Badge, TableBlock } from '../shared'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type ContactoPagoItem = { id: number; arrendatario?: number; arrendatario_display?: string; nombre: string; rol_operativo: string; email: string; telefono: string; evidencia_autorizacion_ref: string; es_principal: boolean; estado: string }
 type ArrendatarioItem = { id: number; nombre_razon_social: string; rut: string; tipo_arrendatario: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; nacionalidad: string; estado_civil: string; profesion: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean; whatsapp_bloqueo_motivo: string; whatsapp_bloqueo_evidencia_ref: string; whatsapp_bloqueado_at: string | null; whatsapp_rehabilitacion_ref: string; whatsapp_rehabilitado_at: string | null; contactos_pago?: ContactoPagoItem[] }
-type MandatoItem = { id: number; propiedad_codigo: string; propietario_tipo: string; propietario_id: number; propietario_display: string; administrador_operativo_tipo: string; administrador_operativo_id: number; entidad_facturadora_id: number | null; autoriza_comunicacion: boolean }
+type ServicioPropiedadItem = { id: number; tipo_servicio: string; proveedor_nombre: string; numero_cliente: string; administrador_nombre: string; evidencia_ref: string; activo: boolean }
+type PropiedadItem = { id: number; codigo_propiedad: string; servicios?: ServicioPropiedadItem[] }
+type MandatoItem = { id: number; propiedad_id: number; propiedad_codigo: string; propietario_tipo: string; propietario_id: number; propietario_display: string; administrador_operativo_tipo: string; administrador_operativo_id: number; entidad_facturadora_id: number | null; autoriza_comunicacion: boolean }
 type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; owner_tipo: string; owner_id: number; owner_display: string; estado: string }
 type PoliticaFirmaItem = { id: number; tipo_documental: string; estado: string }
 type ContratoItem = { id: number; codigo_contrato: string; mandato_operacion: number; arrendatario: number; identidad_envio_override: number | null; identidad_envio_override_display: string | null; politica_documental: number | null; politica_documental_tipo: string | null; politica_documental_estado: string | null; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string | null; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; fecha_registro_operativo: string | null; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; requiere_notificacion_manual_retroactiva: boolean; alerta_notificacion_manual_retroactiva: string; dia_pago_mensual: number; plazo_notificacion_termino_dias: number; dias_prealerta_admin: number; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; snapshot_representante_legal: { nombre?: string; rut?: string }; contrato_propiedades_detail: Array<{ propiedad: number; propiedad_codigo: string; propiedad_direccion: string; rol_en_contrato: string }>; periodos_contractuales_detail: Array<{ numero_periodo: number; fecha_inicio: string; fecha_fin: string; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string; politica_base_renovacion_ref: string; politica_base_renovacion_motivo: string }>; codeudores_solidarios_detail: Array<{ id: number; snapshot_identidad: { nombre?: string; rut?: string }; fecha_inclusion: string; estado: string }> }
@@ -36,6 +38,7 @@ export function ContratosWorkspace({
   setAvisoDraft,
   handleCreateAviso,
   mandatos,
+  propiedades,
   identidades,
   politicasFirma,
   arrendatarios,
@@ -73,6 +76,7 @@ export function ContratosWorkspace({
   setAvisoDraft: Dispatch<SetStateAction<AvisoDraft>>
   handleCreateAviso: (event: FormEvent<HTMLFormElement>) => Promise<void>
   mandatos: MandatoItem[]
+  propiedades: PropiedadItem[]
   identidades: IdentidadItem[]
   politicasFirma: PoliticaFirmaItem[]
   arrendatarios: ArrendatarioItem[]
@@ -98,6 +102,11 @@ export function ContratosWorkspace({
   const selectedContractTenant = arrendatarios.find((item) => item.id === Number(contratoDraft.arrendatario))
   const selectedContractMandate = mandatos.find((item) => item.id === Number(contratoDraft.mandato_operacion))
   const selectedOverrideIdentity = identidades.find((item) => item.id === Number(contratoDraft.identidad_envio_override))
+  const propiedadById = new Map<number, PropiedadItem>(propiedades.map((item) => [item.id, item]))
+  const selectedMandateProperty = selectedContractMandate ? propiedadById.get(selectedContractMandate.propiedad_id) : undefined
+  const selectedMandateCommonExpenseService = getActiveCommonExpenseService(selectedMandateProperty)
+  const requiresCommonExpenseService = Boolean(contratoDraft.tiene_gastos_comunes && (contratoDraft.estado === 'vigente' || contratoDraft.estado === 'futuro'))
+  const commonExpenseServiceIsCovered = !requiresCommonExpenseService || Boolean(selectedMandateCommonExpenseService)
   const isCompanyContractTenant = selectedContractTenant?.tipo_arrendatario === 'empresa'
   const showCompanyRepresentativeFields = Boolean(isCompanyContractTenant || contratoDraft.representante_legal_nombre || contratoDraft.representante_legal_rut)
   const requiresCompanyRepresentative = Boolean(isCompanyContractTenant && (contratoDraft.estado === 'vigente' || contratoDraft.estado === 'futuro'))
@@ -157,6 +166,29 @@ export function ContratosWorkspace({
       return <Badge label="override validado" tone="positive" />
     }
     return <Badge label="override revisar" tone="warning" />
+  }
+
+  function getActiveCommonExpenseService(propiedad: PropiedadItem | undefined) {
+    return (propiedad?.servicios ?? []).find((service) => service.activo && service.tipo_servicio === 'gasto_comun')
+  }
+
+  function primaryPropertyForContract(row: ContratoItem) {
+    const primaryPropertyId = row.contrato_propiedades_detail.find((item) => item.rol_en_contrato === 'principal')?.propiedad
+      ?? row.contrato_propiedades_detail[0]?.propiedad
+    return primaryPropertyId ? propiedadById.get(primaryPropertyId) : undefined
+  }
+
+  function commonExpenseBadge(row: ContratoItem) {
+    if (!row.tiene_gastos_comunes) {
+      return <Badge label="no aplica" tone="neutral" />
+    }
+    if (getActiveCommonExpenseService(primaryPropertyForContract(row))) {
+      return <Badge label="servicio activo" tone="positive" />
+    }
+    if (row.estado === 'vigente' || row.estado === 'futuro') {
+      return <Badge label="sin servicio" tone="warning" />
+    }
+    return <Badge label="histórico" tone="neutral" />
   }
 
   function paymentContactBadge(row: ArrendatarioItem) {
@@ -286,7 +318,16 @@ export function ContratosWorkspace({
             <input placeholder="Plazo aviso término" value={contratoDraft.plazo_notificacion_termino_dias} onChange={(event) => setContratoDraft((current) => ({ ...current, plazo_notificacion_termino_dias: event.target.value }))} />
             <input placeholder="Prealerta admin" value={contratoDraft.dias_prealerta_admin} onChange={(event) => setContratoDraft((current) => ({ ...current, dias_prealerta_admin: event.target.value }))} />
             <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_tramos} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_tramos: event.target.checked }))} />Tiene tramos</label>
-            <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_gastos_comunes} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_gastos_comunes: event.target.checked }))} />Tiene gastos comunes</label>
+            <div className="inline-actions">
+              <label className="checkbox-row"><input type="checkbox" checked={contratoDraft.tiene_gastos_comunes} onChange={(event) => setContratoDraft((current) => ({ ...current, tiene_gastos_comunes: event.target.checked }))} />Tiene gastos comunes</label>
+              {selectedContractMandate ? (
+                selectedMandateCommonExpenseService
+                  ? <Badge label="gasto común activo" tone="positive" />
+                  : <Badge label="sin gasto común activo" tone={requiresCommonExpenseService ? 'warning' : 'neutral'} />
+              ) : <Badge label="selecciona mandato" tone="neutral" />}
+            </div>
+            {selectedMandateCommonExpenseService ? <div className="empty-state compact">Servicio: {selectedMandateCommonExpenseService.administrador_nombre || selectedMandateCommonExpenseService.proveedor_nombre || 'proveedor no informado'} · cliente {selectedMandateCommonExpenseService.numero_cliente || 'sin número'}</div> : null}
+            {requiresCommonExpenseService && !selectedMandateCommonExpenseService ? <div className="empty-state compact">La propiedad del mandato debe tener un `ServicioPropiedad` activo de tipo gasto común antes de guardar un contrato vigente o futuro con gastos comunes.</div> : null}
             {contratoDraft.codeudores_solidarios.map((codeudor, index) => (
               <div className="inline-actions" key={`codeudor-${index}`}>
                 <input placeholder={`Codeudor ${index + 1}`} value={codeudor.nombre} onChange={(event) => updateCodeudorDraft(index, { nombre: event.target.value })} />
@@ -296,7 +337,7 @@ export function ContratosWorkspace({
               </div>
             ))}
             <div className="inline-actions">
-              <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos || !contratoDraft.codigo_contrato || !contratoDraft.mandato_operacion || !contratoDraft.arrendatario || !contratoDraft.monto_base || !selectedOverrideIsEligible || (requiresDocumentPolicy && !contratoDraft.politica_documental) || (requiresCompanyRepresentative && (!contratoDraft.representante_legal_nombre.trim() || !contratoDraft.representante_legal_rut.trim())) || (requiresTerminationProrationTrace && (!contratoDraft.terminacion_anticipada_prorrata_ref || !contratoDraft.terminacion_anticipada_prorrata_motivo))}>{editingContratoId ? 'Guardar cambios' : 'Guardar contrato'}</button>
+              <button type="submit" className="button-primary" disabled={isSubmitting || !canEditContratos || !contratoDraft.codigo_contrato || !contratoDraft.mandato_operacion || !contratoDraft.arrendatario || !contratoDraft.monto_base || !selectedOverrideIsEligible || !commonExpenseServiceIsCovered || (requiresDocumentPolicy && !contratoDraft.politica_documental) || (requiresCompanyRepresentative && (!contratoDraft.representante_legal_nombre.trim() || !contratoDraft.representante_legal_rut.trim())) || (requiresTerminationProrationTrace && (!contratoDraft.terminacion_anticipada_prorrata_ref || !contratoDraft.terminacion_anticipada_prorrata_motivo))}>{editingContratoId ? 'Guardar cambios' : 'Guardar contrato'}</button>
               {editingContratoId ? <button type="button" className="button-ghost inline-action" onClick={cancelEditContrato}>Cancelar</button> : null}
             </div>
           </form>
@@ -339,6 +380,7 @@ export function ContratosWorkspace({
         { label: 'Política', render: (row) => row.politica_documental_tipo === 'contrato_principal' && row.politica_documental_estado === 'activa' ? <Badge label="contrato" tone="positive" /> : <Badge label="pendiente" tone="warning" /> },
         { label: 'Rep. legal', render: (row) => representativeSnapshotBadge(row) },
         { label: 'Propiedad', render: (row) => row.contrato_propiedades_detail[0] ? `${row.contrato_propiedades_detail[0].propiedad_codigo} · ${row.contrato_propiedades_detail[0].propiedad_direccion}` : 'Sin propiedad' },
+        { label: 'G. comunes', render: (row) => commonExpenseBadge(row) },
         { label: 'Periodo', render: (row) => `${row.fecha_inicio} → ${row.fecha_fin_vigente}` },
         { label: 'Retroactivo', render: (row) => row.requiere_notificacion_manual_retroactiva ? <Badge label="aviso manual" tone="warning" /> : <Badge label="sin alerta" tone="neutral" /> },
         { label: 'Entrega', render: (row) => row.fecha_entrega ? row.entrega_llaves_autorizacion_ref ? <Badge label="autorizada" tone="positive" /> : <Badge label="registrada" tone="neutral" /> : <Badge label="pendiente" tone="neutral" /> },
