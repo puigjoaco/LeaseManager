@@ -57,6 +57,11 @@ condicionados sin envios reales accidentales.
   `score_pago`. Las observaciones del estado de cuenta deben ser no sensibles;
   API, snapshot, admin/backoffice y readiness redactan o bloquean observaciones
   heredadas con URLs, correos, tokens o credenciales.
+- Backoffice Cobranza debe exponer el resumen operativo completo del estado de
+  cuenta: pagos abiertos/atrasados, repactaciones activas, codigos residuales
+  activos, meses evaluados, pagos en plazo/fuera de plazo, meses excluidos por
+  falta de registro operativo, saldo total, score y observaciones ya
+  redactadas por API/snapshot.
 - El score de pago excluye pagos cuyo vencimiento cae antes del
   `fecha_registro_operativo` del contrato, porque esos meses no tienen
   registro operativo valido para medir cumplimiento. El resumen operativo

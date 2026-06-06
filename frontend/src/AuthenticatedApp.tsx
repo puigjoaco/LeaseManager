@@ -5498,6 +5498,7 @@ function App() {
     setMensajeDraft((current) => ({ ...current, documento_emitido: String(documentoId) }))
   }
 
+  const arrendatarioById = useMemo(() => new Map(arrendatarios.map((item) => [item.id, item])), [arrendatarios])
   const normalizedSearch = searchText.trim().toLowerCase()
   const filteredSocios = useMemo(
     () => socios.filter((item) => matches(normalizedSearch, [item.nombre, item.rut, item.email, item.telefono])),
@@ -5828,9 +5829,22 @@ function App() {
   const filteredEstadosCuenta = useMemo(
     () =>
       estadosCuenta.filter((item) =>
-        matches(normalizedSearch, [item.arrendatario, item.score_pago, item.resumen_operativo.saldo_total_clp]),
+        matches(normalizedSearch, [
+          item.arrendatario,
+          arrendatarioById.get(item.arrendatario)?.nombre_razon_social,
+          item.score_pago,
+          item.resumen_operativo.score_pago_porcentaje,
+          item.resumen_operativo.score_meses_evaluados,
+          item.resumen_operativo.score_pagos_en_plazo,
+          item.resumen_operativo.score_pagos_fuera_plazo,
+          item.resumen_operativo.score_meses_sin_registro_operativo,
+          item.resumen_operativo.repactaciones_activas,
+          item.resumen_operativo.cobranzas_residuales_activas,
+          item.resumen_operativo.saldo_total_clp,
+          item.observaciones,
+        ]),
       ),
-    [estadosCuenta, normalizedSearch],
+    [arrendatarioById, estadosCuenta, normalizedSearch],
   )
   const filteredConexiones = useMemo(
     () =>
@@ -6084,7 +6098,6 @@ function App() {
     ],
     [empresas, socios],
   )
-  const arrendatarioById = useMemo(() => new Map(arrendatarios.map((item) => [item.id, item])), [arrendatarios])
   const mandatoById = useMemo(() => new Map(mandatos.map((item) => [item.id, item])), [mandatos])
   const contratoById = useMemo(() => new Map(contratos.map((item) => [item.id, item])), [contratos])
   const cuentaById = useMemo(() => new Map(cuentas.map((item) => [item.id, item])), [cuentas])

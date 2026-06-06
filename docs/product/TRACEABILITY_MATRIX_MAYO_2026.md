@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-06: Backoffice Cobranza muestra el resumen completo de estado de
+cuenta. El workspace expone pagos abiertos/atrasados, repactaciones activas,
+codigos residuales activos, meses evaluados, pagos en plazo/fuera de plazo,
+meses excluidos por falta de registro operativo, saldo total, score y
+observaciones ya redactadas por snapshot/API, y el buscador global cubre esos
+campos.
+
 Nota 2026-06-06: Backoffice Cobranza muestra repactaciones y codigos
 residuales. El snapshot operativo ahora incluye `codigos_residuales`, y el
 workspace lista repactaciones con deuda, plan, saldo, estado y excepcion
