@@ -224,6 +224,7 @@ class OperationSnapshotView(APIView):
                         'canal': identidad.canal,
                         'remitente_visible': identidad.remitente_visible,
                         'direccion_o_numero': identidad.direccion_o_numero,
+                        'credencial_ref': redact_sensitive_reference(identidad.credencial_ref),
                         'owner_tipo': identidad.owner_tipo,
                         'owner_display': identidad.owner_display,
                         'estado': identidad.estado,

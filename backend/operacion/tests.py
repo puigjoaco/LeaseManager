@@ -559,6 +559,22 @@ class OperacionAPITests(APITestCase):
         self.assertEqual(list_response.data[0]['credencial_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(detail_response.data['credencial_ref'], REDACTED_SENSITIVE_REFERENCE)
 
+    def test_operation_snapshot_redacts_inherited_sensitive_identity_credential_ref(self):
+        socio = self._create_socio('Operador Snapshot', '35353535-0')
+        IdentidadDeEnvio.objects.create(
+            socio_owner=socio,
+            canal=CanalOperacion.EMAIL,
+            remitente_visible=socio.nombre,
+            direccion_o_numero='snapshot@example.com',
+            credencial_ref='https://mail.example.test/token/secret',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+
+        response = self.client.get(reverse('operacion-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['identidades'][0]['credencial_ref'], REDACTED_SENSITIVE_REFERENCE)
+
     def test_operation_admin_redacts_sensitive_operational_refs(self):
         propietario = self._create_socio('Propietario Admin', '77777777-7')
         admin_company = self._create_active_empresa('AdminCo Admin', '88888888-8')
