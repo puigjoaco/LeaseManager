@@ -16,7 +16,10 @@ type CanalMensajeriaItem = {
 type MensajeSalienteItem = {
   id: number
   canal: string
+  canal_mensajeria: number
+  identidad_envio: number | null
   contrato: number | null
+  arrendatario: number | null
   documento_emitido: number | null
   destinatario: string
   asunto: string
@@ -24,6 +27,9 @@ type MensajeSalienteItem = {
   estado: string
   motivo_bloqueo: string
   external_ref: string
+  usuario: number | null
+  provider_payload: Record<string, unknown>
+  enviado_at: string | null
 }
 
 type ConfiguracionNotificacionItem = {
@@ -164,7 +170,14 @@ export function CanalesWorkspace({
   toneFor: (value: string) => Tone
 }) {
   const documentoById = new Map(documentosEmitidos.map((item) => [item.id, item]))
+  const gateById = new Map(gatesCanales.map((item) => [item.id, item]))
+  const identidadById = new Map(identidades.map((item) => [item.id, item]))
+  const arrendatarioById = new Map(arrendatarios.map((item) => [item.id, item]))
   const refValue = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : '')
+  const formatPayload = (value?: Record<string, unknown>) => {
+    if (!value || Object.keys(value).length === 0) return '-'
+    return JSON.stringify(value)
+  }
   const gateRefs = (row: CanalMensajeriaItem) => {
     const refs = row.restricciones_operativas || {}
     const visibleRefs = [
@@ -317,11 +330,22 @@ export function CanalesWorkspace({
 
       <TableBlock title="Mensajes salientes" subtitle="Preparados, bloqueados o enviados manualmente." rows={filteredMensajesSalientes} empty="No hay mensajes salientes para este filtro." isLoading={isLoading} loadingLabel="Cargando canales..." columns={[
         { label: 'Canal', render: (row) => row.canal },
+        { label: 'Gate', render: (row) => {
+          const gate = gateById.get(row.canal_mensajeria)
+          return gate ? `${gate.provider_key} · ${gate.estado_gate}` : row.canal_mensajeria
+        } },
+        { label: 'Identidad', render: (row) => {
+          const identidad = row.identidad_envio ? identidadById.get(row.identidad_envio) : null
+          return identidad ? `${identidad.remitente_visible} · ${identidad.direccion_o_numero}` : 'Sin identidad'
+        } },
         { label: 'Destinatario', render: (row) => row.destinatario || 'Sin destinatario' },
         { label: 'Contrato', render: (row) => row.contrato ? (contratoById.get(row.contrato)?.codigo_contrato || row.contrato) : 'Sin contrato' },
+        { label: 'Arrendatario', render: (row) => row.arrendatario ? (arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario) : 'Sin arrendatario' },
         { label: 'Documento', render: (row) => row.documento_emitido ? (documentoById.get(row.documento_emitido)?.storage_ref || row.documento_emitido) : 'Sin documento' },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-        { label: 'Motivo', render: (row) => row.motivo_bloqueo || row.external_ref || 'Sin observación' },
+        { label: 'Enviado', render: (row) => row.enviado_at || 'Sin envio' },
+        { label: 'Traza', render: (row) => row.motivo_bloqueo || row.external_ref || 'Sin observación' },
+        { label: 'Payload', render: (row) => formatPayload(row.provider_payload) },
       ]} />
     </>
   )

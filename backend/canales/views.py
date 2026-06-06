@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from contratos.models import Arrendatario, Contrato
 from documentos.scope import scope_documento_queryset
@@ -121,7 +121,10 @@ class ChannelsSnapshotView(APIView):
                     {
                         'id': item.id,
                         'canal': item.canal,
+                        'canal_mensajeria': item.canal_mensajeria_id,
+                        'identidad_envio': item.identidad_envio_id,
                         'contrato': item.contrato_id,
+                        'arrendatario': item.arrendatario_id,
                         'documento_emitido': item.documento_emitido_id,
                         'destinatario': item.destinatario,
                         'asunto': item.asunto,
@@ -129,6 +132,9 @@ class ChannelsSnapshotView(APIView):
                         'estado': item.estado,
                         'motivo_bloqueo': redact_sensitive_reference(item.motivo_bloqueo),
                         'external_ref': redact_sensitive_reference(item.external_ref),
+                        'usuario': item.usuario_id,
+                        'provider_payload': redact_sensitive_payload(item.provider_payload),
+                        'enviado_at': item.enviado_at,
                     }
                     for item in scope_mensaje_queryset(MensajeSaliente.objects.all().order_by('-id'), request.user)
                 ],

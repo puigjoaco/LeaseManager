@@ -1012,6 +1012,10 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(messages_response.data[0]['motivo_bloqueo'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(notifications_response.data[0]['motivo_estado'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['gates'][0]['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_response.data['mensajes'][0]['canal_mensajeria'], gate.id)
+        self.assertIsNone(snapshot_response.data['mensajes'][0]['identidad_envio'])
+        self.assertEqual(snapshot_response.data['mensajes'][0]['contrato'], contrato.id)
+        self.assertIsNone(snapshot_response.data['mensajes'][0]['arrendatario'])
         self.assertEqual(snapshot_response.data['mensajes'][0]['external_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_response.data['mensajes'][0]['motivo_bloqueo'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(
@@ -1034,6 +1038,11 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(payload['callback'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(payload['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(payload['attempts'][0]['response_ref'], 'controlled-response-1')
+        snapshot_payload = snapshot_response.data['mensajes'][0]['provider_payload']
+        self.assertEqual(snapshot_payload['provider_message_id'], 'MSG-SAFE-001')
+        self.assertEqual(snapshot_payload['callback'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_payload['headers']['authorization'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_payload['attempts'][0]['response_ref'], 'controlled-response-1')
 
         for response in (gates_response, messages_response, notifications_response, snapshot_response):
             body = response.content.decode()
