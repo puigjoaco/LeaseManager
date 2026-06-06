@@ -320,7 +320,9 @@ contra datos reales o snapshot controlado.
   generan alerta de posible notificacion manual, y Cobranza bloquea la
   reconstruccion automatica de cobros vencidos antes del registro operativo.
   El auditor Etapa 1 reporta la alerta como advertencia y marca como defecto
-  pagos existentes que reconstruyan esos cobros pasados.
+  pagos existentes que reconstruyan esos cobros pasados. El backoffice de
+  Contratos permite informar `fecha_registro_operativo`, muestra esa fecha en
+  la tabla y expone el detalle de la alerta retroactiva devuelta por la API.
 - Si un contrato futuro coexiste con `AvisoTermino` y una renovacion
   contractual ya ejecutada, el aviso debe conservar resolucion guiada con
   referencia no sensible y motivo trazable. `Contrato.full_clean()`, la API y
