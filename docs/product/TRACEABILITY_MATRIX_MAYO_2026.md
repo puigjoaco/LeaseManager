@@ -952,6 +952,11 @@ expone `score_meses_sin_registro_operativo` en el resumen operativo y
 readiness Etapa 2 detecta estados heredados que hayan contado esos meses como
 evaluables.
 
+Nota 2026-06-06: Backoffice Contratos captura registro operativo retroactivo.
+El formulario de Contratos permite informar `fecha_registro_operativo`, envia
+la fecha solo cuando el operador la captura, conserva el default de API cuando
+queda vacia, y la tabla muestra fecha y detalle de alerta manual retroactiva.
+
 Nota 2026-05-27: Compliance exige motivo no sensible al revocar
 exportaciones sensibles. `ExportacionRevokeView` rechaza revocaciones sin
 motivo o con URLs, correos, tokens, bearer, claves o credenciales, guarda
