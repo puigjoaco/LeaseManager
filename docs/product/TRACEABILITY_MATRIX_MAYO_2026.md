@@ -33,6 +33,12 @@ de credencial Email y `template_aprobado_ref` para WhatsApp, y la tabla muestra
 prueba, OAuth, credencial o template desde `restricciones_operativas`
 redactadas, sin abrir proveedores externos.
 
+Nota 2026-06-06: Backoffice Patrimonio alinea la tabla de propiedades con el
+snapshot de `ServicioPropiedad`. La UI tipa, filtra y muestra servicios/gastos
+comunes con proveedor o administracion, numero de cliente, estado y
+`evidencia_ref` ya redactada por API, de modo que la cobertura exigida por
+Contratos/Etapa 1 sea visible sin usar datos reales ni abrir integraciones.
+
 Nota 2026-06-05: Etapas 2, 3, 4, 5 Contabilidad, Documentos, Etapa 6 y
 Reporting alinean el contrato de `source_trace` con Compliance. Las readiness
 ahora exponen `sections.source_trace_sensitive` y clasifican `source_label` o

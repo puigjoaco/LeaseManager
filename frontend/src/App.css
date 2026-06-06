@@ -251,6 +251,10 @@
   gap: 10px;
 }
 
+.compact-list {
+  gap: 6px;
+}
+
 .list-row {
   display: flex;
   justify-content: space-between;
@@ -267,6 +271,12 @@
 
 .list-row strong {
   text-align: right;
+}
+
+.compact-row {
+  gap: 8px;
+  padding-bottom: 6px;
+  font-size: 0.86rem;
 }
 
 .list-row:last-child {

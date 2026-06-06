@@ -7,9 +7,37 @@ type OwnerOption = { tipo: string; id: number; label: string }
 type SocioItem = { id: number; nombre: string; rut: string; email: string; telefono: string; domicilio: string; activo: boolean }
 type EmpresaItem = { id: number; razon_social: string; rut: string; estado: string; participaciones_detail?: unknown[]; participaciones_count?: number }
 type ComunidadItem = { id: number; nombre: string; estado: string; participaciones_detail?: unknown[]; participaciones_count?: number; representacion_vigente: { modo_representacion: string; socio_representante_nombre: string; evidencia_ref?: string } | null }
-type PropiedadItem = { id: number; codigo_propiedad: string; direccion: string; comuna: string; region: string; rol_avaluo: string; tipo_inmueble: string; owner_tipo: string; owner_id: number; owner_display: string; estado: string }
+type ServicioPropiedadItem = { id: number; tipo_servicio: string; proveedor_nombre: string; numero_cliente: string; administrador_nombre: string; evidencia_ref: string; activo: boolean }
+type PropiedadItem = { id: number; codigo_propiedad: string; direccion: string; comuna: string; region: string; rol_avaluo: string; tipo_inmueble: string; owner_tipo: string; owner_id: number; owner_display: string; servicios?: ServicioPropiedadItem[]; estado: string }
 type SocioDraft = { nombre: string; rut: string; email: string; telefono: string; domicilio: string; activo: boolean }
 type PropiedadDraft = { codigo_propiedad: string; direccion: string; comuna: string; region: string; rol_avaluo: string; tipo_inmueble: string; estado: string; owner_tipo: string; owner_id: string }
+
+function formatServiceType(value: string) {
+  return value.replaceAll('_', ' ')
+}
+
+function renderPropertyServices(row: PropiedadItem) {
+  const services = row.servicios ?? []
+  if (services.length === 0) return 'Sin servicios'
+
+  return (
+    <div className="list-stack compact-list">
+      {services.map((service) => (
+        <div key={service.id} className="list-row compact-row">
+          <span>
+            {formatServiceType(service.tipo_servicio)}
+            {service.activo ? '' : ' · inactivo'}
+          </span>
+          <strong>
+            {service.proveedor_nombre || service.administrador_nombre || 'Sin proveedor'}
+            {service.numero_cliente ? ` · ${service.numero_cliente}` : ''}
+            {service.evidencia_ref ? ` · ${service.evidencia_ref}` : ''}
+          </strong>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function PatrimonioWorkspace({
   canEditPatrimonio,
@@ -137,6 +165,7 @@ export function PatrimonioWorkspace({
         { label: 'Dirección', render: (row) => row.direccion },
         { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo.replaceAll('_', ' ')}` },
         { label: 'Ubicación', render: (row) => `${row.comuna}, ${row.region}` },
+        { label: 'Servicios', render: renderPropertyServices },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
         { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditPropiedad(row)}>Editar</button> },
         { label: 'Siguiente paso', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => goToPropertyOperationContext(row.id, row.codigo_propiedad)}>Crear mandato</button> },

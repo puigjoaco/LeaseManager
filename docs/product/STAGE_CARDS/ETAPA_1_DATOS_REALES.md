@@ -155,7 +155,10 @@ contra datos reales o snapshot controlado.
   el auditor Etapa 1 bloquean contratos vigentes/futuros con gastos comunes si
   la propiedad principal no tiene un gasto comun activo estructurado. El admin
   Django no permite alta, edicion ni borrado manual de servicios de propiedad
-  para no destruir cobertura operativa ni evidencia.
+  para no destruir cobertura operativa ni evidencia. El backoffice de
+  Patrimonio muestra los servicios de cada propiedad desde el snapshot
+  redaccionado para que la cobertura de gastos comunes sea verificable antes
+  de construir contratos dependientes.
 - Validacion de roles contrato-propiedad: exactamente una propiedad principal
   y, si hay pareja, una propiedad vinculada.
 - Validacion de que cada contrato vigente o futuro cubra una sola propiedad o
