@@ -348,6 +348,16 @@
   padding: 8px 10px;
 }
 
+.inline-actions input {
+  min-width: 180px;
+  max-width: 240px;
+  border: 1px solid #cbd3cb;
+  border-radius: 6px;
+  background: #fbfbf8;
+  color: #162018;
+  padding: 8px 10px;
+}
+
 .json-block {
   margin: 0;
   padding: 14px;
