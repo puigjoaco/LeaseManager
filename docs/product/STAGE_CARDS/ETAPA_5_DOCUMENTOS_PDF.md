@@ -185,6 +185,11 @@ firma y notaria trazables.
   valor sensible, readiness debe clasificar `documents.source_label_sensitive`
   o `documents.authorization_ref_sensitive`, exponer solo
   `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
+- Las referencias finales de cierre (`FinalPolicyRef`, `ControlledPdfRef` y
+  `ResponsibleRef`) tambien deben ser no sensibles. Si contienen URL, token,
+  credencial o valor sensible, readiness debe clasificar
+  `documents.*_ref_sensitive`, exponer `sections.final_evidence_sensitive` y
+  no mezclarlas con refs faltantes.
 - `scripts/run-stage5-documents-readiness-gate.ps1` normaliza la ejecucion del
   gate. En modo local crea SQLite bajo `local-evidence/`, corre migraciones y
   debe quedar `classification=parcial`, `ready_for_stage5_documents=false` y

@@ -562,6 +562,33 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_final_refs_are_classified(self):
+        create_all_active_policies()
+
+        result = collect_document_readiness(
+            source_kind='snapshot_controlado',
+            source_label='documents-controlled-source-v1',
+            authorization_ref='documents-authorization-v1',
+            final_policy_ref='https://example.test/policy?signed_token=secret',
+            responsible_ref='Bearer documents-responsible-secret',
+            controlled_pdf_ref='https://example.test/pdf?signed_token=secret',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        expected_sensitive_codes = {
+            'documents.final_policy_ref_sensitive',
+            'documents.responsible_ref_sensitive',
+            'documents.controlled_pdf_ref_sensitive',
+        }
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertTrue(expected_sensitive_codes.issubset(issue_codes))
+        self.assertNotIn('documents.final_policy_ref_missing', issue_codes)
+        self.assertNotIn('documents.responsible_ref_missing', issue_codes)
+        self.assertNotIn('documents.controlled_pdf_ref_missing', issue_codes)
+        for key in ('final_policy_ref', 'responsible_ref', 'controlled_pdf_ref'):
+            self.assertTrue(result['sections']['final_evidence_sensitive'][key])
+            self.assertFalse(result['sections']['final_evidence'][key])
+
     def test_sensitive_final_refs_do_not_close_readiness(self):
         create_all_active_policies()
 
@@ -575,7 +602,10 @@ class DocumentReadinessAuditTests(TestCase):
         )
 
         self.assertFalse(result['ready_for_stage5_documents'])
-        self.assertIn('documents.final_policy_ref_missing', {issue['code'] for issue in result['issues']})
+        issue_codes = {issue['code'] for issue in result['issues']}
+        self.assertIn('documents.final_policy_ref_sensitive', issue_codes)
+        self.assertNotIn('documents.final_policy_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['final_evidence_sensitive']['final_policy_ref'])
 
     def test_document_issues_are_reported_without_reading_storage(self):
         user = create_user('docs-readiness-issues')

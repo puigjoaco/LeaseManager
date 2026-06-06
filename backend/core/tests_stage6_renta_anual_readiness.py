@@ -344,6 +344,46 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_final_refs_are_classified(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage6_renta_anual_readiness(
+            source_kind='snapshot_controlado',
+            source_label='stage6-controlled-source-v1',
+            authorization_ref='stage6-authorization-v1',
+            stage5_evidence_ref='https://example.test/stage5?signed_token=secret',
+            stage4_sii_evidence_ref='https://example.test/stage4?signed_token=secret',
+            fiscal_rule_ref='https://example.test/fiscal-rule?signed_token=secret',
+            certificates_proof_ref='https://example.test/certificates?signed_token=secret',
+            responsible_ref='Bearer stage6-responsible-secret',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        expected_sensitive_codes = {
+            'stage6.stage5_evidence_ref_sensitive',
+            'stage6.stage4_sii_evidence_ref_sensitive',
+            'stage6.fiscal_rule_ref_sensitive',
+            'stage6.certificates_proof_ref_sensitive',
+            'stage6.responsible_ref_sensitive',
+        }
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertTrue(expected_sensitive_codes.issubset(issue_codes))
+        self.assertNotIn('stage6.stage5_evidence_ref_missing', issue_codes)
+        self.assertNotIn('stage6.stage4_sii_evidence_ref_missing', issue_codes)
+        self.assertNotIn('stage6.fiscal_rule_ref_missing', issue_codes)
+        self.assertNotIn('stage6.certificates_proof_ref_missing', issue_codes)
+        self.assertNotIn('stage6.responsible_ref_missing', issue_codes)
+        for key in (
+            'stage5_evidence_ref',
+            'stage4_sii_evidence_ref',
+            'fiscal_rule_ref',
+            'certificates_proof_ref',
+            'responsible_ref',
+        ):
+            self.assertTrue(result['sections']['final_evidence_sensitive'][key])
+            self.assertFalse(result['sections']['final_evidence'][key])
+
     def test_process_without_twelve_approved_closes_is_blocking(self):
         self._create_valid_local_matrix()
         CierreMensualContable.objects.filter(mes=12).update(estado=EstadoCierreMensual.PREPARED)
@@ -558,7 +598,10 @@ class Stage6RentaAnualReadinessTests(TestCase):
             source_kind='snapshot_controlado',
         )
         self.assertFalse(result['ready_for_stage6_renta_anual'])
-        self.assertIn('stage6.fiscal_rule_ref_missing', {issue['code'] for issue in result['issues']})
+        issue_codes = {issue['code'] for issue in result['issues']}
+        self.assertIn('stage6.fiscal_rule_ref_sensitive', issue_codes)
+        self.assertNotIn('stage6.fiscal_rule_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['final_evidence_sensitive']['fiscal_rule_ref'])
 
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'stage6_readiness.json'

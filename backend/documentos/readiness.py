@@ -377,6 +377,11 @@ def collect_document_readiness(
         'responsible_ref': _non_sensitive_reference(responsible_ref),
         'controlled_pdf_ref': _non_sensitive_reference(controlled_pdf_ref),
     }
+    checks_sensitive = {
+        'final_policy_ref': _sensitive_reference(final_policy_ref),
+        'responsible_ref': _sensitive_reference(responsible_ref),
+        'controlled_pdf_ref': _sensitive_reference(controlled_pdf_ref),
+    }
     source_trace = {
         'source_label': _non_sensitive_reference(source_label),
         'authorization_ref': _non_sensitive_reference(authorization_ref),
@@ -716,25 +721,33 @@ def collect_document_readiness(
             )
         )
 
-    for key, code, message in [
+    for key, missing_code, sensitive_code, missing_message, sensitive_message in [
         (
             'final_policy_ref',
             'documents.final_policy_ref_missing',
+            'documents.final_policy_ref_sensitive',
             'Falta referencia no sensible a la politica final de firma/notaria.',
+            'La referencia a la politica final de firma/notaria contiene valores sensibles.',
         ),
         (
             'responsible_ref',
             'documents.responsible_ref_missing',
+            'documents.responsible_ref_sensitive',
             'Falta referencia no sensible a responsables de operacion documental.',
+            'La referencia a responsables de operacion documental contiene valores sensibles.',
         ),
         (
             'controlled_pdf_ref',
             'documents.controlled_pdf_ref_missing',
+            'documents.controlled_pdf_ref_sensitive',
             'Falta referencia no sensible a prueba PDF controlada.',
+            'La referencia a prueba PDF controlada contiene valores sensibles.',
         ),
     ]:
-        if not checks[key]:
-            issues.append(_issue(code, message))
+        if checks_sensitive[key]:
+            issues.append(_issue(sensitive_code, sensitive_message))
+        elif not checks[key]:
+            issues.append(_issue(missing_code, missing_message))
 
     issue_counts = Counter(issue['severity'] for issue in issues)
     ready = issue_counts.get('blocking', 0) == 0
@@ -811,6 +824,7 @@ def collect_document_readiness(
                 'state_transition_metadata_missing': state_transition_metadata_missing,
             },
             'final_evidence': checks,
+            'final_evidence_sensitive': checks_sensitive,
             'source_trace': source_trace,
             'source_trace_sensitive': source_trace_sensitive,
         },

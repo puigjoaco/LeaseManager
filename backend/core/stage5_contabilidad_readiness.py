@@ -409,6 +409,12 @@ def collect_stage5_contabilidad_readiness(
         'reports_proof_ref': _non_sensitive_reference(reports_proof_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    final_evidence_sensitive = {
+        'stage3_evidence_ref': _sensitive_reference(stage3_evidence_ref),
+        'ledger_proof_ref': _sensitive_reference(ledger_proof_ref),
+        'reports_proof_ref': _sensitive_reference(reports_proof_ref),
+        'responsible_ref': _sensitive_reference(responsible_ref),
+    }
     source_trace = {
         'source_label': _non_sensitive_reference(source_label),
         'authorization_ref': _non_sensitive_reference(authorization_ref),
@@ -806,30 +812,40 @@ def collect_stage5_contabilidad_readiness(
         if close_issues.get(key):
             issues.append(_issue(code, message, count=close_issues[key]))
 
-    for key, code, message in [
+    for key, missing_code, sensitive_code, missing_message, sensitive_message in [
         (
             'stage3_evidence_ref',
             'stage5.stage3_evidence_ref_missing',
+            'stage5.stage3_evidence_ref_sensitive',
             'Falta referencia no sensible a cierre/evidencia de Conciliacion.',
+            'La referencia a cierre/evidencia de Conciliacion contiene valores sensibles.',
         ),
         (
             'ledger_proof_ref',
             'stage5.ledger_proof_ref_missing',
+            'stage5.ledger_proof_ref_sensitive',
             'Falta referencia no sensible a prueba de ledger/asientos.',
+            'La referencia a prueba de ledger/asientos contiene valores sensibles.',
         ),
         (
             'reports_proof_ref',
             'stage5.reports_proof_ref_missing',
+            'stage5.reports_proof_ref_sensitive',
             'Falta referencia no sensible a reportes contables trazables.',
+            'La referencia a reportes contables trazables contiene valores sensibles.',
         ),
         (
             'responsible_ref',
             'stage5.responsible_ref_missing',
+            'stage5.responsible_ref_sensitive',
             'Falta referencia no sensible a responsables contables.',
+            'La referencia a responsables contables contiene valores sensibles.',
         ),
     ]:
-        if not final_evidence[key]:
-            issues.append(_issue(code, message))
+        if final_evidence_sensitive[key]:
+            issues.append(_issue(sensitive_code, sensitive_message))
+        elif not final_evidence[key]:
+            issues.append(_issue(missing_code, missing_message))
 
     issue_counts = Counter(issue['severity'] for issue in issues)
     ready = issue_counts.get('blocking', 0) == 0
@@ -923,6 +939,7 @@ def collect_stage5_contabilidad_readiness(
                 'state_transition_metadata_missing': state_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
+            'final_evidence_sensitive': final_evidence_sensitive,
             'source_trace': source_trace,
             'source_trace_sensitive': source_trace_sensitive,
         },

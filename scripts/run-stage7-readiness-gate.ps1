@@ -735,12 +735,21 @@ Assert-Condition (
     ($reporting.sections.PSObject.Properties.Name -contains 'source_trace_sensitive') `
     -and ($null -ne $reporting.sections.source_trace_sensitive)
 ) 'La auditoria Reporting debe exponer sections.source_trace_sensitive.'
+Assert-Condition (
+    ($reporting.sections.PSObject.Properties.Name -contains 'final_evidence_sensitive') `
+    -and ($null -ne $reporting.sections.final_evidence_sensitive)
+) 'La auditoria Reporting debe exponer sections.final_evidence_sensitive.'
 if ($reportingSourceKindAuthorizedByParam) {
     Assert-Condition ($reportingSourceAuthorized -eq $true) 'La fuente evidencial Reporting debe quedar autorizada por tipo.'
     Assert-Condition ($reporting.sections.source_trace.source_label -eq $true) 'La fuente evidencial Reporting debe tener source_label trazable.'
     Assert-Condition ($reporting.sections.source_trace.authorization_ref -eq $true) 'La fuente evidencial Reporting debe tener authorization_ref trazable.'
     Assert-Condition ($reporting.sections.source_trace_sensitive.source_label -eq $false) 'La fuente evidencial Reporting no debe tener source_label sensible.'
     Assert-Condition ($reporting.sections.source_trace_sensitive.authorization_ref -eq $false) 'La fuente evidencial Reporting no debe tener authorization_ref sensible.'
+    Assert-Condition ($reporting.sections.final_evidence_sensitive.stage5_evidence_ref -eq $false) 'La evidencia Etapa 5 de Reporting no debe ser sensible.'
+    Assert-Condition ($reporting.sections.final_evidence_sensitive.stage6_evidence_ref -eq $false) 'La evidencia Etapa 6 de Reporting no debe ser sensible.'
+    Assert-Condition ($reporting.sections.final_evidence_sensitive.reporting_api_proof_ref -eq $false) 'La prueba API de Reporting no debe ser sensible.'
+    Assert-Condition ($reporting.sections.final_evidence_sensitive.backoffice_visual_ref -eq $false) 'La prueba visual backoffice de Reporting no debe ser sensible.'
+    Assert-Condition ($reporting.sections.final_evidence_sensitive.responsible_ref -eq $false) 'La referencia de responsables de Reporting no debe ser sensible.'
 }
 if ($reporting.ready_for_stage7_reporting -ne $true) {
     $issues += [ordered]@{

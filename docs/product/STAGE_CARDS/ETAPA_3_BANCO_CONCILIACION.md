@@ -139,6 +139,11 @@ sistema igual a saldo banco.
   valor sensible, readiness debe clasificar `stage3.source_label_sensitive` o
   `stage3.authorization_ref_sensitive`, exponer solo
   `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
+- Las referencias finales de cierre (`Stage2EvidenceRef`, `BankProofRef`,
+  `BalanceSquareRef` y `ResponsibleRef`) tambien deben ser no sensibles. Si
+  contienen URL, token, credencial o valor sensible, readiness debe clasificar
+  `stage3.*_ref_sensitive`, exponer `sections.final_evidence_sensitive` y no
+  mezclarlas con refs faltantes.
 - Cuando hay saldos reportados en movimientos de una misma conexion, el
   auditor valida continuidad local: cada saldo posterior debe continuar desde
   el saldo reportado previo aplicando abonos y cargos intermedios.

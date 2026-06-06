@@ -310,6 +310,12 @@ def collect_stage4_sii_readiness(
         'fiscal_rule_ref': _non_sensitive_reference(fiscal_rule_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    final_evidence_sensitive = {
+        'stage5_evidence_ref': _sensitive_reference(stage5_evidence_ref),
+        'environment_proof_ref': _sensitive_reference(environment_proof_ref),
+        'fiscal_rule_ref': _sensitive_reference(fiscal_rule_ref),
+        'responsible_ref': _sensitive_reference(responsible_ref),
+    }
     source_trace = {
         'source_label': _non_sensitive_reference(source_label),
         'authorization_ref': _non_sensitive_reference(authorization_ref),
@@ -668,30 +674,40 @@ def collect_stage4_sii_readiness(
         if annual_issues.get(key):
             issues.append(_issue(code, message, count=annual_issues[key]))
 
-    for key, code, message in [
+    for key, missing_code, sensitive_code, missing_message, sensitive_message in [
         (
             'stage5_evidence_ref',
             'stage4.stage5_evidence_ref_missing',
+            'stage4.stage5_evidence_ref_sensitive',
             'Falta referencia no sensible a ledger/cierre mensual habilitante.',
+            'La referencia a ledger/cierre mensual habilitante contiene valores sensibles.',
         ),
         (
             'environment_proof_ref',
             'stage4.environment_proof_ref_missing',
+            'stage4.environment_proof_ref_sensitive',
             'Falta referencia no sensible a ambiente SII autorizado o prueba aislada.',
+            'La referencia a ambiente SII autorizado o prueba aislada contiene valores sensibles.',
         ),
         (
             'fiscal_rule_ref',
             'stage4.fiscal_rule_ref_missing',
+            'stage4.fiscal_rule_ref_sensitive',
             'Falta referencia no sensible a regla fiscal validada.',
+            'La referencia a regla fiscal validada contiene valores sensibles.',
         ),
         (
             'responsible_ref',
             'stage4.responsible_ref_missing',
+            'stage4.responsible_ref_sensitive',
             'Falta referencia no sensible a responsables tributarios.',
+            'La referencia a responsables tributarios contiene valores sensibles.',
         ),
     ]:
-        if not final_evidence[key]:
-            issues.append(_issue(code, message))
+        if final_evidence_sensitive[key]:
+            issues.append(_issue(sensitive_code, sensitive_message))
+        elif not final_evidence[key]:
+            issues.append(_issue(missing_code, missing_message))
 
     issue_counts = Counter(issue['severity'] for issue in issues)
     ready = issue_counts.get('blocking', 0) == 0
@@ -753,6 +769,7 @@ def collect_stage4_sii_readiness(
                 'status_transition_metadata_missing': status_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
+            'final_evidence_sensitive': final_evidence_sensitive,
             'source_trace': source_trace,
             'source_trace_sensitive': source_trace_sensitive,
         },

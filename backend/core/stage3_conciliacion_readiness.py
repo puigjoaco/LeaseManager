@@ -815,6 +815,12 @@ def collect_stage3_conciliacion_readiness(
         'balance_square_ref': _non_sensitive_reference(balance_square_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    final_evidence_sensitive = {
+        'stage2_evidence_ref': _sensitive_reference(stage2_evidence_ref),
+        'bank_proof_ref': _sensitive_reference(bank_proof_ref),
+        'balance_square_ref': _sensitive_reference(balance_square_ref),
+        'responsible_ref': _sensitive_reference(responsible_ref),
+    }
     source_trace = {
         'source_label': _non_sensitive_reference(source_label),
         'authorization_ref': _non_sensitive_reference(authorization_ref),
@@ -1261,30 +1267,40 @@ def collect_stage3_conciliacion_readiness(
             )
         )
 
-    for key, code, message in [
+    for key, missing_code, sensitive_code, missing_message, sensitive_message in [
         (
             'stage2_evidence_ref',
             'stage3.stage2_evidence_ref_missing',
+            'stage3.stage2_evidence_ref_sensitive',
             'Falta referencia no sensible a cierre/evidencia de Etapa 2.',
+            'La referencia a cierre/evidencia de Etapa 2 contiene valores sensibles.',
         ),
         (
             'bank_proof_ref',
             'stage3.bank_proof_ref_missing',
+            'stage3.bank_proof_ref_sensitive',
             'Falta referencia no sensible a prueba controlada de banco o snapshot autorizado.',
+            'La referencia a prueba controlada de banco o snapshot autorizado contiene valores sensibles.',
         ),
         (
             'balance_square_ref',
             'stage3.balance_square_ref_missing',
+            'stage3.balance_square_ref_sensitive',
             'Falta referencia no sensible a cuadratura sistema/banco.',
+            'La referencia a cuadratura sistema/banco contiene valores sensibles.',
         ),
         (
             'responsible_ref',
             'stage3.responsible_ref_missing',
+            'stage3.responsible_ref_sensitive',
             'Falta referencia no sensible a responsables de conciliacion.',
+            'La referencia a responsables de conciliacion contiene valores sensibles.',
         ),
     ]:
-        if not final_evidence[key]:
-            issues.append(_issue(code, message))
+        if final_evidence_sensitive[key]:
+            issues.append(_issue(sensitive_code, sensitive_message))
+        elif not final_evidence[key]:
+            issues.append(_issue(missing_code, missing_message))
 
     issue_counts = Counter(issue['severity'] for issue in issues)
     ready = issue_counts.get('blocking', 0) == 0
@@ -1348,6 +1364,7 @@ def collect_stage3_conciliacion_readiness(
                 'state_transition_metadata_missing': state_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
+            'final_evidence_sensitive': final_evidence_sensitive,
             'source_trace': source_trace,
             'source_trace_sensitive': source_trace_sensitive,
         },

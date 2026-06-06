@@ -337,6 +337,13 @@ def collect_stage7_reporting_readiness(
         'backoffice_visual_ref': _non_sensitive_reference(backoffice_visual_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    final_evidence_sensitive = {
+        'stage5_evidence_ref': _sensitive_reference(stage5_evidence_ref),
+        'stage6_evidence_ref': _sensitive_reference(stage6_evidence_ref),
+        'reporting_api_proof_ref': _sensitive_reference(reporting_api_proof_ref),
+        'backoffice_visual_ref': _sensitive_reference(backoffice_visual_ref),
+        'responsible_ref': _sensitive_reference(responsible_ref),
+    }
     source_trace = {
         'source_label': _non_sensitive_reference(source_label),
         'authorization_ref': _non_sensitive_reference(authorization_ref),
@@ -666,35 +673,47 @@ def collect_stage7_reporting_readiness(
         if annual_issues.get(key):
             issues.append(_issue(code, message, count=annual_issues[key]))
 
-    for key, code, message in [
+    for key, missing_code, sensitive_code, missing_message, sensitive_message in [
         (
             'stage5_evidence_ref',
             'stage7.reporting.stage5_evidence_ref_missing',
+            'stage7.reporting.stage5_evidence_ref_sensitive',
             'Falta referencia no sensible a ledger/cierres habilitantes.',
+            'La referencia a ledger/cierres habilitantes contiene valores sensibles.',
         ),
         (
             'stage6_evidence_ref',
             'stage7.reporting.stage6_evidence_ref_missing',
+            'stage7.reporting.stage6_evidence_ref_sensitive',
             'Falta referencia no sensible a renta anual habilitante.',
+            'La referencia a renta anual habilitante contiene valores sensibles.',
         ),
         (
             'reporting_api_proof_ref',
             'stage7.reporting.api_proof_ref_missing',
+            'stage7.reporting.api_proof_ref_sensitive',
             'Falta referencia no sensible a prueba de APIs de reporting.',
+            'La referencia a prueba de APIs de reporting contiene valores sensibles.',
         ),
         (
             'backoffice_visual_ref',
             'stage7.reporting.backoffice_visual_ref_missing',
+            'stage7.reporting.backoffice_visual_ref_sensitive',
             'Falta referencia no sensible a visualizacion backoffice trazable.',
+            'La referencia a visualizacion backoffice trazable contiene valores sensibles.',
         ),
         (
             'responsible_ref',
             'stage7.reporting.responsible_ref_missing',
+            'stage7.reporting.responsible_ref_sensitive',
             'Falta referencia no sensible a responsables de reporting.',
+            'La referencia a responsables de reporting contiene valores sensibles.',
         ),
     ]:
-        if not final_evidence[key]:
-            issues.append(_issue(code, message))
+        if final_evidence_sensitive[key]:
+            issues.append(_issue(sensitive_code, sensitive_message))
+        elif not final_evidence[key]:
+            issues.append(_issue(missing_code, missing_message))
 
     issue_counts = Counter(issue['severity'] for issue in issues)
     ready = issue_counts.get('blocking', 0) == 0
@@ -748,6 +767,7 @@ def collect_stage7_reporting_readiness(
                 'annual_status_transition_metadata_missing': annual_status_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
+            'final_evidence_sensitive': final_evidence_sensitive,
             'source_trace': source_trace,
             'source_trace_sensitive': source_trace_sensitive,
         },
