@@ -14,7 +14,24 @@ type RepactacionDeudaItem = { id: number; arrendatario: number; contrato_origen:
 type CodigoCobroResidualItem = { id: number; referencia_visible: string; arrendatario: number; contrato_origen: number; saldo_actual: string; estado: string; fecha_activacion: string }
 type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; brecha_garantia_clp: string; exceso_garantia_clp: string; garantia_incompleta: boolean; garantia_parcial_aceptada: boolean; aceptacion_parcial_ref: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string; tiene_resolucion_exceso_garantia: boolean; estado_garantia: string }
 type HistorialGarantiaItem = { id: number; contrato_id: number; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string }
-type EstadoCuentaItem = { id: number; arrendatario: number; score_pago: number | null; resumen_operativo: { pagos_abiertos?: number; pagos_atrasados?: number; score_meses_evaluados?: number; score_pagos_en_plazo?: number; score_pagos_fuera_plazo?: number; score_meses_sin_registro_operativo?: number; saldo_total_clp?: string } }
+type EstadoCuentaItem = {
+  id: number
+  arrendatario: number
+  score_pago: number | null
+  observaciones: string
+  resumen_operativo: {
+    pagos_abiertos?: number
+    pagos_atrasados?: number
+    repactaciones_activas?: number
+    cobranzas_residuales_activas?: number
+    score_pago_porcentaje?: number | null
+    score_meses_evaluados?: number
+    score_pagos_en_plazo?: number
+    score_pagos_fuera_plazo?: number
+    score_meses_sin_registro_operativo?: number
+    saldo_total_clp?: string
+  }
+}
 type ContratoItem = { id: number; codigo_contrato: string }
 type ArrendatarioItem = { id: number; nombre_razon_social: string }
 
@@ -437,10 +454,18 @@ export function CobranzaWorkspace({
         { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
         { label: 'Pagos abiertos', render: (row) => count(row.resumen_operativo.pagos_abiertos) },
         { label: 'Pagos atrasados', render: (row) => count(row.resumen_operativo.pagos_atrasados) },
+        { label: 'Repactaciones', render: (row) => count(row.resumen_operativo.repactaciones_activas) },
+        { label: 'Residuales', render: (row) => count(row.resumen_operativo.cobranzas_residuales_activas) },
         { label: 'Meses eval.', render: (row) => count(row.resumen_operativo.score_meses_evaluados) },
+        { label: 'En plazo', render: (row) => count(row.resumen_operativo.score_pagos_en_plazo) },
+        { label: 'Fuera plazo', render: (row) => count(row.resumen_operativo.score_pagos_fuera_plazo) },
         { label: 'Sin registro', render: (row) => count(row.resumen_operativo.score_meses_sin_registro_operativo) },
         { label: 'Saldo total', render: (row) => row.resumen_operativo.saldo_total_clp || '0.00' },
-        { label: 'Score', render: (row) => row.score_pago ?? 'Sin score' },
+        { label: 'Score', render: (row) => {
+          const score = row.score_pago ?? row.resumen_operativo.score_pago_porcentaje
+          return score === null || score === undefined ? 'Sin score' : `${score}%`
+        } },
+        { label: 'Observaciones', render: (row) => row.observaciones || '-' },
       ]} />
     </>
   )
