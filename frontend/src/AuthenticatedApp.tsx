@@ -1501,6 +1501,7 @@ function App() {
   const [editingPropiedadId, setEditingPropiedadId] = useState<number | null>(null)
   const [editingCuentaId, setEditingCuentaId] = useState<number | null>(null)
   const [editingMandatoId, setEditingMandatoId] = useState<number | null>(null)
+  const [editingAsignacionId, setEditingAsignacionId] = useState<number | null>(null)
   const [editingConfigFiscalId, setEditingConfigFiscalId] = useState<number | null>(null)
   const [editingArrendatarioId, setEditingArrendatarioId] = useState<number | null>(null)
   const [editingContratoId, setEditingContratoId] = useState<number | null>(null)
@@ -1557,6 +1558,13 @@ function App() {
     autoridad_operativa_evidencia_ref: '',
     vigencia_desde: todayIso(),
     vigencia_hasta: '',
+    estado: 'activa',
+  })
+  const [asignacionDraft, setAsignacionDraft] = useState({
+    mandato_operacion_id: '',
+    canal: 'email',
+    identidad_envio_id: '',
+    prioridad: '1',
     estado: 'activa',
   })
   const [arrendatarioDraft, setArrendatarioDraft] = useState({
@@ -3517,6 +3525,36 @@ function App() {
     }
   }
 
+  async function handleCreateAsignacion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditOperacion) return
+    const isEdit = editingAsignacionId != null
+    const ok = await submitMutation(
+      isEdit
+        ? `/api/v1/operacion/asignaciones-canal/${editingAsignacionId}/`
+        : '/api/v1/operacion/asignaciones-canal/',
+      isEdit ? 'PATCH' : 'POST',
+      {
+        mandato_operacion_id: Number(asignacionDraft.mandato_operacion_id),
+        canal: asignacionDraft.canal,
+        identidad_envio_id: Number(asignacionDraft.identidad_envio_id),
+        prioridad: Number(asignacionDraft.prioridad),
+        estado: asignacionDraft.estado,
+      },
+      isEdit ? 'Asignación de canal actualizada correctamente.' : 'Asignación de canal creada correctamente.',
+    )
+    if (ok) {
+      setAsignacionDraft({
+        mandato_operacion_id: '',
+        canal: 'email',
+        identidad_envio_id: '',
+        prioridad: '1',
+        estado: 'activa',
+      })
+      setEditingAsignacionId(null)
+    }
+  }
+
   async function handleCreateArrendatario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditContratos) return
@@ -3805,6 +3843,34 @@ function App() {
       autoridad_operativa_evidencia_ref: '',
       vigencia_desde: todayIso(),
       vigencia_hasta: '',
+      estado: 'activa',
+    })
+    clearContextNavigation()
+  }
+
+  function startEditAsignacion(row: AsignacionCanal) {
+    setEditingAsignacionId(row.id)
+    setAsignacionDraft({
+      mandato_operacion_id: String(row.mandato_operacion_id),
+      canal: row.canal,
+      identidad_envio_id: String(row.identidad_envio_id),
+      prioridad: String(row.prioridad),
+      estado: row.estado,
+    })
+    navigateWithContext(
+      'operacion',
+      row.mandato_propiedad_codigo || `Mandato ${row.mandato_operacion_id}`,
+      `Editando asignación: ${row.mandato_propiedad_codigo || row.mandato_operacion_id}`,
+    )
+  }
+
+  function cancelEditAsignacion() {
+    setEditingAsignacionId(null)
+    setAsignacionDraft({
+      mandato_operacion_id: '',
+      canal: 'email',
+      identidad_envio_id: '',
+      prioridad: '1',
       estado: 'activa',
     })
     clearContextNavigation()
@@ -5666,10 +5732,17 @@ function App() {
           setMandatoDraft={setMandatoDraft}
           handleCreateMandato={handleCreateMandato}
           cancelEditMandato={cancelEditMandato}
+          editingAsignacionId={editingAsignacionId}
+          asignacionDraft={asignacionDraft}
+          setAsignacionDraft={setAsignacionDraft}
+          handleCreateAsignacion={handleCreateAsignacion}
+          cancelEditAsignacion={cancelEditAsignacion}
           simpleOwners={simpleOwners}
           patrimonioOwners={patrimonioOwners}
           propiedades={propiedades}
           cuentas={cuentas}
+          mandatos={mandatos}
+          identidades={identidades}
           filteredCuentas={filteredCuentas}
           filteredIdentidades={filteredIdentidades}
           filteredMandatos={filteredMandatos}
@@ -5679,6 +5752,7 @@ function App() {
           isLoading={isOperationSnapshotLoading}
           startEditCuenta={startEditCuenta}
           startEditMandato={startEditMandato}
+          startEditAsignacion={startEditAsignacion}
           goToCuentaConciliacion={(cuentaId, numeroCuenta) => {
             navigateWithContext('conciliacion', numeroCuenta, `Cuenta: ${numeroCuenta}`)
             setConexionDraft((current) => ({ ...current, cuenta_recaudadora: String(cuentaId) }))

@@ -57,6 +57,12 @@ identidad de envio, owner de identidad, prioridad y estados, haciendo visible
 la cobertura exigida para contratos vigentes/futuros sin abrir Email,
 WhatsApp ni proveedores externos.
 
+Nota 2026-06-06: Backoffice Operacion ahora permite crear y editar
+asignaciones de canal desde el endpoint auditado de
+`AsignacionCanalOperacion`. El formulario usa los mandatos operativos vigentes
+en snapshot, filtra identidades de envio por canal y refresca cobertura tras
+guardar, manteniendo Email/WhatsApp como proveedores cerrados.
+
 Nota 2026-06-05: Etapas 2, 3, 4, 5 Contabilidad, Documentos, Etapa 6 y
 Reporting alinean el contrato de `source_trace` con Compliance. Las readiness
 ahora exponen `sections.source_trace_sensitive` y clasifican `source_label` o

@@ -103,7 +103,9 @@ contra datos reales o snapshot controlado.
   el auditor Etapa 1 bloquean contratos nuevos o heredados sin esa cobertura.
   El snapshot operativo y el backoffice de Operacion muestran asignaciones de
   canal por mandato, identidad, prioridad y estado para verificar cobertura sin
-  abrir proveedores externos.
+  abrir proveedores externos. El backoffice de Operacion tambien permite
+  crear y editar esas asignaciones mediante la API auditada, filtrando
+  identidades por canal antes de persistir cobertura operativa.
 - Validacion de que las identidades de envio activas usen `credencial_ref`
   trazable no sensible; API y admin/backoffice deben redactar referencias
   sensibles heredadas antes de exponerlas. El snapshot operativo y la tabla de
