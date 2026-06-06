@@ -57,6 +57,15 @@ MOVEMENT_MATCH_AUDIT_EVENT_TYPES = (
     'conciliacion.movimiento_bancario.match_attempted',
     'conciliacion.movimiento_bancario.match_retried',
 )
+MOVEMENT_MATCH_AUDIT_REQUIRED_METADATA_FIELDS = (
+    'status',
+    'movimiento_id',
+    'conexion_bancaria_id',
+    'cuenta_recaudadora_id',
+    'estado_conciliacion',
+    'tipo_movimiento',
+    'fecha_movimiento',
+)
 CHARGE_MANUAL_CLASSIFICATION_REQUIRED_METADATA_FIELDS = (
     'categoria_movimiento',
     'entidad_afectada_tipo',
@@ -439,6 +448,41 @@ def _balance_connection_ready(connection: ConexionBancaria) -> bool:
     return True
 
 
+def _expected_match_audit_metadata(movement: MovimientoBancarioImportado) -> dict[str, str]:
+    return {
+        'movimiento_id': str(movement.pk),
+        'conexion_bancaria_id': str(movement.conexion_bancaria_id),
+        'cuenta_recaudadora_id': str(movement.conexion_bancaria.cuenta_recaudadora_id),
+        'estado_conciliacion': str(movement.estado_conciliacion),
+        'tipo_movimiento': str(movement.tipo_movimiento),
+        'fecha_movimiento': movement.fecha_movimiento.isoformat(),
+    }
+
+
+def _classify_match_audit_metadata(audit_events, movement: MovimientoBancarioImportado) -> str:
+    expected_metadata = _expected_match_audit_metadata(movement)
+    saw_complete_mismatch = False
+    for event in audit_events:
+        metadata = event.metadata or {}
+        if not has_text(metadata.get('status')):
+            continue
+        missing_expected_field = any(
+            not has_text(metadata.get(field_name))
+            for field_name in MOVEMENT_MATCH_AUDIT_REQUIRED_METADATA_FIELDS
+            if field_name != 'status'
+        )
+        if missing_expected_field:
+            continue
+        if all(
+            str(metadata.get(field_name)) == expected_value
+            for field_name, expected_value in expected_metadata.items()
+        ):
+            return 'valid'
+        saw_complete_mismatch = True
+
+    return 'mismatch' if saw_complete_mismatch else 'metadata_missing'
+
+
 def _collect_movement_issues(
     movements,
     *,
@@ -483,12 +527,12 @@ def _collect_movement_issues(
             audit_events = match_audit_events_by_movement.get(str(movement.pk), [])
             if not audit_events:
                 counts['match_audit_missing'] += 1
-            elif any(
-                has_text((event.metadata or {}).get('movimiento_id'))
-                and str((event.metadata or {}).get('movimiento_id')) != str(movement.pk)
-                for event in audit_events
-            ):
-                counts['match_audit_metadata_mismatch'] += 1
+            else:
+                match_audit_status = _classify_match_audit_metadata(audit_events, movement)
+                if match_audit_status == 'metadata_missing':
+                    counts['match_audit_metadata_missing'] += 1
+                elif match_audit_status == 'mismatch':
+                    counts['match_audit_metadata_mismatch'] += 1
 
         if (
             movement.tipo_movimiento == TipoMovimientoBancario.CREDIT
@@ -1009,6 +1053,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.movement.match_audit_missing',
                 'Existen movimientos conciliados o clasificados sin auditoria de intento/reintento de match exacto.',
                 count=movement_issues['match_audit_missing'],
+            )
+        )
+    if movement_issues.get('match_audit_metadata_missing'):
+        issues.append(
+            _issue(
+                'stage3.movement.match_audit_metadata_missing',
+                'Existen auditorias de match exacto con metadata requerida incompleta.',
+                count=movement_issues['match_audit_metadata_missing'],
             )
         )
     if movement_issues.get('match_audit_metadata_mismatch'):
