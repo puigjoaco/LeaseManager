@@ -10,6 +10,8 @@ type AjusteContratoItem = { id: number; contrato: number; tipo_ajuste: string; m
 type PagoMensualItem = { id: number; contrato: number; mes: number; anio: number; monto_facturable_clp: string; monto_calculado_clp: string; monto_efecto_codigo_efectivo_clp: string; moneda_calculo: string; uf_fecha_usada: string | null; uf_valor_usado: string | null; uf_source_key: string; monto_pagado_clp: string; fecha_vencimiento: string; fecha_pago_webpay: string | null; estado_pago: string; dias_mora: number; resolucion_pago_excepcional_ref: string; resolucion_pago_excepcional_motivo: string }
 type GateCobroExternoItem = { id: number; capacidad_key: string; provider_key: string; estado_gate: string; restricciones_operativas: Record<string, unknown>; evidencia_ref: string }
 type IntentoPagoWebPayItem = { id: number; pago_mensual: number; gate_cobro: number; provider_key: string; monto_clp_snapshot: string; buy_order: string; session_id?: string; return_url_ref?: string; estado: string; motivo_bloqueo: string; external_ref: string; fecha_pago_webpay: string | null; confirmado_at?: string | null; provider_payload?: Record<string, unknown> }
+type RepactacionDeudaItem = { id: number; arrendatario: number; contrato_origen: number; deuda_total_original: string; cantidad_cuotas: number; monto_cuota: string; saldo_pendiente: string; estado: string; excepcion_parcial_ref: string; excepcion_parcial_motivo: string; es_repactacion_parcial: boolean; tiene_excepcion_parcial: boolean }
+type CodigoCobroResidualItem = { id: number; referencia_visible: string; arrendatario: number; contrato_origen: number; saldo_actual: string; estado: string; fecha_activacion: string }
 type GarantiaItem = { id: number; contrato: number; monto_pactado: string; monto_recibido: string; saldo_vigente: string; brecha_garantia_clp: string; exceso_garantia_clp: string; garantia_incompleta: boolean; garantia_parcial_aceptada: boolean; aceptacion_parcial_ref: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string; tiene_resolucion_exceso_garantia: boolean; estado_garantia: string }
 type HistorialGarantiaItem = { id: number; contrato_id: number; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string }
 type EstadoCuentaItem = { id: number; arrendatario: number; score_pago: number | null; resumen_operativo: { pagos_abiertos?: number; pagos_atrasados?: number; score_meses_evaluados?: number; score_pagos_en_plazo?: number; score_pagos_fuera_plazo?: number; score_meses_sin_registro_operativo?: number; saldo_total_clp?: string } }
@@ -80,6 +82,8 @@ export function CobranzaWorkspace({
   pagos,
   gatesCobro,
   intentosWebPay,
+  repactaciones,
+  codigosResiduales,
   garantias,
   arrendatarios,
   filteredValoresUf,
@@ -87,6 +91,8 @@ export function CobranzaWorkspace({
   filteredPagos,
   filteredGatesCobro,
   filteredIntentosWebPay,
+  filteredRepactaciones,
+  filteredCodigosResiduales,
   filteredGarantias,
   filteredHistorialGarantias,
   filteredEstadosCuenta,
@@ -134,6 +140,8 @@ export function CobranzaWorkspace({
   pagos: PagoMensualItem[]
   gatesCobro: GateCobroExternoItem[]
   intentosWebPay: IntentoPagoWebPayItem[]
+  repactaciones: RepactacionDeudaItem[]
+  codigosResiduales: CodigoCobroResidualItem[]
   garantias: GarantiaItem[]
   arrendatarios: ArrendatarioItem[]
   filteredValoresUf: ValorUFItem[]
@@ -141,6 +149,8 @@ export function CobranzaWorkspace({
   filteredPagos: PagoMensualItem[]
   filteredGatesCobro: GateCobroExternoItem[]
   filteredIntentosWebPay: IntentoPagoWebPayItem[]
+  filteredRepactaciones: RepactacionDeudaItem[]
+  filteredCodigosResiduales: CodigoCobroResidualItem[]
   filteredGarantias: GarantiaItem[]
   filteredHistorialGarantias: HistorialGarantiaItem[]
   filteredEstadosCuenta: EstadoCuentaItem[]
@@ -164,6 +174,8 @@ export function CobranzaWorkspace({
   const pagoById = new Map(pagos.map((item) => [item.id, item]))
   const webpayGates = gatesCobro.filter((item) => item.capacidad_key === 'WebPay.IntentoPago')
   const preparedWebpayIntents = intentosWebPay.filter((item) => item.estado === 'preparado')
+  const repactacionesActivas = repactaciones.filter((item) => item.estado === 'activa').length
+  const residualesActivos = codigosResiduales.filter((item) => item.estado === 'activa').length
 
   return (
     <>
@@ -385,6 +397,24 @@ export function CobranzaWorkspace({
         { label: 'External ref', render: (row) => row.external_ref || '-' },
         { label: 'Fecha pago', render: (row) => row.fecha_pago_webpay || '-' },
         { label: 'Payload', render: (row) => formatPayload(row.provider_payload) },
+      ]} />
+      <TableBlock title="Repactaciones" subtitle={`${count(repactacionesActivas)} planes activos; coherencia saldo/estado y excepciones parciales.`} rows={filteredRepactaciones} empty="No hay repactaciones para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
+        { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
+        { label: 'Contrato', render: (row) => contratoById.get(row.contrato_origen)?.codigo_contrato || row.contrato_origen },
+        { label: 'Deuda original', render: (row) => row.deuda_total_original },
+        { label: 'Plan', render: (row) => `${count(row.cantidad_cuotas)} x ${row.monto_cuota}` },
+        { label: 'Saldo', render: (row) => row.saldo_pendiente },
+        { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+        { label: 'Parcial', render: (row) => row.es_repactacion_parcial ? <Badge label={row.tiene_excepcion_parcial ? 'con excepción' : 'sin excepción'} tone={row.tiene_excepcion_parcial ? 'warning' : 'danger'} /> : <Badge label="total" /> },
+        { label: 'Excepción', render: (row) => row.excepcion_parcial_ref || row.excepcion_parcial_motivo || '-' },
+      ]} />
+      <TableBlock title="Códigos residuales" subtitle={`${count(residualesActivos)} cobros residuales activos con referencia CCR controlada.`} rows={filteredCodigosResiduales} empty="No hay códigos residuales para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
+        { label: 'Referencia', render: (row) => row.referencia_visible },
+        { label: 'Arrendatario', render: (row) => arrendatarioById.get(row.arrendatario)?.nombre_razon_social || row.arrendatario },
+        { label: 'Contrato origen', render: (row) => contratoById.get(row.contrato_origen)?.codigo_contrato || row.contrato_origen },
+        { label: 'Saldo', render: (row) => row.saldo_actual },
+        { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+        { label: 'Activación', render: (row) => row.fecha_activacion },
       ]} />
       <TableBlock title="Garantías" subtitle="Saldos y estado actual de cada contrato." rows={filteredGarantias} empty="No hay garantías para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
         { label: 'Contrato', render: (row) => contratoById.get(row.contrato)?.codigo_contrato || row.contrato },

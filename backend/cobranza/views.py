@@ -204,6 +204,11 @@ class CobranzaSnapshotView(APIView):
             access,
             property_paths=('contrato_origen__mandato_operacion__propiedad_id',),
         )
+        codigos_residuales = scope_queryset_for_access(
+            CodigoCobroResidual.objects.select_related('arrendatario', 'contrato_origen').order_by('-fecha_activacion', '-id'),
+            access,
+            property_paths=('contrato_origen__mandato_operacion__propiedad_id',),
+        )
 
         return Response(
             {
@@ -317,6 +322,18 @@ class CobranzaSnapshotView(APIView):
                         'tiene_excepcion_parcial': item.tiene_excepcion_parcial,
                     }
                     for item in repactaciones
+                ],
+                'codigos_residuales': [
+                    {
+                        'id': item.id,
+                        'referencia_visible': item.referencia_visible,
+                        'arrendatario': item.arrendatario_id,
+                        'contrato_origen': item.contrato_origen_id,
+                        'saldo_actual': item.saldo_actual,
+                        'estado': item.estado,
+                        'fecha_activacion': item.fecha_activacion,
+                    }
+                    for item in codigos_residuales
                 ],
                 'garantias': [
                     {
