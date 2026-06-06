@@ -51,6 +51,12 @@ empresa/socio, canal, remitente, direccion, estado y `credencial_ref` no
 sensible para identidades activas, permitiendo preparar cobertura operativa
 sin abrir Email, WhatsApp ni proveedores externos.
 
+Nota 2026-06-06: Operacion/Etapa 1 completa el contrato de snapshot de
+identidades de envio. `OperationSnapshotView` ahora expone `owner_id` junto a
+`owner_tipo`, `owner_display` y `credencial_ref` redactada, de modo que el
+backoffice pueda editar una identidad cargada desde snapshot manteniendo el
+owner exacto y sin depender de datos reales ni proveedores externos.
+
 Nota 2026-06-06: Operacion/Etapa 1 alinea el backoffice de Mandatos con la
 trazabilidad de autoridad operativa ya expuesta por snapshot/API. La UI ahora
 filtra y muestra nombre, RUT, evidencia redactada, autorizaciones y vigencia

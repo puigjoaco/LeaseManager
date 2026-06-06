@@ -561,7 +561,7 @@ class OperacionAPITests(APITestCase):
 
     def test_operation_snapshot_redacts_inherited_sensitive_identity_credential_ref(self):
         socio = self._create_socio('Operador Snapshot', '35353535-0')
-        IdentidadDeEnvio.objects.create(
+        identidad = IdentidadDeEnvio.objects.create(
             socio_owner=socio,
             canal=CanalOperacion.EMAIL,
             remitente_visible=socio.nombre,
@@ -574,6 +574,8 @@ class OperacionAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['identidades'][0]['credencial_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(response.data['identidades'][0]['owner_tipo'], 'socio')
+        self.assertEqual(response.data['identidades'][0]['owner_id'], identidad.owner_id)
 
     def test_operation_snapshot_redacts_inherited_sensitive_mandate_authority_evidence(self):
         propietario = self._create_socio('Propietario Snapshot', '36363636-0')
