@@ -604,6 +604,50 @@ class OperacionAPITests(APITestCase):
             REDACTED_SENSITIVE_REFERENCE,
         )
 
+    def test_operation_snapshot_exposes_channel_assignment_coverage(self):
+        propietario = self._create_socio('Propietario Canal', '38383838-0')
+        admin_company = self._create_active_empresa('AdminCo Canal', '39393939-0')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-CHAN-001')
+        cuenta = self._create_active_account(empresa=admin_company, numero='CHAN-001')
+        identidad = self._create_active_identity(empresa=admin_company, direccion='canal@example.com')
+        mandato = MandatoOperacion.objects.create(
+            propiedad=propiedad,
+            propietario_socio_owner=propietario,
+            administrador_empresa_owner=admin_company,
+            recaudador_empresa_owner=admin_company,
+            cuenta_recaudadora=cuenta,
+            tipo_relacion_operativa='mandato_externo',
+            autoriza_recaudacion=True,
+            autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
+            vigencia_desde='2026-01-01',
+            estado=EstadoMandatoOperacion.ACTIVE,
+        )
+        AsignacionCanalOperacion.objects.create(
+            mandato_operacion=mandato,
+            canal=CanalOperacion.EMAIL,
+            identidad_envio=identidad,
+            prioridad=1,
+            estado=EstadoAsignacionCanal.ACTIVE,
+        )
+
+        response = self.client.get(reverse('operacion-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['asignaciones_canal']), 1)
+        assignment = response.data['asignaciones_canal'][0]
+        self.assertEqual(assignment['mandato_operacion_id'], mandato.id)
+        self.assertEqual(assignment['mandato_propiedad_codigo'], propiedad.codigo_propiedad)
+        self.assertEqual(assignment['canal'], CanalOperacion.EMAIL)
+        self.assertEqual(assignment['identidad_envio_id'], identidad.id)
+        self.assertEqual(assignment['identidad_envio_display'], identidad.remitente_visible)
+        self.assertEqual(assignment['identidad_envio_owner_display'], admin_company.razon_social)
+        self.assertEqual(assignment['identidad_envio_estado'], EstadoIdentidadEnvio.ACTIVE)
+        self.assertEqual(assignment['prioridad'], 1)
+        self.assertEqual(assignment['estado'], EstadoAsignacionCanal.ACTIVE)
+
     def test_operation_admin_redacts_sensitive_operational_refs(self):
         propietario = self._create_socio('Propietario Admin', '77777777-7')
         admin_company = self._create_active_empresa('AdminCo Admin', '88888888-8')

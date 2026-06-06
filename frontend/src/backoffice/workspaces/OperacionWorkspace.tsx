@@ -34,6 +34,18 @@ type MandatoItem = {
   vigencia_hasta: string | null
   estado: string
 }
+type AsignacionCanalItem = {
+  id: number
+  mandato_operacion_id: number
+  mandato_propiedad_codigo?: string
+  canal: string
+  identidad_envio_id: number
+  identidad_envio_display: string
+  identidad_envio_owner_display?: string
+  identidad_envio_estado?: string
+  prioridad: number
+  estado: string
+}
 type PropiedadOption = { id: number; codigo_propiedad: string; direccion: string }
 
 type CuentaDraft = { institucion: string; numero_cuenta: string; tipo_cuenta: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; uso_operativo: string; modo_operativo: string; evidencia_operativa_ref: string; estado_operativo: string; owner_tipo: string; owner_id: string }
@@ -94,6 +106,7 @@ export function OperacionWorkspace({
   filteredCuentas,
   filteredIdentidades,
   filteredMandatos,
+  filteredAsignacionesCanal,
   toneFor,
   isSubmitting,
   isLoading,
@@ -120,6 +133,7 @@ export function OperacionWorkspace({
   filteredCuentas: CuentaItem[]
   filteredIdentidades: IdentidadItem[]
   filteredMandatos: MandatoItem[]
+  filteredAsignacionesCanal: AsignacionCanalItem[]
   toneFor: (value: string) => Tone
   isSubmitting: boolean
   isLoading: boolean
@@ -215,6 +229,15 @@ export function OperacionWorkspace({
         { label: 'Destino', render: (row) => row.direccion_o_numero },
         { label: 'Credencial', render: (row) => row.credencial_ref || 'Sin credencial' },
         { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo}` },
+        { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+      ]} />
+      <TableBlock title="Asignaciones de canal" subtitle="Cobertura activa entre mandato operativo e identidad de envío." rows={filteredAsignacionesCanal} empty="No hay asignaciones para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[
+        { label: 'Mandato', render: (row) => row.mandato_propiedad_codigo || `Mandato ${row.mandato_operacion_id}` },
+        { label: 'Canal', render: (row) => row.canal.replaceAll('_', ' ') },
+        { label: 'Identidad', render: (row) => row.identidad_envio_display },
+        { label: 'Owner identidad', render: (row) => row.identidad_envio_owner_display || 'Sin owner visible' },
+        { label: 'Prioridad', render: (row) => row.prioridad },
+        { label: 'Estado identidad', render: (row) => <Badge label={row.identidad_envio_estado || 'sin estado'} tone={toneFor(row.identidad_envio_estado || '')} /> },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
       <TableBlock title="Mandatos operativos" subtitle="Separación entre propietario, administrador, recaudador y facturadora." rows={filteredMandatos} empty="No hay mandatos para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[

@@ -629,6 +629,18 @@ type Mandato = {
   vigencia_hasta: string | null
   estado: string
 }
+type AsignacionCanal = {
+  id: number
+  mandato_operacion_id: number
+  mandato_propiedad_codigo?: string
+  canal: string
+  identidad_envio_id: number
+  identidad_envio_display: string
+  identidad_envio_owner_display?: string
+  identidad_envio_estado?: string
+  prioridad: number
+  estado: string
+}
 
 type Contrato = {
   id: number
@@ -1146,6 +1158,7 @@ type OperationSnapshot = {
   cuentas: Cuenta[]
   identidades: Identidad[]
   mandatos: Mandato[]
+  asignaciones_canal: AsignacionCanal[]
 }
 
 type ContractsSnapshot = {
@@ -1424,6 +1437,7 @@ function App() {
   const [cuentas, setCuentas] = useState<Cuenta[]>([])
   const [identidades, setIdentidades] = useState<Identidad[]>([])
   const [mandatos, setMandatos] = useState<Mandato[]>([])
+  const [asignacionesCanal, setAsignacionesCanal] = useState<AsignacionCanal[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [expedientes, setExpedientes] = useState<ExpedienteDocumental[]>([])
   const [politicasFirma, setPoliticasFirma] = useState<PoliticaFirma[]>([])
@@ -2772,6 +2786,7 @@ function App() {
         setCuentas(operationSnapshotPayload.cuentas)
         setIdentidades(operationSnapshotPayload.identidades)
         setMandatos(operationSnapshotPayload.mandatos)
+        setAsignacionesCanal(operationSnapshotPayload.asignaciones_canal)
         setIsOperationSnapshotLoaded(true)
       }
       if (contractsSnapshotPayload) {
@@ -5046,6 +5061,23 @@ function App() {
       ),
     [mandatos, normalizedSearch],
   )
+  const filteredAsignacionesCanal = useMemo(
+    () =>
+      asignacionesCanal.filter((item) =>
+        matches(normalizedSearch, [
+          item.mandato_operacion_id,
+          item.mandato_propiedad_codigo,
+          item.canal,
+          item.identidad_envio_id,
+          item.identidad_envio_display,
+          item.identidad_envio_owner_display,
+          item.identidad_envio_estado,
+          item.prioridad,
+          item.estado,
+        ]),
+      ),
+    [asignacionesCanal, normalizedSearch],
+  )
   const filteredArrendatarios = useMemo(
     () =>
       arrendatarios.filter((item) =>
@@ -5641,6 +5673,7 @@ function App() {
           filteredCuentas={filteredCuentas}
           filteredIdentidades={filteredIdentidades}
           filteredMandatos={filteredMandatos}
+          filteredAsignacionesCanal={filteredAsignacionesCanal}
           toneFor={toneFor}
           isSubmitting={isSubmitting}
           isLoading={isOperationSnapshotLoading}
