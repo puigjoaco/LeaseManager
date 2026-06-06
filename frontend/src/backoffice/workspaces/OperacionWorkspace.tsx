@@ -39,6 +39,42 @@ type PropiedadOption = { id: number; codigo_propiedad: string; direccion: string
 type CuentaDraft = { institucion: string; numero_cuenta: string; tipo_cuenta: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; uso_operativo: string; modo_operativo: string; evidencia_operativa_ref: string; estado_operativo: string; owner_tipo: string; owner_id: string }
 type MandatoDraft = { propiedad_id: string; propietario_tipo: string; propietario_id: string; administrador_operativo_tipo: string; administrador_operativo_id: string; recaudador_tipo: string; recaudador_id: string; entidad_facturadora_id: string; cuenta_recaudadora_id: string; tipo_relacion_operativa: string; autoriza_recaudacion: boolean; autoriza_facturacion: boolean; autoriza_comunicacion: boolean; autoridad_operativa_nombre: string; autoridad_operativa_rut: string; autoridad_operativa_evidencia_ref: string; vigencia_desde: string; vigencia_hasta: string; estado: string }
 
+const authorizationLabels = (row: MandatoItem) => {
+  const labels: string[] = []
+  if (row.autoriza_recaudacion) labels.push('Recaudacion')
+  if (row.autoriza_facturacion) labels.push('Facturacion')
+  if (row.autoriza_comunicacion) labels.push('Comunicacion')
+  return labels
+}
+
+function renderMandateAuthority(row: MandatoItem) {
+  return (
+    <div className="list-stack compact-list">
+      <div className="list-row compact-row"><span>Nombre</span><strong>{row.autoridad_operativa_nombre || 'Sin autoridad'}</strong></div>
+      <div className="list-row compact-row"><span>RUT</span><strong>{row.autoridad_operativa_rut || 'Sin RUT'}</strong></div>
+      <div className="list-row compact-row"><span>Evidencia</span><strong>{row.autoridad_operativa_evidencia_ref || 'Sin evidencia'}</strong></div>
+    </div>
+  )
+}
+
+function renderMandateAuthorizations(row: MandatoItem) {
+  const labels = authorizationLabels(row)
+  return (
+    <div className="inline-actions">
+      {labels.length ? labels.map((label) => <Badge key={label} label={label} tone="positive" />) : <Badge label="Sin autorizaciones" />}
+    </div>
+  )
+}
+
+function renderMandateValidity(row: MandatoItem) {
+  return (
+    <div className="list-stack compact-list">
+      <div className="list-row compact-row"><span>Desde</span><strong>{row.vigencia_desde || 'Sin inicio'}</strong></div>
+      <div className="list-row compact-row"><span>Hasta</span><strong>{row.vigencia_hasta || 'Sin termino'}</strong></div>
+    </div>
+  )
+}
+
 export function OperacionWorkspace({
   canEditOperacion,
   editingCuentaId,
@@ -185,7 +221,9 @@ export function OperacionWorkspace({
         { label: 'Propiedad', render: (row) => row.propiedad_codigo },
         { label: 'Propietario', render: (row) => row.propietario_display },
         { label: 'Administrador', render: (row) => row.administrador_operativo_display },
-        { label: 'Autoridad', render: (row) => row.autoridad_operativa_nombre || 'Sin autoridad' },
+        { label: 'Autoridad', render: renderMandateAuthority },
+        { label: 'Autorizaciones', render: renderMandateAuthorizations },
+        { label: 'Vigencia', render: renderMandateValidity },
         { label: 'Recaudador', render: (row) => row.recaudador_display },
         { label: 'Facturadora', render: (row) => row.entidad_facturadora_display || 'Sin facturadora' },
         { label: 'Cuenta', render: (row) => row.cuenta_recaudadora_display },
