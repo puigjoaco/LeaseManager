@@ -22,6 +22,7 @@ from canales.models import (
     NotificacionCobranzaProgramada,
 )
 from canales.services import (
+    NOTIFICATION_MATERIALIZED_EVENT_TYPE,
     WHATSAPP_FALLBACK_REQUIRED_CATEGORY,
     WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE,
     materialize_payment_notification_schedule,
@@ -734,6 +735,23 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.notification_schedule.scheduled_for_non_collectable_payment', issue_codes)
         self.assertEqual(result['sections']['notification_schedules']['scheduled_for_non_collectable_payment'], 7)
+
+    def test_notification_schedule_without_materialization_audit_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        AuditEvent.objects.filter(
+            event_type=NOTIFICATION_MATERIALIZED_EVENT_TYPE,
+            entity_type='pago_mensual',
+            entity_id=str(fixture['payment'].pk),
+        ).delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.notification_schedule.materialization_audit_missing', issue_codes)
+        self.assertEqual(result['sections']['notification_schedules']['materialization_audit_missing'], 1)
 
     def test_prepared_notification_with_unaligned_message_is_blocking(self):
         fixture = self._create_payment_matrix()

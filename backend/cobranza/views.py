@@ -481,23 +481,11 @@ class PagoMensualDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generic
                             current_state=current_state,
                         ),
                     )
-                materialized = materialize_payment_notification_schedule(instance)
-                if materialized['created_count'] or materialized.get('omitted_count'):
-                    create_audit_event(
-                        event_type='canales.notificacion_cobranza.materialized',
-                        entity_type='pago_mensual',
-                        entity_id=str(instance.pk),
-                        summary='Notificaciones de cobranza sincronizadas tras actualizar pago',
-                        actor_user=self.request.user,
-                        ip_address=self.request.META.get('REMOTE_ADDR'),
-                        metadata={
-                            'contrato_id': instance.contrato_id,
-                            'anio': instance.anio,
-                            'mes': instance.mes,
-                            'created_count': materialized['created_count'],
-                            'omitted_count': materialized.get('omitted_count', 0),
-                        },
-                    )
+                materialize_payment_notification_schedule(
+                    instance,
+                    actor_user=self.request.user,
+                    ip_address=self.request.META.get('REMOTE_ADDR'),
+                )
         except DjangoValidationError as error:
             payload = error.message_dict if hasattr(error, 'message_dict') else {'detail': error.messages}
             raise ValidationError(payload)
@@ -525,22 +513,11 @@ class PagoMensualGenerateView(APIView):
         existing = PagoMensual.objects.filter(contrato=contrato, anio=anio, mes=mes).first()
         if existing:
             with transaction.atomic():
-                materialized = materialize_payment_notification_schedule(existing)
-                if materialized['created_count']:
-                    create_audit_event(
-                        event_type='canales.notificacion_cobranza.materialized',
-                        entity_type='pago_mensual',
-                        entity_id=str(existing.pk),
-                        summary='Notificaciones de cobranza programadas para pago existente',
-                        actor_user=request.user,
-                        ip_address=request.META.get('REMOTE_ADDR'),
-                        metadata={
-                            'contrato_id': contrato.id,
-                            'anio': anio,
-                            'mes': mes,
-                            'created_count': materialized['created_count'],
-                        },
-                    )
+                materialize_payment_notification_schedule(
+                    existing,
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                )
             return Response(PagoMensualSerializer(existing).data, status=status.HTTP_200_OK)
 
         try:
@@ -575,22 +552,11 @@ class PagoMensualGenerateView(APIView):
                 ip_address=request.META.get('REMOTE_ADDR'),
                 metadata={'contrato_id': contrato.id, 'anio': anio, 'mes': mes},
             )
-            materialized = materialize_payment_notification_schedule(payment)
-            if materialized['created_count']:
-                create_audit_event(
-                    event_type='canales.notificacion_cobranza.materialized',
-                    entity_type='pago_mensual',
-                    entity_id=str(payment.pk),
-                    summary='Notificaciones de cobranza programadas al generar pago',
-                    actor_user=request.user,
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    metadata={
-                        'contrato_id': contrato.id,
-                        'anio': anio,
-                        'mes': mes,
-                        'created_count': materialized['created_count'],
-                    },
-                )
+            materialize_payment_notification_schedule(
+                payment,
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
 
         return Response(PagoMensualSerializer(payment).data, status=status.HTTP_201_CREATED)
 

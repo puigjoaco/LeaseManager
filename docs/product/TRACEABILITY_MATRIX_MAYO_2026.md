@@ -19,6 +19,13 @@ en el JSON de readiness y, para fuentes evidenciales, verifican que cada ref
 final quede trazable y no sensible. Esto evita aceptar un gate que solo pruebe
 ausencia de sensibilidad sin probar presencia de evidencia final.
 
+Nota 2026-06-06: Canales/Etapa 2 mueve la auditoria de materializacion de
+recordatorios al servicio. `materialize_payment_notification_schedule()` crea
+`canales.notificacion_cobranza.materialized` dentro de la misma transaccion que
+crea, realinea u omite recordatorios, y `audit_stage2_cobranza_readiness`
+reporta `stage2.notification_schedule.materialization_audit_missing` para
+snapshots heredados sin evento con actor y periodo alineado.
+
 Nota 2026-06-05: Etapas 2, 3, 4, 5 Contabilidad, Documentos, Etapa 6 y
 Reporting alinean el contrato de `source_trace` con Compliance. Las readiness
 ahora exponen `sections.source_trace_sensitive` y clasifican `source_label` o

@@ -31,6 +31,7 @@ from .models import (
 
 
 MESSAGE_PREPARED_EVENT_TYPE = 'canales.mensaje_saliente.prepared'
+NOTIFICATION_MATERIALIZED_EVENT_TYPE = 'canales.notificacion_cobranza.materialized'
 WHATSAPP_FALLBACK_REQUIRED_CATEGORY = 'canales.whatsapp.fallback_requerido'
 WHATSAPP_FALLBACK_REQUIRED_EVENT_TYPE = 'canales.whatsapp.fallback_required'
 COLLECTABLE_PAYMENT_STATES = COLLECTABLE_NOTIFICATION_PAYMENT_STATES
@@ -303,8 +304,50 @@ def expected_payment_notification_schedule(payment, configuration):
     return schedule
 
 
+def create_notification_materialized_audit_event(
+    payment,
+    *,
+    created_count=0,
+    updated_count=0,
+    omitted_count=0,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    if not (created_count or updated_count or omitted_count):
+        return None
+    actor_identifier = _service_actor_identifier(
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        default='system:canales.notification_materialization',
+    )
+    return create_audit_event(
+        event_type=NOTIFICATION_MATERIALIZED_EVENT_TYPE,
+        entity_type='pago_mensual',
+        entity_id=str(payment.pk),
+        summary='Notificaciones de cobranza sincronizadas para pago mensual',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata={
+            'contrato_id': payment.contrato_id,
+            'anio': payment.anio,
+            'mes': payment.mes,
+            'created_count': created_count,
+            'updated_count': updated_count,
+            'omitted_count': omitted_count,
+        },
+    )
+
+
 @transaction.atomic
-def materialize_payment_notification_schedule(payment):
+def materialize_payment_notification_schedule(
+    payment,
+    *,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
     if payment.estado_pago not in COLLECTABLE_PAYMENT_STATES:
         rows = []
         omitted_count = 0
@@ -319,7 +362,20 @@ def materialize_payment_notification_schedule(payment):
             notification.save(update_fields=['estado', 'motivo_estado', 'updated_at'])
             rows.append(notification)
             omitted_count += 1
-        return {'rows': rows, 'created_count': 0, 'omitted_count': omitted_count}
+        audit_event = create_notification_materialized_audit_event(
+            payment,
+            omitted_count=omitted_count,
+            actor_user=actor_user,
+            actor_identifier=actor_identifier,
+            ip_address=ip_address,
+        )
+        return {
+            'rows': rows,
+            'created_count': 0,
+            'updated_count': 0,
+            'omitted_count': omitted_count,
+            'audit_event_id': audit_event.pk if audit_event else None,
+        }
 
     configurations = ConfiguracionNotificacionContrato.objects.filter(
         contrato=payment.contrato,
@@ -327,6 +383,7 @@ def materialize_payment_notification_schedule(payment):
     ).order_by('canal', 'id')
     rows = []
     created_count = 0
+    updated_count = 0
     for configuration in configurations:
         for day, scheduled_date in expected_payment_notification_schedule(payment, configuration):
             notification, created = NotificacionCobranzaProgramada.objects.get_or_create(
@@ -350,10 +407,25 @@ def materialize_payment_notification_schedule(payment):
                 if updates:
                     notification.full_clean()
                     notification.save(update_fields=[*updates, 'updated_at'])
+                    updated_count += 1
             else:
                 created_count += 1
             rows.append(notification)
-    return {'rows': rows, 'created_count': created_count, 'omitted_count': 0}
+    audit_event = create_notification_materialized_audit_event(
+        payment,
+        created_count=created_count,
+        updated_count=updated_count,
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+    )
+    return {
+        'rows': rows,
+        'created_count': created_count,
+        'updated_count': updated_count,
+        'omitted_count': 0,
+        'audit_event_id': audit_event.pk if audit_event else None,
+    }
 
 
 @transaction.atomic
