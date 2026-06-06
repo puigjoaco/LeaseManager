@@ -459,12 +459,50 @@ def _expected_match_audit_metadata(movement: MovimientoBancarioImportado) -> dic
     }
 
 
-def _classify_match_audit_metadata(audit_events, movement: MovimientoBancarioImportado) -> str:
+def _expected_match_audit_statuses(
+    movement: MovimientoBancarioImportado,
+    *,
+    internal_transfer_destination_ids=None,
+) -> set[str]:
+    internal_transfer_destination_ids = internal_transfer_destination_ids or set()
+    if movement.estado_conciliacion == EstadoConciliacionMovimiento.UNKNOWN_INCOME:
+        return {'unknown_income'}
+    if movement.estado_conciliacion == EstadoConciliacionMovimiento.MANUAL_REQUIRED:
+        return {'manual_required'}
+    if movement.estado_conciliacion != EstadoConciliacionMovimiento.EXACT_MATCH:
+        return set()
+
+    if movement.pago_mensual_id:
+        expected_statuses = {'matched_payment'}
+        if _has_resolved_payment_manual_assignment(movement):
+            expected_statuses.add('unknown_income')
+        return expected_statuses
+    if movement.codigo_cobro_residual_id:
+        return {'matched_residual'}
+    if movement.tipo_movimiento == TipoMovimientoBancario.DEBIT:
+        return {'manual_required'}
+    if movement.pk in internal_transfer_destination_ids:
+        return {'unknown_income'}
+    return set()
+
+
+def _classify_match_audit_metadata(
+    audit_events,
+    movement: MovimientoBancarioImportado,
+    *,
+    internal_transfer_destination_ids=None,
+) -> str:
     expected_metadata = _expected_match_audit_metadata(movement)
+    expected_statuses = _expected_match_audit_statuses(
+        movement,
+        internal_transfer_destination_ids=internal_transfer_destination_ids,
+    )
     saw_complete_mismatch = False
+    saw_status_mismatch = False
     for event in audit_events:
         metadata = event.metadata or {}
-        if not has_text(metadata.get('status')):
+        status = str(metadata.get('status') or '').strip()
+        if not has_text(status):
             continue
         missing_expected_field = any(
             not has_text(metadata.get(field_name))
@@ -473,13 +511,20 @@ def _classify_match_audit_metadata(audit_events, movement: MovimientoBancarioImp
         )
         if missing_expected_field:
             continue
-        if all(
+        metadata_matches = all(
             str(metadata.get(field_name)) == expected_value
             for field_name, expected_value in expected_metadata.items()
-        ):
-            return 'valid'
-        saw_complete_mismatch = True
+        )
+        if not metadata_matches:
+            saw_complete_mismatch = True
+            continue
+        if expected_statuses and status not in expected_statuses:
+            saw_status_mismatch = True
+            continue
+        return 'valid'
 
+    if saw_status_mismatch:
+        return 'status_mismatch'
     return 'mismatch' if saw_complete_mismatch else 'metadata_missing'
 
 
@@ -528,11 +573,17 @@ def _collect_movement_issues(
             if not audit_events:
                 counts['match_audit_missing'] += 1
             else:
-                match_audit_status = _classify_match_audit_metadata(audit_events, movement)
+                match_audit_status = _classify_match_audit_metadata(
+                    audit_events,
+                    movement,
+                    internal_transfer_destination_ids=internal_transfer_destination_ids,
+                )
                 if match_audit_status == 'metadata_missing':
                     counts['match_audit_metadata_missing'] += 1
                 elif match_audit_status == 'mismatch':
                     counts['match_audit_metadata_mismatch'] += 1
+                elif match_audit_status == 'status_mismatch':
+                    counts['match_audit_status_mismatch'] += 1
 
         if (
             movement.tipo_movimiento == TipoMovimientoBancario.CREDIT
@@ -1069,6 +1120,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.movement.match_audit_metadata_mismatch',
                 'Existen auditorias de match exacto con metadata de movimiento desalineada.',
                 count=movement_issues['match_audit_metadata_mismatch'],
+            )
+        )
+    if movement_issues.get('match_audit_status_mismatch'):
+        issues.append(
+            _issue(
+                'stage3.movement.match_audit_status_mismatch',
+                'Existen auditorias de match exacto con status desalineado frente al camino de conciliacion.',
+                count=movement_issues['match_audit_status_mismatch'],
             )
         )
     if movement_issues.get('credit_exact_match_without_target'):

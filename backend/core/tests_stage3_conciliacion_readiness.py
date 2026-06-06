@@ -521,6 +521,20 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.movement.match_audit_metadata_mismatch', issue_codes)
         self.assertEqual(result['sections']['movements']['match_audit_metadata_mismatch'], 1)
 
+    def test_match_audit_status_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-MATCH-AUDIT-STATUS-MISMATCH')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment, with_match_audit=False)
+        self._create_match_audit_event(movimiento, status='unknown_income')
+        self._create_square_balance(cuenta)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.match_audit_status_mismatch', issue_codes)
+        self.assertEqual(result['sections']['movements']['match_audit_status_mismatch'], 1)
+
     def test_exact_match_payment_period_mismatch_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-PAY-PERIOD')
         conexion = self._create_ready_connection(cuenta)
