@@ -1811,6 +1811,13 @@ function App() {
     resolucion_exceso_garantia_ref: '',
     resolucion_exceso_garantia_motivo: '',
   })
+  const [garantiaTraceDraft, setGarantiaTraceDraft] = useState({
+    garantiaId: '',
+    aceptacion_parcial_ref: '',
+    resolucion_exceso_garantia: '',
+    resolucion_exceso_garantia_ref: '',
+    resolucion_exceso_garantia_motivo: '',
+  })
   const [estadoCuentaDraft, setEstadoCuentaDraft] = useState({
     arrendatario_id: '',
   })
@@ -2431,6 +2438,13 @@ function App() {
       monto_clp: '',
       fecha: todayIso(),
       justificacion: '',
+      resolucion_exceso_garantia: '',
+      resolucion_exceso_garantia_ref: '',
+      resolucion_exceso_garantia_motivo: '',
+    })
+    setGarantiaTraceDraft({
+      garantiaId: '',
+      aceptacion_parcial_ref: '',
       resolucion_exceso_garantia: '',
       resolucion_exceso_garantia_ref: '',
       resolucion_exceso_garantia_motivo: '',
@@ -4398,6 +4412,35 @@ function App() {
     }
   }
 
+  async function handleUpdateGarantiaTrace(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCobranza) return
+    if (!garantiaTraceDraft.garantiaId) {
+      setFormError('Debes seleccionar una garantía válida.')
+      return
+    }
+    const ok = await submitMutation(
+      `/api/v1/cobranza/garantias/${Number(garantiaTraceDraft.garantiaId)}/`,
+      'PATCH',
+      {
+        aceptacion_parcial_ref: garantiaTraceDraft.aceptacion_parcial_ref,
+        resolucion_exceso_garantia: garantiaTraceDraft.resolucion_exceso_garantia,
+        resolucion_exceso_garantia_ref: garantiaTraceDraft.resolucion_exceso_garantia_ref,
+        resolucion_exceso_garantia_motivo: garantiaTraceDraft.resolucion_exceso_garantia_motivo,
+      },
+      'Trazabilidad de garantía actualizada correctamente.',
+    )
+    if (ok) {
+      setGarantiaTraceDraft({
+        garantiaId: '',
+        aceptacion_parcial_ref: '',
+        resolucion_exceso_garantia: '',
+        resolucion_exceso_garantia_ref: '',
+        resolucion_exceso_garantia_motivo: '',
+      })
+    }
+  }
+
   async function handleRebuildEstadoCuenta(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditCobranza) return
@@ -6199,6 +6242,9 @@ function App() {
           garantiaMovimientoDraft={garantiaMovimientoDraft}
           setGarantiaMovimientoDraft={setGarantiaMovimientoDraft}
           handleGarantiaMovimiento={handleGarantiaMovimiento}
+          garantiaTraceDraft={garantiaTraceDraft}
+          setGarantiaTraceDraft={setGarantiaTraceDraft}
+          handleUpdateGarantiaTrace={handleUpdateGarantiaTrace}
           estadoCuentaDraft={estadoCuentaDraft}
           setEstadoCuentaDraft={setEstadoCuentaDraft}
           handleRebuildEstadoCuenta={handleRebuildEstadoCuenta}

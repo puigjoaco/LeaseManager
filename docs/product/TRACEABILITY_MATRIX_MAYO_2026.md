@@ -965,6 +965,13 @@ expone `score_meses_sin_registro_operativo` en el resumen operativo y
 readiness Etapa 2 detecta estados heredados que hayan contado esos meses como
 evaluables.
 
+Nota 2026-06-06: Backoffice Cobranza opera trazabilidad de garantias
+parciales y excesos. El workspace de Cobranza permite seleccionar una garantia,
+actualizar `aceptacion_parcial_ref` y registrar clasificacion, referencia y
+motivo de exceso contra el endpoint auditado de garantias. La tabla de
+garantias muestra aceptacion parcial y resolucion de exceso con refs/motivos ya
+redactados por API.
+
 Nota 2026-06-06: Backoffice Contratos captura registro operativo retroactivo.
 El formulario de Contratos permite informar `fecha_registro_operativo`, envia
 la fecha solo cuando el operador la captura, conserva el default de API cuando

@@ -263,9 +263,11 @@ contra datos reales o snapshot controlado.
   sigue abierta, debe tener aceptacion formal trazable no sensible o quedar
   marcada como incompleta. Si una garantia recibida excede lo pactado, el
   exceso debe quedar clasificado, devuelto, regularizado o bloqueado con
-  referencia no sensible y motivo auditable no sensible; API, snapshot y admin
-  exponen refs/motivos heredados sensibles solo mediante version redactada, y
-  snapshots sin esa resolucion son defectuosos.
+  referencia no sensible y motivo auditable no sensible; API, snapshot, admin y
+  backoffice exponen refs/motivos heredados sensibles solo mediante version
+  redactada. El backoffice permite actualizar aceptacion parcial y resolucion
+  de exceso contra el endpoint auditado de garantias, y snapshots sin esa
+  resolucion son defectuosos.
 - Entrega de llaves: un contrato con `fecha_entrega` operativa debe tener
   garantia cubierta o autorizacion auditada con referencia no sensible y motivo
   trazable. `Contrato.full_clean()` y la API bloquean nuevas escrituras y
