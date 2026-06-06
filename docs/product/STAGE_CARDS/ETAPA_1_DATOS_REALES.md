@@ -184,7 +184,10 @@ contra datos reales o snapshot controlado.
   contrato.
 - Validacion de contratos con arrendatario empresa: API/modelo exigen snapshot
   de representante legal con nombre y RUT valido normalizado, y el auditor
-  detecta faltantes, incompletos o RUT invalido en datos heredados.
+  detecta faltantes, incompletos o RUT invalido en datos heredados. El
+  backoffice de Contratos captura nombre/RUT de representante legal, bloquea
+  altas vigentes/futuras de empresa sin esos datos y muestra cobertura de
+  snapshot en la tabla de contratos.
 - Readiness operativo de arrendatario: `Contrato.full_clean()`, la API y el
   auditor Etapa 1 bloquean contratos vigentes/futuros si el arrendatario no
   tiene estado de contacto activo, email o telefono operativo, domicilio de
