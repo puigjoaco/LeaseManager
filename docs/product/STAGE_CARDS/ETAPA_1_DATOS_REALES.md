@@ -147,7 +147,9 @@ contra datos reales o snapshot controlado.
   comunicacion o facturacion de documentos debe conservar nombre, RUT valido
   normalizado y evidencia trazable no sensible de su representante/autoridad;
   API, snapshot, admin/backoffice y auditor Etapa 1 detectan faltantes, RUT
-  invalido o referencias sensibles.
+  invalido o referencias sensibles. El backoffice de Operacion muestra nombre,
+  RUT, evidencia redactada, autorizaciones y ventana de vigencia para que la
+  cobertura operativa sea revisable antes de construir contratos dependientes.
 - Validacion de que cada propiedad principal o vinculada de contratos vigentes
   o futuros este activa.
 - Servicios y gastos comunes estructurados: `ServicioPropiedad` registra tipo

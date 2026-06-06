@@ -45,6 +45,12 @@ incluye `credencial_ref` redactada, y la UI de identidades la tipa, filtra y
 muestra como referencia operativa visible sin exponer secretos ni conectar
 proveedores.
 
+Nota 2026-06-06: Operacion/Etapa 1 alinea el backoffice de Mandatos con la
+trazabilidad de autoridad operativa ya expuesta por snapshot/API. La UI ahora
+filtra y muestra nombre, RUT, evidencia redactada, autorizaciones y vigencia
+del mandato, manteniendo referencias sensibles heredadas redaccionadas y sin
+abrir integraciones externas.
+
 Nota 2026-06-05: Etapas 2, 3, 4, 5 Contabilidad, Documentos, Etapa 6 y
 Reporting alinean el contrato de `source_trace` con Compliance. Las readiness
 ahora exponen `sections.source_trace_sensitive` y clasifican `source_label` o
