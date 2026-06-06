@@ -486,6 +486,21 @@ def _expected_match_audit_statuses(
     return set()
 
 
+def _match_audit_target_matches(metadata: dict[str, Any], movement: MovimientoBancarioImportado) -> bool:
+    status = str(metadata.get('status') or '').strip()
+    if status == 'matched_payment':
+        return (
+            movement.pago_mensual_id is not None
+            and _metadata_int(metadata, 'pago_mensual_id') == movement.pago_mensual_id
+        )
+    if status == 'matched_residual':
+        return (
+            movement.codigo_cobro_residual_id is not None
+            and _metadata_int(metadata, 'codigo_cobro_residual_id') == movement.codigo_cobro_residual_id
+        )
+    return True
+
+
 def _classify_match_audit_metadata(
     audit_events,
     movement: MovimientoBancarioImportado,
@@ -499,6 +514,7 @@ def _classify_match_audit_metadata(
     )
     saw_complete_mismatch = False
     saw_status_mismatch = False
+    saw_target_mismatch = False
     for event in audit_events:
         metadata = event.metadata or {}
         status = str(metadata.get('status') or '').strip()
@@ -521,10 +537,15 @@ def _classify_match_audit_metadata(
         if expected_statuses and status not in expected_statuses:
             saw_status_mismatch = True
             continue
+        if not _match_audit_target_matches(metadata, movement):
+            saw_target_mismatch = True
+            continue
         return 'valid'
 
     if saw_status_mismatch:
         return 'status_mismatch'
+    if saw_target_mismatch:
+        return 'target_mismatch'
     return 'mismatch' if saw_complete_mismatch else 'metadata_missing'
 
 
@@ -584,6 +605,8 @@ def _collect_movement_issues(
                     counts['match_audit_metadata_mismatch'] += 1
                 elif match_audit_status == 'status_mismatch':
                     counts['match_audit_status_mismatch'] += 1
+                elif match_audit_status == 'target_mismatch':
+                    counts['match_audit_target_mismatch'] += 1
 
         if (
             movement.tipo_movimiento == TipoMovimientoBancario.CREDIT
@@ -1128,6 +1151,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.movement.match_audit_status_mismatch',
                 'Existen auditorias de match exacto con status desalineado frente al camino de conciliacion.',
                 count=movement_issues['match_audit_status_mismatch'],
+            )
+        )
+    if movement_issues.get('match_audit_target_mismatch'):
+        issues.append(
+            _issue(
+                'stage3.movement.match_audit_target_mismatch',
+                'Existen auditorias de match exacto con target desalineado frente al pago mensual o codigo residual conciliado.',
+                count=movement_issues['match_audit_target_mismatch'],
             )
         )
     if movement_issues.get('credit_exact_match_without_target'):

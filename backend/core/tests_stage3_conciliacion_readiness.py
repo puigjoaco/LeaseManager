@@ -236,6 +236,27 @@ class Stage3ConciliacionReadinessTests(TestCase):
             )
         return movimiento
 
+    def _create_reconciled_residual_movement(self, conexion, residual, *, with_match_audit=True):
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=Decimal('15000.00'),
+            descripcion_origen='Cobranza residual conciliada Stage3',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3-residual',
+            saldo_reportado=Decimal('1000000.00'),
+            estado_conciliacion=EstadoConciliacionMovimiento.EXACT_MATCH,
+            codigo_cobro_residual=residual,
+        )
+        if with_match_audit:
+            self._create_match_audit_event(
+                movimiento,
+                status='matched_residual',
+                metadata_extra={'codigo_cobro_residual_id': residual.pk},
+            )
+        return movimiento
+
     def _create_reconciled_charge_movement(self, conexion, *, with_match_audit=True):
         movimiento = MovimientoBancarioImportado.objects.create(
             conexion_bancaria=conexion,
@@ -534,6 +555,50 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage3_conciliacion'])
         self.assertIn('stage3.movement.match_audit_status_mismatch', issue_codes)
         self.assertEqual(result['sections']['movements']['match_audit_status_mismatch'], 1)
+
+    def test_match_audit_payment_target_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-MATCH-AUDIT-PAYMENT-TARGET')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = self._create_reconciled_movement(conexion, payment, with_match_audit=False)
+        self._create_match_audit_event(
+            movimiento,
+            status='matched_payment',
+            metadata_extra={'pago_mensual_id': payment.pk + 1},
+        )
+        self._create_square_balance(cuenta)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.match_audit_target_mismatch', issue_codes)
+        self.assertEqual(result['sections']['movements']['match_audit_target_mismatch'], 1)
+
+    def test_match_audit_residual_target_mismatch_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-MATCH-AUDIT-RES-TARGET')
+        conexion = self._create_ready_connection(cuenta)
+        residual = CodigoCobroResidual.objects.create(
+            referencia_visible='CCR-RES123',
+            arrendatario=payment.contrato.arrendatario,
+            contrato_origen=payment.contrato,
+            saldo_actual=Decimal('0.00'),
+            estado=EstadoCobroResidual.PAID,
+            fecha_activacion=date(2026, 1, 10),
+        )
+        movimiento = self._create_reconciled_residual_movement(conexion, residual, with_match_audit=False)
+        self._create_match_audit_event(
+            movimiento,
+            status='matched_residual',
+            metadata_extra={'codigo_cobro_residual_id': residual.pk + 1},
+        )
+        self._create_square_balance(cuenta)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.movement.match_audit_target_mismatch', issue_codes)
+        self.assertEqual(result['sections']['movements']['match_audit_target_mismatch'], 1)
 
     def test_exact_match_payment_period_mismatch_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-PAY-PERIOD')

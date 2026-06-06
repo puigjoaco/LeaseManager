@@ -60,7 +60,9 @@ sistema igual a saldo banco.
   sensible completa de status, movimiento, conexion, cuenta, estado, tipo y
   fecha; readiness bloquea snapshots heredados sin ese evento, con metadata
   incompleta, con metadata de movimiento desalineada o con status incompatible
-  con el camino de conciliacion permitido.
+  con el camino de conciliacion permitido. Los matches automaticos a pago o
+  codigo residual tambien deben conservar el target conciliado alineado en la
+  metadata (`pago_mensual_id` o `codigo_cobro_residual_id`).
 - Abonos parciales o complementarios conciliados a un `PagoMensual` solo son
   validos con resolucion manual auditada de ingreso desconocido; readiness
   bloquea snapshots donde el movimiento parcial quedo como match exacto sin

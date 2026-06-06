@@ -286,6 +286,10 @@ Nota 2026-06-06: la readiness tambien valida que `metadata.status` sea
 compatible con el camino de conciliacion permitido: match automatico a pago o
 codigo residual, ingreso desconocido, clasificacion manual de cargo o
 regularizacion manual posterior de ingreso desconocido.
+Nota 2026-06-06: para `matched_payment` y `matched_residual`, la readiness
+exige ademas que la metadata conserve el target conciliado exacto
+(`pago_mensual_id` o `codigo_cobro_residual_id`), evitando que un evento con
+status correcto apunte a otro pago o codigo residual.
 
 Nota 2026-05-31: CobranzaActiva/Etapa 2 alinea mutaciones API y auditoria
 de vista en una transaccion. `AuditCreateUpdateMixin` en Cobranza y los
