@@ -144,6 +144,15 @@ class OperationSnapshotView(APIView):
             property_paths=('propiedad_id',),
             bank_account_paths=('cuenta_recaudadora_id',),
         )
+        asignaciones = scope_queryset_for_access(
+            AsignacionCanalOperacion.objects.select_related(
+                'mandato_operacion__propiedad',
+                'identidad_envio__empresa_owner',
+                'identidad_envio__socio_owner',
+            ).order_by('mandato_operacion_id', 'canal', 'prioridad', 'id'),
+            access,
+            property_paths=('mandato_operacion__propiedad_id',),
+        )
 
         return Response(
             {
@@ -274,6 +283,21 @@ class OperationSnapshotView(APIView):
                         'estado': mandato.estado,
                     }
                     for mandato in mandatos
+                ],
+                'asignaciones_canal': [
+                    {
+                        'id': asignacion.id,
+                        'mandato_operacion_id': asignacion.mandato_operacion_id,
+                        'mandato_propiedad_codigo': asignacion.mandato_operacion.propiedad.codigo_propiedad,
+                        'canal': asignacion.canal,
+                        'identidad_envio_id': asignacion.identidad_envio_id,
+                        'identidad_envio_display': asignacion.identidad_envio.remitente_visible,
+                        'identidad_envio_owner_display': asignacion.identidad_envio.owner_display,
+                        'identidad_envio_estado': asignacion.identidad_envio.estado,
+                        'prioridad': asignacion.prioridad,
+                        'estado': asignacion.estado,
+                    }
+                    for asignacion in asignaciones
                 ],
             }
         )

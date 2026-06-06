@@ -101,6 +101,9 @@ contra datos reales o snapshot controlado.
 - Validacion de que cada contrato vigente o futuro tenga al menos un canal
   operativo activo asignado por su mandato; `Contrato.full_clean()`, la API y
   el auditor Etapa 1 bloquean contratos nuevos o heredados sin esa cobertura.
+  El snapshot operativo y el backoffice de Operacion muestran asignaciones de
+  canal por mandato, identidad, prioridad y estado para verificar cobertura sin
+  abrir proveedores externos.
 - Validacion de que las identidades de envio activas usen `credencial_ref`
   trazable no sensible; API y admin/backoffice deben redactar referencias
   sensibles heredadas antes de exponerlas. El snapshot operativo y la tabla de
