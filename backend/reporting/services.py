@@ -38,7 +38,10 @@ from contabilidad.models import (
     LibroMayor,
     ObligacionTributariaMensual,
 )
-from contabilidad.services import summarize_company_period_bank_square
+from contabilidad.services import (
+    get_company_period_unresolved_bank_movements,
+    summarize_company_period_bank_square,
+)
 from contratos.models import AvisoTermino, Contrato, EstadoAvisoTermino
 from operacion.models import CuentaRecaudadora, IdentidadDeEnvio, MandatoOperacion
 from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio
@@ -375,6 +378,7 @@ def _build_monthly_close_control(*, anio, mes, empresa_id, access, events, oblig
         company_obligations = obligations_by_company.get(company_id, [])
         f29 = f29_by_company.get(company_id)
         bank_square = summarize_company_period_bank_square(company, anio, mes)
+        unresolved_bank_movements = get_company_period_unresolved_bank_movements(company, anio, mes).count()
 
         obligations_required = bool(config and (config.aplica_ppm or config.afecta_iva_arriendo))
         pending_obligations = [
@@ -394,6 +398,8 @@ def _build_monthly_close_control(*, anio, mes, empresa_id, access, events, oblig
             blockers.append('configuracion_fiscal_faltante')
         if close is None or close.estado != EstadoCierreMensual.APPROVED:
             blockers.append('cierre_contable_no_aprobado')
+        if unresolved_bank_movements:
+            blockers.append('movimientos_bancarios_sin_resolver')
         if bank_square['cuadraturas_bancarias_faltantes']:
             blockers.append('cuadratura_bancaria_faltante')
         if bank_square['cuadraturas_bancarias_no_cuadradas']:
@@ -416,6 +422,7 @@ def _build_monthly_close_control(*, anio, mes, empresa_id, access, events, oblig
                     bank_square['cuadraturas_bancarias_faltantes'] == 0
                     and bank_square['cuadraturas_bancarias_no_cuadradas'] == 0
                 ),
+                'movimientos_bancarios_sin_resolver': unresolved_bank_movements,
                 **bank_square,
                 'configuracion_fiscal_activa': config is not None,
                 'obligaciones_requeridas': obligations_required,
