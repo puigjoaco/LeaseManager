@@ -1026,6 +1026,32 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_trace_refs_are_classified(self):
+        cuenta, payment = self._create_payment_matrix()
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+
+        result = collect_stage3_conciliacion_readiness(
+            stage2_evidence_ref='stage2-readiness-controlled-v1',
+            bank_proof_ref='bank-proof-controlled-v1',
+            balance_square_ref='balance-square-controlled-v1',
+            responsible_ref='stage3-responsibles-v1',
+            source_kind='snapshot_controlado',
+            source_label='https://example.test/stage3?signed_token=secret',
+            authorization_ref='Bearer stage3-secret-token',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.source_label_sensitive', issue_codes)
+        self.assertIn('stage3.authorization_ref_sensitive', issue_codes)
+        self.assertNotIn('stage3.source_label_missing', issue_codes)
+        self.assertNotIn('stage3.authorization_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['source_trace_sensitive']['source_label'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+
     def test_provider_sync_without_transaction_or_ready_connection_is_blocking(self):
         cuenta, _ = self._create_payment_matrix(codigo='ST3-PROVIDER')
         conexion = ConexionBancaria.objects.create(

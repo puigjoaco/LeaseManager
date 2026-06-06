@@ -1443,6 +1443,33 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_trace_refs_are_classified(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+
+        result = collect_stage2_cobranza_readiness(
+            source_kind='snapshot_controlado',
+            source_label='https://example.test/stage2?signed_token=secret',
+            authorization_ref='Bearer stage2-secret-token',
+            stage1_evidence_ref='stage1-snapshot-controlled-v1',
+            email_proof_ref='email-proof-controlled-v1',
+            webpay_proof_ref='webpay-proof-controlled-v1',
+            responsible_ref='stage2-responsibles-v1',
+            reference_date=self.READINESS_REFERENCE_DATE,
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.source_label_sensitive', issue_codes)
+        self.assertIn('stage2.authorization_ref_sensitive', issue_codes)
+        self.assertNotIn('stage2.source_label_missing', issue_codes)
+        self.assertNotIn('stage2.authorization_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['source_trace_sensitive']['source_label'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+
     def test_email_gate_without_active_identity_or_assignment_is_blocking(self):
         self._create_payment_matrix()
         AsignacionCanalOperacion.objects.all().delete()

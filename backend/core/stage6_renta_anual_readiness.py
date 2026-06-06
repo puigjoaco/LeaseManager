@@ -303,6 +303,10 @@ def collect_stage6_renta_anual_readiness(
         'source_label': _non_sensitive_reference(source_label),
         'authorization_ref': _non_sensitive_reference(authorization_ref),
     }
+    source_trace_sensitive = {
+        'source_label': _sensitive_reference(source_label),
+        'authorization_ref': _sensitive_reference(authorization_ref),
+    }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE6_SOURCE_KINDS
     annual_status_transition_metadata_missing = count_audit_events_without_transition_metadata(
         event_types=STAGE6_ANNUAL_STATUS_UPDATE_EVENT_TYPES
@@ -317,20 +321,26 @@ def collect_stage6_renta_anual_readiness(
             )
         )
     else:
-        for key, code, message in [
+        for key, missing_code, sensitive_code, missing_message, sensitive_message in [
             (
                 'source_label',
                 'stage6.source_label_missing',
+                'stage6.source_label_sensitive',
                 'Falta etiqueta no sensible de la fuente autorizada de Etapa 6.',
+                'La etiqueta de fuente autorizada de Etapa 6 contiene una referencia sensible.',
             ),
             (
                 'authorization_ref',
                 'stage6.authorization_ref_missing',
+                'stage6.authorization_ref_sensitive',
                 'Falta referencia no sensible a la autorizacion de uso de la fuente Etapa 6.',
+                'La referencia de autorizacion de Etapa 6 contiene valores sensibles.',
             ),
         ]:
-            if not source_trace[key]:
-                issues.append(_issue(code, message))
+            if source_trace_sensitive[key]:
+                issues.append(_issue(sensitive_code, sensitive_message))
+            elif not source_trace[key]:
+                issues.append(_issue(missing_code, missing_message))
     if annual_status_transition_metadata_missing:
         issues.append(
             _issue(
@@ -701,6 +711,7 @@ def collect_stage6_renta_anual_readiness(
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,
+            'source_trace_sensitive': source_trace_sensitive,
         },
         'limitations': [
             'Auditoria local de solo lectura; no presenta DDJJ, F22 ni declaraciones finales.',

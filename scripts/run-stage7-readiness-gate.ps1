@@ -731,10 +731,16 @@ Assert-Condition (
     -and ($reporting.sections.PSObject.Properties.Name -contains 'source_trace') `
     -and ($null -ne $reporting.sections.source_trace)
 ) 'La auditoria Reporting debe exponer sections.source_trace.'
+Assert-Condition (
+    ($reporting.sections.PSObject.Properties.Name -contains 'source_trace_sensitive') `
+    -and ($null -ne $reporting.sections.source_trace_sensitive)
+) 'La auditoria Reporting debe exponer sections.source_trace_sensitive.'
 if ($reportingSourceKindAuthorizedByParam) {
     Assert-Condition ($reportingSourceAuthorized -eq $true) 'La fuente evidencial Reporting debe quedar autorizada por tipo.'
     Assert-Condition ($reporting.sections.source_trace.source_label -eq $true) 'La fuente evidencial Reporting debe tener source_label trazable.'
     Assert-Condition ($reporting.sections.source_trace.authorization_ref -eq $true) 'La fuente evidencial Reporting debe tener authorization_ref trazable.'
+    Assert-Condition ($reporting.sections.source_trace_sensitive.source_label -eq $false) 'La fuente evidencial Reporting no debe tener source_label sensible.'
+    Assert-Condition ($reporting.sections.source_trace_sensitive.authorization_ref -eq $false) 'La fuente evidencial Reporting no debe tener authorization_ref sensible.'
 }
 if ($reporting.ready_for_stage7_reporting -ne $true) {
     $issues += [ordered]@{

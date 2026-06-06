@@ -57,6 +57,11 @@ def _non_sensitive_reference(value: str) -> bool:
     return is_non_sensitive_reference(value)
 
 
+def _sensitive_reference(value: str) -> bool:
+    normalized = str(value or '').strip()
+    return bool(normalized) and not _non_sensitive_reference(normalized)
+
+
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
     return {
         'code': code,
@@ -408,6 +413,10 @@ def collect_stage5_contabilidad_readiness(
         'source_label': _non_sensitive_reference(source_label),
         'authorization_ref': _non_sensitive_reference(authorization_ref),
     }
+    source_trace_sensitive = {
+        'source_label': _sensitive_reference(source_label),
+        'authorization_ref': _sensitive_reference(authorization_ref),
+    }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE5_SOURCE_KINDS
     state_transition_metadata_missing = count_state_changed_events_without_transition_metadata(
         STAGE5_CONTABILIDAD_STATE_CHANGE_EVENT_PREFIXES
@@ -422,20 +431,26 @@ def collect_stage5_contabilidad_readiness(
             )
         )
     else:
-        for key, code, message in [
+        for key, missing_code, sensitive_code, missing_message, sensitive_message in [
             (
                 'source_label',
                 'stage5.source_label_missing',
+                'stage5.source_label_sensitive',
                 'Falta etiqueta no sensible de la fuente autorizada de Etapa 5.',
+                'La etiqueta de fuente autorizada de Etapa 5 contiene una referencia sensible.',
             ),
             (
                 'authorization_ref',
                 'stage5.authorization_ref_missing',
+                'stage5.authorization_ref_sensitive',
                 'Falta referencia no sensible a la autorizacion de uso de la fuente Etapa 5.',
+                'La referencia de autorizacion de Etapa 5 contiene valores sensibles.',
             ),
         ]:
-            if not source_trace[key]:
-                issues.append(_issue(code, message))
+            if source_trace_sensitive[key]:
+                issues.append(_issue(sensitive_code, sensitive_message))
+            elif not source_trace[key]:
+                issues.append(_issue(missing_code, missing_message))
     if state_transition_metadata_missing:
         issues.append(
             _issue(
@@ -909,6 +924,7 @@ def collect_stage5_contabilidad_readiness(
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,
+            'source_trace_sensitive': source_trace_sensitive,
         },
         'limitations': [
             'Auditoria local de solo lectura; no presenta F29/F21 ni conecta SII.',

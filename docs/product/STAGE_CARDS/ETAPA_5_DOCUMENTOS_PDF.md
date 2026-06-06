@@ -181,6 +181,10 @@ firma y notaria trazables.
   diagnostican brechas pero no habilitan cierre documental.
 - Las fuentes autorizadas deben declarar `SourceLabel` y `AuthorizationRef` no
   sensibles.
+- Si `SourceLabel` o `AuthorizationRef` contienen URL, token, credencial o
+  valor sensible, readiness debe clasificar `documents.source_label_sensitive`
+  o `documents.authorization_ref_sensitive`, exponer solo
+  `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
 - `scripts/run-stage5-documents-readiness-gate.ps1` normaliza la ejecucion del
   gate. En modo local crea SQLite bajo `local-evidence/`, corre migraciones y
   debe quedar `classification=parcial`, `ready_for_stage5_documents=false` y

@@ -63,6 +63,10 @@ cierres mensuales.
 - Una fuente evidencial debe incluir `--source-label` y
   `--authorization-ref` no sensibles. Sin esas refs, el tipo de fuente queda
   reconocido pero no puede cerrar Etapa 6.
+- Si `--source-label` o `--authorization-ref` contienen URL, token, credencial
+  o valor sensible, readiness debe clasificar `stage6.source_label_sensitive`
+  o `stage6.authorization_ref_sensitive`, exponer solo
+  `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
 - `scripts/run-stage6-readiness-gate.ps1` ejecuta el diagnostico local con
   SQLite efimero bajo `local-evidence/`, no conecta SII, no lee `.env`, no usa
   certificados y reserva `-RequireReady` para fuentes autorizadas con refs
