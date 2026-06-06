@@ -29,10 +29,10 @@ sistema igual a saldo banco.
   DB; toda `referencia` bancaria de movimiento debe ser no sensible, y la
   carga manual controlada exige `evidencia_importacion_ref` no sensible.
 - La creacion API de movimientos bancarios debe persistir el movimiento,
-  registrar auditoria `created`, ejecutar match exacto local y registrar
-  auditoria `match_attempted` en una unica transaccion; si falla cualquiera de
-  esas trazas, no deben quedar movimientos, pagos, ingresos desconocidos ni
-  estados de conciliacion mutados sin auditoria completa.
+  registrar auditoria `created` y ejecutar match exacto local mediante el
+  servicio auditado que registra `match_attempted` en una unica transaccion; si
+  falla cualquiera de esas trazas, no deben quedar movimientos, pagos, ingresos
+  desconocidos ni estados de conciliacion mutados sin auditoria completa.
 - Las APIs de Conciliacion que actualizan entidades con estado deben persistir
   `updated` y, cuando corresponda, `state_changed` en la misma transaccion. Los
   eventos `conciliacion.*.state_changed` deben conservar metadata minima de
@@ -40,9 +40,10 @@ sistema igual a saldo banco.
 - `audit_stage3_conciliacion_readiness` bloquea eventos `state_changed`
   heredados de Conciliacion que no conserven esa metadata minima de
   transicion.
-- El reintento manual de match exacto debe ejecutar el match local y registrar
-  `conciliacion.movimiento_bancario.match_retried` en una unica transaccion;
-  si falla esa auditoria, no deben quedar pagos, ingresos desconocidos,
+- El reintento manual de match exacto debe ejecutar el match local mediante el
+  mismo servicio auditado y registrar
+  `conciliacion.movimiento_bancario.match_retried` en una unica transaccion; si
+  falla esa auditoria, no deben quedar pagos, ingresos desconocidos,
   resoluciones manuales, eventos contables ni movimientos mutados por el
   reintento.
 - Movimientos conciliados exactos existentes deben conservar coherencia con su

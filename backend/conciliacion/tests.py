@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -39,7 +39,12 @@ from .models import (
     MovimientoBancarioImportado,
     TransferenciaIntercuenta,
 )
-from .services import supersede_manual_resolutions_for_movement
+from .services import (
+    MOVEMENT_MATCH_ATTEMPTED_EVENT_TYPE,
+    MOVEMENT_MATCH_RETRIED_EVENT_TYPE,
+    reconcile_exact_movement,
+    supersede_manual_resolutions_for_movement,
+)
 
 
 class ConciliacionAPITests(APITestCase):
@@ -1135,6 +1140,17 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.EXACT_MATCH)
         self.assertEqual(pago.estado_pago, EstadoPago.PAID)
         self.assertEqual(pago.dias_mora, 3)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                event_type=MOVEMENT_MATCH_ATTEMPTED_EVENT_TYPE,
+                entity_type='movimiento_bancario',
+                entity_id=str(movimiento.pk),
+                metadata__status='matched_payment',
+                metadata__pago_mensual_id=pago.pk,
+                metadata__movimiento_id=movimiento.pk,
+                metadata__cuenta_recaudadora_id=cuenta.pk,
+            ).exists()
+        )
 
     def test_bank_movement_create_rolls_back_when_match_audit_fails(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MATCH-AUDIT-FAIL', amount='100111.00')
@@ -1143,11 +1159,11 @@ class ConciliacionAPITests(APITestCase):
         from audit.services import create_audit_event as real_create_audit_event
 
         def fail_match_attempt_audit(**kwargs):
-            if kwargs.get('event_type') == 'conciliacion.movimiento_bancario.match_attempted':
+            if kwargs.get('event_type') == MOVEMENT_MATCH_ATTEMPTED_EVENT_TYPE:
                 raise RuntimeError('match audit unavailable')
             return real_create_audit_event(**kwargs)
 
-        with patch('conciliacion.views.create_audit_event', side_effect=fail_match_attempt_audit):
+        with patch('conciliacion.services.create_audit_event', side_effect=fail_match_attempt_audit):
             with self.assertRaisesRegex(RuntimeError, 'match audit unavailable'):
                 self.client.post(
                     reverse('conciliacion-movimiento-list'),
@@ -1161,6 +1177,34 @@ class ConciliacionAPITests(APITestCase):
         self.assertFalse(MovimientoBancarioImportado.objects.exists())
         self.assertFalse(
             AuditEvent.objects.filter(event_type__startswith='conciliacion.movimiento_bancario').exists()
+        )
+
+    def test_direct_exact_match_rolls_back_when_service_audit_fails(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-SVC-AUDIT-FAIL', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 8),
+            tipo_movimiento='abono',
+            monto=Decimal('100111.00'),
+            descripcion_origen='Abono directo sin vista',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-service-audit',
+        )
+
+        with patch('conciliacion.services.create_audit_event', side_effect=RuntimeError('service audit unavailable')):
+            with self.assertRaisesRegex(RuntimeError, 'service audit unavailable'):
+                reconcile_exact_movement(movimiento)
+
+        movimiento.refresh_from_db()
+        pago.refresh_from_db()
+        self.assertEqual(movimiento.estado_conciliacion, EstadoConciliacionMovimiento.PENDING)
+        self.assertIsNone(movimiento.pago_mensual_id)
+        self.assertIsNone(movimiento.codigo_cobro_residual_id)
+        self.assertEqual(pago.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(str(pago.monto_pagado_clp), '0.00')
+        self.assertFalse(
+            AuditEvent.objects.filter(event_type=MOVEMENT_MATCH_ATTEMPTED_EVENT_TYPE).exists()
         )
 
     def test_exact_match_payment_requires_same_economic_period(self):
@@ -2062,7 +2106,7 @@ class ConciliacionAPITests(APITestCase):
             scope_reference=str(movimiento.pk),
         )
 
-        with patch('conciliacion.views.create_audit_event', side_effect=RuntimeError('retry audit unavailable')):
+        with patch('conciliacion.services.create_audit_event', side_effect=RuntimeError('retry audit unavailable')):
             with self.assertRaisesRegex(RuntimeError, 'retry audit unavailable'):
                 self.client.post(
                     reverse('conciliacion-movimiento-match', args=[movimiento.id]),
@@ -2083,7 +2127,7 @@ class ConciliacionAPITests(APITestCase):
         self.assertFalse(
             AuditEvent.objects.filter(
                 event_type__in=[
-                    'conciliacion.movimiento_bancario.match_retried',
+                    MOVEMENT_MATCH_RETRIED_EVENT_TYPE,
                     'audit.manual_resolution.superseded',
                     'contabilidad.evento_contable.payment_reconciled',
                 ]

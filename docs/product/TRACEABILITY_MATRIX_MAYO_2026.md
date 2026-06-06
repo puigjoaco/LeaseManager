@@ -267,6 +267,12 @@ ejecuta `reconcile_exact_movement()` y registra
 transaccion; si falla esa auditoria de vista, no quedan pagos, ingresos
 desconocidos, resoluciones supersedidas ni movimientos mutados por el
 reintento.
+Nota 2026-06-06: Conciliacion/Etapa 3 centraliza esa auditoria en
+`reconcile_exact_movement()`. La vista de creacion conserva la auditoria
+`created`, pero `match_attempted` y `match_retried` nacen desde el servicio que
+muta pagos, codigos residuales, ingresos desconocidos, resoluciones manuales y
+eventos contables, cubriendo tambien llamadas internas controladas; si falla
+esa auditoria de servicio, no quedan mutaciones de conciliacion sin traza.
 
 Nota 2026-05-31: CobranzaActiva/Etapa 2 alinea mutaciones API y auditoria
 de vista en una transaccion. `AuditCreateUpdateMixin` en Cobranza y los
@@ -317,6 +323,9 @@ ni match sin traza completa. Nota 2026-06-05: los eventos
 `conciliacion.*.state_changed` incorporan metadata minima con campo de estado,
 estado anterior y estado nuevo para conexiones bancarias y cuadraturas
 actualizadas por API.
+Nota 2026-06-06: el evento `match_attempted` ya no depende de la vista; lo
+emite `reconcile_exact_movement()` con metadata no sensible de movimiento,
+conexion, cuenta, tipo, fecha, estado y resultado del match.
 
 Nota 2026-05-31: Compliance/Etapa 0 alinea accesos denegados de exportaciones
 sensibles con auditoria atomica. `ExportacionContentView` ejecuta
