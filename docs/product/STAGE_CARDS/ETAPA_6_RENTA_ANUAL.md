@@ -67,6 +67,12 @@ cierres mensuales.
   o valor sensible, readiness debe clasificar `stage6.source_label_sensitive`
   o `stage6.authorization_ref_sensitive`, exponer solo
   `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
+- Las referencias finales de cierre (`Stage5EvidenceRef`,
+  `Stage4SiiEvidenceRef`, `FiscalRuleRef`, `CertificatesProofRef` y
+  `ResponsibleRef`) tambien deben ser no sensibles. Si contienen URL, token,
+  credencial o valor sensible, readiness debe clasificar
+  `stage6.*_ref_sensitive`, exponer `sections.final_evidence_sensitive` y no
+  mezclarlas con refs faltantes.
 - `scripts/run-stage6-readiness-gate.ps1` ejecuta el diagnostico local con
   SQLite efimero bajo `local-evidence/`, no conecta SII, no lee `.env`, no usa
   certificados y reserva `-RequireReady` para fuentes autorizadas con refs

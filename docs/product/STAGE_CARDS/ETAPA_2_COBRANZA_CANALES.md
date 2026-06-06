@@ -323,6 +323,11 @@ cd "D:/Proyectos/LeaseManager"
   valor sensible, readiness debe clasificar `stage2.source_label_sensitive` o
   `stage2.authorization_ref_sensitive`, exponer solo
   `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
+- Las referencias finales de cierre (`Stage1EvidenceRef`, `EmailProofRef`,
+  `WebPayProofRef` y `ResponsibleRef`) tambien deben ser no sensibles. Si
+  contienen URL, token, credencial o valor sensible, readiness debe clasificar
+  `stage2.*_ref_sensitive`, exponer `sections.final_evidence_sensitive` y no
+  mezclarlas con refs faltantes.
 
 ## Salida
 

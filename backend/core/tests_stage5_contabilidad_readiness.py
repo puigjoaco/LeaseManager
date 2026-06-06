@@ -745,6 +745,36 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_final_refs_are_classified(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage5_contabilidad_readiness(
+            source_kind='snapshot_controlado',
+            source_label='stage5-controlled-source-v1',
+            authorization_ref='stage5-authorization-v1',
+            stage3_evidence_ref='https://example.test/stage3?signed_token=secret',
+            ledger_proof_ref='https://example.test/ledger?signed_token=secret',
+            reports_proof_ref='https://example.test/reports?signed_token=secret',
+            responsible_ref='Bearer stage5-responsible-secret',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        expected_sensitive_codes = {
+            'stage5.stage3_evidence_ref_sensitive',
+            'stage5.ledger_proof_ref_sensitive',
+            'stage5.reports_proof_ref_sensitive',
+            'stage5.responsible_ref_sensitive',
+        }
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertTrue(expected_sensitive_codes.issubset(issue_codes))
+        self.assertNotIn('stage5.stage3_evidence_ref_missing', issue_codes)
+        self.assertNotIn('stage5.ledger_proof_ref_missing', issue_codes)
+        self.assertNotIn('stage5.reports_proof_ref_missing', issue_codes)
+        self.assertNotIn('stage5.responsible_ref_missing', issue_codes)
+        for key in ('stage3_evidence_ref', 'ledger_proof_ref', 'reports_proof_ref', 'responsible_ref'):
+            self.assertTrue(result['sections']['final_evidence_sensitive'][key])
+            self.assertFalse(result['sections']['final_evidence'][key])
+
     def test_rule_without_active_matrix_is_blocking(self):
         empresa = self._create_active_empresa(nombre='RuleNoMatrixCo', rut='78787878-7')
         self._setup_contabilidad(empresa)
@@ -1020,7 +1050,10 @@ class Stage5ContabilidadReadinessTests(TestCase):
         )
 
         self.assertFalse(result['ready_for_stage5_contabilidad'])
-        self.assertIn('stage5.stage3_evidence_ref_missing', {issue['code'] for issue in result['issues']})
+        issue_codes = {issue['code'] for issue in result['issues']}
+        self.assertIn('stage5.stage3_evidence_ref_sensitive', issue_codes)
+        self.assertNotIn('stage5.stage3_evidence_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['final_evidence_sensitive']['stage3_evidence_ref'])
 
     def test_sensitive_ledger_payloads_and_snapshot_refs_block_readiness(self):
         empresa = self._create_valid_local_matrix()

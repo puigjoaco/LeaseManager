@@ -377,6 +377,37 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_final_refs_are_classified(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage4_sii_readiness(
+            source_kind='snapshot_controlado',
+            source_label='stage4-controlled-source-v1',
+            authorization_ref='stage4-authorization-v1',
+            stage5_evidence_ref='https://example.test/stage5?signed_token=secret',
+            environment_proof_ref='https://example.test/sii-env?signed_token=secret',
+            fiscal_rule_ref='https://example.test/fiscal-rule?signed_token=secret',
+            responsible_ref='Bearer stage4-responsible-secret',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        expected_sensitive_codes = {
+            'stage4.stage5_evidence_ref_sensitive',
+            'stage4.environment_proof_ref_sensitive',
+            'stage4.fiscal_rule_ref_sensitive',
+            'stage4.responsible_ref_sensitive',
+        }
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertTrue(expected_sensitive_codes.issubset(issue_codes))
+        self.assertNotIn('stage4.stage5_evidence_ref_missing', issue_codes)
+        self.assertNotIn('stage4.environment_proof_ref_missing', issue_codes)
+        self.assertNotIn('stage4.fiscal_rule_ref_missing', issue_codes)
+        self.assertNotIn('stage4.responsible_ref_missing', issue_codes)
+        for key in ('stage5_evidence_ref', 'environment_proof_ref', 'fiscal_rule_ref', 'responsible_ref'):
+            self.assertTrue(result['sections']['final_evidence_sensitive'][key])
+            self.assertFalse(result['sections']['final_evidence'][key])
+
     def test_capabilities_dte_and_f29_require_same_company_fiscal_config(self):
         empresa_con_config = self._create_active_empresa(nombre='Empresa Fiscal Stage4 SpA', rut='77777777-7')
         self._activate_fiscal_config(empresa_con_config)
@@ -660,7 +691,10 @@ class Stage4SiiReadinessTests(TestCase):
         )
 
         self.assertFalse(result['ready_for_stage4_sii'])
-        self.assertIn('stage4.environment_proof_ref_missing', {issue['code'] for issue in result['issues']})
+        issue_codes = {issue['code'] for issue in result['issues']}
+        self.assertIn('stage4.environment_proof_ref_sensitive', issue_codes)
+        self.assertNotIn('stage4.environment_proof_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['final_evidence_sensitive']['environment_proof_ref'])
 
     def test_sensitive_sii_operational_refs_do_not_close_readiness(self):
         self._create_valid_local_matrix()

@@ -14,6 +14,12 @@ ahora exponen `sections.source_trace_sensitive` y clasifican `source_label` o
 issues `*.source_label_sensitive` y `*.authorization_ref_sensitive`, sin
 exponer valores y sin mezclarlos con refs faltantes.
 
+Nota 2026-06-05: Etapas 2, 3, 4, 5 Contabilidad, Documentos, Etapa 6 y
+Reporting aplican el mismo criterio a referencias finales de cierre. Las
+readiness exponen `sections.final_evidence_sensitive` y clasifican refs
+finales con URL, token, credencial o valor sensible mediante issues
+`*_ref_sensitive`, sin exponer valores ni mezclarlas con refs faltantes.
+
 Nota 2026-06-05: Los gates/readiness detectan eventos `state_changed`
 heredados sin metadata minima de transicion. `core.state_transition_audit_readiness`
 centraliza la verificacion de `campo_estado`, `estado_anterior` y

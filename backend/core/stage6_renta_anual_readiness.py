@@ -299,6 +299,13 @@ def collect_stage6_renta_anual_readiness(
         'certificates_proof_ref': _non_sensitive_reference(certificates_proof_ref),
         'responsible_ref': _non_sensitive_reference(responsible_ref),
     }
+    final_evidence_sensitive = {
+        'stage5_evidence_ref': _sensitive_reference(stage5_evidence_ref),
+        'stage4_sii_evidence_ref': _sensitive_reference(stage4_sii_evidence_ref),
+        'fiscal_rule_ref': _sensitive_reference(fiscal_rule_ref),
+        'certificates_proof_ref': _sensitive_reference(certificates_proof_ref),
+        'responsible_ref': _sensitive_reference(responsible_ref),
+    }
     source_trace = {
         'source_label': _non_sensitive_reference(source_label),
         'authorization_ref': _non_sensitive_reference(authorization_ref),
@@ -619,35 +626,47 @@ def collect_stage6_renta_anual_readiness(
         if annual_document_issues.get(key):
             issues.append(_issue(code, message, count=annual_document_issues[key]))
 
-    for key, code, message in [
+    for key, missing_code, sensitive_code, missing_message, sensitive_message in [
         (
             'stage5_evidence_ref',
             'stage6.stage5_evidence_ref_missing',
+            'stage6.stage5_evidence_ref_sensitive',
             'Falta referencia no sensible a cierre mensual/ledger habilitante.',
+            'La referencia a cierre mensual/ledger habilitante contiene valores sensibles.',
         ),
         (
             'stage4_sii_evidence_ref',
             'stage6.stage4_sii_evidence_ref_missing',
+            'stage6.stage4_sii_evidence_ref_sensitive',
             'Falta referencia no sensible a readiness SII anual.',
+            'La referencia a readiness SII anual contiene valores sensibles.',
         ),
         (
             'fiscal_rule_ref',
             'stage6.fiscal_rule_ref_missing',
+            'stage6.fiscal_rule_ref_sensitive',
             'Falta referencia no sensible a regla fiscal anual validada.',
+            'La referencia a regla fiscal anual validada contiene valores sensibles.',
         ),
         (
             'certificates_proof_ref',
             'stage6.certificates_proof_ref_missing',
+            'stage6.certificates_proof_ref_sensitive',
             'Falta referencia no sensible a certificados o respaldos tributarios anuales.',
+            'La referencia a certificados o respaldos tributarios anuales contiene valores sensibles.',
         ),
         (
             'responsible_ref',
             'stage6.responsible_ref_missing',
+            'stage6.responsible_ref_sensitive',
             'Falta referencia no sensible a responsables tributarios anuales.',
+            'La referencia a responsables tributarios anuales contiene valores sensibles.',
         ),
     ]:
-        if not final_evidence[key]:
-            issues.append(_issue(code, message))
+        if final_evidence_sensitive[key]:
+            issues.append(_issue(sensitive_code, sensitive_message))
+        elif not final_evidence[key]:
+            issues.append(_issue(missing_code, missing_message))
 
     issue_counts = Counter(issue['severity'] for issue in issues)
     ready = issue_counts.get('blocking', 0) == 0
@@ -710,6 +729,7 @@ def collect_stage6_renta_anual_readiness(
                 'annual_status_transition_metadata_missing': annual_status_transition_metadata_missing,
             },
             'final_evidence': final_evidence,
+            'final_evidence_sensitive': final_evidence_sensitive,
             'source_trace': source_trace,
             'source_trace_sensitive': source_trace_sensitive,
         },

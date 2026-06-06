@@ -1052,6 +1052,38 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_final_refs_are_classified(self):
+        cuenta, payment = self._create_payment_matrix()
+        conexion = self._create_ready_connection(cuenta)
+        self._create_reconciled_movement(conexion, payment)
+
+        result = collect_stage3_conciliacion_readiness(
+            source_kind='snapshot_controlado',
+            source_label='stage3-controlled-source-v1',
+            authorization_ref='stage3-authorization-v1',
+            stage2_evidence_ref='https://example.test/stage2?signed_token=secret',
+            bank_proof_ref='https://example.test/bank?signed_token=secret',
+            balance_square_ref='https://example.test/balance?signed_token=secret',
+            responsible_ref='Bearer stage3-responsible-secret',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        expected_sensitive_codes = {
+            'stage3.stage2_evidence_ref_sensitive',
+            'stage3.bank_proof_ref_sensitive',
+            'stage3.balance_square_ref_sensitive',
+            'stage3.responsible_ref_sensitive',
+        }
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertTrue(expected_sensitive_codes.issubset(issue_codes))
+        self.assertNotIn('stage3.stage2_evidence_ref_missing', issue_codes)
+        self.assertNotIn('stage3.bank_proof_ref_missing', issue_codes)
+        self.assertNotIn('stage3.balance_square_ref_missing', issue_codes)
+        self.assertNotIn('stage3.responsible_ref_missing', issue_codes)
+        for key in ('stage2_evidence_ref', 'bank_proof_ref', 'balance_square_ref', 'responsible_ref'):
+            self.assertTrue(result['sections']['final_evidence_sensitive'][key])
+            self.assertFalse(result['sections']['final_evidence'][key])
+
     def test_provider_sync_without_transaction_or_ready_connection_is_blocking(self):
         cuenta, _ = self._create_payment_matrix(codigo='ST3-PROVIDER')
         conexion = ConexionBancaria.objects.create(
@@ -1661,7 +1693,10 @@ class Stage3ConciliacionReadinessTests(TestCase):
         )
 
         self.assertFalse(result['ready_for_stage3_conciliacion'])
-        self.assertIn('stage3.bank_proof_ref_missing', {issue['code'] for issue in result['issues']})
+        issue_codes = {issue['code'] for issue in result['issues']}
+        self.assertIn('stage3.bank_proof_ref_sensitive', issue_codes)
+        self.assertNotIn('stage3.bank_proof_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['final_evidence_sensitive']['bank_proof_ref'])
 
     def test_sensitive_bank_connection_refs_are_blocking(self):
         cuenta, _ = self._create_payment_matrix(codigo='ST3-CONN-SENSITIVE')

@@ -93,6 +93,11 @@ produccion por defecto.
   o valor sensible, readiness debe clasificar `stage4.source_label_sensitive`
   o `stage4.authorization_ref_sensitive`, exponer solo
   `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
+- Las referencias finales de cierre (`Stage5EvidenceRef`,
+  `EnvironmentProofRef`, `FiscalRuleRef` y `ResponsibleRef`) tambien deben
+  ser no sensibles. Si contienen URL, token, credencial o valor sensible,
+  readiness debe clasificar `stage4.*_ref_sensitive`, exponer
+  `sections.final_evidence_sensitive` y no mezclarlas con refs faltantes.
 - `scripts/run-stage4-readiness-gate.ps1` ejecuta el diagnostico local con
   SQLite efimero bajo `local-evidence/`, no conecta SII, no lee `.env`, no usa
   certificados y reserva `-RequireReady` para fuentes autorizadas con refs

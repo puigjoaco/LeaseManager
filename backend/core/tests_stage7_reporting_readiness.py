@@ -352,6 +352,46 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_final_refs_are_classified(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage7_reporting_readiness(
+            source_kind='snapshot_controlado',
+            source_label='stage7-reporting-controlled-source-v1',
+            authorization_ref='stage7-reporting-authorization-v1',
+            stage5_evidence_ref='https://example.test/stage5?signed_token=secret',
+            stage6_evidence_ref='https://example.test/stage6?signed_token=secret',
+            reporting_api_proof_ref='https://example.test/reporting-api?signed_token=secret',
+            backoffice_visual_ref='https://example.test/backoffice?signed_token=secret',
+            responsible_ref='Bearer stage7-reporting-responsible-secret',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        expected_sensitive_codes = {
+            'stage7.reporting.stage5_evidence_ref_sensitive',
+            'stage7.reporting.stage6_evidence_ref_sensitive',
+            'stage7.reporting.api_proof_ref_sensitive',
+            'stage7.reporting.backoffice_visual_ref_sensitive',
+            'stage7.reporting.responsible_ref_sensitive',
+        }
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage7_reporting'])
+        self.assertTrue(expected_sensitive_codes.issubset(issue_codes))
+        self.assertNotIn('stage7.reporting.stage5_evidence_ref_missing', issue_codes)
+        self.assertNotIn('stage7.reporting.stage6_evidence_ref_missing', issue_codes)
+        self.assertNotIn('stage7.reporting.api_proof_ref_missing', issue_codes)
+        self.assertNotIn('stage7.reporting.backoffice_visual_ref_missing', issue_codes)
+        self.assertNotIn('stage7.reporting.responsible_ref_missing', issue_codes)
+        for key in (
+            'stage5_evidence_ref',
+            'stage6_evidence_ref',
+            'reporting_api_proof_ref',
+            'backoffice_visual_ref',
+            'responsible_ref',
+        ):
+            self.assertTrue(result['sections']['final_evidence_sensitive'][key])
+            self.assertFalse(result['sections']['final_evidence'][key])
+
     def test_posted_event_without_origin_or_asiento_is_blocking(self):
         empresa = self._create_active_empresa(nombre='EventGapCo', rut='87878787-8')
         self._create_approved_close_and_snapshots(empresa)
@@ -570,7 +610,10 @@ class Stage7ReportingReadinessTests(TestCase):
             source_kind='snapshot_controlado',
         )
         self.assertFalse(result['ready_for_stage7_reporting'])
-        self.assertIn('stage7.reporting.api_proof_ref_missing', {issue['code'] for issue in result['issues']})
+        issue_codes = {issue['code'] for issue in result['issues']}
+        self.assertIn('stage7.reporting.api_proof_ref_sensitive', issue_codes)
+        self.assertNotIn('stage7.reporting.api_proof_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['final_evidence_sensitive']['reporting_api_proof_ref'])
 
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'stage7_reporting_readiness.json'

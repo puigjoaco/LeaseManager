@@ -76,6 +76,12 @@ documentos o procesos tributarios trazables.
   `stage7.reporting.source_label_sensitive` o
   `stage7.reporting.authorization_ref_sensitive`, exponer solo
   `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
+- Las referencias finales de Reporting (`Stage5EvidenceRef`,
+  `Stage6EvidenceRef`, `ReportingApiProofRef`, `BackofficeVisualRef` y
+  `ResponsibleRef`) tambien deben ser no sensibles. Si contienen URL, token,
+  credencial o valor sensible, readiness debe clasificar
+  `stage7.reporting.*_ref_sensitive`, exponer
+  `sections.final_evidence_sensitive` y no mezclarlas con refs faltantes.
 - El guard `run-stage7-readiness-gate.ps1` rechaza evidencia JSON de restore,
   smoke publico o aceptacion final que conserve payload sensible o claves de
   credenciales, aunque las referencias esperadas y el `source_kind` parezcan

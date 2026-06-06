@@ -115,6 +115,11 @@ contables desde hechos conciliados.
   valor sensible, readiness debe clasificar `stage5.source_label_sensitive` o
   `stage5.authorization_ref_sensitive`, exponer solo
   `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
+- Las referencias finales de cierre (`Stage3EvidenceRef`, `LedgerProofRef`,
+  `ReportsProofRef` y `ResponsibleRef`) tambien deben ser no sensibles. Si
+  contienen URL, token, credencial o valor sensible, readiness debe clasificar
+  `stage5.*_ref_sensitive`, exponer `sections.final_evidence_sensitive` y no
+  mezclarlas con refs faltantes.
 - `scripts/run-stage5-readiness-gate.ps1` normaliza la ejecucion del gate. En
   modo local crea SQLite bajo `local-evidence/`, corre migraciones y debe
   quedar `classification=parcial`, `ready_for_stage5_contabilidad=false` y

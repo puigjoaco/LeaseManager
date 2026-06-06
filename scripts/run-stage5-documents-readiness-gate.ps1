@@ -186,12 +186,16 @@ Assert-Condition ($audit.PSObject.Properties.Name -contains 'source_kind_authori
 Assert-Condition ($audit.PSObject.Properties.Name -contains 'ready_for_stage5_documents') 'El JSON debe exponer ready_for_stage5_documents.'
 Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace') 'El JSON debe exponer source_trace.'
 Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace_sensitive') 'El JSON debe exponer source_trace_sensitive.'
+Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'final_evidence_sensitive') 'El JSON debe exponer final_evidence_sensitive.'
 if ($isAuthorizedSourceKind) {
     Assert-Condition ($audit.source_kind_authorized_for_close -eq $true) 'La fuente evidencial debe quedar autorizada por tipo.'
     Assert-Condition ($audit.sections.source_trace.source_label -eq $true) 'La fuente evidencial debe tener source_label trazable.'
     Assert-Condition ($audit.sections.source_trace.authorization_ref -eq $true) 'La fuente evidencial debe tener authorization_ref trazable.'
     Assert-Condition ($audit.sections.source_trace_sensitive.source_label -eq $false) 'La fuente evidencial no debe tener source_label sensible.'
     Assert-Condition ($audit.sections.source_trace_sensitive.authorization_ref -eq $false) 'La fuente evidencial no debe tener authorization_ref sensible.'
+    Assert-Condition ($audit.sections.final_evidence_sensitive.final_policy_ref -eq $false) 'La politica final no debe ser sensible.'
+    Assert-Condition ($audit.sections.final_evidence_sensitive.controlled_pdf_ref -eq $false) 'La prueba PDF controlada no debe ser sensible.'
+    Assert-Condition ($audit.sections.final_evidence_sensitive.responsible_ref -eq $false) 'La referencia de responsables no debe ser sensible.'
 }
 else {
     Assert-Condition ($audit.source_kind_authorized_for_close -eq $false) 'La fuente local/fixture/demo no puede quedar autorizada para cierre.'

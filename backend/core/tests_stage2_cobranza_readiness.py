@@ -1470,6 +1470,39 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_final_refs_are_classified(self):
+        self._create_payment_matrix()
+        self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+
+        result = collect_stage2_cobranza_readiness(
+            source_kind='snapshot_controlado',
+            source_label='stage2-controlled-source-v1',
+            authorization_ref='stage2-authorization-v1',
+            stage1_evidence_ref='https://example.test/stage1?signed_token=secret',
+            email_proof_ref='https://example.test/email?signed_token=secret',
+            webpay_proof_ref='https://example.test/webpay?signed_token=secret',
+            responsible_ref='Bearer stage2-responsible-secret',
+            reference_date=self.READINESS_REFERENCE_DATE,
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        expected_sensitive_codes = {
+            'stage2.stage1_evidence_ref_sensitive',
+            'stage2.email_proof_ref_sensitive',
+            'stage2.webpay_proof_ref_sensitive',
+            'stage2.responsible_ref_sensitive',
+        }
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertTrue(expected_sensitive_codes.issubset(issue_codes))
+        self.assertNotIn('stage2.stage1_evidence_ref_missing', issue_codes)
+        self.assertNotIn('stage2.email_proof_ref_missing', issue_codes)
+        self.assertNotIn('stage2.webpay_proof_ref_missing', issue_codes)
+        self.assertNotIn('stage2.responsible_ref_missing', issue_codes)
+        for key in ('stage1_evidence_ref', 'email_proof_ref', 'webpay_proof_ref', 'responsible_ref'):
+            self.assertTrue(result['sections']['final_evidence_sensitive'][key])
+            self.assertFalse(result['sections']['final_evidence'][key])
+
     def test_email_gate_without_active_identity_or_assignment_is_blocking(self):
         self._create_payment_matrix()
         AsignacionCanalOperacion.objects.all().delete()
@@ -2927,7 +2960,10 @@ class Stage2CobranzaReadinessTests(TestCase):
         )
 
         self.assertFalse(result['ready_for_stage2_cobranza'])
-        self.assertIn('stage2.stage1_evidence_ref_missing', {issue['code'] for issue in result['issues']})
+        issue_codes = {issue['code'] for issue in result['issues']}
+        self.assertIn('stage2.stage1_evidence_ref_sensitive', issue_codes)
+        self.assertNotIn('stage2.stage1_evidence_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['final_evidence_sensitive']['stage1_evidence_ref'])
 
     def test_command_writes_json_and_rejects_versionable_repo_output(self):
         with TemporaryDirectory() as temp_dir:
