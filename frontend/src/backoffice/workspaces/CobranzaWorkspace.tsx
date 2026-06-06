@@ -20,6 +20,7 @@ type PagoDraft = { contrato_id: string; anio: string; mes: string }
 type MoraDraft = { fecha_corte: string }
 type GarantiaDraft = { contrato: string; monto_pactado: string }
 type GarantiaMovimientoDraft = { garantiaId: string; tipo_movimiento: string; monto_clp: string; fecha: string; justificacion: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string }
+type GarantiaTraceDraft = { garantiaId: string; aceptacion_parcial_ref: string; resolucion_exceso_garantia: string; resolucion_exceso_garantia_ref: string; resolucion_exceso_garantia_motivo: string }
 type EstadoCuentaDraft = { arrendatario_id: string }
 
 const UF_SOURCE_OPTIONS = [
@@ -28,6 +29,11 @@ const UF_SOURCE_OPTIONS = [
   { value: 'UF.MiIndicador', label: 'MiIndicador' },
   { value: 'UF.CargaManualExtraordinaria', label: 'Carga manual' },
 ]
+const REDACTED_SENSITIVE_REFERENCE = '<redacted-sensitive-reference>'
+
+function editableReference(value?: string) {
+  return value === REDACTED_SENSITIVE_REFERENCE ? '' : value || ''
+}
 
 export function CobranzaWorkspace({
   canEditCobranza,
@@ -49,6 +55,9 @@ export function CobranzaWorkspace({
   garantiaMovimientoDraft,
   setGarantiaMovimientoDraft,
   handleGarantiaMovimiento,
+  garantiaTraceDraft,
+  setGarantiaTraceDraft,
+  handleUpdateGarantiaTrace,
   estadoCuentaDraft,
   setEstadoCuentaDraft,
   handleRebuildEstadoCuenta,
@@ -89,6 +98,9 @@ export function CobranzaWorkspace({
   garantiaMovimientoDraft: GarantiaMovimientoDraft
   setGarantiaMovimientoDraft: Dispatch<SetStateAction<GarantiaMovimientoDraft>>
   handleGarantiaMovimiento: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  garantiaTraceDraft: GarantiaTraceDraft
+  setGarantiaTraceDraft: Dispatch<SetStateAction<GarantiaTraceDraft>>
+  handleUpdateGarantiaTrace: (event: FormEvent<HTMLFormElement>) => Promise<void>
   estadoCuentaDraft: EstadoCuentaDraft
   setEstadoCuentaDraft: Dispatch<SetStateAction<EstadoCuentaDraft>>
   handleRebuildEstadoCuenta: (event: FormEvent<HTMLFormElement>) => Promise<void>
@@ -112,6 +124,12 @@ export function CobranzaWorkspace({
 }) {
   const ufRequiresManualTrace = ufDraft.source_key.trim() === 'UF.CargaManualExtraordinaria'
   const ufTraceMissing = ufRequiresManualTrace && (!ufDraft.evidencia_ref.trim() || !ufDraft.motivo_carga.trim() || !ufDraft.responsable_ref.trim())
+  const guaranteeExcessTraceFields = [
+    garantiaTraceDraft.resolucion_exceso_garantia.trim(),
+    garantiaTraceDraft.resolucion_exceso_garantia_ref.trim(),
+    garantiaTraceDraft.resolucion_exceso_garantia_motivo.trim(),
+  ]
+  const guaranteeExcessTraceIncomplete = guaranteeExcessTraceFields.some(Boolean) && !guaranteeExcessTraceFields.every(Boolean)
 
   return (
     <>
@@ -210,6 +228,35 @@ export function CobranzaWorkspace({
             <input placeholder="Motivo exceso" value={garantiaMovimientoDraft.resolucion_exceso_garantia_motivo} onChange={(event) => setGarantiaMovimientoDraft((current) => ({ ...current, resolucion_exceso_garantia_motivo: event.target.value }))} />
             <button type="submit" className="button-secondary" disabled={isSubmitting || !canEditCobranza || !garantiaMovimientoDraft.garantiaId || !garantiaMovimientoDraft.monto_clp}>Registrar movimiento</button>
           </form>
+          <form className="entity-form subform" onSubmit={handleUpdateGarantiaTrace}>
+            <select
+              value={garantiaTraceDraft.garantiaId}
+              onChange={(event) => {
+                const selected = garantias.find((item) => String(item.id) === event.target.value)
+                setGarantiaTraceDraft({
+                  garantiaId: event.target.value,
+                  aceptacion_parcial_ref: editableReference(selected?.aceptacion_parcial_ref),
+                  resolucion_exceso_garantia: selected?.resolucion_exceso_garantia || '',
+                  resolucion_exceso_garantia_ref: editableReference(selected?.resolucion_exceso_garantia_ref),
+                  resolucion_exceso_garantia_motivo: editableReference(selected?.resolucion_exceso_garantia_motivo),
+                })
+              }}
+            >
+              <option value="">Selecciona garantía a trazar</option>
+              {garantias.map((item) => <option key={item.id} value={item.id}>{contratoById.get(item.contrato)?.codigo_contrato || item.contrato}</option>)}
+            </select>
+            <input placeholder="Aceptación parcial ref" value={garantiaTraceDraft.aceptacion_parcial_ref} onChange={(event) => setGarantiaTraceDraft((current) => ({ ...current, aceptacion_parcial_ref: event.target.value }))} />
+            <select value={garantiaTraceDraft.resolucion_exceso_garantia} onChange={(event) => setGarantiaTraceDraft((current) => ({ ...current, resolucion_exceso_garantia: event.target.value }))}>
+              <option value="">Sin exceso</option>
+              <option value="clasificar">Clasificar exceso</option>
+              <option value="devolver">Devolver exceso</option>
+              <option value="regularizar">Regularizar exceso</option>
+              <option value="bloquear">Bloquear exceso</option>
+            </select>
+            <input placeholder="Ref. exceso no sensible" value={garantiaTraceDraft.resolucion_exceso_garantia_ref} onChange={(event) => setGarantiaTraceDraft((current) => ({ ...current, resolucion_exceso_garantia_ref: event.target.value }))} />
+            <input placeholder="Motivo exceso" value={garantiaTraceDraft.resolucion_exceso_garantia_motivo} onChange={(event) => setGarantiaTraceDraft((current) => ({ ...current, resolucion_exceso_garantia_motivo: event.target.value }))} />
+            <button type="submit" className="button-secondary" disabled={isSubmitting || !canEditCobranza || !garantiaTraceDraft.garantiaId || guaranteeExcessTraceIncomplete}>Actualizar trazabilidad</button>
+          </form>
         </section>
 
         <section className="panel">
@@ -258,7 +305,8 @@ export function CobranzaWorkspace({
         { label: 'Recibido', render: (row) => row.monto_recibido },
         { label: 'Saldo', render: (row) => row.saldo_vigente },
         { label: 'Cobertura', render: (row) => row.garantia_incompleta ? <Badge label="incompleta" tone="warning" /> : row.garantia_parcial_aceptada ? <Badge label="parcial aceptada" tone="positive" /> : Number(row.exceso_garantia_clp) > 0 ? <Badge label={row.tiene_resolucion_exceso_garantia ? 'exceso resuelto' : 'exceso pendiente'} tone={row.tiene_resolucion_exceso_garantia ? 'warning' : 'danger'} /> : <Badge label="regular" tone="neutral" /> },
-        { label: 'Exceso', render: (row) => Number(row.exceso_garantia_clp) > 0 ? `${row.exceso_garantia_clp} · ${row.resolucion_exceso_garantia || 'sin resolución'}` : '0.00' },
+        { label: 'Aceptación parcial', render: (row) => row.aceptacion_parcial_ref || (row.garantia_incompleta ? 'pendiente' : '-') },
+        { label: 'Exceso', render: (row) => Number(row.exceso_garantia_clp) > 0 ? `${row.exceso_garantia_clp} · ${row.resolucion_exceso_garantia || 'sin resolución'} · ${row.resolucion_exceso_garantia_ref || 'sin ref'} · ${row.resolucion_exceso_garantia_motivo || 'sin motivo'}` : '0.00' },
         { label: 'Estado', render: (row) => <Badge label={row.estado_garantia} tone={toneFor(row.estado_garantia)} /> },
       ]} />
       <TableBlock title="Historial de garantías" subtitle="Movimientos auditables sobre depósitos, devoluciones y retenciones." rows={filteredHistorialGarantias} empty="No hay movimientos de garantía para este filtro." isLoading={isLoading} loadingLabel="Cargando cobranza..." columns={[
