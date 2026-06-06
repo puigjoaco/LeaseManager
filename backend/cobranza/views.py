@@ -175,7 +175,17 @@ class CobranzaSnapshotView(APIView):
             property_paths=('contrato__mandato_operacion__propiedad_id',),
         )
         pagos = scope_queryset_for_access(
-            PagoMensual.objects.select_related('contrato', 'repactacion_deuda').order_by('-anio', '-mes', '-id'),
+            PagoMensual.objects.select_related('contrato', 'repactacion_deuda')
+            .prefetch_related(
+                Prefetch(
+                    'distribuciones_cobro',
+                    queryset=DistribucionCobroMensual.objects.select_related(
+                        'beneficiario_socio_owner',
+                        'beneficiario_empresa_owner',
+                    ).order_by('id'),
+                )
+            )
+            .order_by('-anio', '-mes', '-id'),
             access,
             property_paths=('contrato__mandato_operacion__propiedad_id',),
         )
@@ -272,6 +282,10 @@ class CobranzaSnapshotView(APIView):
                         'monto_facturable_clp': item.monto_facturable_clp,
                         'monto_calculado_clp': item.monto_calculado_clp,
                         'monto_efecto_codigo_efectivo_clp': item.monto_efecto_codigo_efectivo_clp,
+                        'distribuciones_detail': DistribucionCobroMensualSerializer(
+                            item.distribuciones_cobro.all(),
+                            many=True,
+                        ).data,
                         'monto_pagado_clp': item.monto_pagado_clp,
                         'fecha_vencimiento': item.fecha_vencimiento,
                         'estado_pago': item.estado_pago,

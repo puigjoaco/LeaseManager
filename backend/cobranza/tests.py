@@ -3275,6 +3275,24 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(len(distribuciones), 2)
         self.assertEqual([str(item.monto_devengado_clp) for item in distribuciones], ['50000.00', '50000.00'])
 
+        response = self.client.get(reverse('cobranza-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        snapshot_pago = response.data['pagos'][0]
+        self.assertEqual(snapshot_pago['id'], pago.id)
+        self.assertEqual(
+            [item['beneficiario_display'] for item in snapshot_pago['distribuciones_detail']],
+            ['Hist A', 'Hist B'],
+        )
+        self.assertEqual(
+            [item['porcentaje_snapshot'] for item in snapshot_pago['distribuciones_detail']],
+            ['50.00', '50.00'],
+        )
+        self.assertEqual(
+            [item['monto_devengado_clp'] for item in snapshot_pago['distribuciones_detail']],
+            ['50000.00', '50000.00'],
+        )
+
 
 class DistribucionCobroConstraintTests(TestCase):
     def setUp(self):

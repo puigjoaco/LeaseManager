@@ -801,7 +801,9 @@ type PagoMensual = {
   distribuciones_detail: Array<{
     id: number
     beneficiario_tipo: string
+    beneficiario_id: number
     beneficiario_display: string
+    porcentaje_snapshot: string
     monto_devengado_clp: string
     monto_conciliado_clp: string
     monto_facturable_clp: string
@@ -5774,6 +5776,7 @@ function App() {
           item.estado_pago,
           item.codigo_conciliacion_efectivo,
           item.monto_calculado_clp,
+          JSON.stringify(item.distribuciones_detail || []),
         ]),
       ),
     [pagos, normalizedSearch],
