@@ -341,6 +341,10 @@ def collect_stage7_reporting_readiness(
         'source_label': _non_sensitive_reference(source_label),
         'authorization_ref': _non_sensitive_reference(authorization_ref),
     }
+    source_trace_sensitive = {
+        'source_label': _sensitive_reference(source_label),
+        'authorization_ref': _sensitive_reference(authorization_ref),
+    }
     source_kind_authorized_for_close = source_kind in AUTHORIZED_STAGE7_REPORTING_SOURCE_KINDS
     annual_status_transition_metadata_missing = count_audit_events_without_transition_metadata(
         event_types=STAGE7_ANNUAL_STATUS_UPDATE_EVENT_TYPES
@@ -355,20 +359,26 @@ def collect_stage7_reporting_readiness(
             )
         )
     else:
-        for key, code, message in [
+        for key, missing_code, sensitive_code, missing_message, sensitive_message in [
             (
                 'source_label',
                 'stage7.reporting.source_label_missing',
+                'stage7.reporting.source_label_sensitive',
                 'Falta etiqueta no sensible de la fuente autorizada de Etapa 7 Reporting.',
+                'La etiqueta de fuente autorizada de Etapa 7 Reporting contiene una referencia sensible.',
             ),
             (
                 'authorization_ref',
                 'stage7.reporting.authorization_ref_missing',
+                'stage7.reporting.authorization_ref_sensitive',
                 'Falta referencia no sensible a la autorizacion de uso de la fuente Etapa 7 Reporting.',
+                'La referencia de autorizacion de Etapa 7 Reporting contiene valores sensibles.',
             ),
         ]:
-            if not source_trace[key]:
-                issues.append(_issue(code, message))
+            if source_trace_sensitive[key]:
+                issues.append(_issue(sensitive_code, sensitive_message))
+            elif not source_trace[key]:
+                issues.append(_issue(missing_code, missing_message))
     if annual_status_transition_metadata_missing:
         issues.append(
             _issue(
@@ -739,6 +749,7 @@ def collect_stage7_reporting_readiness(
             },
             'final_evidence': final_evidence,
             'source_trace': source_trace,
+            'source_trace_sensitive': source_trace_sensitive,
         },
         'limitations': [
             'Auditoria local de solo lectura; no genera reportes publicos ni ejecuta smoke externo.',

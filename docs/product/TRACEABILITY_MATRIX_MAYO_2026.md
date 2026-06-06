@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-05: Etapas 2, 3, 4, 5 Contabilidad, Documentos, Etapa 6 y
+Reporting alinean el contrato de `source_trace` con Compliance. Las readiness
+ahora exponen `sections.source_trace_sensitive` y clasifican `source_label` o
+`authorization_ref` con URLs, tokens, credenciales o valores sensibles mediante
+issues `*.source_label_sensitive` y `*.authorization_ref_sensitive`, sin
+exponer valores y sin mezclarlos con refs faltantes.
+
 Nota 2026-06-05: Los gates/readiness detectan eventos `state_changed`
 heredados sin metadata minima de transicion. `core.state_transition_audit_readiness`
 centraliza la verificacion de `campo_estado`, `estado_anterior` y

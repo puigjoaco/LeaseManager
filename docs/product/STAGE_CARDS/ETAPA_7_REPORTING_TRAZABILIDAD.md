@@ -71,6 +71,11 @@ documentos o procesos tributarios trazables.
   no sensibles. El guard `run-stage7-readiness-gate.ps1` reenvia
   `ReportingSourceLabel` y `ReportingAuthorizationRef` al auditor y mantiene el
   diagnostico local como no cerrable.
+- Si `ReportingSourceLabel` o `ReportingAuthorizationRef` contienen URL,
+  token, credencial o valor sensible, readiness debe clasificar
+  `stage7.reporting.source_label_sensitive` o
+  `stage7.reporting.authorization_ref_sensitive`, exponer solo
+  `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
 - El guard `run-stage7-readiness-gate.ps1` rechaza evidencia JSON de restore,
   smoke publico o aceptacion final que conserve payload sensible o claves de
   credenciales, aunque las referencias esperadas y el `source_kind` parezcan

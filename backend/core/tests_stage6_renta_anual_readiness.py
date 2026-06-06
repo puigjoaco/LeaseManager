@@ -317,6 +317,33 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_trace_refs_are_classified(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage6_renta_anual_readiness(
+            stage5_evidence_ref='stage5-ledger-year-controlled-v1',
+            stage4_sii_evidence_ref='stage4-sii-annual-controlled-v1',
+            fiscal_rule_ref='annual-tax-rule-expert-v1',
+            certificates_proof_ref='annual-certificates-controlled-v1',
+            responsible_ref='stage6-responsibles-v1',
+            source_kind='snapshot_controlado',
+            source_label='https://example.test/stage6?signed_token=secret',
+            authorization_ref='Bearer stage6-secret-token',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertTrue(result['source_kind_authorized_for_close'])
+        self.assertIn('stage6.source_label_sensitive', issue_codes)
+        self.assertIn('stage6.authorization_ref_sensitive', issue_codes)
+        self.assertNotIn('stage6.source_label_missing', issue_codes)
+        self.assertNotIn('stage6.authorization_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['source_trace_sensitive']['source_label'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+
     def test_process_without_twelve_approved_closes_is_blocking(self):
         self._create_valid_local_matrix()
         CierreMensualContable.objects.filter(mes=12).update(estado=EstadoCierreMensual.PREPARED)

@@ -191,10 +191,13 @@ Assert-Condition ($audit.source_kind -eq $SourceKind) 'El JSON no reporta el sou
 Assert-Condition ($audit.PSObject.Properties.Name -contains 'source_kind_authorized_for_close') 'El JSON debe exponer source_kind_authorized_for_close.'
 Assert-Condition ($audit.PSObject.Properties.Name -contains 'ready_for_stage4_sii') 'El JSON debe exponer ready_for_stage4_sii.'
 Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace') 'El JSON debe exponer source_trace.'
+Assert-Condition ($audit.sections.PSObject.Properties.Name -contains 'source_trace_sensitive') 'El JSON debe exponer source_trace_sensitive.'
 if ($isAuthorizedSourceKind) {
     Assert-Condition ($audit.source_kind_authorized_for_close -eq $true) 'La fuente evidencial debe quedar autorizada por tipo.'
     Assert-Condition ($audit.sections.source_trace.source_label -eq $true) 'La fuente evidencial debe tener source_label trazable.'
     Assert-Condition ($audit.sections.source_trace.authorization_ref -eq $true) 'La fuente evidencial debe tener authorization_ref trazable.'
+    Assert-Condition ($audit.sections.source_trace_sensitive.source_label -eq $false) 'La fuente evidencial no debe tener source_label sensible.'
+    Assert-Condition ($audit.sections.source_trace_sensitive.authorization_ref -eq $false) 'La fuente evidencial no debe tener authorization_ref sensible.'
 }
 else {
     Assert-Condition ($audit.source_kind_authorized_for_close -eq $false) 'La fuente local/fixture/demo no puede quedar autorizada para cierre.'

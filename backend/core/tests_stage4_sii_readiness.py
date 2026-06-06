@@ -351,6 +351,32 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_trace_refs_are_classified(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage4_sii_readiness(
+            stage5_evidence_ref='stage5-ledger-controlled-v1',
+            environment_proof_ref='sii-certification-proof-v1',
+            fiscal_rule_ref='tax-rule-expert-v1',
+            responsible_ref='stage4-responsibles-v1',
+            source_kind='snapshot_controlado',
+            source_label='https://example.test/stage4?signed_token=secret',
+            authorization_ref='Bearer stage4-secret-token',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertTrue(result['source_kind_authorized_for_close'])
+        self.assertIn('stage4.source_label_sensitive', issue_codes)
+        self.assertIn('stage4.authorization_ref_sensitive', issue_codes)
+        self.assertNotIn('stage4.source_label_missing', issue_codes)
+        self.assertNotIn('stage4.authorization_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['source_trace_sensitive']['source_label'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+
     def test_capabilities_dte_and_f29_require_same_company_fiscal_config(self):
         empresa_con_config = self._create_active_empresa(nombre='Empresa Fiscal Stage4 SpA', rut='77777777-7')
         self._activate_fiscal_config(empresa_con_config)

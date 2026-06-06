@@ -721,6 +721,30 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_trace_refs_are_classified(self):
+        self._create_valid_local_matrix()
+
+        result = collect_stage5_contabilidad_readiness(
+            stage3_evidence_ref='stage3-conciliacion-controlled-v1',
+            ledger_proof_ref='ledger-proof-controlled-v1',
+            reports_proof_ref='reports-proof-controlled-v1',
+            responsible_ref='stage5-responsibles-v1',
+            source_kind='snapshot_controlado',
+            source_label='https://example.test/stage5?signed_token=secret',
+            authorization_ref='Bearer stage5-secret-token',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.source_label_sensitive', issue_codes)
+        self.assertIn('stage5.authorization_ref_sensitive', issue_codes)
+        self.assertNotIn('stage5.source_label_missing', issue_codes)
+        self.assertNotIn('stage5.authorization_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['source_trace_sensitive']['source_label'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+
     def test_rule_without_active_matrix_is_blocking(self):
         empresa = self._create_active_empresa(nombre='RuleNoMatrixCo', rut='78787878-7')
         self._setup_contabilidad(empresa)

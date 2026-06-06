@@ -319,6 +319,10 @@ cd "D:/Proyectos/LeaseManager"
   snapshot_controlado` o `-SourceKind real_autorizado`, `-SourceLabel`,
   `-AuthorizationRef`, `-Stage1EvidenceRef`, `-EmailProofRef`,
   `-WebPayProofRef`, `-ResponsibleRef` y `-RequireReady`.
+- Si `SourceLabel` o `AuthorizationRef` contienen URL, token, credencial o
+  valor sensible, readiness debe clasificar `stage2.source_label_sensitive` o
+  `stage2.authorization_ref_sensitive`, exponer solo
+  `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
 
 ## Salida
 

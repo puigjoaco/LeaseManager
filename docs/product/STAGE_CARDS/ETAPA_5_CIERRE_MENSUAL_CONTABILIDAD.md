@@ -111,6 +111,10 @@ contables desde hechos conciliados.
   diagnostican brechas pero no habilitan cierre de Etapa 5.
 - Las fuentes autorizadas deben declarar `SourceLabel` y `AuthorizationRef` no
   sensibles.
+- Si `SourceLabel` o `AuthorizationRef` contienen URL, token, credencial o
+  valor sensible, readiness debe clasificar `stage5.source_label_sensitive` o
+  `stage5.authorization_ref_sensitive`, exponer solo
+  `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
 - `scripts/run-stage5-readiness-gate.ps1` normaliza la ejecucion del gate. En
   modo local crea SQLite bajo `local-evidence/`, corre migraciones y debe
   quedar `classification=parcial`, `ready_for_stage5_contabilidad=false` y

@@ -539,6 +539,29 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertFalse(result['sections']['source_trace']['source_label'])
         self.assertFalse(result['sections']['source_trace']['authorization_ref'])
 
+    def test_authorized_source_sensitive_trace_refs_are_classified(self):
+        create_all_active_policies()
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_kind='snapshot_controlado',
+            source_label='https://example.test/documents?signed_token=secret',
+            authorization_ref='Bearer documents-secret-token',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.source_label_sensitive', issue_codes)
+        self.assertIn('documents.authorization_ref_sensitive', issue_codes)
+        self.assertNotIn('documents.source_label_missing', issue_codes)
+        self.assertNotIn('documents.authorization_ref_missing', issue_codes)
+        self.assertTrue(result['sections']['source_trace_sensitive']['source_label'])
+        self.assertTrue(result['sections']['source_trace_sensitive']['authorization_ref'])
+        self.assertFalse(result['sections']['source_trace']['source_label'])
+        self.assertFalse(result['sections']['source_trace']['authorization_ref'])
+
     def test_sensitive_final_refs_do_not_close_readiness(self):
         create_all_active_policies()
 

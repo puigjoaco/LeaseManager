@@ -135,6 +135,10 @@ sistema igual a saldo banco.
   snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
   `-AuthorizationRef`, `-Stage2EvidenceRef`, `-BankProofRef`,
   `-BalanceSquareRef`, `-ResponsibleRef` y `-RequireReady`.
+- Si `SourceLabel` o `AuthorizationRef` contienen URL, token, credencial o
+  valor sensible, readiness debe clasificar `stage3.source_label_sensitive` o
+  `stage3.authorization_ref_sensitive`, exponer solo
+  `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
 - Cuando hay saldos reportados en movimientos de una misma conexion, el
   auditor valida continuidad local: cada saldo posterior debe continuar desde
   el saldo reportado previo aplicando abonos y cargos intermedios.
