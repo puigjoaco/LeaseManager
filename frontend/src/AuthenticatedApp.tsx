@@ -5705,7 +5705,22 @@ function App() {
   const filteredMensajesSalientes = useMemo(
     () =>
       mensajesSalientes.filter((item) =>
-        matches(normalizedSearch, [item.canal, item.destinatario, item.asunto, item.estado, item.external_ref, item.cuerpo]),
+        matches(normalizedSearch, [
+          item.canal,
+          item.canal_mensajeria,
+          item.identidad_envio,
+          item.contrato,
+          item.arrendatario,
+          item.documento_emitido,
+          item.destinatario,
+          item.asunto,
+          item.estado,
+          item.external_ref,
+          item.motivo_bloqueo,
+          item.enviado_at,
+          JSON.stringify(item.provider_payload || {}),
+          item.cuerpo,
+        ]),
       ),
     [mensajesSalientes, normalizedSearch],
   )

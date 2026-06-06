@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-06: Backoffice Canales muestra trazabilidad operativa de mensajes
+salientes. El snapshot expone gate/canal, identidad de envio, contrato,
+arrendatario, documento, usuario, `enviado_at`, traza y `provider_payload`
+redactados; el workspace los resuelve para inspeccion local y el buscador
+global cubre esos campos sin abrir Email, WhatsApp ni proveedores externos.
+
 Nota 2026-06-06: Backoffice Cobranza muestra el resumen completo de estado de
 cuenta. El workspace expone pagos abiertos/atrasados, repactaciones activas,
 codigos residuales activos, meses evaluados, pagos en plazo/fuera de plazo,

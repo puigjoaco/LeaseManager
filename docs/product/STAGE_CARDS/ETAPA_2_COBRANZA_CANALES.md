@@ -271,6 +271,12 @@ condicionados sin envios reales accidentales.
   `return_url_ref`, `provider_payload`, `motivo_bloqueo` de intentos WebPay,
   `motivo_estado` de notificaciones de cobranza y `storage_ref` documental
   expuesto por snapshot de Canales, sin abrir integraciones externas.
+- El snapshot y backoffice de Canales deben exponer la traza operativa de
+  mensajes salientes sin llamar proveedores externos: gate/canal, identidad de
+  envio, contrato, arrendatario, documento, usuario, `enviado_at`,
+  `external_ref`, motivo y `provider_payload` siempre redactados antes de
+  mostrarse. La busqueda global debe cubrir esos campos ya saneados para
+  revision operativa local.
   `restricciones_operativas` se redacta tambien por nombre de clave sensible:
   Canales preserva solo claves canonicas de referencia no sensible del gate, y
   Cobranza/WebPay expone las restricciones del gate unicamente como payload
