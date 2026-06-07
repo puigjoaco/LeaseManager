@@ -13,6 +13,12 @@ con la traza UF. El snapshot de `pagos` expone `periodo_contractual`,
 fechas operativas y `codigo_conciliacion_efectivo`, permitiendo que el
 workspace muestre y filtre la misma traza que ya entrega la API de pagos.
 
+Nota 2026-06-07: Backoffice Cobranza hace visible la traza operativa completa
+del pago mensual. La tabla de pagos muestra tramo contractual, codigo efectivo
+de conciliacion y fechas de deposito/deteccion ya expuestas por el snapshot,
+ademas de la traza UF, para revisar pagos sin recalcular ni abrir fuentes
+externas.
+
 Nota 2026-06-06: Backoffice Cobranza muestra distribucion economica de pagos.
 El snapshot de `pagos` ahora incluye `distribuciones_detail` con beneficiario,
 porcentaje snapshot, monto devengado, monto facturable, monto conciliado y
