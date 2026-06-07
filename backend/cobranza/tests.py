@@ -982,6 +982,20 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.data['uf_valor_usado'], '35000.0000')
         self.assertEqual(response.data['uf_source_key'], 'UF.CargaManualExtraordinaria')
 
+        snapshot_response = self.client.get(reverse('cobranza-snapshot'))
+
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        snapshot_pago = snapshot_response.data['pagos'][0]
+        self.assertEqual(snapshot_pago['id'], response.data['id'])
+        self.assertEqual(snapshot_pago['periodo_contractual'], response.data['periodo_contractual'])
+        self.assertEqual(snapshot_pago['moneda_calculo'], 'UF')
+        self.assertEqual(snapshot_pago['uf_fecha_usada'], date(2026, 1, 5))
+        self.assertEqual(snapshot_pago['uf_valor_usado'], Decimal('35000.0000'))
+        self.assertEqual(snapshot_pago['uf_source_key'], 'UF.CargaManualExtraordinaria')
+        self.assertEqual(snapshot_pago['codigo_conciliacion_efectivo'], '123')
+        self.assertIsNone(snapshot_pago['fecha_deposito_banco'])
+        self.assertIsNone(snapshot_pago['fecha_deteccion_sistema'])
+
     def test_generate_payment_is_idempotent_for_same_contract_and_month(self):
         contrato = self._create_active_contract(codigo='CON-IDEM', monto_base='100000.00', code='111')
 

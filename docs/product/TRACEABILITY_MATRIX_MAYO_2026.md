@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-07: Backoffice Cobranza alinea el contrato de snapshot de pagos
+con la traza UF. El snapshot de `pagos` expone `periodo_contractual`,
+`moneda_calculo`, `uf_fecha_usada`, `uf_valor_usado`, `uf_source_key`,
+fechas operativas y `codigo_conciliacion_efectivo`, permitiendo que el
+workspace muestre y filtre la misma traza que ya entrega la API de pagos.
+
 Nota 2026-06-06: Backoffice Cobranza muestra distribucion economica de pagos.
 El snapshot de `pagos` ahora incluye `distribuciones_detail` con beneficiario,
 porcentaje snapshot, monto devengado, monto facturable, monto conciliado y

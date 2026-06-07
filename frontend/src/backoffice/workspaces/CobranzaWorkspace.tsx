@@ -71,6 +71,11 @@ function formatDistribuciones(items?: DistribucionPagoItem[]) {
     .join(' | ')
 }
 
+function formatUfTrace(row: PagoMensualItem) {
+  if (row.moneda_calculo !== 'UF') return row.moneda_calculo || 'CLP'
+  return `${row.uf_valor_usado || '-'} · ${row.uf_fecha_usada || '-'} · ${row.uf_source_key || '-'}`
+}
+
 export function CobranzaWorkspace({
   canEditCobranza,
   ufDraft,
@@ -393,7 +398,7 @@ export function CobranzaWorkspace({
         { label: 'Calculado', render: (row) => row.monto_calculado_clp },
         { label: 'Distribución', render: (row) => formatDistribuciones(row.distribuciones_detail) },
         { label: 'Efecto código', render: (row) => row.monto_efecto_codigo_efectivo_clp },
-        { label: 'UF usada', render: (row) => row.moneda_calculo === 'UF' ? `${row.uf_valor_usado || '-'} · ${row.uf_fecha_usada || '-'} · ${row.uf_source_key || '-'}` : row.moneda_calculo },
+        { label: 'UF usada', render: (row) => formatUfTrace(row) },
         { label: 'Pagado', render: (row) => row.monto_pagado_clp },
         { label: 'Vence', render: (row) => row.fecha_vencimiento },
         { label: 'WebPay', render: (row) => row.fecha_pago_webpay || '-' },

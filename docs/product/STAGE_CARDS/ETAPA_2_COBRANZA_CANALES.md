@@ -90,7 +90,9 @@ condicionados sin envios reales accidentales.
   `uf_valor_usado` y `uf_source_key`. La fecha UF usada debe coincidir con
   `fecha_vencimiento`, y readiness bloquea pagos heredados sin traza, con
   valor/fuente distinta al `ValorUFDiario` de esa fecha o con traza UF en pagos
-  que no dependen de UF.
+  que no dependen de UF. El snapshot operativo de Cobranza y el backoffice
+  deben exponer esa traza junto al periodo contractual y codigo efectivo del
+  pago mensual.
 - Garantias contractuales recibidas parcialmente deben quedar visibles como
   incompletas hasta regularizarse o contar con aceptacion formal mediante
   referencia no sensible; APIs y backoffice exponen brecha, estado de
