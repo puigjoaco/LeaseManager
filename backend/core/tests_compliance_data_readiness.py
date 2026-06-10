@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -182,11 +183,41 @@ class ComplianceDataReadinessTests(TestCase):
 
         call_command('bootstrap_demo_compliance_policies', stdout=output)
 
+        rendered_output = output.getvalue()
         result = collect_compliance_data_readiness()
         self.assertEqual(PoliticaRetencionDatos.objects.count(), len(CategoriaDato))
         self.assertEqual(result['sections']['retention_policies']['missing_active_categories'], [])
         self.assertEqual(result['sections']['retention_policies']['hold_missing_categories'], [])
         self.assertEqual(result['sections']['retention_policies']['physical_purge_enabled_for_restricted_categories'], 0)
+        self.assertIn('evento_inicio_validado=true', rendered_output)
+        self.assertNotIn('evento_inicio=ultimo_evento_relevante', rendered_output)
+
+    def test_bootstrap_demo_compliance_exports_redacts_scope_output(self):
+        self._create_policies()
+        self._create_user()
+        output = StringIO()
+
+        with patch(
+            'core.management.commands.bootstrap_demo_compliance_exports.render_export_payload',
+            return_value={'ok': True},
+        ):
+            call_command(
+                'bootstrap_demo_compliance_exports',
+                created_by='compliance-admin',
+                empresa_id=42,
+                socio_id=77,
+                stdout=output,
+            )
+
+        rendered_output = output.getvalue()
+        self.assertEqual(ExportacionSensible.objects.count(), 3)
+        self.assertIn('scope=0 campos', rendered_output)
+        self.assertIn('scope=3 campos', rendered_output)
+        self.assertIn('scope=1 campos', rendered_output)
+        self.assertNotIn('empresa_id', rendered_output)
+        self.assertNotIn('socio_id', rendered_output)
+        self.assertNotIn('42', rendered_output)
+        self.assertNotIn('77', rendered_output)
 
     def test_valid_authorized_controls_and_refs_can_pass_readiness(self):
         self._create_policies()
