@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Backoffice conserva los datos cargados por snapshots frente
+a cargas diferidas. El loader solo escribe estados cuando la carga
+legacy/detail correspondiente esta habilitada, evitando que fallbacks capturados
+sobrescriban vistas como Cobranza o Audit. Los filtros de contratos tambien
+toleran contratos parciales expuestos por snapshots de otros modulos, sin
+romper la inspeccion del workspace.
+
 Nota 2026-06-10: Backoffice Audit alinea el cierre de resoluciones manuales de
 Conciliacion con los servicios especializados. La UI ya no intenta cerrar
 ingresos desconocidos o cargos bancarios con payload generico incompleto; ahora

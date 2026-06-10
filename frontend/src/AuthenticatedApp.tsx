@@ -527,10 +527,12 @@ function hasFreshOverviewSummarySnapshot(dashboard: Dashboard | null, lastLoaded
 }
 
 function isSimpleInlineEditableContract(contract: Contrato) {
+  const contractProperties = contract.contrato_propiedades_detail ?? []
+  const contractPeriods = contract.periodos_contractuales_detail ?? []
   return (
-    contract.contrato_propiedades_detail.length === 1
-    && contract.contrato_propiedades_detail[0]?.rol_en_contrato === 'principal'
-    && contract.periodos_contractuales_detail.length === 1
+    contractProperties.length === 1
+    && contractProperties[0]?.rol_en_contrato === 'principal'
+    && contractPeriods.length === 1
   )
 }
 
@@ -3274,25 +3276,63 @@ function App() {
           const auditEventsPayload = resolvedValue<AuditEventItem[]>(19, auditEvents)
           const manualResolutionsPayload = resolvedValue<ManualResolutionItem[]>(20, manualResolutions)
 
-          setArrendatarios(arrendatariosPayload)
-          setContratos(contratosPayload)
-          setExpedientes(expedientesPayload)
-          setPoliticasFirma(politicasFirmaPayload)
-          setPlantillasDocumentales(plantillasDocumentalesPayload)
-          setDocumentosEmitidos(documentosEmitidosPayload)
-          setGatesCanales(gatesCanalesPayload)
-          setMensajesSalientes(mensajesSalientesPayload)
-          setAvisos(avisosPayload)
-          setValoresUf(valoresUfPayload)
-          setAjustes(ajustesPayload)
-          setPagos(pagosPayload)
-          setGarantias(garantiasPayload)
-          setHistorialGarantias(historialGarantiasPayload)
-          setEstadosCuenta(estadosCuentaPayload)
-          setConexionesBancarias(conexionesPayload)
-          setMovimientosBancarios(movimientosPayload)
-          setIngresosDesconocidos(ingresosPayload)
-          setCuadraturasBancarias(cuadraturasPayload)
+          if (loadArrendatarios) {
+            setArrendatarios(arrendatariosPayload)
+          }
+          if (loadContratos) {
+            setContratos(contratosPayload)
+          }
+          if (loadExpedientes) {
+            setExpedientes(expedientesPayload)
+          }
+          if (loadPoliticasFirma) {
+            setPoliticasFirma(politicasFirmaPayload)
+          }
+          if (loadPlantillasDocumentales) {
+            setPlantillasDocumentales(plantillasDocumentalesPayload)
+          }
+          if (loadDocumentosEmitidos) {
+            setDocumentosEmitidos(documentosEmitidosPayload)
+          }
+          if (loadGatesCanales) {
+            setGatesCanales(gatesCanalesPayload)
+          }
+          if (loadMensajesSalientes) {
+            setMensajesSalientes(mensajesSalientesPayload)
+          }
+          if (loadAvisos) {
+            setAvisos(avisosPayload)
+          }
+          if (loadValoresUf) {
+            setValoresUf(valoresUfPayload)
+          }
+          if (loadAjustes) {
+            setAjustes(ajustesPayload)
+          }
+          if (loadPagos) {
+            setPagos(pagosPayload)
+          }
+          if (loadGarantias) {
+            setGarantias(garantiasPayload)
+          }
+          if (loadHistorialGarantias) {
+            setHistorialGarantias(historialGarantiasPayload)
+          }
+          if (loadEstadosCuenta) {
+            setEstadosCuenta(estadosCuentaPayload)
+          }
+          if (loadConexiones) {
+            setConexionesBancarias(conexionesPayload)
+          }
+          if (loadMovimientos) {
+            setMovimientosBancarios(movimientosPayload)
+          }
+          if (loadIngresos) {
+            setIngresosDesconocidos(ingresosPayload)
+          }
+          if (loadCuadraturas) {
+            setCuadraturasBancarias(cuadraturasPayload)
+          }
           if (loadAuditEvents) {
             setAuditEvents(auditEventsPayload)
           }
@@ -5733,7 +5773,7 @@ function App() {
           item.estado,
           item.fecha_inicio,
           item.fecha_fin_vigente,
-          item.contrato_propiedades_detail.map((detail) => `${detail.propiedad_codigo} ${detail.propiedad_direccion}`).join(' '),
+          (item.contrato_propiedades_detail ?? []).map((detail) => `${detail.propiedad_codigo} ${detail.propiedad_direccion}`).join(' '),
         ]),
       ),
     [contratos, normalizedSearch],
