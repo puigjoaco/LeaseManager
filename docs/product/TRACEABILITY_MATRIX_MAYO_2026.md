@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Operacion productiva incorpora guard explicito para MFA
+administrativo o aceptacion formal de riesgo. `audit_operational_observability`
+revisa `security.admin_mfa_control` sin exponer refs: exige MFA probado con
+evidencia, autorizacion y responsable no sensibles, o riesgo aceptado vigente
+con las mismas trazas; si falta o contiene payload sensible, Etapa 7 queda
+parcial.
+
 Nota 2026-06-10: Django admin de Documentos cierra el bypass manual de
 `PoliticaFirmaYNotaria`. La politica documental queda visible en solo lectura
 desde admin, sin alta, edicion ni borrado; los cambios operativos deben pasar

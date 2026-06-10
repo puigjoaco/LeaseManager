@@ -18,8 +18,14 @@ from rest_framework.test import APITestCase
 
 from canales.models import CanalMensajeria, EstadoGateCanal
 from cobranza.models import EstadoGateCobroExterno, GateCobroExterno
-from core.models import OperationalRuntimeSignal, RuntimeSignalKey, RuntimeSignalSourceKind, RuntimeSignalStatus
-from core.operational_observability import collect_operational_observability_audit
+from core.models import (
+    OperationalRuntimeSignal,
+    PlatformSetting,
+    RuntimeSignalKey,
+    RuntimeSignalSourceKind,
+    RuntimeSignalStatus,
+)
+from core.operational_observability import ADMIN_SECURITY_SETTING_KEY, collect_operational_observability_audit
 from patrimonio.models import Empresa
 from sii.models import AmbienteSII, CapacidadSII, CapacidadTributariaSII, EstadoGateSII
 
@@ -71,6 +77,37 @@ def create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.LOCAL, *, incl
         value={'failed_count': 0},
         evidence_ref='local-crons',
         **_runtime_source_trace(RuntimeSignalKey.FAILED_CRONS, source_kind, include_source_trace),
+    )
+
+
+def create_admin_security_mfa_control():
+    return PlatformSetting.objects.create(
+        key=ADMIN_SECURITY_SETTING_KEY,
+        value={
+            'mode': 'mfa_enforced',
+            'mfa_enforced': True,
+            'mfa_evidence_ref': 'admin-mfa-controlled-v1',
+            'authorization_ref': 'stage7-admin-security-authorization-v1',
+            'responsible_ref': 'security-owner-v1',
+        },
+        is_active=True,
+    )
+
+
+def create_admin_security_risk_acceptance(valid_until=None):
+    if valid_until is None:
+        valid_until = timezone.localdate() + timedelta(days=30)
+    return PlatformSetting.objects.create(
+        key=ADMIN_SECURITY_SETTING_KEY,
+        value={
+            'mode': 'risk_accepted',
+            'risk_accepted': True,
+            'risk_acceptance_ref': 'admin-mfa-risk-acceptance-v1',
+            'authorization_ref': 'stage7-admin-security-authorization-v1',
+            'responsible_ref': 'security-owner-v1',
+            'valid_until': valid_until.isoformat(),
+        },
+        is_active=True,
     )
 
 
@@ -139,13 +176,68 @@ class OperationalObservabilityAuditTests(TestCase):
 
     def test_authorized_runtime_signals_can_pass_observability_close(self):
         create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO)
+        create_admin_security_mfa_control()
 
         result = collect_operational_observability_audit()
 
         self.assertTrue(result['ready_for_stage7_observability'])
         self.assertEqual(result['classification'], 'resuelto_confirmado')
         self.assertTrue(result['sections']['runtime_signals']['authorized_for_stage7_close'])
+        self.assertTrue(result['sections']['admin_security']['authorized_for_stage7_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_admin_security_control_is_required_for_observability_close(self):
+        create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO)
+
+        result = collect_operational_observability_audit()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_observability'])
+        self.assertFalse(result['sections']['admin_security']['authorized_for_stage7_close'])
+        self.assertIn('observability.admin_security_mfa_or_risk_acceptance_missing', issue_codes)
+
+    def test_admin_security_risk_acceptance_can_satisfy_control(self):
+        create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO)
+        create_admin_security_risk_acceptance()
+
+        result = collect_operational_observability_audit()
+
+        self.assertTrue(result['ready_for_stage7_observability'])
+        self.assertTrue(result['sections']['admin_security']['risk_accepted'])
+        self.assertTrue(result['sections']['admin_security']['risk_acceptance_current'])
+        self.assertTrue(result['sections']['admin_security']['authorized_for_stage7_close'])
+        self.assertEqual(result['issues'], [])
+
+    def test_admin_security_rejects_sensitive_or_expired_risk_acceptance(self):
+        create_runtime_signals_ok(source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO)
+        create_admin_security_risk_acceptance(valid_until=timezone.localdate() - timedelta(days=1))
+
+        result = collect_operational_observability_audit()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage7_observability'])
+        self.assertIn('observability.admin_security_risk_acceptance_expired', issue_codes)
+
+        PlatformSetting.objects.filter(key=ADMIN_SECURITY_SETTING_KEY).update(
+            value={
+                'mode': 'risk_accepted',
+                'risk_accepted': True,
+                'risk_acceptance_ref': 'https://security.example.test/acceptance?token=secret',
+                'authorization_ref': 'stage7-admin-security-authorization-v1',
+                'responsible_ref': 'security-owner-v1',
+                'valid_until': (timezone.localdate() + timedelta(days=30)).isoformat(),
+            }
+        )
+
+        result = collect_operational_observability_audit()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        rendered = json.dumps(result, default=str)
+
+        self.assertFalse(result['ready_for_stage7_observability'])
+        self.assertIn('observability.admin_security_payload_sensitive', issue_codes)
+        self.assertTrue(result['sections']['admin_security']['payload_sensitive'])
+        self.assertNotIn('security.example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
 
     def test_authorized_runtime_signals_require_source_trace_refs(self):
         create_runtime_signals_ok(
