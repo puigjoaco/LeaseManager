@@ -805,6 +805,17 @@ class ConciliacionAPITests(APITestCase):
         self.assertNotIn('bank.example.test', rendered)
         self.assertNotIn('secret', rendered)
 
+    def test_conciliacion_snapshot_uses_redacted_account_labels(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-SNAPSHOT-ACCOUNT-REDACT')
+
+        response = self.client.get(reverse('conciliacion-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rendered = json.dumps(response.data, default=str)
+        self.assertEqual(response.data['cuentas'][0]['numero_cuenta'], cuenta.numero_cuenta_redacted)
+        self.assertEqual(response.data['cuentas'][0]['numero_cuenta_redacted'], cuenta.numero_cuenta_redacted)
+        self.assertNotIn(cuenta.numero_cuenta, rendered)
+
     def test_conciliacion_snapshot_redacts_existing_sensitive_balance_square_refs(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-SNAPSHOT-BALANCE-REDACT')
         CuadraturaBancaria.objects.create(

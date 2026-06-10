@@ -138,7 +138,8 @@ class ConciliacionSnapshotView(APIView):
                 'cuentas': [
                     {
                         'id': item.id,
-                        'numero_cuenta': item.numero_cuenta,
+                        'numero_cuenta': item.numero_cuenta_redacted,
+                        'numero_cuenta_redacted': item.numero_cuenta_redacted,
                         'owner_display': item.owner_display,
                     }
                     for item in cuentas

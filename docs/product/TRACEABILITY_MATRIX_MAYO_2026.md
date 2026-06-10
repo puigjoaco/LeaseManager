@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Operacion y Conciliacion dejan de usar numeros bancarios
+crudos como etiquetas de snapshot/backoffice. `CuentaRecaudadora` expone
+`numero_cuenta_redacted`, los snapshots propagan esa etiqueta para cuentas y
+mandatos, y los workspaces la usan en tablas, selectores, busqueda y contexto.
+La edicion de cuenta carga el detalle explicitamente para conservar el valor
+editable sin convertir snapshots de trabajo en superficie de datos bancarios.
+
 Nota 2026-06-10: Backoffice Contratos tolera registros parciales de snapshot.
 Los contratos que llegan desde snapshots de otros modulos pueden no incluir
 detalle de propiedades, periodos o codeudores; la tabla, badges, filtros,

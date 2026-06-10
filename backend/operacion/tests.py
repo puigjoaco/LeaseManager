@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -486,6 +487,48 @@ class OperacionAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['cuentas'][0]['evidencia_operativa_ref'], REDACTED_SENSITIVE_REFERENCE)
+
+    def test_operation_snapshot_uses_redacted_account_labels(self):
+        propietario = self._create_socio('Propietario Cuenta Segura', '36363636-0')
+        admin_company = self._create_active_empresa('AdminCo Cuenta Segura', '37373737-0')
+        propiedad = self._create_property_for_owner(socio=propietario, codigo='SOC-ACCT-001')
+        cuenta = CuentaRecaudadora.objects.create(
+            empresa_owner=admin_company,
+            institucion='Banco Uno',
+            numero_cuenta='SNAP-RAW-001',
+            tipo_cuenta='corriente',
+            titular_nombre=admin_company.razon_social,
+            titular_rut=admin_company.rut,
+            moneda_operativa=MonedaOperativa.CLP,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.BANK_GATE,
+            evidencia_operativa_ref='account-operational-evidence-safe',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+        MandatoOperacion.objects.create(
+            propiedad=propiedad,
+            propietario_socio_owner=propietario,
+            administrador_empresa_owner=admin_company,
+            recaudador_empresa_owner=admin_company,
+            cuenta_recaudadora=cuenta,
+            tipo_relacion_operativa='mandato_externo',
+            autoriza_recaudacion=True,
+            autoriza_comunicacion=True,
+            autoridad_operativa_nombre='Representante Operativo',
+            autoridad_operativa_rut='12345678-5',
+            autoridad_operativa_evidencia_ref='mandate-authority-act-001',
+            vigencia_desde='2026-01-01',
+            estado=EstadoMandatoOperacion.ACTIVE,
+        )
+
+        response = self.client.get(reverse('operacion-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rendered = json.dumps(response.data, default=str)
+        self.assertEqual(response.data['cuentas'][0]['numero_cuenta'], cuenta.numero_cuenta_redacted)
+        self.assertEqual(response.data['cuentas'][0]['numero_cuenta_redacted'], cuenta.numero_cuenta_redacted)
+        self.assertEqual(response.data['mandatos'][0]['cuenta_recaudadora_display'], cuenta.numero_cuenta_redacted)
+        self.assertNotIn(cuenta.numero_cuenta, rendered)
 
     def test_create_identity_validates_email_when_channel_is_email(self):
         socio = self._create_socio('Operador Uno', '33333333-3')

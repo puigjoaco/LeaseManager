@@ -4,7 +4,7 @@ import { Badge, TableBlock } from '../shared'
 
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
-type CuentaItem = { id: number; numero_cuenta: string; owner_display: string }
+type CuentaItem = { id: number; numero_cuenta: string; numero_cuenta_redacted?: string; owner_display: string }
 type ConexionBancariaItem = { id: number; cuenta_recaudadora: number; provider_key: string; credencial_ref: string; scope: string; evidencia_gate_ref: string; estado_conexion: string }
 type MovimientoBancarioItem = { id: number; fecha_movimiento: string; tipo_movimiento: string; monto: string; descripcion_origen: string; referencia: string; origen_importacion: string; evidencia_importacion_ref: string; estado_conciliacion: string }
 type IngresoDesconocidoItem = { id: number; cuenta_recaudadora: number; fecha_movimiento: string; monto: string; descripcion_origen: string; estado: string; sugerencia_asistida: { payment_candidate_ids?: number[] } }
@@ -53,6 +53,8 @@ type CuadraturaDraft = {
   responsable_ref: string
   rationale: string
 }
+
+const accountLabel = (row?: CuentaItem) => row?.numero_cuenta_redacted || row?.numero_cuenta
 
 export function ConciliacionWorkspace({
   canEditConciliacion,
@@ -110,7 +112,7 @@ export function ConciliacionWorkspace({
           <form className="entity-form" onSubmit={handleCreateConexion}>
             <select value={conexionDraft.cuenta_recaudadora} onChange={(event) => setConexionDraft((current) => ({ ...current, cuenta_recaudadora: event.target.value }))}>
               <option value="">Selecciona cuenta</option>
-              {cuentas.map((item) => <option key={item.id} value={item.id}>{item.numero_cuenta} · {item.owner_display}</option>)}
+              {cuentas.map((item) => <option key={item.id} value={item.id}>{accountLabel(item)} · {item.owner_display}</option>)}
             </select>
             <input placeholder="Provider key" value={conexionDraft.provider_key} onChange={(event) => setConexionDraft((current) => ({ ...current, provider_key: event.target.value }))} />
             <input placeholder="Credencial ref" value={conexionDraft.credencial_ref} onChange={(event) => setConexionDraft((current) => ({ ...current, credencial_ref: event.target.value }))} />
@@ -138,7 +140,7 @@ export function ConciliacionWorkspace({
           <form className="entity-form" onSubmit={handleCreateMovimiento}>
             <select value={movimientoDraft.conexion_bancaria} onChange={(event) => setMovimientoDraft((current) => ({ ...current, conexion_bancaria: event.target.value }))}>
               <option value="">Selecciona conexión</option>
-              {conexionesBancarias.map((item) => <option key={item.id} value={item.id}>{item.provider_key} · {cuentaById.get(item.cuenta_recaudadora)?.numero_cuenta || item.cuenta_recaudadora}</option>)}
+              {conexionesBancarias.map((item) => <option key={item.id} value={item.id}>{item.provider_key} · {accountLabel(cuentaById.get(item.cuenta_recaudadora)) || item.cuenta_recaudadora}</option>)}
             </select>
             <input type="date" value={movimientoDraft.fecha_movimiento} onChange={(event) => setMovimientoDraft((current) => ({ ...current, fecha_movimiento: event.target.value }))} />
             <select value={movimientoDraft.tipo_movimiento} onChange={(event) => setMovimientoDraft((current) => ({ ...current, tipo_movimiento: event.target.value }))}>
@@ -166,7 +168,7 @@ export function ConciliacionWorkspace({
           <form className="entity-form" onSubmit={handleCreateCuadratura}>
             <select value={cuadraturaDraft.cuenta_recaudadora} onChange={(event) => setCuadraturaDraft((current) => ({ ...current, cuenta_recaudadora: event.target.value }))}>
               <option value="">Selecciona cuenta</option>
-              {cuentas.map((item) => <option key={item.id} value={item.id}>{item.numero_cuenta} · {item.owner_display}</option>)}
+              {cuentas.map((item) => <option key={item.id} value={item.id}>{accountLabel(item)} · {item.owner_display}</option>)}
             </select>
             <input placeholder="Periodo económico" value={cuadraturaDraft.periodo_economico} onChange={(event) => setCuadraturaDraft((current) => ({ ...current, periodo_economico: event.target.value }))} />
             <input type="date" value={cuadraturaDraft.fecha_cuadratura} onChange={(event) => setCuadraturaDraft((current) => ({ ...current, fecha_cuadratura: event.target.value }))} />
@@ -186,7 +188,7 @@ export function ConciliacionWorkspace({
       </section>
 
       <TableBlock title="Conexiones bancarias" subtitle="Providers activos por cuenta recaudadora." rows={filteredConexiones} empty="No hay conexiones bancarias para este filtro." isLoading={isLoading} loadingLabel="Cargando conciliación..." columns={[
-        { label: 'Cuenta', render: (row) => cuentaById.get(row.cuenta_recaudadora)?.numero_cuenta || row.cuenta_recaudadora },
+        { label: 'Cuenta', render: (row) => accountLabel(cuentaById.get(row.cuenta_recaudadora)) || row.cuenta_recaudadora },
         { label: 'Provider', render: (row) => row.provider_key },
         { label: 'Credencial', render: (row) => row.credencial_ref },
         { label: 'Scope', render: (row) => row.scope || 'Sin scope' },
@@ -207,7 +209,7 @@ export function ConciliacionWorkspace({
       <TableBlock title="Cuadraturas bancarias" subtitle="Saldo sistema contra saldo banco por cuenta y periodo." rows={filteredCuadraturas} empty="No hay cuadraturas para este filtro." isLoading={isLoading} loadingLabel="Cargando conciliación..." columns={[
         { label: 'Periodo', render: (row) => row.periodo_economico },
         { label: 'Fecha', render: (row) => row.fecha_cuadratura },
-        { label: 'Cuenta', render: (row) => cuentaById.get(row.cuenta_recaudadora)?.numero_cuenta || row.cuenta_recaudadora },
+        { label: 'Cuenta', render: (row) => accountLabel(cuentaById.get(row.cuenta_recaudadora)) || row.cuenta_recaudadora },
         { label: 'Sistema', render: (row) => row.saldo_sistema_clp },
         { label: 'Banco', render: (row) => row.saldo_banco_clp },
         { label: 'Diferencia', render: (row) => row.diferencia_clp },
@@ -225,7 +227,7 @@ export function ConciliacionWorkspace({
       <TableBlock title="Ingresos desconocidos" subtitle="Abonos sin match exacto que requieren revisión." rows={filteredIngresos} empty="No hay ingresos desconocidos para este filtro." isLoading={isLoading} loadingLabel="Cargando conciliación..." columns={[
         { label: 'Fecha', render: (row) => row.fecha_movimiento },
         { label: 'Monto', render: (row) => row.monto },
-        { label: 'Cuenta', render: (row) => cuentaById.get(row.cuenta_recaudadora)?.numero_cuenta || row.cuenta_recaudadora },
+        { label: 'Cuenta', render: (row) => accountLabel(cuentaById.get(row.cuenta_recaudadora)) || row.cuenta_recaudadora },
         { label: 'Descripción', render: (row) => row.descripcion_origen },
         { label: 'Sugerencia', render: (row) => row.sugerencia_asistida?.payment_candidate_ids?.length ? `Pagos candidatos: ${row.sugerencia_asistida.payment_candidate_ids.join(', ')}` : 'Sin sugerencia' },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },

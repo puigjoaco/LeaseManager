@@ -8,7 +8,7 @@ from .models import AsignacionCanalOperacion, CuentaRecaudadora, IdentidadDeEnvi
 def _redacted_account_label(account):
     if not account:
         return '-'
-    return f'Cuenta recaudadora #{account.pk}'
+    return account.numero_cuenta_redacted
 
 
 def _redacted_rut(value):

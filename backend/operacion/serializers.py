@@ -124,6 +124,7 @@ class CuentaRecaudadoraSerializer(serializers.ModelSerializer):
     owner_tipo = serializers.ChoiceField(choices=('empresa', 'comunidad', 'socio'), write_only=True, required=False)
     owner_id = serializers.IntegerField(write_only=True, required=False)
     owner_display = serializers.CharField(read_only=True)
+    numero_cuenta_redacted = serializers.CharField(read_only=True)
 
     class Meta:
         model = CuentaRecaudadora
@@ -131,6 +132,7 @@ class CuentaRecaudadoraSerializer(serializers.ModelSerializer):
             'id',
             'institucion',
             'numero_cuenta',
+            'numero_cuenta_redacted',
             'tipo_cuenta',
             'titular_nombre',
             'titular_rut',
@@ -145,7 +147,7 @@ class CuentaRecaudadoraSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('id', 'owner_display', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'numero_cuenta_redacted', 'owner_display', 'created_at', 'updated_at')
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -275,7 +277,7 @@ class MandatoOperacionSerializer(serializers.ModelSerializer):
     administrador_operativo_display = serializers.SerializerMethodField(read_only=True)
     recaudador_display = serializers.SerializerMethodField(read_only=True)
     entidad_facturadora_display = serializers.CharField(source='entidad_facturadora.razon_social', read_only=True)
-    cuenta_recaudadora_display = serializers.CharField(source='cuenta_recaudadora.numero_cuenta', read_only=True)
+    cuenta_recaudadora_display = serializers.CharField(source='cuenta_recaudadora.numero_cuenta_redacted', read_only=True)
 
     class Meta:
         model = MandatoOperacion

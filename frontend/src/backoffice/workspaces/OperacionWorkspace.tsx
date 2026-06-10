@@ -4,7 +4,7 @@ import { Badge, TableBlock } from '../shared'
 
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 type OwnerOption = { tipo: string; id: number; label: string }
-type CuentaItem = { id: number; institucion: string; numero_cuenta: string; tipo_cuenta: string; owner_tipo: string; owner_id: number; owner_display: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; uso_operativo: string; modo_operativo: string; evidencia_operativa_ref: string; estado_operativo: string }
+type CuentaItem = { id: number; institucion: string; numero_cuenta: string; numero_cuenta_redacted?: string; tipo_cuenta: string; owner_tipo: string; owner_id: number; owner_display: string; titular_nombre: string; titular_rut: string; moneda_operativa: string; uso_operativo: string; modo_operativo: string; evidencia_operativa_ref: string; estado_operativo: string }
 type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; credencial_ref: string; owner_tipo: string; owner_id: number; owner_display: string; estado: string }
 type MandatoItem = {
   id: number
@@ -60,6 +60,8 @@ const authorizationLabels = (row: MandatoItem) => {
   if (row.autoriza_comunicacion) labels.push('Comunicacion')
   return labels
 }
+
+const accountLabel = (row: CuentaItem) => row.numero_cuenta_redacted || row.numero_cuenta
 
 function renderMandateAuthority(row: MandatoItem) {
   return (
@@ -165,11 +167,11 @@ export function OperacionWorkspace({
   toneFor: (value: string) => Tone
   isSubmitting: boolean
   isLoading: boolean
-  startEditCuenta: (row: CuentaItem) => void
+  startEditCuenta: (row: CuentaItem) => void | Promise<void>
   startEditIdentidad: (row: IdentidadItem) => void
   startEditMandato: (row: MandatoItem) => void
   startEditAsignacion: (row: AsignacionCanalItem) => void
-  goToCuentaConciliacion: (cuentaId: number, numeroCuenta: string) => void
+  goToCuentaConciliacion: (cuentaId: number, cuentaLabel: string) => void
   goToMandatoContext: (mandatoId: number) => void
 }) {
   const assignmentIdentities = identidades.filter((item) => item.canal === asignacionDraft.canal)
@@ -226,7 +228,7 @@ export function OperacionWorkspace({
             </select>
             <select value={mandatoDraft.cuenta_recaudadora_id} onChange={(event) => setMandatoDraft((current) => ({ ...current, cuenta_recaudadora_id: event.target.value }))}>
               <option value="">Selecciona cuenta</option>
-              {cuentas.map((item) => <option key={item.id} value={item.id}>{item.numero_cuenta} · {item.owner_display}</option>)}
+              {cuentas.map((item) => <option key={item.id} value={item.id}>{accountLabel(item)} · {item.owner_display}</option>)}
             </select>
             <input placeholder="Tipo relación operativa" value={mandatoDraft.tipo_relacion_operativa} onChange={(event) => setMandatoDraft((current) => ({ ...current, tipo_relacion_operativa: event.target.value }))} />
             <input placeholder="Autoridad operativa" value={mandatoDraft.autoridad_operativa_nombre} onChange={(event) => setMandatoDraft((current) => ({ ...current, autoridad_operativa_nombre: event.target.value }))} />
@@ -300,13 +302,13 @@ export function OperacionWorkspace({
       </section>
 
       <TableBlock title="Cuentas recaudadoras" subtitle="Ownership bancario operativo." rows={filteredCuentas} empty="No hay cuentas para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[
-        { label: 'Cuenta', render: (row) => `${row.institucion} · ${row.numero_cuenta}` },
+        { label: 'Cuenta', render: (row) => accountLabel(row) },
         { label: 'Owner', render: (row) => `${row.owner_display} · ${row.owner_tipo}` },
         { label: 'Modo', render: (row) => row.modo_operativo || 'sin modo' },
         { label: 'Evidencia', render: (row) => row.evidencia_operativa_ref || 'sin evidencia' },
         { label: 'Estado', render: (row) => <Badge label={row.estado_operativo} tone={toneFor(row.estado_operativo)} /> },
-        { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => startEditCuenta(row)}>Editar</button> },
-        { label: 'Siguiente paso', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => goToCuentaConciliacion(row.id, row.numero_cuenta)}>Conectar banco</button> },
+        { label: 'Editar', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => void startEditCuenta(row)}>Editar</button> },
+        { label: 'Siguiente paso', render: (row) => <button type="button" className="button-ghost inline-action" onClick={() => goToCuentaConciliacion(row.id, accountLabel(row))}>Conectar banco</button> },
       ]} />
       <TableBlock title="Identidades de envío" subtitle="Canales autorizados para salida." rows={filteredIdentidades} empty="No hay identidades para este filtro." isLoading={isLoading} loadingLabel="Cargando operación..." columns={[
         { label: 'Remitente', render: (row) => row.remitente_visible },
