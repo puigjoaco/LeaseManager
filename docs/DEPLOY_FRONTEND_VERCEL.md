@@ -32,22 +32,40 @@ Reapuntar ese proyecto heredado directamente al frontend habría mezclado dos to
 
 ## Flujo recomendado
 
-Desde el root activo:
+Desde el root activo, primero ejecutar preflight local. Este comando no toca
+Vercel, no lee tokens y no despliega:
 
 ```powershell
-.\push-and-deploy.bat "mensaje de commit"
+.\scripts\connect-frontend-to-backend.ps1 -BackendUrl "https://backend-web.example.app"
 ```
 
-Ese script:
-
-1. hace `git add` solo de lo que se le indique;
-2. crea el commit;
-3. hace `git push`;
-4. entra a `frontend/` y ejecuta:
+Para configurar `VITE_API_BASE_URL` en Vercel se requiere opt-in explicito:
 
 ```powershell
-vercel --prod --yes --scope joaquins-projects-72185699
+$env:VERCEL_TOKEN = "<token entregado fuera del repo>"
+.\scripts\connect-frontend-to-backend.ps1 `
+  -BackendUrl "https://backend-web.example.app" `
+  -ProjectId "<project-id>" `
+  -TeamId "<team-id>" `
+  -AuthorizationRef "vercel-link-autorizado-YYYYMMDD" `
+  -Apply
 ```
+
+Para publicar una nueva revision despues del cambio de variable, agregar
+`-Redeploy` de forma explicita:
+
+```powershell
+.\scripts\connect-frontend-to-backend.ps1 `
+  -BackendUrl "https://backend-web.example.app" `
+  -ProjectId "<project-id>" `
+  -TeamId "<team-id>" `
+  -AuthorizationRef "vercel-link-autorizado-YYYYMMDD" `
+  -Apply `
+  -Redeploy
+```
+
+El script no lee `deploy.bat`, `.env`, rutas legacy ni `Produccion 1.0`.
+Tampoco ejecuta deploy por defecto.
 
 ## Requisitos locales
 
@@ -59,4 +77,6 @@ vercel --prod --yes --scope joaquins-projects-72185699
 
 - no volver a usar el proyecto `leasemanager` para el greenfield sin una migración explícita de cron jobs, framework y topología;
 - no versionar tokens ni credenciales Vercel en scripts;
-- no asumir que el frontend del greenfield comparte la misma forma de despliegue que el root legacy.
+- no leer tokens desde `deploy.bat`, `.env` o savegames;
+- no asumir que el frontend del greenfield comparte la misma forma de despliegue que el root legacy;
+- no ejecutar deploy productivo sin `-Apply`, `-Redeploy` y autorización trazable.

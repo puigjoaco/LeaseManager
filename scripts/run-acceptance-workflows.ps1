@@ -74,6 +74,7 @@ $stage7ReadinessScript = Join-Path $PSScriptRoot 'run-stage7-readiness-gate.ps1'
 $complianceDataReadinessScript = Join-Path $PSScriptRoot 'run-compliance-data-readiness-gate.ps1'
 $restoreRehearsalScript = Join-Path $PSScriptRoot 'run-postgres-restore-rehearsal.ps1'
 $repoHygieneScript = Join-Path $PSScriptRoot 'assert-repo-hygiene.ps1'
+$externalScriptPolicyScript = Join-Path $PSScriptRoot 'tests\external-script-policy.test.ps1'
 
 $shouldRunPublicSmoke = $OnlySmoke -or $RunPublicSmoke
 
@@ -136,6 +137,11 @@ if (-not $OnlySmoke) {
     Assert-Condition (Test-Path $repoHygieneScript) "No existe el guard de higiene del repo en $repoHygieneScript"
     & $repoHygieneScript -IncludeUntracked
     Assert-Condition ($LASTEXITCODE -eq 0) 'assert-repo-hygiene fallo.'
+
+    Step "External script policy guard"
+    Assert-Condition (Test-Path $externalScriptPolicyScript) "No existe el guard de scripts externos en $externalScriptPolicyScript"
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $externalScriptPolicyScript
+    Assert-Condition ($LASTEXITCODE -eq 0) 'external-script-policy fallo.'
 
     Step "Backend acceptance suite"
     $env:DATABASE_URL = $BackendTestDb

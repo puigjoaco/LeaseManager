@@ -7,6 +7,16 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Los scripts externos de Vercel/Railway quedan en modo
+plan por defecto. `connect-frontend-to-backend.ps1` ya no lee `deploy.bat`,
+`.env`, rutas legacy ni `Produccion 1.0`, y solo modifica Vercel con `-Apply`
+y `AuthorizationRef`; el redeploy requiere `-Redeploy`.
+`railway-backend-bootstrap.ps1` usa `backend/railway.env.example`, no ejecuta
+Railway CLI sin `-Apply` y `AuthorizationRef`, y redacta valores en comandos
+`variable set`.
+El guard `scripts/tests/external-script-policy.test.ps1` queda incorporado al
+acceptance local para bloquear regresiones.
+
 Nota 2026-06-10: Los comandos demo restantes sanitizan errores controlados de
 entrada. `bootstrap_demo_public_showcase`, `bootstrap_demo_operational_data`,
 `bootstrap_demo_control_activity`, `bootstrap_demo_control_baseline`,

@@ -113,11 +113,29 @@ Ejemplo:
 .\scripts\connect-frontend-to-backend.ps1 -BackendUrl "https://backend-web-production.up.railway.app"
 ```
 
-Ese script:
+Ese comando corre en modo plan: valida la URL y no toca Vercel.
+
+Para aplicar el cambio real:
+
+```powershell
+$env:VERCEL_TOKEN = "<token entregado fuera del repo>"
+.\scripts\connect-frontend-to-backend.ps1 `
+  -BackendUrl "https://backend-web-production.up.railway.app" `
+  -ProjectId "<project-id>" `
+  -TeamId "<team-id>" `
+  -AuthorizationRef "vercel-link-autorizado-YYYYMMDD" `
+  -Apply
+```
+
+Para publicar una nueva revision del frontend, agregar `-Redeploy`
+explicitamente.
+
+El script:
 
 1. hace upsert de `VITE_API_BASE_URL` en Vercel;
 2. actualiza `production` y `preview`;
-3. dispara redeploy del frontend.
+3. no lee `deploy.bat`, `.env`, rutas legacy ni `Produccion 1.0`;
+4. no dispara redeploy del frontend salvo que se use `-Redeploy`.
 
 ## Checklist de cierre
 
