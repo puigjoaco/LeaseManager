@@ -141,6 +141,12 @@ class CuentaRecaudadora(TimestampedModel):
         return f'{self.institucion} {self.numero_cuenta}'
 
     @property
+    def numero_cuenta_redacted(self):
+        if not self.pk:
+            return f'{self.institucion} - Cuenta recaudadora sin id'
+        return f'{self.institucion} - Cuenta recaudadora #{self.pk}'
+
+    @property
     def owner_tipo(self):
         return owner_tuple(
             empresa_id=self.empresa_owner_id,

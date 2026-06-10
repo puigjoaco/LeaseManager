@@ -658,6 +658,7 @@ type Cuenta = {
   id: number
   institucion: string
   numero_cuenta: string
+  numero_cuenta_redacted?: string
   tipo_cuenta: string
   owner_tipo: string
   owner_id: number
@@ -1345,7 +1346,7 @@ type CobranzaSnapshot = {
 }
 
 type ConciliacionSnapshot = {
-  cuentas: { id: number; numero_cuenta: string; owner_display: string }[]
+  cuentas: { id: number; numero_cuenta: string; numero_cuenta_redacted?: string; owner_display: string }[]
   conexiones: ConexionBancaria[]
   movimientos: MovimientoBancario[]
   ingresos_desconocidos: IngresoDesconocido[]
@@ -4112,23 +4113,29 @@ function App() {
     clearContextNavigation()
   }
 
-  function startEditCuenta(row: Cuenta) {
-    setEditingCuentaId(row.id)
-    setCuentaDraft({
-      institucion: row.institucion,
-      numero_cuenta: row.numero_cuenta,
-      tipo_cuenta: row.tipo_cuenta,
-      titular_nombre: row.titular_nombre,
-      titular_rut: row.titular_rut,
-      moneda_operativa: row.moneda_operativa,
-      uso_operativo: row.uso_operativo,
-      modo_operativo: row.modo_operativo,
-      evidencia_operativa_ref: row.evidencia_operativa_ref,
-      estado_operativo: row.estado_operativo,
-      owner_tipo: row.owner_tipo,
-      owner_id: String(row.owner_id),
-    })
-    navigateWithContext('operacion', row.numero_cuenta, `Editando cuenta: ${row.numero_cuenta}`)
+  async function startEditCuenta(row: Cuenta) {
+    try {
+      const detail = await apiRequest<Cuenta>(`/api/v1/operacion/cuentas/${row.id}/`, { token })
+      setEditingCuentaId(row.id)
+      setCuentaDraft({
+        institucion: detail.institucion,
+        numero_cuenta: detail.numero_cuenta,
+        tipo_cuenta: detail.tipo_cuenta,
+        titular_nombre: detail.titular_nombre,
+        titular_rut: detail.titular_rut,
+        moneda_operativa: detail.moneda_operativa,
+        uso_operativo: detail.uso_operativo,
+        modo_operativo: detail.modo_operativo,
+        evidencia_operativa_ref: detail.evidencia_operativa_ref,
+        estado_operativo: detail.estado_operativo,
+        owner_tipo: detail.owner_tipo,
+        owner_id: String(detail.owner_id),
+      })
+      const label = row.numero_cuenta_redacted || detail.numero_cuenta_redacted || `Cuenta recaudadora ${row.id}`
+      navigateWithContext('operacion', label, `Editando cuenta: ${label}`)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo cargar la cuenta para edición.')
+    }
   }
 
   function cancelEditCuenta() {
@@ -5705,6 +5712,7 @@ function App() {
       cuentas.filter((item) =>
         matches(normalizedSearch, [
           item.numero_cuenta,
+          item.numero_cuenta_redacted,
           item.institucion,
           item.owner_display,
           item.owner_tipo,
@@ -6491,8 +6499,8 @@ function App() {
           startEditIdentidad={startEditIdentidad}
           startEditMandato={startEditMandato}
           startEditAsignacion={startEditAsignacion}
-          goToCuentaConciliacion={(cuentaId, numeroCuenta) => {
-            navigateWithContext('conciliacion', numeroCuenta, `Cuenta: ${numeroCuenta}`)
+          goToCuentaConciliacion={(cuentaId, cuentaLabel) => {
+            navigateWithContext('conciliacion', cuentaLabel, `Cuenta: ${cuentaLabel}`)
             setConexionDraft((current) => ({ ...current, cuenta_recaudadora: String(cuentaId) }))
           }}
           goToMandatoContext={goToMandatoContext}

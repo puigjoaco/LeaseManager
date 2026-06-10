@@ -138,7 +138,11 @@ contra datos reales o snapshot controlado.
   detecta faltantes o referencias sensibles heredadas. El admin Django no
   expone ni busca `numero_cuenta` ni `titular_rut` crudos en cuentas
   recaudadoras ni muestra cuentas asociadas a mandatos mediante labels con
-  numero bancario.
+  numero bancario. Los snapshots de Operacion y Conciliacion exponen
+  `numero_cuenta_redacted` para etiquetas de cuenta, mandatos y conexiones, y
+  el backoffice usa esa etiqueta en tablas, selectores, busqueda y contexto;
+  la edicion de cuenta carga el detalle explicito cuando necesita conservar el
+  valor editable.
 - Validacion de cuenta activa para facturacion operativa: un
   `MandatoOperacion` activo con `entidad_facturadora` requiere que esa empresa
   tenga una cuenta recaudadora activa propia ademas de la cuenta activa del

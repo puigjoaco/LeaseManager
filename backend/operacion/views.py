@@ -212,7 +212,8 @@ class OperationSnapshotView(APIView):
                     {
                         'id': cuenta.id,
                         'institucion': cuenta.institucion,
-                        'numero_cuenta': cuenta.numero_cuenta,
+                        'numero_cuenta': cuenta.numero_cuenta_redacted,
+                        'numero_cuenta_redacted': cuenta.numero_cuenta_redacted,
                         'tipo_cuenta': cuenta.tipo_cuenta,
                         'titular_nombre': cuenta.titular_nombre,
                         'titular_rut': cuenta.titular_rut,
@@ -269,7 +270,7 @@ class OperationSnapshotView(APIView):
                         'entidad_facturadora_id': mandato.entidad_facturadora_id,
                         'entidad_facturadora_display': mandato.entidad_facturadora.razon_social if mandato.entidad_facturadora_id else None,
                         'cuenta_recaudadora_id': mandato.cuenta_recaudadora_id,
-                        'cuenta_recaudadora_display': mandato.cuenta_recaudadora.numero_cuenta,
+                        'cuenta_recaudadora_display': mandato.cuenta_recaudadora.numero_cuenta_redacted,
                         'tipo_relacion_operativa': mandato.tipo_relacion_operativa,
                         'autoriza_recaudacion': mandato.autoriza_recaudacion,
                         'autoriza_facturacion': mandato.autoriza_facturacion,
