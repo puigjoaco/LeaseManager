@@ -119,6 +119,10 @@ evidencia respalda el root limpio.
   scopes de empresa para el usuario demo read-only, pero reporta solo flags de
   usuario/rol validados, conteo de empresas y conteos de asignaciones
   creadas/reutilizadas.
+- El orquestador `bootstrap_demo_public_showcase` no repite ids de empresa,
+  meses operativos crudos ni stdout capturado de subcomandos: reporta solo
+  conteos, flags de validacion y cantidad de lineas capturadas por paso, y sus
+  warnings/errores controlados no imprimen mensajes crudos de subcomandos.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.

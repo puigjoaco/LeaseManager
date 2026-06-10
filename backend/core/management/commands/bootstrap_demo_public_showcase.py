@@ -111,8 +111,11 @@ class Command(BaseCommand):
         warnings: list[str] = []
 
         self.stdout.write(self.style.SUCCESS("Iniciando bootstrap demo publico orquestado."))
-        self.stdout.write(
-            f"- empresas={company_ids} | months={[item.text for item in months]} | showcase_month={showcase_month.text} | annual_year={annual_year}"
+        self._write_start_summary(
+            company_ids=company_ids,
+            months=months,
+            showcase_month=showcase_month,
+            annual_year=annual_year,
         )
 
         if not options["skip_seed_access"]:
@@ -202,6 +205,21 @@ class Command(BaseCommand):
             for warning in warnings:
                 self.stdout.write(f"  * {warning}")
 
+    def _write_start_summary(
+        self,
+        *,
+        company_ids: list[int],
+        months: list[OperationalMonth],
+        showcase_month: OperationalMonth,
+        annual_year: int,
+    ) -> None:
+        self.stdout.write(
+            f"- empresas_total={len(company_ids)} | "
+            f"meses_operativos_total={len(months)} | "
+            f"showcase_month_validado={str(bool(showcase_month.text)).lower()} | "
+            f"annual_year={annual_year}"
+        )
+
     def _resolve_company_ids(self, explicit_company_ids: list[int]) -> list[int]:
         if explicit_company_ids:
             found = list(Empresa.objects.filter(pk__in=explicit_company_ids).values_list("id", flat=True))
@@ -269,20 +287,26 @@ class Command(BaseCommand):
         buffer = StringIO()
         try:
             call_command(command_name, stdout=buffer, stderr=buffer, **kwargs)
-            output = buffer.getvalue().strip()
-            self.stdout.write(self.style.HTTP_INFO(f"[ok] {command_name}"))
-            if output:
-                for line in output.splitlines():
-                    self.stdout.write(f"    {line}")
+            output_lines = self._captured_line_count(buffer.getvalue())
+            self.stdout.write(
+                self.style.HTTP_INFO(
+                    f"[ok] {command_name} | salida_lineas={output_lines} | "
+                    f"stdout_detalle_no_impreso={str(output_lines > 0).lower()}"
+                )
+            )
             return True
         except Exception as error:  # noqa: BLE001
-            message = f"{command_name}: {error}"
+            output_lines = self._captured_line_count(buffer.getvalue())
+            message = f"{command_name}: fallo_controlado=true"
             if strict:
                 raise CommandError(message) from error
             warnings.append(message)
-            self.stdout.write(self.style.WARNING(f"[warn] {message}"))
-            output = buffer.getvalue().strip()
-            if output:
-                for line in output.splitlines():
-                    self.stdout.write(f"    {line}")
+            self.stdout.write(
+                self.style.WARNING(
+                    f"[warn] {command_name} | detalle_no_impreso=true | salida_lineas={output_lines}"
+                )
+            )
             return False
+
+    def _captured_line_count(self, output: str) -> int:
+        return len([line for line in output.splitlines() if line.strip()])
