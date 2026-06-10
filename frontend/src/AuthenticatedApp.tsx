@@ -527,13 +527,25 @@ function hasFreshOverviewSummarySnapshot(dashboard: Dashboard | null, lastLoaded
 }
 
 function isSimpleInlineEditableContract(contract: Contrato) {
-  const contractProperties = contract.contrato_propiedades_detail ?? []
-  const contractPeriods = contract.periodos_contractuales_detail ?? []
+  const contractProperties = contractPropertyDetails(contract)
+  const contractPeriods = contractPeriodDetails(contract)
   return (
     contractProperties.length === 1
     && contractProperties[0]?.rol_en_contrato === 'principal'
     && contractPeriods.length === 1
   )
+}
+
+function contractPropertyDetails(contract: Contrato) {
+  return contract.contrato_propiedades_detail ?? []
+}
+
+function contractPeriodDetails(contract: Contrato) {
+  return contract.periodos_contractuales_detail ?? []
+}
+
+function contractCodebtorDetails(contract: Contrato) {
+  return contract.codeudores_solidarios_detail ?? []
 }
 
 function blankCodeudorDraft() {
@@ -737,13 +749,13 @@ type Contrato = {
   tiene_tramos: boolean
   tiene_gastos_comunes: boolean
   snapshot_representante_legal: { nombre?: string; rut?: string }
-  contrato_propiedades_detail: Array<{
+  contrato_propiedades_detail?: Array<{
     propiedad: number
     propiedad_codigo: string
     propiedad_direccion: string
     rol_en_contrato: string
   }>
-  periodos_contractuales_detail: Array<{
+  periodos_contractuales_detail?: Array<{
     numero_periodo: number
     fecha_inicio: string
     fecha_fin: string
@@ -754,7 +766,7 @@ type Contrato = {
     politica_base_renovacion_ref: string
     politica_base_renovacion_motivo: string
   }>
-  codeudores_solidarios_detail: Array<{
+  codeudores_solidarios_detail?: Array<{
     id: number
     snapshot_identidad: { nombre?: string; rut?: string }
     fecha_inclusion: string
@@ -4297,6 +4309,8 @@ function App() {
       setFormError('Este contrato requiere un editor completo porque tiene propiedades vinculadas o múltiples períodos.')
       return
     }
+    const contractPeriods = contractPeriodDetails(row)
+    const codebtorDetails = contractCodebtorDetails(row)
     setEditingContratoId(row.id)
     setContratoDraft({
       codigo_contrato: row.codigo_contrato,
@@ -4320,12 +4334,12 @@ function App() {
       estado: row.estado,
       tiene_tramos: row.tiene_tramos,
       tiene_gastos_comunes: row.tiene_gastos_comunes,
-      monto_base: row.periodos_contractuales_detail[0]?.monto_base || '',
-      moneda_base: row.periodos_contractuales_detail[0]?.moneda_base || 'CLP',
-      tipo_periodo: row.periodos_contractuales_detail[0]?.tipo_periodo || 'base',
-      origen_periodo: row.periodos_contractuales_detail[0]?.origen_periodo || 'backoffice',
+      monto_base: contractPeriods[0]?.monto_base || '',
+      moneda_base: contractPeriods[0]?.moneda_base || 'CLP',
+      tipo_periodo: contractPeriods[0]?.tipo_periodo || 'base',
+      origen_periodo: contractPeriods[0]?.origen_periodo || 'backoffice',
       codeudores_solidarios: [
-        ...row.codeudores_solidarios_detail.map((item) => ({
+        ...codebtorDetails.map((item) => ({
           nombre: item.snapshot_identidad?.nombre || '',
           rut: item.snapshot_identidad?.rut || '',
           fecha_inclusion: item.fecha_inclusion || todayIso(),
@@ -4344,8 +4358,13 @@ function App() {
       setFormError('El cambio guiado de arrendatario solo parte desde un contrato vigente.')
       return
     }
+    const contractPeriods = contractPeriodDetails(row)
+    const basePeriod = contractPeriods[0]
+    if (!basePeriod) {
+      setFormError('El cambio guiado requiere detalle de período contractual cargado desde Contratos.')
+      return
+    }
     const replacementStart = addDaysIso(row.fecha_fin_vigente, 1)
-    const basePeriod = row.periodos_contractuales_detail[0]
     setTenantReplacementDraft({
       ...blankTenantReplacementDraft(),
       contrato: String(row.id),
@@ -5773,7 +5792,7 @@ function App() {
           item.estado,
           item.fecha_inicio,
           item.fecha_fin_vigente,
-          (item.contrato_propiedades_detail ?? []).map((detail) => `${detail.propiedad_codigo} ${detail.propiedad_direccion}`).join(' '),
+          contractPropertyDetails(item).map((detail) => `${detail.propiedad_codigo} ${detail.propiedad_direccion}`).join(' '),
         ]),
       ),
     [contratos, normalizedSearch],
