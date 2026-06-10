@@ -99,3 +99,50 @@ class SeedDemoAccessCommandTests(TestCase):
         self.assertEqual(RoleScope.objects.count(), 4)
         self.assertEqual(User.objects.filter(username__startswith='demo-').count(), 4)
         self.assertEqual(UserScopeAssignment.objects.filter(effective_to__isnull=True).count(), 4)
+
+    def test_showcase_access_command_sanitizes_stdout(self):
+        second_company = Empresa.objects.create(
+            razon_social='Empresa Showcase Dos',
+            rut='76.111.111-1',
+            estado='activa',
+        )
+        call_command(
+            'seed_demo_access',
+            company_id=self.empresa.id,
+            socio_id=self.socio.id,
+            property_id=self.propiedad.id,
+            bank_account_id=self.cuenta.id,
+            stdout=StringIO(),
+        )
+        output = StringIO()
+
+        call_command(
+            'bootstrap_demo_showcase_access',
+            company_ids=[self.empresa.id, second_company.id],
+            stdout=output,
+        )
+
+        reviewer_assignments = UserScopeAssignment.objects.filter(
+            user__username='demo-revisor',
+            role__code='RevisorFiscalExterno',
+            effective_to__isnull=True,
+        )
+        self.assertEqual(reviewer_assignments.count(), 2)
+        self.assertTrue(reviewer_assignments.filter(scope__code=f'company-{self.empresa.id}').exists())
+        self.assertTrue(reviewer_assignments.filter(scope__code=f'company-{second_company.id}').exists())
+
+        rendered_output = output.getvalue()
+        self.assertIn('Scope de showcase aplicado correctamente.', rendered_output)
+        self.assertIn('usuario_demo_validado=true', rendered_output)
+        self.assertIn('rol_validado=true', rendered_output)
+        self.assertIn('empresas_scope_total=2', rendered_output)
+        self.assertIn('asignaciones_creadas=1', rendered_output)
+        self.assertIn('asignaciones_reutilizadas=1', rendered_output)
+        self.assertNotIn('demo-revisor', rendered_output)
+        self.assertNotIn('RevisorFiscalExterno', rendered_output)
+        self.assertNotIn('company_ids', rendered_output)
+        self.assertNotIn(f'company-{self.empresa.id}', rendered_output)
+        self.assertNotIn(f'company-{second_company.id}', rendered_output)
+        self.assertNotIn(f'[{self.empresa.id}, {second_company.id}]', rendered_output)
+        self.assertNotIn(self.empresa.razon_social, rendered_output)
+        self.assertNotIn(second_company.razon_social, rendered_output)
