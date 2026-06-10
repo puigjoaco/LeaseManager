@@ -1,13 +1,23 @@
 from io import StringIO
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
+from core.management.commands.bootstrap_demo_control_activity import (
+    Command as ControlActivityCommand,
+)
 from core.management.commands.bootstrap_demo_public_showcase import (
     Command as PublicShowcaseCommand,
     OperationalMonth,
+)
+from core.management.commands.bootstrap_demo_tax_annual_flow import (
+    Command as TaxAnnualCommand,
+)
+from core.management.commands.bootstrap_demo_tax_monthly_flow import (
+    Command as TaxMonthlyCommand,
 )
 from core.models import Role, RoleScope, Scope, UserScopeAssignment
 from operacion.models import CuentaRecaudadora
@@ -235,3 +245,116 @@ class SeedDemoAccessCommandTests(TestCase):
         self.assertNotIn('demo-revisor', rendered_output)
         self.assertNotIn('company_ids', rendered_output)
         self.assertNotIn(str([self.empresa.id]), rendered_output)
+
+    def test_tax_monthly_flow_summary_sanitizes_internal_ids(self):
+        output = StringIO()
+        command = TaxMonthlyCommand(stdout=output)
+
+        command._write_summary(
+            anio=2026,
+            mes=5,
+            payment=SimpleNamespace(id=991001, estado_pago='pagado'),
+            updated_capabilities=2,
+            dte_created=True,
+            f29_created=False,
+            close=SimpleNamespace(id=991002, estado='aprobado'),
+            movement=SimpleNamespace(id=991003, estado_conciliacion='conciliado_exacto'),
+            match_result='matched_pago_991001',
+        )
+
+        rendered_output = output.getvalue()
+        self.assertIn('empresa_validada=true', rendered_output)
+        self.assertIn('periodo=2026-05', rendered_output)
+        self.assertIn('pago_validado=true', rendered_output)
+        self.assertIn('dte_disponible=true', rendered_output)
+        self.assertIn('f29_disponible=true', rendered_output)
+        self.assertIn('cierre_disponible=true', rendered_output)
+        self.assertIn('movimiento_bancario_generado=true', rendered_output)
+        self.assertNotIn('payment=991001', rendered_output)
+        self.assertNotIn('dte=991001', rendered_output)
+        self.assertNotIn('f29=991001', rendered_output)
+        self.assertNotIn('cierre=991002', rendered_output)
+        self.assertNotIn('movimiento=991003', rendered_output)
+        self.assertNotIn('matched_pago_991001', rendered_output)
+
+    def test_tax_annual_flow_summary_sanitizes_ids_and_ddjj_codes(self):
+        output = StringIO()
+        command = TaxAnnualCommand(stdout=output)
+
+        command._write_summary(
+            anio_tributario=2027,
+            fiscal_year=2026,
+            prepared_months=12,
+            approved_months=12,
+            updated_capabilities=2,
+            ddjj_codes=('1887', '1943'),
+            process=SimpleNamespace(id=992001, estado='preparado'),
+            ddjj=SimpleNamespace(id=992002, estado_preparacion='preparado'),
+            f22=SimpleNamespace(id=992003, estado_preparacion='preparado'),
+        )
+
+        rendered_output = output.getvalue()
+        self.assertIn('empresa_validada=true', rendered_output)
+        self.assertIn('anio_tributario=2027', rendered_output)
+        self.assertIn('ddjj_habilitadas_total=2', rendered_output)
+        self.assertIn('proceso_generado=true', rendered_output)
+        self.assertIn('ddjj_generada=true', rendered_output)
+        self.assertIn('f22_generado=true', rendered_output)
+        self.assertNotIn('empresa=', rendered_output)
+        self.assertNotIn('ddjj_habilitadas=[', rendered_output)
+        self.assertNotIn('1887', rendered_output)
+        self.assertNotIn('1943', rendered_output)
+        self.assertNotIn('992001', rendered_output)
+        self.assertNotIn('992002', rendered_output)
+        self.assertNotIn('992003', rendered_output)
+
+    def test_control_activity_summary_sanitizes_ids_and_f29_warning(self):
+        output = StringIO()
+        command = ControlActivityCommand(stdout=output)
+        raw_warning = 'La empresa 993001 no tiene certificado token://secret-demo'
+
+        command._write_summary(
+            anio=2026,
+            mes=5,
+            event=SimpleNamespace(id=993001, estado_contable='contabilizado'),
+            event_created=True,
+            close=SimpleNamespace(id=993002, estado='aprobado'),
+            close_approved=True,
+            ensure_demo_sii_refs=True,
+            capability_updates=1,
+            f29=SimpleNamespace(id=993003, estado_preparacion='preparado'),
+            f29_created=True,
+            f29_warning=None,
+        )
+
+        rendered_output = output.getvalue()
+        self.assertIn('empresa_validada=true', rendered_output)
+        self.assertIn('periodo=2026-05', rendered_output)
+        self.assertIn('evento_generado=true', rendered_output)
+        self.assertIn('cierre_disponible=true', rendered_output)
+        self.assertIn('f29_disponible=true', rendered_output)
+        self.assertNotIn('evento=993001', rendered_output)
+        self.assertNotIn('cierre=993002', rendered_output)
+        self.assertNotIn('f29=993003', rendered_output)
+
+        warning_output = StringIO()
+        warning_command = ControlActivityCommand(stdout=warning_output)
+        warning_command._write_summary(
+            anio=2026,
+            mes=5,
+            event=SimpleNamespace(id=993001, estado_contable='contabilizado'),
+            event_created=True,
+            close=SimpleNamespace(id=993002, estado='aprobado'),
+            close_approved=True,
+            ensure_demo_sii_refs=False,
+            capability_updates=0,
+            f29=None,
+            f29_created=False,
+            f29_warning=raw_warning,
+        )
+
+        warning_rendered_output = warning_output.getvalue()
+        self.assertIn('f29_no_generado=true', warning_rendered_output)
+        self.assertIn('detalle_no_impreso=true', warning_rendered_output)
+        self.assertNotIn(raw_warning, warning_rendered_output)
+        self.assertNotIn('token://secret-demo', warning_rendered_output)

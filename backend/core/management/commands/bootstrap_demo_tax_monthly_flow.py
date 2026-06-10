@@ -84,24 +84,23 @@ class Command(BaseCommand):
         f29, f29_created = generate_f29_draft(empresa, anio, mes)
         dte, dte_created = generate_dte_draft(payment)
 
-        self.stdout.write(self.style.SUCCESS("Bootstrap demo tributario mensual aplicado correctamente."))
-        self.stdout.write(
-            f"- empresa={empresa.id} | periodo={anio:04d}-{mes:02d} | payment={payment.id} | payment_estado={payment.estado_pago}"
+        self._write_summary(
+            anio=anio,
+            mes=mes,
+            payment=payment,
+            updated_capabilities=updated_capabilities,
+            dte_created=dte_created,
+            f29_created=f29_created,
+            close=close,
+            movement=movement,
+            match_result=match_result,
         )
-        self.stdout.write(
-            f"- capacidades_sii_actualizadas={updated_capabilities} | dte={dte.id} created={dte_created} | f29={f29.id} created={f29_created}"
-        )
-        self.stdout.write(f"- cierre={close.id} | estado_cierre={close.estado}")
-        if movement is not None:
-            self.stdout.write(
-                f"- movimiento={movement.id} | estado_conciliacion={movement.estado_conciliacion} | match={match_result}"
-            )
 
     def _get_company(self, company_id: int) -> Empresa:
         try:
             return Empresa.objects.get(pk=company_id)
         except Empresa.DoesNotExist as error:
-            raise CommandError(f"La empresa {company_id} no existe.") from error
+            raise CommandError("La empresa indicada no existe.") from error
 
     def _resolve_payment(self, *, empresa: Empresa, anio: int, mes: int, payment_id: int | None) -> PagoMensual:
         queryset = (
@@ -120,7 +119,7 @@ class Command(BaseCommand):
         payment = queryset.first()
         if payment is None:
             raise CommandError(
-                f"No existe un pago facturable para empresa {empresa.id} en {anio:04d}-{mes:02d}."
+                "No existe un pago facturable para la empresa indicada en el periodo solicitado."
             )
         return payment
 
@@ -258,3 +257,29 @@ class Command(BaseCommand):
                 )
             result = reconcile_exact_movement(movement)
         return movement, result["status"]
+
+    def _write_summary(
+        self,
+        *,
+        anio: int,
+        mes: int,
+        payment: PagoMensual,
+        updated_capabilities: int,
+        dte_created: bool,
+        f29_created: bool,
+        close: CierreMensualContable,
+        movement: MovimientoBancarioImportado | None,
+        match_result: str | None,
+    ) -> None:
+        self.stdout.write(self.style.SUCCESS("Bootstrap demo tributario mensual aplicado correctamente."))
+        self.stdout.write(
+            f"- empresa_validada=true | periodo={anio:04d}-{mes:02d} | pago_validado=true | payment_estado={payment.estado_pago}"
+        )
+        self.stdout.write(
+            f"- capacidades_sii_actualizadas={updated_capabilities} | dte_disponible=true | dte_creado={dte_created} | f29_disponible=true | f29_creado={f29_created}"
+        )
+        self.stdout.write(f"- cierre_disponible=true | estado_cierre={close.estado}")
+        if movement is not None:
+            self.stdout.write(
+                f"- movimiento_bancario_generado=true | estado_conciliacion={movement.estado_conciliacion} | match_result_disponible={match_result is not None}"
+            )
