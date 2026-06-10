@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: El seed demo de acceso RBAC reduce su salida humana.
+`seed_demo_access` mantiene la creacion reproducible de roles, scopes,
+usuarios y asignaciones, pero stdout ya no imprime usernames demo, codigos de
+scope, nombres de socio, ids ni referencias operativas crudas; solo reporta
+indice demo, rol, tipo de scope, presencia booleana de referencia y password
+no impreso.
+
 Nota 2026-06-10: Los comandos demo de Compliance reducen su salida humana.
 `bootstrap_demo_compliance_policies` ya no imprime `evento_inicio` crudo y
 `bootstrap_demo_compliance_exports` ya no imprime `scope_resumen`; ambos

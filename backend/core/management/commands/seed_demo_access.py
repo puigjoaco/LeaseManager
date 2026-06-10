@@ -180,17 +180,21 @@ class Command(BaseCommand):
                 created_or_updated_users.append((user, scope))
 
         self.stdout.write(self.style.SUCCESS('Seed de acceso demo aplicado correctamente.'))
-        for user, scope in created_or_updated_users:
+        for index, (user, scope) in enumerate(created_or_updated_users, start=1):
             role_label = user.default_role_code
             self.stdout.write(
-                f'- {user.username} | rol={role_label} | scope={scope.code} | password=<no impreso>'
+                f'- usuario_demo={index} | rol={role_label} | {self._scope_output_summary(scope)} | password=<no impreso>'
             )
         if selected_socio is not None:
-            self.stdout.write(
-                f'  socio demo vinculado: {selected_socio.nombre} ({selected_socio.pk})'
-            )
+            self.stdout.write('  socio_demo_vinculado=true')
         for warning in warnings:
             self.stdout.write(self.style.WARNING(f'ADVERTENCIA: {warning}'))
+
+    def _scope_output_summary(self, scope: Scope) -> str:
+        return (
+            f'scope_type={scope.scope_type} | '
+            f'scope_ref_presente={str(bool(scope.external_reference)).lower()}'
+        )
 
     def _select_company(self, company_id: int | None) -> Empresa | None:
         if company_id is not None:

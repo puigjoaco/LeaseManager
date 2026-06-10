@@ -109,6 +109,11 @@ evidencia respalda el root limpio.
   `evento_inicio_validado=true` y el bootstrap de exportaciones resume el scope
   por cantidad de campos, manteniendo ids, `evento_inicio` y `scope_resumen`
   fuera de la salida humana.
+- El seed demo de acceso RBAC no repite usernames, codigos de scope, nombres
+  de socio, ids ni referencias operativas crudas en stdout: conserva la
+  creacion de usuarios, roles, scopes y asignaciones, pero reporta solo indice
+  demo, rol, tipo de scope, presencia booleana de referencia y password no
+  impreso.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.
