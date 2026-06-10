@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Django admin de Documentos cierra el bypass manual de
+`PoliticaFirmaYNotaria`. La politica documental queda visible en solo lectura
+desde admin, sin alta, edicion ni borrado; los cambios operativos deben pasar
+por API/backoffice auditado, conservando la traza de `updated` y
+`state_changed`.
+
 Nota 2026-06-10: Backoffice Documentos expone el flujo auditado de PDF
 generado por sistema. El workspace captura expediente, tipo documental,
 version de plantilla, titulo y lineas operativas, ejecuta
