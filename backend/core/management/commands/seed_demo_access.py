@@ -201,7 +201,7 @@ class Command(BaseCommand):
             try:
                 return Empresa.objects.get(pk=company_id)
             except Empresa.DoesNotExist as error:
-                raise CommandError(f'La empresa {company_id} no existe.') from error
+                raise CommandError('La empresa indicada no existe.') from error
 
         return (
             Empresa.objects.filter(estado='activa').order_by('razon_social', 'id').first()
@@ -213,7 +213,7 @@ class Command(BaseCommand):
             try:
                 return Socio.objects.get(pk=socio_id)
             except Socio.DoesNotExist as error:
-                raise CommandError(f'El socio {socio_id} no existe.') from error
+                raise CommandError('El socio indicado no existe.') from error
 
         return (
             Socio.objects.filter(activo=True).order_by('nombre', 'id').first()
@@ -231,7 +231,7 @@ class Command(BaseCommand):
             try:
                 return Propiedad.objects.get(pk=explicit_property_id)
             except Propiedad.DoesNotExist as error:
-                raise CommandError(f'La propiedad {explicit_property_id} no existe.') from error
+                raise CommandError('La propiedad indicada no existe.') from error
 
         if socio is not None:
             direct_property = Propiedad.objects.filter(socio_owner=socio).order_by('codigo_propiedad', 'id').first()
@@ -276,9 +276,7 @@ class Command(BaseCommand):
             try:
                 return CuentaRecaudadora.objects.get(pk=explicit_bank_account_id)
             except CuentaRecaudadora.DoesNotExist as error:
-                raise CommandError(
-                    f'La cuenta recaudadora {explicit_bank_account_id} no existe.'
-                ) from error
+                raise CommandError('La cuenta recaudadora indicada no existe.') from error
 
         if company is not None:
             company_account = (
