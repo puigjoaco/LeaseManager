@@ -35,6 +35,19 @@ type ManualResolutionDraft = {
   status: string
   rationale: string
   pago_mensual_id: string
+  periodo_economico: string
+  criterio_aplicado: string
+  evidencia_regularizacion_ref: string
+  resolution_kind: string
+  categoria_movimiento: string
+  entidad_afectada_tipo: string
+  entidad_afectada_id: string
+  criterio_reparto: string
+  evidencia_clasificacion_ref: string
+  movimiento_destino_id: string
+  criterio_conciliacion: string
+  evidencia_transferencia_ref: string
+  responsable_ref: string
 }
 
 export function AuditWorkspace({
@@ -70,6 +83,7 @@ export function AuditWorkspace({
 }) {
   const isUnknownIncomeResolution = activeManualResolution?.category === 'conciliacion.ingreso_desconocido'
   const isChargeResolution = activeManualResolution?.category === 'conciliacion.movimiento_cargo'
+  const isInternalTransferResolution = isChargeResolution && manualResolutionDraft.resolution_kind === 'internal_transfer'
   const candidatePaymentIds = Array.isArray(activeManualResolution?.metadata?.payment_candidate_ids)
     ? activeManualResolution.metadata.payment_candidate_ids.join(', ')
     : ''
@@ -108,11 +122,94 @@ export function AuditWorkspace({
                     value={manualResolutionDraft.pago_mensual_id}
                     onChange={(event) => setManualResolutionDraft((current) => ({ ...current, pago_mensual_id: event.target.value }))}
                   />
+                  <input
+                    placeholder="Periodo económico"
+                    value={manualResolutionDraft.periodo_economico}
+                    onChange={(event) => setManualResolutionDraft((current) => ({ ...current, periodo_economico: event.target.value }))}
+                  />
+                  <input
+                    placeholder="Criterio aplicado"
+                    value={manualResolutionDraft.criterio_aplicado}
+                    onChange={(event) => setManualResolutionDraft((current) => ({ ...current, criterio_aplicado: event.target.value }))}
+                  />
+                  <input
+                    placeholder="Evidencia regularización ref"
+                    value={manualResolutionDraft.evidencia_regularizacion_ref}
+                    onChange={(event) => setManualResolutionDraft((current) => ({ ...current, evidencia_regularizacion_ref: event.target.value }))}
+                  />
                   {candidatePaymentIds ? <div className="empty-state compact">Candidatos sugeridos: {candidatePaymentIds}</div> : null}
                 </>
               ) : null}
-              {isChargeResolution && chargeOwnerDisplay ? (
-                <div className="empty-state compact">Cuenta/owner sugerido: {chargeOwnerDisplay}</div>
+              {isChargeResolution ? (
+                <>
+                  <select
+                    value={manualResolutionDraft.resolution_kind}
+                    onChange={(event) => setManualResolutionDraft((current) => ({ ...current, resolution_kind: event.target.value }))}
+                  >
+                    <option value="bank_charge">Comisión bancaria</option>
+                    <option value="internal_transfer">Transferencia intercuenta</option>
+                  </select>
+                  <input
+                    placeholder="Periodo económico"
+                    value={manualResolutionDraft.periodo_economico}
+                    onChange={(event) => setManualResolutionDraft((current) => ({ ...current, periodo_economico: event.target.value }))}
+                  />
+                  {isInternalTransferResolution ? (
+                    <>
+                      <input
+                        placeholder="Movimiento destino ID"
+                        value={manualResolutionDraft.movimiento_destino_id}
+                        onChange={(event) => setManualResolutionDraft((current) => ({ ...current, movimiento_destino_id: event.target.value }))}
+                      />
+                      <input
+                        placeholder="Criterio conciliación"
+                        value={manualResolutionDraft.criterio_conciliacion}
+                        onChange={(event) => setManualResolutionDraft((current) => ({ ...current, criterio_conciliacion: event.target.value }))}
+                      />
+                      <input
+                        placeholder="Evidencia transferencia ref"
+                        value={manualResolutionDraft.evidencia_transferencia_ref}
+                        onChange={(event) => setManualResolutionDraft((current) => ({ ...current, evidencia_transferencia_ref: event.target.value }))}
+                      />
+                      <input
+                        placeholder="Responsable ref"
+                        value={manualResolutionDraft.responsable_ref}
+                        onChange={(event) => setManualResolutionDraft((current) => ({ ...current, responsable_ref: event.target.value }))}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <select
+                        value={manualResolutionDraft.categoria_movimiento}
+                        onChange={(event) => setManualResolutionDraft((current) => ({ ...current, categoria_movimiento: event.target.value }))}
+                      >
+                        <option value="comision_bancaria">Comisión bancaria</option>
+                      </select>
+                      <select
+                        value={manualResolutionDraft.entidad_afectada_tipo}
+                        onChange={(event) => setManualResolutionDraft((current) => ({ ...current, entidad_afectada_tipo: event.target.value }))}
+                      >
+                        <option value="empresa">Empresa</option>
+                      </select>
+                      <input
+                        placeholder="Entidad afectada ID"
+                        value={manualResolutionDraft.entidad_afectada_id}
+                        onChange={(event) => setManualResolutionDraft((current) => ({ ...current, entidad_afectada_id: event.target.value }))}
+                      />
+                      <input
+                        placeholder="Criterio reparto"
+                        value={manualResolutionDraft.criterio_reparto}
+                        onChange={(event) => setManualResolutionDraft((current) => ({ ...current, criterio_reparto: event.target.value }))}
+                      />
+                      <input
+                        placeholder="Evidencia clasificación ref"
+                        value={manualResolutionDraft.evidencia_clasificacion_ref}
+                        onChange={(event) => setManualResolutionDraft((current) => ({ ...current, evidencia_clasificacion_ref: event.target.value }))}
+                      />
+                      {chargeOwnerDisplay ? <div className="empty-state compact">Cuenta/owner sugerido: {chargeOwnerDisplay}</div> : null}
+                    </>
+                  )}
+                </>
               ) : null}
               <div className="inline-actions">
                 <button type="submit" className="button-primary" disabled={isSubmitting || !editingManualResolutionId}>Guardar resolución</button>

@@ -82,6 +82,27 @@ const SILENT_REFRESH_VIEWS = new Set<ViewKey>([
   'sii',
 ])
 
+function createManualResolutionDraft() {
+  return {
+    status: 'open',
+    rationale: '',
+    pago_mensual_id: '',
+    periodo_economico: todayIso().slice(0, 7),
+    criterio_aplicado: '',
+    evidencia_regularizacion_ref: '',
+    resolution_kind: 'bank_charge',
+    categoria_movimiento: 'comision_bancaria',
+    entidad_afectada_tipo: 'empresa',
+    entidad_afectada_id: '',
+    criterio_reparto: '',
+    evidencia_clasificacion_ref: '',
+    movimiento_destino_id: '',
+    criterio_conciliacion: '',
+    evidencia_transferencia_ref: '',
+    responsable_ref: '',
+  }
+}
+
 const REPORTING_REQUEST_KEYS = ['financial', 'partner', 'books', 'annual', 'migration'] as const
 type ReportingRequestKey = (typeof REPORTING_REQUEST_KEYS)[number]
 const INITIAL_REPORTING_QUERY_KEYS: Record<ReportingRequestKey, string | null> = {
@@ -2087,11 +2108,7 @@ function App() {
     annual: 0,
     migration: 0,
   })
-  const [manualResolutionDraft, setManualResolutionDraft] = useState({
-    status: 'open',
-    rationale: '',
-    pago_mensual_id: '',
-  })
+  const [manualResolutionDraft, setManualResolutionDraft] = useState(createManualResolutionDraft)
   const [politicaRetencionDraft, setPoliticaRetencionDraft] = useState({
     categoria_dato: 'financiero',
     evento_inicio: 'ultimo_evento_relevante',
@@ -2696,11 +2713,7 @@ function App() {
     setIsReportingReferencesLoaded(false)
     setIsComplianceLoaded(false)
     setIsPatrimonioSnapshotLoaded(false)
-    setManualResolutionDraft({
-      status: 'open',
-      rationale: '',
-      pago_mensual_id: '',
-    })
+    setManualResolutionDraft(createManualResolutionDraft())
     setPoliticaRetencionDraft({
       categoria_dato: 'financiero',
       evento_inicio: 'ultimo_evento_relevante',
@@ -3280,8 +3293,12 @@ function App() {
           setMovimientosBancarios(movimientosPayload)
           setIngresosDesconocidos(ingresosPayload)
           setCuadraturasBancarias(cuadraturasPayload)
-          setAuditEvents(auditEventsPayload)
-          setManualResolutions(manualResolutionsPayload)
+          if (loadAuditEvents) {
+            setAuditEvents(auditEventsPayload)
+          }
+          if (loadManualResolutions) {
+            setManualResolutions(manualResolutionsPayload)
+          }
           setWorkspaceLastLoadedAt(new Date().toISOString())
         } catch (error) {
           if (error instanceof ApiError && error.status === 401 && isCurrentLoad()) {
@@ -5346,51 +5363,113 @@ function App() {
     if (!canEditAudit || !editingManualResolutionId) return
     const isUnknownIncomeResolution = activeManualResolution?.category === 'conciliacion.ingreso_desconocido'
     const isChargeResolution = activeManualResolution?.category === 'conciliacion.movimiento_cargo'
+    const isResolving = manualResolutionDraft.status === 'resolved'
+    const isInternalTransferResolution = isChargeResolution && manualResolutionDraft.resolution_kind === 'internal_transfer'
     const requiresSpecializedResolver = [
       'migration.propiedad.owner_manual_required',
       'migration.cobranza.distribucion_facturable_conflict',
     ].includes(activeManualResolution?.category || '')
-    if (isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved') {
-      if (!manualResolutionDraft.pago_mensual_id.trim()) {
-        setFormError('Debes indicar el pago mensual que regulariza este ingreso desconocido.')
+    if (isUnknownIncomeResolution && isResolving) {
+      if (
+        !manualResolutionDraft.pago_mensual_id.trim()
+        || !manualResolutionDraft.periodo_economico.trim()
+        || !manualResolutionDraft.criterio_aplicado.trim()
+        || !manualResolutionDraft.evidencia_regularizacion_ref.trim()
+        || !manualResolutionDraft.rationale.trim()
+      ) {
+        setFormError('Debes completar pago, periodo, criterio, evidencia y rationale para regularizar este ingreso desconocido.')
         return
       }
     }
-    if (requiresSpecializedResolver && manualResolutionDraft.status === 'resolved') {
+    if (isChargeResolution && isResolving) {
+      if (
+        isInternalTransferResolution
+        && (
+          !manualResolutionDraft.movimiento_destino_id.trim()
+          || !manualResolutionDraft.periodo_economico.trim()
+          || !manualResolutionDraft.criterio_conciliacion.trim()
+          || !manualResolutionDraft.evidencia_transferencia_ref.trim()
+          || !manualResolutionDraft.responsable_ref.trim()
+          || !manualResolutionDraft.rationale.trim()
+        )
+      ) {
+        setFormError('Debes completar movimiento destino, periodo, criterio, evidencia, responsable y rationale para registrar la transferencia.')
+        return
+      }
+      if (
+        !isInternalTransferResolution
+        && (
+          !manualResolutionDraft.categoria_movimiento.trim()
+          || !manualResolutionDraft.entidad_afectada_tipo.trim()
+          || !manualResolutionDraft.entidad_afectada_id.trim()
+          || !manualResolutionDraft.periodo_economico.trim()
+          || !manualResolutionDraft.criterio_reparto.trim()
+          || !manualResolutionDraft.evidencia_clasificacion_ref.trim()
+          || !manualResolutionDraft.rationale.trim()
+        )
+      ) {
+        setFormError('Debes completar categoria, entidad, periodo, criterio, evidencia y rationale para clasificar el cargo.')
+        return
+      }
+    }
+    if (requiresSpecializedResolver && isResolving) {
       setFormError('Esta resolución requiere un flujo especializado y no puede cerrarse desde la edición genérica.')
       return
     }
 
     const success = await submitMutation(
-      isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved'
+      isUnknownIncomeResolution && isResolving
         ? `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/resolve-unknown-income/`
-        : isChargeResolution && manualResolutionDraft.status === 'resolved'
-          ? `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/resolve-charge-movement/`
+        : isChargeResolution && isResolving
+          ? isInternalTransferResolution
+            ? `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/resolve-internal-transfer/`
+            : `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/resolve-charge-movement/`
         : `/api/v1/audit/manual-resolutions/${editingManualResolutionId}/`,
-      (isUnknownIncomeResolution || isChargeResolution) && manualResolutionDraft.status === 'resolved' ? 'POST' : 'PATCH',
-      isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved'
+      (isUnknownIncomeResolution || isChargeResolution) && isResolving ? 'POST' : 'PATCH',
+      isUnknownIncomeResolution && isResolving
         ? {
           pago_mensual_id: Number(manualResolutionDraft.pago_mensual_id),
+          periodo_economico: manualResolutionDraft.periodo_economico,
+          criterio_aplicado: manualResolutionDraft.criterio_aplicado,
+          evidencia_regularizacion_ref: manualResolutionDraft.evidencia_regularizacion_ref,
           rationale: manualResolutionDraft.rationale,
         }
-        : isChargeResolution && manualResolutionDraft.status === 'resolved'
+        : isChargeResolution && isResolving
           ? {
+            ...(isInternalTransferResolution
+              ? {
+                movimiento_destino_id: Number(manualResolutionDraft.movimiento_destino_id),
+                periodo_economico: manualResolutionDraft.periodo_economico,
+                criterio_conciliacion: manualResolutionDraft.criterio_conciliacion,
+                evidencia_transferencia_ref: manualResolutionDraft.evidencia_transferencia_ref,
+                responsable_ref: manualResolutionDraft.responsable_ref,
+              }
+              : {
+                categoria_movimiento: manualResolutionDraft.categoria_movimiento,
+                entidad_afectada_tipo: manualResolutionDraft.entidad_afectada_tipo,
+                entidad_afectada_id: Number(manualResolutionDraft.entidad_afectada_id),
+                periodo_economico: manualResolutionDraft.periodo_economico,
+                criterio_reparto: manualResolutionDraft.criterio_reparto,
+                evidencia_clasificacion_ref: manualResolutionDraft.evidencia_clasificacion_ref,
+              }),
             rationale: manualResolutionDraft.rationale,
           }
         : {
           status: manualResolutionDraft.status,
           rationale: manualResolutionDraft.rationale,
         },
-      isUnknownIncomeResolution && manualResolutionDraft.status === 'resolved'
+      isUnknownIncomeResolution && isResolving
         ? 'Ingreso desconocido regularizado correctamente.'
-        : isChargeResolution && manualResolutionDraft.status === 'resolved'
-          ? 'Cargo bancario clasificado correctamente.'
+        : isChargeResolution && isResolving
+          ? isInternalTransferResolution
+            ? 'Transferencia intercuenta registrada correctamente.'
+            : 'Cargo bancario clasificado correctamente.'
         : 'Resolución manual actualizada correctamente.',
       'audit',
     )
     if (!success) return
     setEditingManualResolutionId(null)
-    setManualResolutionDraft({ status: 'open', rationale: '', pago_mensual_id: '' })
+    setManualResolutionDraft(createManualResolutionDraft())
   }
 
   function navigateWithContext(view: ViewKey, search = '', label = '') {
@@ -5466,21 +5545,36 @@ function App() {
   }
 
   function startEditManualResolution(row: ManualResolutionItem) {
+    const baseDraft = createManualResolutionDraft()
     const resolvedPaymentId =
       typeof row.metadata?.resolved_payment_id === 'number'
         ? String(row.metadata.resolved_payment_id)
         : ''
     setEditingManualResolutionId(row.id)
     setManualResolutionDraft({
+      ...baseDraft,
       status: row.status,
       rationale: row.rationale || '',
       pago_mensual_id: resolvedPaymentId,
+      periodo_economico: typeof row.metadata?.periodo_economico === 'string' ? row.metadata.periodo_economico : baseDraft.periodo_economico,
+      criterio_aplicado: typeof row.metadata?.criterio_aplicado === 'string' ? row.metadata.criterio_aplicado : '',
+      evidencia_regularizacion_ref: typeof row.metadata?.evidencia_regularizacion_ref === 'string' ? row.metadata.evidencia_regularizacion_ref : '',
+      resolution_kind: row.metadata?.categoria_movimiento === 'transferencia_interna' ? 'internal_transfer' : 'bank_charge',
+      categoria_movimiento: typeof row.metadata?.categoria_movimiento === 'string' && row.metadata.categoria_movimiento !== 'transferencia_interna' ? row.metadata.categoria_movimiento : baseDraft.categoria_movimiento,
+      entidad_afectada_tipo: typeof row.metadata?.entidad_afectada_tipo === 'string' ? row.metadata.entidad_afectada_tipo : baseDraft.entidad_afectada_tipo,
+      entidad_afectada_id: typeof row.metadata?.entidad_afectada_id === 'number' ? String(row.metadata.entidad_afectada_id) : '',
+      criterio_reparto: typeof row.metadata?.criterio_reparto === 'string' ? row.metadata.criterio_reparto : '',
+      evidencia_clasificacion_ref: typeof row.metadata?.evidencia_clasificacion_ref === 'string' ? row.metadata.evidencia_clasificacion_ref : '',
+      movimiento_destino_id: typeof row.metadata?.movimiento_destino_id === 'number' ? String(row.metadata.movimiento_destino_id) : '',
+      criterio_conciliacion: typeof row.metadata?.criterio_conciliacion === 'string' ? row.metadata.criterio_conciliacion : '',
+      evidencia_transferencia_ref: typeof row.metadata?.evidencia_transferencia_ref === 'string' ? row.metadata.evidencia_transferencia_ref : '',
+      responsable_ref: typeof row.metadata?.responsable_ref === 'string' ? row.metadata.responsable_ref : '',
     })
   }
 
   function cancelEditManualResolution() {
     setEditingManualResolutionId(null)
-    setManualResolutionDraft({ status: 'open', rationale: '', pago_mensual_id: '' })
+    setManualResolutionDraft(createManualResolutionDraft())
   }
 
   function startEditExpediente(row: ExpedienteDocumental) {

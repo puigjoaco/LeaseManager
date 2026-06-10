@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Backoffice Audit alinea el cierre de resoluciones manuales de
+Conciliacion con los servicios especializados. La UI ya no intenta cerrar
+ingresos desconocidos o cargos bancarios con payload generico incompleto; ahora
+captura periodo, criterio, evidencia, entidad o movimiento destino segun el
+caso y enruta cargos bancarios y transferencias internas al endpoint auditado
+correspondiente. El loader conserva el snapshot de Audit y no lo sobrescribe
+con cargas legacy deshabilitadas.
+
 Nota 2026-06-10: Backoffice Cobranza alinea la busqueda global de pagos con
 la traza operativa visible. El filtro de pagos mensuales cubre tramo
 contractual, codigo efectivo, vencimiento, fechas de deposito/deteccion/WebPay,
