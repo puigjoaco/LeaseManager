@@ -116,7 +116,11 @@ sistema igual a saldo banco.
 - Las categorias especializadas de resolucion manual de Conciliacion no pueden
   crearse, convertirse, retargetearse ni cerrarse desde el endpoint generico de
   `ManualResolution`; deben nacer y mutar desde los servicios auditados de
-  ingreso desconocido, cargo bancario o transferencia interna.
+  ingreso desconocido, cargo bancario o transferencia interna. El backoffice de
+  Auditoria captura el contexto requerido por esos servicios: pago, periodo,
+  criterio y evidencia para ingresos desconocidos; categoria, entidad, periodo,
+  criterio y evidencia para cargos bancarios; y movimiento destino, periodo,
+  criterio, evidencia y responsable para transferencias intercuenta.
 - Las respuestas API y snapshot de Conciliacion redactan refs bancarias
   sensibles ya persistidas, incluida `referencia` de movimientos,
   `rationale` de cuadraturas y criterio/motivo de transferencias intercuenta,
