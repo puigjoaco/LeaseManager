@@ -452,6 +452,20 @@ class OperationalObservabilityAuditTests(TestCase):
                 stdout=StringIO(),
             )
 
+    def test_record_admin_security_control_command_rejects_sensitive_description(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                'record_admin_security_control',
+                mode='mfa_enforced',
+                mfa_evidence_ref='admin-mfa-controlled-v1',
+                authorization_ref='stage7-admin-security-authorization-v1',
+                responsible_ref='security-owner-v1',
+                description='Evidencia en https://security.example.test/mfa?token=secret',
+                stdout=StringIO(),
+            )
+
+        self.assertFalse(PlatformSetting.objects.filter(key=ADMIN_SECURITY_SETTING_KEY).exists())
+
     def test_command_writes_json_output_and_fail_on_attention_blocks_close(self):
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'observability.json'

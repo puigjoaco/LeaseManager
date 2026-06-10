@@ -76,6 +76,9 @@ class PlatformSetting(models.Model):
         if self.key != ADMIN_SECURITY_SETTING_KEY:
             return
 
+        if self.description and contains_sensitive_reference(self.description, include_sensitive_keys=True):
+            raise ValidationError({'description': 'La descripcion del control administrativo debe ser no sensible.'})
+
         _payload, issues = evaluate_admin_security_control(
             self.value,
             setting_present=True,

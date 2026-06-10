@@ -57,8 +57,9 @@ runbook, smoke y aceptacion.
   probado con evidencia, autorizacion y responsable no sensibles, o una
   aceptacion formal de riesgo vigente con las mismas referencias trazables.
   El modelo `PlatformSetting` aplica la misma validacion de dominio antes del
-  gate; si falta, esta vencida o contiene payload sensible, Etapa 7 queda
-  parcial y no puede declararse lista para uso indefinido.
+  gate y rechaza tambien descripciones sensibles visibles en admin; si falta,
+  esta vencida o contiene payload sensible, Etapa 7 queda parcial y no puede
+  declararse lista para uso indefinido.
 - `record_admin_security_control` persiste ese control validado por dominio y
   su stdout solo expone modo, vigencia, flags de refs y autorizacion booleana,
   sin imprimir referencias crudas ni payload sensible.
