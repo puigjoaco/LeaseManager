@@ -1186,6 +1186,19 @@ type DocumentoEmitidoItem = {
   correccion_ref: string
 }
 
+type DocumentoGeneratedPdfPreview = {
+  pdf_sha256: string
+  pdf_size_bytes: number
+  storage_ref_preview: string
+  preview_ref: string
+}
+
+type DocumentoGeneratedPdfResponse = {
+  documento: DocumentoEmitidoItem
+  pdf_sha256: string
+  pdf_size_bytes: number
+}
+
 type CanalMensajeriaItem = {
   id: number
   canal: string
@@ -1837,6 +1850,14 @@ function App() {
     evidencia_formalizacion_ref: '',
     comprobante_notarial: '',
   })
+  const [generatedPdfDraft, setGeneratedPdfDraft] = useState({
+    expediente: '',
+    tipo_documental: 'contrato_principal',
+    version_plantilla: '',
+    titulo: '',
+    lineas_text: '',
+  })
+  const [generatedPdfPreview, setGeneratedPdfPreview] = useState<DocumentoGeneratedPdfPreview | null>(null)
   const [gateCanalDraft, setGateCanalDraft] = useState({
     canal: 'email',
     provider_key: 'gmail_api',
@@ -2489,6 +2510,14 @@ function App() {
       evidencia_formalizacion_ref: '',
       comprobante_notarial: '',
     })
+    setGeneratedPdfDraft({
+      expediente: '',
+      tipo_documental: 'contrato_principal',
+      version_plantilla: '',
+      titulo: '',
+      lineas_text: '',
+    })
+    setGeneratedPdfPreview(null)
     setGateCanalDraft({
       canal: 'email',
       provider_key: 'gmail_api',
@@ -5309,6 +5338,75 @@ function App() {
     if (!success) return
   }
 
+  function buildGeneratedPdfPayload() {
+    return {
+      expediente: Number(generatedPdfDraft.expediente),
+      tipo_documental: generatedPdfDraft.tipo_documental,
+      version_plantilla: generatedPdfDraft.version_plantilla,
+      titulo: generatedPdfDraft.titulo.trim(),
+      lineas: generatedPdfDraft.lineas_text
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    }
+  }
+
+  async function handlePreviewGeneratedPdf(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditDocumentos || !token) return
+    const payload = buildGeneratedPdfPayload()
+    if (!payload.expediente || !payload.version_plantilla.trim() || !payload.titulo || payload.lineas.length === 0) {
+      setFormError('Completa expediente, plantilla, título y al menos una línea para previsualizar el PDF.')
+      return
+    }
+    setIsSubmitting(true)
+    setFormMessage(null)
+    setFormError(null)
+    try {
+      const preview = await apiRequest<DocumentoGeneratedPdfPreview>(
+        '/api/v1/documentos/documentos-emitidos/previsualizar-pdf/',
+        { method: 'POST', token, body: payload },
+      )
+      setGeneratedPdfPreview(preview)
+      setFormMessage('Previsualización PDF auditada correctamente.')
+    } catch (error) {
+      setGeneratedPdfPreview(null)
+      setFormError(error instanceof Error ? error.message : 'No se pudo previsualizar el PDF.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleGenerateGeneratedPdf() {
+    if (!canEditDocumentos || !token) return
+    if (!generatedPdfPreview) {
+      setFormError('Previsualiza el PDF antes de emitirlo.')
+      return
+    }
+    const payload = buildGeneratedPdfPayload()
+    if (!payload.expediente || !payload.version_plantilla.trim() || !payload.titulo || payload.lineas.length === 0) {
+      setFormError('Completa expediente, plantilla, título y al menos una línea para emitir el PDF.')
+      return
+    }
+    setIsSubmitting(true)
+    setFormMessage(null)
+    setFormError(null)
+    try {
+      const generated = await apiRequest<DocumentoGeneratedPdfResponse>(
+        '/api/v1/documentos/documentos-emitidos/generar-pdf/',
+        { method: 'POST', token, body: payload },
+      )
+      await loadWorkspace(token, { forceDataRefresh: true })
+      setGeneratedPdfPreview(null)
+      setGeneratedPdfDraft((current) => ({ ...current, titulo: '', lineas_text: '' }))
+      setFormMessage(`PDF generado correctamente: ${generated.pdf_sha256.slice(0, 12)}.`)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'No se pudo emitir el PDF generado.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   async function handleFormalizeDocumento(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditDocumentos || !documentoFormalizarDraft.documentoId) return
@@ -6581,6 +6679,12 @@ function App() {
           documentoFormalizarDraft={documentoFormalizarDraft}
           setDocumentoFormalizarDraft={setDocumentoFormalizarDraft}
           handleFormalizeDocumento={handleFormalizeDocumento}
+          generatedPdfDraft={generatedPdfDraft}
+          setGeneratedPdfDraft={setGeneratedPdfDraft}
+          generatedPdfPreview={generatedPdfPreview}
+          clearGeneratedPdfPreview={() => setGeneratedPdfPreview(null)}
+          handlePreviewGeneratedPdf={handlePreviewGeneratedPdf}
+          handleGenerateGeneratedPdf={handleGenerateGeneratedPdf}
           expedientes={expedientes}
           plantillasDocumentales={plantillasDocumentales}
           documentosEmitidos={documentosEmitidos}

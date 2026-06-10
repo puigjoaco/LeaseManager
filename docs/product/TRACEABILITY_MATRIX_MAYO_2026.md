@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Backoffice Documentos expone el flujo auditado de PDF
+generado por sistema. El workspace captura expediente, tipo documental,
+version de plantilla, titulo y lineas operativas, ejecuta
+`documentos-emitidos/previsualizar-pdf/` para registrar la preview auditada y
+solo habilita `documentos-emitidos/generar-pdf/` despues de esa preview. El
+formulario generico queda reservado para carga externa controlada y no crea
+documentos `generado_sistema`.
+
 Nota 2026-06-10: Operacion y Conciliacion dejan de usar numeros bancarios
 crudos como etiquetas de snapshot/backoffice. `CuentaRecaudadora` expone
 `numero_cuenta_redacted`, los snapshots propagan esa etiqueta para cuentas y

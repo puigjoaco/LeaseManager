@@ -50,6 +50,10 @@ firma y notaria trazables.
   `documentos.documento_emitido.previewed_pdf` sin persistir documento. La
   emision generada queda bloqueada si no existe preview auditada del mismo
   expediente, tipo documental, version de plantilla, checksum y storage_ref.
+- El backoffice documental debe usar ese mismo flujo dedicado para PDFs
+  generados por sistema: capturar expediente, tipo, version de plantilla,
+  titulo y lineas operativas, previsualizar contra `previsualizar-pdf/` y
+  habilitar la emision por `generar-pdf/` solo despues de una preview auditada.
 - La auditoria de preview PDF debe conservar actor y metadata alineada con el
   contenido previsualizado: `checksum`, `storage_ref`, version de plantilla,
   tipo documental y expediente. Readiness debe reportar
