@@ -47,12 +47,12 @@ class Command(BaseCommand):
         try:
             user = User.objects.get(username=username)
         except User.DoesNotExist as error:
-            raise CommandError(f"El usuario {username} no existe.") from error
+            raise CommandError("El usuario demo indicado no existe.") from error
 
         try:
             role = Role.objects.get(code=role_code)
         except Role.DoesNotExist as error:
-            raise CommandError(f"El rol {role_code} no existe.") from error
+            raise CommandError("El rol indicado no existe.") from error
 
         company_ids = self._resolve_company_ids(options.get("company_ids") or [])
         created = 0
@@ -118,7 +118,7 @@ class Command(BaseCommand):
             found = list(Empresa.objects.filter(pk__in=explicit_company_ids).values_list("id", flat=True))
             missing = sorted(set(explicit_company_ids) - set(found))
             if missing:
-                raise CommandError(f"Empresas inexistentes: {missing}")
+                raise CommandError("Una o mas empresas indicadas no existen.")
             return sorted(found)
 
         active = list(Empresa.objects.filter(estado="activa").order_by("id").values_list("id", flat=True))

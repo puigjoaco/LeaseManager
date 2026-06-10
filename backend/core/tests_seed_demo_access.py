@@ -116,6 +116,52 @@ class SeedDemoAccessCommandTests(TestCase):
         self.assertEqual(User.objects.filter(username__startswith='demo-').count(), 4)
         self.assertEqual(UserScopeAssignment.objects.filter(effective_to__isnull=True).count(), 4)
 
+    def test_seed_demo_access_controlled_errors_sanitize_explicit_ids(self):
+        missing_id = 991001
+        cases = (
+            ({'company_id': missing_id}, 'La empresa indicada no existe.'),
+            ({'socio_id': missing_id}, 'El socio indicado no existe.'),
+            ({'property_id': missing_id}, 'La propiedad indicada no existe.'),
+            ({'bank_account_id': missing_id}, 'La cuenta recaudadora indicada no existe.'),
+        )
+
+        for kwargs, expected_message in cases:
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaisesMessage(CommandError, expected_message) as context:
+                    call_command('seed_demo_access', stdout=StringIO(), **kwargs)
+
+                rendered_error = str(context.exception)
+                self.assertNotIn(str(missing_id), rendered_error)
+
+    def test_showcase_access_controlled_errors_sanitize_raw_inputs(self):
+        missing_id = 992001
+
+        with self.assertRaisesMessage(CommandError, 'El usuario demo indicado no existe.') as missing_user:
+            call_command('bootstrap_demo_showcase_access', username=f'demo-missing-{missing_id}', stdout=StringIO())
+        self.assertNotIn(str(missing_id), str(missing_user.exception))
+        self.assertNotIn('demo-missing', str(missing_user.exception))
+
+        call_command('seed_demo_access', stdout=StringIO())
+
+        with self.assertRaisesMessage(CommandError, 'El rol indicado no existe.') as missing_role:
+            call_command(
+                'bootstrap_demo_showcase_access',
+                role_code=f'RoleMissing{missing_id}',
+                stdout=StringIO(),
+            )
+        self.assertNotIn(str(missing_id), str(missing_role.exception))
+        self.assertNotIn('RoleMissing', str(missing_role.exception))
+
+        with self.assertRaisesMessage(CommandError, 'Una o mas empresas indicadas no existen.') as missing_company:
+            call_command(
+                'bootstrap_demo_showcase_access',
+                company_ids=[self.empresa.id, missing_id],
+                stdout=StringIO(),
+            )
+        rendered_error = str(missing_company.exception)
+        self.assertNotIn(str(missing_id), rendered_error)
+        self.assertNotIn(str([self.empresa.id, missing_id]), rendered_error)
+
     def test_showcase_access_command_sanitizes_stdout(self):
         second_company = Empresa.objects.create(
             razon_social='Empresa Showcase Dos',

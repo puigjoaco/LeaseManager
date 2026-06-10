@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Los errores controlados de comandos demo de acceso tambien
+quedan redactados. `seed_demo_access` y `bootstrap_demo_showcase_access`
+mantienen validaciones de empresa, socio, propiedad, cuenta, usuario, rol y
+scope, pero si una referencia explicita no existe ya no repiten IDs,
+usernames, codigos de rol ni listas crudas en `CommandError`.
+
 Nota 2026-06-10: El bootstrap operacional demo reduce errores humanos crudos.
 `bootstrap_demo_operational_data` mantiene carga UF, generacion de pagos
 faltantes y recalculo de estados de cuenta, pero los fallos controlados del
