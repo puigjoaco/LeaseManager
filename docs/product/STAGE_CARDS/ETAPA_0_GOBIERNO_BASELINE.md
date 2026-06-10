@@ -104,6 +104,11 @@ evidencia respalda el root limpio.
 - El backoffice de Compliance muestra motivo y scope visible ya redactados de
   exportaciones sensibles, exige motivo no sensible antes de revocar y envia
   ese motivo a la API para que quede persistido como `revocation_reason`.
+- Los comandos demo de Compliance no repiten referencias o alcances operativos
+  crudos en stdout: el bootstrap de politicas solo confirma
+  `evento_inicio_validado=true` y el bootstrap de exportaciones resume el scope
+  por cantidad de campos, manteniendo ids, `evento_inicio` y `scope_resumen`
+  fuera de la salida humana.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.

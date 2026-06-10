@@ -18,6 +18,10 @@ class ExportPlan:
     hold_activo: bool
 
 
+def _scope_summary(scope_resumen):
+    return f"{len(scope_resumen or {})} campos"
+
+
 class Command(BaseCommand):
     help = (
         "Prepara exportaciones sensibles demo a partir de dashboard/reporting ya existente, "
@@ -80,7 +84,7 @@ class Command(BaseCommand):
             if existing is not None:
                 skipped += 1
                 self.stdout.write(
-                    f"- skip {plan.export_kind} {plan.scope_resumen} -> export {existing.id} ya preparada"
+                    f"- skip {plan.export_kind} scope={_scope_summary(plan.scope_resumen)} -> export {existing.id} ya preparada"
                 )
                 continue
 
@@ -97,7 +101,7 @@ class Command(BaseCommand):
             created += 1
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"- created export {export.id} {plan.export_kind} {plan.scope_resumen}"
+                    f"- created export {export.id} {plan.export_kind} scope={_scope_summary(plan.scope_resumen)}"
                 )
             )
 

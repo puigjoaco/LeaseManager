@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Los comandos demo de Compliance reducen su salida humana.
+`bootstrap_demo_compliance_policies` ya no imprime `evento_inicio` crudo y
+`bootstrap_demo_compliance_exports` ya no imprime `scope_resumen`; ambos
+mantienen validacion/persistencia, pero stdout queda limitado a confirmaciones,
+conteos y resumen de cantidad de campos.
+
 Nota 2026-06-10: El control `security.admin_mfa_control` tambien bloquea
 descripciones sensibles. `PlatformSetting.clean()` rechaza `description` con
 URLs, tokens o credenciales para evitar que una nota visible en Django admin

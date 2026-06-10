@@ -99,5 +99,5 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Baseline demo de políticas de retención aplicado correctamente."))
         self.stdout.write(
-            f"- políticas creadas={created} | políticas actualizadas={updated} | plazo={min_years} | evento_inicio={event_start}"
+            f"- políticas creadas={created} | políticas actualizadas={updated} | plazo={min_years} | evento_inicio_validado=true"
         )
