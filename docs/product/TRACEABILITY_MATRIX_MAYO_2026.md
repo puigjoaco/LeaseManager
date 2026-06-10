@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: El bootstrap operacional demo reduce errores humanos crudos.
+`bootstrap_demo_operational_data` mantiene carga UF, generacion de pagos
+faltantes y recalculo de estados de cuenta, pero los fallos controlados del
+calculo mensual ya no listan id/codigo de contrato, mes operativo ni excepcion
+cruda; solo reportan conteo de errores controlados y detalle no impreso.
+
 Nota 2026-06-10: El seed demo de acceso RBAC reduce su salida humana.
 `seed_demo_access` mantiene la creacion reproducible de roles, scopes,
 usuarios y asignaciones, pero stdout ya no imprime usernames demo, codigos de

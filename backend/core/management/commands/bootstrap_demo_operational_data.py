@@ -140,7 +140,7 @@ class Command(BaseCommand):
 
         created_count = 0
         existing_count = 0
-        errors: list[str] = []
+        controlled_error_count = 0
         affected_arrendatario_ids: set[int] = set()
 
         for contract in contracts:
@@ -161,10 +161,8 @@ class Command(BaseCommand):
                         operational_month.year,
                         operational_month.month,
                     )
-                except ValueError as error:
-                    errors.append(
-                        f"contrato {contract.id} {contract.codigo_contrato} {operational_month.year}-{operational_month.month:02d}: {error}"
-                    )
+                except ValueError:
+                    controlled_error_count += 1
                     continue
 
                 with transaction.atomic():
@@ -195,10 +193,12 @@ class Command(BaseCommand):
         )
         self.stdout.write(f"- UF creados: {uf_created} | UF actualizados: {uf_updated}")
         self.stdout.write(f"- estados de cuenta recalculados: {rebuilt_count}")
-        if errors:
-            self.stdout.write(self.style.WARNING(f"- errores controlados: {len(errors)}"))
-            for item in errors[:20]:
-                self.stdout.write(f"  * {item}")
+        if controlled_error_count:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"- errores_controlados={controlled_error_count} | detalle_no_impreso=true"
+                )
+            )
 
     def _get_contracts(self, company_ids: list[int]):
         queryset = Contrato.objects.select_related("arrendatario", "mandato_operacion").order_by("id")
