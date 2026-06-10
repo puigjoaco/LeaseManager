@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from .admin_security_control import ADMIN_SECURITY_SETTING_KEY, evaluate_admin_security_control
 from .reference_validation import SENSITIVE_REFERENCE_PATTERN as SENSITIVE_EVIDENCE_REF_PATTERN
 from .reference_validation import contains_sensitive_reference
 
@@ -69,6 +70,18 @@ class PlatformSetting(models.Model):
 
     def __str__(self):
         return self.key
+
+    def clean(self):
+        super().clean()
+        if self.key != ADMIN_SECURITY_SETTING_KEY:
+            return
+
+        _payload, issues = evaluate_admin_security_control(
+            self.value,
+            setting_present=True,
+        )
+        if issues:
+            raise ValidationError({'value': [issue['message'] for issue in issues]})
 
 
 class RuntimeSignalKey(models.TextChoices):

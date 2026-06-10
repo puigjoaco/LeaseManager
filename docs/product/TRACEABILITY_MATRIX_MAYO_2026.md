@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: El control `security.admin_mfa_control` queda validado en
+dominio por `PlatformSetting.clean()`. La misma regla que consume
+`audit_operational_observability` rechaza configuraciones de seguridad
+administrativa sin MFA probado, sin aceptacion formal de riesgo vigente, con
+referencias faltantes o con payload sensible antes de llegar al gate de Etapa 7.
+
 Nota 2026-06-10: Operacion productiva incorpora guard explicito para MFA
 administrativo o aceptacion formal de riesgo. `audit_operational_observability`
 revisa `security.admin_mfa_control` sin exponer refs: exige MFA probado con

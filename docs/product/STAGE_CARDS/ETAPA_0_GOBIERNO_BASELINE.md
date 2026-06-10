@@ -56,6 +56,10 @@ evidencia respalda el root limpio.
   permiten borrado manual de roles, scopes, permisos por scope ni asignaciones.
 - `PlatformSettingAdmin` muestra valores de plataforma solo redactados y no
   permite alta ni borrado manual de settings existentes.
+- `PlatformSetting` valida en dominio el control
+  `security.admin_mfa_control`: debe declarar MFA administrativo probado o
+  aceptacion formal de riesgo vigente, siempre con evidencia, autorizacion y
+  responsable no sensibles.
 - Compliance de datos sensibles trata exportaciones expiradas como terminales:
   no se descargan, no se revocan, una exportacion ya revocada no se revoca de
   nuevo y las exportaciones preparadas vencidas sin hold se normalizan a

@@ -56,8 +56,9 @@ runbook, smoke y aceptacion.
   seguridad: `security.admin_mfa_control` debe declarar MFA administrativo
   probado con evidencia, autorizacion y responsable no sensibles, o una
   aceptacion formal de riesgo vigente con las mismas referencias trazables.
-  Si falta, esta vencida o contiene payload sensible, Etapa 7 queda parcial y
-  no puede declararse lista para uso indefinido.
+  El modelo `PlatformSetting` aplica la misma validacion de dominio antes del
+  gate; si falta, esta vencida o contiene payload sensible, Etapa 7 queda
+  parcial y no puede declararse lista para uso indefinido.
 - API/backoffice autenticados exponen observabilidad operativa de solo lectura
   con referencias sensibles redactadas.
 - Guard local de readiness Etapa 7 consolida observabilidad, restore, smoke

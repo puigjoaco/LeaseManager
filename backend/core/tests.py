@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
@@ -17,6 +18,7 @@ from .admin import (
     ScopeAdmin,
     UserScopeAssignmentAdmin,
 )
+from .admin_security_control import ADMIN_SECURITY_SETTING_KEY
 from .models import (
     OperationalRuntimeSignal,
     PlatformSetting,
@@ -244,6 +246,97 @@ class CoreAdminRedactionTests(TestCase):
         self.assertEqual(signal_admin.source_label_redacted(signal), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(signal_admin.authorization_ref_redacted(signal), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(signal_admin.notes_redacted(signal), REDACTED_SENSITIVE_REFERENCE)
+
+
+class PlatformSettingValidationTests(TestCase):
+    def test_admin_security_setting_accepts_mfa_control(self):
+        setting = PlatformSetting(
+            key=ADMIN_SECURITY_SETTING_KEY,
+            value={
+                'mode': 'mfa_enforced',
+                'mfa_enforced': True,
+                'mfa_evidence_ref': 'admin-mfa-controlled-v1',
+                'authorization_ref': 'stage7-admin-security-authorization-v1',
+                'responsible_ref': 'security-owner-v1',
+            },
+        )
+
+        setting.full_clean()
+
+    def test_admin_security_setting_accepts_current_risk_acceptance(self):
+        setting = PlatformSetting(
+            key=ADMIN_SECURITY_SETTING_KEY,
+            value={
+                'mode': 'risk_accepted',
+                'risk_accepted': True,
+                'risk_acceptance_ref': 'admin-mfa-risk-acceptance-v1',
+                'authorization_ref': 'stage7-admin-security-authorization-v1',
+                'responsible_ref': 'security-owner-v1',
+                'valid_until': (timezone.localdate() + timedelta(days=30)).isoformat(),
+            },
+        )
+
+        setting.full_clean()
+
+    def test_admin_security_setting_rejects_missing_mode_or_refs(self):
+        setting = PlatformSetting(
+            key=ADMIN_SECURITY_SETTING_KEY,
+            value={
+                'mode': 'mfa_enforced',
+                'mfa_enforced': True,
+                'mfa_evidence_ref': '',
+                'authorization_ref': '',
+                'responsible_ref': 'security-owner-v1',
+            },
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            setting.full_clean()
+
+        self.assertIn('value', context.exception.message_dict)
+        rendered = ' '.join(context.exception.message_dict['value'])
+        self.assertIn('MFA administrativo requiere evidencia_ref no sensible.', rendered)
+        self.assertIn('MFA administrativo requiere authorization_ref no sensible.', rendered)
+
+    def test_admin_security_setting_rejects_sensitive_or_expired_payload(self):
+        setting = PlatformSetting(
+            key=ADMIN_SECURITY_SETTING_KEY,
+            value={
+                'mode': 'risk_accepted',
+                'risk_accepted': True,
+                'risk_acceptance_ref': 'https://security.example.test/acceptance?token=secret',
+                'authorization_ref': 'stage7-admin-security-authorization-v1',
+                'responsible_ref': 'security-owner-v1',
+                'valid_until': (timezone.localdate() + timedelta(days=30)).isoformat(),
+            },
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            setting.full_clean()
+
+        self.assertIn('value', context.exception.message_dict)
+        self.assertIn(
+            'El control de seguridad administrativa contiene payload sensible.',
+            context.exception.message_dict['value'],
+        )
+
+        setting.value = {
+            'mode': 'risk_accepted',
+            'risk_accepted': True,
+            'risk_acceptance_ref': 'admin-mfa-risk-acceptance-v1',
+            'authorization_ref': 'stage7-admin-security-authorization-v1',
+            'responsible_ref': 'security-owner-v1',
+            'valid_until': (timezone.localdate() - timedelta(days=1)).isoformat(),
+        }
+
+        with self.assertRaises(ValidationError) as context:
+            setting.full_clean()
+
+        self.assertIn('value', context.exception.message_dict)
+        self.assertIn(
+            'La aceptacion formal de riesgo MFA esta vencida.',
+            context.exception.message_dict['value'],
+        )
 
 
 class ReferenceValidationTests(TestCase):
