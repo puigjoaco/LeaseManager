@@ -338,6 +338,28 @@ class PlatformSettingValidationTests(TestCase):
             context.exception.message_dict['value'],
         )
 
+    def test_admin_security_setting_rejects_sensitive_description(self):
+        setting = PlatformSetting(
+            key=ADMIN_SECURITY_SETTING_KEY,
+            description='Evidencia en https://security.example.test/mfa?token=secret',
+            value={
+                'mode': 'mfa_enforced',
+                'mfa_enforced': True,
+                'mfa_evidence_ref': 'admin-mfa-controlled-v1',
+                'authorization_ref': 'stage7-admin-security-authorization-v1',
+                'responsible_ref': 'security-owner-v1',
+            },
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            setting.full_clean()
+
+        self.assertIn('description', context.exception.message_dict)
+        self.assertIn(
+            'La descripcion del control administrativo debe ser no sensible.',
+            context.exception.message_dict['description'],
+        )
+
 
 class ReferenceValidationTests(TestCase):
     def test_redact_sensitive_payload_recurses_values_and_sensitive_keys(self):
