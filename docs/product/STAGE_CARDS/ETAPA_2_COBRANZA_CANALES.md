@@ -91,8 +91,8 @@ condicionados sin envios reales accidentales.
   `fecha_vencimiento`, y readiness bloquea pagos heredados sin traza, con
   valor/fuente distinta al `ValorUFDiario` de esa fecha o con traza UF en pagos
   que no dependen de UF. El snapshot operativo de Cobranza y el backoffice
-  exponen esa traza junto al periodo contractual, codigo efectivo y fechas
-  operativas del pago mensual.
+  exponen y filtran esa traza junto al periodo contractual, codigo efectivo y
+  fechas operativas del pago mensual.
 - Garantias contractuales recibidas parcialmente deben quedar visibles como
   incompletas hasta regularizarse o contar con aceptacion formal mediante
   referencia no sensible; APIs y backoffice exponen brecha, estado de

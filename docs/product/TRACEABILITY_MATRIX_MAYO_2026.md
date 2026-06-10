@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Backoffice Cobranza alinea la busqueda global de pagos con
+la traza operativa visible. El filtro de pagos mensuales cubre tramo
+contractual, codigo efectivo, vencimiento, fechas de deposito/deteccion/WebPay,
+moneda y traza UF, de modo que los campos visibles se puedan localizar sin
+recalcular ni abrir fuentes externas.
+
 Nota 2026-06-07: Backoffice Cobranza alinea el contrato de snapshot de pagos
 con la traza UF. El snapshot de `pagos` expone `periodo_contractual`,
 `moneda_calculo`, `uf_fecha_usada`, `uf_valor_usado`, `uf_source_key`,
