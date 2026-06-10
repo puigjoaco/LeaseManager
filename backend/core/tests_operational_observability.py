@@ -378,6 +378,80 @@ class OperationalObservabilityAuditTests(TestCase):
         self.assertNotIn('queue-runtime-controlled-source-v1', rendered)
         self.assertNotIn('stage7-runtime-authorization-v1', rendered)
 
+    def test_record_admin_security_control_command_outputs_redacted_payload(self):
+        output = StringIO()
+        call_command(
+            'record_admin_security_control',
+            mode='mfa_enforced',
+            mfa_evidence_ref='admin-mfa-controlled-v1',
+            authorization_ref='stage7-admin-security-authorization-v1',
+            responsible_ref='security-owner-v1',
+            stdout=output,
+        )
+
+        rendered = output.getvalue()
+        payload = json.loads(rendered)
+        setting = PlatformSetting.objects.get(key=ADMIN_SECURITY_SETTING_KEY)
+
+        self.assertEqual(setting.value['mfa_evidence_ref'], 'admin-mfa-controlled-v1')
+        self.assertTrue(payload['mfa_enforced'])
+        self.assertFalse(payload['risk_accepted'])
+        self.assertTrue(payload['authorized_for_stage7_close'])
+        self.assertEqual(
+            payload['refs'],
+            {
+                'mfa_evidence_ref': True,
+                'risk_acceptance_ref': False,
+                'authorization_ref': True,
+                'responsible_ref': True,
+            },
+        )
+        self.assertNotIn('admin-mfa-controlled-v1', rendered)
+        self.assertNotIn('stage7-admin-security-authorization-v1', rendered)
+        self.assertNotIn('security-owner-v1', rendered)
+
+    def test_record_admin_security_control_command_validates_risk_acceptance(self):
+        output = StringIO()
+        call_command(
+            'record_admin_security_control',
+            mode='risk_accepted',
+            risk_acceptance_ref='admin-mfa-risk-acceptance-v1',
+            authorization_ref='stage7-admin-security-authorization-v1',
+            responsible_ref='security-owner-v1',
+            valid_until=(timezone.localdate() + timedelta(days=30)).isoformat(),
+            stdout=output,
+        )
+
+        payload = json.loads(output.getvalue())
+        setting = PlatformSetting.objects.get(key=ADMIN_SECURITY_SETTING_KEY)
+
+        self.assertTrue(setting.value['risk_accepted'])
+        self.assertTrue(payload['risk_accepted'])
+        self.assertTrue(payload['risk_acceptance_current'])
+        self.assertTrue(payload['authorized_for_stage7_close'])
+
+        with self.assertRaises(CommandError):
+            call_command(
+                'record_admin_security_control',
+                mode='risk_accepted',
+                risk_acceptance_ref='https://security.example.test/acceptance?token=secret',
+                authorization_ref='stage7-admin-security-authorization-v1',
+                responsible_ref='security-owner-v1',
+                valid_until=(timezone.localdate() + timedelta(days=30)).isoformat(),
+                stdout=StringIO(),
+            )
+
+        with self.assertRaises(CommandError):
+            call_command(
+                'record_admin_security_control',
+                mode='risk_accepted',
+                risk_acceptance_ref='admin-mfa-risk-acceptance-v1',
+                authorization_ref='stage7-admin-security-authorization-v1',
+                responsible_ref='security-owner-v1',
+                valid_until=(timezone.localdate() - timedelta(days=1)).isoformat(),
+                stdout=StringIO(),
+            )
+
     def test_command_writes_json_output_and_fail_on_attention_blocks_close(self):
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'observability.json'
