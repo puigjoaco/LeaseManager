@@ -1,6 +1,6 @@
 from collections import Counter
 from copy import deepcopy
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -28,11 +28,13 @@ from sii.models import CapacidadTributariaSII, EstadoGateSII
 
 from .models import (
     OperationalRuntimeSignal,
+    PlatformSetting,
     RuntimeSignalKey,
     RuntimeSignalSourceKind,
     RuntimeSignalStatus,
     SENSITIVE_EVIDENCE_REF_PATTERN,
 )
+from .reference_validation import contains_sensitive_reference
 
 
 AUTHORIZED_RUNTIME_SIGNAL_SOURCE_KINDS = {
@@ -102,6 +104,8 @@ REQUIRED_RUNTIME_SIGNALS = {
     },
 }
 
+ADMIN_SECURITY_SETTING_KEY = 'security.admin_mfa_control'
+
 
 def _count_by(queryset, field_name):
     counter = Counter()
@@ -132,6 +136,31 @@ def _issue(code, message, count=1, severity='attention'):
 def _non_sensitive_reference(value):
     normalized = str(value or '').strip()
     return bool(normalized) and not SENSITIVE_EVIDENCE_REF_PATTERN.search(normalized)
+
+
+def _sensitive_reference(value):
+    normalized = str(value or '').strip()
+    return bool(normalized) and not _non_sensitive_reference(normalized)
+
+
+def _truthy(value):
+    if value is True:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'si', 'sí'}
+    return False
+
+
+def _parse_iso_date(value):
+    if isinstance(value, date):
+        return value
+    raw_value = str(value or '').strip()
+    if not raw_value:
+        return None
+    try:
+        return date.fromisoformat(raw_value)
+    except ValueError:
+        return None
 
 
 def _runtime_signal_is_fresh(signal):
@@ -268,6 +297,163 @@ def _collect_runtime_signals():
     return runtime_payload, runtime_issues
 
 
+def _collect_admin_security_readiness():
+    setting = PlatformSetting.objects.filter(key=ADMIN_SECURITY_SETTING_KEY, is_active=True).first()
+    value = setting.value if setting and isinstance(setting.value, dict) else {}
+
+    mode = str(value.get('mode') or '').strip().lower()
+    mfa_enforced = _truthy(value.get('mfa_enforced')) or mode == 'mfa_enforced'
+    risk_accepted = _truthy(value.get('risk_accepted')) or mode == 'risk_accepted'
+
+    mfa_evidence_ref = value.get('mfa_evidence_ref') or value.get('evidence_ref')
+    risk_acceptance_ref = value.get('risk_acceptance_ref') or value.get('evidence_ref')
+    authorization_ref = value.get('authorization_ref')
+    responsible_ref = value.get('responsible_ref')
+    valid_until = _parse_iso_date(value.get('valid_until') or value.get('risk_valid_until'))
+
+    refs = {
+        'mfa_evidence_ref': _non_sensitive_reference(mfa_evidence_ref),
+        'risk_acceptance_ref': _non_sensitive_reference(risk_acceptance_ref),
+        'authorization_ref': _non_sensitive_reference(authorization_ref),
+        'responsible_ref': _non_sensitive_reference(responsible_ref),
+    }
+    refs_sensitive = {
+        'mfa_evidence_ref': _sensitive_reference(mfa_evidence_ref),
+        'risk_acceptance_ref': _sensitive_reference(risk_acceptance_ref),
+        'authorization_ref': _sensitive_reference(authorization_ref),
+        'responsible_ref': _sensitive_reference(responsible_ref),
+    }
+    payload_sensitive = contains_sensitive_reference(value, include_sensitive_keys=True)
+    risk_acceptance_current = bool(valid_until and valid_until >= timezone.localdate())
+
+    issues = []
+    if setting is None:
+        issues.append(
+            _issue(
+                'observability.admin_security_mfa_or_risk_acceptance_missing',
+                'Operacion productiva requiere MFA administrativo probado o aceptacion formal de riesgo vigente.',
+            )
+        )
+    elif payload_sensitive:
+        issues.append(
+            _issue(
+                'observability.admin_security_payload_sensitive',
+                'El control de seguridad administrativa contiene payload sensible.',
+            )
+        )
+    elif not (mfa_enforced or risk_accepted):
+        issues.append(
+            _issue(
+                'observability.admin_security_mfa_or_risk_acceptance_missing',
+                'Operacion productiva requiere MFA administrativo probado o aceptacion formal de riesgo vigente.',
+            )
+        )
+
+    if setting is not None and not payload_sensitive and mfa_enforced:
+        for key, missing_code, sensitive_code, missing_message, sensitive_message in [
+            (
+                'mfa_evidence_ref',
+                'observability.admin_security_mfa_evidence_ref_missing',
+                'observability.admin_security_mfa_evidence_ref_sensitive',
+                'MFA administrativo requiere evidencia_ref no sensible.',
+                'MFA administrativo contiene evidencia_ref sensible.',
+            ),
+            (
+                'authorization_ref',
+                'observability.admin_security_authorization_ref_missing',
+                'observability.admin_security_authorization_ref_sensitive',
+                'MFA administrativo requiere authorization_ref no sensible.',
+                'MFA administrativo contiene authorization_ref sensible.',
+            ),
+            (
+                'responsible_ref',
+                'observability.admin_security_responsible_ref_missing',
+                'observability.admin_security_responsible_ref_sensitive',
+                'MFA administrativo requiere responsible_ref no sensible.',
+                'MFA administrativo contiene responsible_ref sensible.',
+            ),
+        ]:
+            if refs_sensitive[key]:
+                issues.append(_issue(sensitive_code, sensitive_message))
+            elif not refs[key]:
+                issues.append(_issue(missing_code, missing_message))
+
+    if setting is not None and not payload_sensitive and risk_accepted:
+        for key, missing_code, sensitive_code, missing_message, sensitive_message in [
+            (
+                'risk_acceptance_ref',
+                'observability.admin_security_risk_acceptance_ref_missing',
+                'observability.admin_security_risk_acceptance_ref_sensitive',
+                'La aceptacion formal de riesgo MFA requiere risk_acceptance_ref no sensible.',
+                'La aceptacion formal de riesgo MFA contiene risk_acceptance_ref sensible.',
+            ),
+            (
+                'authorization_ref',
+                'observability.admin_security_authorization_ref_missing',
+                'observability.admin_security_authorization_ref_sensitive',
+                'La aceptacion formal de riesgo MFA requiere authorization_ref no sensible.',
+                'La aceptacion formal de riesgo MFA contiene authorization_ref sensible.',
+            ),
+            (
+                'responsible_ref',
+                'observability.admin_security_responsible_ref_missing',
+                'observability.admin_security_responsible_ref_sensitive',
+                'La aceptacion formal de riesgo MFA requiere responsible_ref no sensible.',
+                'La aceptacion formal de riesgo MFA contiene responsible_ref sensible.',
+            ),
+        ]:
+            if refs_sensitive[key]:
+                issues.append(_issue(sensitive_code, sensitive_message))
+            elif not refs[key]:
+                issues.append(_issue(missing_code, missing_message))
+        if valid_until is None:
+            issues.append(
+                _issue(
+                    'observability.admin_security_risk_acceptance_expiry_missing',
+                    'La aceptacion formal de riesgo MFA requiere valid_until ISO vigente.',
+                )
+            )
+        elif not risk_acceptance_current:
+            issues.append(
+                _issue(
+                    'observability.admin_security_risk_acceptance_expired',
+                    'La aceptacion formal de riesgo MFA esta vencida.',
+                )
+            )
+
+    authorized = (
+        not issues
+        and (
+            (
+                mfa_enforced
+                and refs['mfa_evidence_ref']
+                and refs['authorization_ref']
+                and refs['responsible_ref']
+            )
+            or (
+                risk_accepted
+                and refs['risk_acceptance_ref']
+                and refs['authorization_ref']
+                and refs['responsible_ref']
+                and risk_acceptance_current
+            )
+        )
+    )
+
+    return {
+        'setting_key': ADMIN_SECURITY_SETTING_KEY,
+        'setting_present': setting is not None,
+        'mfa_enforced': mfa_enforced,
+        'risk_accepted': risk_accepted,
+        'risk_acceptance_current': risk_acceptance_current,
+        'valid_until': valid_until.isoformat() if valid_until else None,
+        'authorized_for_stage7_close': authorized,
+        'refs': refs,
+        'refs_sensitive': refs_sensitive,
+        'payload_sensitive': payload_sensitive,
+    }, issues
+
+
 def collect_operational_observability_audit():
     channel_gates = CanalMensajeria.objects.all()
     webpay_gates = GateCobroExterno.objects.all()
@@ -305,6 +491,8 @@ def collect_operational_observability_audit():
     ).count()
 
     runtime_signals, issues = _collect_runtime_signals()
+    admin_security, admin_security_issues = _collect_admin_security_readiness()
+    issues.extend(admin_security_issues)
     sensitive_runtime_notes = sum(
         1
         for signal in OperationalRuntimeSignal.objects.all()
@@ -431,6 +619,7 @@ def collect_operational_observability_audit():
                 'documentos_cancelados': canceled_documents,
             },
             'runtime_signals': runtime_signals,
+            'admin_security': admin_security,
             'runtime_signal_sensitive_notes': sensitive_runtime_notes,
         },
         'limitations': [
