@@ -513,11 +513,21 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(model_admin.entidad_id_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(model_admin.owner_operativo_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
 
-    def test_signature_policy_admin_blocks_manual_delete(self):
+    def test_signature_policy_admin_blocks_manual_mutations(self):
         model_admin = PoliticaFirmaYNotariaAdmin(PoliticaFirmaYNotaria, AdminSite())
+        policy = PoliticaFirmaYNotaria(
+            tipo_documental='contrato_principal',
+            requiere_firma_arrendador=True,
+            requiere_firma_arrendatario=True,
+            modo_firma_permitido='firma_simple',
+            estado='activa',
+        )
 
+        self.assertEqual(set(model_admin.readonly_fields), set(model_admin.fields))
+        self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_change_permission(None, policy))
         self.assertFalse(model_admin.has_delete_permission(None))
-        self.assertFalse(model_admin.has_delete_permission(None, obj=object()))
+        self.assertFalse(model_admin.has_delete_permission(None, policy))
 
     def _create_active_company(self, nombre, rut, socio_ruts):
         socio_1 = Socio.objects.create(nombre=f'{nombre} Socio 1', rut=socio_ruts[0], activo=True)

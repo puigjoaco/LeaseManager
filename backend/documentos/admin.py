@@ -133,6 +133,21 @@ class PlantillaDocumentalAdmin(admin.ModelAdmin):
 
 @admin.register(PoliticaFirmaYNotaria)
 class PoliticaFirmaYNotariaAdmin(admin.ModelAdmin):
+    fields = (
+        'tipo_documental',
+        'modo_firma_permitido',
+        'requiere_firma_arrendador',
+        'requiere_firma_arrendatario',
+        'requiere_codeudor',
+        'requiere_nacionalidad_arrendatario',
+        'requiere_estado_civil_arrendatario',
+        'requiere_profesion_arrendatario',
+        'requiere_notaria',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
     list_display = (
         'tipo_documental',
         'modo_firma_permitido',
@@ -151,6 +166,12 @@ class PoliticaFirmaYNotariaAdmin(admin.ModelAdmin):
         'modo_firma_permitido',
     )
     search_fields = ('tipo_documental',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
     def has_delete_permission(self, request, obj=None):
         return False
