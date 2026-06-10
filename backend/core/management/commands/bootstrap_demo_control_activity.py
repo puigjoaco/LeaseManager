@@ -119,27 +119,25 @@ class Command(BaseCommand):
         except ValueError as error:
             f29_warning = str(error)
 
-        self.stdout.write(self.style.SUCCESS("Bootstrap demo de actividad de control aplicado correctamente."))
-        self.stdout.write(
-            f"- empresa={empresa.id} | periodo={anio:04d}-{mes:02d} | evento={event.id} | evento_creado={event_created} | estado_evento={event.estado_contable}"
+        self._write_summary(
+            anio=anio,
+            mes=mes,
+            event=event,
+            event_created=event_created,
+            close=close,
+            close_approved=close_approved,
+            ensure_demo_sii_refs=ensure_demo_sii_refs,
+            capability_updates=capability_updates,
+            f29=f29,
+            f29_created=f29_created,
+            f29_warning=f29_warning,
         )
-        self.stdout.write(
-            f"- cierre={close.id} | estado_cierre={close.estado} | cierre_aprobado_en_esta_corrida={close_approved}"
-        )
-        if ensure_demo_sii_refs:
-            self.stdout.write(f"- capacidades_sii_actualizadas={capability_updates}")
-        if f29 is not None:
-            self.stdout.write(
-                f"- f29={f29.id} | f29_creado={f29_created} | estado_preparacion={f29.estado_preparacion}"
-            )
-        if f29_warning:
-            self.stdout.write(self.style.WARNING(f"- F29 no generado: {f29_warning}"))
 
     def _get_company(self, company_id: int) -> Empresa:
         try:
             return Empresa.objects.get(pk=company_id)
         except Empresa.DoesNotExist as error:
-            raise CommandError(f"La empresa {company_id} no existe.") from error
+            raise CommandError("La empresa indicada no existe.") from error
 
     def _parse_amount(self, raw_amount: str) -> Decimal:
         try:
@@ -199,3 +197,34 @@ class Command(BaseCommand):
             capability.save(update_fields=["certificado_ref", "updated_at"])
             updated += 1
         return updated
+
+    def _write_summary(
+        self,
+        *,
+        anio: int,
+        mes: int,
+        event: EventoContable,
+        event_created: bool,
+        close: CierreMensualContable,
+        close_approved: bool,
+        ensure_demo_sii_refs: bool,
+        capability_updates: int,
+        f29,
+        f29_created: bool,
+        f29_warning: str | None,
+    ) -> None:
+        self.stdout.write(self.style.SUCCESS("Bootstrap demo de actividad de control aplicado correctamente."))
+        self.stdout.write(
+            f"- empresa_validada=true | periodo={anio:04d}-{mes:02d} | evento_generado=true | evento_creado={event_created} | estado_evento={event.estado_contable}"
+        )
+        self.stdout.write(
+            f"- cierre_disponible=true | estado_cierre={close.estado} | cierre_aprobado_en_esta_corrida={close_approved}"
+        )
+        if ensure_demo_sii_refs:
+            self.stdout.write(f"- capacidades_sii_actualizadas={capability_updates}")
+        if f29 is not None:
+            self.stdout.write(
+                f"- f29_disponible=true | f29_creado={f29_created} | estado_preparacion={f29.estado_preparacion}"
+            )
+        if f29_warning:
+            self.stdout.write(self.style.WARNING("- f29_no_generado=true | detalle_no_impreso=true"))

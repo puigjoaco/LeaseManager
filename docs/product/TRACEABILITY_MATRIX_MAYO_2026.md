@@ -13,6 +13,13 @@ faltantes y recalculo de estados de cuenta, pero los fallos controlados del
 calculo mensual ya no listan id/codigo de contrato, mes operativo ni excepcion
 cruda; solo reportan conteo de errores controlados y detalle no impreso.
 
+Nota 2026-06-10: Los comandos demo tributarios y de actividad de control
+reducen salida humana. `bootstrap_demo_tax_monthly_flow`,
+`bootstrap_demo_tax_annual_flow` y `bootstrap_demo_control_activity` dejan de
+imprimir ids de empresa, pago, DTE, F29, cierres, movimientos, proceso anual,
+DDJJ/F22, listas DDJJ y warnings F29 crudos; reportan flags, conteos y estados
+no sensibles.
+
 Nota 2026-06-10: El seed demo de acceso RBAC reduce su salida humana.
 `seed_demo_access` mantiene la creacion reproducible de roles, scopes,
 usuarios y asignaciones, pero stdout ya no imprime usernames demo, codigos de

@@ -76,30 +76,30 @@ class Command(BaseCommand):
 
         process, ddjj, f22 = generate_annual_preparation(empresa, anio_tributario)
 
-        self.stdout.write(self.style.SUCCESS("Bootstrap demo tributario anual aplicado correctamente."))
-        self.stdout.write(
-            f"- empresa={empresa.id} | anio_tributario={anio_tributario} | fiscal_year={fiscal_year}"
-        )
-        self.stdout.write(
-            f"- cierres_preparados_en_esta_corrida={prepared_months} | cierres_aprobados_en_esta_corrida={approved_months}"
-        )
-        self.stdout.write(f"- capacidades_sii_actualizadas={updated_capabilities} | ddjj_habilitadas={list(ddjj_codes)}")
-        self.stdout.write(
-            f"- proceso={process.id} estado={process.estado} | ddjj={ddjj.id} estado={ddjj.estado_preparacion} | f22={f22.id} estado={f22.estado_preparacion}"
+        self._write_summary(
+            anio_tributario=anio_tributario,
+            fiscal_year=fiscal_year,
+            prepared_months=prepared_months,
+            approved_months=approved_months,
+            updated_capabilities=updated_capabilities,
+            ddjj_codes=ddjj_codes,
+            process=process,
+            ddjj=ddjj,
+            f22=f22,
         )
 
     def _get_company(self, company_id: int) -> Empresa:
         try:
             return Empresa.objects.get(pk=company_id)
         except Empresa.DoesNotExist as error:
-            raise CommandError(f"La empresa {company_id} no existe.") from error
+            raise CommandError("La empresa indicada no existe.") from error
 
     def _get_config(self, empresa: Empresa) -> ConfiguracionFiscalEmpresa:
         try:
             return ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
         except ConfiguracionFiscalEmpresa.DoesNotExist as error:
             raise CommandError(
-                f"La empresa {empresa.id} no tiene ConfiguracionFiscalEmpresa. Ejecuta bootstrap_demo_control_baseline primero."
+                "La empresa indicada no tiene ConfiguracionFiscalEmpresa. Ejecuta bootstrap_demo_control_baseline primero."
             ) from error
 
     def _parse_decimal(self, raw_value: str, *, field_name: str) -> Decimal:
@@ -177,3 +177,30 @@ class Command(BaseCommand):
         if obligation.estado_preparacion != "preparado":
             obligation.estado_preparacion = "preparado"
             obligation.save(update_fields=["estado_preparacion", "updated_at"])
+
+    def _write_summary(
+        self,
+        *,
+        anio_tributario: int,
+        fiscal_year: int,
+        prepared_months: int,
+        approved_months: int,
+        updated_capabilities: int,
+        ddjj_codes: tuple[str, ...],
+        process,
+        ddjj,
+        f22,
+    ) -> None:
+        self.stdout.write(self.style.SUCCESS("Bootstrap demo tributario anual aplicado correctamente."))
+        self.stdout.write(
+            f"- empresa_validada=true | anio_tributario={anio_tributario} | fiscal_year={fiscal_year}"
+        )
+        self.stdout.write(
+            f"- cierres_preparados_en_esta_corrida={prepared_months} | cierres_aprobados_en_esta_corrida={approved_months}"
+        )
+        self.stdout.write(
+            f"- capacidades_sii_actualizadas={updated_capabilities} | ddjj_habilitadas_total={len(ddjj_codes)}"
+        )
+        self.stdout.write(
+            f"- proceso_generado=true | proceso_estado={process.estado} | ddjj_generada=true | ddjj_estado={ddjj.estado_preparacion} | f22_generado=true | f22_estado={f22.estado_preparacion}"
+        )
