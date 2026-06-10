@@ -143,7 +143,7 @@ class Command(BaseCommand):
         try:
             return Decimal(raw_amount)
         except InvalidOperation as error:
-            raise CommandError(f"Monto invalido: {raw_amount}") from error
+            raise CommandError("Monto invalido. Usa un valor decimal.") from error
 
     def _prepare_or_reuse_close(self, *, empresa: Empresa, anio: int, mes: int) -> CierreMensualContable:
         close = CierreMensualContable.objects.filter(empresa=empresa, anio=anio, mes=mes).first()

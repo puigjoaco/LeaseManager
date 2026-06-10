@@ -211,13 +211,26 @@ class ComplianceDataReadinessTests(TestCase):
 
         rendered_output = output.getvalue()
         self.assertEqual(ExportacionSensible.objects.count(), 3)
+        self.assertIn('export_disponible=true', rendered_output)
         self.assertIn('scope=0 campos', rendered_output)
         self.assertIn('scope=3 campos', rendered_output)
         self.assertIn('scope=1 campos', rendered_output)
+        for export in ExportacionSensible.objects.all():
+            self.assertNotIn(f'export {export.id}', rendered_output)
         self.assertNotIn('empresa_id', rendered_output)
         self.assertNotIn('socio_id', rendered_output)
         self.assertNotIn('42', rendered_output)
         self.assertNotIn('77', rendered_output)
+
+    def test_bootstrap_demo_compliance_exports_sanitizes_missing_user(self):
+        raw_username = 'missing-user-997001'
+
+        with self.assertRaisesMessage(CommandError, 'El usuario indicado no existe.') as context:
+            call_command('bootstrap_demo_compliance_exports', created_by=raw_username, stdout=StringIO())
+
+        rendered_error = str(context.exception)
+        self.assertNotIn(raw_username, rendered_error)
+        self.assertNotIn('997001', rendered_error)
 
     def test_valid_authorized_controls_and_refs_can_pass_readiness(self):
         self._create_policies()

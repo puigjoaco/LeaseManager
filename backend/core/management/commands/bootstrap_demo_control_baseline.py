@@ -82,7 +82,7 @@ class Command(BaseCommand):
         try:
             empresa = Empresa.objects.get(pk=company_id)
         except Empresa.DoesNotExist as error:
-            raise CommandError(f"La empresa {company_id} no existe.") from error
+            raise CommandError("La empresa indicada no existe.") from error
 
         regimen = RegimenTributarioEmpresa.objects.filter(codigo_regimen=DEFAULT_REGIME_CODE).first()
         if regimen is None:

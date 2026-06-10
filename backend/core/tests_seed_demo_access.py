@@ -9,6 +9,9 @@ from django.test import TestCase
 from core.management.commands.bootstrap_demo_control_activity import (
     Command as ControlActivityCommand,
 )
+from core.management.commands.bootstrap_demo_operational_data import (
+    Command as OperationalDataCommand,
+)
 from core.management.commands.bootstrap_demo_public_showcase import (
     Command as PublicShowcaseCommand,
     OperationalMonth,
@@ -232,6 +235,64 @@ class SeedDemoAccessCommandTests(TestCase):
         self.assertNotIn('2026-04', rendered_output)
         self.assertNotIn('2026-05', rendered_output)
 
+    def test_public_showcase_input_errors_sanitize_raw_values(self):
+        command = PublicShowcaseCommand()
+        missing_id = 994001
+        raw_month = '2026-secret-994001'
+        raw_uf = '2026-05-01=secret-994001'
+
+        with self.assertRaisesMessage(CommandError, 'Una o mas empresas indicadas no existen.') as missing_company:
+            command._resolve_company_ids([self.empresa.id, missing_id])
+        self.assertNotIn(str(missing_id), str(missing_company.exception))
+        self.assertNotIn(str([self.empresa.id, missing_id]), str(missing_company.exception))
+
+        with self.assertRaisesMessage(CommandError, 'El socio indicado no existe.') as missing_socio:
+            command._resolve_socio_id(missing_id)
+        self.assertNotIn(str(missing_id), str(missing_socio.exception))
+
+        with self.assertRaisesMessage(CommandError, 'Mes invalido. Usa YYYY-MM.') as invalid_month:
+            command._parse_month(raw_month)
+        self.assertNotIn(raw_month, str(invalid_month.exception))
+
+        with self.assertRaisesMessage(CommandError, 'Mes invalido. Usa YYYY-MM.') as invalid_month_range:
+            command._parse_month('2026-13')
+        self.assertNotIn('2026-13', str(invalid_month_range.exception))
+
+        with self.assertRaisesMessage(CommandError, 'UF invalido. Usa YYYY-MM-DD=VALOR.') as invalid_uf:
+            command._build_uf_values([OperationalMonth(2026, 5)], [raw_uf])
+        self.assertNotIn(raw_uf, str(invalid_uf.exception))
+        self.assertNotIn('secret-994001', str(invalid_uf.exception))
+
+        with self.assertRaisesMessage(CommandError, 'Faltan valores UF para uno o mas meses.') as missing_uf:
+            command._build_uf_values([OperationalMonth(2026, 6)], [])
+        self.assertNotIn('2026-06-01', str(missing_uf.exception))
+
+    def test_operational_data_input_errors_sanitize_raw_values(self):
+        command = OperationalDataCommand()
+        raw_month = '2026-secret-995001'
+        raw_uf = '2026-05-01=secret-995001'
+
+        with self.assertRaisesMessage(CommandError, 'Mes invalido. Usa YYYY-MM.') as invalid_month:
+            command._parse_months([raw_month])
+        self.assertNotIn(raw_month, str(invalid_month.exception))
+
+        with self.assertRaisesMessage(CommandError, 'Mes invalido. Usa YYYY-MM.') as invalid_month_range:
+            command._parse_months(['2026-13'])
+        self.assertNotIn('2026-13', str(invalid_month_range.exception))
+
+        with self.assertRaisesMessage(CommandError, 'UF invalido. Usa YYYY-MM-DD=VALOR.') as invalid_uf_shape:
+            command._parse_uf_values(['secret-995001'])
+        self.assertNotIn('secret-995001', str(invalid_uf_shape.exception))
+
+        with self.assertRaisesMessage(CommandError, 'Fecha UF invalida. Usa YYYY-MM-DD=VALOR.') as invalid_uf_date:
+            command._parse_uf_values(['secret-995001=1'])
+        self.assertNotIn('secret-995001', str(invalid_uf_date.exception))
+
+        with self.assertRaisesMessage(CommandError, 'Valor UF invalido. Usa YYYY-MM-DD=VALOR.') as invalid_uf_value:
+            command._parse_uf_values([raw_uf])
+        self.assertNotIn(raw_uf, str(invalid_uf_value.exception))
+        self.assertNotIn('secret-995001', str(invalid_uf_value.exception))
+
     def test_public_showcase_step_output_does_not_replay_raw_stdout(self):
         output = StringIO()
         command = PublicShowcaseCommand(stdout=output)
@@ -322,6 +383,26 @@ class SeedDemoAccessCommandTests(TestCase):
         self.assertNotIn('cierre=991002', rendered_output)
         self.assertNotIn('movimiento=991003', rendered_output)
         self.assertNotIn('matched_pago_991001', rendered_output)
+
+    def test_demo_numeric_and_company_errors_sanitize_raw_values(self):
+        raw_value = 'secret-996001'
+        missing_id = 996001
+
+        with self.assertRaisesMessage(CommandError, 'Monto invalido. Usa un valor decimal.') as invalid_amount:
+            ControlActivityCommand()._parse_amount(raw_value)
+        self.assertNotIn(raw_value, str(invalid_amount.exception))
+
+        with self.assertRaisesMessage(CommandError, 'Valor invalido para ppm-rate. Usa un valor decimal.') as invalid_monthly_rate:
+            TaxMonthlyCommand()._parse_decimal(raw_value, field_name='ppm-rate')
+        self.assertNotIn(raw_value, str(invalid_monthly_rate.exception))
+
+        with self.assertRaisesMessage(CommandError, 'Valor invalido para ppm-rate. Usa un valor decimal.') as invalid_annual_rate:
+            TaxAnnualCommand()._parse_decimal(raw_value, field_name='ppm-rate')
+        self.assertNotIn(raw_value, str(invalid_annual_rate.exception))
+
+        with self.assertRaisesMessage(CommandError, 'La empresa indicada no existe.') as missing_company:
+            call_command('bootstrap_demo_control_baseline', company_id=missing_id, stdout=StringIO())
+        self.assertNotIn(str(missing_id), str(missing_company.exception))
 
     def test_tax_annual_flow_summary_sanitizes_ids_and_ddjj_codes(self):
         output = StringIO()

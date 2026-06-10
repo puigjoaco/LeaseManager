@@ -106,7 +106,7 @@ class Command(BaseCommand):
         try:
             return Decimal(raw_value)
         except InvalidOperation as error:
-            raise CommandError(f"Valor invalido para {field_name}: {raw_value}") from error
+            raise CommandError(f"Valor invalido para {field_name}. Usa un valor decimal.") from error
 
     def _ensure_config_baseline(self, *, config: ConfiguracionFiscalEmpresa, ppm_rate: Decimal, ddjj_codes: tuple[str, ...]) -> None:
         dirty = False
