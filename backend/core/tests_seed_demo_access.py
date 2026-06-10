@@ -1,8 +1,14 @@
 from io import StringIO
+from unittest.mock import patch
 
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase
 
+from core.management.commands.bootstrap_demo_public_showcase import (
+    Command as PublicShowcaseCommand,
+    OperationalMonth,
+)
 from core.models import Role, RoleScope, Scope, UserScopeAssignment
 from operacion.models import CuentaRecaudadora
 from patrimonio.models import Empresa, Propiedad, Socio
@@ -146,3 +152,86 @@ class SeedDemoAccessCommandTests(TestCase):
         self.assertNotIn(f'[{self.empresa.id}, {second_company.id}]', rendered_output)
         self.assertNotIn(self.empresa.razon_social, rendered_output)
         self.assertNotIn(second_company.razon_social, rendered_output)
+
+    def test_public_showcase_start_summary_sanitizes_scope_ids(self):
+        output = StringIO()
+        command = PublicShowcaseCommand(stdout=output)
+
+        command._write_start_summary(
+            company_ids=[self.empresa.id, 999],
+            months=[OperationalMonth(2026, 4), OperationalMonth(2026, 5)],
+            showcase_month=OperationalMonth(2026, 5),
+            annual_year=2027,
+        )
+
+        rendered_output = output.getvalue()
+        self.assertIn('empresas_total=2', rendered_output)
+        self.assertIn('meses_operativos_total=2', rendered_output)
+        self.assertIn('showcase_month_validado=true', rendered_output)
+        self.assertIn('annual_year=2027', rendered_output)
+        self.assertNotIn('empresas=', rendered_output)
+        self.assertNotIn('company_ids', rendered_output)
+        self.assertNotIn(f'[{self.empresa.id}', rendered_output)
+        self.assertNotIn('999', rendered_output)
+        self.assertNotIn('2026-04', rendered_output)
+        self.assertNotIn('2026-05', rendered_output)
+
+    def test_public_showcase_step_output_does_not_replay_raw_stdout(self):
+        output = StringIO()
+        command = PublicShowcaseCommand(stdout=output)
+
+        def write_raw_output(*args, **kwargs):
+            kwargs['stdout'].write(f'demo-revisor\ncompany_ids=[{self.empresa.id}]\n{self.empresa.razon_social}\n')
+
+        with patch('core.management.commands.bootstrap_demo_public_showcase.call_command', side_effect=write_raw_output):
+            succeeded = command._run_step('bootstrap_demo_showcase_access', [], False, company_ids=[self.empresa.id])
+
+        rendered_output = output.getvalue()
+        self.assertTrue(succeeded)
+        self.assertIn('[ok] bootstrap_demo_showcase_access', rendered_output)
+        self.assertIn('salida_lineas=3', rendered_output)
+        self.assertIn('stdout_detalle_no_impreso=true', rendered_output)
+        self.assertNotIn('demo-revisor', rendered_output)
+        self.assertNotIn('company_ids', rendered_output)
+        self.assertNotIn(str([self.empresa.id]), rendered_output)
+        self.assertNotIn(self.empresa.razon_social, rendered_output)
+
+    def test_public_showcase_warning_output_is_sanitized(self):
+        output = StringIO()
+        command = PublicShowcaseCommand(stdout=output)
+        warnings = []
+
+        def fail_with_raw_output(*args, **kwargs):
+            kwargs['stdout'].write(f'Empresa {self.empresa.razon_social}\ncompany_ids=[{self.empresa.id}]\n')
+            raise CommandError(f'Empresa inexistente: {self.empresa.id}')
+
+        with patch('core.management.commands.bootstrap_demo_public_showcase.call_command', side_effect=fail_with_raw_output):
+            succeeded = command._run_step('bootstrap_demo_showcase_access', warnings, False, company_ids=[self.empresa.id])
+
+        rendered_output = output.getvalue()
+        self.assertFalse(succeeded)
+        self.assertEqual(warnings, ['bootstrap_demo_showcase_access: fallo_controlado=true'])
+        self.assertIn('[warn] bootstrap_demo_showcase_access', rendered_output)
+        self.assertIn('detalle_no_impreso=true', rendered_output)
+        self.assertIn('salida_lineas=2', rendered_output)
+        self.assertNotIn('Empresa inexistente', rendered_output)
+        self.assertNotIn('company_ids', rendered_output)
+        self.assertNotIn(str([self.empresa.id]), rendered_output)
+        self.assertNotIn(self.empresa.razon_social, rendered_output)
+
+    def test_public_showcase_strict_error_is_sanitized(self):
+        output = StringIO()
+        command = PublicShowcaseCommand(stdout=output)
+
+        def fail_with_raw_output(*args, **kwargs):
+            kwargs['stdout'].write(f'demo-revisor\ncompany_ids=[{self.empresa.id}]\n')
+            raise CommandError(f'Empresa inexistente: {self.empresa.id}')
+
+        with patch('core.management.commands.bootstrap_demo_public_showcase.call_command', side_effect=fail_with_raw_output):
+            with self.assertRaisesMessage(CommandError, 'bootstrap_demo_showcase_access: fallo_controlado=true'):
+                command._run_step('bootstrap_demo_showcase_access', [], True, company_ids=[self.empresa.id])
+
+        rendered_output = output.getvalue()
+        self.assertNotIn('demo-revisor', rendered_output)
+        self.assertNotIn('company_ids', rendered_output)
+        self.assertNotIn(str([self.empresa.id]), rendered_output)

@@ -20,6 +20,12 @@ para el usuario demo read-only, pero ya no imprime username, rol,
 `company_ids`, codigos de scope ni nombres de empresa; solo reporta flags de
 usuario/rol validados, conteo de empresas y asignaciones creadas/reutilizadas.
 
+Nota 2026-06-10: El orquestador `bootstrap_demo_public_showcase` deja de
+reemitir payload humano crudo de sus subcomandos. El resumen inicial ya no
+lista ids de empresa ni meses operativos crudos, cada paso reporta solo nombre
+del comando, conteo de lineas capturadas y flag de detalle no impreso, y los
+warnings/errores controlados quedan sanitizados.
+
 Nota 2026-06-10: Los comandos demo de Compliance reducen su salida humana.
 `bootstrap_demo_compliance_policies` ya no imprime `evento_inicio` crudo y
 `bootstrap_demo_compliance_exports` ya no imprime `scope_resumen`; ambos
