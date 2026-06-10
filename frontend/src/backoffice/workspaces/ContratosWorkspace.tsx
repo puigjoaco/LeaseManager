@@ -10,7 +10,7 @@ type PropiedadItem = { id: number; codigo_propiedad: string; servicios?: Servici
 type MandatoItem = { id: number; propiedad_id: number; propiedad_codigo: string; propietario_tipo: string; propietario_id: number; propietario_display: string; administrador_operativo_tipo: string; administrador_operativo_id: number; entidad_facturadora_id: number | null; autoriza_comunicacion: boolean }
 type IdentidadItem = { id: number; canal: string; remitente_visible: string; direccion_o_numero: string; owner_tipo: string; owner_id: number; owner_display: string; estado: string }
 type PoliticaFirmaItem = { id: number; tipo_documental: string; estado: string }
-type ContratoItem = { id: number; codigo_contrato: string; mandato_operacion: number; arrendatario: number; identidad_envio_override: number | null; identidad_envio_override_display: string | null; politica_documental: number | null; politica_documental_tipo: string | null; politica_documental_estado: string | null; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string | null; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; fecha_registro_operativo: string | null; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; requiere_notificacion_manual_retroactiva: boolean; alerta_notificacion_manual_retroactiva: string; dia_pago_mensual: number; plazo_notificacion_termino_dias: number; dias_prealerta_admin: number; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; snapshot_representante_legal: { nombre?: string; rut?: string }; contrato_propiedades_detail: Array<{ propiedad: number; propiedad_codigo: string; propiedad_direccion: string; rol_en_contrato: string }>; periodos_contractuales_detail: Array<{ numero_periodo: number; fecha_inicio: string; fecha_fin: string; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string; politica_base_renovacion_ref: string; politica_base_renovacion_motivo: string }>; codeudores_solidarios_detail: Array<{ id: number; snapshot_identidad: { nombre?: string; rut?: string }; fecha_inclusion: string; estado: string }> }
+type ContratoItem = { id: number; codigo_contrato: string; mandato_operacion: number; arrendatario: number; identidad_envio_override: number | null; identidad_envio_override_display: string | null; politica_documental: number | null; politica_documental_tipo: string | null; politica_documental_estado: string | null; fecha_inicio: string; fecha_fin_vigente: string; fecha_entrega: string | null; entrega_llaves_autorizacion_ref: string; entrega_llaves_autorizacion_motivo: string; fecha_registro_operativo: string | null; terminacion_anticipada_prorrata_ref: string; terminacion_anticipada_prorrata_motivo: string; requiere_notificacion_manual_retroactiva: boolean; alerta_notificacion_manual_retroactiva: string; dia_pago_mensual: number; plazo_notificacion_termino_dias: number; dias_prealerta_admin: number; estado: string; tiene_tramos: boolean; tiene_gastos_comunes: boolean; snapshot_representante_legal: { nombre?: string; rut?: string }; contrato_propiedades_detail?: Array<{ propiedad: number; propiedad_codigo: string; propiedad_direccion: string; rol_en_contrato: string }>; periodos_contractuales_detail?: Array<{ numero_periodo: number; fecha_inicio: string; fecha_fin: string; monto_base: string; moneda_base: string; tipo_periodo: string; origen_periodo: string; politica_base_renovacion_ref: string; politica_base_renovacion_motivo: string }>; codeudores_solidarios_detail?: Array<{ id: number; snapshot_identidad: { nombre?: string; rut?: string }; fecha_inclusion: string; estado: string }> }
 type AvisoItem = { id: number; contrato: number; fecha_efectiva: string; causal: string; estado: string; resolucion_conflicto_renovacion_ref: string; resolucion_conflicto_renovacion_motivo: string; registrado_at: string | null; fecha_limite_registro_oportuno: string | null; registrado_fuera_plazo: boolean; alerta_registro_fuera_plazo: string }
 
 type ArrendatarioDraft = { tipo_arrendatario: string; nombre_razon_social: string; rut: string; email: string; telefono: string; domicilio_notificaciones: string; estado_contacto: string; nacionalidad: string; estado_civil: string; profesion: string; whatsapp_opt_in: boolean; whatsapp_opt_in_evidencia_ref: string; whatsapp_bloqueado: boolean; whatsapp_bloqueo_motivo: string; whatsapp_bloqueo_evidencia_ref: string; whatsapp_rehabilitacion_ref: string }
@@ -126,7 +126,10 @@ export function ContratosWorkspace({
   const requiresCompanyRepresentative = Boolean(isCompanyContractTenant && (contratoDraft.estado === 'vigente' || contratoDraft.estado === 'futuro'))
   const paymentContacts = arrendatarios.flatMap((tenant) => (tenant.contactos_pago ?? []).map((contact) => ({ ...contact, arrendatario: contact.arrendatario ?? tenant.id, arrendatario_display: contact.arrendatario_display || tenant.nombre_razon_social })))
   const activePaymentContacts = (tenant: ArrendatarioItem) => (tenant.contactos_pago ?? []).filter((contact) => contact.estado === 'activo')
-  const codebtors = contratos.flatMap((contract) => contract.codeudores_solidarios_detail.map((codebtor) => ({
+  const contractPropertyDetails = (contract: ContratoItem) => contract.contrato_propiedades_detail ?? []
+  const contractPeriodDetails = (contract: ContratoItem) => contract.periodos_contractuales_detail ?? []
+  const contractCodebtorDetails = (contract: ContratoItem) => contract.codeudores_solidarios_detail ?? []
+  const codebtors = contratos.flatMap((contract) => contractCodebtorDetails(contract).map((codebtor) => ({
     ...codebtor,
     contrato: contract.id,
     contrato_codigo: contract.codigo_contrato,
@@ -187,8 +190,9 @@ export function ContratosWorkspace({
   }
 
   function primaryPropertyForContract(row: ContratoItem) {
-    const primaryPropertyId = row.contrato_propiedades_detail.find((item) => item.rol_en_contrato === 'principal')?.propiedad
-      ?? row.contrato_propiedades_detail[0]?.propiedad
+    const contractProperties = contractPropertyDetails(row)
+    const primaryPropertyId = contractProperties.find((item) => item.rol_en_contrato === 'principal')?.propiedad
+      ?? contractProperties[0]?.propiedad
     return primaryPropertyId ? propiedadById.get(primaryPropertyId) : undefined
   }
 
@@ -217,11 +221,12 @@ export function ContratosWorkspace({
   }
 
   function codebtorBadge(row: ContratoItem) {
-    const activeCount = row.codeudores_solidarios_detail.filter((item) => item.estado === 'activo').length
+    const codebtorDetails = contractCodebtorDetails(row)
+    const activeCount = codebtorDetails.filter((item) => item.estado === 'activo').length
     if (activeCount > 0) {
       return <Badge label={`${activeCount} activo${activeCount === 1 ? '' : 's'}`} tone="positive" />
     }
-    if (row.codeudores_solidarios_detail.length > 0) {
+    if (codebtorDetails.length > 0) {
       return <Badge label="histórico" tone="neutral" />
     }
     return <Badge label="sin codeudor" tone="neutral" />
@@ -447,13 +452,16 @@ export function ContratosWorkspace({
         { label: 'Identidad', render: (row) => identityOverrideBadge(row) },
         { label: 'Política', render: (row) => row.politica_documental_tipo === 'contrato_principal' && row.politica_documental_estado === 'activa' ? <Badge label="contrato" tone="positive" /> : <Badge label="pendiente" tone="warning" /> },
         { label: 'Rep. legal', render: (row) => representativeSnapshotBadge(row) },
-        { label: 'Propiedad', render: (row) => row.contrato_propiedades_detail[0] ? `${row.contrato_propiedades_detail[0].propiedad_codigo} · ${row.contrato_propiedades_detail[0].propiedad_direccion}` : 'Sin propiedad' },
+        { label: 'Propiedad', render: (row) => {
+          const primaryProperty = contractPropertyDetails(row)[0]
+          return primaryProperty ? `${primaryProperty.propiedad_codigo} · ${primaryProperty.propiedad_direccion}` : 'Sin propiedad'
+        } },
         { label: 'G. comunes', render: (row) => commonExpenseBadge(row) },
         { label: 'Periodo', render: (row) => `${row.fecha_inicio} → ${row.fecha_fin_vigente}` },
         { label: 'Registro op.', render: (row) => row.fecha_registro_operativo || 'auto' },
         { label: 'Retroactivo', render: (row) => row.requiere_notificacion_manual_retroactiva ? <div className="inline-actions"><Badge label="aviso manual" tone="warning" />{row.alerta_notificacion_manual_retroactiva ? <span>{row.alerta_notificacion_manual_retroactiva}</span> : null}</div> : <Badge label="sin alerta" tone="neutral" /> },
         { label: 'Entrega', render: (row) => row.fecha_entrega ? row.entrega_llaves_autorizacion_ref ? <Badge label="autorizada" tone="positive" /> : <Badge label="registrada" tone="neutral" /> : <Badge label="pendiente" tone="neutral" /> },
-        { label: 'Renovación', render: (row) => row.periodos_contractuales_detail.some((periodo) => periodo.politica_base_renovacion_ref) ? <Badge label="política base" tone="positive" /> : <Badge label="base tramo" tone="neutral" /> },
+        { label: 'Renovación', render: (row) => contractPeriodDetails(row).some((periodo) => periodo.politica_base_renovacion_ref) ? <Badge label="política base" tone="positive" /> : <Badge label="base tramo" tone="neutral" /> },
         { label: 'Prorrata', render: (row) => row.terminacion_anticipada_prorrata_ref ? <Badge label="trazada" tone="positive" /> : row.estado === 'terminado_anticipadamente' ? <Badge label="sin traza" tone="warning" /> : <Badge label="no aplica" tone="neutral" /> },
         { label: 'Codeudores', render: (row) => codebtorBadge(row) },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
