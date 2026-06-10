@@ -332,13 +332,20 @@
 }
 
 .entity-form input,
-.entity-form select {
+.entity-form select,
+.entity-form textarea {
   width: 100%;
   border: 1px solid #cbd3cb;
   border-radius: 6px;
   background: #fbfbf8;
   color: #162018;
   padding: 11px 12px;
+}
+
+.entity-form textarea {
+  min-height: 96px;
+  resize: vertical;
+  font: inherit;
 }
 
 .checkbox-row {

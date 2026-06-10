@@ -113,6 +113,21 @@ type DocumentoFormalizarDraft = {
   comprobante_notarial: string
 }
 
+type DocumentoGeneratedPdfDraft = {
+  expediente: string
+  tipo_documental: string
+  version_plantilla: string
+  titulo: string
+  lineas_text: string
+}
+
+type DocumentoGeneratedPdfPreview = {
+  pdf_sha256: string
+  pdf_size_bytes: number
+  storage_ref_preview: string
+  preview_ref: string
+}
+
 function isPdfStorageRef(value: string) {
   return value.trim().toLowerCase().split('?', 1)[0].split('#', 1)[0].endsWith('.pdf')
 }
@@ -140,6 +155,12 @@ export function DocumentosWorkspace({
   documentoFormalizarDraft,
   setDocumentoFormalizarDraft,
   handleFormalizeDocumento,
+  generatedPdfDraft,
+  setGeneratedPdfDraft,
+  generatedPdfPreview,
+  clearGeneratedPdfPreview,
+  handlePreviewGeneratedPdf,
+  handleGenerateGeneratedPdf,
   expedientes,
   plantillasDocumentales,
   documentosEmitidos,
@@ -170,6 +191,12 @@ export function DocumentosWorkspace({
   documentoFormalizarDraft: DocumentoFormalizarDraft
   setDocumentoFormalizarDraft: Dispatch<SetStateAction<DocumentoFormalizarDraft>>
   handleFormalizeDocumento: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  generatedPdfDraft: DocumentoGeneratedPdfDraft
+  setGeneratedPdfDraft: Dispatch<SetStateAction<DocumentoGeneratedPdfDraft>>
+  generatedPdfPreview: DocumentoGeneratedPdfPreview | null
+  clearGeneratedPdfPreview: () => void
+  handlePreviewGeneratedPdf: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  handleGenerateGeneratedPdf: () => Promise<void>
   expedientes: ExpedienteDocumental[]
   plantillasDocumentales: PlantillaDocumental[]
   documentosEmitidos: DocumentoEmitidoItem[]
@@ -186,6 +213,12 @@ export function DocumentosWorkspace({
   const activeTemplateOptions = plantillasDocumentales.filter((item) =>
     item.estado === 'activa' && item.tipo_documental === documentoDraft.tipo_documental,
   )
+  const generatedTemplateOptions = plantillasDocumentales.filter((item) =>
+    item.estado === 'activa' && item.tipo_documental === generatedPdfDraft.tipo_documental,
+  )
+  const selectedGeneratedTemplate = generatedTemplateOptions.some(
+    (item) => item.version_plantilla === generatedPdfDraft.version_plantilla,
+  )
   const notaryReceiptOptions = documentosEmitidos.filter((item) =>
     item.tipo_documental === 'comprobante_notarial'
     && ['emitido', 'formalizado', 'archivado'].includes(item.estado)
@@ -197,6 +230,17 @@ export function DocumentosWorkspace({
     && item.tipo_documental === documentoDraft.tipo_documental,
   )
   const correctionRequiresRef = Boolean(documentoDraft.documento_origen) && !documentoDraft.correccion_ref.trim()
+  const generatedPdfReady = Boolean(
+    generatedPdfDraft.expediente
+    && selectedGeneratedTemplate
+    && generatedPdfDraft.titulo.trim()
+    && generatedPdfDraft.lineas_text.trim(),
+  )
+
+  function updateGeneratedPdfDraft(patch: Partial<DocumentoGeneratedPdfDraft>) {
+    clearGeneratedPdfPreview()
+    setGeneratedPdfDraft((current) => ({ ...current, ...patch }))
+  }
 
   return (
     <>
@@ -326,6 +370,47 @@ export function DocumentosWorkspace({
               </select>
               <input placeholder="Ref corrección" value={documentoDraft.correccion_ref} onChange={(event) => setDocumentoDraft((current) => ({ ...current, correccion_ref: event.target.value }))} />
               <button type="submit" className="button-primary" disabled={isSubmitting || !documentoDraft.expediente || !isDocumentChecksum(documentoDraft.checksum) || !isPdfStorageRef(documentoDraft.storage_ref) || correctionRequiresRef}>Guardar documento</button>
+            </form>
+          </section>
+
+          <section className="panel">
+            <div className="section-heading"><div><h2>PDF generado</h2><p>Emisión local con preview auditada.</p></div></div>
+            <form className="entity-form" onSubmit={handlePreviewGeneratedPdf}>
+              <select value={generatedPdfDraft.expediente} onChange={(event) => updateGeneratedPdfDraft({ expediente: event.target.value })}>
+                <option value="">Selecciona expediente</option>
+                {expedientes.map((item) => (
+                  <option key={item.id} value={item.id}>{item.entidad_tipo} · {item.entidad_id}</option>
+                ))}
+              </select>
+              <select value={generatedPdfDraft.tipo_documental} onChange={(event) => updateGeneratedPdfDraft({ tipo_documental: event.target.value, version_plantilla: '' })}>
+                <option value="contrato_principal">Contrato principal</option>
+                <option value="anexo">Anexo</option>
+                <option value="carta_aviso">Carta de aviso</option>
+                <option value="liquidacion_garantia">Liquidación de garantía</option>
+                <option value="respaldo_tributario">Respaldo tributario</option>
+                <option value="comprobante_notarial">Comprobante notarial</option>
+                <option value="evidencia_resolucion_manual">Evidencia de resolución manual</option>
+              </select>
+              <select value={generatedPdfDraft.version_plantilla} onChange={(event) => updateGeneratedPdfDraft({ version_plantilla: event.target.value })}>
+                <option value="">Selecciona plantilla activa</option>
+                {generatedTemplateOptions.length === 0 ? <option value="" disabled>Sin plantilla activa</option> : null}
+                {generatedTemplateOptions.map((item) => (
+                  <option key={item.id} value={item.version_plantilla}>{item.version_plantilla}</option>
+                ))}
+              </select>
+              <input placeholder="Título PDF" value={generatedPdfDraft.titulo} onChange={(event) => updateGeneratedPdfDraft({ titulo: event.target.value })} />
+              <textarea rows={4} placeholder="Líneas de contenido operativo" value={generatedPdfDraft.lineas_text} onChange={(event) => updateGeneratedPdfDraft({ lineas_text: event.target.value })} />
+              {generatedPdfPreview ? (
+                <div className="inline-actions">
+                  <Badge label="preview auditada" tone="positive" />
+                  <span>{generatedPdfPreview.pdf_sha256.slice(0, 12)} · {generatedPdfPreview.pdf_size_bytes} bytes</span>
+                  <span>{generatedPdfPreview.storage_ref_preview}</span>
+                </div>
+              ) : null}
+              <div className="inline-actions">
+                <button type="submit" className="button-primary" disabled={isSubmitting || !generatedPdfReady}>Previsualizar PDF</button>
+                <button type="button" className="button-ghost inline-action" onClick={() => void handleGenerateGeneratedPdf()} disabled={isSubmitting || !generatedPdfReady || !generatedPdfPreview}>Emitir PDF</button>
+              </div>
             </form>
           </section>
 
