@@ -46,7 +46,7 @@ class Command(BaseCommand):
         try:
             created_by = user_model.objects.get(username=username)
         except user_model.DoesNotExist as error:
-            raise CommandError(f"El usuario {username} no existe.") from error
+            raise CommandError("El usuario indicado no existe.") from error
 
         plans = [
             ExportPlan(
@@ -84,7 +84,7 @@ class Command(BaseCommand):
             if existing is not None:
                 skipped += 1
                 self.stdout.write(
-                    f"- skip {plan.export_kind} scope={_scope_summary(plan.scope_resumen)} -> export {existing.id} ya preparada"
+                    f"- skip {plan.export_kind} scope={_scope_summary(plan.scope_resumen)} -> export_disponible=true"
                 )
                 continue
 
@@ -101,7 +101,7 @@ class Command(BaseCommand):
             created += 1
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"- created export {export.id} {plan.export_kind} scope={_scope_summary(plan.scope_resumen)}"
+                    f"- created export_disponible=true {plan.export_kind} scope={_scope_summary(plan.scope_resumen)}"
                 )
             )
 

@@ -225,7 +225,7 @@ class Command(BaseCommand):
             found = list(Empresa.objects.filter(pk__in=explicit_company_ids).values_list("id", flat=True))
             missing = sorted(set(explicit_company_ids) - set(found))
             if missing:
-                raise CommandError(f"Empresas inexistentes: {missing}")
+                raise CommandError("Una o mas empresas indicadas no existen.")
             return sorted(found)
 
         active = list(Empresa.objects.filter(estado="activa").order_by("id").values_list("id", flat=True))
@@ -239,7 +239,7 @@ class Command(BaseCommand):
     def _resolve_socio_id(self, explicit_socio_id: int | None) -> int:
         if explicit_socio_id is not None:
             if not Socio.objects.filter(pk=explicit_socio_id).exists():
-                raise CommandError(f"El socio {explicit_socio_id} no existe.")
+                raise CommandError("El socio indicado no existe.")
             return explicit_socio_id
 
         socio = Socio.objects.filter(activo=True).order_by("id").first() or Socio.objects.order_by("id").first()
@@ -253,9 +253,9 @@ class Command(BaseCommand):
             year = int(year_text)
             month = int(month_text)
         except ValueError as error:
-            raise CommandError(f"Mes invalido: {raw_value}. Usa YYYY-MM.") from error
+            raise CommandError("Mes invalido. Usa YYYY-MM.") from error
         if month < 1 or month > 12:
-            raise CommandError(f"Mes invalido: {raw_value}.")
+            raise CommandError("Mes invalido. Usa YYYY-MM.")
         return OperationalMonth(year=year, month=month)
 
     def _parse_months(self, raw_values: list[str]) -> list[OperationalMonth]:
@@ -273,13 +273,13 @@ class Command(BaseCommand):
                 uf_date = date.fromisoformat(uf_date_text)
                 uf_amount = Decimal(uf_amount_text)
             except (ValueError, InvalidOperation) as error:
-                raise CommandError(f"UF invalido: {raw_value}. Usa YYYY-MM-DD=VALOR.") from error
+                raise CommandError("UF invalido. Usa YYYY-MM-DD=VALOR.") from error
             values[uf_date] = uf_amount
 
         missing = [month.first_day.isoformat() for month in months if month.first_day not in values]
         if missing:
             raise CommandError(
-                f"Faltan valores UF para {missing}. Pásalos con --uf YYYY-MM-DD=VALOR o agrega defaults explícitos."
+                "Faltan valores UF para uno o mas meses. Pasalos con --uf YYYY-MM-DD=VALOR o agrega defaults explicitos."
             )
         return values
 

@@ -127,14 +127,14 @@ class Command(BaseCommand):
         try:
             return Decimal(raw_value)
         except InvalidOperation as error:
-            raise CommandError(f"Valor invalido para {field_name}: {raw_value}") from error
+            raise CommandError(f"Valor invalido para {field_name}. Usa un valor decimal.") from error
 
     def _ensure_ppm_rate(self, empresa: Empresa, ppm_rate: Decimal) -> None:
         try:
             config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
         except ConfiguracionFiscalEmpresa.DoesNotExist as error:
             raise CommandError(
-                f"La empresa {empresa.id} no tiene ConfiguracionFiscalEmpresa. Ejecuta bootstrap_demo_control_baseline primero."
+                "La empresa indicada no tiene ConfiguracionFiscalEmpresa. Ejecuta bootstrap_demo_control_baseline primero."
             ) from error
 
         if config.tasa_ppm_vigente == ppm_rate:

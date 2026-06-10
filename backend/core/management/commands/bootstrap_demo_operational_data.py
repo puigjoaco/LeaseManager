@@ -128,7 +128,7 @@ class Command(BaseCommand):
                     actor_identifier='bootstrap_demo_operational_data',
                 )
             except (ValidationError, ValueError) as error:
-                raise CommandError(f"Valor UF invalido para {uf_date}: {error}") from error
+                raise CommandError("Valor UF invalido para una fecha indicada.") from error
             if created:
                 uf_created += 1
             else:
@@ -214,9 +214,9 @@ class Command(BaseCommand):
                 year = int(year_text)
                 month = int(month_text)
             except ValueError as error:
-                raise CommandError(f"Mes invalido: {raw_value}. Usa YYYY-MM.") from error
+                raise CommandError("Mes invalido. Usa YYYY-MM.") from error
             if month < 1 or month > 12:
-                raise CommandError(f"Mes invalido: {raw_value}.")
+                raise CommandError("Mes invalido. Usa YYYY-MM.")
             months.append(OperationalMonth(year=year, month=month))
         return months
 
@@ -226,15 +226,15 @@ class Command(BaseCommand):
             try:
                 uf_date_text, uf_amount_text = raw_value.split("=", 1)
             except ValueError as error:
-                raise CommandError(f"UF invalido: {raw_value}. Usa YYYY-MM-DD=VALOR.") from error
+                raise CommandError("UF invalido. Usa YYYY-MM-DD=VALOR.") from error
             try:
                 uf_date = date.fromisoformat(uf_date_text)
             except ValueError as error:
-                raise CommandError(f"Fecha UF invalida: {raw_value}. Usa YYYY-MM-DD=VALOR.") from error
+                raise CommandError("Fecha UF invalida. Usa YYYY-MM-DD=VALOR.") from error
             try:
                 uf_amount = Decimal(uf_amount_text)
             except InvalidOperation as error:
-                raise CommandError(f"Valor UF invalido: {raw_value}.") from error
+                raise CommandError("Valor UF invalido. Usa YYYY-MM-DD=VALOR.") from error
             values[uf_date] = uf_amount
         return values
 
