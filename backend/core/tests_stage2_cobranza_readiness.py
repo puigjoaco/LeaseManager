@@ -4,6 +4,7 @@ from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
@@ -659,6 +660,40 @@ class Stage2CobranzaReadinessTests(TestCase):
             )
 
         self.assertIn('La carga UF requiere --source-key', str(error.exception))
+
+    def test_bootstrap_demo_operational_data_sanitizes_controlled_payment_errors(self):
+        fixture = self._create_payment_matrix()
+        output = StringIO()
+        raw_error = (
+            f"fallo crudo contrato {fixture['contract'].id} "
+            f"{fixture['contract'].codigo_contrato} company-raw-ref"
+        )
+
+        with patch(
+            'core.management.commands.bootstrap_demo_operational_data.calculate_monthly_amount',
+            side_effect=ValueError(raw_error),
+        ):
+            call_command(
+                'bootstrap_demo_operational_data',
+                months=['2026-02'],
+                skip_account_state_rebuild=True,
+                stdout=output,
+            )
+
+        rendered_output = output.getvalue()
+        self.assertIn('Bootstrap operacional demo completado.', rendered_output)
+        self.assertIn('errores_controlados=1', rendered_output)
+        self.assertIn('detalle_no_impreso=true', rendered_output)
+        self.assertNotIn(raw_error, rendered_output)
+        self.assertNotIn(fixture['contract'].codigo_contrato, rendered_output)
+        self.assertNotIn(f"contrato {fixture['contract'].id}", rendered_output)
+        self.assertFalse(
+            PagoMensual.objects.filter(
+                contrato=fixture['contract'],
+                anio=2026,
+                mes=2,
+            ).exists()
+        )
 
     def test_missing_notification_config_for_enabled_channel_is_blocking(self):
         self._create_payment_matrix()
