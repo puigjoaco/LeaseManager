@@ -14,6 +14,12 @@ scope, nombres de socio, ids ni referencias operativas crudas; solo reporta
 indice demo, rol, tipo de scope, presencia booleana de referencia y password
 no impreso.
 
+Nota 2026-06-10: El bootstrap demo de showcase RBAC tambien reduce su stdout.
+`bootstrap_demo_showcase_access` conserva la ampliacion de scopes de empresa
+para el usuario demo read-only, pero ya no imprime username, rol,
+`company_ids`, codigos de scope ni nombres de empresa; solo reporta flags de
+usuario/rol validados, conteo de empresas y asignaciones creadas/reutilizadas.
+
 Nota 2026-06-10: Los comandos demo de Compliance reducen su salida humana.
 `bootstrap_demo_compliance_policies` ya no imprime `evento_inicio` crudo y
 `bootstrap_demo_compliance_exports` ya no imprime `scope_resumen`; ambos

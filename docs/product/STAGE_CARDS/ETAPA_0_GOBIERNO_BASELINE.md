@@ -114,6 +114,11 @@ evidencia respalda el root limpio.
   creacion de usuarios, roles, scopes y asignaciones, pero reporta solo indice
   demo, rol, tipo de scope, presencia booleana de referencia y password no
   impreso.
+- El bootstrap demo de showcase RBAC no repite username, rol, `company_ids`,
+  codigos de scope ni nombres de empresa en stdout: conserva la ampliacion de
+  scopes de empresa para el usuario demo read-only, pero reporta solo flags de
+  usuario/rol validados, conteo de empresas y conteos de asignaciones
+  creadas/reutilizadas.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.

@@ -108,7 +108,9 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Scope de showcase aplicado correctamente."))
         self.stdout.write(
-            f"- user={user.username} | role={role.code} | company_ids={company_ids} | created={created} | reused={reused}"
+            "- usuario_demo_validado=true | rol_validado=true | "
+            f"empresas_scope_total={len(company_ids)} | "
+            f"asignaciones_creadas={created} | asignaciones_reutilizadas={reused}"
         )
 
     def _resolve_company_ids(self, explicit_company_ids: list[int]) -> list[int]:
