@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Etapa 7 incorpora comando seguro para registrar el control
+administrativo de seguridad. `record_admin_security_control` crea o actualiza
+`security.admin_mfa_control`, ejecuta la validacion de dominio y escribe stdout
+redactado con flags booleanos de modo, vigencia y refs, sin imprimir evidencia,
+autorizacion, responsable ni payload crudo.
+
 Nota 2026-06-10: El control `security.admin_mfa_control` queda validado en
 dominio por `PlatformSetting.clean()`. La misma regla que consume
 `audit_operational_observability` rechaza configuraciones de seguridad
