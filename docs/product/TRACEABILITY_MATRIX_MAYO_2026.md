@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-10: Etapa 3 endurece supersesiones de resoluciones manuales. El
+servicio `supersede_manual_resolutions_for_movement()` valida que el motivo sea
+auditable y no sensible antes de mutar estado, metadata o auditoria; una
+regresion focal confirma que un motivo con URL/token deja la resolucion abierta
+y no emite evento de supersesion.
+
 Nota 2026-06-10: Los scripts externos de Vercel/Railway quedan en modo
 plan por defecto. `connect-frontend-to-backend.ps1` ya no lee `deploy.bat`,
 `.env`, rutas legacy ni `Produccion 1.0`, y solo modifica Vercel con `-Apply`

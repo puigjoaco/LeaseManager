@@ -100,6 +100,7 @@ def supersede_manual_resolutions_for_movement(
 
     from audit.services import create_audit_event
 
+    clean_rationale = require_manual_resolution_rationale(rationale)
     resolved_at = timezone.now()
     target_metadata = target_metadata or {}
     for resolution in resolutions:
@@ -114,7 +115,7 @@ def supersede_manual_resolutions_for_movement(
         resolution.status = ManualResolution.Status.SUPERSEDED
         resolution.resolved_at = resolved_at
         resolution.resolved_by = actor_user
-        resolution.rationale = str(rationale or '').strip()
+        resolution.rationale = clean_rationale
         resolution.metadata = {
             **(resolution.metadata or {}),
             **supersede_context,

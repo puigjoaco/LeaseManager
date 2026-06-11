@@ -109,10 +109,12 @@ sistema igual a saldo banco.
   contables alineados, con criterio o motivo sensible, o refs sensibles.
 - Resoluciones manuales abiertas que quedan obsoletas por match exacto o por
   otra resolucion manual no se marcan como resueltas manualmente: se cierran
-  como `superseded` con motivo, metadata de origen/target y evento de
-  auditoria alineado dentro de la misma transaccion; si falla la escritura del
-  evento no queda la resolucion marcada como supersedida. La readiness bloquea
-  supersesiones sin metadata, motivo o evento suficiente.
+  como `superseded` con motivo auditable no sensible, metadata de
+  origen/target y evento de auditoria alineado dentro de la misma transaccion.
+  El servicio central valida el motivo antes de cualquier mutacion; si el
+  motivo es sensible o falla la escritura del evento no queda la resolucion
+  marcada como supersedida. La readiness bloquea supersesiones sin metadata,
+  motivo o evento suficiente.
 - Las categorias especializadas de resolucion manual de Conciliacion no pueden
   crearse, convertirse, retargetearse ni cerrarse desde el endpoint generico de
   `ManualResolution`; deben nacer y mutar desde los servicios auditados de
