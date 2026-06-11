@@ -23,7 +23,7 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Ninguno. |
-| Fuente exacta | `main` vigente verificado tras merge de PR #734; en futuras reanudaciones confirmar siempre con `git status --short --branch`, `git worktree list` y `git log -1 --oneline`. |
+| Fuente exacta | `main` vigente. En cada reanudacion confirmar siempre con `git status --short --branch`, `git worktree list` y `git log -1 --oneline`; no usar un SHA, PR o summary historico de este archivo como sustituto del estado real. |
 | Brecha activa | Sin paquete tactico de producto abierto. Worktree rescue `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` pausado: contiene PDFs tributarios sin versionar y no debe leerse, usarse, limpiarse ni tratarse como autorizacion o fuente activa sin instruccion explicita del usuario. |
 | Motivo de prioridad | El paquete de scripts externos seguros quedo integrado en PR #733. La siguiente prioridad se elige por orden de construccion, trazabilidad, stage cards, evidencia y bloqueos vigentes. |
 | Worktree | Root principal esperado: `D:/Proyectos/LeaseManager`. Rescue pausado permitido: `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` solo para decision posterior de limpieza, no para trabajo activo. |
