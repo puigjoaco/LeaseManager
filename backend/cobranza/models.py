@@ -200,6 +200,9 @@ class ValorUFDiario(TimestampedModel):
         evidencia_ref = str(self.evidencia_ref or '').strip()
         motivo_carga = str(self.motivo_carga or '').strip()
         responsable_ref = str(self.responsable_ref or '').strip()
+        self.evidencia_ref = evidencia_ref
+        self.motivo_carga = motivo_carga
+        self.responsable_ref = responsable_ref
 
         if not source_key:
             errors['source_key'] = 'La fuente UF es obligatoria.'

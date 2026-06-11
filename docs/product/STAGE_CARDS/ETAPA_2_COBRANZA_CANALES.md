@@ -79,7 +79,8 @@ condicionados sin envios reales accidentales.
   silenciosos.
 - Valores UF manuales solo son aceptables como excepcion auditada: cada
   `ValorUFDiario` con fuente manual debe conservar `evidencia_ref`,
-  `motivo_carga`, `responsable_ref` no sensibles y evento auditable
+  `motivo_carga`, `responsable_ref` no sensibles, normalizados antes de
+  persistir, y evento auditable
   `cobranza.valor_uf.manual_loaded` con actor. El servicio de guardado de UF
   crea esa auditoria en la misma transaccion que persiste la carga manual para
   cubrir API y llamadas internas controladas; la readiness bloquea snapshots

@@ -1369,8 +1369,10 @@ Nota 2026-05-26: Cobranza mueve la auditoria de cargas UF manuales a la capa
 de servicio. `save_uf_value()` exige actor trazable para fuentes manuales,
 guarda el `ValorUFDiario` y crea el `AuditEvent`
 `cobranza.valor_uf.manual_loaded` con evidencia, motivo y responsable
-alineados en la misma transaccion; API y bootstrap delegan esa responsabilidad
-y readiness exige que el motivo del evento coincida con el valor UF.
+alineados en la misma transaccion; los campos de procedencia manual se
+normalizan antes de persistir para que API, servicio, auditoria y readiness
+comparen una traza canonica. API y bootstrap delegan esa responsabilidad y
+readiness exige que el motivo del evento coincida con el valor UF.
 
 Nota 2026-05-26: Cobranza mueve la auditoria de repactaciones parciales a la
 capa de servicio. `save_repayment_plan()` exige actor trazable cuando el plan

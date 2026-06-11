@@ -24,7 +24,7 @@ nueva.
 | --- | --- |
 | Frente activo | Sin frente activo. |
 | Fuente exacta | Confirmar siempre con `git status --short --branch`, `git worktree list` y `git log -1 --oneline` antes de abrir el siguiente paquete; el worktree rescue sigue pausado y fuera de alcance. |
-| Brecha activa | Ninguna. Ultimo paquete preparado: Etapa 1 / Contratos-Cobranza valida justificacion obligatoria no vacia en `AjusteContrato` despues de normalizar espacios. |
+| Brecha activa | Ninguna. Ultimo paquete preparado: Etapa 2 / CobranzaActiva normaliza `evidencia_ref`, `motivo_carga` y `responsable_ref` de `ValorUFDiario` manual antes de persistir y auditar. |
 | Motivo de prioridad | N/A hasta seleccionar el siguiente frente desde el estado real del repo, trazabilidad y stage cards. |
 | Worktree | Ninguno de producto activo. |
 | Rama | Ninguna de producto activa. |

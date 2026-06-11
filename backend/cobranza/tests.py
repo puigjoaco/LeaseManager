@@ -663,22 +663,30 @@ class CobranzaAPITests(APITestCase):
                 'fecha': '2026-01-01',
                 'valor': '35000.0000',
                 'source_key': 'UF.CargaManualExtraordinaria',
-                'evidencia_ref': 'uf-manual-evidence-2026-01-01',
-                'motivo_carga': 'Falla total de fuentes automaticas registrada para demo controlada.',
-                'responsable_ref': 'ops-uf-responsible-001',
+                'evidencia_ref': '  uf-manual-evidence-2026-01-01  ',
+                'motivo_carga': '  Falla total de fuentes automaticas registrada para demo controlada.  ',
+                'responsable_ref': '  ops-uf-responsible-001  ',
             },
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['evidencia_ref'], 'uf-manual-evidence-2026-01-01')
+        self.assertEqual(response.data['motivo_carga'], 'Falla total de fuentes automaticas registrada para demo controlada.')
+        self.assertEqual(response.data['responsable_ref'], 'ops-uf-responsible-001')
+        uf_value = ValorUFDiario.objects.get(pk=response.data['id'])
+        self.assertEqual(uf_value.evidencia_ref, 'uf-manual-evidence-2026-01-01')
+        self.assertEqual(uf_value.motivo_carga, 'Falla total de fuentes automaticas registrada para demo controlada.')
+        self.assertEqual(uf_value.responsable_ref, 'ops-uf-responsible-001')
         self.assertTrue(
             AuditEvent.objects.filter(
                 event_type=MANUAL_UF_LOAD_EVENT_TYPE,
                 entity_type='valor_uf_diario',
                 entity_id=str(response.data['id']),
                 actor_user=self.user,
+                metadata__evidencia_ref='uf-manual-evidence-2026-01-01',
                 metadata__motivo_carga='Falla total de fuentes automaticas registrada para demo controlada.',
+                metadata__responsable_ref='ops-uf-responsible-001',
             ).exists()
         )
 
@@ -688,15 +696,18 @@ class CobranzaAPITests(APITestCase):
                 'fecha': date(2026, 1, 1),
                 'valor': Decimal('35000.0000'),
                 'source_key': 'UF.CargaManualExtraordinaria',
-                'evidencia_ref': 'uf-manual-service-2026-01-01',
-                'motivo_carga': 'Carga manual controlada desde servicio de dominio.',
-                'responsable_ref': 'ops-uf-responsible-001',
+                'evidencia_ref': '  uf-manual-service-2026-01-01  ',
+                'motivo_carga': '  Carga manual controlada desde servicio de dominio.  ',
+                'responsable_ref': '  ops-uf-responsible-001  ',
             },
             actor_user=self.user,
             ip_address='127.0.0.1',
         )
 
         self.assertIsNotNone(event)
+        self.assertEqual(uf_value.evidencia_ref, 'uf-manual-service-2026-01-01')
+        self.assertEqual(uf_value.motivo_carga, 'Carga manual controlada desde servicio de dominio.')
+        self.assertEqual(uf_value.responsable_ref, 'ops-uf-responsible-001')
         self.assertEqual(event.event_type, MANUAL_UF_LOAD_EVENT_TYPE)
         self.assertEqual(event.entity_type, 'valor_uf_diario')
         self.assertEqual(event.entity_id, str(uf_value.pk))
