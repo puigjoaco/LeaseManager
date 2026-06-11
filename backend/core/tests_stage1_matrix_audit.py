@@ -2035,6 +2035,19 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.contacto_pago.validacion_modelo', issue_codes)
 
+    def test_active_payment_contact_without_operational_role_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        contacto = contrato.arrendatario.contactos_pago.get()
+        contacto.rol_operativo = '   '
+        contacto.save(update_fields=['rol_operativo', 'updated_at'])
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.contacto_pago.validacion_modelo', issue_codes)
+
     def test_common_expense_contract_without_structured_property_service_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         contrato.tiene_gastos_comunes = True

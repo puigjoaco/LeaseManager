@@ -321,6 +321,10 @@ class ContactoPagoArrendatario(TimestampedModel):
         if self.estado == EstadoContactoPago.ACTIVE:
             if not self.nombre.strip():
                 raise ValidationError({'nombre': 'El contacto de pago activo requiere nombre.'})
+            if not (self.rol_operativo or '').strip():
+                raise ValidationError(
+                    {'rol_operativo': 'El contacto de pago activo requiere rol operativo estructurado.'}
+                )
             if not ((self.email or '').strip() or (self.telefono or '').strip()):
                 raise ValidationError(
                     {'email': 'El contacto de pago activo requiere email o telefono estructurado.'}

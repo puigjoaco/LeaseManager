@@ -24,11 +24,11 @@ nueva.
 | --- | --- |
 | Frente activo | Ninguno. |
 | Fuente exacta | `main` vigente. En cada reanudacion confirmar siempre con `git status --short --branch`, `git worktree list` y `git log -1 --oneline`; no usar un SHA, PR o summary historico de este archivo como sustituto del estado real. |
-| Brecha activa | Sin paquete tactico de producto abierto. Worktree rescue `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` pausado: contiene PDFs tributarios sin versionar y no debe leerse, usarse, limpiarse ni tratarse como autorizacion o fuente activa sin instruccion explicita del usuario. |
+| Brecha activa | Sin paquete tactico de producto abierto. Ultimo paquete preparado: Etapa 1 / Contratos valida `ContactoPagoArrendatario.rol_operativo` no vacio para contactos activos. Worktree rescue `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` pausado: contiene PDFs tributarios sin versionar y no debe leerse, usarse, limpiarse ni tratarse como autorizacion o fuente activa sin instruccion explicita del usuario. |
 | Motivo de prioridad | La siguiente prioridad se elige desde `main` limpio por orden de construccion, trazabilidad, stage cards, evidencia y bloqueos vigentes. |
 | Worktree | Root principal esperado: `D:/Proyectos/LeaseManager`. Rescue pausado permitido: `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` solo para decision posterior de limpieza, no para trabajo activo. |
 | Rama | `main`. |
-| Estado | Main listo para diagnosticar el siguiente frente seguro por trazabilidad. |
+| Estado | Main listo para diagnosticar el siguiente frente seguro por trazabilidad una vez integrado el paquete en curso. |
 | Gate esperado | Para el siguiente paquete, definir tests focales, suite impactada, checks, gates locales, frontend si aplica, acceptance local, higiene y CI antes de PR. |
 | Estado al cerrar paquete | Ultimo paquete cerrado debe confirmarse contra `git log -1 --oneline`, registro de evidencia y PR/CI remoto; si el cursor contradice Git, gana Git y se corrige el cursor en el siguiente paquete trazable. |
 | Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
