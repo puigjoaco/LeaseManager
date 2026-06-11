@@ -136,11 +136,29 @@ Config as code preparada:
 
 La validación de estas configuraciones queda pendiente de crear el proyecto Railway real del backend, pero la estructura ya está lista para usarse sin improvisación.
 
-Bootstrap asistido:
+Bootstrap asistido seguro:
+
+Primero ejecutar preflight local. Este comando valida el archivo de variables
+de ejemplo y muestra el plan sin llamar a Railway ni crear recursos:
 
 ```powershell
-.\scripts\railway-backend-bootstrap.ps1 -CreateRedis
+.\scripts\railway-backend-bootstrap.ps1
 ```
+
+Para aplicar cambios reales en Railway se requiere opt-in explicito:
+
+```powershell
+.\scripts\railway-backend-bootstrap.ps1 `
+  -Environment staging `
+  -CreateRedis `
+  -AuthorizationRef "railway-bootstrap-autorizado-YYYYMMDD" `
+  -Apply
+```
+
+El script usa por defecto [backend/railway.env.example](/D:/Proyectos/LeaseManager/backend/railway.env.example),
+no rutas legacy. No imprime valores de variables; en comandos `variable set`
+solo muestra claves con valor redactado. Si se usa un archivo de variables real,
+ese archivo debe entregarse fuera del repo y con autorización concreta.
 
 ## Nota de validación local
 
