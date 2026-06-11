@@ -2195,6 +2195,55 @@ class ConciliacionAPITests(APITestCase):
             ).exists()
         )
 
+    def test_manual_resolution_supersede_rejects_sensitive_rationale_without_mutation(self):
+        cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-SUP-SENSITIVE', amount='100111.00')
+        conexion = self._create_connection(cuenta)
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto=Decimal('777777.00'),
+            descripcion_origen='Abono sin match para guard de rationale sensible',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            estado_conciliacion=EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+        )
+        resolution = ManualResolution.objects.create(
+            category='conciliacion.ingreso_desconocido',
+            scope_type='movimiento_bancario',
+            scope_reference=str(movimiento.pk),
+            summary='Ingreso sin match exacto requiere clasificacion manual.',
+            metadata={'movimiento_id': movimiento.pk},
+        )
+
+        with self.assertRaisesRegex(ValueError, 'URLs, tokens, correos ni credenciales'):
+            supersede_manual_resolutions_for_movement(
+                movimiento,
+                superseded_by='conciliacion.exact_match',
+                match_type='payment',
+                rationale='Supersedida por https://bank.example.test/audit?token=secret',
+                target_metadata={
+                    'pago_mensual_id': pago.pk,
+                    'contrato_id': pago.contrato_id,
+                },
+                actor_user=self.user,
+                ip_address='127.0.0.1',
+            )
+
+        resolution.refresh_from_db()
+        self.assertEqual(resolution.status, ManualResolution.Status.OPEN)
+        self.assertIsNone(resolution.resolved_at)
+        self.assertIsNone(resolution.resolved_by)
+        self.assertEqual(resolution.rationale, '')
+        self.assertNotIn('superseded_by', resolution.metadata)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='audit.manual_resolution.superseded',
+                entity_type='manual_resolution',
+                entity_id=str(resolution.pk),
+            ).exists()
+        )
+
     def test_manual_resolution_can_regularize_unknown_income_to_selected_payment(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-MANUAL', amount='100111.00')
         conexion = self._create_connection(cuenta)
