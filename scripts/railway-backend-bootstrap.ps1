@@ -58,6 +58,21 @@ function Assert-AuthorizationRef {
     }
 }
 
+function Assert-BackendEnvPathSafe {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw "BackendEnvPath no puede estar vacio."
+    }
+
+    $leaf = [System.IO.Path]::GetFileName($Path.TrimEnd('\', '/'))
+    $looksLikeEnvFile = $leaf -match '(?i)(^\.env($|\.)|\.env($|\.))'
+    $isTemplate = $leaf -match '(?i)\.env\.example$'
+    if ($looksLikeEnvFile -and -not $isTemplate) {
+        throw "BackendEnvPath no puede apuntar a .env real; usa un template .env.example no sensible."
+    }
+}
+
 function Invoke-Railway {
     param(
         [Parameter(Mandatory = $true)]
@@ -97,7 +112,9 @@ function Read-EnvEntries {
     return $entries
 }
 
+Assert-BackendEnvPathSafe -Path $BackendEnvPath
 $resolvedBackendEnvPath = Resolve-RepoPath -Path $BackendEnvPath -Label "BackendEnvPath"
+Assert-BackendEnvPathSafe -Path $resolvedBackendEnvPath
 $entries = Read-EnvEntries -Path $resolvedBackendEnvPath
 $activeEntries = @($entries.Keys | Where-Object { -not (Test-PlaceholderValue ([string]$entries[$_])) })
 

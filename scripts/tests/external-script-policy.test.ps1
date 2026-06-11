@@ -81,6 +81,12 @@ Assert-Condition ($railwayPlan.Output -match 'backend_env_file_validado=true') '
 Assert-Condition ($railwayPlan.Output -notmatch 'railway whoami') 'railway plan no debe llamar Railway CLI.'
 Assert-Condition ($railwayPlan.Output -notmatch 'variable set') 'railway plan no debe setear variables.'
 
+$railwayRealEnv = Invoke-IsolatedScript -Path $railwayScript -ScriptArgs @('-BackendEnvPath', 'backend\.env')
+Assert-Condition ($railwayRealEnv.ExitCode -ne 0) 'railway no debe aceptar BackendEnvPath apuntando a .env real.'
+Assert-Condition ($railwayRealEnv.Output -match '\.env real') 'railway debe fallar por politica de .env real antes de leer el archivo.'
+Assert-Condition ($railwayRealEnv.Output -notmatch 'No existe BackendEnvPath') 'railway debe rechazar .env por politica antes de intentar resolverlo.'
+Assert-Condition ($railwayRealEnv.Output -notmatch 'railway whoami') 'railway con .env real no debe tocar Railway CLI.'
+
 $railwayApply = Invoke-IsolatedScript -Path $railwayScript -ScriptArgs @('-Apply')
 Assert-Condition ($railwayApply.ExitCode -ne 0) 'railway -Apply sin AuthorizationRef debe fallar.'
 Assert-Condition ($railwayApply.Output -match 'AuthorizationRef') 'railway -Apply sin AuthorizationRef debe fallar por AuthorizationRef.'

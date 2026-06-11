@@ -123,6 +123,11 @@ evidencia respalda el root limpio.
   meses operativos crudos ni stdout capturado de subcomandos: reporta solo
   conteos, flags de validacion y cantidad de lineas capturadas por paso, y sus
   warnings/errores controlados no imprimen mensajes crudos de subcomandos.
+- Los scripts externos de despliegue no leen `.env` reales ni fuentes legacy
+  por fallback o parametro. `connect-frontend-to-backend.ps1` queda en modo
+  plan salvo `-Apply` con `AuthorizationRef`; `railway-backend-bootstrap.ps1`
+  solo acepta templates `.env.example` no sensibles y rechaza rutas `.env`
+  reales antes de resolver o leer el archivo.
 - CI deterministica verde.
 - Savegames preservados read-only.
 - Registro de evidencia inicial actualizado.
