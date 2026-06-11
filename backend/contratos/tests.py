@@ -3151,6 +3151,25 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(aviso_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('causal', aviso_response.data)
 
+    def test_notice_full_clean_rejects_blank_causal_after_trim(self):
+        mandato = self._create_active_mandato(codigo='MAND-107-CAUSAL-BLANK', owner_rut='16161627-8')
+        arrendatario = self._create_arrendatario(rut='17171728-5')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-107-CAUSAL-BLANK')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+        aviso = AvisoTermino(
+            contrato_id=current_response.data['id'],
+            fecha_efectiva=date(2026, 12, 31),
+            causal='   ',
+            estado=EstadoAvisoTermino.REGISTERED,
+            registrado_por=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as raised:
+            aviso.full_clean()
+
+        self.assertIn('causal', raised.exception.message_dict)
+
     def test_registered_notice_exposes_late_registration_alert(self):
         mandato = self._create_active_mandato(codigo='MAND-107-LATE-REG', owner_rut='16161618-8')
         arrendatario = self._create_arrendatario(rut='17171719-5')
