@@ -22,14 +22,14 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 0 / scripts externos seguros. |
-| Fuente exacta | `main` `5f329db0` verificado al abrir el paquete con `git status --short --branch`, `git worktree list` y `git log -1 --oneline`; no usar este SHA como sustituto del estado real en futuras reanudaciones. |
-| Brecha activa | `railway-backend-bootstrap.ps1` solo usa `backend/railway.env.example` por defecto, pero podia aceptar `-BackendEnvPath backend\.env` y leer un `.env` real en modo plan antes de cualquier autorizacion de apply. |
-| Motivo de prioridad | Brecha de seguridad operativa vinculada al problema de reanudaciones/bloqueos: los scripts externos no deben leer `.env` reales ni fuentes sensibles por parametro. |
-| Worktree | `D:/Proyectos/LeaseManager-stage0-railway-env-guard`; rescue pausado permitido: `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` solo para decision posterior de limpieza, no para trabajo activo. |
-| Rama | `codex/stage0-railway-env-guard`. |
-| Estado | Paquete tactico abierto. |
-| Gate esperado | `scripts/tests/external-script-policy.test.ps1`, `manage.py check`, `makemigrations --check --dry-run --noinput`, `npm ci`, `npm run lint`, `npm run build`, acceptance local sin smoke, higiene repo y CI remoto. |
+| Frente activo | Ninguno. |
+| Fuente exacta | `main` `89623e00` verificado tras merge de PR #733; en futuras reanudaciones confirmar siempre con `git status --short --branch`, `git worktree list` y `git log -1 --oneline`. |
+| Brecha activa | Sin paquete tactico de producto abierto. Worktree rescue `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` pausado: contiene PDFs tributarios sin versionar y no debe leerse, usarse, limpiarse ni tratarse como autorizacion o fuente activa sin instruccion explicita del usuario. |
+| Motivo de prioridad | El paquete de scripts externos seguros quedo integrado en PR #733. La siguiente prioridad se elige por orden de construccion, trazabilidad, stage cards, evidencia y bloqueos vigentes. |
+| Worktree | Root principal esperado: `D:/Proyectos/LeaseManager`. Rescue pausado permitido: `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` solo para decision posterior de limpieza, no para trabajo activo. |
+| Rama | `main`. |
+| Estado | Main limpio y listo para diagnosticar el siguiente frente seguro por trazabilidad. |
+| Gate esperado | Para el siguiente paquete, definir tests focales, suite impactada, checks, gates locales, frontend si aplica, acceptance local, higiene y CI antes de PR. |
 | Estado al cerrar paquete | Ultimo paquete cerrado debe confirmarse contra `git log -1 --oneline`, registro de evidencia y PR/CI remoto; si el cursor contradice Git, gana Git y se corrige el cursor en el siguiente paquete trazable. |
 | Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
 | Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
