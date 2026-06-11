@@ -13,7 +13,9 @@ plan por defecto. `connect-frontend-to-backend.ps1` ya no lee `deploy.bat`,
 y `AuthorizationRef`; el redeploy requiere `-Redeploy`.
 `railway-backend-bootstrap.ps1` usa `backend/railway.env.example`, no ejecuta
 Railway CLI sin `-Apply` y `AuthorizationRef`, y redacta valores en comandos
-`variable set`.
+`variable set`. Tambien rechaza `-BackendEnvPath` apuntando a `.env` real antes
+de resolver o leer el archivo; solo acepta templates `.env.example` no
+sensibles.
 El guard `scripts/tests/external-script-policy.test.ps1` queda incorporado al
 acceptance local para bloquear regresiones.
 
