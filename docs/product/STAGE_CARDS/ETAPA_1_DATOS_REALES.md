@@ -202,8 +202,8 @@ contra datos reales o snapshot controlado.
   auditor Etapa 1 bloquean contratos vigentes/futuros si el arrendatario no
   tiene estado de contacto activo, email o telefono operativo, domicilio de
   notificaciones y al menos un contacto de pago activo estructurado. Los
-  contactos de pago conservan nombre, rol operativo, email o telefono y
-  evidencia opcional no sensible; API, snapshot y admin/backoffice exponen
+  contactos de pago conservan nombre, rol operativo no vacio, email o telefono
+  y evidencia opcional no sensible; API, snapshot y admin/backoffice exponen
   evidencia heredada solo mediante version redactada. El backoffice de
   Contratos captura contactos de pago estructurados desde la API auditada,
   exige arrendatario, nombre y medio operativo antes de enviar, y muestra

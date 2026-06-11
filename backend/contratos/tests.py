@@ -1119,6 +1119,22 @@ class ContratosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('email', response.data)
 
+    def test_active_payment_contact_requires_structured_operational_role(self):
+        arrendatario = self._create_arrendatario(rut='12345672-6', with_payment_contact=False)
+        contact = ContactoPagoArrendatario(
+            arrendatario=arrendatario,
+            nombre='Contacto Pago',
+            rol_operativo='   ',
+            email='pagos@example.com',
+            es_principal=True,
+            estado='activo',
+        )
+
+        with self.assertRaises(ValidationError) as raised:
+            contact.full_clean()
+
+        self.assertIn('rol_operativo', raised.exception.message_dict)
+
     def test_create_payment_contact_structured_succeeds_and_audits(self):
         arrendatario = self._create_arrendatario(rut='12345671-8')
         payload = {
