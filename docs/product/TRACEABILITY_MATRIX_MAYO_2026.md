@@ -13,6 +13,11 @@ auditable y no sensible antes de mutar estado, metadata o auditoria; una
 regresion focal confirma que un motivo con URL/token deja la resolucion abierta
 y no emite evento de supersesion.
 
+Nota 2026-06-10: Contratos/Etapa 1 exige causal estructurada en avisos de
+termino. `AvisoTermino.full_clean()` rechaza causales vacias tras normalizar
+espacios, y `audit_stage1_matrix` clasifica como defectuosos los snapshots
+heredados con avisos registrados sin causal operativa.
+
 Nota 2026-06-10: Los scripts externos de Vercel/Railway quedan en modo
 plan por defecto. `connect-frontend-to-backend.ps1` ya no lee `deploy.bat`,
 `.env`, rutas legacy ni `Produccion 1.0`, y solo modifica Vercel con `-Apply`

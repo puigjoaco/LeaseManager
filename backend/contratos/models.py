@@ -1413,6 +1413,8 @@ class AvisoTermino(TimestampedModel):
         self.resolucion_conflicto_renovacion_motivo = (
             self.resolucion_conflicto_renovacion_motivo or ''
         ).strip()
+        if not self.causal:
+            raise ValidationError({'causal': 'El aviso de termino requiere causal estructurada.'})
         if contains_sensitive_reference(self.causal):
             raise ValidationError(
                 {'causal': 'La causal del aviso de termino no debe contener referencias sensibles.'}
