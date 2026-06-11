@@ -2,6 +2,7 @@ import secrets
 from datetime import date
 from decimal import Decimal, ROUND_DOWN
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from audit.models import AuditEvent, ManualResolution
@@ -811,6 +812,17 @@ def webpay_blocking_reason(payment, gate, return_url_ref):
     return ''
 
 
+def webpay_prepared_intent_reuse_blocking_reason(intent):
+    blocking_reason = webpay_blocking_reason(intent.pago_mensual, intent.gate_cobro, intent.return_url_ref)
+    if blocking_reason:
+        return blocking_reason
+    try:
+        intent.full_clean()
+    except ValidationError:
+        return 'El intento WebPay preparado existente ya no pasa la validacion vigente.'
+    return ''
+
+
 def _webpay_prepare_audit_metadata(intent):
     metadata = {
         'estado': intent.estado,
@@ -859,6 +871,36 @@ def ensure_webpay_prepare_audit_event(intent, *, actor_user=None, actor_identifi
     )
 
 
+def block_prepared_webpay_intent(
+    intent,
+    blocking_reason,
+    *,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    intent.estado = EstadoIntentoPagoWebPay.BLOCKED
+    intent.motivo_bloqueo = blocking_reason
+    update_fields = ['estado', 'motivo_bloqueo', 'updated_at']
+    if intent.return_url_ref.strip() and not is_non_sensitive_reference(intent.return_url_ref):
+        intent.return_url_ref = ''
+        update_fields.append('return_url_ref')
+    intent.full_clean()
+    intent.save(update_fields=update_fields)
+    ensure_manual_resolution_for_webpay_intent(
+        intent,
+        blocking_reason,
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+    )
+    ensure_webpay_prepare_audit_event(
+        intent,
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+    )
+
+
 @transaction.atomic
 def prepare_webpay_intent(
     *,
@@ -885,12 +927,29 @@ def prepare_webpay_intent(
         raise ValueError('WebPay requiere return_url_ref no sensible; no use URLs, tokens, credenciales ni correos.')
     pending_amount = Decimal(payment.monto_calculado_clp) - Decimal(payment.monto_pagado_clp)
     blocking_reason = webpay_blocking_reason(payment, gate, return_url_ref)
-    if not blocking_reason:
-        existing = IntentoPagoWebPay.objects.filter(
+
+    existing = (
+        IntentoPagoWebPay.objects.select_for_update()
+        .select_related('pago_mensual', 'gate_cobro')
+        .filter(
             pago_mensual=payment,
             estado=EstadoIntentoPagoWebPay.PREPARED,
-        ).first()
-        if existing:
+        )
+        .first()
+    )
+    if existing:
+        existing_blocking_reason = webpay_prepared_intent_reuse_blocking_reason(existing)
+        if existing_blocking_reason:
+            block_prepared_webpay_intent(
+                existing,
+                existing_blocking_reason,
+                actor_user=usuario,
+                actor_identifier=actor_identifier,
+                ip_address=ip_address,
+            )
+            if blocking_reason:
+                return existing
+        elif not blocking_reason:
             ensure_webpay_prepare_audit_event(
                 existing,
                 actor_user=usuario,

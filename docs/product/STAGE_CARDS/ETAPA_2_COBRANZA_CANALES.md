@@ -260,12 +260,15 @@ condicionados sin envios reales accidentales.
   dedicada con actor y referencia externa alineada en la misma transaccion. El
   readiness de Etapa 2 bloquea intentos confirmados heredados sin ese evento
   `cobranza.webpay_intento.confirmed_manually` completo y alineado.
-  servicio de preparacion tambien conserva auditoria dedicada con actor dentro
+  El servicio de preparacion tambien conserva auditoria dedicada con actor dentro
   de la misma transaccion para intentos preparados o bloqueados; si reutiliza un
   intento preparado existente, debe crear la traza si falta o quedo
-  desalineada. La readiness bloquea snapshots heredados con intentos preparados
-  o bloqueados sin evento `cobranza.webpay_intento.prepared` completo y
-  alineado.
+  desalineada. Antes de reutilizar un intento `preparado`, el servicio debe
+  revalidarlo contra el gate, el pago y la referencia de retorno vigentes; si
+  ya no pasa la validacion, lo degrada a `bloqueado` con resolucion manual y
+  auditoria antes de devolver el bloqueo o crear un nuevo intento preparado
+  valido. La readiness bloquea snapshots heredados con intentos preparados o
+  bloqueados sin evento `cobranza.webpay_intento.prepared` completo y alineado.
   `provider_payload` no puede contener URLs, tokens, credenciales, correos ni
   claves sensibles; `motivo_bloqueo` de intentos WebPay tampoco puede contener
   referencias sensibles; `restricciones_operativas` del gate WebPay aplica la

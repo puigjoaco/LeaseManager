@@ -1588,6 +1588,87 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(audit_event.ip_address, '127.0.0.1')
         self.assertEqual(audit_event.metadata['estado'], EstadoIntentoPagoWebPay.PREPARED)
 
+    def test_webpay_prepare_service_blocks_existing_prepared_intent_when_gate_closes(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-PREP-GATE-CLOSED')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-sandbox-evidence-ok',
+        )
+        existing = prepare_webpay_intent(
+            payment=payment,
+            gate=gate,
+            return_url_ref='webpay-return-controlled-v1',
+            usuario=self.user,
+            ip_address='127.0.0.1',
+        )
+        gate.estado_gate = EstadoGateCobroExterno.CONDITIONED
+        gate.save(update_fields=['estado_gate', 'updated_at'])
+
+        blocked = prepare_webpay_intent(
+            payment=payment,
+            gate=gate,
+            return_url_ref='webpay-return-controlled-v1',
+            usuario=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertEqual(blocked.pk, existing.pk)
+        self.assertEqual(blocked.estado, EstadoIntentoPagoWebPay.BLOCKED)
+        self.assertIn('gate WebPay no esta abierto', blocked.motivo_bloqueo)
+        self.assertEqual(IntentoPagoWebPay.objects.filter(pago_mensual=payment).count(), 1)
+        self.assertTrue(
+            ManualResolution.objects.filter(
+                category='cobranza.webpay.bloqueado',
+                scope_type='cobranza.webpay',
+                scope_reference=str(existing.pk),
+            ).exists()
+        )
+        audit_states = [
+            event.metadata.get('estado')
+            for event in AuditEvent.objects.filter(
+                event_type=WEBPAY_PREPARE_EVENT_TYPE,
+                entity_type='webpay_intento',
+                entity_id=str(existing.pk),
+            )
+        ]
+        self.assertIn(EstadoIntentoPagoWebPay.BLOCKED, audit_states)
+
+    def test_webpay_prepare_service_replaces_stale_prepared_intent_with_invalid_return_ref(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-PREP-STALE-RETURN')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-sandbox-evidence-ok',
+        )
+        existing = prepare_webpay_intent(
+            payment=payment,
+            gate=gate,
+            return_url_ref='webpay-return-controlled-v1',
+            usuario=self.user,
+            ip_address='127.0.0.1',
+        )
+        IntentoPagoWebPay.objects.filter(pk=existing.pk).update(
+            return_url_ref='https://front.example.test/webpay?token=secret'
+        )
+
+        replacement = prepare_webpay_intent(
+            payment=payment,
+            gate=gate,
+            return_url_ref='webpay-return-controlled-v2',
+            usuario=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        existing.refresh_from_db()
+        self.assertNotEqual(replacement.pk, existing.pk)
+        self.assertEqual(existing.estado, EstadoIntentoPagoWebPay.BLOCKED)
+        self.assertEqual(existing.return_url_ref, '')
+        self.assertIn('validacion vigente', existing.motivo_bloqueo)
+        self.assertEqual(replacement.estado, EstadoIntentoPagoWebPay.PREPARED)
+        self.assertEqual(replacement.return_url_ref, 'webpay-return-controlled-v2')
+        self.assertEqual(IntentoPagoWebPay.objects.filter(pago_mensual=payment).count(), 2)
+
     def test_webpay_prepare_service_rolls_back_when_audit_creation_fails(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-PREP-AUDITFAIL')
         gate = GateCobroExterno.objects.create(
