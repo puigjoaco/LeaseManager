@@ -18,6 +18,11 @@ termino. `AvisoTermino.full_clean()` rechaza causales vacias tras normalizar
 espacios, y `audit_stage1_matrix` clasifica como defectuosos los snapshots
 heredados con avisos registrados sin causal operativa.
 
+Nota 2026-06-10: Contratos-Cobranza/Etapa 1 exige justificacion operativa en
+ajustes contractuales. `AjusteContrato.full_clean()` rechaza justificaciones
+vacias tras normalizar espacios, y `audit_stage1_matrix` clasifica como
+defectuosos los snapshots heredados con ajustes sin motivo operativo.
+
 Nota 2026-06-10: Los scripts externos de Vercel/Railway quedan en modo
 plan por defecto. `connect-frontend-to-backend.ps1` ya no lee `deploy.bat`,
 `.env`, rutas legacy ni `Produccion 1.0`, y solo modifica Vercel con `-Apply`
