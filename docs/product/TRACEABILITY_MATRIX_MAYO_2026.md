@@ -1378,9 +1378,10 @@ Nota 2026-05-26: Cobranza mueve la auditoria de repactaciones parciales a la
 capa de servicio. `save_repayment_plan()` exige actor trazable cuando el plan
 cubre menos que la deuda original, guarda la repactacion y crea el `AuditEvent`
 `cobranza.repactacion_deuda.partial_exception` con referencia y motivo
-alineados en la misma transaccion; los endpoints HTTP delegan esa
-responsabilidad y readiness exige que el motivo del evento coincida con la
-repactacion.
+alineados en la misma transaccion; referencia y motivo de excepcion parcial se
+normalizan antes de persistir para que API, servicio, auditoria y readiness
+comparen una traza canonica. Los endpoints HTTP delegan esa responsabilidad y
+readiness exige que el motivo del evento coincida con la repactacion.
 
 Nota 2026-05-26: Cobranza mueve la auditoria de cierre excepcional de pagos a
 la capa de servicio. `update_payment_operational_fields()` exige actor trazable
