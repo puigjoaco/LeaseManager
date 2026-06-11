@@ -192,6 +192,13 @@ gate/provider y `return_url_ref` no sensible, confirmar manualmente intentos
 desde API/snapshot redactados. No abre Transbank ni cambia el estado de cierre
 de Etapa 2.
 
+Nota 2026-06-10: Cobranza/WebPay Etapa 2 revalida intentos preparados
+existentes antes de reutilizarlos. Si el gate, el pago o la referencia de
+retorno ya no pasan la validacion vigente, `prepare_webpay_intent()` degrada el
+intento a `bloqueado`, crea resolucion manual y auditoria
+`cobranza.webpay_intento.prepared`, y solo crea un nuevo intento preparado si la
+solicitud actual sigue siendo valida. No llama Transbank ni usa datos reales.
+
 Nota 2026-06-06: Backoffice Contratos expone cambio guiado de arrendatario.
 La UI permite preparar el cambio desde un contrato vigente, seleccionar nuevo
 arrendatario, codigo y vigencia del contrato futuro, causal del aviso,
