@@ -304,6 +304,8 @@ class AjusteContrato(TimestampedModel):
     def clean(self):
         super().clean()
         self.justificacion = (self.justificacion or '').strip()
+        if not self.justificacion:
+            raise ValidationError({'justificacion': 'El ajuste contractual requiere justificacion operativa.'})
         if contains_sensitive_reference(self.justificacion, include_sensitive_keys=True):
             raise ValidationError(
                 {'justificacion': 'La justificacion del ajuste no puede contener referencias sensibles.'}

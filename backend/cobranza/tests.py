@@ -2503,6 +2503,28 @@ class CobranzaAPITests(APITestCase):
         self.assertIn('monto', response.data)
         self.assertFalse(AjusteContrato.objects.filter(contrato=contrato).exists())
 
+    def test_adjustment_rejects_blank_justification_after_trim(self):
+        contrato = self._create_active_contract(codigo='CON-AJUSTE-JUST-BLANK', monto_base='100000.00', code='111')
+
+        response = self.client.post(
+            reverse('cobranza-ajuste-list'),
+            {
+                'contrato': contrato.id,
+                'tipo_ajuste': 'cargo_controlado',
+                'monto': '1000.00',
+                'moneda': 'CLP',
+                'mes_inicio': '2026-01-01',
+                'mes_fin': '2026-01-01',
+                'justificacion': '   ',
+                'activo': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('justificacion', response.data)
+        self.assertFalse(AjusteContrato.objects.filter(contrato=contrato).exists())
+
     def test_adjustment_rejects_non_month_start_range(self):
         contrato = self._create_active_contract(codigo='CON-AJUSTE-MES', monto_base='100000.00', code='111')
 
