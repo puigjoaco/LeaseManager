@@ -19,11 +19,17 @@ from .services import (
 
 
 def _use_cache(request) -> bool:
-    return request.query_params.get('refresh') != '1'
+    return _query_param(request, 'refresh') != '1'
+
+
+def _query_param(request, name: str, default: str | None = None) -> str | None:
+    if name not in request.query_params:
+        return default
+    return str(request.query_params.get(name) or '').strip()
 
 
 def _required_int_query_param(request, name: str) -> int:
-    raw_value = request.query_params.get(name)
+    raw_value = _query_param(request, name)
     if raw_value in (None, ''):
         raise ValidationError({name: 'Este parametro es obligatorio.'})
     try:
@@ -33,7 +39,7 @@ def _required_int_query_param(request, name: str) -> int:
 
 
 def _optional_int_query_param(request, name: str) -> int | None:
-    raw_value = request.query_params.get(name)
+    raw_value = _query_param(request, name)
     if raw_value in (None, ''):
         return None
     try:
@@ -43,7 +49,7 @@ def _optional_int_query_param(request, name: str) -> int | None:
 
 
 def _required_query_param(request, name: str) -> str:
-    raw_value = request.query_params.get(name)
+    raw_value = _query_param(request, name)
     if raw_value in (None, ''):
         raise ValidationError({name: 'Este parametro es obligatorio.'})
     return raw_value
@@ -68,7 +74,7 @@ class OperationalDashboardView(APIView):
     permission_classes = [OperationalOverviewPermission]
 
     def get(self, request):
-        mode = request.query_params.get('mode', 'full')
+        mode = _query_param(request, 'mode', 'full')
         include_secondary = mode != 'summary'
         return Response(
             build_operational_dashboard(
@@ -149,7 +155,7 @@ class MigrationManualResolutionSummaryView(APIView):
     permission_classes = [OperationalOverviewPermission]
 
     def get(self, request):
-        status = request.query_params.get('status', 'open')
+        status = _query_param(request, 'status', 'open')
         return Response(
             build_migration_manual_resolution_summary(
                 status=status,
@@ -163,7 +169,7 @@ class ManualResolutionSummaryView(APIView):
     permission_classes = [OperationalOverviewPermission]
 
     def get(self, request):
-        status = request.query_params.get('status', 'open')
+        status = _query_param(request, 'status', 'open')
         return Response(
             build_manual_resolution_summary(
                 status=status,

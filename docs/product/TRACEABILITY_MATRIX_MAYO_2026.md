@@ -514,6 +514,13 @@ con readiness de referencias finales del proceso anual. El endpoint bloquea
 `paquete_ddjj_ref` o `borrador_f22_ref`, o si esas referencias contienen URLs,
 tokens o credenciales, sin exponer los valores en la respuesta.
 
+Nota 2026-06-12: Reporting/Etapa 7 normaliza parametros de query antes de
+validar, filtrar o decidir cache. Los endpoints de dashboard, libros por
+periodo, resumen mensual, resumen tributario anual y resoluciones manuales
+recortan espacios de `mode`, `refresh`, `status`, `periodo`, `empresa_id`,
+`anio`, `mes` y `anio_tributario`, evitando falsos faltantes, cache no
+refrescado y filtros no canonicos.
+
 Nota 2026-05-31: SII/Etapa 4 alinea mutaciones API y auditoria de vista en
 una transaccion. `AuditCreateUpdateMixin`, generacion DTE/F29/anual y cambios
 de estado DTE, F29, DDJJ y F22 persisten cambios y eventos auditables dentro
