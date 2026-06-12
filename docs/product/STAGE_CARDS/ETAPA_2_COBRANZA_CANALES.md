@@ -66,6 +66,10 @@ condicionados sin envios reales accidentales.
   activos, meses evaluados, pagos en plazo/fuera de plazo, meses excluidos por
   falta de registro operativo, saldo total, score y observaciones ya
   redactadas por API/snapshot.
+- El recalculo de estado de cuenta con usuario scoped puede devolver un
+  resumen filtrado para la cartera visible, pero no puede crear ni sobrescribir
+  el `EstadoCuentaArrendatario` global con datos parciales. La auditoria del
+  endpoint debe distinguir si persistio resumen global o solo recalculo scoped.
 - El score de pago excluye pagos cuyo vencimiento cae antes del
   `fecha_registro_operativo` del contrato, porque esos meses no tienen
   registro operativo valido para medir cumplimiento. El resumen operativo

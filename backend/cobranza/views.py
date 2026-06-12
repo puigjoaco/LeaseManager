@@ -950,15 +950,26 @@ class EstadoCuentaArrendatarioRebuildView(APIView):
             request.user,
             property_paths=('contratos__mandato_operacion__propiedad_id',),
         )
+        access = get_scope_access(request.user)
         with transaction.atomic():
-            estado = rebuild_account_state(arrendatario, access=get_scope_access(request.user))
+            estado = rebuild_account_state(arrendatario, access=access)
+            persisted_global_summary = not access.restricted
             create_audit_event(
                 event_type='cobranza.estado_cuenta_arrendatario.rebuilt',
-                entity_type='estado_cuenta_arrendatario',
-                entity_id=str(estado.pk),
-                summary='Estado de cuenta arrendatario recalculado',
+                entity_type='estado_cuenta_arrendatario' if estado.pk else 'arrendatario',
+                entity_id=str(estado.pk or arrendatario.pk),
+                summary=(
+                    'Estado de cuenta arrendatario recalculado'
+                    if persisted_global_summary
+                    else 'Resumen scoped de estado de cuenta arrendatario recalculado'
+                ),
                 actor_user=request.user,
                 ip_address=request.META.get('REMOTE_ADDR'),
-                metadata={'arrendatario_id': arrendatario.pk},
+                metadata={
+                    'arrendatario_id': arrendatario.pk,
+                    'estado_cuenta_id': estado.pk,
+                    'scope_restricted': access.restricted,
+                    'persisted_global_summary': persisted_global_summary,
+                },
             )
         return Response(EstadoCuentaArrendatarioSerializer(estado, context={'request': request}).data, status=status.HTTP_200_OK)

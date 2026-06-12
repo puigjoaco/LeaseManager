@@ -1225,6 +1225,12 @@ expone `score_meses_sin_registro_operativo` en el resumen operativo y
 readiness Etapa 2 detecta estados heredados que hayan contado esos meses como
 evaluables.
 
+Nota 2026-06-12: CobranzaActiva evita persistir resumenes scoped parciales de
+estado de cuenta. `rebuild_account_state()` devuelve resumen filtrado cuando el
+usuario tiene scope restringido, pero no crea ni sobrescribe
+`EstadoCuentaArrendatario` global con datos de una sola cartera; la auditoria
+del endpoint registra si el recalculo persistio resumen global o fue scoped.
+
 Nota 2026-06-06: Backoffice Cobranza opera trazabilidad de garantias
 parciales y excesos. El workspace de Cobranza permite seleccionar una garantia,
 actualizar `aceptacion_parcial_ref` y registrar clasificacion, referencia y

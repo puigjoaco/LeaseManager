@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin frente activo persistente. Ultimo paquete local preparado: Etapa 7 / Reporting - normalizacion de parametros API. |
-| Fuente exacta | Base `main` limpia en `3a67c5a`; paquete trabajado en worktree tactico `D:/Proyectos/LeaseManager-stage7-reporting-query-normalization` y rama `codex/stage7-reporting-query-normalization`; rescue pausado fuera de alcance. |
-| Brecha activa | Ninguna persistente en cursor. La brecha preparada normaliza parametros de query antes de filtrar, validar o decidir cache en Reporting. |
-| Motivo de prioridad | Paquete local, pequeno y verificable en el siguiente frente de orden; endurece API/backoffice Reporting sin datos reales, deploys ni integraciones externas. |
-| Worktree | Ninguno activo de producto al reanudar; confirmar con `git worktree list`. |
-| Rama | Ninguna activa de producto al reanudar; confirmar con `git status --short --branch`. |
-| Estado | Validacion local completa del paquete Reporting; continuar solo desde estado real de `main` y PR/CI/merge confirmados. |
-| Gate esperado | Gate local Etapa 7 queda `classification=parcial`, `ready_for_stage7_close=false`, sin cierre evidencial falso. |
-| Estado al cerrar paquete | Focal Reporting OK; suite impactada Reporting/readiness OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 7 parcial OK; frontend build/lint OK; acceptance local OK. |
+| Frente activo | Etapa 2 / Cobranza - rebuild scoped de estado de cuenta. |
+| Fuente exacta | Base `main` limpia en `18f6bc46`; paquete trabajado en worktree tactico `D:/Proyectos/LeaseManager-stage2-account-state-scoped-rebuild` y rama `codex/stage2-account-state-scoped-rebuild`; rescue pausado fuera de alcance. |
+| Brecha activa | `rebuild_account_state()` no debe crear ni sobrescribir `EstadoCuentaArrendatario` global con un resumen parcial cuando el usuario tiene scope restringido. |
+| Motivo de prioridad | Brecha local, pequena y verificable en Cobranza: evita que una vista parcial contamine el resumen operativo usado por readiness y backoffice global. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-account-state-scoped-rebuild`. |
+| Rama | `codex/stage2-account-state-scoped-rebuild`. |
+| Estado | Validacion local completa del paquete Cobranza; falta PR, CI remoto, merge y limpieza. |
+| Gate esperado | Gate local Etapa 2 queda `classification=parcial`, `ready_for_stage2_cobranza=false`, sin cierre evidencial falso. |
+| Estado al cerrar paquete | Focal Cobranza OK; suite impactada Cobranza/readiness OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 2 parcial OK; frontend build/lint OK; acceptance local OK; PR/CI/merge/limpieza confirmados. |
 | Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
 | Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; si solo aparece el rescue pausado, continuar con el siguiente paquete pequeno, local, verificable y cerrable sin tocar esos archivos. |
+| Siguiente accion | Completar validaciones del paquete activo, actualizar evidencia con resultados reales, abrir PR, esperar CI, mergear, sincronizar `main` y eliminar worktree/rama tactica. |
 
 ## Actualizacion
 
