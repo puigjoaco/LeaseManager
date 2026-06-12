@@ -317,15 +317,18 @@ class OperationalObservabilityAuditTests(TestCase):
             signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
             status=RuntimeSignalStatus.OK,
             source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
-            evidence_ref='queue-runtime-controlled-v1',
-            source_label='queue-runtime-controlled-source-v1',
-            authorization_ref='stage7-runtime-authorization-v1',
+            evidence_ref='  queue-runtime-controlled-v1  ',
+            source_label='  queue-runtime-controlled-source-v1  ',
+            authorization_ref='  stage7-runtime-authorization-v1  ',
+            notes='  Queue runtime healthy  ',
             value_json='{"healthy": true}',
             stdout=StringIO(),
         )
         signal = OperationalRuntimeSignal.objects.get(signal_key=RuntimeSignalKey.QUEUE_RUNTIME)
+        self.assertEqual(signal.evidence_ref, 'queue-runtime-controlled-v1')
         self.assertEqual(signal.source_label, 'queue-runtime-controlled-source-v1')
         self.assertEqual(signal.authorization_ref, 'stage7-runtime-authorization-v1')
+        self.assertEqual(signal.notes, 'Queue runtime healthy')
 
         with self.assertRaises(CommandError):
             call_command(
@@ -349,6 +352,32 @@ class OperationalObservabilityAuditTests(TestCase):
                 value_json='{"failed_count": 0}',
                 stdout=StringIO(),
             )
+
+    def test_runtime_signal_refs_normalize_before_full_clean_and_save(self):
+        canonical_evidence = 'runtime-' + ('e' * (255 - len('runtime-')))
+        signal = OperationalRuntimeSignal(
+            signal_key=RuntimeSignalKey.QUEUE_RUNTIME,
+            status=RuntimeSignalStatus.OK,
+            source_kind=RuntimeSignalSourceKind.SNAPSHOT_CONTROLADO,
+            evidence_ref=f' {canonical_evidence} ',
+            source_label='  queue-runtime-controlled-source-v1  ',
+            authorization_ref='  stage7-runtime-authorization-v1  ',
+            value={'healthy': True},
+            notes='  Queue runtime healthy  ',
+        )
+
+        signal.full_clean()
+        self.assertEqual(signal.evidence_ref, canonical_evidence)
+        self.assertEqual(signal.source_label, 'queue-runtime-controlled-source-v1')
+        self.assertEqual(signal.authorization_ref, 'stage7-runtime-authorization-v1')
+        self.assertEqual(signal.notes, 'Queue runtime healthy')
+
+        signal.save()
+        stored = OperationalRuntimeSignal.objects.get(signal_key=RuntimeSignalKey.QUEUE_RUNTIME)
+        self.assertEqual(stored.evidence_ref, canonical_evidence)
+        self.assertEqual(stored.source_label, 'queue-runtime-controlled-source-v1')
+        self.assertEqual(stored.authorization_ref, 'stage7-runtime-authorization-v1')
+        self.assertEqual(stored.notes, 'Queue runtime healthy')
 
     def test_record_runtime_signal_command_outputs_redacted_payload(self):
         output = StringIO()
@@ -383,9 +412,10 @@ class OperationalObservabilityAuditTests(TestCase):
         call_command(
             'record_admin_security_control',
             mode='mfa_enforced',
-            mfa_evidence_ref='admin-mfa-controlled-v1',
-            authorization_ref='stage7-admin-security-authorization-v1',
-            responsible_ref='security-owner-v1',
+            mfa_evidence_ref='  admin-mfa-controlled-v1  ',
+            authorization_ref='  stage7-admin-security-authorization-v1  ',
+            responsible_ref='  security-owner-v1  ',
+            description='  Control MFA validado  ',
             stdout=output,
         )
 
@@ -394,6 +424,9 @@ class OperationalObservabilityAuditTests(TestCase):
         setting = PlatformSetting.objects.get(key=ADMIN_SECURITY_SETTING_KEY)
 
         self.assertEqual(setting.value['mfa_evidence_ref'], 'admin-mfa-controlled-v1')
+        self.assertEqual(setting.value['authorization_ref'], 'stage7-admin-security-authorization-v1')
+        self.assertEqual(setting.value['responsible_ref'], 'security-owner-v1')
+        self.assertEqual(setting.description, 'Control MFA validado')
         self.assertTrue(payload['mfa_enforced'])
         self.assertFalse(payload['risk_accepted'])
         self.assertTrue(payload['authorized_for_stage7_close'])

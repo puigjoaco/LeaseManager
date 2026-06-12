@@ -263,6 +263,34 @@ class PlatformSettingValidationTests(TestCase):
 
         setting.full_clean()
 
+    def test_admin_security_setting_normalizes_refs_before_full_clean_and_save(self):
+        setting = PlatformSetting(
+            key=ADMIN_SECURITY_SETTING_KEY,
+            description='  Control MFA validado  ',
+            value={
+                'mode': ' mfa_enforced ',
+                'mfa_enforced': True,
+                'mfa_evidence_ref': '  admin-mfa-controlled-v1  ',
+                'authorization_ref': '  stage7-admin-security-authorization-v1  ',
+                'responsible_ref': '  security-owner-v1  ',
+            },
+        )
+
+        setting.full_clean()
+        self.assertEqual(setting.description, 'Control MFA validado')
+        self.assertEqual(setting.value['mode'], 'mfa_enforced')
+        self.assertEqual(setting.value['mfa_evidence_ref'], 'admin-mfa-controlled-v1')
+        self.assertEqual(setting.value['authorization_ref'], 'stage7-admin-security-authorization-v1')
+        self.assertEqual(setting.value['responsible_ref'], 'security-owner-v1')
+
+        setting.save()
+        stored = PlatformSetting.objects.get(key=ADMIN_SECURITY_SETTING_KEY)
+        self.assertEqual(stored.description, 'Control MFA validado')
+        self.assertEqual(stored.value['mode'], 'mfa_enforced')
+        self.assertEqual(stored.value['mfa_evidence_ref'], 'admin-mfa-controlled-v1')
+        self.assertEqual(stored.value['authorization_ref'], 'stage7-admin-security-authorization-v1')
+        self.assertEqual(stored.value['responsible_ref'], 'security-owner-v1')
+
     def test_admin_security_setting_accepts_current_risk_acceptance(self):
         setting = PlatformSetting(
             key=ADMIN_SECURITY_SETTING_KEY,
