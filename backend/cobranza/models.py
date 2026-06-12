@@ -674,8 +674,14 @@ class IntentoPagoWebPay(TimestampedModel):
     def __str__(self):
         return f'WebPay {self.pago_mensual_id} - {self.estado}'
 
+    def _normalize_operational_fields(self):
+        self.return_url_ref = (self.return_url_ref or '').strip()
+        self.motivo_bloqueo = (self.motivo_bloqueo or '').strip()
+        self.external_ref = (self.external_ref or '').strip()
+
     def clean(self):
         super().clean()
+        self._normalize_operational_fields()
         if self.gate_cobro.provider_key != self.provider_key:
             raise ValidationError({'gate_cobro': 'El gate de cobro debe pertenecer al mismo provider_key.'})
         if self.gate_cobro.capacidad_key != CapacidadCobroExterno.WEBPAY_INTENT:
@@ -731,6 +737,10 @@ class IntentoPagoWebPay(TimestampedModel):
                         )
                     }
                 )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
 
 
 class DistribucionCobroMensual(TimestampedModel):

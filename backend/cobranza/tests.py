@@ -1478,6 +1478,45 @@ class CobranzaAPITests(APITestCase):
             intent.full_clean()
         self.assertIn('motivo_bloqueo', block_error.exception.message_dict)
 
+    def test_webpay_intent_refs_normalize_before_persisting(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-REF-NORM')
+        payment.monto_pagado_clp = payment.monto_calculado_clp
+        payment.fecha_pago_webpay = date(2026, 1, 8)
+        payment.fecha_deteccion_sistema = date(2026, 1, 8)
+        payment.estado_pago = EstadoPago.PAID
+        payment.full_clean()
+        payment.save()
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-gate-evidence-controlled',
+        )
+        intent = IntentoPagoWebPay(
+            pago_mensual=payment,
+            gate_cobro=gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=payment.monto_calculado_clp,
+            buy_order='BUY-WP-REF-NORM',
+            session_id='SESSION-WP-REF-NORM',
+            return_url_ref='  webpay-return-controlled-v1  ',
+            estado=EstadoIntentoPagoWebPay.CONFIRMED_MANUAL,
+            motivo_bloqueo='  provider-confirmed-controlled  ',
+            external_ref='  TBK-REF-NORM-001  ',
+            fecha_pago_webpay=date(2026, 1, 8),
+            usuario=self.user,
+        )
+
+        intent.full_clean()
+        self.assertEqual(intent.return_url_ref, 'webpay-return-controlled-v1')
+        self.assertEqual(intent.motivo_bloqueo, 'provider-confirmed-controlled')
+        self.assertEqual(intent.external_ref, 'TBK-REF-NORM-001')
+        intent.save()
+        intent.refresh_from_db()
+
+        self.assertEqual(intent.return_url_ref, 'webpay-return-controlled-v1')
+        self.assertEqual(intent.motivo_bloqueo, 'provider-confirmed-controlled')
+        self.assertEqual(intent.external_ref, 'TBK-REF-NORM-001')
+
     def test_webpay_apis_redact_inherited_sensitive_references(self):
         self.user.default_role_code = 'AdministradorGlobal'
         self.user.save(update_fields=['default_role_code'])

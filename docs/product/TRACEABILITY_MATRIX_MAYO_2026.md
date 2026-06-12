@@ -1251,6 +1251,11 @@ persistir. `GateCobroExterno.clean()` y `GateCobroExternoSerializer` recortan
 `evidencia_ref` para que el gate `WebPay.IntentoPago`, API, snapshot y
 readiness comparen una referencia canonica no sensible sin espacios crudos.
 
+Nota 2026-06-12: Cobranza/WebPay normaliza refs y motivos de intentos antes de
+persistir. `IntentoPagoWebPay.clean()` y `save()` recortan `return_url_ref`,
+`external_ref` y `motivo_bloqueo` para que API, servicio, auditoria, snapshot
+y readiness comparen trazas canonicas sin espacios crudos.
+
 Nota 2026-05-27: Contratos/Canales clasifica y redacta motivos sensibles de
 bloqueo definitivo WhatsApp. `Arrendatario.clean()` y el endpoint de bloqueo
 rechazan nuevos `whatsapp_bloqueo_motivo` con URLs, correos, tokens o
