@@ -173,6 +173,10 @@ class ConexionBancaria(TimestampedModel):
         self.prueba_movimientos_ref = (self.prueba_movimientos_ref or '').strip()
         self.prueba_saldos_ref = (self.prueba_saldos_ref or '').strip()
 
+    def full_clean(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().full_clean(*args, **kwargs)
+
     def clean(self):
         super().clean()
         errors = {}
@@ -289,6 +293,10 @@ class MovimientoBancarioImportado(TimestampedModel):
         self.referencia = (self.referencia or '').strip()
         self.transaction_id_banco = (self.transaction_id_banco or '').strip()
         self.notas_admin = (self.notas_admin or '').strip()
+
+    def full_clean(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().full_clean(*args, **kwargs)
 
     def _validate_bank_transaction_identity(self, errors):
         transaction_id = str(self.transaction_id_banco or '').strip()
@@ -538,6 +546,10 @@ class CuadraturaBancaria(TimestampedModel):
         self.evidencia_cuadratura_ref = (self.evidencia_cuadratura_ref or '').strip()
         self.responsable_ref = (self.responsable_ref or '').strip()
         self.rationale = (self.rationale or '').strip()
+
+    def full_clean(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().full_clean(*args, **kwargs)
 
     def clean(self):
         super().clean()

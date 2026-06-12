@@ -25,17 +25,18 @@ sistema igual a saldo banco.
   como lista para `provider_sync` hasta registrar un nuevo exito posterior.
   `provider_key`, `scope`, `credencial_ref`, `evidencia_gate_ref`,
   `prueba_conectividad_ref`, `prueba_movimientos_ref` y `prueba_saldos_ref`
-  se normalizan antes de persistir para que API, snapshots, readiness y
-  unicidad por proveedor comparen valores canonicos sin espacios crudos.
+  se normalizan antes de `full_clean` y persistencia para que modelo, API,
+  snapshots, readiness y unicidad por proveedor comparen valores canonicos sin
+  espacios crudos.
 - Movimiento importado por `provider_sync` solo contra conexion activa,
   primaria de movimientos, readiness trazable y `transaction_id_banco` no
   sensible y no duplicado dentro de la misma conexion por modelo y constraint
   DB; toda `referencia` bancaria de movimiento debe ser no sensible, y la
   carga manual controlada exige `evidencia_importacion_ref` no sensible.
   `evidencia_importacion_ref`, `referencia`, `transaction_id_banco` y
-  `notas_admin` se normalizan antes de persistir para que API, snapshots,
-  auditoria y unicidad bancaria comparen referencias canonicas sin espacios
-  crudos.
+  `notas_admin` se normalizan antes de `full_clean` y persistencia para que
+  modelo, API, snapshots, auditoria y unicidad bancaria comparen referencias
+  canonicas sin espacios crudos.
 - La creacion API de movimientos bancarios debe persistir el movimiento,
   registrar auditoria `created` y ejecutar match exacto local mediante el
   servicio auditado que registra `match_attempted` en una unica transaccion; si
@@ -180,8 +181,9 @@ sistema igual a saldo banco.
   fecha de cuadratura alineada al periodo economico, evidencia no sensible y
   responsable no sensible; cualquier motivo registrado debe ser no sensible.
   `periodo_economico`, `evidencia_cuadratura_ref`, `responsable_ref` y
-  `rationale` se normalizan antes de persistir para que API, snapshots,
-  readiness y cobertura por cuenta/periodo comparen valores canonicos.
+  `rationale` se normalizan antes de `full_clean` y persistencia para que
+  modelo, API, snapshots, readiness y cobertura por cuenta/periodo comparen
+  valores canonicos.
 - Las diferencias banco/sistema quedan registradas con motivo auditable, pero
   no habilitan cierre: readiness bloquea cuadraturas faltantes por
   cuenta/periodo con movimientos, invalidas, con referencias o motivos
