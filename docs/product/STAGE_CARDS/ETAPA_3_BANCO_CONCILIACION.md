@@ -175,6 +175,9 @@ sistema igual a saldo banco.
   `CuadraturaBancaria`, con saldo sistema, saldo banco, diferencia calculada,
   fecha de cuadratura alineada al periodo economico, evidencia no sensible y
   responsable no sensible; cualquier motivo registrado debe ser no sensible.
+  `periodo_economico`, `evidencia_cuadratura_ref`, `responsable_ref` y
+  `rationale` se normalizan antes de persistir para que API, snapshots,
+  readiness y cobertura por cuenta/periodo comparen valores canonicos.
 - Las diferencias banco/sistema quedan registradas con motivo auditable, pero
   no habilitan cierre: readiness bloquea cuadraturas faltantes por
   cuenta/periodo con movimientos, invalidas, con referencias o motivos

@@ -721,6 +721,37 @@ class ConciliacionAPITests(APITestCase):
         self.assertIn('rationale', response.data)
         self.assertFalse(CuadraturaBancaria.objects.filter(cuenta_recaudadora=cuenta).exists())
 
+    def test_balance_square_refs_normalize_before_persisting(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BALANCE-NORMALIZED')
+
+        response = self.client.post(
+            reverse('conciliacion-cuadratura-list'),
+            {
+                'cuenta_recaudadora': cuenta.pk,
+                'periodo_economico': ' 2026-01 ',
+                'fecha_cuadratura': '2026-01-31',
+                'saldo_sistema_clp': '1000000.00',
+                'saldo_banco_clp': '999990.00',
+                'estado': EstadoCuadraturaBancaria.OPEN_DIFFERENCE,
+                'evidencia_cuadratura_ref': ' balance-square-controlled-2026-01 ',
+                'responsable_ref': ' stage3-balance-owner ',
+                'rationale': ' Diferencia bancaria pendiente de explicacion operacional. ',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['periodo_economico'], '2026-01')
+        self.assertEqual(response.data['evidencia_cuadratura_ref'], 'balance-square-controlled-2026-01')
+        self.assertEqual(response.data['responsable_ref'], 'stage3-balance-owner')
+        self.assertEqual(response.data['rationale'], 'Diferencia bancaria pendiente de explicacion operacional.')
+
+        cuadratura = CuadraturaBancaria.objects.get(pk=response.data['id'])
+        self.assertEqual(cuadratura.periodo_economico, '2026-01')
+        self.assertEqual(cuadratura.evidencia_cuadratura_ref, 'balance-square-controlled-2026-01')
+        self.assertEqual(cuadratura.responsable_ref, 'stage3-balance-owner')
+        self.assertEqual(cuadratura.rationale, 'Diferencia bancaria pendiente de explicacion operacional.')
+
     def test_active_bank_connection_requires_readiness_references(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BANK-GATE')
 

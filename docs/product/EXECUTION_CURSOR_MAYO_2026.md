@@ -24,8 +24,8 @@ nueva.
 | --- | --- |
 | Frente activo | Sin frente activo. |
 | Fuente exacta | Confirmar siempre con `git status --short --branch`, `git worktree list` y `git log -1 --oneline` antes de abrir el siguiente paquete; el worktree rescue sigue pausado y fuera de alcance. |
-| Brecha activa | Ninguna. Ultimo paquete preparado: Etapa 3 / Conciliacion normaliza refs de conexiones bancarias antes de persistir. |
-| Motivo de prioridad | Paquete cerrado localmente; Etapa 3 conserva conexiones bancarias con referencias canonicas y unicidad por proveedor mas robusta. |
+| Brecha activa | Ninguna. Ultimo paquete preparado: Etapa 3 / Conciliacion normaliza refs y motivos de cuadraturas bancarias antes de persistir. |
+| Motivo de prioridad | Paquete cerrado localmente; Etapa 3 conserva cuadraturas banco/sistema con valores canonicos por cuenta/periodo. |
 | Worktree | Ninguno de producto activo. |
 | Rama | Ninguna de producto activa. |
 | Estado | Listo para continuar con el siguiente paquete pequeno, local, verificable y cerrable sin tocar secretos ni fuentes externas. |

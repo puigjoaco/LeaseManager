@@ -533,14 +533,21 @@ class CuadraturaBancaria(TimestampedModel):
     def _calculated_difference(self):
         return Decimal(str(self.saldo_banco_clp or '0.00')) - Decimal(str(self.saldo_sistema_clp or '0.00'))
 
+    def _normalize_operational_fields(self):
+        self.periodo_economico = (self.periodo_economico or '').strip()
+        self.evidencia_cuadratura_ref = (self.evidencia_cuadratura_ref or '').strip()
+        self.responsable_ref = (self.responsable_ref or '').strip()
+        self.rationale = (self.rationale or '').strip()
+
     def clean(self):
         super().clean()
         errors = {}
+        self._normalize_operational_fields()
         self.diferencia_clp = self._calculated_difference()
 
-        if not ECONOMIC_PERIOD_RE.fullmatch(str(self.periodo_economico or '').strip()):
+        if not ECONOMIC_PERIOD_RE.fullmatch(self.periodo_economico):
             errors['periodo_economico'] = 'periodo_economico debe usar formato YYYY-MM.'
-        elif _period_from_date(self.fecha_cuadratura) != str(self.periodo_economico).strip():
+        elif _period_from_date(self.fecha_cuadratura) != self.periodo_economico:
             errors['periodo_economico'] = 'periodo_economico debe coincidir con el mes de fecha_cuadratura.'
 
         if not is_non_sensitive_reference(self.evidencia_cuadratura_ref):
@@ -569,6 +576,7 @@ class CuadraturaBancaria(TimestampedModel):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
         self.diferencia_clp = self._calculated_difference()
         super().save(*args, **kwargs)
 
