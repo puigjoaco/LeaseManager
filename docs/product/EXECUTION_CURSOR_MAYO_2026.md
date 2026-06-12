@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 2 / Cobranza - rebuild scoped de estado de cuenta. |
-| Fuente exacta | Base `main` limpia en `18f6bc46`; paquete trabajado en worktree tactico `D:/Proyectos/LeaseManager-stage2-account-state-scoped-rebuild` y rama `codex/stage2-account-state-scoped-rebuild`; rescue pausado fuera de alcance. |
-| Brecha activa | `rebuild_account_state()` no debe crear ni sobrescribir `EstadoCuentaArrendatario` global con un resumen parcial cuando el usuario tiene scope restringido. |
-| Motivo de prioridad | Brecha local, pequena y verificable en Cobranza: evita que una vista parcial contamine el resumen operativo usado por readiness y backoffice global. |
-| Worktree | `D:/Proyectos/LeaseManager-stage2-account-state-scoped-rebuild`. |
-| Rama | `codex/stage2-account-state-scoped-rebuild`. |
+| Frente activo | Etapa 2 / Cobranza - refresh scoped de mora y estado de cuenta global. |
+| Fuente exacta | Base `main` limpia en `8eb6d458`; paquete trabajado en worktree tactico `D:/Proyectos/LeaseManager-stage2-overdue-global-state-sync` y rama `codex/stage2-overdue-global-state-sync`; rescue pausado fuera de alcance. |
+| Brecha activa | `refresh_overdue_payments()` con usuario scoped no debe dejar stale el `EstadoCuentaArrendatario` global despues de mutar pagos visibles; debe recalcular el agregado global derivado con la misma fecha de corte, sin exponer resumen monetario global en la respuesta/auditoria scoped. |
+| Motivo de prioridad | Brecha local, pequena y verificable posterior al rebuild scoped: conserva la regla de no persistir resumen parcial, pero mantiene sincronizado el resumen global usado por readiness y backoffice tras una mutacion real de mora. |
+| Worktree | `D:/Proyectos/LeaseManager-stage2-overdue-global-state-sync`. |
+| Rama | `codex/stage2-overdue-global-state-sync`. |
 | Estado | Validacion local completa del paquete Cobranza; falta PR, CI remoto, merge y limpieza. |
 | Gate esperado | Gate local Etapa 2 queda `classification=parcial`, `ready_for_stage2_cobranza=false`, sin cierre evidencial falso. |
-| Estado al cerrar paquete | Focal Cobranza OK; suite impactada Cobranza/readiness OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 2 parcial OK; frontend build/lint OK; acceptance local OK; PR/CI/merge/limpieza confirmados. |
+| Estado al cerrar paquete | Focal Cobranza OK; suite impactada Cobranza/readiness OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 2 parcial OK; frontend build/lint OK; acceptance local OK; faltan PR/CI/merge/limpieza. |
 | Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
 | Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Completar validaciones del paquete activo, actualizar evidencia con resultados reales, abrir PR, esperar CI, mergear, sincronizar `main` y eliminar worktree/rama tactica. |
+| Siguiente accion | Abrir PR, esperar CI remoto, mergear, sincronizar `main` y eliminar worktree/rama tactica. |
 
 ## Actualizacion
 

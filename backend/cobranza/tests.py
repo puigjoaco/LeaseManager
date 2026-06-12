@@ -412,6 +412,9 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.data['reference_date'], '2026-01-10')
         self.assertEqual(response.data['updated_count'], 1)
         self.assertEqual(response.data['tenant_count'], 1)
+        self.assertFalse(response.data['scope_restricted'])
+        self.assertEqual(response.data['account_state_rebuild_mode'], 'global_derived')
+        self.assertEqual(response.data['account_state_persisted_count'], 1)
         payment.refresh_from_db()
         self.assertEqual(payment.estado_pago, EstadoPago.OVERDUE)
         self.assertEqual(payment.dias_mora, 5)
@@ -419,7 +422,123 @@ class CobranzaAPITests(APITestCase):
         account_state.refresh_from_db()
         self.assertEqual(account_state.resumen_operativo['pagos_abiertos'], 1)
         self.assertEqual(account_state.resumen_operativo['pagos_atrasados'], 1)
-        self.assertTrue(AuditEvent.objects.filter(event_type='cobranza.pago_mensual.overdue_refreshed').exists())
+        self.assertEqual(account_state.resumen_operativo['score_meses_evaluados'], 1)
+        self.assertEqual(account_state.resumen_operativo['score_pagos_fuera_plazo'], 1)
+        self.assertEqual(account_state.score_pago, 0)
+        audit_event = AuditEvent.objects.get(event_type='cobranza.pago_mensual.overdue_refreshed')
+        self.assertEqual(audit_event.metadata['account_state_rebuild_mode'], 'global_derived')
+        self.assertEqual(audit_event.metadata['account_state_persisted_count'], 1)
+        self.assertFalse(audit_event.metadata['scope_restricted'])
+        self.assertNotIn('saldo_total_clp', audit_event.metadata)
+
+    def test_refresh_mora_with_scoped_user_persists_global_account_state(self):
+        shared_tenant = Arrendatario.objects.create(
+            tipo_arrendatario='persona_natural',
+            nombre_razon_social='Arrendatario Mora Scope',
+            rut='57575757-5',
+            email='mora-scope@example.com',
+            telefono='888',
+            domicilio_notificaciones='Otra',
+            estado_contacto='activo',
+        )
+        company_a = self._create_active_empresa(
+            'Mora Scope A',
+            '85858585-8',
+            self._rut_for_code('MORAA', 1),
+            self._rut_for_code('MORAA', 2),
+        )
+        company_b = self._create_active_empresa(
+            'Mora Scope B',
+            '86868686-8',
+            self._rut_for_code('MORAB', 1),
+            self._rut_for_code('MORAB', 2),
+        )
+        contrato_a, periodo_a = self._create_contract_for_company_and_arrendatario(
+            empresa=company_a,
+            arrendatario=shared_tenant,
+            codigo='MORA-SCOPE-A',
+        )
+        contrato_b, periodo_b = self._create_contract_for_company_and_arrendatario(
+            empresa=company_b,
+            arrendatario=shared_tenant,
+            codigo='MORA-SCOPE-B',
+        )
+        payment_a = PagoMensual.objects.create(
+            contrato=contrato_a,
+            periodo_contractual=periodo_a,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp='100000.00',
+            monto_calculado_clp='100111.00',
+            monto_efecto_codigo_efectivo_clp='111.00',
+            fecha_vencimiento='2026-01-05',
+            estado_pago=EstadoPago.PENDING,
+            codigo_conciliacion_efectivo='111',
+        )
+        payment_b = PagoMensual.objects.create(
+            contrato=contrato_b,
+            periodo_contractual=periodo_b,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp='200000.00',
+            monto_calculado_clp='200222.00',
+            monto_efecto_codigo_efectivo_clp='222.00',
+            fecha_vencimiento='2026-01-05',
+            estado_pago=EstadoPago.PENDING,
+            codigo_conciliacion_efectivo='222',
+        )
+        initial_state = rebuild_account_state(shared_tenant, reference_date=date(2026, 1, 4))
+        self.assertEqual(initial_state.resumen_operativo['pagos_abiertos'], 2)
+        self.assertEqual(initial_state.resumen_operativo['score_meses_evaluados'], 0)
+
+        scoped_user = get_user_model().objects.create_user(
+            username='billing-mora-scope',
+            password='secret123',
+            default_role_code='OperadorDeCartera',
+        )
+        operator_role = Role.objects.create(code='OperadorDeCartera', name='Operador de cartera')
+        scope = Scope.objects.create(
+            code=f'company-mora-{company_a.id}',
+            name=f'Empresa {company_a.razon_social}',
+            scope_type=Scope.ScopeType.COMPANY,
+            external_reference=str(company_a.id),
+            is_active=True,
+        )
+        UserScopeAssignment.objects.create(user=scoped_user, role=operator_role, scope=scope, is_primary=True)
+        self.client.force_authenticate(scoped_user)
+
+        response = self.client.post(
+            reverse('cobranza-pago-refresh-mora'),
+            {'fecha_corte': '2026-01-10'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['reference_date'], '2026-01-10')
+        self.assertEqual(response.data['updated_count'], 1)
+        self.assertEqual(response.data['tenant_count'], 1)
+        self.assertTrue(response.data['scope_restricted'])
+        self.assertEqual(response.data['account_state_rebuild_mode'], 'global_derived')
+        self.assertEqual(response.data['account_state_persisted_count'], 1)
+        payment_a.refresh_from_db()
+        payment_b.refresh_from_db()
+        self.assertEqual(payment_a.estado_pago, EstadoPago.OVERDUE)
+        self.assertEqual(payment_a.dias_mora, 5)
+        self.assertEqual(payment_b.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(payment_b.dias_mora, 0)
+
+        global_state = EstadoCuentaArrendatario.objects.get(arrendatario=shared_tenant)
+        self.assertEqual(global_state.resumen_operativo['pagos_abiertos'], 2)
+        self.assertEqual(global_state.resumen_operativo['pagos_atrasados'], 1)
+        self.assertEqual(global_state.resumen_operativo['saldo_total_clp'], '300333.00')
+        self.assertEqual(global_state.resumen_operativo['score_meses_evaluados'], 2)
+        self.assertEqual(global_state.resumen_operativo['score_pagos_fuera_plazo'], 2)
+        self.assertEqual(global_state.score_pago, 0)
+        audit_event = AuditEvent.objects.get(event_type='cobranza.pago_mensual.overdue_refreshed')
+        self.assertTrue(audit_event.metadata['scope_restricted'])
+        self.assertEqual(audit_event.metadata['account_state_rebuild_mode'], 'global_derived')
+        self.assertEqual(audit_event.metadata['account_state_persisted_count'], 1)
+        self.assertNotIn('saldo_total_clp', audit_event.metadata)
 
     def test_refresh_overdue_payments_rolls_back_when_view_audit_fails(self):
         payment = self._generate_monthly_payment(codigo='CON-MORA-AUDIT-ROLLBACK')

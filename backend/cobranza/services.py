@@ -607,6 +607,7 @@ def calculate_payment_score(payments, reference_date=None):
 @transaction.atomic
 def refresh_overdue_payments(*, queryset=None, reference_date=None, access: ScopeAccess | None = None):
     reference_date = reference_date or timezone.localdate()
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
     queryset = queryset or PagoMensual.objects.all()
     candidates = queryset.select_related('contrato__arrendatario').filter(
         estado_pago__in=[EstadoPago.PENDING, EstadoPago.OVERDUE],
@@ -614,6 +615,7 @@ def refresh_overdue_payments(*, queryset=None, reference_date=None, access: Scop
     )
 
     updated_count = 0
+    account_state_persisted_count = 0
     tenant_ids: set[int] = set()
     tenants = {}
     for payment in candidates.select_for_update():
@@ -630,12 +632,16 @@ def refresh_overdue_payments(*, queryset=None, reference_date=None, access: Scop
         tenants[tenant.id] = tenant
 
     for tenant_id in sorted(tenant_ids):
-        rebuild_account_state(tenants[tenant_id], access=access)
+        rebuild_account_state(tenants[tenant_id], persist=True, reference_date=reference_date)
+        account_state_persisted_count += 1
 
     return {
         'reference_date': reference_date.isoformat(),
         'updated_count': updated_count,
         'tenant_count': len(tenant_ids),
+        'scope_restricted': access.restricted,
+        'account_state_rebuild_mode': 'global_derived',
+        'account_state_persisted_count': account_state_persisted_count,
     }
 
 

@@ -70,6 +70,12 @@ condicionados sin envios reales accidentales.
   resumen filtrado para la cartera visible, pero no puede crear ni sobrescribir
   el `EstadoCuentaArrendatario` global con datos parciales. La auditoria del
   endpoint debe distinguir si persistio resumen global o solo recalculo scoped.
+- Cuando el refresh de mora se ejecuta con usuario scoped, el scope limita los
+  pagos que pueden mutar, pero el estado de cuenta persistido despues de esa
+  mutacion debe recalcularse como agregado global derivado con la misma fecha
+  de corte. La respuesta y auditoria del endpoint solo deben exponer conteos,
+  modo de rebuild y si el actor estaba restringido, no resumenes monetarios
+  globales.
 - El score de pago excluye pagos cuyo vencimiento cae antes del
   `fecha_registro_operativo` del contrato, porque esos meses no tienen
   registro operativo valido para medir cumplimiento. El resumen operativo
@@ -184,9 +190,10 @@ condicionados sin envios reales accidentales.
   Cobranza ni llamar proveedores externos.
 - Los pagos mensuales abiertos vencidos deben refrescarse contra una fecha de
   corte operativa: un pago `pendiente` vencido pasa a `atrasado`, `dias_mora`
-  se recalcula, y el estado de cuenta del arrendatario queda sincronizado. La
-  readiness bloquea pagos pendientes ya vencidos o pagos atrasados con
-  `dias_mora` desactualizado para la fecha de corte auditada.
+  se recalcula, y el estado de cuenta global derivado del arrendatario queda
+  sincronizado con esa misma fecha de corte. La readiness bloquea pagos
+  pendientes ya vencidos o pagos atrasados con `dias_mora` desactualizado para
+  la fecha de corte auditada.
 - El efecto economico de aplicar el codigo efectivo debe quedar persistido en
   `PagoMensual.monto_efecto_codigo_efectivo_clp` como
   `monto_calculado_clp - monto_facturable_clp`. Si el efecto es distinto de
