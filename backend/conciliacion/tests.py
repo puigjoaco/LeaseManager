@@ -2069,6 +2069,51 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(resolution.status, 'open')
         self.assertFalse(TransferenciaIntercuenta.objects.exists())
 
+    def test_internal_transfer_refs_normalize_before_persisting(self):
+        cuenta_origen, _, _ = self._create_contract_and_payment(codigo='REC-TRANSFER-NORMALIZED')
+        cuenta_destino = self._create_secondary_account('REC-TRANSFER-NORMALIZED')
+        conexion_origen = self._create_connection(cuenta_origen, provider='banco_origen_transfer_normalized')
+        conexion_destino = self._create_connection(cuenta_destino, provider='banco_destino_transfer_normalized')
+        movimiento_origen = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion_origen,
+            fecha_movimiento='2026-01-10',
+            tipo_movimiento='cargo',
+            monto=Decimal('50000.00'),
+            descripcion_origen='Transferencia enviada con refs acolchadas',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='internal-transfer-origin',
+            estado_conciliacion=EstadoConciliacionMovimiento.MANUAL_REQUIRED,
+        )
+        movimiento_destino = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion_destino,
+            fecha_movimiento='2026-01-10',
+            tipo_movimiento='abono',
+            monto=Decimal('50000.00'),
+            descripcion_origen='Transferencia recibida con refs acolchadas',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='internal-transfer-destination',
+            estado_conciliacion=EstadoConciliacionMovimiento.PENDING,
+        )
+        transferencia = TransferenciaIntercuenta(
+            movimiento_origen=movimiento_origen,
+            movimiento_destino=movimiento_destino,
+            periodo_economico=' 2026-01 ',
+            criterio_conciliacion=' Par cargo/abono exacto entre cuentas recaudadoras. ',
+            evidencia_transferencia_ref=' internal-transfer-controlled-2026-01 ',
+            responsable_ref=' stage3-transfer-owner ',
+            rationale=' Transferencia interna validada por cartola controlada. ',
+        )
+
+        transferencia.full_clean()
+        transferencia.save()
+
+        transferencia.refresh_from_db()
+        self.assertEqual(transferencia.periodo_economico, '2026-01')
+        self.assertEqual(transferencia.criterio_conciliacion, 'Par cargo/abono exacto entre cuentas recaudadoras.')
+        self.assertEqual(transferencia.evidencia_transferencia_ref, 'internal-transfer-controlled-2026-01')
+        self.assertEqual(transferencia.responsable_ref, 'stage3-transfer-owner')
+        self.assertEqual(transferencia.rationale, 'Transferencia interna validada por cartola controlada.')
+
     def test_internal_transfer_list_and_snapshot_redact_existing_sensitive_context(self):
         cuenta_origen, _, _ = self._create_contract_and_payment(codigo='REC-TRANSFER-REDACT')
         cuenta_destino = self._create_secondary_account('REC-TRANSFER-REDACT')
