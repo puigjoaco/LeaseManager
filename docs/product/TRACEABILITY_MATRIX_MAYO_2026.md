@@ -255,6 +255,12 @@ notificacion antes de persistir. `ConfiguracionNotificacionContrato.clean()`,
 `evidencia_configuracion_ref` para que API, snapshot y readiness comparen una
 referencia canonica no sensible sin espacios crudos.
 
+Nota 2026-06-12: Canales normaliza el motivo de notificaciones de cobranza
+omitidas antes de persistir. `NotificacionCobranzaProgramada.clean()` y
+`save()` recortan `motivo_estado` para que API, snapshot, backoffice y
+readiness comparen un motivo operativo canonico no sensible sin espacios
+crudos.
+
 Nota 2026-06-06: Backoffice Canales alinea el formulario y la tabla de gates
 con las refs operativas aceptadas por dominio/readiness. El alta de
 `CanalMensajeria` ahora puede enviar `credencial_validada_ref` como alternativa

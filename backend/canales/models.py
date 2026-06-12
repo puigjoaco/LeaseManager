@@ -516,6 +516,7 @@ class NotificacionCobranzaProgramada(TimestampedModel):
 
     def clean(self):
         super().clean()
+        self.motivo_estado = (self.motivo_estado or '').strip()
         errors = {}
         if self.configuracion_id:
             if self.canal != self.configuracion.canal:
@@ -550,9 +551,9 @@ class NotificacionCobranzaProgramada(TimestampedModel):
                 )
         if self.estado == EstadoNotificacionCobranza.PREPARED and not self.mensaje_saliente_id:
             errors['mensaje_saliente'] = 'Una notificacion preparada requiere mensaje saliente asociado.'
-        if self.motivo_estado.strip() and contains_sensitive_reference(self.motivo_estado):
+        if self.motivo_estado and contains_sensitive_reference(self.motivo_estado):
             errors['motivo_estado'] = 'El motivo de la notificacion debe ser texto no sensible.'
-        if self.estado == EstadoNotificacionCobranza.SKIPPED and not self.motivo_estado.strip():
+        if self.estado == EstadoNotificacionCobranza.SKIPPED and not self.motivo_estado:
             errors['motivo_estado'] = 'Una notificacion omitida requiere motivo operativo.'
         if self.mensaje_saliente_id:
             if self.mensaje_saliente.canal != self.canal:
@@ -578,4 +579,8 @@ class NotificacionCobranzaProgramada(TimestampedModel):
                 errors['estado'] = 'Una notificacion preparada requiere mensaje preparado, bloqueado o enviado.'
         if errors:
             raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.motivo_estado = (self.motivo_estado or '').strip()
+        super().save(*args, **kwargs)
 

@@ -979,6 +979,33 @@ class CanalesAPITests(APITestCase):
         notification.motivo_estado = 'arrendatario-contactado-por-canal-alternativo'
         notification.full_clean()
 
+    def test_skipped_notification_reason_normalizes_before_persisting(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-REASON-NORM')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payment = self._create_payment_for_contract(contrato)
+        configuration = ConfiguracionNotificacionContrato.objects.create(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5, 10, 15, 20, 25],
+            activa=True,
+        )
+        notification = NotificacionCobranzaProgramada(
+            pago_mensual=payment,
+            configuracion=configuration,
+            canal='email',
+            dia_notificacion=5,
+            fecha_programada=date(2026, 1, 5),
+            estado='omitida',
+            motivo_estado='  arrendatario-contactado-por-canal-alternativo  ',
+        )
+
+        notification.full_clean()
+        self.assertEqual(notification.motivo_estado, 'arrendatario-contactado-por-canal-alternativo')
+        notification.save()
+        notification.refresh_from_db()
+
+        self.assertEqual(notification.motivo_estado, 'arrendatario-contactado-por-canal-alternativo')
+
     def test_channel_apis_redact_inherited_sensitive_references(self):
         _, contrato = self._create_contract_context(codigo='CH-API-REDACT')
         payment = self._create_payment_for_contract(contrato)
