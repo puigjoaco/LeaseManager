@@ -53,6 +53,20 @@ MAX_EXPORT_WINDOW_ERROR = 'Las exportaciones sensibles sin hold no pueden excede
 ENCRYPTED_REF_SENSITIVE_ERROR = 'encrypted_ref debe ser una referencia no sensible, no una URL, token o credencial.'
 
 
+def _normalize_text_value(value):
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _normalize_payload_strings(value):
+    if isinstance(value, dict):
+        return {key: _normalize_payload_strings(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_normalize_payload_strings(item) for item in value]
+    return _normalize_text_value(value)
+
+
 class PoliticaRetencionDatos(TimestampedModel):
     categoria_dato = models.CharField(max_length=32, choices=CategoriaDato.choices, unique=True)
     evento_inicio = models.CharField(max_length=64)
@@ -67,6 +81,21 @@ class PoliticaRetencionDatos(TimestampedModel):
 
     def __str__(self):
         return self.categoria_dato
+
+    def _normalize_operational_fields(self):
+        self.evento_inicio = _normalize_text_value(self.evento_inicio)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        return super().save(*args, **kwargs)
 
     def clean(self):
         super().clean()
@@ -110,8 +139,30 @@ class ExportacionSensible(TimestampedModel):
     def __str__(self):
         return f'{self.export_kind} {self.created_at.isoformat()}'
 
+    def _normalize_operational_fields(self, *, include_motivo=True):
+        if include_motivo:
+            self.motivo = _normalize_text_value(self.motivo)
+        self.payload_hash = _normalize_text_value(self.payload_hash)
+        if isinstance(self.payload_hash, str):
+            self.payload_hash = self.payload_hash.lower()
+        self.encrypted_ref = _normalize_text_value(self.encrypted_ref)
+        self.scope_resumen = _normalize_payload_strings(self.scope_resumen)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields(include_motivo=False)
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        return super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
+        self.motivo = _normalize_text_value(self.motivo)
         errors = {}
         reference_time = self.created_at or timezone.now()
         if not self.hold_activo and self.estado == EstadoExportacionSensible.PREPARED and self.expires_at <= reference_time:
@@ -128,7 +179,7 @@ class ExportacionSensible(TimestampedModel):
                 errors['hold_activo'] = EXPIRED_EXPORT_STATE_ERROR
             if self.expires_at and self.expires_at > reference_time:
                 errors['expires_at'] = EXPIRED_EXPORT_STATE_ERROR
-        payload_hash = self.payload_hash.strip()
+        payload_hash = str(self.payload_hash or '').strip()
         if len(payload_hash) != 64 or any(char not in '0123456789abcdefABCDEF' for char in payload_hash):
             errors['payload_hash'] = PAYLOAD_HASH_FORMAT_ERROR
         if self.categoria_dato == CategoriaDato.SECRET:

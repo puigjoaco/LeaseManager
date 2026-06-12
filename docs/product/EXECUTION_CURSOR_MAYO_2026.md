@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar normalizacion Etapa 7 observabilidad. |
-| Fuente exacta | `main` limpio en `5cdf27b6` como base; paquete `codex/stage7-runtime-signal-normalization` validado para PR/merge. Rescue pausado fuera de alcance. |
-| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear el paquete. La brecha de trazas runtime crudas queda cubierta por modelo, comandos, stage card, trazabilidad y evidencia. |
-| Motivo de prioridad | Evitar que reanudaciones o compactaciones reabran el paquete de normalizacion Etapa 7 ya validado. |
+| Frente activo | Sin paquete tactico abierto tras cerrar normalizacion de metadata visible Compliance. |
+| Fuente exacta | `main` limpio tras mergear este paquete; PR #763 (`ba55d046`) fue la base anterior y rescue queda pausado fuera de alcance. |
+| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear el paquete. La brecha de metadata visible no canonica en Compliance queda cubierta por modelo, readiness, stage card, trazabilidad y evidencia. |
+| Motivo de prioridad | Evitar que reanudaciones o compactaciones reabran el paquete de Compliance ya validado. |
 | Worktree | Ninguno tras merge y limpieza del paquete. |
 | Rama | `main` tras merge. |
 | Estado | Listo para seleccionar el siguiente frente util y seguro desde el repo limpio despues de PR/CI/merge/limpieza. |
 | Gate esperado | El siguiente paquete debe definir su gate proporcional antes de editar; los cierres evidenciales siguen sin declararse sin fuente autorizada y evidencia. |
-| Estado al cerrar paquete | Etapa 7 observabilidad: focal 4 tests OK; suite impactada Core/observabilidad/Stage7 56 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 7 local parcial OK; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1302 tests OK; higiene repo y `git diff --check` OK. |
-| Bloqueos relacionados | Cierre productivo sigue condicionado por restore/smoke/observabilidad/aceptacion autorizados; este paquete solo prepara el gate local. |
+| Estado al cerrar paquete | Compliance metadata visible: focal 5 tests OK; suite impactada Compliance/readiness 116 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Compliance local parcial OK; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1305 tests OK; higiene repo y `git diff --check` OK. |
+| Bloqueos relacionados | BLK-010 sigue abierto para cierre legal-operativo; este paquete solo prepara validadores internos y metadata canonica. |
 | Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
 | Siguiente accion | Tras mergear y limpiar este paquete, confirmar `git status --short --branch` y `git worktree list`, diagnosticar el siguiente frente seguro por orden de construccion/trazabilidad y abrir un worktree `codex/...` solo cuando haya paquete concreto. |
 

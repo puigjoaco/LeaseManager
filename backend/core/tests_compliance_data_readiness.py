@@ -259,6 +259,29 @@ class ComplianceDataReadinessTests(TestCase):
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('compliance.source_kind_not_authorized', issue_codes)
 
+    def test_noncanonical_visible_metadata_is_blocking_for_snapshots(self):
+        self._create_policies()
+        export = self._create_valid_export()
+        policy = PoliticaRetencionDatos.objects.get(categoria_dato=CategoriaDato.FINANCIAL)
+
+        PoliticaRetencionDatos.objects.filter(pk=policy.pk).update(
+            evento_inicio=f' {policy.evento_inicio} ',
+        )
+        ExportacionSensible.objects.filter(pk=export.pk).update(
+            motivo=f' {export.motivo} ',
+            payload_hash=f' {export.payload_hash.upper()} ',
+            encrypted_ref=f' {export.encrypted_ref} ',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertIn('compliance.retention_policy_event_start_not_canonical', issue_codes)
+        self.assertIn('compliance.export_visible_metadata_not_canonical', issue_codes)
+        self.assertEqual(result['sections']['retention_policies']['event_start_not_canonical'], 1)
+        self.assertEqual(result['sections']['exports']['visible_metadata_not_canonical'], 1)
+
     def test_authorized_source_requires_source_trace_refs(self):
         self._create_policies()
         self._create_valid_export()

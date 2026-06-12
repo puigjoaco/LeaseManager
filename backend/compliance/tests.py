@@ -244,8 +244,8 @@ class ComplianceAPITests(APITestCase):
         export = prepare_sensitive_export(
             categoria_dato='financiero',
             export_kind='financiero_mensual',
-            scope_resumen={'anio': 2026, 'mes': 1},
-            motivo='Revision mensual desde servicio',
+            scope_resumen={'anio': 2026, 'mes': 1, 'periodo': ' 2026-01 '},
+            motivo='  Revision mensual desde servicio  ',
             payload={'total': 'controlado'},
             created_by=self.user,
             actor_user=self.user,
@@ -259,7 +259,10 @@ class ComplianceAPITests(APITestCase):
         )
         self.assertEqual(prepared_event.actor_user_id, self.user.id)
         self.assertEqual(prepared_event.ip_address, '127.0.0.1')
+        self.assertEqual(export.motivo, 'Revision mensual desde servicio')
+        self.assertEqual(export.scope_resumen['periodo'], '2026-01')
         self.assertEqual(prepared_event.metadata['export_kind'], export.export_kind)
+        self.assertEqual(prepared_event.metadata['scope_resumen']['periodo'], '2026-01')
         self.assertEqual(prepared_event.metadata['payload_hash'], export.payload_hash)
 
     def test_prepare_sensitive_export_rolls_back_when_audit_creation_fails(self):
@@ -716,6 +719,62 @@ class ComplianceAPITests(APITestCase):
         with self.assertRaises(ValidationError) as context:
             export.full_clean()
         self.assertEqual(context.exception.message_dict['encrypted_ref'][0], ENCRYPTED_REF_SENSITIVE_ERROR)
+
+    def test_retention_policy_event_start_normalizes_before_full_clean_and_save(self):
+        canonical_event = 'evento-' + ('r' * (64 - len('evento-')))
+        policy = PoliticaRetencionDatos(
+            categoria_dato=CategoriaDato.FINANCIAL,
+            evento_inicio=f' {canonical_event} ',
+            plazo_minimo_anos=6,
+        )
+
+        policy.full_clean()
+        self.assertEqual(policy.evento_inicio, canonical_event)
+
+        policy.save()
+        stored = PoliticaRetencionDatos.objects.get(categoria_dato=CategoriaDato.FINANCIAL)
+        self.assertEqual(stored.evento_inicio, canonical_event)
+
+    def test_export_visible_metadata_normalizes_before_full_clean_and_save(self):
+        encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})
+        canonical_ref = 'export-ref-' + ('x' * (255 - len('export-ref-')))
+        export = ExportacionSensible(
+            categoria_dato=CategoriaDato.FINANCIAL,
+            export_kind='financiero_mensual',
+            scope_resumen={
+                'periodo': ' 2026-01 ',
+                'filtros': [' empresa-controlada ', {'tag': ' cierre-mensual '}],
+                'mes': 1,
+            },
+            motivo='  Revision mensual  ',
+            encrypted_payload=encrypted_payload,
+            payload_hash=f' {payload_hash.upper()} ',
+            encrypted_ref=f' {canonical_ref} ',
+            expires_at=timezone.now() + timedelta(days=1),
+            created_by=self.user,
+        )
+
+        export.full_clean()
+        self.assertEqual(export.motivo, 'Revision mensual')
+        self.assertEqual(export.payload_hash, payload_hash)
+        self.assertEqual(export.encrypted_ref, canonical_ref)
+        self.assertEqual(
+            export.scope_resumen,
+            {
+                'periodo': '2026-01',
+                'filtros': ['empresa-controlada', {'tag': 'cierre-mensual'}],
+                'mes': 1,
+            },
+        )
+
+        export.save()
+        stored = ExportacionSensible.objects.get(pk=export.pk)
+        self.assertEqual(stored.motivo, 'Revision mensual')
+        self.assertEqual(stored.payload_hash, payload_hash)
+        self.assertEqual(stored.encrypted_ref, canonical_ref)
+        self.assertEqual(stored.scope_resumen['periodo'], '2026-01')
+        self.assertEqual(stored.scope_resumen['filtros'][0], 'empresa-controlada')
+        self.assertEqual(stored.scope_resumen['filtros'][1]['tag'], 'cierre-mensual')
 
     def test_export_admin_redacts_sensitive_export_fields(self):
         encrypted_payload, payload_hash = encrypt_payload({'resultado': 'controlado'})

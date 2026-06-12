@@ -77,6 +77,22 @@ def _count_by(queryset, field_name: str) -> dict[str, int]:
     return dict(sorted(counter.items()))
 
 
+def _text_is_not_canonical(value) -> bool:
+    return isinstance(value, str) and value != value.strip()
+
+
+def _payload_strings_not_canonical(value) -> bool:
+    if isinstance(value, dict):
+        return any(_payload_strings_not_canonical(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_payload_strings_not_canonical(item) for item in value)
+    return _text_is_not_canonical(value)
+
+
+def _payload_hash_is_not_canonical(value) -> bool:
+    return isinstance(value, str) and value != value.strip().lower()
+
+
 def _audit_event_has_sensitive_metadata(event: AuditEvent) -> bool:
     return contains_sensitive_reference(event.summary, include_sensitive_keys=True) or contains_sensitive_reference(
         event.metadata,
@@ -191,6 +207,13 @@ def _collect_export_issues(exports, now) -> dict[str, int]:
     counts = Counter()
     max_expiry_seconds = MAX_EXPORT_DAYS * 24 * 60 * 60
     for export in exports:
+        if (
+            _text_is_not_canonical(export.motivo)
+            or _text_is_not_canonical(export.encrypted_ref)
+            or _payload_hash_is_not_canonical(export.payload_hash)
+            or _payload_strings_not_canonical(export.scope_resumen)
+        ):
+            counts['visible_metadata_not_canonical'] += 1
         try:
             export.full_clean()
         except ValidationError:
@@ -278,6 +301,7 @@ def collect_compliance_data_readiness(
     active_policies = policies.filter(estado=EstadoRegistro.ACTIVE)
     active_categories = set(active_policies.values_list('categoria_dato', flat=True))
     missing_active_categories = sorted(REQUIRED_RETENTION_CATEGORIES - active_categories)
+    noncanonical_policy_event_start = sum(1 for policy in policies if _text_is_not_canonical(policy.evento_inicio))
     invalid_policies = _count_invalid(policies)
     hold_ready_categories = set(
         active_policies.filter(requiere_hold=True).values_list('categoria_dato', flat=True)
@@ -386,6 +410,14 @@ def collect_compliance_data_readiness(
                 count=invalid_policies,
             )
         )
+    if noncanonical_policy_event_start:
+        issues.append(
+            _issue(
+                'compliance.retention_policy_event_start_not_canonical',
+                'Existen politicas de retencion con evento_inicio no canonico.',
+                count=noncanonical_policy_event_start,
+            )
+        )
     if hold_missing_categories:
         issues.append(
             _issue(
@@ -418,6 +450,11 @@ def collect_compliance_data_readiness(
             'encrypted_ref_sensitive',
             'compliance.export_encrypted_ref_sensitive',
             'Existen exportaciones con encrypted_ref sensible heredado.',
+        ),
+        (
+            'visible_metadata_not_canonical',
+            'compliance.export_visible_metadata_not_canonical',
+            'Existen exportaciones con metadata visible o payload_hash no canonicos.',
         ),
         (
             'secret_category_exports',
@@ -607,6 +644,7 @@ def collect_compliance_data_readiness(
                 'active_categories': sorted(active_categories),
                 'missing_active_categories': missing_active_categories,
                 'invalid_policies': invalid_policies,
+                'event_start_not_canonical': noncanonical_policy_event_start,
                 'hold_required_categories': sorted(str(category) for category in HOLD_REQUIRED_CATEGORIES),
                 'hold_missing_categories': hold_missing_categories,
                 'physical_purge_enabled_for_restricted_categories': physical_purge_enabled,
@@ -619,6 +657,7 @@ def collect_compliance_data_readiness(
                 'invalid_model': export_issues.get('invalid_model', 0),
                 'sensitive_visible_metadata': export_issues.get('sensitive_visible_metadata', 0),
                 'encrypted_ref_sensitive': export_issues.get('encrypted_ref_sensitive', 0),
+                'visible_metadata_not_canonical': export_issues.get('visible_metadata_not_canonical', 0),
                 'secret_category_exports': export_issues.get('secret_category_exports', 0),
                 'motive_missing': export_issues.get('motive_missing', 0),
                 'created_by_missing': export_issues.get('created_by_missing', 0),

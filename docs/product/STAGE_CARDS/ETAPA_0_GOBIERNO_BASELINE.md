@@ -79,6 +79,12 @@ evidencia respalda el root limpio.
   los valores heredados se representan redactados. El admin de politicas y
   exportaciones sensibles mantiene cerrados el alta, edicion y borrado manual:
   las mutaciones deben pasar por API, servicios, dominio y auditoria.
+- Compliance normaliza metadata visible antes de validar y persistir:
+  `PoliticaRetencionDatos` recorta `evento_inicio`, y
+  `ExportacionSensible` recorta `motivo`, `encrypted_ref`, strings dentro de
+  `scope_resumen` y canoniza `payload_hash` a SHA-256 lowercase. La readiness
+  bloquea snapshots heredados con `evento_inicio`, metadata visible o
+  `payload_hash` no canonicos.
 - Las altas y ediciones API de politicas de retencion persisten la politica y
   los eventos `created`, `updated` o `state_changed` dentro de una unica
   transaccion; si falla la auditoria de vista, no queda una politica creada o
