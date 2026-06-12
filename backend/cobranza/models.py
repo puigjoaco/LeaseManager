@@ -607,6 +607,7 @@ class GateCobroExterno(TimestampedModel):
 
     def clean(self):
         super().clean()
+        self.evidencia_ref = (self.evidencia_ref or '').strip()
         if self.evidencia_ref.strip() and not is_non_sensitive_reference(self.evidencia_ref):
             raise ValidationError({'evidencia_ref': 'evidencia_ref debe ser una referencia no sensible.'})
         if contains_sensitive_reference(self.restricciones_operativas, include_sensitive_keys=True):

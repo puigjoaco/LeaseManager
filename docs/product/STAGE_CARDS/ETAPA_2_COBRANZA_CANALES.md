@@ -254,10 +254,11 @@ condicionados sin envios reales accidentales.
   siendo metadata de preparacion local y no abren proveedores externos.
 - WebPay cerrado/condicionado por defecto: preparar intento local requiere gate
   `WebPay.IntentoPago`, `return_url_ref` controlado no sensible y
-  `evidencia_ref` no sensible; confirmar manualmente requiere `external_ref`
-  trazable no sensible y `fecha_pago_webpay` diferenciada. Un intento WebPay
-  confirmado debe quedar alineado con un `PagoMensual` pagado y la misma fecha
-  WebPay, y el servicio de confirmacion manual debe conservar auditoria
+  `evidencia_ref` no sensible normalizada antes de persistir; confirmar
+  manualmente requiere `external_ref` trazable no sensible y
+  `fecha_pago_webpay` diferenciada. Un intento WebPay confirmado debe quedar
+  alineado con un `PagoMensual` pagado y la misma fecha WebPay, y el servicio
+  de confirmacion manual debe conservar auditoria
   dedicada con actor y referencia externa alineada en la misma transaccion. El
   readiness de Etapa 2 bloquea intentos confirmados heredados sin ese evento
   `cobranza.webpay_intento.confirmed_manually` completo y alineado.
