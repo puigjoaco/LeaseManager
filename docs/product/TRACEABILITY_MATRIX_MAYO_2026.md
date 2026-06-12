@@ -256,6 +256,11 @@ de credencial Email y `template_aprobado_ref` para WhatsApp, y la tabla muestra
 prueba, OAuth, credencial o template desde `restricciones_operativas`
 redactadas, sin abrir proveedores externos.
 
+Nota 2026-06-12: Canales normaliza la evidencia del gate antes de persistir.
+`CanalMensajeria.clean()` y `CanalMensajeriaSerializer` recortan
+`evidencia_ref` para que gates Email/WhatsApp, API, snapshot y readiness
+comparen una referencia canonica no sensible sin espacios crudos.
+
 Nota 2026-06-06: Backoffice Patrimonio alinea la tabla de propiedades con el
 snapshot de `ServicioPropiedad`. La UI tipa, filtra y muestra servicios/gastos
 comunes con proveedor o administracion, numero de cliente, estado y

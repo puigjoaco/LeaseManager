@@ -71,6 +71,8 @@ class CanalMensajeriaSerializer(RedactReferenceFieldsMixin, serializers.ModelSer
         read_only_fields = ('id', 'created_at', 'updated_at')
 
     def validate(self, attrs):
+        if 'evidencia_ref' in attrs:
+            attrs['evidencia_ref'] = str(attrs.get('evidencia_ref') or '').strip()
         candidate = build_validation_candidate(self.instance, CanalMensajeria)
         for field, value in attrs.items():
             setattr(candidate, field, value)

@@ -204,8 +204,9 @@ condicionados sin envios reales accidentales.
   ya esta `formalizado`; el dominio conserva el mismo guard para escrituras
   directas y readiness detecta snapshots heredados.
 - Email cerrado/condicionado por defecto: un gate `Email.Salida` abierto
-  requiere `evidencia_ref`, referencia de prueba aislada/envio y referencia
-  OAuth/credencial validada, todas no sensibles; preparar o registrar envio
+  requiere `evidencia_ref` no sensible normalizada antes de persistir,
+  referencia de prueba aislada/envio y referencia OAuth/credencial validada,
+  todas no sensibles; preparar o registrar envio
   revalida esas referencias antes de permitir operacion manual controlada. El
   JSON `restricciones_operativas` rechaza URLs, tokens, credenciales, correos
   y claves sensibles como `api_key` o `access_token`, conservando solo claves
