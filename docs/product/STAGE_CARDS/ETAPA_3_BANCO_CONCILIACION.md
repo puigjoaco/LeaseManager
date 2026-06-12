@@ -23,6 +23,10 @@ sistema igual a saldo banco.
   saldos segun capacidad marcada, todas como referencias no sensibles. Si la
   conexion conserva `ultimo_error_at` posterior a `ultimo_exito_at`, no cuenta
   como lista para `provider_sync` hasta registrar un nuevo exito posterior.
+  `provider_key`, `scope`, `credencial_ref`, `evidencia_gate_ref`,
+  `prueba_conectividad_ref`, `prueba_movimientos_ref` y `prueba_saldos_ref`
+  se normalizan antes de persistir para que API, snapshots, readiness y
+  unicidad por proveedor comparen valores canonicos sin espacios crudos.
 - Movimiento importado por `provider_sync` solo contra conexion activa,
   primaria de movimientos, readiness trazable y `transaction_id_banco` no
   sensible y no duplicado dentro de la misma conexion por modelo y constraint

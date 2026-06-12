@@ -164,9 +164,19 @@ class ConexionBancaria(TimestampedModel):
     def __str__(self):
         return f'{self.cuenta_recaudadora_id} - {self.provider_key}'
 
+    def _normalize_operational_fields(self):
+        self.provider_key = (self.provider_key or '').strip()
+        self.scope = (self.scope or '').strip()
+        self.credencial_ref = (self.credencial_ref or '').strip()
+        self.evidencia_gate_ref = (self.evidencia_gate_ref or '').strip()
+        self.prueba_conectividad_ref = (self.prueba_conectividad_ref or '').strip()
+        self.prueba_movimientos_ref = (self.prueba_movimientos_ref or '').strip()
+        self.prueba_saldos_ref = (self.prueba_saldos_ref or '').strip()
+
     def clean(self):
         super().clean()
         errors = {}
+        self._normalize_operational_fields()
         for field_name in [
             'credencial_ref',
             'evidencia_gate_ref',
@@ -206,6 +216,10 @@ class ConexionBancaria(TimestampedModel):
 
         if errors:
             raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
 
 
 class MovimientoBancarioImportado(TimestampedModel):

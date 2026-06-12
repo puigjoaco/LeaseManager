@@ -762,6 +762,46 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('credencial_ref', response.data)
 
+    def test_bank_connection_refs_normalize_before_persisting(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BANK-NORMALIZED')
+
+        response = self.client.post(
+            reverse('conciliacion-conexion-list'),
+            {
+                'cuenta_recaudadora': cuenta.id,
+                'provider_key': ' banco_normalizado ',
+                'scope': ' movimientos saldos ',
+                'credencial_ref': ' cred-bank-controlled ',
+                'evidencia_gate_ref': ' bank-gate-controlled ',
+                'prueba_conectividad_ref': ' connectivity-controlled ',
+                'prueba_movimientos_ref': ' movements-controlled ',
+                'prueba_saldos_ref': ' balances-controlled ',
+                'estado_conexion': EstadoConexionBancaria.ACTIVE,
+                'primaria_movimientos': True,
+                'primaria_saldos': True,
+                'primaria_conectividad': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['provider_key'], 'banco_normalizado')
+        self.assertEqual(response.data['scope'], 'movimientos saldos')
+        self.assertEqual(response.data['credencial_ref'], 'cred-bank-controlled')
+        self.assertEqual(response.data['evidencia_gate_ref'], 'bank-gate-controlled')
+        self.assertEqual(response.data['prueba_conectividad_ref'], 'connectivity-controlled')
+        self.assertEqual(response.data['prueba_movimientos_ref'], 'movements-controlled')
+        self.assertEqual(response.data['prueba_saldos_ref'], 'balances-controlled')
+
+        conexion = ConexionBancaria.objects.get(pk=response.data['id'])
+        self.assertEqual(conexion.provider_key, 'banco_normalizado')
+        self.assertEqual(conexion.scope, 'movimientos saldos')
+        self.assertEqual(conexion.credencial_ref, 'cred-bank-controlled')
+        self.assertEqual(conexion.evidencia_gate_ref, 'bank-gate-controlled')
+        self.assertEqual(conexion.prueba_conectividad_ref, 'connectivity-controlled')
+        self.assertEqual(conexion.prueba_movimientos_ref, 'movements-controlled')
+        self.assertEqual(conexion.prueba_saldos_ref, 'balances-controlled')
+
     def test_bank_connection_api_redacts_existing_sensitive_references(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BANK-REDACT')
         ConexionBancaria.objects.create(
