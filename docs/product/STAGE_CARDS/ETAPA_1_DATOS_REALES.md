@@ -223,6 +223,17 @@ contra datos reales o snapshot controlado.
   exige arrendatario, nombre y medio operativo antes de enviar, y muestra
   cobertura de contacto de pago en la tabla de arrendatarios y en una lista
   dedicada.
+- Metadata visible contractual: `Arrendatario.full_clean()` y `save()`
+  normalizan identidad, RUT, contacto, perfil documental y refs/motivos
+  WhatsApp antes de validar o persistir; `ContactoPagoArrendatario`
+  normaliza nombre, rol, medios operativos y evidencia; `Contrato` normaliza
+  codigo, refs/motivos de entrega de llaves, prorrata anticipada y snapshot
+  de representante legal; `PeriodoContractual` normaliza tipo, origen y
+  refs/motivos de politica de renovacion; `CodeudorSolidario` normaliza su
+  snapshot de identidad; `AvisoTermino` normaliza causal y resolucion de
+  conflicto de renovacion. El auditor Etapa 1 bloquea snapshots heredados con
+  metadata visible contractual no canonica mediante codigos especificos sin
+  exponer valores crudos.
 - El admin Django de Contratos no permite alta, edicion ni borrado manual de
   arrendatarios, contactos de pago, contratos, relaciones contrato-propiedad,
   periodos, codeudores ni avisos de termino. Las altas, bajas y cambios

@@ -862,6 +862,77 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertIn('stage1.identidad_envio.metadata_visible_no_canonica', issue_codes)
         self.assertIn('stage1.mandato.metadata_visible_no_canonica', issue_codes)
 
+    def test_noncanonical_contract_visible_metadata_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        arrendatario = contrato.arrendatario
+        contacto = arrendatario.contactos_pago.get()
+        periodo = contrato.periodos_contractuales.get(numero_periodo=1)
+        codeudor = CodeudorSolidario.objects.create(
+            contrato=contrato,
+            snapshot_identidad={'nombre': 'Codeudor Controlado', 'rut': '11111111-1'},
+            estado=EstadoCodeudorSolidario.ACTIVE,
+        )
+        aviso = AvisoTermino.objects.create(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal='Termino programado controlado',
+            estado=EstadoAvisoTermino.REGISTERED,
+        )
+        Arrendatario.objects.filter(pk=arrendatario.pk).update(
+            nombre_razon_social=' Arrendatario Controlado ',
+            rut=' 33.333.333-3 ',
+            email=' arrendatario@example.com ',
+            telefono=' 999 ',
+            domicilio_notificaciones=' Domicilio Controlado 123 ',
+            nacionalidad=' chilena ',
+            profesion=' arquitecto ',
+            whatsapp_opt_in_evidencia_ref=' whatsapp-opt-in-ref ',
+            whatsapp_bloqueo_motivo=' bloqueo documentado ',
+            whatsapp_bloqueo_evidencia_ref=' whatsapp-block-ref ',
+            whatsapp_rehabilitacion_ref=' whatsapp-rehab-ref ',
+        )
+        ContactoPagoArrendatario.objects.filter(pk=contacto.pk).update(
+            nombre=' Contacto Pago Controlado ',
+            rol_operativo=' pago_arriendo ',
+            email=' pagos-controlados@example.com ',
+            telefono=' +56912345678 ',
+            evidencia_autorizacion_ref=' contacto-pago-controlado-v1 ',
+        )
+        Contrato.objects.filter(pk=contrato.pk).update(
+            codigo_contrato=' CON-CTRL-001 ',
+            entrega_llaves_autorizacion_ref=' key-delivery-ref ',
+            entrega_llaves_autorizacion_motivo=' entrega autorizada ',
+            terminacion_anticipada_prorrata_ref=' proration-ref ',
+            terminacion_anticipada_prorrata_motivo=' prorrata autorizada ',
+            snapshot_representante_legal={'nombre': ' Representante Legal ', 'rut': ' 12.345.678-5 '},
+        )
+        PeriodoContractual.objects.filter(pk=periodo.pk).update(
+            tipo_periodo=' mensual ',
+            origen_periodo=' snapshot_controlado ',
+            politica_base_renovacion_ref=' renewal-policy-ref ',
+            politica_base_renovacion_motivo=' politica documentada ',
+        )
+        CodeudorSolidario.objects.filter(pk=codeudor.pk).update(
+            snapshot_identidad={'nombre': ' Codeudor Controlado ', 'rut': ' 11.111.111-1 '}
+        )
+        AvisoTermino.objects.filter(pk=aviso.pk).update(
+            causal=' Termino programado controlado ',
+            resolucion_conflicto_renovacion_ref=' renewal-resolution-ref ',
+            resolucion_conflicto_renovacion_motivo=' resolucion guiada ',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.arrendatario.metadata_visible_no_canonica', issue_codes)
+        self.assertIn('stage1.contacto_pago.metadata_visible_no_canonica', issue_codes)
+        self.assertIn('stage1.contrato.metadata_visible_no_canonica', issue_codes)
+        self.assertIn('stage1.periodo.metadata_visible_no_canonica', issue_codes)
+        self.assertIn('stage1.codeudor.metadata_visible_no_canonica', issue_codes)
+        self.assertIn('stage1.aviso_termino.metadata_visible_no_canonica', issue_codes)
+
     def test_inactive_only_assignment_with_active_contract_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         asignacion = contrato.mandato_operacion.asignaciones_canal.get()
