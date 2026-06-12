@@ -297,12 +297,13 @@ class ConfiguracionNotificacionContrato(TimestampedModel):
             self.dias_notificacion = normalize_notification_days(self.dias_notificacion)
         except ValueError as error:
             raise ValidationError({'dias_notificacion': str(error)})
+        self.evidencia_configuracion_ref = (self.evidencia_configuracion_ref or '').strip()
 
         if self.activa and not self.dias_notificacion:
             raise ValidationError({'dias_notificacion': 'La configuracion activa requiere al menos un dia.'})
 
         if (
-            self.evidencia_configuracion_ref.strip()
+            self.evidencia_configuracion_ref
             and not is_non_sensitive_reference(self.evidencia_configuracion_ref)
         ):
             raise ValidationError(
@@ -310,7 +311,7 @@ class ConfiguracionNotificacionContrato(TimestampedModel):
             )
 
         if self.activa and tuple(self.dias_notificacion) != NOTIFICATION_BASE_SUGGESTED_DAYS:
-            if not self.evidencia_configuracion_ref.strip():
+            if not self.evidencia_configuracion_ref:
                 raise ValidationError(
                     {
                         'evidencia_configuracion_ref': (
@@ -326,6 +327,7 @@ class ConfiguracionNotificacionContrato(TimestampedModel):
 
     def save(self, *args, **kwargs):
         self.dias_notificacion = normalize_notification_days(self.dias_notificacion)
+        self.evidencia_configuracion_ref = (self.evidencia_configuracion_ref or '').strip()
         super().save(*args, **kwargs)
 
 

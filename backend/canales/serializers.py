@@ -120,6 +120,8 @@ class ConfiguracionNotificacionContratoSerializer(RedactReferenceFieldsMixin, se
         )
 
     def validate(self, attrs):
+        if 'evidencia_configuracion_ref' in attrs:
+            attrs['evidencia_configuracion_ref'] = str(attrs.get('evidencia_configuracion_ref') or '').strip()
         candidate = build_validation_candidate(self.instance, ConfiguracionNotificacionContrato)
         for field, value in attrs.items():
             setattr(candidate, field, value)

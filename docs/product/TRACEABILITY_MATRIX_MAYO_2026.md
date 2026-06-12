@@ -249,6 +249,12 @@ crea, realinea u omite recordatorios, y `audit_stage2_cobranza_readiness`
 reporta `stage2.notification_schedule.materialization_audit_missing` para
 snapshots heredados sin evento con actor y periodo alineado.
 
+Nota 2026-06-12: Canales normaliza la evidencia de configuraciones de
+notificacion antes de persistir. `ConfiguracionNotificacionContrato.clean()`,
+`save()` y `ConfiguracionNotificacionContratoSerializer` recortan
+`evidencia_configuracion_ref` para que API, snapshot y readiness comparen una
+referencia canonica no sensible sin espacios crudos.
+
 Nota 2026-06-06: Backoffice Canales alinea el formulario y la tabla de gates
 con las refs operativas aceptadas por dominio/readiness. El alta de
 `CanalMensajeria` ahora puede enviar `credencial_validada_ref` como alternativa

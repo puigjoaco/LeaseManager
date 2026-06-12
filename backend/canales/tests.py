@@ -528,6 +528,27 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['dias_notificacion'], [1, 3, 5])
 
+    def test_notification_config_normalizes_evidence_ref_before_persisting(self):
+        empresa, contrato = self._create_contract_context(codigo='NTF-REF-NORM')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+
+        response = self.client.post(
+            reverse('canales-notificacion-contrato-list'),
+            {
+                'contrato': contrato.pk,
+                'canal': 'email',
+                'dias_notificacion': [1, 3, 5],
+                'activa': True,
+                'evidencia_configuracion_ref': '  notification-cadence-normalized-001  ',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['evidencia_configuracion_ref'], 'notification-cadence-normalized-001')
+        config = ConfiguracionNotificacionContrato.objects.get(pk=response.data['id'])
+        self.assertEqual(config.evidencia_configuracion_ref, 'notification-cadence-normalized-001')
+
     def test_notification_config_rejects_channel_without_active_assignment(self):
         _, contrato = self._create_contract_context(codigo='NTF-002')
 
