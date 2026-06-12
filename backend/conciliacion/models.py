@@ -270,6 +270,12 @@ class MovimientoBancarioImportado(TimestampedModel):
     def __str__(self):
         return f'{self.fecha_movimiento} - {self.monto}'
 
+    def _normalize_operational_fields(self):
+        self.evidencia_importacion_ref = (self.evidencia_importacion_ref or '').strip()
+        self.referencia = (self.referencia or '').strip()
+        self.transaction_id_banco = (self.transaction_id_banco or '').strip()
+        self.notas_admin = (self.notas_admin or '').strip()
+
     def _validate_bank_transaction_identity(self, errors):
         transaction_id = str(self.transaction_id_banco or '').strip()
         if not transaction_id:
@@ -426,7 +432,7 @@ class MovimientoBancarioImportado(TimestampedModel):
     def clean(self):
         super().clean()
         errors = {}
-        self.notas_admin = (self.notas_admin or '').strip()
+        self._normalize_operational_fields()
         _add_non_sensitive_reference_error(
             errors,
             self,
@@ -472,6 +478,10 @@ class MovimientoBancarioImportado(TimestampedModel):
 
         if errors:
             raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
 
 
 class CuadraturaBancaria(TimestampedModel):

@@ -28,6 +28,10 @@ sistema igual a saldo banco.
   sensible y no duplicado dentro de la misma conexion por modelo y constraint
   DB; toda `referencia` bancaria de movimiento debe ser no sensible, y la
   carga manual controlada exige `evidencia_importacion_ref` no sensible.
+  `evidencia_importacion_ref`, `referencia`, `transaction_id_banco` y
+  `notas_admin` se normalizan antes de persistir para que API, snapshots,
+  auditoria y unicidad bancaria comparen referencias canonicas sin espacios
+  crudos.
 - La creacion API de movimientos bancarios debe persistir el movimiento,
   registrar auditoria `created` y ejecutar match exacto local mediante el
   servicio auditado que registra `match_attempted` en una unica transaccion; si
