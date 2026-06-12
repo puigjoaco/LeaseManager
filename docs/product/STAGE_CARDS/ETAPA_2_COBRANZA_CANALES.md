@@ -146,11 +146,11 @@ condicionados sin envios reales accidentales.
   canal distinto al canal del mensaje.
 - Las notificaciones por cobranza se configuran por contrato y canal
   habilitado mediante cadencias activas de dias. La base sugerida es
-  `1/3/5/10/15/20/25`; una cadencia distinta requiere referencia no sensible,
-  la API no permite cadencias activas sin asignacion de canal vigente en el
-  mandato, el snapshot redacta evidencia heredada sensible y readiness bloquea
-  contratos vigentes/futuros con canal habilitado sin cadencia activa o con
-  configuraciones invalidas.
+  `1/3/5/10/15/20/25`; una cadencia distinta requiere referencia no sensible
+  normalizada antes de persistir, la API no permite cadencias activas sin
+  asignacion de canal vigente en el mandato, el snapshot redacta evidencia
+  heredada sensible y readiness bloquea contratos vigentes/futuros con canal
+  habilitado sin cadencia activa o con configuraciones invalidas.
 - Los pagos mensuales pendientes o atrasados con cadencia activa deben
   materializar recordatorios programados por pago/canal/dia. La generacion de
   `PagoMensual` crea la programacion local de forma idempotente, el snapshot de
