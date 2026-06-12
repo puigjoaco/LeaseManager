@@ -387,7 +387,10 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(cached.status_code, status.HTTP_200_OK)
         self.assertEqual(cached.data['propiedades_activas'], 1)
 
-        refreshed = self.client.get(f"{reverse('reporting-dashboard-operativo')}?mode=summary&refresh=1")
+        refreshed = self.client.get(
+            reverse('reporting-dashboard-operativo'),
+            {'mode': ' summary ', 'refresh': ' 1 '},
+        )
         self.assertEqual(refreshed.status_code, status.HTTP_200_OK)
         self.assertEqual(refreshed.data['propiedades_activas'], 2)
 
@@ -842,6 +845,46 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
         self.assertEqual(response.data['libro_diario']['estado_snapshot'], 'aprobado')
         self.assertTrue(response.data['balance_comprobacion']['resumen']['cuadrado'])
+
+    def test_reporting_query_params_normalize_before_filtering(self):
+        _, empresa, _, _, _, _ = self._create_context('QUERYNORM')
+        CierreMensualContable.objects.create(empresa=empresa, anio=2026, mes=1, estado='aprobado')
+        LibroDiario.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'asientos': [{'id': 1}]})
+        LibroMayor.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'cuentas': [{'id': 1}]})
+        BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            resumen={'total_debe': '100.00', 'total_haber': '100.00', 'cuadrado': True},
+        )
+        ManualResolution.objects.create(
+            category='ops.open_required',
+            status=ManualResolution.Status.OPEN,
+            scope_type='operacion',
+            scope_reference='op-open',
+            summary='Resolucion abierta',
+        )
+        ManualResolution.objects.create(
+            category='ops.resolved',
+            status=ManualResolution.Status.RESOLVED,
+            scope_type='operacion',
+            scope_reference='op-resolved',
+            summary='Resolucion cerrada',
+        )
+
+        books_response = self.client.get(
+            reverse('reporting-libros-periodo'),
+            {'empresa_id': f' {empresa.id} ', 'periodo': ' 2026-01 '},
+        )
+        manual_response = self.client.get(reverse('reporting-manual-resolutions-summary'), {'status': ' open '})
+
+        self.assertEqual(books_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(books_response.data['periodo'], '2026-01')
+        self.assertEqual(books_response.data['trazabilidad']['controles']['periodo'], '2026-01')
+        self.assertEqual(manual_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(manual_response.data['status'], 'open')
+        self.assertEqual(manual_response.data['total'], 1)
+        self.assertEqual(manual_response.data['categorias'], [{'category': 'ops.open_required', 'total': 1}])
 
     def test_period_books_summary_redacts_inherited_sensitive_snapshot_refs(self):
         _, empresa, _, _, _, _ = self._create_context('BOOKSREDACT')

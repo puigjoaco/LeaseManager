@@ -64,6 +64,12 @@ documentos o procesos tributarios trazables.
   `control_cierre_mensual`, unificando por empresa cierre contable, banco
   cuadrado, movimientos bancarios no resueltos, obligaciones mensuales, F29
   cuando aplica y bloqueadores del periodo sin llamar bancos ni SII.
+- Los endpoints de Reporting normalizan parametros de consulta antes de
+  filtrar, validar o decidir cache: `periodo`, `mode`, `refresh`, `status`,
+  `empresa_id`, `anio`, `mes` y `anio_tributario`. Esto evita que espacios
+  crudos conviertan reportes existentes en faltantes, impidan un refresh
+  solicitado o filtren estados de resoluciones manuales con valores no
+  canonicos.
 - `audit_stage7_reporting_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Reporting.
