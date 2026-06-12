@@ -1873,6 +1873,13 @@ recortan `evidencia_importacion_ref`, `referencia`, `transaction_id_banco` y
 `notas_admin`, de modo que API, snapshot, readiness y constraint de unicidad
 por conexion comparen referencias canonicas sin espacios crudos.
 
+Nota 2026-06-12: Conciliacion/Etapa 3 normaliza referencias de conexiones
+bancarias antes de persistir. `ConexionBancaria.clean()` y `save()` recortan
+`provider_key`, `scope`, `credencial_ref`, `evidencia_gate_ref`,
+`prueba_conectividad_ref`, `prueba_movimientos_ref` y `prueba_saldos_ref`,
+para que API, snapshot, readiness y unicidad por proveedor trabajen con valores
+canonicos.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |
