@@ -8,6 +8,34 @@ from .reference_validation import SENSITIVE_REFERENCE_PATTERN as SENSITIVE_EVIDE
 from .reference_validation import contains_sensitive_reference
 
 
+ADMIN_SECURITY_TEXT_VALUE_FIELDS = {
+    'mode',
+    'mfa_evidence_ref',
+    'risk_acceptance_ref',
+    'authorization_ref',
+    'responsible_ref',
+    'valid_until',
+    'risk_valid_until',
+    'evidence_ref',
+}
+
+
+def _normalize_text_value(value):
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _normalize_dict_text_fields(payload, field_names):
+    if not isinstance(payload, dict):
+        return payload
+    normalized = dict(payload)
+    for field_name in field_names:
+        if field_name in normalized:
+            normalized[field_name] = _normalize_text_value(normalized[field_name])
+    return normalized
+
+
 class Scope(models.Model):
     class ScopeType(models.TextChoices):
         GLOBAL = 'global', 'Global'
@@ -70,6 +98,23 @@ class PlatformSetting(models.Model):
 
     def __str__(self):
         return self.key
+
+    def _normalize_operational_fields(self):
+        if self.key == ADMIN_SECURITY_SETTING_KEY:
+            self.description = _normalize_text_value(self.description)
+            self.value = _normalize_dict_text_fields(self.value, ADMIN_SECURITY_TEXT_VALUE_FIELDS)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        return super().save(*args, **kwargs)
 
     def clean(self):
         super().clean()
@@ -156,6 +201,22 @@ class OperationalRuntimeSignal(models.Model):
 
     def __str__(self):
         return f'{self.signal_key} - {self.status}'
+
+    def _normalize_operational_fields(self):
+        for field_name in ('evidence_ref', 'source_label', 'authorization_ref', 'notes'):
+            setattr(self, field_name, _normalize_text_value(getattr(self, field_name)))
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        return super().save(*args, **kwargs)
 
     def clean(self):
         super().clean()

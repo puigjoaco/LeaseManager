@@ -49,6 +49,10 @@ runbook, smoke y aceptacion.
   stdout solo expone resumen publico: existencia de evidencia, traza booleana y
   valor canonico por tipo de senal, sin `evidence_ref`, refs de autorizacion ni
   payload bruto.
+- Las senales runtime normalizan `evidence_ref`, `source_label`,
+  `authorization_ref` y `notes` antes de `full_clean()` y `save()`, de modo que
+  los comandos, readiness y backoffice trabajen con trazas canonicas y no fallen
+  por espacios crudos antes de validar.
 - Para cierre productivo, las cuatro senales runtime obligatorias deben venir
   de `snapshot_controlado` o `real_autorizado`; mediciones locales, fixture o
   demo solo preparan el gate.
@@ -63,6 +67,9 @@ runbook, smoke y aceptacion.
 - `record_admin_security_control` persiste ese control validado por dominio y
   su stdout solo expone modo, vigencia, flags de refs y autorizacion booleana,
   sin imprimir referencias crudas ni payload sensible.
+- El control administrativo `security.admin_mfa_control` normaliza modo, refs
+  operativas, vigencia y descripcion antes de validacion y persistencia, sin
+  imprimir las referencias crudas.
 - API/backoffice autenticados exponen observabilidad operativa de solo lectura
   con referencias sensibles redactadas.
 - Guard local de readiness Etapa 7 consolida observabilidad, restore, smoke
