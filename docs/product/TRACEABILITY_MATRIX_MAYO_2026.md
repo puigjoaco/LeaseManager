@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-12: Conciliacion/Etapa 3 normaliza metadata visible de ingresos
+desconocidos antes de validar y persistir. `IngresoDesconocido` recorta
+`descripcion_origen` y `estado` antes de `full_clean()` y `save()`, evitando
+rechazos de choices/equivalencia por espacios crudos en rutas internas.
+`audit_stage3_conciliacion_readiness` bloquea snapshots heredados con esa
+metadata no canonica mediante `stage3.unknown_income.visible_metadata_no_canonica`
+y `sections.unknown_income.visible_metadata_noncanonical`.
+
 Nota 2026-06-12: CobranzaActiva/Etapa 2 normaliza metadata visible antes de
 validar y persistir. `ValorUFDiario`, `AjusteContrato`, `PagoMensual`,
 `GateCobroExterno`, `IntentoPagoWebPay`, `DistribucionCobroMensual`,

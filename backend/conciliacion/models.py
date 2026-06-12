@@ -816,8 +816,21 @@ class IngresoDesconocido(TimestampedModel):
     def __str__(self):
         return f'IngresoDesconocido {self.movimiento_bancario_id}'
 
+    def _normalize_operational_fields(self):
+        self.descripcion_origen = (self.descripcion_origen or '').strip()
+        self.estado = (self.estado or '').strip()
+
+    def full_clean(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().full_clean(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
+        self._normalize_operational_fields()
         errors = {}
         try:
             movimiento = self.movimiento_bancario

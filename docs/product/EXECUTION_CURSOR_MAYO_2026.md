@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar normalizacion de metadata visible de CobranzaActiva. |
-| Fuente exacta | `main` limpio tras mergear este paquete; `cf4a1a48` fue la base anterior y rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear el paquete. La brecha de metadata visible de CobranzaActiva queda cubierta por modelos, readiness Etapa 2, stage card, trazabilidad y evidencia. |
-| Motivo de prioridad | Evitar que reanudaciones o compactaciones reabran el paquete de CobranzaActiva ya validado. |
+| Frente activo | Sin paquete tactico abierto tras cerrar normalizacion de metadata visible de ingresos desconocidos en Conciliacion. |
+| Fuente exacta | `main` limpio tras mergear este paquete; `fd854eee` fue la base anterior y rescue queda pausado fuera de alcance. |
+| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear el paquete. La brecha de metadata visible de ingresos desconocidos queda cubierta por modelo, readiness Etapa 3, stage card, trazabilidad y evidencia. |
+| Motivo de prioridad | Evitar que reanudaciones o compactaciones reabran el paquete de Conciliacion ya validado. |
 | Worktree | Ninguno tras merge y limpieza del paquete. |
 | Rama | `main` tras merge. |
 | Estado | Listo para seleccionar el siguiente frente util y seguro desde el repo limpio despues de PR/CI/merge/limpieza. |
 | Gate esperado | El siguiente paquete debe definir su gate proporcional antes de editar; los cierres evidenciales siguen sin declararse sin fuente autorizada y evidencia. |
-| Estado al cerrar paquete | CobranzaActiva metadata visible: focal 2 tests OK; suite impactada Cobranza/readiness Etapa 2 222 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 2 local `classification=parcial`, `ready_for_stage2_cobranza=false`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1313 tests OK; higiene repo y `git diff --check` OK. |
-| Bloqueos relacionados | Etapa 2 sigue parcial para cierre evidencial: requiere datos Etapa 1 confirmados, fuente `snapshot_controlado` o `real_autorizado`, prueba Email/WebPay controlada y responsables. Este paquete solo prepara metadata canonica local sin fuente real/controlada. |
+| Estado al cerrar paquete | Conciliacion ingreso desconocido metadata visible: focal 2 tests OK; suite impactada Conciliacion/readiness Etapa 3 137 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 3 local `classification=parcial`, `ready_for_stage3_conciliacion=false`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1315 tests OK; higiene repo y `git diff --check` OK. |
+| Bloqueos relacionados | Etapa 3 sigue parcial para cierre evidencial: requiere banco real o snapshot autorizado, evidencia Etapa 2, prueba bancaria/cuadratura controlada y responsables. Este paquete solo prepara metadata canonica local sin fuente real/controlada. |
 | Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
 | Siguiente accion | Tras mergear y limpiar este paquete, confirmar `git status --short --branch` y `git worktree list`, diagnosticar el siguiente frente seguro por orden de construccion/trazabilidad y abrir un worktree `codex/...` solo cuando haya paquete concreto. |
 

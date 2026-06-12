@@ -1395,6 +1395,40 @@ class Stage3ConciliacionReadinessTests(TestCase):
         self.assertIn('stage3.unknown_income.sensitive_suggestion', issue_codes)
         self.assertEqual(result['sections']['unknown_income']['sensitive_suggestion'], 1)
 
+    def test_noncanonical_unknown_income_visible_metadata_is_blocking(self):
+        cuenta, payment = self._create_payment_matrix(codigo='ST3-UNKNOWN-META')
+        conexion = self._create_ready_connection(cuenta)
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento=date(2026, 1, 8),
+            tipo_movimiento=TipoMovimientoBancario.CREDIT,
+            monto=payment.monto_calculado_clp,
+            descripcion_origen='Ingreso desconocido',
+            origen_importacion=OrigenImportacionMovimiento.MANUAL_CONTROLLED,
+            evidencia_importacion_ref='manual-import-stage3',
+            saldo_reportado=Decimal('1000000.00'),
+            estado_conciliacion=EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+        )
+        ingreso = IngresoDesconocido.objects.create(
+            movimiento_bancario=movimiento,
+            cuenta_recaudadora=cuenta,
+            monto=movimiento.monto,
+            fecha_movimiento=movimiento.fecha_movimiento,
+            descripcion_origen=movimiento.descripcion_origen,
+            estado=EstadoIngresoDesconocido.OPEN,
+        )
+        IngresoDesconocido.objects.filter(pk=ingreso.pk).update(
+            descripcion_origen=' Ingreso desconocido ',
+            estado=' pendiente_revision ',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage3_conciliacion'])
+        self.assertIn('stage3.unknown_income.visible_metadata_no_canonica', issue_codes)
+        self.assertEqual(result['sections']['unknown_income']['visible_metadata_noncanonical'], 1)
+
     def test_exact_matched_payment_snapshot_mismatch_is_blocking(self):
         cuenta, payment = self._create_payment_matrix(codigo='ST3-EXACT-MISMATCH')
         conexion = self._create_ready_connection(cuenta)

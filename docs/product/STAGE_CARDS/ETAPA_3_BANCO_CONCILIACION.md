@@ -85,7 +85,9 @@ sistema igual a saldo banco.
   estado de conciliacion deben ser coherentes; la readiness debe bloquear
   snapshots que conserven discrepancias. Las sugerencias asistidas asociadas
   se exponen en API, snapshot y admin solo como payload redactado, y readiness
-  bloquea metadata heredada con claves o valores sensibles.
+  bloquea metadata heredada con claves o valores sensibles. `descripcion_origen`
+  y `estado` se normalizan antes de `full_clean` y persistencia; readiness
+  bloquea ingresos desconocidos heredados con metadata visible no canonica.
 - Ingresos desconocidos resueltos manualmente requieren pago mensual target,
   contrato, periodo economico canonico `YYYY-MM` alineado al mes/anio del
   `PagoMensual`, criterio aplicado, `evidencia_regularizacion_ref` no sensible

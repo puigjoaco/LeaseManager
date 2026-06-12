@@ -1491,6 +1491,36 @@ class ConciliacionAPITests(APITestCase):
 
         self.assertIn('monto', error.exception.message_dict)
 
+    def test_unknown_income_visible_metadata_normalizes_before_full_clean_and_save(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-UNK-META')
+        conexion = self._create_connection(cuenta)
+        movimiento = MovimientoBancarioImportado.objects.create(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='100111.00',
+            descripcion_origen='Abono desconocido',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            estado_conciliacion=EstadoConciliacionMovimiento.UNKNOWN_INCOME,
+        )
+        movimiento.refresh_from_db()
+        ingreso = IngresoDesconocido(
+            movimiento_bancario=movimiento,
+            cuenta_recaudadora=cuenta,
+            monto=movimiento.monto,
+            fecha_movimiento=movimiento.fecha_movimiento,
+            descripcion_origen=' Abono desconocido ',
+            estado=' pendiente_revision ',
+        )
+
+        ingreso.full_clean()
+        ingreso.save()
+        ingreso.refresh_from_db()
+
+        self.assertEqual(ingreso.descripcion_origen, 'Abono desconocido')
+        self.assertEqual(ingreso.estado, 'pendiente_revision')
+
     def test_exact_match_payment_full_clean_rejects_snapshot_mismatch(self):
         cuenta, pago, _ = self._create_contract_and_payment(codigo='REC-EXACT-MISMATCH')
         conexion = self._create_connection(cuenta)
