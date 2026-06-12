@@ -2926,14 +2926,24 @@ class CobranzaAPITests(APITestCase):
                 'monto_cuota': '10000.00',
                 'saldo_pendiente': '40000.00',
                 'estado': 'activa',
-                'excepcion_parcial_ref': 'partial-repayment-exception-2026-01',
-                'excepcion_parcial_motivo': 'Excepcion formal autorizada por acuerdo operativo controlado.',
+                'excepcion_parcial_ref': '  partial-repayment-exception-2026-01  ',
+                'excepcion_parcial_motivo': '  Excepcion formal autorizada por acuerdo operativo controlado.  ',
             },
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['excepcion_parcial_ref'], 'partial-repayment-exception-2026-01')
+        self.assertEqual(
+            response.data['excepcion_parcial_motivo'],
+            'Excepcion formal autorizada por acuerdo operativo controlado.',
+        )
+        repayment = RepactacionDeuda.objects.get(pk=response.data['id'])
+        self.assertEqual(repayment.excepcion_parcial_ref, 'partial-repayment-exception-2026-01')
+        self.assertEqual(
+            repayment.excepcion_parcial_motivo,
+            'Excepcion formal autorizada por acuerdo operativo controlado.',
+        )
         self.assertTrue(
             AuditEvent.objects.filter(
                 event_type=PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
@@ -2978,14 +2988,19 @@ class CobranzaAPITests(APITestCase):
                 'monto_cuota': Decimal('10000.00'),
                 'saldo_pendiente': Decimal('40000.00'),
                 'estado': 'activa',
-                'excepcion_parcial_ref': 'partial-repayment-service-2026-01',
-                'excepcion_parcial_motivo': 'Excepcion formal autorizada por acuerdo operativo controlado.',
+                'excepcion_parcial_ref': '  partial-repayment-service-2026-01  ',
+                'excepcion_parcial_motivo': '  Excepcion formal autorizada por acuerdo operativo controlado.  ',
             },
             actor_user=self.user,
             ip_address='127.0.0.1',
         )
 
         self.assertIsNotNone(audit_event)
+        self.assertEqual(repayment.excepcion_parcial_ref, 'partial-repayment-service-2026-01')
+        self.assertEqual(
+            repayment.excepcion_parcial_motivo,
+            'Excepcion formal autorizada por acuerdo operativo controlado.',
+        )
         self.assertEqual(audit_event.event_type, PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE)
         self.assertEqual(audit_event.actor_user, self.user)
         self.assertEqual(audit_event.ip_address, '127.0.0.1')

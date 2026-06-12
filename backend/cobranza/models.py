@@ -1122,6 +1122,8 @@ class RepactacionDeuda(TimestampedModel):
 
     def clean(self):
         super().clean()
+        self.excepcion_parcial_ref = (self.excepcion_parcial_ref or '').strip()
+        self.excepcion_parcial_motivo = (self.excepcion_parcial_motivo or '').strip()
         if self.contrato_origen.arrendatario_id != self.arrendatario_id:
             raise ValidationError({'arrendatario': 'La repactacion debe pertenecer al mismo arrendatario del contrato origen.'})
         saldo_pendiente = Decimal(str(self.saldo_pendiente))
