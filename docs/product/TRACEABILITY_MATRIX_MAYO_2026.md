@@ -7,6 +7,16 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-12: Contratos/Etapa 1 normaliza metadata visible antes de
+validar y persistir. `Arrendatario` recorta identidad, contacto, perfil y
+refs/motivos WhatsApp, y normaliza RUT; `ContactoPagoArrendatario` recorta
+nombre, rol, medios y evidencia; `Contrato` recorta codigo y refs/motivos
+contractuales y normaliza snapshot de representante legal; `PeriodoContractual`
+recorta tipo, origen y politica de renovacion; `CodeudorSolidario` normaliza
+snapshot de identidad; `AvisoTermino` recorta causal y resolucion de
+conflicto. `audit_stage1_matrix` bloquea snapshots heredados con esos campos
+no canonicos mediante codigos especificos de contratos.
+
 Nota 2026-06-12: Operacion/Etapa 1 normaliza metadata visible antes de
 validar y persistir. `CuentaRecaudadora` recorta institucion, numero, tipo,
 titular, uso operativo y evidencia, y normaliza RUT; `IdentidadDeEnvio`

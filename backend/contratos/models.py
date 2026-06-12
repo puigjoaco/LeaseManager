@@ -49,6 +49,29 @@ def audit_event_has_actor(event):
     return bool(event.actor_user_id or str(event.actor_identifier or '').strip())
 
 
+def _normalize_text_value(value):
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _normalize_rut_value(value):
+    value = _normalize_text_value(value)
+    if value:
+        return normalize_rut(value)
+    return value
+
+
+def _normalize_rut_value_if_possible(value):
+    value = _normalize_text_value(value)
+    if not value:
+        return value
+    try:
+        return normalize_rut(value)
+    except ValidationError:
+        return value
+
+
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -190,16 +213,35 @@ class Arrendatario(TimestampedModel):
     def __str__(self):
         return self.nombre_razon_social
 
+    def _normalize_operational_fields(self):
+        self.nombre_razon_social = _normalize_text_value(self.nombre_razon_social)
+        self.rut = _normalize_rut_value(self.rut)
+        self.email = _normalize_text_value(self.email)
+        self.telefono = _normalize_text_value(self.telefono)
+        self.domicilio_notificaciones = _normalize_text_value(self.domicilio_notificaciones)
+        self.nacionalidad = _normalize_text_value(self.nacionalidad)
+        self.profesion = _normalize_text_value(self.profesion)
+        self.whatsapp_opt_in_evidencia_ref = _normalize_text_value(self.whatsapp_opt_in_evidencia_ref)
+        self.whatsapp_bloqueo_motivo = _normalize_text_value(self.whatsapp_bloqueo_motivo)
+        self.whatsapp_bloqueo_evidencia_ref = _normalize_text_value(self.whatsapp_bloqueo_evidencia_ref)
+        self.whatsapp_rehabilitacion_ref = _normalize_text_value(self.whatsapp_rehabilitacion_ref)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
     def save(self, *args, **kwargs):
-        self.rut = normalize_rut(self.rut)
+        self._normalize_operational_fields()
         if self.whatsapp_bloqueado and self.whatsapp_bloqueado_at is None:
             self.whatsapp_bloqueado_at = timezone.now()
         super().save(*args, **kwargs)
 
     def clean(self):
         super().clean()
-        self.nacionalidad = (self.nacionalidad or '').strip()
-        self.profesion = (self.profesion or '').strip()
         if self.whatsapp_bloqueado:
             if self.whatsapp_opt_in:
                 raise ValidationError({'whatsapp_opt_in': 'No puede existir opt-in activo si WhatsApp esta bloqueado.'})
@@ -316,6 +358,25 @@ class ContactoPagoArrendatario(TimestampedModel):
     def __str__(self):
         return f'{self.arrendatario.nombre_razon_social} - {self.nombre}'
 
+    def _normalize_operational_fields(self):
+        self.nombre = _normalize_text_value(self.nombre)
+        self.rol_operativo = _normalize_text_value(self.rol_operativo)
+        self.email = _normalize_text_value(self.email)
+        self.telefono = _normalize_text_value(self.telefono)
+        self.evidencia_autorizacion_ref = _normalize_text_value(self.evidencia_autorizacion_ref)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
         if self.estado == EstadoContactoPago.ACTIVE:
@@ -390,6 +451,42 @@ class Contrato(TimestampedModel):
 
     def __str__(self):
         return self.codigo_contrato
+
+    def _normalize_representative_snapshot(self):
+        if not isinstance(self.snapshot_representante_legal, dict):
+            return
+        normalized = dict(self.snapshot_representante_legal)
+        if 'nombre' in normalized:
+            normalized['nombre'] = _normalize_text_value(normalized.get('nombre'))
+        if 'rut' in normalized:
+            normalized['rut'] = _normalize_rut_value_if_possible(normalized.get('rut'))
+        self.snapshot_representante_legal = normalized
+
+    def _normalize_operational_fields(self):
+        self.codigo_contrato = _normalize_text_value(self.codigo_contrato)
+        self.entrega_llaves_autorizacion_ref = _normalize_text_value(self.entrega_llaves_autorizacion_ref)
+        self.entrega_llaves_autorizacion_motivo = _normalize_text_value(
+            self.entrega_llaves_autorizacion_motivo
+        )
+        self.terminacion_anticipada_prorrata_ref = _normalize_text_value(
+            self.terminacion_anticipada_prorrata_ref
+        )
+        self.terminacion_anticipada_prorrata_motivo = _normalize_text_value(
+            self.terminacion_anticipada_prorrata_motivo
+        )
+        self._normalize_representative_snapshot()
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
 
     def principal_property_id(self):
         principal = self.contrato_propiedades.filter(rol_en_contrato=RolContratoPropiedad.PRIMARY).first()
@@ -1118,6 +1215,26 @@ class PeriodoContractual(TimestampedModel):
     def __str__(self):
         return f'{self.contrato.codigo_contrato} - Periodo {self.numero_periodo}'
 
+    def _normalize_operational_fields(self):
+        self.tipo_periodo = _normalize_text_value(self.tipo_periodo)
+        self.origen_periodo = _normalize_text_value(self.origen_periodo)
+        self.politica_base_renovacion_ref = _normalize_text_value(self.politica_base_renovacion_ref)
+        self.politica_base_renovacion_motivo = _normalize_text_value(
+            self.politica_base_renovacion_motivo
+        )
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def is_renewal_period(self):
         return str(self.tipo_periodo or '').strip().lower() == RENEWAL_PERIOD_KIND
 
@@ -1163,8 +1280,6 @@ class PeriodoContractual(TimestampedModel):
 
     def clean(self):
         super().clean()
-        self.politica_base_renovacion_ref = (self.politica_base_renovacion_ref or '').strip()
-        self.politica_base_renovacion_motivo = (self.politica_base_renovacion_motivo or '').strip()
         if self.fecha_fin < self.fecha_inicio:
             raise ValidationError({'fecha_fin': 'La fecha fin del periodo no puede ser anterior al inicio.'})
         if self.fecha_inicio.day != 1:
@@ -1265,6 +1380,28 @@ class CodeudorSolidario(TimestampedModel):
     def __str__(self):
         return f'{self.contrato.codigo_contrato} - Codeudor {self.pk}'
 
+    def _normalize_operational_fields(self):
+        if not isinstance(self.snapshot_identidad, dict):
+            return
+        normalized = dict(self.snapshot_identidad)
+        if 'nombre' in normalized:
+            normalized['nombre'] = _normalize_text_value(normalized.get('nombre'))
+        if 'rut' in normalized:
+            normalized['rut'] = _normalize_rut_value_if_possible(normalized.get('rut'))
+        self.snapshot_identidad = normalized
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
         snapshot = self.snapshot_identidad or {}
@@ -1356,7 +1493,25 @@ class AvisoTermino(TimestampedModel):
     def registration_timestamp_for_notice_deadline(self):
         return self.registrado_at or self.created_at
 
+    def _normalize_operational_fields(self):
+        self.causal = _normalize_text_value(self.causal)
+        self.resolucion_conflicto_renovacion_ref = _normalize_text_value(
+            self.resolucion_conflicto_renovacion_ref
+        )
+        self.resolucion_conflicto_renovacion_motivo = _normalize_text_value(
+            self.resolucion_conflicto_renovacion_motivo
+        )
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
     def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
         if self.estado == EstadoAvisoTermino.REGISTERED and self.registrado_at is None:
             self.registrado_at = timezone.now()
             update_fields = kwargs.get('update_fields')
@@ -1408,11 +1563,6 @@ class AvisoTermino(TimestampedModel):
 
     def clean(self):
         super().clean()
-        self.causal = (self.causal or '').strip()
-        self.resolucion_conflicto_renovacion_ref = (self.resolucion_conflicto_renovacion_ref or '').strip()
-        self.resolucion_conflicto_renovacion_motivo = (
-            self.resolucion_conflicto_renovacion_motivo or ''
-        ).strip()
         if not self.causal:
             raise ValidationError({'causal': 'El aviso de termino requiere causal estructurada.'})
         if contains_sensitive_reference(self.causal):

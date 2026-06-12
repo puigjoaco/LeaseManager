@@ -334,6 +334,8 @@ class PeriodoContractualWriteSerializer(serializers.Serializer):
             raise serializers.ValidationError({'monto_base': 'Un periodo CLP debe respetar el minimo operativo de 1.000.'})
         if attrs['moneda_base'] == MonedaBaseContrato.UF and attrs['monto_base'] <= Decimal('0.00'):
             raise serializers.ValidationError({'monto_base': 'Un periodo UF debe tener monto positivo.'})
+        attrs['tipo_periodo'] = str(attrs.get('tipo_periodo') or '').strip()
+        attrs['origen_periodo'] = str(attrs.get('origen_periodo') or '').strip()
         attrs['politica_base_renovacion_ref'] = str(attrs.get('politica_base_renovacion_ref') or '').strip()
         attrs['politica_base_renovacion_motivo'] = str(attrs.get('politica_base_renovacion_motivo') or '').strip()
         if bool(attrs['politica_base_renovacion_ref']) != bool(attrs['politica_base_renovacion_motivo']):

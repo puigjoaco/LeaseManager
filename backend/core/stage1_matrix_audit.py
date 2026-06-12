@@ -310,6 +310,12 @@ def _rut_is_not_canonical(value: Any) -> bool:
     return value != normalize_rut(stripped)
 
 
+def _identity_snapshot_is_not_canonical(snapshot: Any) -> bool:
+    if not isinstance(snapshot, dict):
+        return False
+    return _text_is_not_canonical(snapshot.get('nombre')) or _rut_is_not_canonical(snapshot.get('rut'))
+
+
 def _property_identity(propiedad: Propiedad) -> str:
     return f'id={propiedad.pk}, codigo={propiedad.codigo_propiedad}, owner={propiedad.owner_tipo}:{propiedad.owner_id}'
 
@@ -790,6 +796,178 @@ def _audit_operation_visible_metadata_canonical(issues: list[dict[str, Any]]) ->
                 message=(
                     'Mandato operativo con relacion, autoridad o evidencia no canonicas; '
                     'normalizar espacios y RUT antes de validar o persistir.'
+                ),
+            )
+
+
+def _audit_contract_visible_metadata_canonical(issues: list[dict[str, Any]]) -> None:
+    tenants = Arrendatario.objects.all().only(
+        'id',
+        'nombre_razon_social',
+        'rut',
+        'email',
+        'telefono',
+        'domicilio_notificaciones',
+        'nacionalidad',
+        'profesion',
+        'whatsapp_opt_in_evidencia_ref',
+        'whatsapp_bloqueo_motivo',
+        'whatsapp_bloqueo_evidencia_ref',
+        'whatsapp_rehabilitacion_ref',
+    )
+    for tenant in tenants:
+        if any(
+            _text_is_not_canonical(value)
+            for value in (
+                tenant.nombre_razon_social,
+                tenant.email,
+                tenant.telefono,
+                tenant.domicilio_notificaciones,
+                tenant.nacionalidad,
+                tenant.profesion,
+                tenant.whatsapp_opt_in_evidencia_ref,
+                tenant.whatsapp_bloqueo_motivo,
+                tenant.whatsapp_bloqueo_evidencia_ref,
+                tenant.whatsapp_rehabilitacion_ref,
+            )
+        ) or _rut_is_not_canonical(tenant.rut):
+            _issue(
+                issues,
+                code='stage1.arrendatario.metadata_visible_no_canonica',
+                entity='Arrendatario',
+                entity_id=tenant.pk,
+                message=(
+                    'Arrendatario con identidad, contacto o trazas WhatsApp no canonicas; '
+                    'normalizar espacios y RUT antes de validar o persistir.'
+                ),
+            )
+
+    payment_contacts = ContactoPagoArrendatario.objects.all().only(
+        'id',
+        'nombre',
+        'rol_operativo',
+        'email',
+        'telefono',
+        'evidencia_autorizacion_ref',
+    )
+    for contact in payment_contacts:
+        if any(
+            _text_is_not_canonical(value)
+            for value in (
+                contact.nombre,
+                contact.rol_operativo,
+                contact.email,
+                contact.telefono,
+                contact.evidencia_autorizacion_ref,
+            )
+        ):
+            _issue(
+                issues,
+                code='stage1.contacto_pago.metadata_visible_no_canonica',
+                entity='ContactoPagoArrendatario',
+                entity_id=contact.pk,
+                message=(
+                    'Contacto de pago con nombre, rol, medio operativo o evidencia no canonicos; '
+                    'normalizar espacios antes de validar o persistir.'
+                ),
+            )
+
+    contracts = Contrato.objects.all().only(
+        'id',
+        'codigo_contrato',
+        'entrega_llaves_autorizacion_ref',
+        'entrega_llaves_autorizacion_motivo',
+        'terminacion_anticipada_prorrata_ref',
+        'terminacion_anticipada_prorrata_motivo',
+        'snapshot_representante_legal',
+    )
+    for contract in contracts:
+        if any(
+            _text_is_not_canonical(value)
+            for value in (
+                contract.codigo_contrato,
+                contract.entrega_llaves_autorizacion_ref,
+                contract.entrega_llaves_autorizacion_motivo,
+                contract.terminacion_anticipada_prorrata_ref,
+                contract.terminacion_anticipada_prorrata_motivo,
+            )
+        ) or _identity_snapshot_is_not_canonical(contract.snapshot_representante_legal):
+            _issue(
+                issues,
+                code='stage1.contrato.metadata_visible_no_canonica',
+                entity='Contrato',
+                entity_id=contract.pk,
+                message=(
+                    'Contrato con codigo, autorizaciones, prorrata o representante legal no canonicos; '
+                    'normalizar espacios y RUT antes de validar o persistir.'
+                ),
+            )
+
+    periods = PeriodoContractual.objects.all().only(
+        'id',
+        'tipo_periodo',
+        'origen_periodo',
+        'politica_base_renovacion_ref',
+        'politica_base_renovacion_motivo',
+    )
+    for period in periods:
+        if any(
+            _text_is_not_canonical(value)
+            for value in (
+                period.tipo_periodo,
+                period.origen_periodo,
+                period.politica_base_renovacion_ref,
+                period.politica_base_renovacion_motivo,
+            )
+        ):
+            _issue(
+                issues,
+                code='stage1.periodo.metadata_visible_no_canonica',
+                entity='PeriodoContractual',
+                entity_id=period.pk,
+                message=(
+                    'Periodo contractual con tipo, origen o politica de renovacion no canonicos; '
+                    'normalizar espacios antes de validar o persistir.'
+                ),
+            )
+
+    codebtors = CodeudorSolidario.objects.all().only('id', 'snapshot_identidad')
+    for codebtor in codebtors:
+        if _identity_snapshot_is_not_canonical(codebtor.snapshot_identidad):
+            _issue(
+                issues,
+                code='stage1.codeudor.metadata_visible_no_canonica',
+                entity='CodeudorSolidario',
+                entity_id=codebtor.pk,
+                message=(
+                    'Codeudor solidario con snapshot de identidad no canonico; '
+                    'normalizar nombre y RUT antes de validar o persistir.'
+                ),
+            )
+
+    notices = AvisoTermino.objects.all().only(
+        'id',
+        'causal',
+        'resolucion_conflicto_renovacion_ref',
+        'resolucion_conflicto_renovacion_motivo',
+    )
+    for notice in notices:
+        if any(
+            _text_is_not_canonical(value)
+            for value in (
+                notice.causal,
+                notice.resolucion_conflicto_renovacion_ref,
+                notice.resolucion_conflicto_renovacion_motivo,
+            )
+        ):
+            _issue(
+                issues,
+                code='stage1.aviso_termino.metadata_visible_no_canonica',
+                entity='AvisoTermino',
+                entity_id=notice.pk,
+                message=(
+                    'Aviso de termino con causal o resolucion guiada no canonicas; '
+                    'normalizar espacios antes de validar o persistir.'
                 ),
             )
 
@@ -2178,6 +2356,7 @@ def _audit_adjustment_justifications(issues: list[dict[str, Any]]) -> None:
 
 
 def _audit_contratos(issues: list[dict[str, Any]]) -> None:
+    _audit_contract_visible_metadata_canonical(issues)
     _audit_adjustment_justifications(issues)
     _audit_model_validation(
         issues,

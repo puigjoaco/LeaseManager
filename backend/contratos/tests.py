@@ -244,6 +244,134 @@ class ContratosAPITests(APITestCase):
             self._create_payment_contact(arrendatario)
         return arrendatario
 
+    def test_contract_visible_metadata_normalizes_before_full_clean_and_save(self):
+        arrendatario = Arrendatario(
+            tipo_arrendatario='persona_natural',
+            nombre_razon_social=' Arrendatario Canonico ',
+            rut=' 12.345.678-5 ',
+            email=' tenant-canon@example.com ',
+            telefono=' +56912345678 ',
+            domicilio_notificaciones=' Domicilio Canonico 123 ',
+            estado_contacto='activo',
+            nacionalidad=' chilena ',
+            estado_civil='soltero',
+            profesion=' arquitecto ',
+            whatsapp_opt_in=True,
+            whatsapp_opt_in_evidencia_ref=' whatsapp-opt-in-ref ',
+        )
+        arrendatario.full_clean()
+        arrendatario.save()
+        arrendatario.refresh_from_db()
+
+        self.assertEqual(arrendatario.nombre_razon_social, 'Arrendatario Canonico')
+        self.assertEqual(arrendatario.rut, '12345678-5')
+        self.assertEqual(arrendatario.email, 'tenant-canon@example.com')
+        self.assertEqual(arrendatario.telefono, '+56912345678')
+        self.assertEqual(arrendatario.domicilio_notificaciones, 'Domicilio Canonico 123')
+        self.assertEqual(arrendatario.nacionalidad, 'chilena')
+        self.assertEqual(arrendatario.profesion, 'arquitecto')
+        self.assertEqual(arrendatario.whatsapp_opt_in_evidencia_ref, 'whatsapp-opt-in-ref')
+
+        contacto = ContactoPagoArrendatario(
+            arrendatario=arrendatario,
+            nombre=' Contacto Operativo ',
+            rol_operativo=' pago_arriendo ',
+            email=' contacto-canon@example.com ',
+            telefono=' +56987654321 ',
+            evidencia_autorizacion_ref=' contacto-evidence-ref ',
+            estado='activo',
+        )
+        contacto.full_clean()
+        contacto.save()
+        contacto.refresh_from_db()
+
+        self.assertEqual(contacto.nombre, 'Contacto Operativo')
+        self.assertEqual(contacto.rol_operativo, 'pago_arriendo')
+        self.assertEqual(contacto.email, 'contacto-canon@example.com')
+        self.assertEqual(contacto.telefono, '+56987654321')
+        self.assertEqual(contacto.evidencia_autorizacion_ref, 'contacto-evidence-ref')
+
+        mandato = self._create_active_mandato(codigo='MAND-META-CONTRACT', owner_rut='11111111-1')
+        company_tenant = self._create_company_arrendatario(rut='22222222-2')
+        contrato = Contrato(
+            codigo_contrato=' CTR-META-001 ',
+            mandato_operacion=mandato,
+            arrendatario=company_tenant,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin_vigente=date(2026, 12, 31),
+            entrega_llaves_autorizacion_ref=' key-delivery-ref ',
+            entrega_llaves_autorizacion_motivo=' Entrega autorizada por control operativo. ',
+            terminacion_anticipada_prorrata_ref=' proration-ref ',
+            terminacion_anticipada_prorrata_motivo=' Prorrata documentada por decision operativa. ',
+            dia_pago_mensual=5,
+            estado=EstadoContrato.ACTIVE,
+            politica_documental=self.contract_policy,
+            snapshot_representante_legal={'nombre': ' Representante Legal ', 'rut': ' 12.345.678-5 '},
+        )
+        contrato.full_clean()
+        contrato.save()
+        contrato.refresh_from_db()
+
+        self.assertEqual(contrato.codigo_contrato, 'CTR-META-001')
+        self.assertEqual(contrato.entrega_llaves_autorizacion_ref, 'key-delivery-ref')
+        self.assertEqual(contrato.entrega_llaves_autorizacion_motivo, 'Entrega autorizada por control operativo.')
+        self.assertEqual(contrato.terminacion_anticipada_prorrata_ref, 'proration-ref')
+        self.assertEqual(
+            contrato.terminacion_anticipada_prorrata_motivo,
+            'Prorrata documentada por decision operativa.',
+        )
+        self.assertEqual(contrato.snapshot_representante_legal['nombre'], 'Representante Legal')
+        self.assertEqual(contrato.snapshot_representante_legal['rut'], '12345678-5')
+
+        periodo = PeriodoContractual(
+            contrato=contrato,
+            numero_periodo=1,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin=date(2026, 12, 31),
+            monto_base='250000.00',
+            moneda_base='CLP',
+            tipo_periodo=' mensual ',
+            origen_periodo=' snapshot_controlado ',
+            politica_base_renovacion_ref=' renewal-policy-ref ',
+            politica_base_renovacion_motivo=' Politica documentada controlada. ',
+        )
+        periodo.full_clean()
+        periodo.save()
+        periodo.refresh_from_db()
+
+        self.assertEqual(periodo.tipo_periodo, 'mensual')
+        self.assertEqual(periodo.origen_periodo, 'snapshot_controlado')
+        self.assertEqual(periodo.politica_base_renovacion_ref, 'renewal-policy-ref')
+        self.assertEqual(periodo.politica_base_renovacion_motivo, 'Politica documentada controlada.')
+
+        codeudor = CodeudorSolidario(
+            contrato=contrato,
+            snapshot_identidad={'nombre': ' Codeudor Canonico ', 'rut': ' 11.111.111-1 '},
+            estado='activo',
+        )
+        codeudor.full_clean()
+        codeudor.save()
+        codeudor.refresh_from_db()
+
+        self.assertEqual(codeudor.snapshot_identidad['nombre'], 'Codeudor Canonico')
+        self.assertEqual(codeudor.snapshot_identidad['rut'], '11111111-1')
+
+        aviso = AvisoTermino(
+            contrato=contrato,
+            fecha_efectiva=date(2026, 12, 31),
+            causal=' Termino programado controlado ',
+            estado=EstadoAvisoTermino.REGISTERED,
+            resolucion_conflicto_renovacion_ref=' renewal-resolution-ref ',
+            resolucion_conflicto_renovacion_motivo=' Resolucion guiada controlada. ',
+        )
+        aviso.full_clean()
+        aviso.save()
+        aviso.refresh_from_db()
+
+        self.assertEqual(aviso.causal, 'Termino programado controlado')
+        self.assertEqual(aviso.resolucion_conflicto_renovacion_ref, 'renewal-resolution-ref')
+        self.assertEqual(aviso.resolucion_conflicto_renovacion_motivo, 'Resolucion guiada controlada.')
+
     def _base_contract_payload(self, mandato, arrendatario, codigo='CTR-001'):
         return {
             'codigo_contrato': codigo,
