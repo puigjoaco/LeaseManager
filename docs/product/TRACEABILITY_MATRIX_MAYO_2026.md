@@ -1867,6 +1867,12 @@ revocacion sensible. La UI muestra motivo y scope visible ya redactados,
 exige motivo no sensible antes de habilitar `Revocar` y envia ese motivo a la
 API para que la revocacion persista `revocation_reason` en auditoria.
 
+Nota 2026-06-12: Conciliacion/Etapa 3 normaliza referencias de movimientos
+bancarios antes de persistir. `MovimientoBancarioImportado.clean()` y `save()`
+recortan `evidencia_importacion_ref`, `referencia`, `transaction_id_banco` y
+`notas_admin`, de modo que API, snapshot, readiness y constraint de unicidad
+por conexion comparen referencias canonicas sin espacios crudos.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

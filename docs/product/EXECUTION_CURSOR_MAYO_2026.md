@@ -24,12 +24,12 @@ nueva.
 | --- | --- |
 | Frente activo | Sin frente activo. |
 | Fuente exacta | Confirmar siempre con `git status --short --branch`, `git worktree list` y `git log -1 --oneline` antes de abrir el siguiente paquete; el worktree rescue sigue pausado y fuera de alcance. |
-| Brecha activa | Ninguna. Ultimo paquete preparado: Etapa 2 / CobranzaActiva normaliza `IntentoPagoWebPay.return_url_ref`, `external_ref` y `motivo_bloqueo` antes de persistir refs y motivos de intentos WebPay. |
-| Motivo de prioridad | N/A hasta seleccionar el siguiente frente desde el estado real del repo, trazabilidad y stage cards. |
+| Brecha activa | Ninguna. Ultimo paquete preparado: Etapa 3 / Conciliacion normaliza refs de movimientos bancarios antes de persistir. |
+| Motivo de prioridad | Paquete cerrado localmente; Etapa 3 conserva movimientos bancarios con referencias canonicas y unicidad por conexion mas robusta. |
 | Worktree | Ninguno de producto activo. |
 | Rama | Ninguna de producto activa. |
 | Estado | Listo para continuar con el siguiente paquete pequeno, local, verificable y cerrable sin tocar secretos ni fuentes externas. |
-| Gate esperado | Al abrir el siguiente paquete, definir validaciones proporcionales segun el frente. |
+| Gate esperado | Para el siguiente paquete, elegir frente pequeno, local y verificable segun orden, trazabilidad y stage cards; no reabrir este paquete salvo regresion real. |
 | Estado al cerrar paquete | Ultimo paquete debe confirmarse contra `git log -1 --oneline`, registro de evidencia y PR/CI remoto; si el cursor contradice Git, gana Git y se corrige el cursor en el siguiente paquete trazable. |
 | Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
 | Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |

@@ -1458,6 +1458,49 @@ class ConciliacionAPITests(APITestCase):
                     transaction_id_banco='tx-db-dup-001',
                 )
 
+    def test_bank_movement_refs_normalize_before_persisting(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-TX-NORM')
+        conexion = self._create_connection(cuenta)
+        movimiento = MovimientoBancarioImportado(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto='100111.00',
+            descripcion_origen='Pago con refs bancarias normalizadas',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='  manual-import-controlled  ',
+            referencia='  bank-reference-controlled  ',
+            transaction_id_banco='  tx-normalized-001  ',
+            notas_admin='  Revision interna controlada  ',
+        )
+
+        movimiento.full_clean()
+        self.assertEqual(movimiento.evidencia_importacion_ref, 'manual-import-controlled')
+        self.assertEqual(movimiento.referencia, 'bank-reference-controlled')
+        self.assertEqual(movimiento.transaction_id_banco, 'tx-normalized-001')
+        self.assertEqual(movimiento.notas_admin, 'Revision interna controlada')
+        movimiento.save()
+        movimiento.refresh_from_db()
+
+        self.assertEqual(movimiento.evidencia_importacion_ref, 'manual-import-controlled')
+        self.assertEqual(movimiento.referencia, 'bank-reference-controlled')
+        self.assertEqual(movimiento.transaction_id_banco, 'tx-normalized-001')
+        self.assertEqual(movimiento.notas_admin, 'Revision interna controlada')
+
+        duplicate = MovimientoBancarioImportado(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-09',
+            tipo_movimiento='abono',
+            monto='100112.00',
+            descripcion_origen='Pago con tx equivalente',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref='manual-import-controlled',
+            transaction_id_banco=' tx-normalized-001 ',
+        )
+        with self.assertRaises(ValidationError) as error:
+            duplicate.full_clean()
+        self.assertIn('transaction_id_banco', error.exception.message_dict)
+
     def test_rejects_duplicate_transaction_id_banco_per_connection(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-DUP-TX')
         conexion = self._create_connection(cuenta)
