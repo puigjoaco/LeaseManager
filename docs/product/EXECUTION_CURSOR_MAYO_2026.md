@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar normalizacion de metadata visible patrimonial. |
-| Fuente exacta | `main` limpio tras mergear este paquete; PR #764 (`29e0b353`) fue la base anterior y rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear el paquete. La brecha de metadata visible patrimonial queda cubierta por modelo, auditor Etapa 1, stage card, trazabilidad y evidencia. |
-| Motivo de prioridad | Evitar que reanudaciones o compactaciones reabran el paquete de Patrimonio ya validado. |
+| Frente activo | Sin paquete tactico abierto tras cerrar normalizacion de metadata visible operacional. |
+| Fuente exacta | `main` limpio tras mergear este paquete; PR #765 (`73872ab8`) fue la base anterior y rescue queda pausado fuera de alcance. |
+| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear el paquete. La brecha de metadata visible operacional queda cubierta por modelo, auditor Etapa 1, stage card, trazabilidad y evidencia. |
+| Motivo de prioridad | Evitar que reanudaciones o compactaciones reabran el paquete de Operacion ya validado. |
 | Worktree | Ninguno tras merge y limpieza del paquete. |
 | Rama | `main` tras merge. |
 | Estado | Listo para seleccionar el siguiente frente util y seguro desde el repo limpio despues de PR/CI/merge/limpieza. |
 | Gate esperado | El siguiente paquete debe definir su gate proporcional antes de editar; los cierres evidenciales siguen sin declararse sin fuente autorizada y evidencia. |
-| Estado al cerrar paquete | Patrimonio metadata visible: focal 3 tests OK; suite impactada Patrimonio/auditor Etapa 1 218 tests OK; `manage.py check` OK; migraciones dry-run OK; readiness local Etapa 1 diagnostica OK; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1308 tests OK; higiene repo y `git diff --check` OK. |
+| Estado al cerrar paquete | Operacion metadata visible: focal 4 tests OK; suite impactada Operacion/auditor Etapa 1 194 tests OK; `manage.py check` OK; migraciones dry-run OK; readiness local Etapa 1 diagnostica OK; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1309 tests OK; higiene repo y `git diff --check` OK. |
 | Bloqueos relacionados | BLK-002 sigue abierto para cierre evidencial de Etapa 1; este paquete solo prepara validadores internos y metadata canonica sin fuente real/controlada. |
 | Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
 | Siguiente accion | Tras mergear y limpiar este paquete, confirmar `git status --short --branch` y `git worktree list`, diagnosticar el siguiente frente seguro por orden de construccion/trazabilidad y abrir un worktree `codex/...` solo cuando haya paquete concreto. |

@@ -827,6 +827,41 @@ class Stage1MatrixAuditTests(TestCase):
             'defectuoso',
         )
 
+    def test_noncanonical_operation_visible_metadata_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        mandato = contrato.mandato_operacion
+        cuenta = mandato.cuenta_recaudadora
+        identidad = mandato.asignaciones_canal.get().identidad_envio
+        CuentaRecaudadora.objects.filter(pk=cuenta.pk).update(
+            institucion=' Banco Uno ',
+            numero_cuenta=' 123456 ',
+            tipo_cuenta=' corriente ',
+            titular_nombre=' Owner Uno ',
+            titular_rut=' 12.345.678-5 ',
+            uso_operativo=' recaudacion_arriendos ',
+            evidencia_operativa_ref=' account-operational-evidence-stage1 ',
+        )
+        IdentidadDeEnvio.objects.filter(pk=identidad.pk).update(
+            remitente_visible=' Remitente Operativo ',
+            direccion_o_numero=' sender@example.test ',
+            credencial_ref=' cred-ref-controlada ',
+        )
+        MandatoOperacion.objects.filter(pk=mandato.pk).update(
+            tipo_relacion_operativa=' administracion_operacional ',
+            autoridad_operativa_nombre=' Representante Operativo Controlado ',
+            autoridad_operativa_rut=' 12.345.678-5 ',
+            autoridad_operativa_evidencia_ref=' mandate-authority-act-001 ',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.cuenta.metadata_visible_no_canonica', issue_codes)
+        self.assertIn('stage1.identidad_envio.metadata_visible_no_canonica', issue_codes)
+        self.assertIn('stage1.mandato.metadata_visible_no_canonica', issue_codes)
+
     def test_inactive_only_assignment_with_active_contract_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         asignacion = contrato.mandato_operacion.asignaciones_canal.get()
