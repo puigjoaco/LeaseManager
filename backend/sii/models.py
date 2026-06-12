@@ -16,6 +16,26 @@ class TimestampedModel(models.Model):
         abstract = True
 
 
+class OperationalSIITextNormalizationMixin:
+    operational_text_fields = ()
+
+    def _normalize_operational_fields(self):
+        for field_name in self.operational_text_fields:
+            setattr(self, field_name, str(getattr(self, field_name, '') or '').strip())
+
+    def full_clean(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().full_clean(*args, **kwargs)
+
+    def clean(self):
+        self._normalize_operational_fields()
+        super().clean()
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
+
 class EstadoGateSII(models.TextChoices):
     OPEN = 'abierto', 'Abierto'
     CONDITIONED = 'condicionado', 'Condicionado'
@@ -162,7 +182,15 @@ class TipoDTE(models.TextChoices):
     NOTA_CREDITO = '61', 'Nota de Credito'
 
 
-class CapacidadTributariaSII(TimestampedModel):
+class CapacidadTributariaSII(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'certificado_ref',
+        'evidencia_ref',
+        'prueba_flujo_ref',
+        'autorizacion_ambiente_ref',
+        'regla_fiscal_ref',
+    )
+
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.CASCADE,
@@ -243,7 +271,9 @@ class CapacidadTributariaSII(TimestampedModel):
             raise ValidationError(errors)
 
 
-class DTEEmitido(TimestampedModel):
+class DTEEmitido(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = ('sii_track_id', 'ultimo_estado_sii', 'observaciones')
+
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.PROTECT,
@@ -311,7 +341,9 @@ class DTEEmitido(TimestampedModel):
             raise ValidationError(errors)
 
 
-class F29PreparacionMensual(TimestampedModel):
+class F29PreparacionMensual(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = ('borrador_ref', 'observaciones')
+
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.PROTECT,
@@ -364,7 +396,9 @@ class F29PreparacionMensual(TimestampedModel):
             raise ValidationError(errors)
 
 
-class ProcesoRentaAnual(TimestampedModel):
+class ProcesoRentaAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = ('paquete_ddjj_ref', 'borrador_f22_ref')
+
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.PROTECT,
@@ -404,7 +438,9 @@ class ProcesoRentaAnual(TimestampedModel):
             raise ValidationError(errors)
 
 
-class DDJJPreparacionAnual(TimestampedModel):
+class DDJJPreparacionAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = ('paquete_ref', 'observaciones')
+
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.PROTECT,
@@ -455,7 +491,9 @@ class DDJJPreparacionAnual(TimestampedModel):
             raise ValidationError(errors)
 
 
-class F22PreparacionAnual(TimestampedModel):
+class F22PreparacionAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = ('borrador_ref', 'observaciones')
+
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.PROTECT,

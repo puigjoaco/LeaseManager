@@ -39,6 +39,11 @@ produccion por defecto.
 - DTE, F29, DDJJ/F22 y procesos anuales solo aceptan refs tributarias no
   sensibles para tracking, borradores y paquetes; las APIs y snapshots redactan
   refs o payloads sensibles heredados antes de exponerlos al backoffice.
+- Los modelos tributarios SII normalizan refs/textos operativos antes de
+  `full_clean()` y antes de persistir por rutas internas: refs de capacidad,
+  `sii_track_id`, `ultimo_estado_sii`, borradores, paquetes y observaciones.
+  Esto evita que espacios crudos disparen validadores de longitud antes de
+  canonizar la traza tributaria no sensible.
 - Los payloads tributarios locales (`ultimo_resultado`, `resumen_formulario`,
   `resumen_anual`, `resumen_paquete`, `resumen_f22`) rechazan URLs, tokens,
   credenciales, correos y claves sensibles como `api_key`, `access_token` o
