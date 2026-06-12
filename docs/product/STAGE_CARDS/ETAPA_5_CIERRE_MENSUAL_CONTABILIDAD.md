@@ -75,6 +75,11 @@ contables desde hechos conciliados.
 - Eventos, movimientos, obligaciones, libros, balances y cierres no pueden
   persistir nuevas URLs, tokens, credenciales, correos ni referencias sensibles
   en payloads, `storage_ref` o `centro_resultado_ref`.
+- Referencias y textos operativos de Contabilidad se normalizan antes de
+  `full_clean()` y `save()`: `centro_resultado_ref`, `storage_ref`, referencias
+  de liquidacion, evidencias de lineas y motivos/evidencias de reapertura quedan
+  canonicos antes de validadores de campo, persistencia, snapshot, readiness y
+  auditoria.
 - APIs de contabilidad y reporting de libros redactan payloads y referencias
   sensibles heredadas antes de exponerlas al backoffice.
 - Las mutaciones API de Contabilidad deben persistir cambios operativos y

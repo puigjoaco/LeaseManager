@@ -1618,6 +1618,13 @@ en `pendiente_revision_contable`; `EventoContable.full_clean` rechaza
 duplicados posteados y readiness Etapa 5 reporta `stage5.duplicate_posted_events`
 para snapshots heredados.
 
+Nota 2026-06-12: Contabilidad normaliza refs/textos operativos antes de
+`full_clean` y persistencia. `MovimientoAsiento`, snapshots ledger,
+`LiquidacionMensual`, `LineaLiquidacionMensual` y efectos de reapertura limpian
+espacios de refs, evidencias, motivos y descripciones antes de validadores de
+campo, `save()`, snapshot/backoffice, readiness y auditoria, evitando valores
+canonicos rechazados por longitud cruda o persistidos con espacios.
+
 Nota 2026-05-25: Documentos incorpora emision local de PDF generado por sistema
 mediante endpoint dedicado. El PDF canonico se renderiza sin dependencia
 externa, el checksum SHA-256 y `storage_ref` derivan del contenido, se rechaza
