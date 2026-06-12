@@ -1231,6 +1231,13 @@ usuario tiene scope restringido, pero no crea ni sobrescribe
 `EstadoCuentaArrendatario` global con datos de una sola cartera; la auditoria
 del endpoint registra si el recalculo persistio resumen global o fue scoped.
 
+Nota 2026-06-12: CobranzaActiva sincroniza estado de cuenta global derivado
+despues de refrescar mora. `refresh_overdue_payments()` conserva el scope para
+decidir que pagos puede mutar el actor, pero recalcula el
+`EstadoCuentaArrendatario` persistido sin filtro parcial y con la misma fecha de
+corte; la respuesta/auditoria registran modo `global_derived`, actor scoped y
+conteos, sin exponer resumenes monetarios globales.
+
 Nota 2026-06-06: Backoffice Cobranza opera trazabilidad de garantias
 parciales y excesos. El workspace de Cobranza permite seleccionar una garantia,
 actualizar `aceptacion_parcial_ref` y registrar clasificacion, referencia y
