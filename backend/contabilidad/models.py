@@ -108,6 +108,30 @@ def _add_non_sensitive_payload_error(errors, field_name, value):
         errors[field_name] = f'{field_name} no debe contener URLs, tokens, credenciales ni correos.'
 
 
+def _normalize_text_fields(instance, field_names):
+    for field_name in field_names:
+        setattr(instance, field_name, str(getattr(instance, field_name, '') or '').strip())
+
+
+class OperationalTextNormalizationMixin:
+    operational_text_fields = ()
+
+    def _normalize_operational_fields(self):
+        _normalize_text_fields(self, self.operational_text_fields)
+
+    def full_clean(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().full_clean(*args, **kwargs)
+
+    def clean(self):
+        self._normalize_operational_fields()
+        super().clean()
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
+
 class RegimenTributarioEmpresa(TimestampedModel):
     codigo_regimen = models.CharField(max_length=64, unique=True)
     descripcion = models.CharField(max_length=255)
@@ -358,7 +382,9 @@ class AsientoContable(TimestampedModel):
         self.hash_integridad = self.expected_hash_integridad()
 
 
-class MovimientoAsiento(TimestampedModel):
+class MovimientoAsiento(OperationalTextNormalizationMixin, TimestampedModel):
+    operational_text_fields = ('glosa', 'centro_resultado_ref')
+
     asiento_contable = models.ForeignKey(
         AsientoContable,
         on_delete=models.CASCADE,
@@ -454,7 +480,9 @@ class ObligacionTributariaMensual(TimestampedModel):
             raise ValidationError(errors)
 
 
-class LedgerSnapshotValidationMixin:
+class LedgerSnapshotValidationMixin(OperationalTextNormalizationMixin):
+    operational_text_fields = ('storage_ref',)
+
     def clean(self):
         super().clean()
         errors = {}
@@ -548,7 +576,14 @@ class CierreMensualContable(TimestampedModel):
             raise ValidationError(errors)
 
 
-class LiquidacionMensual(TimestampedModel):
+class LiquidacionMensual(OperationalTextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'saldo_final_explicacion',
+        'saldo_final_evidencia_ref',
+        'evidencia_base_ref',
+        'responsable_ref',
+    )
+
     owner_tipo = models.CharField(max_length=16, choices=TipoOwnerLiquidacion.choices)
     empresa = models.ForeignKey(
         Empresa,
@@ -697,7 +732,9 @@ class LiquidacionMensual(TimestampedModel):
             raise ValidationError(errors)
 
 
-class LineaLiquidacionMensual(TimestampedModel):
+class LineaLiquidacionMensual(OperationalTextNormalizationMixin, TimestampedModel):
+    operational_text_fields = ('descripcion', 'evidencia_ref')
+
     liquidacion = models.ForeignKey(
         LiquidacionMensual,
         on_delete=models.CASCADE,
@@ -775,7 +812,9 @@ class LineaLiquidacionMensual(TimestampedModel):
             raise ValidationError(errors)
 
 
-class EfectoReaperturaCierreMensual(TimestampedModel):
+class EfectoReaperturaCierreMensual(OperationalTextNormalizationMixin, TimestampedModel):
+    operational_text_fields = ('motivo', 'efecto_esperado', 'evidencia_ref')
+
     cierre = models.ForeignKey(
         CierreMensualContable,
         on_delete=models.CASCADE,

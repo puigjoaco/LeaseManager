@@ -1458,6 +1458,135 @@ class ContabilidadAPITests(APITestCase):
 
         self.assertIn('cuenta_contable', error.exception.message_dict)
 
+    def test_accounting_operational_refs_normalize_before_full_clean_and_save(self):
+        empresa = self._create_active_empresa(nombre='AccountingNormalizeCo', rut='94949494-9')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'normalization-clean-1',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'normalization-clean-1',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        max_center_ref = 'stage5-center-' + ('x' * (64 - len('stage5-center-')))
+        self.assertEqual(len(max_center_ref), 64)
+        movimiento = MovimientoAsiento.objects.get(
+            asiento_contable__evento_contable_id=response.data['id'],
+            tipo_movimiento=TipoMovimientoAsiento.DEBIT,
+        )
+        movimiento.centro_resultado_ref = f' {max_center_ref} '
+        movimiento.full_clean()
+        self.assertEqual(movimiento.centro_resultado_ref, max_center_ref)
+        movimiento.save(update_fields=['centro_resultado_ref', 'updated_at'])
+        movimiento.refresh_from_db()
+        self.assertEqual(movimiento.centro_resultado_ref, max_center_ref)
+
+        max_snapshot_ref = 'stage5-snapshot-' + ('x' * (255 - len('stage5-snapshot-')))
+        diario = LibroDiario(
+            empresa=empresa,
+            periodo='2026-01',
+            storage_ref=f' {max_snapshot_ref} ',
+            resumen={},
+        )
+        diario.full_clean()
+        self.assertEqual(diario.storage_ref, max_snapshot_ref)
+        diario.save()
+        diario.refresh_from_db()
+        self.assertEqual(diario.storage_ref, max_snapshot_ref)
+
+        max_liquidation_ref = 'stage5-liquidation-' + ('x' * (255 - len('stage5-liquidation-')))
+        liquidacion = LiquidacionMensual(
+            owner_tipo=TipoOwnerLiquidacion.COMPANY,
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            evidencia_base_ref=f' {max_liquidation_ref} ',
+            responsable_ref=f' {max_liquidation_ref} ',
+        )
+        liquidacion.full_clean()
+        self.assertEqual(liquidacion.evidencia_base_ref, max_liquidation_ref)
+        self.assertEqual(liquidacion.responsable_ref, max_liquidation_ref)
+        liquidacion.save()
+        liquidacion.refresh_from_db()
+        self.assertEqual(liquidacion.evidencia_base_ref, max_liquidation_ref)
+        self.assertEqual(liquidacion.responsable_ref, max_liquidation_ref)
+
+        max_line_ref = 'stage5-line-' + ('x' * (255 - len('stage5-line-')))
+        linea = LineaLiquidacionMensual(
+            liquidacion=liquidacion,
+            tipo_linea=TipoLineaLiquidacion.FINAL_BALANCE,
+            descripcion=' Saldo final explicado controlado ',
+            monto_clp='1000.00',
+            evidencia_ref=f' {max_line_ref} ',
+        )
+        linea.full_clean()
+        self.assertEqual(linea.descripcion, 'Saldo final explicado controlado')
+        self.assertEqual(linea.evidencia_ref, max_line_ref)
+        linea.save()
+        linea.refresh_from_db()
+        self.assertEqual(linea.descripcion, 'Saldo final explicado controlado')
+        self.assertEqual(linea.evidencia_ref, max_line_ref)
+
+        close = CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='aprobado',
+            fecha_preparacion=timezone.now(),
+            fecha_aprobacion=timezone.now(),
+        )
+        policy = PoliticaReversoContable.objects.create(
+            empresa=empresa,
+            tipo_ajuste='reapertura_cierre_mensual',
+            usa_asiento_complementario=True,
+            permite_reapertura=True,
+            aprobacion_requerida=True,
+            estado='activa',
+        )
+        event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='ReaperturaCierreMensualComplementario',
+            entidad_origen_tipo='cierre_mensual_contable',
+            entidad_origen_id=str(close.pk),
+            fecha_operativa=date(2026, 2, 1),
+            moneda='CLP',
+            monto_base='1000.00',
+            payload_resumen={},
+            idempotency_key='normalization-reopen-effect-1',
+            estado_contable=EstadoEventoContable.POSTED,
+        )
+        max_effect_ref = 'stage5-effect-' + ('x' * (255 - len('stage5-effect-')))
+        effect = EfectoReaperturaCierreMensual(
+            cierre=close,
+            politica_reverso=policy,
+            evento_contable=event,
+            tipo_efecto='asiento_complementario',
+            monto_efecto='1000.00',
+            motivo=' Motivo operativo controlado ',
+            efecto_esperado=' Asiento complementario trazable ',
+            evidencia_ref=f' {max_effect_ref} ',
+        )
+        effect.full_clean()
+        self.assertEqual(effect.motivo, 'Motivo operativo controlado')
+        self.assertEqual(effect.efecto_esperado, 'Asiento complementario trazable')
+        self.assertEqual(effect.evidencia_ref, max_effect_ref)
+        effect.save()
+        effect.refresh_from_db()
+        self.assertEqual(effect.motivo, 'Motivo operativo controlado')
+        self.assertEqual(effect.efecto_esperado, 'Asiento complementario trazable')
+        self.assertEqual(effect.evidencia_ref, max_effect_ref)
+
     def test_historical_event_stays_in_review_when_only_future_rule_exists(self):
         empresa = self._create_active_empresa(nombre='FutureRuleCo', rut='97979797-9')
         accounts = self._setup_contabilidad(empresa)
