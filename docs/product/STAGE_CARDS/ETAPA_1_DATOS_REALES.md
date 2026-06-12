@@ -60,6 +60,12 @@ contra datos reales o snapshot controlado.
   sensibles y el auditor las clasifica como defecto especifico. El admin
   Django no permite alta, edicion ni borrado manual de representaciones; deben
   cerrarse por vigencia, inactivacion o flujo auditado.
+- Metadata visible patrimonial: `RepresentacionComunidad.full_clean()` y
+  `save()` normalizan `evidencia_ref` y `observaciones` antes de validar o
+  persistir; `ServicioPropiedad.full_clean()` y `save()` normalizan
+  `proveedor_nombre`, `numero_cliente`, `administrador_nombre` y
+  `evidencia_ref`. El auditor Etapa 1 bloquea snapshots heredados con metadata
+  visible patrimonial no canonica.
 - Validacion de participantes patrimoniales activos: una participacion activa
   solo puede apuntar a un socio activo o a una empresa participante activa con
   participaciones completas.
