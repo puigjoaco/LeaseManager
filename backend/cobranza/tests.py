@@ -1382,6 +1382,27 @@ class CobranzaAPITests(APITestCase):
         self.assertIn('requiere evidencia_ref', response.data['motivo_bloqueo'])
         self.assertEqual(IntentoPagoWebPay.objects.count(), 1)
 
+    def test_webpay_gate_normalizes_evidence_ref_before_persisting(self):
+        self.user.default_role_code = 'AdministradorGlobal'
+        self.user.save(update_fields=['default_role_code'])
+
+        response = self.client.post(
+            reverse('cobranza-webpay-gate-list'),
+            {
+                'capacidad_key': 'WebPay.IntentoPago',
+                'provider_key': 'transbank_webpay_normalized',
+                'estado_gate': EstadoGateCobroExterno.OPEN,
+                'restricciones_operativas': {'proof_ref': 'webpay-proof-controlled'},
+                'evidencia_ref': '  webpay-gate-evidence-normalized  ',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['evidencia_ref'], 'webpay-gate-evidence-normalized')
+        gate = GateCobroExterno.objects.get(pk=response.data['id'])
+        self.assertEqual(gate.evidencia_ref, 'webpay-gate-evidence-normalized')
+
     def test_webpay_gate_rejects_sensitive_references(self):
         sensitive_evidence_gate = GateCobroExterno(
             provider_key='transbank_webpay',

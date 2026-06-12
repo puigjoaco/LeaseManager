@@ -1219,6 +1219,11 @@ sensibles en intentos de pago. `IntentoPagoWebPay.clean()` rechaza nuevos
 redactan motivos heredados antes de exponerlos, y readiness Etapa 2 reporta
 `stage2.webpay_intent.sensitive_block_reason` sin imprimir el valor.
 
+Nota 2026-06-11: Cobranza/WebPay normaliza la evidencia del gate antes de
+persistir. `GateCobroExterno.clean()` y `GateCobroExternoSerializer` recortan
+`evidencia_ref` para que el gate `WebPay.IntentoPago`, API, snapshot y
+readiness comparen una referencia canonica no sensible sin espacios crudos.
+
 Nota 2026-05-27: Contratos/Canales clasifica y redacta motivos sensibles de
 bloqueo definitivo WhatsApp. `Arrendatario.clean()` y el endpoint de bloqueo
 rechazan nuevos `whatsapp_bloqueo_motivo` con URLs, correos, tokens o

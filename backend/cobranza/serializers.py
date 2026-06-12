@@ -312,6 +312,8 @@ class GateCobroExternoSerializer(RedactReferenceFieldsMixin, serializers.ModelSe
         read_only_fields = ('id', 'created_at', 'updated_at')
 
     def validate(self, attrs):
+        if 'evidencia_ref' in attrs:
+            attrs['evidencia_ref'] = str(attrs.get('evidencia_ref') or '').strip()
         candidate = build_validation_candidate(self.instance, GateCobroExterno)
         for field, value in attrs.items():
             setattr(candidate, field, value)
