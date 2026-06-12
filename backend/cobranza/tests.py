@@ -839,6 +839,164 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(event.metadata['motivo_carga'], 'Carga manual controlada desde servicio de dominio.')
         self.assertEqual(event.metadata['responsable_ref'], 'ops-uf-responsible-001')
 
+    def test_cobranza_visible_metadata_normalizes_before_full_clean_and_save(self):
+        payment = self._generate_monthly_payment(codigo='CON-META-COB', monto_base='250000.00', code='111')
+        contrato = payment.contrato
+
+        uf_value = ValorUFDiario(
+            fecha=date(2026, 1, 5),
+            valor=Decimal('35000.0000'),
+            source_key=' UF.CargaManualExtraordinaria ',
+            evidencia_ref=' uf-evidence-ref ',
+            motivo_carga=' Carga manual controlada. ',
+            responsable_ref=' uf-responsible-ref ',
+        )
+        uf_value.full_clean()
+        uf_value.save()
+        uf_value.refresh_from_db()
+        self.assertEqual(uf_value.source_key, 'UF.CargaManualExtraordinaria')
+        self.assertEqual(uf_value.evidencia_ref, 'uf-evidence-ref')
+        self.assertEqual(uf_value.motivo_carga, 'Carga manual controlada.')
+        self.assertEqual(uf_value.responsable_ref, 'uf-responsible-ref')
+
+        adjustment = AjusteContrato(
+            contrato=contrato,
+            tipo_ajuste=' descuento_operativo ',
+            monto=Decimal('0.00'),
+            moneda='CLP',
+            mes_inicio=date(2026, 1, 1),
+            mes_fin=date(2026, 1, 1),
+            justificacion=' Ajuste operativo controlado. ',
+        )
+        adjustment.full_clean()
+        adjustment.save()
+        adjustment.refresh_from_db()
+        self.assertEqual(adjustment.tipo_ajuste, 'descuento_operativo')
+        self.assertEqual(adjustment.justificacion, 'Ajuste operativo controlado.')
+
+        payment.codigo_conciliacion_efectivo = ' 111 '
+        payment.full_clean()
+        payment.save()
+        payment.refresh_from_db()
+        self.assertEqual(payment.codigo_conciliacion_efectivo, '111')
+
+        gate = GateCobroExterno(
+            capacidad_key=' WebPay.IntentoPago ',
+            provider_key=' transbank_webpay ',
+            estado_gate=' abierto ',
+            evidencia_ref=' webpay-gate-ref ',
+        )
+        gate.full_clean()
+        gate.save()
+        gate.refresh_from_db()
+        self.assertEqual(gate.capacidad_key, 'WebPay.IntentoPago')
+        self.assertEqual(gate.provider_key, 'transbank_webpay')
+        self.assertEqual(gate.estado_gate, 'abierto')
+        self.assertEqual(gate.evidencia_ref, 'webpay-gate-ref')
+
+        intent = IntentoPagoWebPay(
+            pago_mensual=payment,
+            gate_cobro=gate,
+            provider_key=' transbank_webpay ',
+            monto_clp_snapshot=Decimal('250000.00'),
+            buy_order=' BO-META-COB ',
+            session_id=' SESSION-META-COB ',
+            return_url_ref=' webpay-return-ref ',
+            estado=' cancelado ',
+            motivo_bloqueo=' Bloqueo controlado. ',
+            external_ref=' webpay-external-ref ',
+        )
+        intent.full_clean()
+        intent.save()
+        intent.refresh_from_db()
+        self.assertEqual(intent.provider_key, 'transbank_webpay')
+        self.assertEqual(intent.buy_order, 'BO-META-COB')
+        self.assertEqual(intent.session_id, 'SESSION-META-COB')
+        self.assertEqual(intent.return_url_ref, 'webpay-return-ref')
+        self.assertEqual(intent.estado, 'cancelado')
+        self.assertEqual(intent.motivo_bloqueo, 'Bloqueo controlado.')
+        self.assertEqual(intent.external_ref, 'webpay-external-ref')
+
+        distribution = DistribucionCobroMensual(
+            pago_mensual=payment,
+            beneficiario_empresa_owner=contrato.mandato_operacion.administrador_empresa_owner,
+            porcentaje_snapshot=Decimal('100.00'),
+            monto_devengado_clp=Decimal('250000.00'),
+            monto_conciliado_clp=Decimal('0.00'),
+            monto_facturable_clp=Decimal('0.00'),
+            requiere_dte=False,
+            origen_atribucion=' snapshot_pago ',
+        )
+        distribution.full_clean()
+        distribution.save()
+        distribution.refresh_from_db()
+        self.assertEqual(distribution.origen_atribucion, 'snapshot_pago')
+
+        guarantee = GarantiaContractual(
+            contrato=contrato,
+            monto_pactado=Decimal('0.00'),
+            monto_recibido=Decimal('0.00'),
+            estado_garantia=' pendiente_recepcion ',
+            aceptacion_parcial_ref=' guarantee-partial-ref ',
+        )
+        guarantee.full_clean()
+        guarantee.save()
+        guarantee.refresh_from_db()
+        self.assertEqual(guarantee.estado_garantia, 'pendiente_recepcion')
+        self.assertEqual(guarantee.aceptacion_parcial_ref, 'guarantee-partial-ref')
+
+        movement = HistorialGarantia(
+            garantia_contractual=guarantee,
+            tipo_movimiento=' deposito ',
+            monto_clp=Decimal('1.00'),
+            fecha=date(2026, 1, 1),
+            justificacion=' Movimiento controlado. ',
+        )
+        movement.full_clean()
+        movement.save()
+        movement.refresh_from_db()
+        self.assertEqual(movement.tipo_movimiento, 'deposito')
+        self.assertEqual(movement.justificacion, 'Movimiento controlado.')
+
+        repayment = RepactacionDeuda(
+            arrendatario=contrato.arrendatario,
+            contrato_origen=contrato,
+            deuda_total_original=Decimal('30000.00'),
+            cantidad_cuotas=3,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('0.00'),
+            estado=' cumplida ',
+            excepcion_parcial_ref=' repayment-ref ',
+            excepcion_parcial_motivo=' Repactacion controlada. ',
+        )
+        repayment.full_clean()
+        repayment.save()
+        repayment.refresh_from_db()
+        self.assertEqual(repayment.estado, 'cumplida')
+        self.assertEqual(repayment.excepcion_parcial_ref, 'repayment-ref')
+        self.assertEqual(repayment.excepcion_parcial_motivo, 'Repactacion controlada.')
+
+        residual = CodigoCobroResidual(
+            referencia_visible=' CCR-DEF234 ',
+            arrendatario=contrato.arrendatario,
+            contrato_origen=contrato,
+            saldo_actual=Decimal('25000.00'),
+            estado=' activa ',
+            fecha_activacion=date(2027, 1, 10),
+        )
+        residual.full_clean()
+        residual.save()
+        residual.refresh_from_db()
+        self.assertEqual(residual.referencia_visible, 'CCR-DEF234')
+        self.assertEqual(residual.estado, 'activa')
+
+        account_state, _ = EstadoCuentaArrendatario.objects.get_or_create(arrendatario=contrato.arrendatario)
+        account_state.observaciones = ' Observacion operativa. '
+        account_state.full_clean()
+        account_state.save()
+        account_state.refresh_from_db()
+        self.assertEqual(account_state.observaciones, 'Observacion operativa.')
+
     def test_manual_uf_service_requires_actor(self):
         with self.assertRaisesMessage(ValueError, 'actor trazable'):
             save_uf_value(

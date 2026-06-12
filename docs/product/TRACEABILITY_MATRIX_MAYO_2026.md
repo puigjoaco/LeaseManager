@@ -7,6 +7,16 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-12: CobranzaActiva/Etapa 2 normaliza metadata visible antes de
+validar y persistir. `ValorUFDiario`, `AjusteContrato`, `PagoMensual`,
+`GateCobroExterno`, `IntentoPagoWebPay`, `DistribucionCobroMensual`,
+`GarantiaContractual`, `HistorialGarantia`, `RepactacionDeuda`,
+`CodigoCobroResidual` y `EstadoCuentaArrendatario` recortan refs, motivos,
+estados, fuentes, codigos y observaciones operativas antes de `full_clean()` y
+`save()`. `audit_stage2_cobranza_readiness` bloquea snapshots heredados con
+metadata no canonica mediante `sections.visible_metadata` y codigos
+`stage2.visible_metadata.*_no_canonica`.
+
 Nota 2026-06-12: Contratos/Etapa 1 normaliza metadata visible antes de
 validar y persistir. `Arrendatario` recorta identidad, contacto, perfil y
 refs/motivos WhatsApp, y normaliza RUT; `ContactoPagoArrendatario` recorta

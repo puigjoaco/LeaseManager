@@ -307,6 +307,14 @@ condicionados sin envios reales accidentales.
   `evidencia_configuracion_ref`, `destinatario`, `external_ref`,
   `motivo_bloqueo` y `motivo_estado`. Esto evita que espacios crudos disparen
   validadores de longitud antes de canonizar la referencia no sensible.
+- Los modelos de CobranzaActiva normalizan refs/textos operativos antes de
+  `full_clean()` y antes de persistir por rutas internas: `source_key`,
+  refs/motivos/responsables de UF manual, justificacion de ajustes,
+  codigo efectivo y resoluciones excepcionales de pagos, metadata de
+  gates/intentos WebPay, origen de distribuciones, refs/motivos de garantias,
+  movimientos, repactaciones, codigos residuales y observaciones de estado de
+  cuenta. `audit_stage2_cobranza_readiness` bloquea snapshots heredados con
+  metadata visible no canonica en `sections.visible_metadata`.
 - El snapshot y backoffice de Canales deben exponer la traza operativa de
   mensajes salientes sin llamar proveedores externos: gate/canal, identidad de
   envio, contrato, arrendatario, documento, usuario, `enviado_at`,

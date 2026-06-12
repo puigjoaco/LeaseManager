@@ -38,6 +38,7 @@ from cobranza.models import (
     AjusteContrato,
     CANONICAL_UF_SOURCE_KEYS,
     CodigoCobroResidual,
+    DistribucionCobroMensual,
     EstadoCuentaArrendatario,
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
@@ -45,6 +46,8 @@ from cobranza.models import (
     EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
     EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
     GateCobroExterno,
+    GarantiaContractual,
+    HistorialGarantia,
     IntentoPagoWebPay,
     MANUAL_UF_LOAD_EVENT_TYPE,
     PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
@@ -91,6 +94,14 @@ def _sensitive_reference(value: str) -> bool:
     return bool(normalized) and not _non_sensitive_reference(normalized)
 
 
+def _text_is_not_canonical(value: Any) -> bool:
+    return isinstance(value, str) and value != value.strip()
+
+
+def _any_text_is_not_canonical(*values: Any) -> bool:
+    return any(_text_is_not_canonical(value) for value in values)
+
+
 def _issue(code: str, message: str, *, count: int = 1, severity: str = 'blocking') -> dict[str, Any]:
     return {
         'code': code,
@@ -108,6 +119,126 @@ def _count_invalid(queryset) -> int:
         except ValidationError:
             invalid_count += 1
     return invalid_count
+
+
+def _collect_cobranza_visible_metadata_issues() -> dict[str, int]:
+    counts = Counter()
+
+    for adjustment in AjusteContrato.objects.all().only('tipo_ajuste', 'justificacion'):
+        if _any_text_is_not_canonical(adjustment.tipo_ajuste, adjustment.justificacion):
+            counts['adjustments'] += 1
+
+    for payment in PagoMensual.objects.all().only(
+        'moneda_calculo',
+        'uf_source_key',
+        'estado_pago',
+        'codigo_conciliacion_efectivo',
+        'resolucion_pago_excepcional_ref',
+        'resolucion_pago_excepcional_motivo',
+    ):
+        if _any_text_is_not_canonical(
+            payment.moneda_calculo,
+            payment.uf_source_key,
+            payment.estado_pago,
+            payment.codigo_conciliacion_efectivo,
+            payment.resolucion_pago_excepcional_ref,
+            payment.resolucion_pago_excepcional_motivo,
+        ):
+            counts['payments'] += 1
+
+    for uf_value in ValorUFDiario.objects.all().only(
+        'source_key',
+        'evidencia_ref',
+        'motivo_carga',
+        'responsable_ref',
+    ):
+        if _any_text_is_not_canonical(
+            uf_value.source_key,
+            uf_value.evidencia_ref,
+            uf_value.motivo_carga,
+            uf_value.responsable_ref,
+        ):
+            counts['uf_values'] += 1
+
+    for distribution in DistribucionCobroMensual.objects.all().only('origen_atribucion'):
+        if _text_is_not_canonical(distribution.origen_atribucion):
+            counts['distributions'] += 1
+
+    for gate in GateCobroExterno.objects.all().only(
+        'capacidad_key',
+        'provider_key',
+        'estado_gate',
+        'evidencia_ref',
+    ):
+        if _any_text_is_not_canonical(
+            gate.capacidad_key,
+            gate.provider_key,
+            gate.estado_gate,
+            gate.evidencia_ref,
+        ):
+            counts['webpay_gates'] += 1
+
+    for intent in IntentoPagoWebPay.objects.all().only(
+        'provider_key',
+        'buy_order',
+        'session_id',
+        'return_url_ref',
+        'estado',
+        'motivo_bloqueo',
+        'external_ref',
+    ):
+        if _any_text_is_not_canonical(
+            intent.provider_key,
+            intent.buy_order,
+            intent.session_id,
+            intent.return_url_ref,
+            intent.estado,
+            intent.motivo_bloqueo,
+            intent.external_ref,
+        ):
+            counts['webpay_intents'] += 1
+
+    for guarantee in GarantiaContractual.objects.all().only(
+        'estado_garantia',
+        'aceptacion_parcial_ref',
+        'resolucion_exceso_garantia',
+        'resolucion_exceso_garantia_ref',
+        'resolucion_exceso_garantia_motivo',
+    ):
+        if _any_text_is_not_canonical(
+            guarantee.estado_garantia,
+            guarantee.aceptacion_parcial_ref,
+            guarantee.resolucion_exceso_garantia,
+            guarantee.resolucion_exceso_garantia_ref,
+            guarantee.resolucion_exceso_garantia_motivo,
+        ):
+            counts['guarantees'] += 1
+
+    for movement in HistorialGarantia.objects.all().only('tipo_movimiento', 'justificacion'):
+        if _any_text_is_not_canonical(movement.tipo_movimiento, movement.justificacion):
+            counts['guarantee_movements'] += 1
+
+    for repayment in RepactacionDeuda.objects.all().only(
+        'estado',
+        'excepcion_parcial_ref',
+        'excepcion_parcial_motivo',
+    ):
+        if _any_text_is_not_canonical(
+            repayment.estado,
+            repayment.excepcion_parcial_ref,
+            repayment.excepcion_parcial_motivo,
+        ):
+            counts['repayments'] += 1
+
+    for residual_code in CodigoCobroResidual.objects.all().only('referencia_visible', 'estado'):
+        if _any_text_is_not_canonical(residual_code.referencia_visible, residual_code.estado):
+            counts['residual_codes'] += 1
+
+    for state in EstadoCuentaArrendatario.objects.all().only('observaciones'):
+        if _text_is_not_canonical(state.observaciones):
+            counts['account_states'] += 1
+
+    return dict(sorted(counts.items()))
 
 
 def _partial_repayment_exception_event_is_complete(repayment: RepactacionDeuda) -> bool:
@@ -1098,6 +1229,7 @@ def collect_stage2_cobranza_readiness(
     state_transition_metadata_missing = count_state_changed_events_without_transition_metadata(
         STAGE2_STATE_CHANGE_EVENT_PREFIXES
     )
+    visible_metadata_issues = _collect_cobranza_visible_metadata_issues()
 
     issues: list[dict[str, Any]] = []
     if not source_kind_authorized_for_close:
@@ -1134,6 +1266,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.audit.state_transition_metadata_missing',
                 'Existen eventos state_changed de Cobranza/Canales sin campo_estado, estado_anterior o estado_nuevo.',
                 count=state_transition_metadata_missing,
+            )
+        )
+    for section, count in visible_metadata_issues.items():
+        issues.append(
+            _issue(
+                f'stage2.visible_metadata.{section}_no_canonica',
+                'Existen registros de Cobranza con metadata visible no canonica; normalizar espacios antes de validar o persistir.',
+                count=count,
             )
         )
     if payments_total == 0:
@@ -2015,6 +2155,7 @@ def collect_stage2_cobranza_readiness(
             'audit': {
                 'state_transition_metadata_missing': state_transition_metadata_missing,
             },
+            'visible_metadata': visible_metadata_issues,
             'final_evidence': final_evidence,
             'final_evidence_sensitive': final_evidence_sensitive,
             'source_trace': source_trace,
