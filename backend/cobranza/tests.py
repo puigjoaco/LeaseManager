@@ -3415,6 +3415,36 @@ class CobranzaAPITests(APITestCase):
         self.assertEqual(response.data['resumen_operativo']['repactaciones_activas'], 0)
         self.assertEqual(response.data['resumen_operativo']['cobranzas_residuales_activas'], 0)
         self.assertEqual(response.data['resumen_operativo']['saldo_total_clp'], '100111.00')
+        self.assertIsNone(response.data['id'])
+        self.assertFalse(EstadoCuentaArrendatario.objects.filter(arrendatario=shared_tenant).exists())
+        audit_event = AuditEvent.objects.get(event_type='cobranza.estado_cuenta_arrendatario.rebuilt')
+        self.assertEqual(audit_event.entity_type, 'arrendatario')
+        self.assertEqual(audit_event.entity_id, str(shared_tenant.id))
+        self.assertTrue(audit_event.metadata['scope_restricted'])
+        self.assertFalse(audit_event.metadata['persisted_global_summary'])
+        self.assertIsNone(audit_event.metadata['estado_cuenta_id'])
+
+        global_state = rebuild_account_state(shared_tenant)
+        self.assertEqual(global_state.resumen_operativo['pagos_abiertos'], 2)
+        self.assertEqual(global_state.resumen_operativo['repactaciones_activas'], 1)
+        self.assertEqual(global_state.resumen_operativo['cobranzas_residuales_activas'], 1)
+        self.assertEqual(global_state.resumen_operativo['saldo_total_clp'], '335333.00')
+
+        scoped_again = self.client.post(
+            reverse('cobranza-estado-cuenta-rebuild'),
+            {'arrendatario_id': shared_tenant.id},
+            format='json',
+        )
+
+        self.assertEqual(scoped_again.status_code, status.HTTP_200_OK)
+        self.assertEqual(scoped_again.data['id'], global_state.id)
+        self.assertEqual(scoped_again.data['resumen_operativo']['pagos_abiertos'], 1)
+        self.assertEqual(scoped_again.data['resumen_operativo']['repactaciones_activas'], 0)
+        global_state.refresh_from_db()
+        self.assertEqual(global_state.resumen_operativo['pagos_abiertos'], 2)
+        self.assertEqual(global_state.resumen_operativo['repactaciones_activas'], 1)
+        self.assertEqual(global_state.resumen_operativo['cobranzas_residuales_activas'], 1)
+        self.assertEqual(global_state.resumen_operativo['saldo_total_clp'], '335333.00')
 
     def test_payment_distribution_snapshot_uses_month_effective_participations(self):
         company_a = self._create_active_empresa('Hist A', '83838383-8', self._rut_for_code('HISTA', 1), self._rut_for_code('HISTA', 2))

@@ -1142,7 +1142,13 @@ def rebuild_account_state(arrendatario, *, access: ScopeAccess | None = None, pe
         persist = not access.restricted
 
     summary = build_account_state_summary(arrendatario, access, reference_date=reference_date)
-    state, _ = EstadoCuentaArrendatario.objects.get_or_create(arrendatario=arrendatario)
+    if persist:
+        state, _ = EstadoCuentaArrendatario.objects.get_or_create(arrendatario=arrendatario)
+    else:
+        state = (
+            EstadoCuentaArrendatario.objects.filter(arrendatario=arrendatario).first()
+            or EstadoCuentaArrendatario(arrendatario=arrendatario)
+        )
     state.resumen_operativo = summary
     state.score_pago = summary['score_pago_porcentaje']
     if persist:
