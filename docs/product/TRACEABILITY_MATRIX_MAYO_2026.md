@@ -523,6 +523,14 @@ endpoint. Nota 2026-06-05: los eventos SII de cambio o actualizacion de estado
 incorporan metadata minima con campo de estado, estado anterior y estado nuevo,
 manteniendo refs sensibles redactadas como `sii_track_id`.
 
+Nota 2026-06-12: SII/Etapa 4 normaliza refs/textos operativos antes de
+`full_clean()` y persistencia. `CapacidadTributariaSII`, `DTEEmitido`,
+`F29PreparacionMensual`, `ProcesoRentaAnual`, `DDJJPreparacionAnual` y
+`F22PreparacionAnual` recortan refs de capacidad, tracking, estados externos,
+borradores, paquetes y observaciones antes de validadores de campo, evitando
+rechazos por longitud cruda y manteniendo trazas canonicas para API, snapshot,
+admin, readiness y auditoria.
+
 Nota 2026-05-31: Canales/Etapa 2 alinea altas y ediciones API de gates y
 configuraciones de notificacion con auditoria atomica. `AuditCreateUpdateMixin`
 en Canales persiste `created`, `updated` y `state_changed` dentro de

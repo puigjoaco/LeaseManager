@@ -366,6 +366,170 @@ class SiiAPITests(APITestCase):
             current='condicionado',
         )
 
+    def test_sii_operational_refs_normalize_before_full_clean_and_save(self):
+        def sized_ref(prefix, size, fill):
+            return prefix + (fill * (size - len(prefix)))
+
+        empresa, pago = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
+        close, _ = self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        distribution = pago.distribuciones_cobro.get()
+
+        certificate_ref = sized_ref('sii-cap-cert-', 255, 'c')
+        evidence_ref = sized_ref('sii-cap-evidence-', 255, 'e')
+        flow_ref = sized_ref('sii-cap-flow-', 255, 'f')
+        environment_ref = sized_ref('sii-cap-env-', 255, 'a')
+        fiscal_rule_ref = sized_ref('sii-cap-rule-', 255, 'r')
+
+        dte_capability = CapacidadTributariaSII(
+            empresa=empresa,
+            capacidad_key='DTEEmision',
+            certificado_ref=f'   {certificate_ref}   ',
+            evidencia_ref=f'   {evidence_ref}   ',
+            prueba_flujo_ref=f'   {flow_ref}   ',
+            autorizacion_ambiente_ref=f'   {environment_ref}   ',
+            regla_fiscal_ref=f'   {fiscal_rule_ref}   ',
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        dte_capability.full_clean()
+        self.assertEqual(dte_capability.certificado_ref, certificate_ref)
+        self.assertEqual(dte_capability.evidencia_ref, evidence_ref)
+        self.assertEqual(dte_capability.prueba_flujo_ref, flow_ref)
+        self.assertEqual(dte_capability.autorizacion_ambiente_ref, environment_ref)
+        self.assertEqual(dte_capability.regla_fiscal_ref, fiscal_rule_ref)
+        dte_capability.save()
+        stored_capability = CapacidadTributariaSII.objects.get(pk=dte_capability.pk)
+        self.assertEqual(stored_capability.certificado_ref, certificate_ref)
+        self.assertEqual(stored_capability.evidencia_ref, evidence_ref)
+
+        dte_track_ref = sized_ref('dte-track-', 64, 't')
+        dte_state = sized_ref('dte-state-', 128, 's')
+        dte = DTEEmitido(
+            empresa=empresa,
+            capacidad_tributaria=dte_capability,
+            contrato=pago.contrato,
+            pago_mensual=pago,
+            distribucion_cobro_mensual=distribution,
+            arrendatario=pago.contrato.arrendatario,
+            tipo_dte='34',
+            monto_neto_clp=distribution.monto_facturable_clp,
+            fecha_emision='2026-01-08',
+            sii_track_id=f'   {dte_track_ref}   ',
+            ultimo_estado_sii=f'   {dte_state}   ',
+            observaciones='   observacion tributaria controlada   ',
+        )
+        dte.full_clean()
+        self.assertEqual(dte.sii_track_id, dte_track_ref)
+        self.assertEqual(dte.ultimo_estado_sii, dte_state)
+        self.assertEqual(dte.observaciones, 'observacion tributaria controlada')
+        dte.save()
+        stored_dte = DTEEmitido.objects.get(pk=dte.pk)
+        self.assertEqual(stored_dte.sii_track_id, dte_track_ref)
+        self.assertEqual(stored_dte.ultimo_estado_sii, dte_state)
+        self.assertEqual(stored_dte.observaciones, 'observacion tributaria controlada')
+
+        f29_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F29Preparacion',
+            **self._sii_readiness_fields('f29-full-clean'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        f29_ref = sized_ref('f29-draft-', 255, 'f')
+        f29 = F29PreparacionMensual(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_formulario={'source': 'controlled'},
+            borrador_ref=f'   {f29_ref}   ',
+            observaciones='   f29 listo para revision   ',
+        )
+        f29.full_clean()
+        self.assertEqual(f29.borrador_ref, f29_ref)
+        self.assertEqual(f29.observaciones, 'f29 listo para revision')
+        f29.save()
+        stored_f29 = F29PreparacionMensual.objects.get(pk=f29.pk)
+        self.assertEqual(stored_f29.borrador_ref, f29_ref)
+        self.assertEqual(stored_f29.observaciones, 'f29 listo para revision')
+
+        process_ddjj_ref = sized_ref('annual-ddjj-', 255, 'd')
+        process_f22_ref = sized_ref('annual-f22-', 255, 'z')
+        process = ProcesoRentaAnual(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='aprobado_para_presentacion',
+            resumen_anual={'source': 'controlled'},
+            paquete_ddjj_ref=f'   {process_ddjj_ref}   ',
+            borrador_f22_ref=f'   {process_f22_ref}   ',
+        )
+        process.full_clean()
+        self.assertEqual(process.paquete_ddjj_ref, process_ddjj_ref)
+        self.assertEqual(process.borrador_f22_ref, process_f22_ref)
+        process.save()
+        stored_process = ProcesoRentaAnual.objects.get(pk=process.pk)
+        self.assertEqual(stored_process.paquete_ddjj_ref, process_ddjj_ref)
+        self.assertEqual(stored_process.borrador_f22_ref, process_f22_ref)
+
+        ddjj_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='DDJJPreparacion',
+            **self._sii_readiness_fields('ddjj-full-clean'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        f22_capability = CapacidadTributariaSII.objects.create(
+            empresa=empresa,
+            capacidad_key='F22Preparacion',
+            **self._sii_readiness_fields('f22-full-clean'),
+            ambiente='certificacion',
+            estado_gate='abierto',
+            ultimo_resultado={},
+        )
+        ddjj_ref = sized_ref('ddjj-package-', 255, 'j')
+        ddjj = DDJJPreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_paquete={'source': 'controlled'},
+            paquete_ref=f'   {ddjj_ref}   ',
+            observaciones='   paquete ddjj preparado   ',
+        )
+        ddjj.full_clean()
+        self.assertEqual(ddjj.paquete_ref, ddjj_ref)
+        self.assertEqual(ddjj.observaciones, 'paquete ddjj preparado')
+        ddjj.save()
+        stored_ddjj = DDJJPreparacionAnual.objects.get(pk=ddjj.pk)
+        self.assertEqual(stored_ddjj.paquete_ref, ddjj_ref)
+        self.assertEqual(stored_ddjj.observaciones, 'paquete ddjj preparado')
+
+        f22_ref = sized_ref('f22-draft-', 255, 'b')
+        f22 = F22PreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='aprobado_para_presentacion',
+            resumen_f22={'source': 'controlled'},
+            borrador_ref=f'   {f22_ref}   ',
+            observaciones='   f22 preparado   ',
+        )
+        f22.full_clean()
+        self.assertEqual(f22.borrador_ref, f22_ref)
+        self.assertEqual(f22.observaciones, 'f22 preparado')
+        f22.save()
+        stored_f22 = F22PreparacionAnual.objects.get(pk=f22.pk)
+        self.assertEqual(stored_f22.borrador_ref, f22_ref)
+        self.assertEqual(stored_f22.observaciones, 'f22 preparado')
+
     def test_generate_dte_draft_rolls_back_when_view_audit_fails(self):
         empresa, pago = self._setup_paid_payment()
         self._activate_fiscal_config(empresa)
