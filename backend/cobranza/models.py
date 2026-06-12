@@ -42,6 +42,12 @@ def _coerce_date(value):
     return None
 
 
+def _normalize_text_value(value):
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
 class EstadoPago(models.TextChoices):
     PENDING = 'pendiente', 'Pendiente'
     PAID = 'pagado', 'Pagado'
@@ -193,16 +199,32 @@ class ValorUFDiario(TimestampedModel):
     def source_key_is_canonical(self):
         return str(self.source_key or '').strip() in CANONICAL_UF_SOURCE_KEYS
 
+    def _normalize_operational_fields(self):
+        self.source_key = _normalize_text_value(self.source_key)
+        self.evidencia_ref = _normalize_text_value(self.evidencia_ref)
+        self.motivo_carga = _normalize_text_value(self.motivo_carga)
+        self.responsable_ref = _normalize_text_value(self.responsable_ref)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
+        self._normalize_operational_fields()
         errors = {}
-        source_key = str(self.source_key or '').strip()
-        evidencia_ref = str(self.evidencia_ref or '').strip()
-        motivo_carga = str(self.motivo_carga or '').strip()
-        responsable_ref = str(self.responsable_ref or '').strip()
-        self.evidencia_ref = evidencia_ref
-        self.motivo_carga = motivo_carga
-        self.responsable_ref = responsable_ref
+        source_key = str(self.source_key or '')
+        evidencia_ref = str(self.evidencia_ref or '')
+        motivo_carga = str(self.motivo_carga or '')
+        responsable_ref = str(self.responsable_ref or '')
 
         if not source_key:
             errors['source_key'] = 'La fuente UF es obligatoria.'
@@ -306,7 +328,8 @@ class AjusteContrato(TimestampedModel):
 
     def clean(self):
         super().clean()
-        self.justificacion = (self.justificacion or '').strip()
+        self.tipo_ajuste = _normalize_text_value(self.tipo_ajuste)
+        self.justificacion = _normalize_text_value(self.justificacion)
         if not self.justificacion:
             raise ValidationError({'justificacion': 'El ajuste contractual requiere justificacion operativa.'})
         if contains_sensitive_reference(self.justificacion, include_sensitive_keys=True):
@@ -331,6 +354,20 @@ class AjusteContrato(TimestampedModel):
         if errors:
             raise ValidationError(errors)
         self.validate_clp_operational_minimum()
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self.tipo_ajuste = _normalize_text_value(self.tipo_ajuste)
+        self.justificacion = _normalize_text_value(self.justificacion)
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self.tipo_ajuste = _normalize_text_value(self.tipo_ajuste)
+        self.justificacion = _normalize_text_value(self.justificacion)
+        super().save(*args, **kwargs)
 
 
 class PagoMensual(TimestampedModel):
@@ -394,8 +431,29 @@ class PagoMensual(TimestampedModel):
             return None
         return type(self).objects.filter(pk=self.pk).values_list('estado_pago', flat=True).first()
 
+    def _normalize_operational_fields(self):
+        self.moneda_calculo = _normalize_text_value(self.moneda_calculo)
+        self.uf_source_key = _normalize_text_value(self.uf_source_key)
+        self.estado_pago = _normalize_text_value(self.estado_pago)
+        self.codigo_conciliacion_efectivo = _normalize_text_value(self.codigo_conciliacion_efectivo)
+        self.resolucion_pago_excepcional_ref = _normalize_text_value(self.resolucion_pago_excepcional_ref)
+        self.resolucion_pago_excepcional_motivo = _normalize_text_value(self.resolucion_pago_excepcional_motivo)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
+        self._normalize_operational_fields()
         if self.codigo_conciliacion_efectivo == '000':
             raise ValidationError(
                 {
@@ -404,8 +462,6 @@ class PagoMensual(TimestampedModel):
                     )
                 }
             )
-        self.resolucion_pago_excepcional_ref = (self.resolucion_pago_excepcional_ref or '').strip()
-        self.resolucion_pago_excepcional_motivo = (self.resolucion_pago_excepcional_motivo or '').strip()
         has_exceptional_ref = bool(self.resolucion_pago_excepcional_ref)
         has_exceptional_reason = bool(self.resolucion_pago_excepcional_motivo)
         exceptional_states = {EstadoPago.PAID_BY_TERMINATION, EstadoPago.FORGIVEN}
@@ -467,7 +523,6 @@ class PagoMensual(TimestampedModel):
         if self.periodo_contractual.contrato_id != self.contrato_id:
             raise ValidationError({'periodo_contractual': 'El periodo contractual debe pertenecer al mismo contrato.'})
 
-        self.uf_source_key = (self.uf_source_key or '').strip()
         if self.uf_source_key and self.uf_source_key not in CANONICAL_UF_SOURCE_KEYS:
             errors = {
                 'uf_source_key': (
@@ -605,9 +660,27 @@ class GateCobroExterno(TimestampedModel):
     def __str__(self):
         return f'{self.capacidad_key} - {self.provider_key}'
 
+    def _normalize_operational_fields(self):
+        self.capacidad_key = _normalize_text_value(self.capacidad_key)
+        self.provider_key = _normalize_text_value(self.provider_key)
+        self.estado_gate = _normalize_text_value(self.estado_gate)
+        self.evidencia_ref = _normalize_text_value(self.evidencia_ref)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
-        self.evidencia_ref = (self.evidencia_ref or '').strip()
+        self._normalize_operational_fields()
         if self.evidencia_ref.strip() and not is_non_sensitive_reference(self.evidencia_ref):
             raise ValidationError({'evidencia_ref': 'evidencia_ref debe ser una referencia no sensible.'})
         if contains_sensitive_reference(self.restricciones_operativas, include_sensitive_keys=True):
@@ -675,9 +748,21 @@ class IntentoPagoWebPay(TimestampedModel):
         return f'WebPay {self.pago_mensual_id} - {self.estado}'
 
     def _normalize_operational_fields(self):
-        self.return_url_ref = (self.return_url_ref or '').strip()
-        self.motivo_bloqueo = (self.motivo_bloqueo or '').strip()
-        self.external_ref = (self.external_ref or '').strip()
+        self.provider_key = _normalize_text_value(self.provider_key)
+        self.buy_order = _normalize_text_value(self.buy_order)
+        self.session_id = _normalize_text_value(self.session_id)
+        self.return_url_ref = _normalize_text_value(self.return_url_ref)
+        self.estado = _normalize_text_value(self.estado)
+        self.motivo_bloqueo = _normalize_text_value(self.motivo_bloqueo)
+        self.external_ref = _normalize_text_value(self.external_ref)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
 
     def clean(self):
         super().clean()
@@ -825,6 +910,21 @@ class DistribucionCobroMensual(TimestampedModel):
     def __str__(self):
         return f'{self.pago_mensual_id} - {self.beneficiario_display}'
 
+    def _normalize_operational_fields(self):
+        self.origen_atribucion = _normalize_text_value(self.origen_atribucion)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     @property
     def beneficiario_tipo(self):
         if self.beneficiario_socio_owner_id:
@@ -845,6 +945,7 @@ class DistribucionCobroMensual(TimestampedModel):
 
     def clean(self):
         super().clean()
+        self._normalize_operational_fields()
         beneficiary_count = sum(
             bool(value) for value in (self.beneficiario_socio_owner_id, self.beneficiario_empresa_owner_id)
         )
@@ -926,8 +1027,30 @@ class GarantiaContractual(TimestampedModel):
     def garantia_incompleta(self):
         return self.requiere_aceptacion_parcial and not self.garantia_parcial_aceptada
 
+    def _normalize_operational_fields(self):
+        self.estado_garantia = _normalize_text_value(self.estado_garantia)
+        self.aceptacion_parcial_ref = _normalize_text_value(self.aceptacion_parcial_ref)
+        self.resolucion_exceso_garantia = _normalize_text_value(self.resolucion_exceso_garantia)
+        self.resolucion_exceso_garantia_ref = _normalize_text_value(self.resolucion_exceso_garantia_ref)
+        self.resolucion_exceso_garantia_motivo = _normalize_text_value(
+            self.resolucion_exceso_garantia_motivo
+        )
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
+        self._normalize_operational_fields()
         if self.monto_recibido < 0 or self.monto_devuelto < 0 or self.monto_aplicado < 0:
             raise ValidationError('Los montos de garantia no pueden ser negativos.')
 
@@ -1036,9 +1159,25 @@ class HistorialGarantia(TimestampedModel):
     def __str__(self):
         return f'{self.garantia_contractual.contrato.codigo_contrato} - {self.tipo_movimiento}'
 
+    def _normalize_operational_fields(self):
+        self.tipo_movimiento = _normalize_text_value(self.tipo_movimiento)
+        self.justificacion = _normalize_text_value(self.justificacion)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
-        self.justificacion = (self.justificacion or '').strip()
+        self._normalize_operational_fields()
         if self.justificacion and contains_sensitive_reference(self.justificacion):
             raise ValidationError(
                 {
@@ -1131,10 +1270,26 @@ class RepactacionDeuda(TimestampedModel):
     def tiene_excepcion_parcial(self):
         return bool(self.excepcion_parcial_ref.strip() and self.excepcion_parcial_motivo.strip())
 
+    def _normalize_operational_fields(self):
+        self.estado = _normalize_text_value(self.estado)
+        self.excepcion_parcial_ref = _normalize_text_value(self.excepcion_parcial_ref)
+        self.excepcion_parcial_motivo = _normalize_text_value(self.excepcion_parcial_motivo)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
-        self.excepcion_parcial_ref = (self.excepcion_parcial_ref or '').strip()
-        self.excepcion_parcial_motivo = (self.excepcion_parcial_motivo or '').strip()
+        self._normalize_operational_fields()
         if self.contrato_origen.arrendatario_id != self.arrendatario_id:
             raise ValidationError({'arrendatario': 'La repactacion debe pertenecer al mismo arrendatario del contrato origen.'})
         saldo_pendiente = Decimal(str(self.saldo_pendiente))
@@ -1198,9 +1353,26 @@ class CodigoCobroResidual(TimestampedModel):
     def __str__(self):
         return self.referencia_visible
 
+    def _normalize_operational_fields(self):
+        self.referencia_visible = _normalize_text_value(self.referencia_visible)
+        self.estado = _normalize_text_value(self.estado)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
-        if not RESIDUAL_REFERENCE_RE.fullmatch((self.referencia_visible or '').strip()):
+        self._normalize_operational_fields()
+        if not RESIDUAL_REFERENCE_RE.fullmatch(self.referencia_visible or ''):
             raise ValidationError(
                 {
                     'referencia_visible': (
@@ -1244,9 +1416,24 @@ class EstadoCuentaArrendatario(TimestampedModel):
     def __str__(self):
         return f'EstadoCuenta {self.arrendatario_id}'
 
+    def _normalize_operational_fields(self):
+        self.observaciones = _normalize_text_value(self.observaciones)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
-        self.observaciones = (self.observaciones or '').strip()
+        self._normalize_operational_fields()
         if self.observaciones and contains_sensitive_reference(self.observaciones, include_sensitive_keys=True):
             raise ValidationError(
                 {'observaciones': 'Las observaciones del estado de cuenta no deben contener referencias sensibles.'}

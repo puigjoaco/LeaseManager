@@ -29,7 +29,9 @@ from canales.services import (
     materialize_payment_notification_schedule,
 )
 from cobranza.models import (
+    AjusteContrato,
     CodigoCobroResidual,
+    DistribucionCobroMensual,
     EstadoCuentaArrendatario,
     EstadoGateCobroExterno,
     EstadoIntentoPagoWebPay,
@@ -37,6 +39,8 @@ from cobranza.models import (
     EFFECTIVE_CODE_APPLIED_EVENT_TYPE,
     EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE,
     GateCobroExterno,
+    GarantiaContractual,
+    HistorialGarantia,
     IntentoPagoWebPay,
     MANUAL_UF_LOAD_EVENT_TYPE,
     PARTIAL_REPAYMENT_EXCEPTION_EVENT_TYPE,
@@ -248,6 +252,116 @@ class Stage2CobranzaReadinessTests(TestCase):
             responsible_ref='stage2-responsibles-v1',
             reference_date=self.READINESS_REFERENCE_DATE,
         )
+
+    def test_noncanonical_cobranza_visible_metadata_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        webpay_gate = self._create_valid_webpay_gate()
+        adjustment = AjusteContrato.objects.create(
+            contrato=fixture['contract'],
+            tipo_ajuste='descuento_operativo',
+            monto=Decimal('0.00'),
+            moneda=MonedaBaseContrato.CLP,
+            mes_inicio=date(2026, 1, 1),
+            mes_fin=date(2026, 1, 1),
+            justificacion='Ajuste operativo controlado.',
+        )
+        uf_value = ValorUFDiario.objects.create(
+            fecha=date(2026, 1, 5),
+            valor=Decimal('35000.0000'),
+            source_key='UF.BancoCentral',
+        )
+        distribution = DistribucionCobroMensual.objects.create(
+            pago_mensual=fixture['payment'],
+            beneficiario_empresa_owner=fixture['empresa'],
+            porcentaje_snapshot=Decimal('100.00'),
+            monto_devengado_clp=Decimal('250000.00'),
+            monto_conciliado_clp=Decimal('0.00'),
+            monto_facturable_clp=Decimal('0.00'),
+            requiere_dte=False,
+            origen_atribucion='snapshot_pago',
+        )
+        intent = IntentoPagoWebPay.objects.create(
+            pago_mensual=fixture['payment'],
+            gate_cobro=webpay_gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=Decimal('250000.00'),
+            buy_order='BO-STAGE2-META',
+            session_id='SESSION-STAGE2-META',
+            estado=EstadoIntentoPagoWebPay.CANCELED,
+        )
+        guarantee = GarantiaContractual.objects.create(
+            contrato=fixture['contract'],
+            monto_pactado=Decimal('0.00'),
+            monto_recibido=Decimal('0.00'),
+            estado_garantia='pendiente_recepcion',
+        )
+        movement = HistorialGarantia.objects.create(
+            garantia_contractual=guarantee,
+            tipo_movimiento='deposito',
+            monto_clp=Decimal('1.00'),
+            fecha=date(2026, 1, 1),
+            justificacion='Movimiento controlado.',
+        )
+        repayment = RepactacionDeuda.objects.create(
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            deuda_total_original=Decimal('30000.00'),
+            cantidad_cuotas=3,
+            monto_cuota=Decimal('10000.00'),
+            saldo_pendiente=Decimal('0.00'),
+            estado='cumplida',
+        )
+        residual = CodigoCobroResidual.objects.create(
+            referencia_visible='CCR-ABC234',
+            arrendatario=fixture['tenant'],
+            contrato_origen=fixture['contract'],
+            saldo_actual=Decimal('25000.00'),
+            estado='activa',
+            fecha_activacion=date(2027, 1, 10),
+        )
+
+        AjusteContrato.objects.filter(pk=adjustment.pk).update(
+            tipo_ajuste=' descuento_operativo ',
+            justificacion=' Ajuste operativo controlado. ',
+        )
+        PagoMensual.objects.filter(pk=fixture['payment'].pk).update(codigo_conciliacion_efectivo=' 001 ')
+        ValorUFDiario.objects.filter(pk=uf_value.pk).update(source_key=' UF.BancoCentral ')
+        DistribucionCobroMensual.objects.filter(pk=distribution.pk).update(origen_atribucion=' snapshot_pago ')
+        GateCobroExterno.objects.filter(pk=webpay_gate.pk).update(evidencia_ref=' webpay-gate-evidence-v1 ')
+        IntentoPagoWebPay.objects.filter(pk=intent.pk).update(
+            buy_order=' BO-STAGE2-META ',
+            session_id=' SESSION-STAGE2-META ',
+        )
+        GarantiaContractual.objects.filter(pk=guarantee.pk).update(
+            aceptacion_parcial_ref=' guarantee-partial-ref '
+        )
+        HistorialGarantia.objects.filter(pk=movement.pk).update(justificacion=' Movimiento controlado. ')
+        RepactacionDeuda.objects.filter(pk=repayment.pk).update(excepcion_parcial_ref=' repayment-ref ')
+        CodigoCobroResidual.objects.filter(pk=residual.pk).update(referencia_visible=' CCR-ABC234 ')
+        EstadoCuentaArrendatario.objects.filter(pk=fixture['account_state'].pk).update(
+            observaciones=' Observacion operativa. '
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        for section in (
+            'adjustments',
+            'payments',
+            'uf_values',
+            'distributions',
+            'webpay_gates',
+            'webpay_intents',
+            'guarantees',
+            'guarantee_movements',
+            'repayments',
+            'residual_codes',
+            'account_states',
+        ):
+            self.assertIn(f'stage2.visible_metadata.{section}_no_canonica', issue_codes)
+            self.assertEqual(result['sections']['visible_metadata'][section], 1)
 
     def _create_complete_whatsapp_rehabilitation_trace(
         self,
