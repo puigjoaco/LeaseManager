@@ -646,12 +646,24 @@ class TransferenciaIntercuenta(TimestampedModel):
             self.entidad_destino_tipo = destination_account.owner_tipo or ''
             self.entidad_destino_id = destination_account.owner_id
 
+    def _normalize_operational_fields(self):
+        self.periodo_economico = (self.periodo_economico or '').strip()
+        self.criterio_conciliacion = (self.criterio_conciliacion or '').strip()
+        self.evidencia_transferencia_ref = (self.evidencia_transferencia_ref or '').strip()
+        self.responsable_ref = (self.responsable_ref or '').strip()
+        self.rationale = (self.rationale or '').strip()
+
+    def full_clean(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().full_clean(*args, **kwargs)
+
     def clean(self):
         super().clean()
+        self._normalize_operational_fields()
         self._populate_entity_snapshots()
         errors = {}
 
-        if not ECONOMIC_PERIOD_RE.fullmatch(str(self.periodo_economico or '').strip()):
+        if not ECONOMIC_PERIOD_RE.fullmatch(self.periodo_economico):
             errors['periodo_economico'] = 'periodo_economico debe usar formato YYYY-MM.'
         if not has_text(self.criterio_conciliacion):
             errors['criterio_conciliacion'] = 'La transferencia interna requiere criterio de conciliacion.'
@@ -738,6 +750,7 @@ class TransferenciaIntercuenta(TimestampedModel):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
         self._populate_entity_snapshots()
         super().save(*args, **kwargs)
 

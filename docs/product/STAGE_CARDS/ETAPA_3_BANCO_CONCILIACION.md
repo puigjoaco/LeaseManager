@@ -115,6 +115,10 @@ sistema igual a saldo banco.
   residual, y la readiness bloquea pares heredados invalidos, con metadata
   resuelta desalineada contra `TransferenciaIntercuenta`, sin eventos
   contables alineados, con criterio o motivo sensible, o refs sensibles.
+  `periodo_economico`, `criterio_conciliacion`,
+  `evidencia_transferencia_ref`, `responsable_ref` y `rationale` se
+  normalizan antes de persistir para que modelo, snapshot, readiness,
+  auditoria y Contabilidad comparen contexto canonico de transferencia.
 - Resoluciones manuales abiertas que quedan obsoletas por match exacto o por
   otra resolucion manual no se marcan como resueltas manualmente: se cierran
   como `superseded` con motivo auditable no sensible, metadata de
