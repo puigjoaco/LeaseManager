@@ -261,6 +261,11 @@ omitidas antes de persistir. `NotificacionCobranzaProgramada.clean()` y
 readiness comparen un motivo operativo canonico no sensible sin espacios
 crudos.
 
+Nota 2026-06-12: Canales normaliza la procedencia de mensajes salientes antes
+de persistir. `MensajeSaliente.clean()` y `save()` recortan `external_ref` y
+`motivo_bloqueo` para que envio manual, fallback, API, snapshot y readiness
+comparen referencias y motivos canonicos no sensibles sin espacios crudos.
+
 Nota 2026-06-06: Backoffice Canales alinea el formulario y la tabla de gates
 con las refs operativas aceptadas por dominio/readiness. El alta de
 `CanalMensajeria` ahora puede enviar `credencial_validada_ref` como alternativa

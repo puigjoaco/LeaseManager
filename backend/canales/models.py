@@ -398,15 +398,20 @@ class MensajeSaliente(TimestampedModel):
     def __str__(self):
         return f'{self.canal} - {self.destinatario}'
 
+    def _normalize_provenance_fields(self):
+        self.external_ref = (self.external_ref or '').strip()
+        self.motivo_bloqueo = (self.motivo_bloqueo or '').strip()
+
     def clean(self):
         super().clean()
+        self._normalize_provenance_fields()
         errors = {}
         if self.identidad_envio_id and self.identidad_envio.canal != self.canal:
             errors['identidad_envio'] = 'La identidad de envio debe pertenecer al mismo canal del mensaje.'
         if self.canal_mensajeria.canal != self.canal:
             errors['canal_mensajeria'] = 'El gate configurado debe corresponder al mismo canal del mensaje.'
         if self.estado == EstadoMensajeSaliente.SENT:
-            if not self.external_ref.strip():
+            if not self.external_ref:
                 errors['external_ref'] = 'Mensaje enviado requiere external_ref trazable.'
             elif not is_non_sensitive_reference(self.external_ref):
                 errors['external_ref'] = (
@@ -416,7 +421,7 @@ class MensajeSaliente(TimestampedModel):
                 errors['enviado_at'] = 'Mensaje enviado requiere timestamp de envio.'
         if contains_sensitive_reference(self.provider_payload, include_sensitive_keys=True):
             errors['provider_payload'] = 'provider_payload no debe contener URLs, tokens, credenciales ni correos.'
-        if self.motivo_bloqueo.strip() and contains_sensitive_reference(self.motivo_bloqueo):
+        if self.motivo_bloqueo and contains_sensitive_reference(self.motivo_bloqueo):
             errors['motivo_bloqueo'] = 'motivo_bloqueo no debe contener URLs, tokens, credenciales ni correos.'
         if self.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}:
             if self.canal_mensajeria.estado_gate != EstadoGateCanal.OPEN:
@@ -472,6 +477,10 @@ class MensajeSaliente(TimestampedModel):
                 errors['documento_emitido'] = reason
         if errors:
             raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self._normalize_provenance_fields()
+        super().save(*args, **kwargs)
 
 
 class NotificacionCobranzaProgramada(TimestampedModel):

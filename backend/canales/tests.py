@@ -1282,6 +1282,49 @@ class CanalesAPITests(APITestCase):
 
         self.assertIn('motivo_bloqueo', error.exception.message_dict)
 
+    def test_message_provenance_fields_normalize_before_persisting(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-MSG-PROV-NORM')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+        identity = self._enable_channel_for_contract(empresa, contrato, canal='email')
+        sent_message = MensajeSaliente(
+            canal='email',
+            canal_mensajeria=gate,
+            identidad_envio=identity,
+            contrato=contrato,
+            arrendatario=contrato.arrendatario,
+            destinatario=contrato.arrendatario.email,
+            asunto='Cobro mensual',
+            cuerpo='Mensaje enviado controlado',
+            estado=EstadoMensajeSaliente.SENT,
+            external_ref='  provider-controlled-001  ',
+            enviado_at=timezone.now(),
+            usuario=self.user,
+        )
+        blocked_message = MensajeSaliente(
+            canal='email',
+            canal_mensajeria=gate,
+            contrato=contrato,
+            destinatario=contrato.arrendatario.email,
+            asunto='Mensaje bloqueado',
+            cuerpo='Bloqueo controlado',
+            estado=EstadoMensajeSaliente.BLOCKED,
+            motivo_bloqueo='  provider-policy-block-controlled  ',
+            usuario=self.user,
+        )
+
+        sent_message.full_clean()
+        blocked_message.full_clean()
+        self.assertEqual(sent_message.external_ref, 'provider-controlled-001')
+        self.assertEqual(blocked_message.motivo_bloqueo, 'provider-policy-block-controlled')
+        sent_message.save()
+        blocked_message.save()
+        sent_message.refresh_from_db()
+        blocked_message.refresh_from_db()
+
+        self.assertEqual(sent_message.external_ref, 'provider-controlled-001')
+        self.assertEqual(blocked_message.motivo_bloqueo, 'provider-policy-block-controlled')
+
     def test_prepared_message_full_clean_requires_open_gate_and_identity(self):
         _, contrato = self._create_contract_context(codigo='CH-PREP-DOMAIN')
         gate_data = self._create_gate(canal='email', estado_gate='suspendido')
