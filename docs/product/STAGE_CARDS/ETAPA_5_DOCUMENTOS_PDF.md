@@ -16,6 +16,10 @@ firma y notaria trazables.
 
 - `storage_ref` debe referenciar PDF canonico con una referencia no sensible:
   no URL, token, credencial, correo ni secreto.
+- Referencias y textos operativos documentales se normalizan antes de
+  `full_clean()` y `save()`: expedientes, plantillas, `storage_ref`,
+  checksums, evidencia de formalizacion y refs de correccion quedan canonicos
+  antes de validadores de campo, persistencia, snapshot, readiness y auditoria.
 - Documento emitido debe conservar `version_plantilla`, `checksum`, `usuario`,
   `fecha_carga`, `origen` y expediente; `checksum` debe ser un digest
   SHA-256 canonico, no una etiqueta libre. `DocumentoEmitido.clean()` bloquea

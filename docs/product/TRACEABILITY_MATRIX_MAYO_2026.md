@@ -1907,6 +1907,14 @@ Nota 2026-06-12: Conciliacion/Etapa 3 alinea normalizacion previa a
 validadores de campo de Django, evitando rechazos por espacios crudos antes de
 canonizar y manteniendo consistente el camino modelo/API/readiness.
 
+Nota 2026-06-12: Documentos/Etapa 5 normaliza referencias y textos operativos
+antes de `full_clean` y persistencia. `ExpedienteDocumental`,
+`PlantillaDocumental` y `DocumentoEmitido` recortan entidad, owner, version,
+refs de plantilla, checksums, `storage_ref`, evidencia de formalizacion y refs
+de correccion antes de validadores de campo, snapshot/backoffice, readiness y
+auditoria, evitando valores canonicos rechazados por longitud cruda o
+persistidos con espacios.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

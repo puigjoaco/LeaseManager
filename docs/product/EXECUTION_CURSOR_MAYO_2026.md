@@ -24,13 +24,13 @@ nueva.
 | --- | --- |
 | Frente activo | Sin frente activo. |
 | Fuente exacta | Confirmar siempre con `git status --short --branch`, `git worktree list` y `git log -1 --oneline` antes de abrir el siguiente paquete; el worktree rescue sigue pausado y fuera de alcance. |
-| Brecha activa | Ninguna. Ultimo paquete preparado: Etapa 5 / Contabilidad normaliza refs, evidencias, motivos y descripciones antes de `full_clean()` y `save()` en movimientos, snapshots ledger, liquidaciones, lineas y efectos de reapertura. |
-| Motivo de prioridad | Paquete local validado; Etapa 5 conserva valores canonicos antes de validadores de campo, persistencia, snapshot, readiness y auditoria. |
+| Brecha activa | Ninguna. Ultimo paquete preparado: Etapa 5 / Documentos normaliza refs y textos operativos antes de `full_clean()` y `save()` en expedientes, plantillas y documentos emitidos. |
+| Motivo de prioridad | Paquete local validado; Documentos conserva refs canonicas antes de validadores de campo, persistencia, snapshot, readiness y auditoria. |
 | Worktree | Ninguno de producto activo al cerrar y limpiar el paquete. |
 | Rama | Ninguna de producto activa al cerrar y limpiar el paquete. |
 | Estado | Listo para continuar con el siguiente paquete pequeno, local, verificable y cerrable sin tocar secretos ni fuentes externas. |
 | Gate esperado | Para el siguiente paquete, elegir frente pequeno, local y verificable segun orden, trazabilidad y stage cards; no reabrir este paquete salvo regresion real. |
-| Estado al cerrar paquete | Validacion local ejecutada: focal Contabilidad 1 test, suite impactada Contabilidad/Stage5/Reporting 102 tests, `manage.py check`, migraciones dry-run, gate Etapa 5 local `classification=parcial`, `npm ci`, `npm run build`, `npm run lint` y acceptance local 1296 tests. Confirmar PR/CI remoto y merge antes de considerar integrado. |
+| Estado al cerrar paquete | Validacion local ejecutada: focal Documentos 1 test, suite impactada Documentos/readiness 92 tests, `manage.py check`, migraciones dry-run, gate Documentos local `classification=parcial`, `npm ci`, `npm run build`, `npm run lint` y acceptance local 1297 tests. Confirmar PR/CI remoto y merge antes de considerar integrado. |
 | Bloqueos relacionados | Los cierres evidenciales que dependan de fuentes externas siguen condicionados por autorizacion/fuente controlada y no bloquean trabajo local seguro. |
 | Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
 | Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`; si solo aparece el rescue pausado, continuar con el siguiente paquete pequeno, local, verificable y cerrable sin tocar esos archivos. |
