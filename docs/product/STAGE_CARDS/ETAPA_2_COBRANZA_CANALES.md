@@ -168,8 +168,9 @@ condicionados sin envios reales accidentales.
   alineado al contrato del pago mensual y, si declara arrendatario, al mismo
   arrendatario del pago; readiness bloquea snapshots heredados con esa traza
   desalineada o invalida. Un recordatorio omitido requiere motivo operativo no
-  sensible, y la rematerializacion idempotente no debe reactivarlo ni borrar
-  esa decision. Esta programacion no envia Email, WhatsApp ni proveedores
+  sensible normalizado antes de persistir, y la rematerializacion idempotente
+  no debe reactivarlo ni borrar esa decision. Esta programacion no envia Email,
+  WhatsApp ni proveedores
   externos.
 - El backoffice de Canales debe mostrar la programacion local de recordatorios
   con contexto operativo suficiente desde snapshot: contrato, arrendatario,
