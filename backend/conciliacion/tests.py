@@ -833,6 +833,73 @@ class ConciliacionAPITests(APITestCase):
         self.assertEqual(conexion.prueba_movimientos_ref, 'movements-controlled')
         self.assertEqual(conexion.prueba_saldos_ref, 'balances-controlled')
 
+    def test_stage3_direct_full_clean_normalizes_operational_refs(self):
+        cuenta, _, _ = self._create_contract_and_payment(codigo='REC-DIRECT-NORMALIZED')
+        conexion = ConexionBancaria(
+            cuenta_recaudadora=cuenta,
+            provider_key=' banco_directo ',
+            scope=' movimientos saldos ',
+            credencial_ref=' cred-direct-controlled ',
+            evidencia_gate_ref=' direct-gate-controlled ',
+            prueba_conectividad_ref=' direct-connectivity-controlled ',
+            prueba_movimientos_ref=' direct-movements-controlled ',
+            prueba_saldos_ref=' direct-balances-controlled ',
+            estado_conexion=EstadoConexionBancaria.ACTIVE,
+            primaria_movimientos=True,
+            primaria_saldos=True,
+            primaria_conectividad=True,
+        )
+        conexion.full_clean()
+        conexion.save()
+
+        movimiento = MovimientoBancarioImportado(
+            conexion_bancaria=conexion,
+            fecha_movimiento='2026-01-08',
+            tipo_movimiento='abono',
+            monto=Decimal('100111.00'),
+            descripcion_origen='Abono directo con refs acolchadas',
+            origen_importacion='manual_controlada',
+            evidencia_importacion_ref=' direct-import-controlled ',
+            referencia=' direct-bank-ref ',
+            transaction_id_banco=' direct-transaction-001 ',
+            notas_admin=' Nota operacional controlada. ',
+        )
+        movimiento.full_clean()
+        movimiento.save()
+
+        cuadratura = CuadraturaBancaria(
+            cuenta_recaudadora=cuenta,
+            periodo_economico=' 2026-01 ',
+            fecha_cuadratura='2026-01-31',
+            saldo_sistema_clp='1000000.00',
+            saldo_banco_clp='999990.00',
+            estado=EstadoCuadraturaBancaria.OPEN_DIFFERENCE,
+            evidencia_cuadratura_ref=' direct-balance-controlled-2026-01 ',
+            responsable_ref=' direct-balance-owner ',
+            rationale=' Diferencia bancaria pendiente de explicacion operacional. ',
+        )
+        cuadratura.full_clean()
+        cuadratura.save()
+
+        conexion.refresh_from_db()
+        movimiento.refresh_from_db()
+        cuadratura.refresh_from_db()
+        self.assertEqual(conexion.provider_key, 'banco_directo')
+        self.assertEqual(conexion.scope, 'movimientos saldos')
+        self.assertEqual(conexion.credencial_ref, 'cred-direct-controlled')
+        self.assertEqual(conexion.evidencia_gate_ref, 'direct-gate-controlled')
+        self.assertEqual(conexion.prueba_conectividad_ref, 'direct-connectivity-controlled')
+        self.assertEqual(conexion.prueba_movimientos_ref, 'direct-movements-controlled')
+        self.assertEqual(conexion.prueba_saldos_ref, 'direct-balances-controlled')
+        self.assertEqual(movimiento.evidencia_importacion_ref, 'direct-import-controlled')
+        self.assertEqual(movimiento.referencia, 'direct-bank-ref')
+        self.assertEqual(movimiento.transaction_id_banco, 'direct-transaction-001')
+        self.assertEqual(movimiento.notas_admin, 'Nota operacional controlada.')
+        self.assertEqual(cuadratura.periodo_economico, '2026-01')
+        self.assertEqual(cuadratura.evidencia_cuadratura_ref, 'direct-balance-controlled-2026-01')
+        self.assertEqual(cuadratura.responsable_ref, 'direct-balance-owner')
+        self.assertEqual(cuadratura.rationale, 'Diferencia bancaria pendiente de explicacion operacional.')
+
     def test_bank_connection_api_redacts_existing_sensitive_references(self):
         cuenta, _, _ = self._create_contract_and_payment(codigo='REC-BANK-REDACT')
         ConexionBancaria.objects.create(
