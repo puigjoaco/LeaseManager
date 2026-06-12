@@ -95,6 +95,12 @@ def normalize_property_rol_avaluo(value):
     return re.sub(r'[^0-9A-Z]', '', normalize_property_identity_text(value))
 
 
+def _normalize_text_value(value):
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
 class Socio(TimestampedModel):
     nombre = models.CharField(max_length=255)
     rut = models.CharField(max_length=16, unique=True, validators=[validate_rut])
@@ -359,6 +365,22 @@ class RepresentacionComunidad(TimestampedModel):
 
     def __str__(self):
         return f'{self.comunidad.nombre} - {self.socio_representante.nombre}'
+
+    def _normalize_operational_fields(self):
+        self.evidencia_ref = _normalize_text_value(self.evidencia_ref)
+        self.observaciones = _normalize_text_value(self.observaciones)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        return super().save(*args, **kwargs)
 
     def clean(self):
         super().clean()
@@ -719,6 +741,24 @@ class ServicioPropiedad(TimestampedModel):
 
     def __str__(self):
         return f'{self.propiedad.codigo_propiedad} - {self.tipo_servicio}'
+
+    def _normalize_operational_fields(self):
+        self.proveedor_nombre = _normalize_text_value(self.proveedor_nombre)
+        self.numero_cliente = _normalize_text_value(self.numero_cliente)
+        self.administrador_nombre = _normalize_text_value(self.administrador_nombre)
+        self.evidencia_ref = _normalize_text_value(self.evidencia_ref)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        return super().save(*args, **kwargs)
 
     def clean(self):
         super().clean()

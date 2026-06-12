@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-12: Patrimonio/Etapa 1 normaliza metadata visible antes de
+validar y persistir. `RepresentacionComunidad` recorta `evidencia_ref` y
+`observaciones`; `ServicioPropiedad` recorta proveedor, numero de cliente,
+administrador y `evidencia_ref`. `audit_stage1_matrix` bloquea snapshots
+heredados con esos campos no canonicos mediante codigos especificos de
+representacion y servicio.
+
 Nota 2026-06-10: Etapa 3 endurece supersesiones de resoluciones manuales. El
 servicio `supersede_manual_resolutions_for_movement()` valida que el motivo sea
 auditable y no sensible antes de mutar estado, metadata o auditoria; una

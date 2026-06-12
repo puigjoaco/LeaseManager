@@ -320,6 +320,58 @@ class PatrimonioAPITests(APITestCase):
         self.assertEqual(response.data['numero_cliente'], 'GC-100')
         self.assertTrue(AuditEvent.objects.filter(event_type='patrimonio.servicio_propiedad.created').exists())
 
+    def test_designated_representation_visible_metadata_normalizes_before_full_clean_and_save(self):
+        socio_designado = self._create_socio('Representante Normalizado', '22222222-2')
+        comunidad = ComunidadPatrimonial.objects.create(nombre='Comunidad Normalizada', estado=EstadoPatrimonial.ACTIVE)
+        canonical_evidence = 'community-designated-act-' + ('x' * (255 - len('community-designated-act-')))
+        representation = RepresentacionComunidad(
+            comunidad=comunidad,
+            modo_representacion=ModoRepresentacionComunidad.DESIGNATED,
+            socio_representante=socio_designado,
+            vigente_desde='2026-01-01',
+            activo=True,
+            evidencia_ref=f' {canonical_evidence} ',
+            observaciones=' Observacion operativa controlada ',
+        )
+
+        representation.full_clean()
+        self.assertEqual(representation.evidencia_ref, canonical_evidence)
+        self.assertEqual(representation.observaciones, 'Observacion operativa controlada')
+
+        representation.save()
+        stored = RepresentacionComunidad.objects.get(pk=representation.pk)
+        self.assertEqual(stored.evidencia_ref, canonical_evidence)
+        self.assertEqual(stored.observaciones, 'Observacion operativa controlada')
+
+    def test_property_service_visible_metadata_normalizes_before_full_clean_and_save(self):
+        propiedad = self._create_socio_property()
+        canonical_provider = 'A' * 255
+        canonical_client = 'C' * 80
+        canonical_admin = 'D' * 255
+        canonical_evidence = 'service-evidence-' + ('x' * (255 - len('service-evidence-')))
+        service = ServicioPropiedad(
+            propiedad=propiedad,
+            tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+            proveedor_nombre=f' {canonical_provider} ',
+            numero_cliente=f' {canonical_client} ',
+            administrador_nombre=f' {canonical_admin} ',
+            evidencia_ref=f' {canonical_evidence} ',
+            activo=True,
+        )
+
+        service.full_clean()
+        self.assertEqual(service.proveedor_nombre, canonical_provider)
+        self.assertEqual(service.numero_cliente, canonical_client)
+        self.assertEqual(service.administrador_nombre, canonical_admin)
+        self.assertEqual(service.evidencia_ref, canonical_evidence)
+
+        service.save()
+        stored = ServicioPropiedad.objects.get(pk=service.pk)
+        self.assertEqual(stored.proveedor_nombre, canonical_provider)
+        self.assertEqual(stored.numero_cliente, canonical_client)
+        self.assertEqual(stored.administrador_nombre, canonical_admin)
+        self.assertEqual(stored.evidencia_ref, canonical_evidence)
+
     def test_snapshot_redacts_sensitive_property_service_evidence(self):
         propiedad = self._create_socio_property()
         ServicioPropiedad.objects.create(

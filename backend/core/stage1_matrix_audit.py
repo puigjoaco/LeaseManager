@@ -293,6 +293,10 @@ def _normalize_rol_avaluo(value: str | None) -> str:
     return re.sub(r'[^0-9A-Z]', '', _normalize_identity_text(value))
 
 
+def _text_is_not_canonical(value: Any) -> bool:
+    return isinstance(value, str) and value != value.strip()
+
+
 def _property_identity(propiedad: Propiedad) -> str:
     return f'id={propiedad.pk}, codigo={propiedad.codigo_propiedad}, owner={propiedad.owner_tipo}:{propiedad.owner_id}'
 
@@ -639,6 +643,56 @@ def _audit_community_representation_observations(issues: list[dict[str, Any]]) -
             )
 
 
+def _audit_patrimony_visible_metadata_canonical(issues: list[dict[str, Any]]) -> None:
+    representations = RepresentacionComunidad.objects.filter(activo=True).only(
+        'id',
+        'evidencia_ref',
+        'observaciones',
+    )
+    for representation in representations:
+        if _text_is_not_canonical(representation.evidencia_ref) or _text_is_not_canonical(
+            representation.observaciones
+        ):
+            _issue(
+                issues,
+                code='stage1.representacion.metadata_visible_no_canonica',
+                entity='RepresentacionComunidad',
+                entity_id=representation.pk,
+                message=(
+                    'Representacion de comunidad activa con evidencia u observaciones no canonicas; '
+                    'normalizar espacios antes de validar o persistir.'
+                ),
+            )
+
+    services = ServicioPropiedad.objects.all().only(
+        'id',
+        'proveedor_nombre',
+        'numero_cliente',
+        'administrador_nombre',
+        'evidencia_ref',
+    )
+    for service in services:
+        if any(
+            _text_is_not_canonical(value)
+            for value in (
+                service.proveedor_nombre,
+                service.numero_cliente,
+                service.administrador_nombre,
+                service.evidencia_ref,
+            )
+        ):
+            _issue(
+                issues,
+                code='stage1.servicio_propiedad.metadata_visible_no_canonica',
+                entity='ServicioPropiedad',
+                entity_id=service.pk,
+                message=(
+                    'Servicio de propiedad con proveedor, numero de cliente, administrador o evidencia no canonicos; '
+                    'normalizar espacios antes de validar o persistir.'
+                ),
+            )
+
+
 def _metadata_str(value: Any) -> str:
     return '' if value is None else str(value).strip()
 
@@ -860,6 +914,7 @@ def _build_summary() -> dict[str, int]:
 
 
 def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
+    _audit_patrimony_visible_metadata_canonical(issues)
     _audit_model_validation(
         issues,
         queryset=Socio.objects.all(),

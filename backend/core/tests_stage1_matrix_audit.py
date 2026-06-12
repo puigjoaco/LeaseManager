@@ -2102,6 +2102,40 @@ class Stage1MatrixAuditTests(TestCase):
         self.assertEqual(result['classification'], 'defectuoso')
         self.assertIn('stage1.servicio_propiedad.validacion_modelo', issue_codes)
 
+    def test_noncanonical_patrimony_visible_metadata_is_blocking(self):
+        contrato = self._create_valid_stage1_matrix()
+        representation = RepresentacionComunidad.objects.get(
+            comunidad__nombre='Comunidad Controlada',
+            activo=True,
+        )
+        service = ServicioPropiedad.objects.create(
+            propiedad=contrato.mandato_operacion.propiedad,
+            tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+            proveedor_nombre='Administracion Edificio',
+            numero_cliente='GC-100',
+            administrador_nombre='Administracion Edificio',
+            evidencia_ref='gasto-comun-propiedad-001',
+            activo=True,
+        )
+        RepresentacionComunidad.objects.filter(pk=representation.pk).update(
+            evidencia_ref=' representation-evidence-001 ',
+            observaciones=' observacion controlada ',
+        )
+        ServicioPropiedad.objects.filter(pk=service.pk).update(
+            proveedor_nombre=' Administracion Edificio ',
+            numero_cliente=' GC-100 ',
+            administrador_nombre=' Administracion Edificio ',
+            evidencia_ref=' gasto-comun-propiedad-001 ',
+        )
+
+        result = self._collect_controlled_snapshot()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage1_close'])
+        self.assertEqual(result['classification'], 'defectuoso')
+        self.assertIn('stage1.representacion.metadata_visible_no_canonica', issue_codes)
+        self.assertIn('stage1.servicio_propiedad.metadata_visible_no_canonica', issue_codes)
+
     def test_active_contract_without_operational_channel_is_blocking(self):
         contrato = self._create_valid_stage1_matrix()
         contrato.mandato_operacion.asignaciones_canal.all().delete()
