@@ -38,6 +38,7 @@ from .models import (
     ConfiguracionNotificacionContrato,
     EstadoGateCanal,
     EstadoMensajeSaliente,
+    EstadoNotificacionCobranza,
     MensajeSaliente,
     NotificacionCobranzaProgramada,
 )
@@ -390,6 +391,81 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(response.data['evidencia_ref'], 'email-gate-evidence-normalized')
         gate = CanalMensajeria.objects.get(pk=response.data['id'])
         self.assertEqual(gate.evidencia_ref, 'email-gate-evidence-normalized')
+
+    def test_channel_operational_refs_normalize_before_full_clean_and_save(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-FULL-CLEAN')
+        self._enable_channel_for_contract(empresa, contrato, canal='email')
+        payment = self._create_payment_for_contract(contrato)
+
+        gate_ref = 'gate-full-clean-' + ('g' * 236)
+        config_ref = 'config-full-clean-' + ('c' * 234)
+        external_ref = 'message-full-clean-' + ('m' * 233)
+        recipient_ref = 'recipient-full-clean-' + ('r' * 231)
+
+        gate = CanalMensajeria(
+            canal='email',
+            provider_key='gmail_api',
+            estado_gate=EstadoGateCanal.OPEN,
+            restricciones_operativas={
+                'prueba_aislada_ref': 'email-readiness-controlled',
+                'oauth_validado_ref': 'oauth-readiness-controlled',
+            },
+            evidencia_ref=f'   {gate_ref}   ',
+        )
+        gate.full_clean()
+        self.assertEqual(gate.evidencia_ref, gate_ref)
+        gate.save()
+        self.assertEqual(CanalMensajeria.objects.get(pk=gate.pk).evidencia_ref, gate_ref)
+
+        config = ConfiguracionNotificacionContrato(
+            contrato=contrato,
+            canal='email',
+            dias_notificacion=[1, 3, 5],
+            activa=True,
+            evidencia_configuracion_ref=f'   {config_ref}   ',
+        )
+        config.full_clean()
+        self.assertEqual(config.evidencia_configuracion_ref, config_ref)
+        config.save()
+        self.assertEqual(
+            ConfiguracionNotificacionContrato.objects.get(pk=config.pk).evidencia_configuracion_ref,
+            config_ref,
+        )
+
+        message = MensajeSaliente(
+            canal='email',
+            canal_mensajeria=gate,
+            contrato=contrato,
+            destinatario=f'   {recipient_ref}   ',
+            external_ref=f'   {external_ref}   ',
+            motivo_bloqueo='   bloqueo operacional controlado   ',
+        )
+        message.full_clean()
+        self.assertEqual(message.destinatario, recipient_ref)
+        self.assertEqual(message.external_ref, external_ref)
+        self.assertEqual(message.motivo_bloqueo, 'bloqueo operacional controlado')
+        message.save()
+        stored_message = MensajeSaliente.objects.get(pk=message.pk)
+        self.assertEqual(stored_message.destinatario, recipient_ref)
+        self.assertEqual(stored_message.external_ref, external_ref)
+        self.assertEqual(stored_message.motivo_bloqueo, 'bloqueo operacional controlado')
+
+        notification = NotificacionCobranzaProgramada(
+            pago_mensual=payment,
+            configuracion=config,
+            canal='email',
+            dia_notificacion=1,
+            fecha_programada=date(2026, 1, 1),
+            estado=EstadoNotificacionCobranza.SKIPPED,
+            motivo_estado='   pago fuera de gestion local   ',
+        )
+        notification.full_clean()
+        self.assertEqual(notification.motivo_estado, 'pago fuera de gestion local')
+        notification.save()
+        self.assertEqual(
+            NotificacionCobranzaProgramada.objects.get(pk=notification.pk).motivo_estado,
+            'pago fuera de gestion local',
+        )
 
     def test_channel_gate_create_rolls_back_when_view_audit_fails(self):
         audit_count = AuditEvent.objects.count()

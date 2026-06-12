@@ -283,6 +283,14 @@ Nota 2026-06-12: Canales normaliza la evidencia del gate antes de persistir.
 `evidencia_ref` para que gates Email/WhatsApp, API, snapshot y readiness
 comparen una referencia canonica no sensible sin espacios crudos.
 
+Nota 2026-06-12: Canales normaliza refs/textos operativos antes de
+`full_clean()` y persistencia. `CanalMensajeria`,
+`ConfiguracionNotificacionContrato`, `MensajeSaliente` y
+`NotificacionCobranzaProgramada` recortan evidencia, destinatario,
+procedencia y motivos antes de los validadores de campo, evitando rechazos por
+longitud cruda y manteniendo trazas canonicas para API, snapshot, backoffice y
+readiness.
+
 Nota 2026-06-06: Backoffice Patrimonio alinea la tabla de propiedades con el
 snapshot de `ServicioPropiedad`. La UI tipa, filtra y muestra servicios/gastos
 comunes con proveedor o administracion, numero de cliente, estado y
