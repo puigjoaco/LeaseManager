@@ -129,10 +129,10 @@ condicionados sin envios reales accidentales.
   transicion.
 - Registro manual de envio solo con `external_ref` trazable no sensible,
   normalizado antes de persistir, y revalidacion del gate abierto, identidad
-  activa, destinatario y mandato operativo activo.
+  activa, destinatario normalizado y mandato operativo activo.
 - `MensajeSaliente.clean()` bloquea nuevas escrituras en estado `preparado` o
-  `enviado` sin gate abierto, readiness Email, identidad activa, destinatario,
-  mandato operativo activo, contexto WhatsApp valido o formalizacion
+  `enviado` sin gate abierto, readiness Email, identidad activa, destinatario
+  normalizado, mandato operativo activo, contexto WhatsApp valido o formalizacion
   documental cuando corresponda; mensajes `enviado` requieren `external_ref`
   trazable no sensible normalizado y timestamp de envio.
 - Mensajes preparados o enviados asociados a un contrato o documento

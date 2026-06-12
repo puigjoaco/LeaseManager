@@ -1325,6 +1325,31 @@ class CanalesAPITests(APITestCase):
         self.assertEqual(sent_message.external_ref, 'provider-controlled-001')
         self.assertEqual(blocked_message.motivo_bloqueo, 'provider-policy-block-controlled')
 
+    def test_message_recipient_normalizes_before_persisting(self):
+        empresa, contrato = self._create_contract_context(codigo='CH-MSG-RECIPIENT-NORM')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+        identity = self._enable_channel_for_contract(empresa, contrato, canal='email')
+        message = MensajeSaliente(
+            canal='email',
+            canal_mensajeria=gate,
+            identidad_envio=identity,
+            contrato=contrato,
+            arrendatario=contrato.arrendatario,
+            destinatario=f'  {contrato.arrendatario.email}  ',
+            asunto='Cobro mensual',
+            cuerpo='Mensaje preparado controlado',
+            estado=EstadoMensajeSaliente.PREPARED,
+            usuario=self.user,
+        )
+
+        message.full_clean()
+        self.assertEqual(message.destinatario, contrato.arrendatario.email)
+        message.save()
+        message.refresh_from_db()
+
+        self.assertEqual(message.destinatario, contrato.arrendatario.email)
+
     def test_prepared_message_full_clean_requires_open_gate_and_identity(self):
         _, contrato = self._create_contract_context(codigo='CH-PREP-DOMAIN')
         gate_data = self._create_gate(canal='email', estado_gate='suspendido')

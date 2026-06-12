@@ -398,13 +398,14 @@ class MensajeSaliente(TimestampedModel):
     def __str__(self):
         return f'{self.canal} - {self.destinatario}'
 
-    def _normalize_provenance_fields(self):
+    def _normalize_operational_fields(self):
+        self.destinatario = (self.destinatario or '').strip()
         self.external_ref = (self.external_ref or '').strip()
         self.motivo_bloqueo = (self.motivo_bloqueo or '').strip()
 
     def clean(self):
         super().clean()
-        self._normalize_provenance_fields()
+        self._normalize_operational_fields()
         errors = {}
         if self.identidad_envio_id and self.identidad_envio.canal != self.canal:
             errors['identidad_envio'] = 'La identidad de envio debe pertenecer al mismo canal del mensaje.'
@@ -448,7 +449,7 @@ class MensajeSaliente(TimestampedModel):
                 identidad_envio=self.identidad_envio,
             ):
                 errors['identidad_envio'] = reason
-            if not self.destinatario.strip():
+            if not self.destinatario:
                 errors['destinatario'] = 'Mensaje preparado/enviado requiere destinatario trazable.'
             if self.contrato_id and self.contrato.mandato_operacion.estado != EstadoMandatoOperacion.ACTIVE:
                 errors['contrato'] = 'Mensaje preparado/enviado requiere mandato operativo activo.'
@@ -479,7 +480,7 @@ class MensajeSaliente(TimestampedModel):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
-        self._normalize_provenance_fields()
+        self._normalize_operational_fields()
         super().save(*args, **kwargs)
 
 
