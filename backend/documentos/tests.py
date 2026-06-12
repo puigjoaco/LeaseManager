@@ -102,6 +102,132 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         return response.data
 
+    def test_document_operational_refs_normalize_before_full_clean_and_save(self):
+        max_entity_id = 'doc-entity-' + ('x' * (64 - len('doc-entity-')))
+        expediente = ExpedienteDocumental(
+            entidad_tipo=' contrato ',
+            entidad_id=f' {max_entity_id} ',
+            owner_operativo=' mandato:normalizado ',
+        )
+        expediente.full_clean()
+        self.assertEqual(expediente.entidad_tipo, 'contrato')
+        self.assertEqual(expediente.entidad_id, max_entity_id)
+        self.assertEqual(expediente.owner_operativo, 'mandato:normalizado')
+        expediente.save()
+        expediente.refresh_from_db()
+        self.assertEqual(expediente.entidad_tipo, 'contrato')
+        self.assertEqual(expediente.entidad_id, max_entity_id)
+        self.assertEqual(expediente.owner_operativo, 'mandato:normalizado')
+
+        max_version = 'doc-template-' + ('v' * (64 - len('doc-template-')))
+        max_template_ref = 'templates/contrato-principal/' + (
+            'x' * (255 - len('templates/contrato-principal/'))
+        )
+        template = PlantillaDocumental(
+            tipo_documental='contrato_principal',
+            version_plantilla=f' {max_version} ',
+            plantilla_ref=f' {max_template_ref} ',
+            checksum_plantilla=f' {VALID_SHA256} ',
+            descripcion=' Plantilla documentada ',
+            estado='activa',
+        )
+        template.full_clean()
+        self.assertEqual(template.version_plantilla, max_version)
+        self.assertEqual(template.plantilla_ref, max_template_ref)
+        self.assertEqual(template.checksum_plantilla, VALID_SHA256)
+        self.assertEqual(template.descripcion, 'Plantilla documentada')
+        template.save()
+        template.refresh_from_db()
+        self.assertEqual(template.version_plantilla, max_version)
+        self.assertEqual(template.plantilla_ref, max_template_ref)
+        self.assertEqual(template.checksum_plantilla, VALID_SHA256)
+        self.assertEqual(template.descripcion, 'Plantilla documentada')
+
+        PoliticaFirmaYNotaria.objects.create(
+            tipo_documental='contrato_principal',
+            requiere_firma_arrendador=True,
+            requiere_firma_arrendatario=True,
+            requiere_codeudor=False,
+            requiere_notaria=False,
+            modo_firma_permitido='firma_simple',
+            estado='activa',
+        )
+
+        storage_prefix = 'storage/docs/'
+        storage_suffix = '.pdf'
+        max_storage_ref = storage_prefix + (
+            'x' * (255 - len(storage_prefix) - len(storage_suffix))
+        ) + storage_suffix
+        document = DocumentoEmitido(
+            expediente=expediente,
+            tipo_documental='contrato_principal',
+            version_plantilla=f' {max_version} ',
+            checksum=f' {VALID_SHA256} ',
+            fecha_carga=timezone.now(),
+            usuario=self.user,
+            origen='carga_externa_controlada',
+            estado='emitido',
+            storage_ref=f' {max_storage_ref} ',
+        )
+        document.full_clean()
+        self.assertEqual(document.version_plantilla, max_version)
+        self.assertEqual(document.checksum, VALID_SHA256)
+        self.assertEqual(document.storage_ref, max_storage_ref)
+        document.save()
+        document.refresh_from_db()
+        self.assertEqual(document.version_plantilla, max_version)
+        self.assertEqual(document.checksum, VALID_SHA256)
+        self.assertEqual(document.storage_ref, max_storage_ref)
+
+        max_evidence_ref = 'formalizacion-' + ('e' * (128 - len('formalizacion-')))
+        document.estado = EstadoDocumento.FORMALIZED
+        document.firma_arrendador_registrada = True
+        document.firma_arrendatario_registrada = True
+        document.evidencia_formalizacion_ref = f' {max_evidence_ref} '
+        document.full_clean()
+        self.assertEqual(document.evidencia_formalizacion_ref, max_evidence_ref)
+        document.save(
+            update_fields=[
+                'estado',
+                'firma_arrendador_registrada',
+                'firma_arrendatario_registrada',
+                'evidencia_formalizacion_ref',
+                'updated_at',
+            ]
+        )
+        document.refresh_from_db()
+        self.assertEqual(document.evidencia_formalizacion_ref, max_evidence_ref)
+
+        correction_prefix = 'storage/docs/correction-'
+        max_correction_storage = correction_prefix + (
+            'y' * (255 - len(correction_prefix) - len(storage_suffix))
+        ) + storage_suffix
+        max_correction_ref = 'correction-' + ('c' * (128 - len('correction-')))
+        correction = DocumentoEmitido(
+            expediente=expediente,
+            tipo_documental='contrato_principal',
+            version_plantilla=f' {max_version} ',
+            checksum=f' {VALID_SHA256_ALT} ',
+            fecha_carga=timezone.now(),
+            usuario=self.user,
+            origen='carga_externa_controlada',
+            estado='emitido',
+            storage_ref=f' {max_correction_storage} ',
+            documento_origen=document,
+            correccion_ref=f' {max_correction_ref} ',
+        )
+        correction.full_clean()
+        self.assertEqual(correction.version_plantilla, max_version)
+        self.assertEqual(correction.checksum, VALID_SHA256_ALT)
+        self.assertEqual(correction.storage_ref, max_correction_storage)
+        self.assertEqual(correction.correccion_ref, max_correction_ref)
+        correction.save()
+        correction.refresh_from_db()
+        self.assertEqual(correction.version_plantilla, max_version)
+        self.assertEqual(correction.checksum, VALID_SHA256_ALT)
+        self.assertEqual(correction.storage_ref, max_correction_storage)
+        self.assertEqual(correction.correccion_ref, max_correction_ref)
+
     def test_generate_pdf_endpoint_derives_checksum_storage_and_audit(self):
         expediente = self._create_expediente(entidad_id='generated-pdf')
         self._create_politica()

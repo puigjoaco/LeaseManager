@@ -5,7 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import is_non_sensitive_reference, normalize_reference
 
 
 DOCUMENT_CHECKSUM_PATTERN = re.compile(r'^(?:sha256:)?[0-9a-f]{64}$', re.IGNORECASE)
@@ -75,6 +75,30 @@ def is_valid_pdf_checksum(value):
     return bool(DOCUMENT_CHECKSUM_PATTERN.fullmatch(normalized))
 
 
+def _normalize_text_fields(instance, field_names):
+    for field_name in field_names:
+        setattr(instance, field_name, normalize_reference(getattr(instance, field_name, '')))
+
+
+class OperationalDocumentTextNormalizationMixin:
+    operational_text_fields = ()
+
+    def _normalize_operational_text_fields(self):
+        _normalize_text_fields(self, self.operational_text_fields)
+
+    def full_clean(self, *args, **kwargs):
+        self._normalize_operational_text_fields()
+        return super().full_clean(*args, **kwargs)
+
+    def clean(self):
+        self._normalize_operational_text_fields()
+        return super().clean()
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_text_fields()
+        return super().save(*args, **kwargs)
+
+
 def has_active_document_template(tipo_documental, version_plantilla):
     return PlantillaDocumental.objects.filter(
         tipo_documental=tipo_documental,
@@ -92,7 +116,9 @@ def _contract_id_from_expediente(expediente):
         return None
 
 
-class ExpedienteDocumental(TimestampedModel):
+class ExpedienteDocumental(OperationalDocumentTextNormalizationMixin, TimestampedModel):
+    operational_text_fields = ('entidad_tipo', 'entidad_id', 'owner_operativo')
+
     entidad_tipo = models.CharField(max_length=64)
     entidad_id = models.CharField(max_length=64)
     estado = models.CharField(max_length=16, choices=EstadoExpediente.choices, default=EstadoExpediente.OPEN)
@@ -208,7 +234,9 @@ class PoliticaFirmaYNotaria(TimestampedModel):
             raise ValidationError(errors)
 
 
-class PlantillaDocumental(TimestampedModel):
+class PlantillaDocumental(OperationalDocumentTextNormalizationMixin, TimestampedModel):
+    operational_text_fields = ('version_plantilla', 'plantilla_ref', 'checksum_plantilla', 'descripcion')
+
     tipo_documental = models.CharField(max_length=64, choices=TipoDocumental.choices)
     version_plantilla = models.CharField(max_length=64)
     plantilla_ref = models.CharField(max_length=255)
@@ -271,7 +299,15 @@ class PlantillaDocumental(TimestampedModel):
             raise ValidationError(errors)
 
 
-class DocumentoEmitido(TimestampedModel):
+class DocumentoEmitido(OperationalDocumentTextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'version_plantilla',
+        'checksum',
+        'storage_ref',
+        'evidencia_formalizacion_ref',
+        'correccion_ref',
+    )
+
     expediente = models.ForeignKey(
         ExpedienteDocumental,
         on_delete=models.CASCADE,
