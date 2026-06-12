@@ -125,6 +125,14 @@ def _contains_sensitive(value) -> bool:
     return has_text(value) and contains_sensitive_reference(value)
 
 
+def _text_is_not_canonical(value: Any) -> bool:
+    return isinstance(value, str) and value != value.strip()
+
+
+def _any_text_is_not_canonical(*values: Any) -> bool:
+    return any(_text_is_not_canonical(value) for value in values)
+
+
 def _valid_economic_period(value) -> bool:
     return ECONOMIC_PERIOD_RE.fullmatch(str(value or '').strip()) is not None
 
@@ -650,6 +658,8 @@ def _collect_movement_issues(
 def _collect_unknown_income_issues(unknown_income) -> dict[str, int]:
     counts = Counter()
     for item in unknown_income:
+        if _any_text_is_not_canonical(item.descripcion_origen, item.estado):
+            counts['visible_metadata_noncanonical'] += 1
         if contains_sensitive_reference(item.sugerencia_asistida or {}, include_sensitive_keys=True):
             counts['sensitive_suggestion'] += 1
     return dict(sorted(counts.items()))
@@ -936,9 +946,9 @@ def collect_stage3_conciliacion_readiness(
     movements_with_reported_balance = movements.filter(saldo_reportado__isnull=False).count()
 
     unknown_income = IngresoDesconocido.objects.select_related('movimiento_bancario', 'cuenta_recaudadora').all()
+    unknown_income_issues = _collect_unknown_income_issues(unknown_income)
     invalid_unknown_income = _count_invalid(unknown_income)
     open_unknown_income = unknown_income.filter(estado=EstadoIngresoDesconocido.OPEN).count()
-    unknown_income_issues = _collect_unknown_income_issues(unknown_income)
     balance_signal_available = ready_primary_balances > 0 or movements_with_reported_balance > 0
     superseded_resolution_ids = [
         str(pk)
@@ -1215,6 +1225,14 @@ def collect_stage3_conciliacion_readiness(
                 'stage3.unknown_income.sensitive_suggestion',
                 'Existen ingresos desconocidos con sugerencias asistidas que contienen claves o valores sensibles.',
                 count=unknown_income_issues['sensitive_suggestion'],
+            )
+        )
+    if unknown_income_issues.get('visible_metadata_noncanonical'):
+        issues.append(
+            _issue(
+                'stage3.unknown_income.visible_metadata_no_canonica',
+                'Existen ingresos desconocidos con metadata visible no canonica; normalizar estado y descripcion antes de validar o persistir.',
+                count=unknown_income_issues['visible_metadata_noncanonical'],
             )
         )
     if not balance_signal_available:
