@@ -137,6 +137,14 @@ contra datos reales o snapshot controlado.
   asignaciones de canal mutadas sin traza. Los eventos `state_changed` deben
   conservar metadata minima con campo de estado, estado anterior y estado
   nuevo.
+- Metadata visible operacional: `CuentaRecaudadora.full_clean()` y `save()`
+  normalizan institucion, numero de cuenta, tipo de cuenta, titular, RUT,
+  uso operativo y evidencia antes de validar o persistir;
+  `IdentidadDeEnvio.full_clean()` y `save()` normalizan remitente, destino y
+  referencia de credencial; `MandatoOperacion.full_clean()` y `save()`
+  normalizan tipo de relacion, autoridad, RUT y evidencia. El auditor Etapa 1
+  bloquea snapshots heredados con metadata operacional no canonica mediante
+  codigos especificos sin exponer valores crudos.
 - Validacion de cuentas recaudadoras activas: una cuenta activa debe declarar
   uso operativo, modo `manual_controlado` o `gate_bancario`, y evidencia
   operativa trazable no sensible; API, snapshot y admin/backoffice redactan

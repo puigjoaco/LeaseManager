@@ -107,6 +107,123 @@ class OperacionModelTests(TestCase):
         with self.assertRaisesMessage(ValidationError, 'referencia no sensible'):
             cuenta.full_clean()
 
+    def test_account_visible_metadata_normalizes_before_full_clean_and_save(self):
+        canonical_institution = 'B' * 120
+        canonical_account = '1' * 64
+        canonical_account_type = 'T' * 64
+        canonical_holder = 'H' * 255
+        canonical_usage = 'U' * 120
+        canonical_evidence = 'account-evidence-' + ('x' * (255 - len('account-evidence-')))
+        cuenta = CuentaRecaudadora(
+            socio_owner=self.socio,
+            institucion=f' {canonical_institution} ',
+            numero_cuenta=f' {canonical_account} ',
+            tipo_cuenta=f' {canonical_account_type} ',
+            titular_nombre=f' {canonical_holder} ',
+            titular_rut=' 11.111.111-1 ',
+            moneda_operativa=MonedaOperativa.CLP,
+            uso_operativo=f' {canonical_usage} ',
+            modo_operativo=ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            evidencia_operativa_ref=f' {canonical_evidence} ',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+
+        cuenta.full_clean()
+        self.assertEqual(cuenta.institucion, canonical_institution)
+        self.assertEqual(cuenta.numero_cuenta, canonical_account)
+        self.assertEqual(cuenta.tipo_cuenta, canonical_account_type)
+        self.assertEqual(cuenta.titular_nombre, canonical_holder)
+        self.assertEqual(cuenta.titular_rut, '11111111-1')
+        self.assertEqual(cuenta.uso_operativo, canonical_usage)
+        self.assertEqual(cuenta.evidencia_operativa_ref, canonical_evidence)
+
+        cuenta.save()
+        stored = CuentaRecaudadora.objects.get(pk=cuenta.pk)
+        self.assertEqual(stored.institucion, canonical_institution)
+        self.assertEqual(stored.numero_cuenta, canonical_account)
+        self.assertEqual(stored.tipo_cuenta, canonical_account_type)
+        self.assertEqual(stored.titular_nombre, canonical_holder)
+        self.assertEqual(stored.titular_rut, '11111111-1')
+        self.assertEqual(stored.uso_operativo, canonical_usage)
+        self.assertEqual(stored.evidencia_operativa_ref, canonical_evidence)
+
+    def test_identity_visible_metadata_normalizes_before_full_clean_and_save(self):
+        canonical_sender = 'S' * 255
+        canonical_destination = '+569' + ('1' * 251)
+        canonical_reference = 'identity-reference-' + ('x' * (255 - len('identity-reference-')))
+        identidad = IdentidadDeEnvio(
+            socio_owner=self.socio,
+            canal=CanalOperacion.WHATSAPP,
+            remitente_visible=f' {canonical_sender} ',
+            direccion_o_numero=f' {canonical_destination} ',
+            credencial_ref=f' {canonical_reference} ',
+            estado=EstadoIdentidadEnvio.ACTIVE,
+        )
+
+        identidad.full_clean()
+        self.assertEqual(identidad.remitente_visible, canonical_sender)
+        self.assertEqual(identidad.direccion_o_numero, canonical_destination)
+        self.assertEqual(identidad.credencial_ref, canonical_reference)
+
+        identidad.save()
+        stored = IdentidadDeEnvio.objects.get(pk=identidad.pk)
+        self.assertEqual(stored.remitente_visible, canonical_sender)
+        self.assertEqual(stored.direccion_o_numero, canonical_destination)
+        self.assertEqual(stored.credencial_ref, canonical_reference)
+
+    def test_mandate_visible_metadata_normalizes_before_full_clean_and_save(self):
+        propiedad = Propiedad.objects.create(
+            direccion='Av Operacion 100',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.APARTMENT,
+            codigo_propiedad='OP-001',
+            estado='activa',
+            socio_owner=self.socio,
+        )
+        cuenta = CuentaRecaudadora.objects.create(
+            socio_owner=self.socio,
+            institucion='Banco Operacion',
+            numero_cuenta='123456',
+            tipo_cuenta='corriente',
+            titular_nombre='Owner Uno',
+            titular_rut='11111111-1',
+            moneda_operativa=MonedaOperativa.CLP,
+            uso_operativo='recaudacion_arriendos',
+            modo_operativo=ModoOperacionCuentaRecaudadora.MANUAL_CONTROLLED,
+            evidencia_operativa_ref='account-evidence-operacion',
+            estado_operativo=EstadoCuentaRecaudadora.ACTIVE,
+        )
+        canonical_relation = 'R' * 64
+        canonical_authority = 'A' * 255
+        canonical_evidence = 'mandate-authority-act-' + ('x' * (255 - len('mandate-authority-act-')))
+        mandato = MandatoOperacion(
+            propiedad=propiedad,
+            propietario_socio_owner=self.socio,
+            administrador_socio_owner=self.socio,
+            recaudador_socio_owner=self.socio,
+            cuenta_recaudadora=cuenta,
+            tipo_relacion_operativa=f' {canonical_relation} ',
+            autoriza_comunicacion=True,
+            autoridad_operativa_nombre=f' {canonical_authority} ',
+            autoridad_operativa_rut=' 11.111.111-1 ',
+            autoridad_operativa_evidencia_ref=f' {canonical_evidence} ',
+            estado=EstadoMandatoOperacion.ACTIVE,
+        )
+
+        mandato.full_clean()
+        self.assertEqual(mandato.tipo_relacion_operativa, canonical_relation)
+        self.assertEqual(mandato.autoridad_operativa_nombre, canonical_authority)
+        self.assertEqual(mandato.autoridad_operativa_rut, '11111111-1')
+        self.assertEqual(mandato.autoridad_operativa_evidencia_ref, canonical_evidence)
+
+        mandato.save()
+        stored = MandatoOperacion.objects.get(pk=mandato.pk)
+        self.assertEqual(stored.tipo_relacion_operativa, canonical_relation)
+        self.assertEqual(stored.autoridad_operativa_nombre, canonical_authority)
+        self.assertEqual(stored.autoridad_operativa_rut, '11111111-1')
+        self.assertEqual(stored.autoridad_operativa_evidencia_ref, canonical_evidence)
+
 
 class OperacionAPITests(APITestCase):
     def setUp(self):

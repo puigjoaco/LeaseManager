@@ -83,6 +83,19 @@ def _overlapping_effective_windows(queryset, start_date, end_date=None):
     return overlaps.filter(Q(vigencia_hasta__isnull=True) | Q(vigencia_hasta__gte=start_date))
 
 
+def _normalize_text_value(value):
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _normalize_rut_value(value):
+    value = _normalize_text_value(value)
+    if value:
+        return normalize_rut(value)
+    return value
+
+
 class CuentaRecaudadora(TimestampedModel):
     empresa_owner = models.ForeignKey(
         Empresa,
@@ -182,8 +195,25 @@ class CuentaRecaudadora(TimestampedModel):
             return MandatoOperacion.objects.none()
         return self.mandatos_operacion.filter(estado=EstadoMandatoOperacion.ACTIVE)
 
+    def _normalize_operational_fields(self):
+        self.institucion = _normalize_text_value(self.institucion)
+        self.numero_cuenta = _normalize_text_value(self.numero_cuenta)
+        self.tipo_cuenta = _normalize_text_value(self.tipo_cuenta)
+        self.titular_nombre = _normalize_text_value(self.titular_nombre)
+        self.titular_rut = _normalize_rut_value(self.titular_rut)
+        self.uso_operativo = _normalize_text_value(self.uso_operativo)
+        self.evidencia_operativa_ref = _normalize_text_value(self.evidencia_operativa_ref)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
     def save(self, *args, **kwargs):
-        self.titular_rut = normalize_rut(self.titular_rut)
+        self._normalize_operational_fields()
         super().save(*args, **kwargs)
 
     def clean(self):
@@ -282,6 +312,23 @@ class IdentidadDeEnvio(TimestampedModel):
         if not self.pk:
             return AsignacionCanalOperacion.objects.none()
         return self.asignaciones_operacion.filter(estado=EstadoAsignacionCanal.ACTIVE)
+
+    def _normalize_operational_fields(self):
+        self.remitente_visible = _normalize_text_value(self.remitente_visible)
+        self.direccion_o_numero = _normalize_text_value(self.direccion_o_numero)
+        self.credencial_ref = _normalize_text_value(self.credencial_ref)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
 
     def active_assignment_dependency_errors(self):
         errors = {}
@@ -552,6 +599,20 @@ class MandatoOperacion(TimestampedModel):
             and (self.autoriza_comunicacion or self.autoriza_facturacion)
         )
 
+    def _normalize_operational_fields(self):
+        self.tipo_relacion_operativa = _normalize_text_value(self.tipo_relacion_operativa)
+        self.autoridad_operativa_nombre = _normalize_text_value(self.autoridad_operativa_nombre)
+        self.autoridad_operativa_rut = _normalize_rut_value(self.autoridad_operativa_rut)
+        self.autoridad_operativa_evidencia_ref = _normalize_text_value(self.autoridad_operativa_evidencia_ref)
+
+    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
+        self._normalize_operational_fields()
+        return super().full_clean(
+            exclude=exclude,
+            validate_unique=validate_unique,
+            validate_constraints=validate_constraints,
+        )
+
     def validate_operational_authority(self):
         if self.autoridad_operativa_rut:
             self.autoridad_operativa_rut = normalize_rut(self.autoridad_operativa_rut)
@@ -754,8 +815,7 @@ class MandatoOperacion(TimestampedModel):
                 )
 
     def save(self, *args, **kwargs):
-        if self.autoridad_operativa_rut:
-            self.autoridad_operativa_rut = normalize_rut(self.autoridad_operativa_rut)
+        self._normalize_operational_fields()
         super().save(*args, **kwargs)
 
 

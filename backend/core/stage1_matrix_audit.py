@@ -71,7 +71,7 @@ from patrimonio.models import (
     TipoServicioPropiedad,
 )
 from patrimonio.services import PARTICIPATION_TRANSFER_EVENT_TYPE
-from patrimonio.validators import validate_rut
+from patrimonio.validators import normalize_rut, validate_rut
 
 
 EVIDENCE_GRADE_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
@@ -295,6 +295,19 @@ def _normalize_rol_avaluo(value: str | None) -> str:
 
 def _text_is_not_canonical(value: Any) -> bool:
     return isinstance(value, str) and value != value.strip()
+
+
+def _rut_is_not_canonical(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    stripped = value.strip()
+    if not stripped:
+        return False
+    try:
+        validate_rut(stripped)
+    except ValidationError:
+        return False
+    return value != normalize_rut(stripped)
 
 
 def _property_identity(propiedad: Propiedad) -> str:
@@ -693,6 +706,94 @@ def _audit_patrimony_visible_metadata_canonical(issues: list[dict[str, Any]]) ->
             )
 
 
+def _audit_operation_visible_metadata_canonical(issues: list[dict[str, Any]]) -> None:
+    accounts = CuentaRecaudadora.objects.all().only(
+        'id',
+        'institucion',
+        'numero_cuenta',
+        'tipo_cuenta',
+        'titular_nombre',
+        'titular_rut',
+        'uso_operativo',
+        'evidencia_operativa_ref',
+    )
+    for account in accounts:
+        if any(
+            _text_is_not_canonical(value)
+            for value in (
+                account.institucion,
+                account.numero_cuenta,
+                account.tipo_cuenta,
+                account.titular_nombre,
+                account.uso_operativo,
+                account.evidencia_operativa_ref,
+            )
+        ) or _rut_is_not_canonical(account.titular_rut):
+            _issue(
+                issues,
+                code='stage1.cuenta.metadata_visible_no_canonica',
+                entity='CuentaRecaudadora',
+                entity_id=account.pk,
+                message=(
+                    'Cuenta recaudadora con institucion, numero, titular, uso operativo o evidencia no canonicos; '
+                    'normalizar espacios y RUT antes de validar o persistir.'
+                ),
+            )
+
+    identities = IdentidadDeEnvio.objects.all().only(
+        'id',
+        'remitente_visible',
+        'direccion_o_numero',
+        'credencial_ref',
+    )
+    for identity in identities:
+        if any(
+            _text_is_not_canonical(value)
+            for value in (
+                identity.remitente_visible,
+                identity.direccion_o_numero,
+                identity.credencial_ref,
+            )
+        ):
+            _issue(
+                issues,
+                code='stage1.identidad_envio.metadata_visible_no_canonica',
+                entity='IdentidadDeEnvio',
+                entity_id=identity.pk,
+                message=(
+                    'Identidad de envio con remitente, destino o referencia de credencial no canonicos; '
+                    'normalizar espacios antes de validar o persistir.'
+                ),
+            )
+
+    mandates = MandatoOperacion.objects.all().only(
+        'id',
+        'tipo_relacion_operativa',
+        'autoridad_operativa_nombre',
+        'autoridad_operativa_rut',
+        'autoridad_operativa_evidencia_ref',
+    )
+    for mandate in mandates:
+        if any(
+            _text_is_not_canonical(value)
+            for value in (
+                mandate.tipo_relacion_operativa,
+                mandate.autoridad_operativa_nombre,
+                mandate.autoridad_operativa_evidencia_ref,
+            )
+        ) or _rut_is_not_canonical(mandate.autoridad_operativa_rut):
+            _issue(
+                issues,
+                code='stage1.mandato.metadata_visible_no_canonica',
+                entity='MandatoOperacion',
+                entity_id=mandate.pk,
+                message=(
+                    'Mandato operativo con relacion, autoridad o evidencia no canonicas; '
+                    'normalizar espacios y RUT antes de validar o persistir.'
+                ),
+            )
+
+
 def _metadata_str(value: Any) -> str:
     return '' if value is None else str(value).strip()
 
@@ -1025,6 +1126,7 @@ def _audit_patrimonio(issues: list[dict[str, Any]]) -> None:
 
 
 def _audit_operacion(issues: list[dict[str, Any]]) -> None:
+    _audit_operation_visible_metadata_canonical(issues)
     _audit_model_validation(
         issues,
         queryset=CuentaRecaudadora.objects.select_related('empresa_owner', 'comunidad_owner', 'socio_owner'),
