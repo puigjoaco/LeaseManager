@@ -127,14 +127,14 @@ condicionados sin envios reales accidentales.
 - `audit_stage2_cobranza_readiness` bloquea eventos `state_changed`
   heredados de Cobranza o Canales que no conserven esa metadata minima de
   transicion.
-- Registro manual de envio solo con `external_ref` trazable no sensible y
-  revalidacion del gate abierto, identidad activa, destinatario y mandato
-  operativo activo.
+- Registro manual de envio solo con `external_ref` trazable no sensible,
+  normalizado antes de persistir, y revalidacion del gate abierto, identidad
+  activa, destinatario y mandato operativo activo.
 - `MensajeSaliente.clean()` bloquea nuevas escrituras en estado `preparado` o
   `enviado` sin gate abierto, readiness Email, identidad activa, destinatario,
   mandato operativo activo, contexto WhatsApp valido o formalizacion
   documental cuando corresponda; mensajes `enviado` requieren `external_ref`
-  trazable no sensible y timestamp de envio.
+  trazable no sensible normalizado y timestamp de envio.
 - Mensajes preparados o enviados asociados a un contrato o documento
   contractual solo pueden usar una `IdentidadDeEnvio` autorizada para ese
   contrato: override explicito del contrato o asignacion activa del mandato
@@ -303,7 +303,8 @@ condicionados sin envios reales accidentales.
   salientes rechazan nuevas escrituras con `provider_payload` que contenga
   URLs, tokens, credenciales, correos o claves sensibles. Los motivos de
   bloqueo de mensajes salientes tampoco pueden contener referencias sensibles,
-  y API/snapshot deben redactar motivos heredados antes de exponerlos. Los
+  se normalizan antes de persistir, y API/snapshot deben redactar motivos
+  heredados antes de exponerlos. Los
   mensajes enviados tambien se rechazan sin `external_ref` no sensible, sin
   timestamp de envio, sin evento auditable de envio manual o con evento sin
   actor/`external_ref` trazable alineado.
