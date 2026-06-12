@@ -370,6 +370,27 @@ class CanalesAPITests(APITestCase):
             'email-readiness-validado-controlled',
         )
 
+    def test_channel_gate_normalizes_evidence_ref_before_persisting(self):
+        response = self.client.post(
+            reverse('canales-gate-list'),
+            {
+                'canal': 'email',
+                'provider_key': 'gmail_api',
+                'estado_gate': 'abierto',
+                'restricciones_operativas': {
+                    'prueba_aislada_ref': 'email-readiness-controlled',
+                    'oauth_validado_ref': 'oauth-readiness-controlled',
+                },
+                'evidencia_ref': '  email-gate-evidence-normalized  ',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['evidencia_ref'], 'email-gate-evidence-normalized')
+        gate = CanalMensajeria.objects.get(pk=response.data['id'])
+        self.assertEqual(gate.evidencia_ref, 'email-gate-evidence-normalized')
+
     def test_channel_gate_create_rolls_back_when_view_audit_fails(self):
         audit_count = AuditEvent.objects.count()
 
