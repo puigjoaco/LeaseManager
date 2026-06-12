@@ -291,6 +291,11 @@ condicionados sin envios reales accidentales.
   `return_url_ref`, `provider_payload`, `motivo_bloqueo` de intentos WebPay,
   `motivo_estado` de notificaciones de cobranza y `storage_ref` documental
   expuesto por snapshot de Canales, sin abrir integraciones externas.
+- Los modelos de Canales normalizan refs/textos operativos antes de
+  `full_clean()` y antes de persistir por rutas internas: `evidencia_ref`,
+  `evidencia_configuracion_ref`, `destinatario`, `external_ref`,
+  `motivo_bloqueo` y `motivo_estado`. Esto evita que espacios crudos disparen
+  validadores de longitud antes de canonizar la referencia no sensible.
 - El snapshot y backoffice de Canales deben exponer la traza operativa de
   mensajes salientes sin llamar proveedores externos: gate/canal, identidad de
   envio, contrato, arrendatario, documento, usuario, `enviado_at`,

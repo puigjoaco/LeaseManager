@@ -184,6 +184,19 @@ class TimestampedModel(models.Model):
         abstract = True
 
 
+class OperationalChannelTextNormalizationMixin:
+    def _normalize_operational_fields(self):
+        return None
+
+    def full_clean(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().full_clean(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        self._normalize_operational_fields()
+        super().save(*args, **kwargs)
+
+
 class EstadoGateCanal(models.TextChoices):
     OPEN = 'abierto', 'Abierto'
     CONDITIONED = 'condicionado', 'Condicionado'
@@ -205,7 +218,7 @@ class EstadoNotificacionCobranza(models.TextChoices):
     SKIPPED = 'omitida', 'Omitida'
 
 
-class CanalMensajeria(TimestampedModel):
+class CanalMensajeria(OperationalChannelTextNormalizationMixin, TimestampedModel):
     canal = models.CharField(max_length=16, choices=CanalOperacion.choices, unique=True)
     provider_key = models.CharField(max_length=64)
     estado_gate = models.CharField(max_length=16, choices=EstadoGateCanal.choices, default=EstadoGateCanal.CONDITIONED)
@@ -218,9 +231,12 @@ class CanalMensajeria(TimestampedModel):
     def __str__(self):
         return self.canal
 
+    def _normalize_operational_fields(self):
+        self.evidencia_ref = (self.evidencia_ref or '').strip()
+
     def clean(self):
         super().clean()
-        self.evidencia_ref = (self.evidencia_ref or '').strip()
+        self._normalize_operational_fields()
         if self.evidencia_ref and not is_non_sensitive_reference(self.evidencia_ref):
             raise ValidationError({'evidencia_ref': 'evidencia_ref debe ser una referencia no sensible.'})
         if gate_restrictions_contain_sensitive_reference(self.restricciones_operativas):
@@ -252,7 +268,7 @@ class CanalMensajeria(TimestampedModel):
                 )
 
 
-class ConfiguracionNotificacionContrato(TimestampedModel):
+class ConfiguracionNotificacionContrato(OperationalChannelTextNormalizationMixin, TimestampedModel):
     contrato = models.ForeignKey(
         Contrato,
         on_delete=models.CASCADE,
@@ -291,13 +307,16 @@ class ConfiguracionNotificacionContrato(TimestampedModel):
             mandato_operacion__estado=EstadoMandatoOperacion.ACTIVE,
         ).exists()
 
+    def _normalize_operational_fields(self):
+        self.evidencia_configuracion_ref = (self.evidencia_configuracion_ref or '').strip()
+
     def clean(self):
         super().clean()
         try:
             self.dias_notificacion = normalize_notification_days(self.dias_notificacion)
         except ValueError as error:
             raise ValidationError({'dias_notificacion': str(error)})
-        self.evidencia_configuracion_ref = (self.evidencia_configuracion_ref or '').strip()
+        self._normalize_operational_fields()
 
         if self.activa and not self.dias_notificacion:
             raise ValidationError({'dias_notificacion': 'La configuracion activa requiere al menos un dia.'})
@@ -327,11 +346,10 @@ class ConfiguracionNotificacionContrato(TimestampedModel):
 
     def save(self, *args, **kwargs):
         self.dias_notificacion = normalize_notification_days(self.dias_notificacion)
-        self.evidencia_configuracion_ref = (self.evidencia_configuracion_ref or '').strip()
         super().save(*args, **kwargs)
 
 
-class MensajeSaliente(TimestampedModel):
+class MensajeSaliente(OperationalChannelTextNormalizationMixin, TimestampedModel):
     canal = models.CharField(max_length=16, choices=CanalOperacion.choices)
     canal_mensajeria = models.ForeignKey(
         CanalMensajeria,
@@ -484,7 +502,7 @@ class MensajeSaliente(TimestampedModel):
         super().save(*args, **kwargs)
 
 
-class NotificacionCobranzaProgramada(TimestampedModel):
+class NotificacionCobranzaProgramada(OperationalChannelTextNormalizationMixin, TimestampedModel):
     pago_mensual = models.ForeignKey(
         PagoMensual,
         on_delete=models.CASCADE,
@@ -524,9 +542,12 @@ class NotificacionCobranzaProgramada(TimestampedModel):
     def __str__(self):
         return f'{self.pago_mensual_id} - {self.canal} - {self.fecha_programada}'
 
+    def _normalize_operational_fields(self):
+        self.motivo_estado = (self.motivo_estado or '').strip()
+
     def clean(self):
         super().clean()
-        self.motivo_estado = (self.motivo_estado or '').strip()
+        self._normalize_operational_fields()
         errors = {}
         if self.configuracion_id:
             if self.canal != self.configuracion.canal:
@@ -591,6 +612,5 @@ class NotificacionCobranzaProgramada(TimestampedModel):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
-        self.motivo_estado = (self.motivo_estado or '').strip()
         super().save(*args, **kwargs)
 
