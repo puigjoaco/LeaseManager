@@ -1159,6 +1159,28 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['traceability']['code'], 'reporting.books_snapshot_not_approved')
 
+    def test_period_books_summary_blocks_missing_snapshot_for_close(self):
+        _, empresa, _, _, _, _ = self._create_context('BOOKSNOSNAPSHOT')
+        CierreMensualContable.objects.create(empresa=empresa, anio=2026, mes=1, estado='aprobado')
+        LibroDiario.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            resumen={'asientos': [{'id': 1}]},
+        )
+        BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            resumen={'total_debe': '100.00', 'total_haber': '100.00', 'cuadrado': True},
+        )
+
+        response = self.client.get(f"{reverse('reporting-libros-periodo')}?empresa_id={empresa.id}&periodo=2026-01")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.books_snapshot_missing_for_close')
+        self.assertEqual(response.data['traceability']['details']['faltantes'], ['libro_mayor'])
+
     def test_period_books_summary_blocks_snapshot_without_summary(self):
         _, empresa, _, _, _, _ = self._create_context('BOOKSNOSUM')
         CierreMensualContable.objects.create(empresa=empresa, anio=2026, mes=1, estado='aprobado')
