@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Reporting Etapa 7: alinear codigos API de libros por periodo con readiness. |
-| Fuente exacta | `main` limpio tras mergear PR #792 (`0fc826e9`); rescue queda pausado fuera de alcance. |
-| Brecha activa | `_assert_period_books_traceability()` usa `reporting.books_snapshot_without_summary` y `reporting.books_balance_not_balanced`, mientras `audit_stage7_reporting_readiness` clasifica los mismos casos como `stage7.reporting.books_snapshot_summary_missing` y `stage7.reporting.books_balance_not_square`. |
-| Motivo de prioridad | Cierra una discrepancia local, pequena y verificable entre API Reporting de libros y readiness Etapa 7, sin datos reales, banco, SII, snapshots ni integraciones externas. |
-| Worktree | `D:/Proyectos/LeaseManager-stage7-books-code-alignment`. |
-| Rama | `codex/stage7-books-code-alignment`. |
-| Estado | En implementacion. |
-| Gate esperado | Focal Reporting libros + readiness Etapa 7; suite impactada Reporting/readiness; `manage.py check`; migraciones dry-run; gate Etapa 7 local parcial; frontend build/lint; acceptance local; higiene y `git diff --check`; CI GitHub antes de merge. |
-| Estado al cerrar paquete | Pendiente. |
+| Frente activo | Sin paquete tactico abierto tras integrar PR #793: API de libros por periodo usa codigos alineados con readiness. |
+| Fuente exacta | PR #793 preparado desde `main` limpio `0fc826e9`; commit de paquete `10e8106`. Rescue queda pausado fuera de alcance. |
+| Brecha activa | Ninguna tras integrar PR #793: `_assert_period_books_traceability()` usa `reporting.books_snapshot_summary_missing` y `reporting.books_balance_not_square`, en correspondencia con `audit_stage7_reporting_readiness`. |
+| Motivo de prioridad | Mantener un punto de reanudacion estable que no reabra paquetes ya mergeados ni transforme contexto auxiliar en trabajo nuevo. |
+| Worktree | Ninguno de producto activo tras mergear PR #793. |
+| Rama | `main` tras mergear PR #793. |
+| Estado | Listo para seleccionar el siguiente frente seguro tras mergear PR #793. |
+| Gate esperado | Antes de abrir un nuevo paquete: leer este cursor, confirmar `git status --short --branch` y `git worktree list`, diagnosticar PRD/stage cards/trazabilidad, y abrir worktree `codex/...` si el cambio no es trivial. |
+| Estado al cerrar paquete | PR #793 preparado con focal Reporting libros (3 tests OK), suite Reporting/readiness Etapa 7 (68 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1340 tests OK), higiene y `git diff --check`. |
 | Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales de Reporting. |
-| Politica de reanudacion | Si se reanuda con este worktree activo, terminar este paquete antes de abrir otro frente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Alinear codigos API de libros, agregar pruebas focales, actualizar stage card/trazabilidad/evidencia y validar. |
+| Politica de reanudacion | No rehacer PR #793 ni redactar de nuevo el goal. Confirmar estado real del repo y seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Tras mergear PR #793 y sincronizar `main`, diagnosticar el siguiente frente seguro desde PRD/stage cards/trazabilidad y abrir un paquete pequeno, verificable y trazable. |
 
 ## Actualizacion
 
