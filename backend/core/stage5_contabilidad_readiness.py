@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import ValidationError
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from contabilidad.models import (
@@ -109,6 +109,26 @@ def _count_rules_without_active_matrix(rules) -> int:
     count = 0
     for rule in rules:
         if not rule.lineas_matriz.filter(estado=EstadoRegistro.ACTIVE).exists():
+            count += 1
+    return count
+
+
+def _count_overlapping_active_rule_windows(rules) -> int:
+    count = 0
+    for rule in rules:
+        overlapping_rules = ReglaContable.objects.filter(
+            empresa_id=rule.empresa_id,
+            evento_tipo=rule.evento_tipo,
+            plan_cuentas_version=rule.plan_cuentas_version,
+            estado=EstadoRegistro.ACTIVE,
+        ).filter(
+            Q(vigencia_hasta__isnull=True) | Q(vigencia_hasta__gte=rule.vigencia_desde)
+        )
+        if rule.vigencia_hasta:
+            overlapping_rules = overlapping_rules.filter(vigencia_desde__lte=rule.vigencia_hasta)
+        if rule.pk:
+            overlapping_rules = overlapping_rules.exclude(pk=rule.pk)
+        if overlapping_rules.exists():
             count += 1
     return count
 
@@ -264,6 +284,7 @@ def collect_stage5_contabilidad_readiness(
     invalid_rules = _count_invalid(active_rules)
     invalid_matrices = _count_invalid(active_matrices)
     rules_without_active_matrix = _count_rules_without_active_matrix(active_rules)
+    overlapping_active_rule_windows = _count_overlapping_active_rule_windows(active_rules)
     internal_transfers = TransferenciaIntercuenta.objects.select_related(
         'movimiento_origen__conexion_bancaria__cuenta_recaudadora',
         'movimiento_destino__conexion_bancaria__cuenta_recaudadora',
@@ -521,6 +542,14 @@ def collect_stage5_contabilidad_readiness(
                 'stage5.rules_without_matrix',
                 'Existen reglas contables activas sin linea de matriz activa.',
                 count=rules_without_active_matrix,
+            )
+        )
+    if overlapping_active_rule_windows:
+        issues.append(
+            _issue(
+                'stage5.rules_overlapping_vigencia',
+                'Existen reglas contables activas con vigencias solapadas para la misma empresa, tipo y plan.',
+                count=overlapping_active_rule_windows,
             )
         )
     if internal_transfer_accounting_event_gaps:
@@ -876,6 +905,7 @@ def collect_stage5_contabilidad_readiness(
                 'invalid_rules': invalid_rules,
                 'invalid_matrices': invalid_matrices,
                 'rules_without_active_matrix': rules_without_active_matrix,
+                'overlapping_active_rule_windows': overlapping_active_rule_windows,
             },
             'ledger': {
                 'events_total': events.count(),
