@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-13: Reporting/Etapa 7 alinea la API tributaria anual con
+readiness para documentos DDJJ/F22 faltantes o sin resumen. El endpoint anual
+ahora separa `reporting.annual_ddjj_missing_for_process`,
+`reporting.annual_f22_missing_for_process`,
+`reporting.annual_ddjj_summary_missing` y
+`reporting.annual_f22_summary_missing`, en correspondencia con los codigos
+`stage7.reporting.annual_*` equivalentes del auditor de readiness.
+
 Nota 2026-06-13: Reporting/Etapa 7 alinea la API de libros por periodo con
 readiness. `_assert_period_books_traceability()` ahora usa
 `reporting.books_snapshot_summary_missing` y `reporting.books_balance_not_square`
