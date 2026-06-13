@@ -206,7 +206,7 @@ class F29StatusSerializer(serializers.Serializer):
 
 
 class ProcesoRentaAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('paquete_ddjj_ref', 'borrador_f22_ref')
+    redacted_reference_fields = ('paquete_ddjj_ref', 'borrador_f22_ref', 'responsable_revision_ref')
     redacted_payload_fields = ('resumen_anual',)
 
     class Meta:
@@ -220,6 +220,7 @@ class ProcesoRentaAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.Mod
             'resumen_anual',
             'paquete_ddjj_ref',
             'borrador_f22_ref',
+            'responsable_revision_ref',
             'created_at',
             'updated_at',
         )
@@ -227,7 +228,7 @@ class ProcesoRentaAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.Mod
 
 
 class DDJJPreparacionAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('paquete_ref',)
+    redacted_reference_fields = ('paquete_ref', 'responsable_revision_ref')
     redacted_payload_fields = ('resumen_paquete',)
     redacted_text_fields = ('observaciones',)
 
@@ -242,6 +243,7 @@ class DDJJPreparacionAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.
             'estado_preparacion',
             'resumen_paquete',
             'paquete_ref',
+            'responsable_revision_ref',
             'observaciones',
             'created_at',
             'updated_at',
@@ -250,7 +252,7 @@ class DDJJPreparacionAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.
 
 
 class F22PreparacionAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('borrador_ref',)
+    redacted_reference_fields = ('borrador_ref', 'responsable_revision_ref')
     redacted_payload_fields = ('resumen_f22',)
     redacted_text_fields = ('observaciones',)
 
@@ -265,6 +267,7 @@ class F22PreparacionAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.M
             'estado_preparacion',
             'resumen_f22',
             'borrador_ref',
+            'responsable_revision_ref',
             'observaciones',
             'created_at',
             'updated_at',
@@ -287,4 +290,5 @@ class AnnualGenerateSerializer(serializers.Serializer):
 class AnnualStatusSerializer(serializers.Serializer):
     estado_preparacion = serializers.ChoiceField(choices=F22PreparacionAnual._meta.get_field('estado_preparacion').choices)
     ref_value = serializers.CharField(required=False, allow_blank=True)
+    responsable_revision_ref = serializers.CharField(required=False, allow_blank=True)
     observaciones = serializers.CharField(required=False, allow_blank=True)

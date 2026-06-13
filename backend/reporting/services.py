@@ -903,6 +903,48 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
             },
         )
 
+    for process in processes:
+        if process.estado in ANNUAL_STATES_REQUIRING_REF and not _has_text(process.responsable_revision_ref):
+            _raise_traceability_error(
+                'reporting.annual_process_responsible_ref_missing',
+                'El reporte tributario anual requiere responsable_revision_ref para procesos aprobados, observados, rectificados o presentados.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if _sensitive_reference(process.responsable_revision_ref):
+            _raise_traceability_error(
+                'reporting.annual_process_responsible_ref_sensitive',
+                'El reporte tributario anual no puede exponer ni validar responsable_revision_ref sensible del proceso anual.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+
+        ddjj = ddjj_by_process[process.id]
+        if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not _has_text(ddjj.responsable_revision_ref):
+            _raise_traceability_error(
+                'reporting.annual_ddjj_responsible_ref_missing',
+                'El reporte tributario anual requiere responsable_revision_ref para DDJJ aprobada, observada, rectificada o presentada.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if _sensitive_reference(ddjj.responsable_revision_ref):
+            _raise_traceability_error(
+                'reporting.annual_ddjj_responsible_ref_sensitive',
+                'El reporte tributario anual no puede validar responsable_revision_ref sensible de DDJJ.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+
+        f22 = f22_by_process[process.id]
+        if f22.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not _has_text(f22.responsable_revision_ref):
+            _raise_traceability_error(
+                'reporting.annual_f22_responsible_ref_missing',
+                'El reporte tributario anual requiere responsable_revision_ref para F22 aprobado, observado, rectificado o presentado.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if _sensitive_reference(f22.responsable_revision_ref):
+            _raise_traceability_error(
+                'reporting.annual_f22_responsible_ref_sensitive',
+                'El reporte tributario anual no puede validar responsable_revision_ref sensible de F22.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+
     return _traceability_payload(
         report_type='tributario_anual',
         sources=['ProcesoRentaAnual', 'DDJJPreparacionAnual', 'F22PreparacionAnual', 'ObligacionTributariaMensual'],

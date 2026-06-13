@@ -202,6 +202,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
             resumen_anual=summary,
             paquete_ddjj_ref='ddjj-package-stage6-controlled',
             borrador_f22_ref='f22-draft-stage6-controlled',
+            responsable_revision_ref='stage6-review-owner-controlled',
         )
         DDJJPreparacionAnual.objects.create(
             empresa=empresa,
@@ -211,6 +212,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
             estado_preparacion=EstadoPreparacionTributaria.APPROVED,
             resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': summary},
             paquete_ref='ddjj-package-stage6-controlled',
+            responsable_revision_ref='stage6-review-owner-ddjj',
         )
         F22PreparacionAnual.objects.create(
             empresa=empresa,
@@ -220,6 +222,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
             estado_preparacion=EstadoPreparacionTributaria.APPROVED,
             resumen_f22={'resumen_anual': summary, 'regimen_tributario': 'propyme-general-v1'},
             borrador_ref='f22-draft-stage6-controlled',
+            responsable_revision_ref='stage6-review-owner-f22',
         )
         self._create_tax_support_document(process)
         return empresa
@@ -552,14 +555,38 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertIn('stage6.ddjj_presented_boundary', issue_codes)
         self.assertIn('stage6.f22_presented_boundary', issue_codes)
 
+    def test_approved_annual_artifacts_without_review_responsible_are_blocking(self):
+        self._create_valid_local_matrix()
+        ProcesoRentaAnual.objects.update(responsable_revision_ref='')
+        DDJJPreparacionAnual.objects.update(responsable_revision_ref='')
+        F22PreparacionAnual.objects.update(responsable_revision_ref='')
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_responsible_ref_missing', issue_codes)
+        self.assertIn('stage6.ddjj_responsible_ref_missing', issue_codes)
+        self.assertIn('stage6.f22_responsible_ref_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_process']['process_responsible_ref_missing'], 1)
+        self.assertEqual(result['sections']['annual_documents']['ddjj_responsible_ref_missing'], 1)
+        self.assertEqual(result['sections']['annual_documents']['f22_responsible_ref_missing'], 1)
+
     def test_sensitive_annual_final_refs_are_classified_explicitly(self):
         self._create_valid_local_matrix()
         ProcesoRentaAnual.objects.update(
             paquete_ddjj_ref='https://sii.example.test/ddjj?token=secret',
             borrador_f22_ref='https://sii.example.test/f22?token=secret',
+            responsable_revision_ref='https://sii.example.test/user?token=secret',
         )
-        DDJJPreparacionAnual.objects.update(paquete_ref='https://sii.example.test/ddjj?token=secret')
-        F22PreparacionAnual.objects.update(borrador_ref='https://sii.example.test/f22?token=secret')
+        DDJJPreparacionAnual.objects.update(
+            paquete_ref='https://sii.example.test/ddjj?token=secret',
+            responsable_revision_ref='https://sii.example.test/user?token=secret',
+        )
+        F22PreparacionAnual.objects.update(
+            borrador_ref='https://sii.example.test/f22?token=secret',
+            responsable_revision_ref='https://sii.example.test/user?token=secret',
+        )
 
         result = self._collect_with_final_refs()
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -567,12 +594,18 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.process_ddjj_ref_sensitive', issue_codes)
         self.assertIn('stage6.process_f22_ref_sensitive', issue_codes)
+        self.assertIn('stage6.process_responsible_ref_sensitive', issue_codes)
         self.assertIn('stage6.ddjj_ref_sensitive', issue_codes)
         self.assertIn('stage6.f22_ref_sensitive', issue_codes)
+        self.assertIn('stage6.ddjj_responsible_ref_sensitive', issue_codes)
+        self.assertIn('stage6.f22_responsible_ref_sensitive', issue_codes)
         self.assertEqual(result['sections']['annual_process']['process_ddjj_ref_sensitive'], 1)
         self.assertEqual(result['sections']['annual_process']['process_f22_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_process']['process_responsible_ref_sensitive'], 1)
         self.assertEqual(result['sections']['annual_documents']['ddjj_ref_sensitive'], 1)
         self.assertEqual(result['sections']['annual_documents']['f22_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_documents']['ddjj_responsible_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_documents']['f22_responsible_ref_sensitive'], 1)
         self.assertNotIn('token=secret', json.dumps(result))
 
     def test_tax_support_document_must_be_valid_pdf(self):

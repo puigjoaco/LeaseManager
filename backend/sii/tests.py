@@ -460,6 +460,7 @@ class SiiAPITests(APITestCase):
 
         process_ddjj_ref = sized_ref('annual-ddjj-', 255, 'd')
         process_f22_ref = sized_ref('annual-f22-', 255, 'z')
+        process_responsible_ref = sized_ref('annual-review-', 255, 'r')
         process = ProcesoRentaAnual(
             empresa=empresa,
             anio_tributario=2027,
@@ -467,14 +468,17 @@ class SiiAPITests(APITestCase):
             resumen_anual={'source': 'controlled'},
             paquete_ddjj_ref=f'   {process_ddjj_ref}   ',
             borrador_f22_ref=f'   {process_f22_ref}   ',
+            responsable_revision_ref=f'   {process_responsible_ref}   ',
         )
         process.full_clean()
         self.assertEqual(process.paquete_ddjj_ref, process_ddjj_ref)
         self.assertEqual(process.borrador_f22_ref, process_f22_ref)
+        self.assertEqual(process.responsable_revision_ref, process_responsible_ref)
         process.save()
         stored_process = ProcesoRentaAnual.objects.get(pk=process.pk)
         self.assertEqual(stored_process.paquete_ddjj_ref, process_ddjj_ref)
         self.assertEqual(stored_process.borrador_f22_ref, process_f22_ref)
+        self.assertEqual(stored_process.responsable_revision_ref, process_responsible_ref)
 
         ddjj_capability = CapacidadTributariaSII.objects.create(
             empresa=empresa,
@@ -493,6 +497,7 @@ class SiiAPITests(APITestCase):
             ultimo_resultado={},
         )
         ddjj_ref = sized_ref('ddjj-package-', 255, 'j')
+        ddjj_responsible_ref = sized_ref('ddjj-review-', 255, 'j')
         ddjj = DDJJPreparacionAnual(
             empresa=empresa,
             capacidad_tributaria=ddjj_capability,
@@ -501,17 +506,21 @@ class SiiAPITests(APITestCase):
             estado_preparacion='aprobado_para_presentacion',
             resumen_paquete={'source': 'controlled'},
             paquete_ref=f'   {ddjj_ref}   ',
+            responsable_revision_ref=f'   {ddjj_responsible_ref}   ',
             observaciones='   paquete ddjj preparado   ',
         )
         ddjj.full_clean()
         self.assertEqual(ddjj.paquete_ref, ddjj_ref)
+        self.assertEqual(ddjj.responsable_revision_ref, ddjj_responsible_ref)
         self.assertEqual(ddjj.observaciones, 'paquete ddjj preparado')
         ddjj.save()
         stored_ddjj = DDJJPreparacionAnual.objects.get(pk=ddjj.pk)
         self.assertEqual(stored_ddjj.paquete_ref, ddjj_ref)
+        self.assertEqual(stored_ddjj.responsable_revision_ref, ddjj_responsible_ref)
         self.assertEqual(stored_ddjj.observaciones, 'paquete ddjj preparado')
 
         f22_ref = sized_ref('f22-draft-', 255, 'b')
+        f22_responsible_ref = sized_ref('f22-review-', 255, 'b')
         f22 = F22PreparacionAnual(
             empresa=empresa,
             capacidad_tributaria=f22_capability,
@@ -520,14 +529,17 @@ class SiiAPITests(APITestCase):
             estado_preparacion='aprobado_para_presentacion',
             resumen_f22={'source': 'controlled'},
             borrador_ref=f'   {f22_ref}   ',
+            responsable_revision_ref=f'   {f22_responsible_ref}   ',
             observaciones='   f22 preparado   ',
         )
         f22.full_clean()
         self.assertEqual(f22.borrador_ref, f22_ref)
+        self.assertEqual(f22.responsable_revision_ref, f22_responsible_ref)
         self.assertEqual(f22.observaciones, 'f22 preparado')
         f22.save()
         stored_f22 = F22PreparacionAnual.objects.get(pk=f22.pk)
         self.assertEqual(stored_f22.borrador_ref, f22_ref)
+        self.assertEqual(stored_f22.responsable_revision_ref, f22_responsible_ref)
         self.assertEqual(stored_f22.observaciones, 'f22 preparado')
 
     def test_generate_dte_draft_rolls_back_when_view_audit_fails(self):
@@ -659,6 +671,7 @@ class SiiAPITests(APITestCase):
                     {
                         'estado_preparacion': 'aprobado_para_presentacion',
                         'ref_value': 'ddjj-2027',
+                        'responsable_revision_ref': 'tax-reviewer-ddjj-2027',
                         'observaciones': 'Paquete DDJJ listo.',
                     },
                     format='json',
@@ -2298,6 +2311,7 @@ class SiiAPITests(APITestCase):
             {
                 'estado_preparacion': 'aprobado_para_presentacion',
                 'ref_value': 'ddjj-2027',
+                'responsable_revision_ref': 'tax-reviewer-ddjj-2027',
                 'observaciones': 'Paquete DDJJ listo.',
             },
             format='json',
@@ -2305,6 +2319,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(ddjj_status.status_code, status.HTTP_200_OK)
         self.assertEqual(ddjj_status.data['estado_preparacion'], 'aprobado_para_presentacion')
         self.assertEqual(ddjj_status.data['paquete_ref'], 'ddjj-2027')
+        self.assertEqual(ddjj_status.data['responsable_revision_ref'], 'tax-reviewer-ddjj-2027')
         ddjj_event = AuditEvent.objects.get(
             event_type='sii.ddjj_preparacion.status_updated',
             entity_type='ddjj_preparacion',
@@ -2322,6 +2337,7 @@ class SiiAPITests(APITestCase):
             {
                 'estado_preparacion': 'aprobado_para_presentacion',
                 'ref_value': 'f22-2027',
+                'responsable_revision_ref': 'tax-reviewer-f22-2027',
                 'observaciones': 'Borrador F22 listo.',
             },
             format='json',
@@ -2329,6 +2345,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(f22_status.status_code, status.HTTP_200_OK)
         self.assertEqual(f22_status.data['estado_preparacion'], 'aprobado_para_presentacion')
         self.assertEqual(f22_status.data['borrador_ref'], 'f22-2027')
+        self.assertEqual(f22_status.data['responsable_revision_ref'], 'tax-reviewer-f22-2027')
         f22_event = AuditEvent.objects.get(
             event_type='sii.f22_preparacion.status_updated',
             entity_type='f22_preparacion',
@@ -2347,8 +2364,35 @@ class SiiAPITests(APITestCase):
 
         self.assertEqual(process.paquete_ddjj_ref, 'ddjj-2027')
         self.assertEqual(process.borrador_f22_ref, 'f22-2027')
+        self.assertEqual(process.responsable_revision_ref, 'tax-reviewer-f22-2027')
         self.assertEqual(ddjj.estado_preparacion, 'aprobado_para_presentacion')
+        self.assertEqual(ddjj.responsable_revision_ref, 'tax-reviewer-ddjj-2027')
         self.assertEqual(f22.estado_preparacion, 'aprobado_para_presentacion')
+        self.assertEqual(f22.responsable_revision_ref, 'tax-reviewer-f22-2027')
+
+    def test_annual_status_requires_review_responsible_for_approved_state(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('sii-ddjj-status', args=[generated.data['ddjj_preparacion']['id']]),
+            {
+                'estado_preparacion': 'aprobado_para_presentacion',
+                'ref_value': 'ddjj-2027',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('responsable_revision_ref', response.data['detail'])
 
     def test_annual_status_rechecks_gate_for_prepared_state(self):
         empresa, _ = self._setup_paid_payment()

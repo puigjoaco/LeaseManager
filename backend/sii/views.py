@@ -214,6 +214,7 @@ class SiiSnapshotView(APIView):
                         'anio_tributario': item.anio_tributario,
                         'estado': item.estado,
                         'fecha_preparacion': item.fecha_preparacion,
+                        'responsable_revision_ref': redact_sensitive_reference(item.responsable_revision_ref),
                     }
                     for item in procesos
                 ],
@@ -224,6 +225,7 @@ class SiiSnapshotView(APIView):
                         'anio_tributario': item.anio_tributario,
                         'estado_preparacion': item.estado_preparacion,
                         'paquete_ref': redact_sensitive_reference(item.paquete_ref),
+                        'responsable_revision_ref': redact_sensitive_reference(item.responsable_revision_ref),
                         'observaciones': redact_sensitive_reference(item.observaciones),
                     }
                     for item in ddjjs
@@ -235,6 +237,7 @@ class SiiSnapshotView(APIView):
                         'anio_tributario': item.anio_tributario,
                         'estado_preparacion': item.estado_preparacion,
                         'borrador_ref': redact_sensitive_reference(item.borrador_ref),
+                        'responsable_revision_ref': redact_sensitive_reference(item.responsable_revision_ref),
                         'observaciones': redact_sensitive_reference(item.observaciones),
                     }
                     for item in f22s
@@ -520,6 +523,7 @@ class DDJJStatusUpdateView(APIView):
                         previous_state=previous_state,
                         current_field='estado_preparacion',
                         current_state=document.estado_preparacion,
+                        extra={'responsable_revision_ref': redact_sensitive_reference(document.responsable_revision_ref)},
                     ),
                 )
         except ValueError as error:
@@ -557,6 +561,7 @@ class F22StatusUpdateView(APIView):
                         previous_state=previous_state,
                         current_field='estado_preparacion',
                         current_state=document.estado_preparacion,
+                        extra={'responsable_revision_ref': redact_sensitive_reference(document.responsable_revision_ref)},
                     ),
                 )
         except ValueError as error:

@@ -117,6 +117,16 @@ def _add_required_tax_reference_error(errors, instance, field_name, state_field_
         )
 
 
+def _add_required_review_responsible_error(errors, instance, state_field_name):
+    state = getattr(instance, state_field_name, '')
+    field_name = 'responsable_revision_ref'
+    if state in TAX_REFERENCE_REQUIRED_STATES and not has_text(getattr(instance, field_name, '')):
+        errors[field_name] = (
+            f'{field_name} es obligatorio para estados tributarios aprobados, '
+            'presentados, observados o rectificados.'
+        )
+
+
 def _add_non_sensitive_payload_error(errors, field_name, value):
     if value and contains_sensitive_reference(value, include_sensitive_keys=True):
         _add_error(
@@ -397,7 +407,7 @@ class F29PreparacionMensual(OperationalSIITextNormalizationMixin, TimestampedMod
 
 
 class ProcesoRentaAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
-    operational_text_fields = ('paquete_ddjj_ref', 'borrador_f22_ref')
+    operational_text_fields = ('paquete_ddjj_ref', 'borrador_f22_ref', 'responsable_revision_ref')
 
     empresa = models.ForeignKey(
         Empresa,
@@ -414,6 +424,7 @@ class ProcesoRentaAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
     resumen_anual = models.JSONField(default=dict, blank=True)
     paquete_ddjj_ref = models.CharField(max_length=255, blank=True)
     borrador_f22_ref = models.CharField(max_length=255, blank=True)
+    responsable_revision_ref = models.CharField(max_length=255, blank=True, default='')
 
     class Meta:
         ordering = ['empresa_id', '-anio_tributario']
@@ -429,8 +440,10 @@ class ProcesoRentaAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
         errors = {}
         _add_required_tax_reference_error(errors, self, 'paquete_ddjj_ref', 'estado')
         _add_required_tax_reference_error(errors, self, 'borrador_f22_ref', 'estado')
+        _add_required_review_responsible_error(errors, self, 'estado')
         _add_non_sensitive_reference_error(errors, self, 'paquete_ddjj_ref')
         _add_non_sensitive_reference_error(errors, self, 'borrador_f22_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsable_revision_ref')
         _add_active_fiscal_config_error(errors, self, 'ProcesoRentaAnual')
         _add_non_sensitive_payload_error(errors, 'resumen_anual', self.resumen_anual)
         _add_annual_summary_year_error(errors, 'resumen_anual', self.resumen_anual, self.anio_tributario)
@@ -439,7 +452,7 @@ class ProcesoRentaAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
 
 
 class DDJJPreparacionAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
-    operational_text_fields = ('paquete_ref', 'observaciones')
+    operational_text_fields = ('paquete_ref', 'responsable_revision_ref', 'observaciones')
 
     empresa = models.ForeignKey(
         Empresa,
@@ -464,6 +477,7 @@ class DDJJPreparacionAnual(OperationalSIITextNormalizationMixin, TimestampedMode
     )
     resumen_paquete = models.JSONField(default=dict, blank=True)
     paquete_ref = models.CharField(max_length=255, blank=True)
+    responsable_revision_ref = models.CharField(max_length=255, blank=True, default='')
     observaciones = models.TextField(blank=True)
 
     class Meta:
@@ -476,7 +490,9 @@ class DDJJPreparacionAnual(OperationalSIITextNormalizationMixin, TimestampedMode
         super().clean()
         errors = {}
         _add_required_tax_reference_error(errors, self, 'paquete_ref', 'estado_preparacion')
+        _add_required_review_responsible_error(errors, self, 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'paquete_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsable_revision_ref')
         _add_non_sensitive_text_error(errors, 'observaciones', self.observaciones)
         _add_active_fiscal_config_error(errors, self, 'DDJJ')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
@@ -492,7 +508,7 @@ class DDJJPreparacionAnual(OperationalSIITextNormalizationMixin, TimestampedMode
 
 
 class F22PreparacionAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
-    operational_text_fields = ('borrador_ref', 'observaciones')
+    operational_text_fields = ('borrador_ref', 'responsable_revision_ref', 'observaciones')
 
     empresa = models.ForeignKey(
         Empresa,
@@ -517,6 +533,7 @@ class F22PreparacionAnual(OperationalSIITextNormalizationMixin, TimestampedModel
     )
     resumen_f22 = models.JSONField(default=dict, blank=True)
     borrador_ref = models.CharField(max_length=255, blank=True)
+    responsable_revision_ref = models.CharField(max_length=255, blank=True, default='')
     observaciones = models.TextField(blank=True)
 
     class Meta:
@@ -529,7 +546,9 @@ class F22PreparacionAnual(OperationalSIITextNormalizationMixin, TimestampedModel
         super().clean()
         errors = {}
         _add_required_tax_reference_error(errors, self, 'borrador_ref', 'estado_preparacion')
+        _add_required_review_responsible_error(errors, self, 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsable_revision_ref')
         _add_non_sensitive_text_error(errors, 'observaciones', self.observaciones)
         _add_active_fiscal_config_error(errors, self, 'F22')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:

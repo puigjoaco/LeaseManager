@@ -187,11 +187,19 @@ class ProcesoRentaAnualAdmin(admin.ModelAdmin):
         'resumen_anual_redacted',
         'paquete_ddjj_ref_redacted',
         'borrador_f22_ref_redacted',
+        'responsable_revision_ref_redacted',
         'created_at',
         'updated_at',
     )
     readonly_fields = fields
-    list_display = ('empresa', 'anio_tributario', 'estado', 'paquete_ddjj_ref_redacted', 'borrador_f22_ref_redacted')
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'estado',
+        'paquete_ddjj_ref_redacted',
+        'borrador_f22_ref_redacted',
+        'responsable_revision_ref_redacted',
+    )
     list_filter = ('estado', 'anio_tributario')
     search_fields = ('empresa__razon_social',)
 
@@ -206,6 +214,10 @@ class ProcesoRentaAnualAdmin(admin.ModelAdmin):
     @admin.display(description='borrador_f22_ref')
     def borrador_f22_ref_redacted(self, obj):
         return _redacted_attr(obj, 'borrador_f22_ref')
+
+    @admin.display(description='responsable_revision_ref')
+    def responsable_revision_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsable_revision_ref')
 
     def has_add_permission(self, request):
         return False
@@ -227,12 +239,19 @@ class DDJJPreparacionAnualAdmin(AnnualTaxArtifactAdminMixin):
         'estado_preparacion',
         'resumen_paquete_redacted',
         'paquete_ref_redacted',
+        'responsable_revision_ref_redacted',
         'observaciones_redacted',
         'created_at',
         'updated_at',
     )
     readonly_fields = fields
-    list_display = ('empresa', 'anio_tributario', 'estado_preparacion', 'paquete_ref_redacted')
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'estado_preparacion',
+        'paquete_ref_redacted',
+        'responsable_revision_ref_redacted',
+    )
 
     @admin.display(description='resumen_paquete')
     def resumen_paquete_redacted(self, obj):
@@ -241,6 +260,10 @@ class DDJJPreparacionAnualAdmin(AnnualTaxArtifactAdminMixin):
     @admin.display(description='paquete_ref')
     def paquete_ref_redacted(self, obj):
         return _redacted_attr(obj, 'paquete_ref')
+
+    @admin.display(description='responsable_revision_ref')
+    def responsable_revision_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsable_revision_ref')
 
 
 @admin.register(F22PreparacionAnual)
@@ -253,12 +276,19 @@ class F22PreparacionAnualAdmin(AnnualTaxArtifactAdminMixin):
         'estado_preparacion',
         'resumen_f22_redacted',
         'borrador_ref_redacted',
+        'responsable_revision_ref_redacted',
         'observaciones_redacted',
         'created_at',
         'updated_at',
     )
     readonly_fields = fields
-    list_display = ('empresa', 'anio_tributario', 'estado_preparacion', 'borrador_ref_redacted')
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'estado_preparacion',
+        'borrador_ref_redacted',
+        'responsable_revision_ref_redacted',
+    )
 
     @admin.display(description='resumen_f22')
     def resumen_f22_redacted(self, obj):
@@ -267,3 +297,7 @@ class F22PreparacionAnualAdmin(AnnualTaxArtifactAdminMixin):
     @admin.display(description='borrador_ref')
     def borrador_ref_redacted(self, obj):
         return _redacted_attr(obj, 'borrador_ref')
+
+    @admin.display(description='responsable_revision_ref')
+    def responsable_revision_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsable_revision_ref')

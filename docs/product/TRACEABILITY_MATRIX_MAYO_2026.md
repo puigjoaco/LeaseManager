@@ -14,6 +14,12 @@ decide ni presenta renta/tributacion final de forma autonoma. La aprobacion o
 presentacion externa exige gate aplicable, responsable trazado y validacion
 experta/oficial cuando corresponda.
 
+Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
+local para artefactos anuales. `ProcesoRentaAnual`, DDJJ y F22 en estados
+aprobados, observados, rectificados o presentados requieren
+`responsable_revision_ref` no sensible; dominio/API/readiness/reporting bloquean
+refs faltantes o sensibles sin exponer secretos.
+
 Nota 2026-06-13: Reporting/Etapa 7 cubre en API los bloqueos de
 `ProcesoRentaAnual.borrador_f22_ref` faltante o sensible para procesos anuales
 finales. `_assert_annual_tax_traceability()` devuelve

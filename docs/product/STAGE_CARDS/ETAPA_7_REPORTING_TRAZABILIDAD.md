@@ -39,6 +39,11 @@ externa final.
   trazable. Estados aprobados, observados, rectificados o presentados requieren
   referencia externa trazable. Cada empresa incluida debe tener
   `ConfiguracionFiscalEmpresa` activa propia.
+- El resumen tributario anual tambien requiere `responsable_revision_ref` no
+  sensible para ProcesoRentaAnual, DDJJ y F22 en estados aprobados, observados,
+  rectificados o presentados. Si falta o contiene URL/token/credencial, la API
+  bloquea el reporte con codigos `reporting.annual_*_responsible_ref_*` sin
+  exponer el valor.
 - El resumen tributario anual es evidencia interna de trazabilidad del dossier;
   no declara presentacion anual final ni reemplaza revision experta/oficial.
 - La API de resumen tributario anual separa la falta de configuracion fiscal
@@ -85,6 +90,10 @@ externa final.
 - `audit_stage7_reporting_readiness` tambien clasifica explicitamente como
   bloqueantes las referencias finales sensibles de ProcesoRentaAnual, DDJJ y
   F22, sin exponer esos valores.
+- `audit_stage7_reporting_readiness` y la API anual clasifican como bloqueantes
+  los responsables de revision faltantes o sensibles en ProcesoRentaAnual,
+  DDJJ y F22 avanzados, manteniendo el reporte anual como evidencia interna
+  revisable, no como presentacion tributaria final.
 - `audit_stage7_reporting_readiness` clasifica explicitamente como bloqueantes
   DDJJ/F22 heredados asociados a un proceso anual de otra empresa o ano
   tributario.

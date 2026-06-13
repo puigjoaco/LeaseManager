@@ -149,6 +149,8 @@ def _collect_process_issues(processes) -> dict[str, int]:
             counts['process_ddjj_ref_sensitive'] += 1
         if _sensitive_reference(process.borrador_f22_ref):
             counts['process_f22_ref_sensitive'] += 1
+        if _sensitive_reference(process.responsable_revision_ref):
+            counts['process_responsible_ref_sensitive'] += 1
 
         summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
         fiscal_year = _annual_summary_fiscal_year(summary) or process.anio_tributario - 1
@@ -162,6 +164,8 @@ def _collect_process_issues(processes) -> dict[str, int]:
                 counts['process_ddjj_ref_missing'] += 1
             if not has_text(process.borrador_f22_ref):
                 counts['process_f22_ref_missing'] += 1
+            if not has_text(process.responsable_revision_ref):
+                counts['process_responsible_ref_missing'] += 1
 
     return dict(sorted(counts.items()))
 
@@ -195,8 +199,13 @@ def _collect_annual_document_issues(processes, ddjj_preparations, f22_preparatio
             counts['ddjj_sensitive_payload'] += 1
         if _sensitive_reference(ddjj.paquete_ref):
             counts['ddjj_ref_sensitive'] += 1
-        if ddjj.estado_preparacion in ANNUAL_REF_REQUIRED_STATES and not has_text(ddjj.paquete_ref):
-            counts['ddjj_ref_missing'] += 1
+        if _sensitive_reference(ddjj.responsable_revision_ref):
+            counts['ddjj_responsible_ref_sensitive'] += 1
+        if ddjj.estado_preparacion in ANNUAL_REF_REQUIRED_STATES:
+            if not has_text(ddjj.paquete_ref):
+                counts['ddjj_ref_missing'] += 1
+            if not has_text(ddjj.responsable_revision_ref):
+                counts['ddjj_responsible_ref_missing'] += 1
 
     for f22 in f22_preparations:
         try:
@@ -216,8 +225,13 @@ def _collect_annual_document_issues(processes, ddjj_preparations, f22_preparatio
             counts['f22_sensitive_payload'] += 1
         if _sensitive_reference(f22.borrador_ref):
             counts['f22_ref_sensitive'] += 1
-        if f22.estado_preparacion in ANNUAL_REF_REQUIRED_STATES and not has_text(f22.borrador_ref):
-            counts['f22_ref_missing'] += 1
+        if _sensitive_reference(f22.responsable_revision_ref):
+            counts['f22_responsible_ref_sensitive'] += 1
+        if f22.estado_preparacion in ANNUAL_REF_REQUIRED_STATES:
+            if not has_text(f22.borrador_ref):
+                counts['f22_ref_missing'] += 1
+            if not has_text(f22.responsable_revision_ref):
+                counts['f22_responsible_ref_missing'] += 1
 
     return dict(sorted(counts.items()))
 
@@ -508,6 +522,11 @@ def collect_stage6_renta_anual_readiness(
             'Proceso anual contiene borrador_f22_ref sensible.',
         ),
         (
+            'process_responsible_ref_sensitive',
+            'stage6.process_responsible_ref_sensitive',
+            'Proceso anual contiene responsable_revision_ref sensible.',
+        ),
+        (
             'twelve_closes_missing',
             'stage6.process_twelve_closes_missing',
             'Existen procesos anuales sin doce cierres aprobados del ano comercial.',
@@ -526,6 +545,11 @@ def collect_stage6_renta_anual_readiness(
             'process_f22_ref_missing',
             'stage6.process_f22_ref_missing',
             'Proceso anual aprobado/observado/rectificado requiere borrador_f22_ref.',
+        ),
+        (
+            'process_responsible_ref_missing',
+            'stage6.process_responsible_ref_missing',
+            'Proceso anual aprobado/observado/rectificado requiere responsable_revision_ref.',
         ),
     ]:
         if process_issues.get(key):
@@ -613,6 +637,16 @@ def collect_stage6_renta_anual_readiness(
             'F22 contiene borrador_ref sensible.',
         ),
         (
+            'ddjj_responsible_ref_sensitive',
+            'stage6.ddjj_responsible_ref_sensitive',
+            'DDJJ contiene responsable_revision_ref sensible.',
+        ),
+        (
+            'f22_responsible_ref_sensitive',
+            'stage6.f22_responsible_ref_sensitive',
+            'F22 contiene responsable_revision_ref sensible.',
+        ),
+        (
             'ddjj_ref_missing',
             'stage6.ddjj_ref_missing',
             'DDJJ aprobada, observada o rectificada requiere paquete_ref.',
@@ -621,6 +655,16 @@ def collect_stage6_renta_anual_readiness(
             'f22_ref_missing',
             'stage6.f22_ref_missing',
             'F22 aprobado, observado o rectificado requiere borrador_ref.',
+        ),
+        (
+            'ddjj_responsible_ref_missing',
+            'stage6.ddjj_responsible_ref_missing',
+            'DDJJ aprobada, observada o rectificada requiere responsable_revision_ref.',
+        ),
+        (
+            'f22_responsible_ref_missing',
+            'stage6.f22_responsible_ref_missing',
+            'F22 aprobado, observado o rectificado requiere responsable_revision_ref.',
         ),
     ]:
         if annual_document_issues.get(key):

@@ -40,6 +40,11 @@ responsable trazado y gate aplicable.
 - El dominio SII rechaza F29, ProcesoRentaAnual, DDJJ y F22 en estados
   aprobados, presentados, observados o rectificados si falta la referencia
   final trazable correspondiente.
+- El dominio SII rechaza ProcesoRentaAnual, DDJJ y F22 en estados aprobados,
+  presentados, observados o rectificados si falta `responsable_revision_ref` no
+  sensible. El responsable de revision queda separado de la referencia externa
+  del paquete para reforzar que LeaseManager prepara dossiers revisables, no
+  decide ni presenta renta final de forma autonoma.
 - Las APIs que generan ProcesoRentaAnual/DDJJ/F22 o actualizan estados DDJJ/F22
   persisten la mutacion y su auditoria de vista en una misma transaccion. Si
   falla la auditoria, no debe quedar proceso anual, preparacion ni referencia
@@ -52,6 +57,11 @@ responsable trazado y gate aplicable.
 - `audit_stage6_renta_anual_readiness` clasifica explicitamente como
   bloqueantes las referencias finales sensibles en ProcesoRentaAnual, DDJJ y
   F22, sin exponer esos valores.
+- `audit_stage6_renta_anual_readiness` clasifica explicitamente como
+  bloqueantes ProcesoRentaAnual, DDJJ o F22 avanzados sin
+  `responsable_revision_ref`, o con una referencia sensible, usando codigos
+  `stage6.*_responsible_ref_missing` y
+  `stage6.*_responsible_ref_sensitive`.
 - El dominio SII tambien rechaza ProcesoRentaAnual, DDJJ y F22 asociados a
   empresas sin `ConfiguracionFiscalEmpresa` activa propia.
 - Los payloads anuales y referencias de DDJJ/F22 heredadas se entregan a
