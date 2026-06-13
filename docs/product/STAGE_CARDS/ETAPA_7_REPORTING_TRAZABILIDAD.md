@@ -54,11 +54,11 @@ documentos o procesos tributarios trazables.
 - La API de resumen tributario anual trata referencias finales DDJJ/F22 vacias
   o compuestas solo por espacios como faltantes, incluso si provienen de datos
   heredados que saltaron la normalizacion del modelo.
-- La API de resumen tributario anual bloquea referencias finales DDJJ/F22
-  sensibles cuando el documento esta aprobado, observado, rectificado o
-  presentado, sin exponer el valor sensible en la respuesta.
+- La API de resumen tributario anual bloquea referencias DDJJ/F22 sensibles
+  heredadas en cualquier estado trazable, sin exponer el valor sensible en la
+  respuesta.
 - La API de resumen tributario anual bloquea payloads sensibles de
-  `ProcesoRentaAnual`, DDJJ y F22 cuando el artefacto ya esta en estado final,
+  `ProcesoRentaAnual`, DDJJ y F22 en cualquier estado trazable,
   manteniendo respuestas sin URLs, tokens, credenciales ni claves sensibles.
 - La API de resumen tributario anual bloquea consultas sin
   `ProcesoRentaAnual` incluido y documentos DDJJ/F22 heredados cuyo proceso
@@ -67,8 +67,9 @@ documentos o procesos tributarios trazables.
 - El `fiscal_year` reportado por `ProcesoRentaAnual`, DDJJ y F22 debe
   corresponder al ano comercial inmediatamente anterior al `anio_tributario`;
   la API bloquea reportes desalineados y readiness los marca como brecha.
-- El resumen tributario anual redacta `paquete_ref`, `borrador_ref` y payloads
-  anuales sensibles heredados antes de exponerlos al backoffice.
+- El resumen tributario anual bloquea `paquete_ref`, `borrador_ref` y payloads
+  anuales sensibles heredados antes de exponerlos al backoffice como reporte
+  valido.
 - `audit_stage7_reporting_readiness` reporta payloads anuales sensibles en
   `resumen_anual`, `resumen_paquete` y `resumen_f22` como brecha bloqueante de
   reporting, manteniendo solo conteos/codigos y sin exponer valores.
