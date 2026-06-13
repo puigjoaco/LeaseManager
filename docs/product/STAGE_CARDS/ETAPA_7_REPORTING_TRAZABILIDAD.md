@@ -45,8 +45,8 @@ documentos o procesos tributarios trazables.
 - La API de resumen tributario anual trata `obligaciones=[]` en
   `ProcesoRentaAnual.resumen_anual` como resumen incompleto; no entrega reporte
   verificado si el proceso no conserva obligaciones mensuales trazables.
-- La API de resumen tributario anual bloquea DDJJ y F22 que aun esten en
-  estados no trazables, aunque conserven resumen heredado.
+- La API de resumen tributario anual bloquea procesos anuales, DDJJ y F22 que
+  aun esten en estados no trazables, aunque conserven resumen heredado.
 - La API de resumen tributario anual usa codigos separados para procesos sin
   DDJJ, procesos sin F22, DDJJ sin resumen y F22 sin resumen, alineados con
   `audit_stage7_reporting_readiness`.

@@ -7,6 +7,11 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-13: Reporting/Etapa 7 cubre en API el bloqueo de procesos de
+renta anual sin estado trazable. `_assert_annual_tax_traceability()` devuelve
+`reporting.annual_process_not_traceable`, alineado con el codigo
+`stage7.reporting.annual_process_not_traceable` de readiness.
+
 Nota 2026-06-13: Reporting/Etapa 7 cubre en API el bloqueo de eventos
 contables sin origen trazable antes de entregar el resumen financiero mensual.
 `_assert_financial_monthly_traceability()` devuelve
