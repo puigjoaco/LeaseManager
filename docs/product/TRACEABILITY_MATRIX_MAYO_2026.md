@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-13: Reporting/Etapa 7 alinea la API tributaria anual con
+readiness para `ProcesoRentaAnual.resumen_anual`: `obligaciones` debe ser una
+lista no vacia. `_assert_annual_tax_traceability()` bloquea respuestas
+verificadas con `reporting.annual_summary_incomplete` cuando el resumen anual
+no conserva obligaciones mensuales trazables, igual que
+`audit_stage7_reporting_readiness`.
+
 Nota 2026-06-13: Contabilidad/Etapa 5 bloquea reglas contables activas con
 vigencias solapadas para la misma empresa, tipo de evento y version de plan.
 `ReglaContable.full_clean()` y la API rechazan nuevas ambiguedades, y
