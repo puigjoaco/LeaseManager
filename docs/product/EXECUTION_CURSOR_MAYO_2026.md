@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 7 Reporting: cubrir en API desalineacion de ano comercial en DDJJ/F22. |
+| Frente activo | Sin paquete tactico abierto tras preparar PR #802: API tributaria anual cubre desalineacion fiscal DDJJ/F22. |
 | Fuente exacta | `main` limpio `7132fd38` tras mergear PR #801. Rescue queda pausado fuera de alcance. |
-| Brecha activa | Readiness ya distingue `stage7.reporting.annual_ddjj_fiscal_year_mismatch` y `stage7.reporting.annual_f22_fiscal_year_mismatch`; la API tiene la guardia, pero faltan pruebas focales del endpoint y detalles de trazabilidad con documento/ano observado. |
+| Brecha activa | Ninguna tras preparar PR #802: la API tributaria anual tiene cobertura focal para `reporting.annual_ddjj_fiscal_year_mismatch` y `reporting.annual_f22_fiscal_year_mismatch`, alineadas con readiness y con detalles de documento/ano observado. |
 | Motivo de prioridad | Fortalecer evidencia API/readiness de Reporting tributario anual antes de cierres finales o pruebas externas, sin depender de SII real ni fuente autorizada. |
 | Worktree | `D:/Proyectos/LeaseManager-stage7-annual-fiscal-year-api`. |
 | Rama | `codex/stage7-annual-fiscal-year-api`. |
-| Estado | Validacion local completa; paquete listo para commit, PR y CI remoto. |
+| Estado | PR #802 preparado y CI remoto en verde; pendiente merge y limpieza. |
 | Gate esperado | Tests focales de resumen tributario anual para DDJJ/F22 fiscal year mismatch, suite Reporting/readiness Etapa 7, `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, frontend build/lint, acceptance local, higiene y CI remoto antes de merge. |
-| Estado al cerrar paquete | Pendiente de commit, PR, CI remoto, merge y limpieza. Validacion local: focal 4 tests OK, suite Reporting/readiness 87 tests OK, `manage.py check` OK, migraciones dry-run OK, gate Etapa 7 local parcial esperado, `npm ci`, build/lint frontend, acceptance local 1359 tests OK. |
+| Estado al cerrar paquete | PR #802 preparado con focal Reporting anual (4 tests OK), suite Reporting/readiness Etapa 7 (87 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1359 tests OK), higiene, `git diff --check` y CI remoto GitHub en verde. |
 | Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo alinea rutas locales de Reporting anual. |
-| Politica de reanudacion | Continuar este worktree hasta PR, CI, merge y limpieza. No redactar de nuevo el goal. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Ejecutar higiene final, commitear, abrir PR y esperar CI remoto. |
+| Politica de reanudacion | No rehacer PR #802 ni redactar de nuevo el goal. Tras mergear y sincronizar `main`, seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Mergear PR #802, sincronizar `main`, limpiar worktree/rama y diagnosticar el siguiente frente seguro. |
 
 ## Actualizacion
 
