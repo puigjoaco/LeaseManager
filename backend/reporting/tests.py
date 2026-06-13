@@ -223,6 +223,60 @@ class ReportingAPITests(APITestCase):
             estado='activa',
         )
 
+    def _create_annual_reporting_process(self, empresa, *, anio_tributario=2027):
+        return ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=anio_tributario,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            resumen_anual={
+                'fiscal_year': anio_tributario - 1,
+                'obligaciones': [{'mes': 1}],
+                'total_obligaciones': 12,
+            },
+        )
+
+    def _create_annual_ddjj(self, empresa, process, *, suffix='default', resumen_paquete=None):
+        if resumen_paquete is None:
+            resumen_paquete = {
+                'ddjj_habilitadas': ['1887'],
+                'resumen_anual': {'fiscal_year': process.anio_tributario - 1},
+            }
+        return DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref=f'cert-ddjj-{suffix}',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=process.anio_tributario,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_paquete=resumen_paquete,
+        )
+
+    def _create_annual_f22(self, empresa, process, *, suffix='default', resumen_f22=None):
+        if resumen_f22 is None:
+            resumen_f22 = {
+                'base': '100.00',
+                'resumen_anual': {'fiscal_year': process.anio_tributario - 1},
+            }
+        return F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='F22Preparacion',
+                certificado_ref=f'cert-f22-{suffix}',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=process.anio_tributario,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_f22=resumen_f22,
+        )
+
     def _create_posted_asiento(self, event, *, amount='100111.00', with_movements=True, hash_mode='valid'):
         asiento = AsientoContable.objects.create(
             evento_contable=event,
@@ -1909,6 +1963,32 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['traceability']['code'], 'reporting.annual_process_missing')
 
+    def test_annual_tax_summary_blocks_process_without_ddjj_document(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALNODDJJ')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        self._create_annual_f22(empresa, process, suffix='missing-ddjj')
+
+        url = f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}"
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_ddjj_missing_for_process')
+        self.assertEqual(str(response.data['traceability']['details']['proceso_renta_anual_id']), str(process.id))
+
+    def test_annual_tax_summary_blocks_process_without_f22_document(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALNOF22')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        self._create_annual_ddjj(empresa, process, suffix='missing-f22')
+
+        url = f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}"
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_f22_missing_for_process')
+        self.assertEqual(str(response.data['traceability']['details']['proceso_renta_anual_id']), str(process.id))
+
     def test_annual_tax_summary_blocks_documents_from_other_process_company(self):
         _, empresa_documento, _, _, _, _ = self._create_context('ANNUALDOCA')
         _, empresa_proceso, _, _, _, _ = self._create_context('ANNUALDOCB')
@@ -2053,6 +2133,34 @@ class ReportingAPITests(APITestCase):
             response.data['traceability']['details']['estado'],
             EstadoPreparacionTributaria.IN_PREPARATION,
         )
+
+    def test_annual_tax_summary_blocks_ddjj_without_summary(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALDDJJNOSUM')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        ddjj = self._create_annual_ddjj(empresa, process, suffix='ddjj-no-summary', resumen_paquete={})
+        self._create_annual_f22(empresa, process, suffix='ddjj-no-summary')
+
+        url = f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}"
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_ddjj_summary_missing')
+        self.assertEqual(str(response.data['traceability']['details']['ddjj_id']), str(ddjj.id))
+
+    def test_annual_tax_summary_blocks_f22_without_summary(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALF22NOSUM')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        self._create_annual_ddjj(empresa, process, suffix='f22-no-summary')
+        f22 = self._create_annual_f22(empresa, process, suffix='f22-no-summary', resumen_f22={})
+
+        url = f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}"
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_f22_summary_missing')
+        self.assertEqual(str(response.data['traceability']['details']['f22_id']), str(f22.id))
 
     def test_annual_tax_summary_blocks_wrong_fiscal_year(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALYEAR')

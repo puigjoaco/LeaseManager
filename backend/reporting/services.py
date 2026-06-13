@@ -684,11 +684,25 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
 
         ddjj = ddjj_by_process.get(process.id)
         f22 = f22_by_process.get(process.id)
-        if ddjj is None or f22 is None:
+        if ddjj is None:
             _raise_traceability_error(
-                'reporting.annual_documents_missing',
-                'El reporte tributario anual requiere DDJJ y F22 asociados al proceso anual.',
-                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+                'reporting.annual_ddjj_missing_for_process',
+                'El reporte tributario anual requiere DDJJ asociada al proceso anual.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'proceso_renta_anual_id': process.id,
+                },
+            )
+        if f22 is None:
+            _raise_traceability_error(
+                'reporting.annual_f22_missing_for_process',
+                'El reporte tributario anual requiere F22 asociado al proceso anual.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'proceso_renta_anual_id': process.id,
+                },
             )
         mismatched_documents = []
         if _annual_document_process_mismatch(ddjj, process):
@@ -727,11 +741,25 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                     'estado': f22.estado_preparacion,
                 },
             )
-        if not ddjj.resumen_paquete or not f22.resumen_f22:
+        if not ddjj.resumen_paquete:
             _raise_traceability_error(
-                'reporting.annual_documents_without_summary',
-                'El reporte tributario anual requiere resumen trazable de DDJJ y F22.',
-                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+                'reporting.annual_ddjj_summary_missing',
+                'El reporte tributario anual requiere resumen trazable de DDJJ.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'ddjj_id': ddjj.id,
+                },
+            )
+        if not f22.resumen_f22:
+            _raise_traceability_error(
+                'reporting.annual_f22_summary_missing',
+                'El reporte tributario anual requiere resumen trazable de F22.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'f22_id': f22.id,
+                },
             )
         ddjj_summary = ddjj.resumen_paquete.get('resumen_anual') if isinstance(ddjj.resumen_paquete, dict) else None
         f22_summary = f22.resumen_f22.get('resumen_anual') if isinstance(f22.resumen_f22, dict) else None

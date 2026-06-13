@@ -39,6 +39,9 @@ documentos o procesos tributarios trazables.
   verificado si el proceso no conserva obligaciones mensuales trazables.
 - La API de resumen tributario anual bloquea DDJJ y F22 que aun esten en
   estados no trazables, aunque conserven resumen heredado.
+- La API de resumen tributario anual usa codigos separados para procesos sin
+  DDJJ, procesos sin F22, DDJJ sin resumen y F22 sin resumen, alineados con
+  `audit_stage7_reporting_readiness`.
 - La API de resumen tributario anual bloquea procesos anuales finales sin
   `paquete_ddjj_ref` o `borrador_f22_ref` trazable, y tambien bloquea esas
   referencias cuando contienen URLs, tokens, credenciales o valores sensibles.

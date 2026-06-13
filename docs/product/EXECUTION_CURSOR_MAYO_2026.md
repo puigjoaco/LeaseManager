@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras integrar PR #793: API de libros por periodo usa codigos alineados con readiness. |
-| Fuente exacta | PR #793 preparado desde `main` limpio `0fc826e9`; commit de paquete `10e8106`. Rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna tras integrar PR #793: `_assert_period_books_traceability()` usa `reporting.books_snapshot_summary_missing` y `reporting.books_balance_not_square`, en correspondencia con `audit_stage7_reporting_readiness`. |
-| Motivo de prioridad | Mantener un punto de reanudacion estable que no reabra paquetes ya mergeados ni transforme contexto auxiliar en trabajo nuevo. |
-| Worktree | Ninguno de producto activo tras mergear PR #793. |
-| Rama | `main` tras mergear PR #793. |
-| Estado | Listo para seleccionar el siguiente frente seguro tras mergear PR #793. |
-| Gate esperado | Antes de abrir un nuevo paquete: leer este cursor, confirmar `git status --short --branch` y `git worktree list`, diagnosticar PRD/stage cards/trazabilidad, y abrir worktree `codex/...` si el cambio no es trivial. |
-| Estado al cerrar paquete | PR #793 preparado con focal Reporting libros (3 tests OK), suite Reporting/readiness Etapa 7 (68 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1340 tests OK), higiene y `git diff --check`. |
+| Frente activo | Paquete tactico abierto: alinear codigos de Reporting anual DDJJ/F22 con readiness Etapa 7. |
+| Fuente exacta | `main` limpio `39e3b0cc` tras PR #793; brecha detectada al comparar `_assert_annual_tax_traceability()` con `audit_stage7_reporting_readiness`. Rescue queda pausado fuera de alcance. |
+| Brecha activa | `_assert_annual_tax_traceability()` agrupa documentos DDJJ/F22 faltantes o sin resumen bajo codigos genericos; readiness ya clasifica esos casos con codigos separados por DDJJ/F22. |
+| Motivo de prioridad | Reducir ambiguedad de API/gate en Etapa 7 sin usar secretos, datos reales, SII real ni snapshot autorizado. |
+| Worktree | `D:/Proyectos/LeaseManager-stage7-annual-document-code-alignment`. |
+| Rama | `codex/stage7-annual-document-code-alignment`. |
+| Estado | En implementacion local. |
+| Gate esperado | Focal Reporting anual, suite Reporting/readiness Etapa 7, `manage.py check`, migraciones dry-run, gate local Etapa 7 parcial esperado, frontend build/lint, acceptance local, higiene, PR, CI y merge. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales de Reporting. |
-| Politica de reanudacion | No rehacer PR #793 ni redactar de nuevo el goal. Confirmar estado real del repo y seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Tras mergear PR #793 y sincronizar `main`, diagnosticar el siguiente frente seguro desde PRD/stage cards/trazabilidad y abrir un paquete pequeno, verificable y trazable. |
+| Politica de reanudacion | Continuar este worktree si existe sucio. No redactar goal ni pedir autorizaciones externas para este paquete; no usa fuentes sensibles. |
+| Siguiente accion | Ejecutar tests focales del endpoint anual, suite impactada y validaciones proporcionales; documentar evidencia final antes de PR. |
 
 ## Actualizacion
 
