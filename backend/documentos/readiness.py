@@ -72,6 +72,21 @@ def _count_invalid(queryset):
     return invalid_count
 
 
+def _count_invalid_active_templates(queryset):
+    invalid_count = 0
+    for template in queryset:
+        raw_checksum = str(template.checksum_plantilla or '')
+        checksum_is_noncanonical = bool(raw_checksum.strip()) and not is_valid_pdf_checksum(raw_checksum)
+        if checksum_is_noncanonical:
+            invalid_count += 1
+            continue
+        try:
+            template.full_clean()
+        except ValidationError:
+            invalid_count += 1
+    return invalid_count
+
+
 def _document_missing_metadata(document):
     return not all(
         [
@@ -235,7 +250,7 @@ def collect_document_readiness(
     active_templates = PlantillaDocumental.objects.filter(estado=EstadoPlantillaDocumental.ACTIVE)
     active_template_types = set(active_templates.values_list('tipo_documental', flat=True))
     missing_template_types = sorted(REQUIRED_TEMPLATE_TYPES - active_template_types)
-    invalid_active_templates = _count_invalid(active_templates)
+    invalid_active_templates = _count_invalid_active_templates(active_templates)
     active_template_pairs = set(active_templates.values_list('tipo_documental', 'version_plantilla'))
 
     expedientes = ExpedienteDocumental.objects.all()

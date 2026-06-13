@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar guard de vigencias solapadas de reglas contables Etapa 5. |
-| Fuente exacta | `main` limpio tras mergear PR #770 (`1cd8db74`); rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear PR #770. La brecha de reglas contables activas solapadas queda cubierta por dominio/API, readiness Etapa 5, stage card, trazabilidad y evidencia. |
-| Motivo de prioridad | Evitar que reanudaciones reabran el paquete de reglas contables ya validado e integrado. |
-| Worktree | Ninguno tras merge y limpieza del paquete. |
-| Rama | `main` tras merge. |
-| Estado | Listo para seleccionar el siguiente frente util y seguro desde el repo limpio. |
-| Gate esperado | El siguiente paquete debe definir su gate proporcional antes de editar; los cierres evidenciales siguen sin declararse sin fuente autorizada y evidencia. |
+| Frente activo | Etapa 5 Documentos: checksum documental SHA-256 canonico. |
+| Fuente exacta | `main` limpio tras mergear PR #771 (`f12ec9cc`); rescue queda pausado fuera de alcance. |
+| Brecha activa | `DocumentoEmitido` y `PlantillaDocumental` aceptan variantes no canonicas de checksum como prefijo `sha256:` o mayusculas, aunque stage card/readiness exigen digest SHA-256 canonico. |
+| Motivo de prioridad | Endurecer evidencia tecnica documental sin depender de storage real, snapshots autorizados, `.env` ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage5-doc-checksum-canonical`. |
+| Rama | `codex/stage5-doc-checksum-canonical`. |
+| Estado | Paquete tactico abierto; no elegir otro frente hasta cerrar, pausar explicitamente o descartar con instruccion segura. |
+| Gate esperado | Focal modelo/API/readiness de Documentos; suite impactada `documentos documentos.tests_readiness`; gate local `run-stage5-documents-readiness-gate.ps1` como parcial esperado; acceptance local; CI GitHub acceptance antes de merge. |
 | Estado al cerrar paquete | PR #770: focal 2 tests OK; suite impactada Contabilidad/Etapa 5/Reporting 104 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 5 `classification=parcial`, `ready_for_stage5_contabilidad=false`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1317 tests OK; CI GitHub acceptance OK; higiene repo y `git diff --check` OK. |
 | Bloqueos relacionados | Etapa 5 sigue parcial para cierre evidencial: requiere Conciliacion cerrada y fuente `snapshot_controlado` o `real_autorizado` con evidencia ledger/reportes/responsables. Este paquete solo endurece reglas locales sin fuente real/controlada. |
 | Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`, diagnosticar el siguiente frente seguro por orden de construccion/trazabilidad y abrir un worktree `codex/...` solo cuando haya paquete concreto. |
+| Siguiente accion | Implementar checksum canonico, validar modelo/API/readiness/documentacion, abrir PR, esperar CI, mergear y limpiar worktree/rama. |
 
 ## Actualizacion
 

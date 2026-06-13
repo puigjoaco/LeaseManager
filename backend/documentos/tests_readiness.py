@@ -768,6 +768,51 @@ class DocumentReadinessAuditTests(TestCase):
         rendered = json.dumps(result)
         self.assertNotIn('checksum-operativo-sin-digest', rendered)
 
+    def test_noncanonical_checksum_variants_are_blocking_without_exposing_values(self):
+        create_all_active_policies()
+        user = create_user('docs-readiness-noncanonical-checksum')
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='noncanonical-checksum',
+            estado='abierto',
+            owner_operativo='manual:checksum',
+        )
+        document = DocumentoEmitido.objects.create(
+            expediente=expediente,
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+            checksum=VALID_SHA256,
+            fecha_carga=timezone.now(),
+            usuario=user,
+            origen='carga_externa_controlada',
+            estado='emitido',
+            storage_ref='storage/docs/contract.pdf',
+        )
+        DocumentoEmitido.objects.filter(pk=document.pk).update(checksum=VALID_SHA256.upper())
+        PlantillaDocumental.objects.filter(
+            tipo_documental=TipoDocumental.MAIN_CONTRACT,
+            version_plantilla='v1',
+        ).update(checksum_plantilla=f'sha256:{VALID_SHA256}')
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.invalid_checksum', issue_codes)
+        self.assertIn('documents.active_template_invalid', issue_codes)
+        self.assertEqual(result['sections']['documents']['invalid_checksums'], 1)
+        self.assertEqual(result['sections']['templates']['invalid_active_templates'], 1)
+        rendered = json.dumps(result)
+        self.assertNotIn(VALID_SHA256.upper(), rendered)
+        self.assertNotIn(f'sha256:{VALID_SHA256}', rendered)
+
     def test_sensitive_storage_refs_are_blocking_without_exposing_values(self):
         create_all_active_policies()
         user = create_user('docs-readiness-sensitive-storage')

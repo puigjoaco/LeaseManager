@@ -22,14 +22,17 @@ firma y notaria trazables.
   antes de validadores de campo, persistencia, snapshot, readiness y auditoria.
 - Documento emitido debe conservar `version_plantilla`, `checksum`, `usuario`,
   `fecha_carga`, `origen` y expediente; `checksum` debe ser un digest
-  SHA-256 canonico, no una etiqueta libre. `DocumentoEmitido.clean()` bloquea
-  nuevas escrituras sin `usuario` responsable y readiness conserva la deteccion
-  de documentos heredados sin responsable.
+  SHA-256 canonico de 64 caracteres hexadecimales lowercase, no una etiqueta
+  libre ni un valor prefijado con `sha256:`. `DocumentoEmitido.clean()`
+  bloquea nuevas escrituras sin `usuario` responsable y readiness conserva la
+  deteccion de documentos heredados sin responsable o con checksum no
+  canonico.
 - `version_plantilla` debe estar respaldada por una
   `PlantillaDocumental` activa para el mismo `tipo_documental`. La plantilla
-  conserva referencia no sensible, checksum SHA-256 canonico y estado
+  conserva referencia no sensible, checksum SHA-256 canonico lowercase y estado
   auditable; API, snapshot y backoffice exponen el registro sin imprimir refs
-  sensibles.
+  sensibles. Readiness clasifica plantillas activas heredadas con checksum no
+  canonico como `documents.active_template_invalid`.
 - Una `PlantillaDocumental` ya usada por documentos emitidos no puede cambiar
   `tipo_documental`, `version_plantilla`, `plantilla_ref`,
   `checksum_plantilla` ni `estado`. Solo se permite ajustar descripcion

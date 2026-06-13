@@ -127,7 +127,7 @@ class DocumentosAPITests(APITestCase):
             tipo_documental='contrato_principal',
             version_plantilla=f' {max_version} ',
             plantilla_ref=f' {max_template_ref} ',
-            checksum_plantilla=f' {VALID_SHA256} ',
+            checksum_plantilla=f' {VALID_SHA256.upper()} ',
             descripcion=' Plantilla documentada ',
             estado='activa',
         )
@@ -162,7 +162,7 @@ class DocumentosAPITests(APITestCase):
             expediente=expediente,
             tipo_documental='contrato_principal',
             version_plantilla=f' {max_version} ',
-            checksum=f' {VALID_SHA256} ',
+            checksum=f' {VALID_SHA256.upper()} ',
             fecha_carga=timezone.now(),
             usuario=self.user,
             origen='carga_externa_controlada',
@@ -207,7 +207,7 @@ class DocumentosAPITests(APITestCase):
             expediente=expediente,
             tipo_documental='contrato_principal',
             version_plantilla=f' {max_version} ',
-            checksum=f' {VALID_SHA256_ALT} ',
+            checksum=f' {VALID_SHA256_ALT.upper()} ',
             fecha_carga=timezone.now(),
             usuario=self.user,
             origen='carga_externa_controlada',
@@ -820,8 +820,8 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('storage_ref', response.data)
 
-    def test_document_checksum_must_be_sha256(self):
-        expediente = self._create_expediente(entidad_id='checksum-guard')
+    def test_document_checksum_normalizes_to_canonical_digest(self):
+        expediente = self._create_expediente(entidad_id='checksum-canonical')
         self._create_politica()
 
         response = self.client.post(
@@ -830,11 +830,11 @@ class DocumentosAPITests(APITestCase):
                 'expediente': expediente['id'],
                 'tipo_documental': 'contrato_principal',
                 'version_plantilla': 'v1',
-                'checksum': 'checksum-operativo-sin-digest',
+                'checksum': f' {VALID_SHA256.upper()} ',
                 'fecha_carga': '2026-03-18T10:00:00-03:00',
                 'origen': 'carga_externa_controlada',
                 'estado': 'emitido',
-                'storage_ref': 'storage/contracts/contrato-1.pdf',
+                'storage_ref': 'storage/contracts/contrato-canonical.pdf',
                 'firma_arrendador_registrada': False,
                 'firma_arrendatario_registrada': False,
                 'firma_codeudor_registrada': False,
@@ -844,8 +844,38 @@ class DocumentosAPITests(APITestCase):
             format='json',
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('checksum', response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['checksum'], VALID_SHA256)
+        self.assertEqual(DocumentoEmitido.objects.get(pk=response.data['id']).checksum, VALID_SHA256)
+
+    def test_document_checksum_must_be_sha256(self):
+        expediente = self._create_expediente(entidad_id='checksum-guard')
+        self._create_politica()
+
+        for checksum in ('checksum-operativo-sin-digest', f'sha256:{VALID_SHA256}'):
+            with self.subTest(checksum=checksum):
+                response = self.client.post(
+                    reverse('documentos-documento-list'),
+                    {
+                        'expediente': expediente['id'],
+                        'tipo_documental': 'contrato_principal',
+                        'version_plantilla': 'v1',
+                        'checksum': checksum,
+                        'fecha_carga': '2026-03-18T10:00:00-03:00',
+                        'origen': 'carga_externa_controlada',
+                        'estado': 'emitido',
+                        'storage_ref': 'storage/contracts/contrato-1.pdf',
+                        'firma_arrendador_registrada': False,
+                        'firma_arrendatario_registrada': False,
+                        'firma_codeudor_registrada': False,
+                        'recepcion_notarial_registrada': False,
+                        'comprobante_notarial': None,
+                    },
+                    format='json',
+                )
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn('checksum', response.data)
 
     def test_document_full_clean_requires_responsible_user(self):
         expediente = self._create_expediente(entidad_id='user-guard')
