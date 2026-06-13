@@ -608,6 +608,12 @@ API tributaria anual y readiness. `_assert_annual_tax_traceability()` trata
 faltantes para estados finales, cubriendo snapshots heredados que saltaron la
 normalizacion del modelo antes de devolver el reporte como verificado.
 
+Nota 2026-06-13: Reporting/Etapa 7 bloquea refs documentales anuales sensibles
+en API cuando DDJJ o F22 estan en estados finales. El endpoint tributario anual
+emite codigos `reporting.annual_ddjj_ref_sensitive` y
+`reporting.annual_f22_ref_sensitive` sin filtrar URLs, tokens ni credenciales,
+alineando la ruta API con `audit_stage7_reporting_readiness`.
+
 Nota 2026-05-31: Canales/Etapa 2 alinea altas y ediciones API de gates y
 configuraciones de notificacion con auditoria atomica. `AuditCreateUpdateMixin`
 en Canales persiste `created`, `updated` y `state_changed` dentro de
