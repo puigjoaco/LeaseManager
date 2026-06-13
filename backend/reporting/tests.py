@@ -2052,6 +2052,51 @@ class ReportingAPITests(APITestCase):
             resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
         )
         F22PreparacionAnual.objects.create(
+            empresa=empresa_proceso,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa_proceso,
+                capacidad_key='F22Preparacion',
+                certificado_ref='cert-f22-mismatch',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_ddjj_process_mismatch')
+
+    def test_annual_tax_summary_blocks_f22_from_other_process_company(self):
+        _, empresa_documento, _, _, _, _ = self._create_context('ANNUALF22DOCA')
+        _, empresa_proceso, _, _, _, _ = self._create_context('ANNUALF22DOCB')
+        self._activate_fiscal_config(empresa_documento)
+        self._activate_fiscal_config(empresa_proceso)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa_proceso,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa_proceso,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa_proceso,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref='cert-ddjj-f22-mismatch',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        F22PreparacionAnual.objects.create(
             empresa=empresa_documento,
             capacidad_tributaria=CapacidadTributariaSII.objects.create(
                 empresa=empresa_documento,
@@ -2069,11 +2114,7 @@ class ReportingAPITests(APITestCase):
         response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_document_process_mismatch')
-        self.assertEqual(
-            response.data['traceability']['details']['documentos_desalineados'],
-            ['DDJJPreparacionAnual', 'F22PreparacionAnual'],
-        )
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_f22_process_mismatch')
 
     def test_annual_tax_summary_blocks_ddjj_without_traceable_state(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALDDJJSTATE')

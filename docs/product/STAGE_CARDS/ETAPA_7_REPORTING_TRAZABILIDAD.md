@@ -59,7 +59,8 @@ documentos o procesos tributarios trazables.
   manteniendo respuestas sin URLs, tokens, credenciales ni claves sensibles.
 - La API de resumen tributario anual bloquea consultas sin
   `ProcesoRentaAnual` incluido y documentos DDJJ/F22 heredados cuyo proceso
-  anual no coincide con la empresa y ano tributario del documento.
+  anual no coincide con la empresa y ano tributario del documento, usando
+  codigos separados para DDJJ y F22 alineados con readiness.
 - El `fiscal_year` reportado por `ProcesoRentaAnual`, DDJJ y F22 debe
   corresponder al ano comercial inmediatamente anterior al `anio_tributario`;
   la API bloquea reportes desalineados y readiness los marca como brecha.
