@@ -731,19 +731,26 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                     'proceso_renta_anual_id': process.id,
                 },
             )
-        mismatched_documents = []
         if _annual_document_process_mismatch(ddjj, process):
-            mismatched_documents.append('DDJJPreparacionAnual')
-        if _annual_document_process_mismatch(f22, process):
-            mismatched_documents.append('F22PreparacionAnual')
-        if mismatched_documents:
             _raise_traceability_error(
-                'reporting.annual_document_process_mismatch',
-                'El reporte tributario anual requiere DDJJ y F22 asociados al mismo proceso anual, empresa y ano tributario.',
+                'reporting.annual_ddjj_process_mismatch',
+                'El reporte tributario anual requiere DDJJ asociada al mismo proceso anual, empresa y ano tributario.',
                 {
                     'empresa_id': process.empresa_id,
                     'anio_tributario': anio_tributario,
-                    'documentos_desalineados': mismatched_documents,
+                    'proceso_renta_anual_id': process.id,
+                    'ddjj_id': ddjj.id,
+                },
+            )
+        if _annual_document_process_mismatch(f22, process):
+            _raise_traceability_error(
+                'reporting.annual_f22_process_mismatch',
+                'El reporte tributario anual requiere F22 asociado al mismo proceso anual, empresa y ano tributario.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'proceso_renta_anual_id': process.id,
+                    'f22_id': f22.id,
                 },
             )
         if ddjj.estado_preparacion not in ANNUAL_TRACEABLE_STATES:
