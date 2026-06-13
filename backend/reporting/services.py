@@ -128,6 +128,13 @@ def _annual_summary_fiscal_year(summary) -> int | None:
         return None
 
 
+def _annual_summary_is_traceable(summary) -> bool:
+    if not isinstance(summary, dict):
+        return False
+    obligations = summary.get('obligaciones')
+    return _annual_summary_fiscal_year(summary) is not None and isinstance(obligations, list) and bool(obligations)
+
+
 def _annual_summary_fiscal_year_mismatch(summary, anio_tributario) -> bool:
     fiscal_year = _annual_summary_fiscal_year(summary)
     return fiscal_year is not None and fiscal_year != int(anio_tributario) - 1
@@ -615,7 +622,7 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario, 'estado': process.estado},
             )
         summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
-        if 'fiscal_year' not in summary or not isinstance(summary.get('obligaciones'), list):
+        if not _annual_summary_is_traceable(summary):
             _raise_traceability_error(
                 'reporting.annual_summary_incomplete',
                 'El reporte tributario anual requiere resumen anual generado desde obligaciones mensuales trazables.',
