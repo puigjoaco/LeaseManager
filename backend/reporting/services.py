@@ -294,7 +294,7 @@ def _assert_financial_monthly_traceability(
             {'periodo': _period_label(anio, mes), 'eventos_sin_asiento': missing_asiento_count},
         )
 
-    asientos = AsientoContable.objects.filter(evento_contable__in=events)
+    asientos = AsientoContable.objects.filter(evento_contable__in=events).prefetch_related('movimientos')
     invalid_asientos = [
         asiento.id
         for asiento in asientos
@@ -305,6 +305,35 @@ def _assert_financial_monthly_traceability(
             'reporting.accounting_entry_invalid',
             'El reporte financiero mensual contiene asientos no posteados o descuadrados.',
             {'periodo': _period_label(anio, mes), 'asientos_invalidos': invalid_asientos},
+        )
+
+    posted_asientos = [asiento for asiento in asientos if asiento.estado == EstadoAsientoContable.POSTED]
+    asientos_sin_hash = [asiento.id for asiento in posted_asientos if not _has_text(asiento.hash_integridad)]
+    if asientos_sin_hash:
+        _raise_traceability_error(
+            'reporting.accounting_entry_hash_missing',
+            'El reporte financiero mensual contiene asientos contabilizados sin hash de integridad.',
+            {'periodo': _period_label(anio, mes), 'asientos_sin_hash': asientos_sin_hash},
+        )
+
+    asientos_hash_desactualizado = [
+        asiento.id
+        for asiento in posted_asientos
+        if _has_text(asiento.hash_integridad) and not asiento.hash_integridad_matches()
+    ]
+    if asientos_hash_desactualizado:
+        _raise_traceability_error(
+            'reporting.accounting_entry_hash_mismatch',
+            'El reporte financiero mensual contiene asientos con hash de integridad desactualizado.',
+            {'periodo': _period_label(anio, mes), 'asientos_hash_desactualizado': asientos_hash_desactualizado},
+        )
+
+    asientos_sin_movimientos = [asiento.id for asiento in asientos if not asiento.movimientos.exists()]
+    if asientos_sin_movimientos:
+        _raise_traceability_error(
+            'reporting.accounting_entry_movements_missing',
+            'El reporte financiero mensual contiene asientos sin movimientos contables trazables.',
+            {'periodo': _period_label(anio, mes), 'asientos_sin_movimientos': asientos_sin_movimientos},
         )
 
     return _traceability_payload(

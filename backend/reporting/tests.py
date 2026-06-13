@@ -25,12 +25,17 @@ from contabilidad.models import (
     BalanceComprobacion,
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
+    CuentaContable,
+    EstadoAsientoContable,
     EstadoCierreMensual,
     EstadoPreparacionTributaria,
     EventoContable,
     LibroDiario,
     LibroMayor,
+    MovimientoAsiento,
+    NaturalezaCuenta,
     ObligacionTributariaMensual,
+    TipoMovimientoAsiento,
 )
 from contabilidad.services import ensure_default_regime
 from contratos.models import (
@@ -217,6 +222,95 @@ class ReportingAPITests(APITestCase):
             moneda_funcional='CLP',
             estado='activa',
         )
+
+    def _create_posted_asiento(self, event, *, amount='100111.00', with_movements=True, hash_mode='valid'):
+        asiento = AsientoContable.objects.create(
+            evento_contable=event,
+            fecha_contable='2026-01-10',
+            periodo_contable='2026-01',
+            estado=EstadoAsientoContable.POSTED,
+            debe_total=amount,
+            haber_total=amount,
+        )
+        if with_movements:
+            cuenta_debe = CuentaContable.objects.create(
+                empresa=event.empresa,
+                plan_cuentas_version='test',
+                codigo=f'1-{event.id}',
+                nombre='Caja test',
+                naturaleza=NaturalezaCuenta.DEBIT,
+                nivel=1,
+            )
+            cuenta_haber = CuentaContable.objects.create(
+                empresa=event.empresa,
+                plan_cuentas_version='test',
+                codigo=f'4-{event.id}',
+                nombre='Ingreso test',
+                naturaleza=NaturalezaCuenta.CREDIT,
+                nivel=1,
+            )
+            MovimientoAsiento.objects.create(
+                asiento_contable=asiento,
+                cuenta_contable=cuenta_debe,
+                tipo_movimiento=TipoMovimientoAsiento.DEBIT,
+                monto=amount,
+                glosa='Debe test local',
+            )
+            MovimientoAsiento.objects.create(
+                asiento_contable=asiento,
+                cuenta_contable=cuenta_haber,
+                tipo_movimiento=TipoMovimientoAsiento.CREDIT,
+                monto=amount,
+                glosa='Haber test local',
+            )
+        if hash_mode == 'valid':
+            asiento.set_hash_integridad()
+            asiento.save(update_fields=['hash_integridad'])
+        elif hash_mode == 'stale':
+            asiento.hash_integridad = '0' * 64
+            asiento.save(update_fields=['hash_integridad'])
+        elif hash_mode != 'missing':
+            raise ValueError(f'Unsupported hash mode: {hash_mode}')
+        return asiento
+
+    def _create_financial_summary_event_with_close(self, codigo, *, origin_id, idempotency_key):
+        _, empresa, _, _, contrato, periodo = self._create_context(
+            codigo,
+            owner_kind='empresa',
+            with_facturadora=True,
+        )
+        pago = PagoMensual.objects.create(
+            contrato=contrato,
+            periodo_contractual=periodo,
+            mes=1,
+            anio=2026,
+            monto_facturable_clp='100000.00',
+            monto_calculado_clp='100111.00',
+            monto_pagado_clp='100111.00',
+            fecha_vencimiento='2026-01-05',
+            estado_pago='pagado',
+            codigo_conciliacion_efectivo='111',
+        )
+        sync_payment_distribution(pago)
+        event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='manual',
+            entidad_origen_id=origin_id,
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100111.00',
+            payload_resumen={},
+            idempotency_key=idempotency_key,
+            estado_contable='contabilizado',
+        )
+        CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='aprobado',
+        )
+        return empresa, event
 
     def _create_manual_resolution_for_cuenta(self, cuenta, *, suffix='manual'):
         conexion = ConexionBancaria.objects.create(
@@ -436,14 +530,7 @@ class ReportingAPITests(APITestCase):
             idempotency_key='rep-fin-1',
             estado_contable='contabilizado',
         )
-        AsientoContable.objects.create(
-            evento_contable=event,
-            fecha_contable='2026-01-10',
-            periodo_contable='2026-01',
-            estado='contabilizado',
-            debe_total='100111.00',
-            haber_total='100111.00',
-        )
+        self._create_posted_asiento(event)
         ObligacionTributariaMensual.objects.create(
             empresa=empresa,
             anio=2026,
@@ -534,14 +621,7 @@ class ReportingAPITests(APITestCase):
             idempotency_key='rep-fin-bank-control-1',
             estado_contable='contabilizado',
         )
-        AsientoContable.objects.create(
-            evento_contable=event,
-            fecha_contable='2026-01-10',
-            periodo_contable='2026-01',
-            estado='contabilizado',
-            debe_total='100111.00',
-            haber_total='100111.00',
-        )
+        self._create_posted_asiento(event)
         ObligacionTributariaMensual.objects.create(
             empresa=empresa,
             anio=2026,
@@ -647,14 +727,7 @@ class ReportingAPITests(APITestCase):
             idempotency_key='rep-fin-control-1',
             estado_contable='contabilizado',
         )
-        AsientoContable.objects.create(
-            evento_contable=event,
-            fecha_contable='2026-01-10',
-            periodo_contable='2026-01',
-            estado='contabilizado',
-            debe_total='100111.00',
-            haber_total='100111.00',
-        )
+        self._create_posted_asiento(event)
         ObligacionTributariaMensual.objects.create(
             empresa=empresa,
             anio=2026,
@@ -741,6 +814,57 @@ class ReportingAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['traceability']['code'], 'reporting.accounting_entry_missing')
+
+    def test_financial_monthly_summary_blocks_accounting_entry_without_hash(self):
+        empresa, event = self._create_financial_summary_event_with_close(
+            'FINHASHMISS',
+            origin_id='hash-missing-1',
+            idempotency_key='rep-fin-hash-missing',
+        )
+        asiento = self._create_posted_asiento(event, hash_mode='missing')
+
+        response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.accounting_entry_hash_missing')
+        self.assertEqual(
+            [str(value) for value in response.data['traceability']['details']['asientos_sin_hash']],
+            [str(asiento.id)],
+        )
+
+    def test_financial_monthly_summary_blocks_accounting_entry_with_stale_hash(self):
+        empresa, event = self._create_financial_summary_event_with_close(
+            'FINHASHBAD',
+            origin_id='hash-stale-1',
+            idempotency_key='rep-fin-hash-stale',
+        )
+        asiento = self._create_posted_asiento(event, hash_mode='stale')
+
+        response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.accounting_entry_hash_mismatch')
+        self.assertEqual(
+            [str(value) for value in response.data['traceability']['details']['asientos_hash_desactualizado']],
+            [str(asiento.id)],
+        )
+
+    def test_financial_monthly_summary_blocks_accounting_entry_without_movements(self):
+        empresa, event = self._create_financial_summary_event_with_close(
+            'FINMOVMISS',
+            origin_id='movements-missing-1',
+            idempotency_key='rep-fin-movements-missing',
+        )
+        asiento = self._create_posted_asiento(event, with_movements=False)
+
+        response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.accounting_entry_movements_missing')
+        self.assertEqual(
+            [str(value) for value in response.data['traceability']['details']['asientos_sin_movimientos']],
+            [str(asiento.id)],
+        )
 
     def test_partner_summary_returns_shares_and_direct_properties(self):
         socio, _, _, _, contrato, _ = self._create_context('PARTNER')
