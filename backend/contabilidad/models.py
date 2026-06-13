@@ -247,8 +247,35 @@ class ReglaContable(TimestampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
         if self.vigencia_hasta and self.vigencia_hasta < self.vigencia_desde:
-            raise ValidationError({'vigencia_hasta': 'La vigencia final no puede ser anterior a la inicial.'})
+            errors['vigencia_hasta'] = 'La vigencia final no puede ser anterior a la inicial.'
+        if (
+            self.estado == EstadoRegistro.ACTIVE
+            and self.empresa_id
+            and has_text(self.evento_tipo)
+            and has_text(self.plan_cuentas_version)
+            and self.vigencia_desde
+        ):
+            overlapping_rules = ReglaContable.objects.filter(
+                empresa_id=self.empresa_id,
+                evento_tipo=self.evento_tipo,
+                plan_cuentas_version=self.plan_cuentas_version,
+                estado=EstadoRegistro.ACTIVE,
+            ).filter(
+                Q(vigencia_hasta__isnull=True) | Q(vigencia_hasta__gte=self.vigencia_desde)
+            )
+            if self.vigencia_hasta:
+                overlapping_rules = overlapping_rules.filter(vigencia_desde__lte=self.vigencia_hasta)
+            if self.pk:
+                overlapping_rules = overlapping_rules.exclude(pk=self.pk)
+            if overlapping_rules.exists():
+                errors['vigencia_desde'] = (
+                    'No puede existir otra regla contable activa solapada para la misma empresa, '
+                    'tipo de evento y version del plan de cuentas.'
+                )
+        if errors:
+            raise ValidationError(errors)
 
 
 class MatrizReglasContables(TimestampedModel):

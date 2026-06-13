@@ -787,6 +787,33 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertIn('stage5.matrix_missing', issue_codes)
         self.assertIn('stage5.rules_without_matrix', issue_codes)
 
+    def test_overlapping_active_rule_windows_are_blocking(self):
+        empresa = self._create_valid_local_matrix()
+        debit = CuentaContable.objects.get(empresa=empresa, codigo='1101')
+        credit = CuentaContable.objects.get(empresa=empresa, codigo='4101')
+        overlapping_rule = ReglaContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            plan_cuentas_version='v1',
+            criterio_cargo='default:1101-alt',
+            criterio_abono='default:4101-alt',
+            vigencia_desde=date(2026, 1, 15),
+            estado='activa',
+        )
+        MatrizReglasContables.objects.create(
+            regla_contable=overlapping_rule,
+            cuenta_debe=debit,
+            cuenta_haber=credit,
+            estado='activa',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.rules_overlapping_vigencia', issue_codes)
+        self.assertEqual(result['sections']['rules']['overlapping_active_rule_windows'], 2)
+
     def test_pending_event_and_unbalanced_asiento_are_blocking(self):
         empresa = self._create_active_empresa(nombre='PendingEventCo', rut='79797979-4')
         debit, credit = self._setup_contabilidad(empresa)

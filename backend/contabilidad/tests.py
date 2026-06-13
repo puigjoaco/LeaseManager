@@ -1683,6 +1683,52 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(event.estado_contable, 'contabilizado')
         self.assertEqual(account_codes, ['1101', '1201'])
 
+    def test_regla_contable_rejects_overlapping_active_windows(self):
+        empresa = self._create_active_empresa(nombre='RuleOverlapCo', rut='96969696-8')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(
+            empresa,
+            'PagoConciliadoArriendo',
+            accounts['bancos'],
+            accounts['cxc'],
+            vigencia_desde='2026-01-01',
+            vigencia_hasta='2026-03-31',
+        )
+
+        overlapping = self.client.post(
+            reverse('contabilidad-regla-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'plan_cuentas_version': 'v1',
+                'criterio_cargo': accounts['bancos'].codigo,
+                'criterio_abono': accounts['cxc'].codigo,
+                'vigencia_desde': '2026-03-01',
+                'vigencia_hasta': '2026-04-30',
+                'estado': 'activa',
+            },
+            format='json',
+        )
+
+        self.assertEqual(overlapping.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('vigencia_desde', overlapping.data)
+
+        contiguous = self.client.post(
+            reverse('contabilidad-regla-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'plan_cuentas_version': 'v1',
+                'criterio_cargo': accounts['bancos'].codigo,
+                'criterio_abono': accounts['cxc'].codigo,
+                'vigencia_desde': '2026-04-01',
+                'estado': 'activa',
+            },
+            format='json',
+        )
+
+        self.assertEqual(contiguous.status_code, status.HTTP_201_CREATED)
+
     def test_payment_reconciliation_auto_generates_posted_event(self):
         empresa = self._create_active_empresa(nombre='PayCo', rut='77777777-7')
         accounts = self._setup_contabilidad(empresa)

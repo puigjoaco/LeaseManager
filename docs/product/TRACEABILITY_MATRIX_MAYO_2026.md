@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-13: Contabilidad/Etapa 5 bloquea reglas contables activas con
+vigencias solapadas para la misma empresa, tipo de evento y version de plan.
+`ReglaContable.full_clean()` y la API rechazan nuevas ambiguedades, y
+`audit_stage5_contabilidad_readiness` clasifica snapshots heredados con
+`stage5.rules_overlapping_vigencia` y
+`sections.rules.overlapping_active_rule_windows`.
+
 Nota 2026-06-12: Conciliacion/Etapa 3 normaliza metadata visible de ingresos
 desconocidos antes de validar y persistir. `IngresoDesconocido` recorta
 `descripcion_origen` y `estado` antes de `full_clean()` y `save()`, evitando

@@ -24,6 +24,10 @@ contables desde hechos conciliados.
   periodo; la readiness detecta cierres heredados sin cuadratura o con
   diferencia abierta.
 - Reglas contables vigentes.
+- Reglas contables activas sin vigencias solapadas para la misma empresa, tipo
+  de evento y version de plan; el dominio/API bloquea nuevas ambiguedades y
+  readiness clasifica snapshots heredados con
+  `stage5.rules_overlapping_vigencia`.
 - Un mismo hecho economico no puede generar doble contabilizacion efectiva:
   si ya existe un `EventoContable` contabilizado para la misma empresa, tipo y
   entidad origen, un evento nuevo con otra `idempotency_key` queda en revision
