@@ -7,6 +7,12 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-13: Reporting/Etapa 7 cubre en API el bloqueo de eventos
+contables sin origen trazable antes de entregar el resumen financiero mensual.
+`_assert_financial_monthly_traceability()` devuelve
+`reporting.event_origin_missing`, alineado con el codigo
+`stage7.reporting.event_origin_missing` de `audit_stage7_reporting_readiness`.
+
 Nota 2026-06-13: Reporting/Etapa 7 alinea la API tributaria anual con
 readiness para documentos anuales asociados a proceso/empresa/ano tributario
 incorrecto. El endpoint anual ahora separa
