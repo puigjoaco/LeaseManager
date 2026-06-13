@@ -23,17 +23,17 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Sin paquete tactico abierto tras cerrar Reporting Etapa 7: resumen anual exige obligaciones trazables no vacias. |
-| Fuente exacta | `main` limpio tras mergear PR #788 (`e4b79eff`); rescue queda pausado fuera de alcance. |
+| Fuente exacta | `main` limpio tras mergear PR #789 (`ea52ac8f`); rescue queda pausado fuera de alcance. |
 | Brecha activa | Ninguna para el paquete cerrado: `_assert_annual_tax_traceability()` ya exige `fiscal_year` trazable y `obligaciones` como lista no vacia, alineado con `audit_stage7_reporting_readiness`. |
-| Motivo de prioridad | Evitar que una reanudacion o compactacion reabra el paquete ya mergeado y permitir elegir el siguiente frente seguro desde el estado real del repo. |
-| Worktree | Ninguno de producto activo; este cursor se cierra desde `D:/Proyectos/LeaseManager-stage7-annual-summary-obligations-cursor`. |
-| Rama | `codex/stage7-annual-summary-obligations-cursor` solo para cierre de cursor. |
-| Estado | Cierre de cursor en curso. |
-| Gate esperado | Validacion documental minima: `git status --short --branch`, `git diff --check`, `scripts/assert-repo-hygiene.ps1 -IncludeUntracked` y CI GitHub antes de merge. |
+| Motivo de prioridad | Mantener un punto de reanudacion estable que no reabra paquetes ya mergeados ni transforme contexto auxiliar en trabajo nuevo. |
+| Worktree | Ninguno de producto activo. |
+| Rama | `main`. |
+| Estado | Listo para seleccionar el siguiente frente seguro. |
+| Gate esperado | Antes de abrir un nuevo paquete: leer este cursor, confirmar `git status --short --branch` y `git worktree list`, diagnosticar PRD/stage cards/trazabilidad, y abrir worktree `codex/...` si el cambio no es trivial. |
 | Estado al cerrar paquete | PR #788 mergeado en `main` con `e4b79eff`. Validado con focal Reporting anual (2 tests OK), suite Reporting/readiness Etapa 7 (64 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1336 tests OK), higiene, `git diff --check` y CI GitHub. |
 | Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales de Reporting. |
-| Politica de reanudacion | Si se reanuda con este cursor ya mergeado, no rehacer PR #788 ni redactar de nuevo el goal. Confirmar estado real del repo y seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Tras mergear este cierre de cursor, sincronizar `main`, limpiar el worktree `codex/stage7-annual-summary-obligations-cursor` y diagnosticar el siguiente frente seguro desde PRD/stage cards/trazabilidad. |
+| Politica de reanudacion | No rehacer PR #788 ni redactar de nuevo el goal. Confirmar estado real del repo y seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Diagnosticar el siguiente frente seguro desde PRD/stage cards/trazabilidad y abrir un paquete pequeno, verificable y trazable. |
 
 ## Actualizacion
 
