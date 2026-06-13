@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-13: Reporting/Etapa 7 alinea la API de libros por periodo con
+readiness. `_assert_period_books_traceability()` ahora usa
+`reporting.books_snapshot_summary_missing` y `reporting.books_balance_not_square`
+para los mismos casos que `audit_stage7_reporting_readiness` clasifica como
+`stage7.reporting.books_snapshot_summary_missing` y
+`stage7.reporting.books_balance_not_square`.
+
 Nota 2026-06-13: Reporting/Etapa 7 alinea la API financiera mensual con
 readiness para asientos contables incluidos en reportes. La API ahora separa
 `reporting.accounting_entry_not_posted` y
