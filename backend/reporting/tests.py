@@ -1853,8 +1853,8 @@ class ReportingAPITests(APITestCase):
         self.assertNotIn('sii.example.test', serialized_response)
         self.assertNotIn('secret', serialized_response)
 
-    def test_annual_tax_summary_blocks_without_active_fiscal_config(self):
-        _, empresa, _, _, _, _ = self._create_context('ANNUALFISCAL')
+    def test_annual_tax_summary_blocks_process_without_active_fiscal_config(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALFISCALPROC')
         process = ProcesoRentaAnual.objects.create(
             empresa=empresa,
             anio_tributario=2027,
@@ -1893,10 +1893,47 @@ class ReportingAPITests(APITestCase):
         response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_fiscal_config_missing')
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_process_fiscal_config_missing')
         self.assertEqual(
-            [str(item) for item in response.data['traceability']['details']['empresas_sin_configuracion_fiscal']],
+            [
+                str(item)
+                for item in response.data['traceability']['details']['empresas_proceso_sin_configuracion_fiscal']
+            ],
             [str(empresa.id)],
+        )
+
+    def test_annual_tax_summary_blocks_ddjj_without_active_fiscal_config(self):
+        _, empresa_proceso, _, _, _, _ = self._create_context('ANNUALFISCALDDJJP')
+        _, empresa_ddjj, _, _, _, _ = self._create_context('ANNUALFISCALDDJJD')
+        self._activate_fiscal_config(empresa_proceso)
+        process = self._create_annual_reporting_process(empresa_proceso)
+        self._create_annual_ddjj(empresa_ddjj, process, suffix='no-fiscal-ddjj')
+        self._create_annual_f22(empresa_proceso, process, suffix='no-fiscal-ddjj')
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_ddjj_fiscal_config_missing')
+        self.assertEqual(
+            [str(item) for item in response.data['traceability']['details']['empresas_ddjj_sin_configuracion_fiscal']],
+            [str(empresa_ddjj.id)],
+        )
+
+    def test_annual_tax_summary_blocks_f22_without_active_fiscal_config(self):
+        _, empresa_proceso, _, _, _, _ = self._create_context('ANNUALFISCALF22P')
+        _, empresa_f22, _, _, _, _ = self._create_context('ANNUALFISCALF22D')
+        self._activate_fiscal_config(empresa_proceso)
+        process = self._create_annual_reporting_process(empresa_proceso)
+        self._create_annual_ddjj(empresa_proceso, process, suffix='no-fiscal-f22')
+        self._create_annual_f22(empresa_f22, process, suffix='no-fiscal-f22')
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_f22_fiscal_config_missing')
+        self.assertEqual(
+            [str(item) for item in response.data['traceability']['details']['empresas_f22_sin_configuracion_fiscal']],
+            [str(empresa_f22.id)],
         )
 
     def test_annual_tax_summary_blocks_incomplete_annual_summary(self):

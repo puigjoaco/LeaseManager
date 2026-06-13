@@ -34,6 +34,9 @@ documentos o procesos tributarios trazables.
   trazable. Estados aprobados, observados, rectificados o presentados requieren
   referencia externa trazable. Cada empresa incluida debe tener
   `ConfiguracionFiscalEmpresa` activa propia.
+- La API de resumen tributario anual separa la falta de configuracion fiscal
+  activa por proceso anual, DDJJ y F22, alineando sus codigos con
+  `audit_stage7_reporting_readiness`.
 - La API de resumen tributario anual trata `obligaciones=[]` en
   `ProcesoRentaAnual.resumen_anual` como resumen incompleto; no entrega reporte
   verificado si el proceso no conserva obligaciones mensuales trazables.

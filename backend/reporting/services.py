@@ -614,15 +614,42 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
 
     ddjj_by_process = {item.proceso_renta_anual_id: item for item in ddjj_items}
     f22_by_process = {item.proceso_renta_anual_id: item for item in f22_items}
-    company_ids = {item.empresa_id for item in [*processes, *ddjj_items, *f22_items]}
-    missing_fiscal_config = sorted(company_ids - _active_fiscal_company_ids(company_ids))
-    if missing_fiscal_config:
+    process_company_ids = {item.empresa_id for item in processes}
+    ddjj_company_ids = {item.empresa_id for item in ddjj_items}
+    f22_company_ids = {item.empresa_id for item in f22_items}
+    company_ids = process_company_ids | ddjj_company_ids | f22_company_ids
+    active_fiscal_company_ids = _active_fiscal_company_ids(company_ids)
+    missing_process_fiscal_config = sorted(process_company_ids - active_fiscal_company_ids)
+    if missing_process_fiscal_config:
         _raise_traceability_error(
-            'reporting.annual_fiscal_config_missing',
-            'El reporte tributario anual requiere ConfiguracionFiscalEmpresa activa para cada empresa incluida.',
+            'reporting.annual_process_fiscal_config_missing',
+            'El reporte tributario anual requiere ConfiguracionFiscalEmpresa activa para cada proceso anual incluido.',
             {
                 'anio_tributario': anio_tributario,
-                'empresas_sin_configuracion_fiscal': missing_fiscal_config,
+                'empresas_sin_configuracion_fiscal': missing_process_fiscal_config,
+                'empresas_proceso_sin_configuracion_fiscal': missing_process_fiscal_config,
+            },
+        )
+    missing_ddjj_fiscal_config = sorted(ddjj_company_ids - active_fiscal_company_ids)
+    if missing_ddjj_fiscal_config:
+        _raise_traceability_error(
+            'reporting.annual_ddjj_fiscal_config_missing',
+            'El reporte tributario anual requiere ConfiguracionFiscalEmpresa activa para cada DDJJ incluida.',
+            {
+                'anio_tributario': anio_tributario,
+                'empresas_sin_configuracion_fiscal': missing_ddjj_fiscal_config,
+                'empresas_ddjj_sin_configuracion_fiscal': missing_ddjj_fiscal_config,
+            },
+        )
+    missing_f22_fiscal_config = sorted(f22_company_ids - active_fiscal_company_ids)
+    if missing_f22_fiscal_config:
+        _raise_traceability_error(
+            'reporting.annual_f22_fiscal_config_missing',
+            'El reporte tributario anual requiere ConfiguracionFiscalEmpresa activa para cada F22 incluido.',
+            {
+                'anio_tributario': anio_tributario,
+                'empresas_sin_configuracion_fiscal': missing_f22_fiscal_config,
+                'empresas_f22_sin_configuracion_fiscal': missing_f22_fiscal_config,
             },
         )
 
