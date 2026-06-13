@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar validacion de dominio en transiciones avanzadas SII Etapa 4. |
-| Fuente exacta | `main` limpio tras mergear PR #774 (`552f5e2c`); rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear PR #774. La brecha de transiciones avanzadas SII sin `full_clean()` previo queda cubierta por servicio, API, tests, stage card, trazabilidad y evidencia. |
-| Motivo de prioridad | Evitar que reanudaciones reabran el paquete SII ya validado e integrado. |
-| Worktree | Ninguno tras merge y limpieza del paquete. |
-| Rama | `main` tras merge. |
-| Estado | Listo para seleccionar el siguiente frente util y seguro desde el repo limpio. |
-| Gate esperado | El siguiente paquete debe definir su gate proporcional antes de editar; los cierres evidenciales siguen sin declararse sin fuente autorizada y evidencia. |
-| Estado al cerrar paquete | PR #774: focal 3 tests OK; suite impactada SII/readiness 78 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 4 `classification=parcial`, `ready_for_stage4_sii=false`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1322 tests OK; CI GitHub acceptance OK; higiene repo y `git diff --check` OK. |
-| Bloqueos relacionados | Etapa 4 sigue parcial para cierre evidencial: requiere ambiente/fuente autorizada, regla fiscal validada, evidencia Etapa 5 y responsables. El paquete #774 solo endurece rutas locales de estado sin conectar SII. |
-| Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`, diagnosticar el siguiente frente seguro por orden de construccion/trazabilidad y abrir un worktree `codex/...` solo cuando haya paquete concreto. |
+| Frente activo | Etapa 7 Reporting: API de resumen financiero mensual alineada con integridad de ledger. |
+| Fuente exacta | `main` limpio tras PR #775 (`de33a08c`); worktree tactico `D:/Proyectos/LeaseManager-stage7-financial-hash-api`. |
+| Brecha activa | `_assert_financial_monthly_traceability()` exigia cierre, origen, asiento posteado y cuadrado, pero aun podia entregar reporte con asientos sin `hash_integridad`, hash desactualizado o sin movimientos; readiness Etapa 7 ya bloqueaba esas condiciones. |
+| Motivo de prioridad | Evitar reporte financiero mensual con trazabilidad API mas debil que el gate de Reporting y la stage card. |
+| Worktree | `D:/Proyectos/LeaseManager-stage7-financial-hash-api`. |
+| Rama | `codex/stage7-financial-hash-api`. |
+| Estado | Validacion local pre-PR completa; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Focal Reporting, suite impactada `reporting core.tests_stage7_reporting_readiness`, `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Pre-PR local OK: focal Reporting 4 tests, suite impactada Reporting/readiness 53 tests, `manage.py check`, migraciones dry-run, gate Etapa 7 parcial, `npm ci`, build/lint, acceptance local 1325 tests, higiene repo y `git diff --check`. |
+| Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales sin leer datos reales ni integraciones externas. |
+| Politica de reanudacion | Continuar este worktree hasta cerrar PR o pausar explicitamente; no reabrir SII ni metatareas de goal. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Completar validaciones proporcionales, actualizar evidencia/trazabilidad, abrir PR, esperar CI, mergear y limpiar worktree. |
 
 ## Actualizacion
 
