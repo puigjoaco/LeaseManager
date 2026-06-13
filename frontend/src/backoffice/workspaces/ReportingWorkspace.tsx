@@ -94,9 +94,9 @@ type ReportingBooksSummary = {
 
 type ReportingAnnualSummary = {
   trazabilidad: ReportTraceability
-  procesos_renta: Array<{ empresa_id: number; estado: string; fecha_preparacion: string | null }>
-  ddjj_preparadas: Array<{ empresa_id: number; estado_preparacion: string; paquete_ref: string }>
-  f22_preparados: Array<{ empresa_id: number; estado_preparacion: string; borrador_ref: string }>
+  procesos_renta: Array<{ empresa_id: number; estado: string; fecha_preparacion: string | null; responsable_revision_ref: string }>
+  ddjj_preparadas: Array<{ empresa_id: number; estado_preparacion: string; paquete_ref: string; responsable_revision_ref: string }>
+  f22_preparados: Array<{ empresa_id: number; estado_preparacion: string; borrador_ref: string; responsable_revision_ref: string }>
 }
 
 type ReportingMigrationSummary = {
@@ -386,17 +386,20 @@ export function ReportingWorkspace({
           <TableBlock title="Procesos renta anual" subtitle="Resumen consolidado por empresa." rows={reportingAnnualSummary.procesos_renta.map((item) => ({ id: item.empresa_id, ...item }))} empty="No hay procesos de renta para este filtro." columns={[
             { label: 'Empresa', render: (row) => empresaById.get(row.empresa_id)?.razon_social || row.empresa_id },
             { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+            { label: 'Responsable', render: (row) => row.responsable_revision_ref || 'Sin responsable' },
             { label: 'Preparación', render: (row) => row.fecha_preparacion || 'Sin fecha' },
           ]} />
           <TableBlock title="DDJJ preparadas" subtitle="Paquetes DDJJ por empresa." rows={reportingAnnualSummary.ddjj_preparadas.map((item) => ({ id: item.empresa_id, ...item }))} empty="No hay DDJJ para este resumen." columns={[
             { label: 'Empresa', render: (row) => empresaById.get(row.empresa_id)?.razon_social || row.empresa_id },
             { label: 'Paquete', render: (row) => row.paquete_ref || 'Sin ref' },
             { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
+            { label: 'Responsable', render: (row) => row.responsable_revision_ref || 'Sin responsable' },
           ]} />
           <TableBlock title="F22 preparados" subtitle="Borradores F22 por empresa." rows={reportingAnnualSummary.f22_preparados.map((item) => ({ id: item.empresa_id, ...item }))} empty="No hay F22 para este resumen." columns={[
             { label: 'Empresa', render: (row) => empresaById.get(row.empresa_id)?.razon_social || row.empresa_id },
             { label: 'Borrador', render: (row) => row.borrador_ref || 'Sin ref' },
             { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
+            { label: 'Responsable', render: (row) => row.responsable_revision_ref || 'Sin responsable' },
           ]} />
         </>
       ) : null}

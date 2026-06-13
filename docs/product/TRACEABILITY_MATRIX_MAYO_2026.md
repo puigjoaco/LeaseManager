@@ -26,6 +26,12 @@ conserve `responsable_revision_ref` no sensible cuando DDJJ/F22 avanzan a
 estados de revision final. Readiness y Reporting bloquean eventos heredados sin
 responsable auditado o con referencia sensible, sin devolver metadata cruda.
 
+Nota 2026-06-13: Backoffice SII y Reporting reflejan el boundary asistido de
+renta anual. SII permite cargar una revision DDJJ/F22 con estado, ref,
+`responsable_revision_ref` y observacion no sensible; ya no ofrece un atajo de
+estado anual sin responsable. Reporting anual expone responsables redactados
+para ProcesoRentaAnual, DDJJ y F22, sin habilitar presentacion final.
+
 Nota 2026-06-13: Reporting/Etapa 7 cubre en API los bloqueos de
 `ProcesoRentaAnual.borrador_f22_ref` faltante o sensible para procesos anuales
 finales. `_assert_annual_tax_traceability()` devuelve

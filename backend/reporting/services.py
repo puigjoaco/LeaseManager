@@ -1618,6 +1618,7 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
                 'empresa_id': process.empresa_id,
                 'estado': process.estado,
                 'fecha_preparacion': process.fecha_preparacion.isoformat() if process.fecha_preparacion else None,
+                'responsable_revision_ref': redact_sensitive_reference(process.responsable_revision_ref),
                 'resumen_anual': redact_sensitive_payload(process.resumen_anual),
             }
             for process in process_items
@@ -1627,6 +1628,7 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
                 'empresa_id': item.empresa_id,
                 'estado_preparacion': item.estado_preparacion,
                 'paquete_ref': redact_sensitive_reference(item.paquete_ref),
+                'responsable_revision_ref': redact_sensitive_reference(item.responsable_revision_ref),
                 'resumen_paquete': redact_sensitive_payload(item.resumen_paquete),
             }
             for item in ddjj_items
@@ -1636,6 +1638,7 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
                 'empresa_id': item.empresa_id,
                 'estado_preparacion': item.estado_preparacion,
                 'borrador_ref': redact_sensitive_reference(item.borrador_ref),
+                'responsable_revision_ref': redact_sensitive_reference(item.responsable_revision_ref),
                 'resumen_f22': redact_sensitive_payload(item.resumen_f22),
             }
             for item in f22_items

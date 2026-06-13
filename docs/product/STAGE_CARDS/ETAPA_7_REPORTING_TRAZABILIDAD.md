@@ -94,6 +94,10 @@ externa final.
   los responsables de revision faltantes o sensibles en ProcesoRentaAnual,
   DDJJ y F22 avanzados, manteniendo el reporte anual como evidencia interna
   revisable, no como presentacion tributaria final.
+- El payload y la vista de Reporting tributario anual exponen
+  `responsable_revision_ref` redactado para ProcesoRentaAnual, DDJJ y F22, de
+  modo que el revisor ve quien preparo/aprobo el dossier sin acceder a secretos
+  ni asumir presentacion final.
 - `audit_stage7_reporting_readiness` clasifica explicitamente como bloqueantes
   DDJJ/F22 heredados asociados a un proceso anual de otra empresa o ano
   tributario.

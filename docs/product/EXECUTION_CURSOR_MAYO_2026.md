@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 6/7: exigir responsable de revision no sensible en auditoria anual `status_updated`. |
-| Fuente exacta | `main` limpio `56b13d08` tras mergear PR #805. Rescue queda pausado fuera de alcance. |
-| Brecha activa | ProcesoRentaAnual, DDJJ y F22 avanzados ya exigen `responsable_revision_ref`, pero los eventos auditables `sii.ddjj_preparacion.status_updated` y `sii.f22_preparacion.status_updated` aun no son bloqueantes si omiten responsable de revision o conservan una referencia sensible. |
-| Motivo de prioridad | Cerrar la trazabilidad del boundary contable-tributario asistido: un dossier anual puede estar preparado/aprobado internamente solo si la mutacion y la auditoria prueban responsable revisor sin secretos. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-review-audit`. |
-| Rama | `codex/stage6-review-audit`. |
-| Estado | Validado localmente; PR/CI/merge pendiente. |
-| Gate esperado | Readiness Etapa 6/7, API reporting anual, auditoria SII anual, tests focales e impactados; `manage.py check`, migraciones dry-run, gates locales parciales esperados, frontend build/lint si aplica, acceptance local, higiene, CI remoto antes de merge. |
-| Estado al cerrar paquete | Pendiente de PR, CI, merge y limpieza. |
-| Bloqueos relacionados | Etapas 6 y 7 siguen sin cierre real sin fuente `snapshot_controlado` o `real_autorizado`, evidencia Stage 5/4, regla fiscal, certificados, SII/ledger autorizados y responsable final. Este paquete solo endurece preparacion segura y trazabilidad local. |
-| Politica de reanudacion | No reabrir PR #805 ni reescribir goal. Si esta rama ya aparece mergeada, elegir el siguiente frente seguro desde trazabilidad. |
-| Siguiente accion | Abrir PR, esperar CI, mergear y limpiar worktree tactico. |
+| Frente activo | Etapa 6/7: backoffice SII captura y muestra responsable de revision anual. |
+| Fuente exacta | `main` limpio `f821a111` tras mergear PR #806. Rescue queda pausado fuera de alcance. |
+| Brecha activa | Backend/API/readiness ya exigen `responsable_revision_ref` para DDJJ/F22 avanzados, pero el backoffice SII aun no permite registrar revision anual con responsable/ref/observacion y Reporting anual no expone el responsable redactado en su payload. |
+| Motivo de prioridad | Completar el flujo operativo del boundary asistido: el usuario debe poder preparar y revisar DDJJ/F22 desde backoffice dejando responsable trazado, sin automatizar presentacion final ni usar SII real. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-annual-review-ui`. |
+| Rama | `codex/stage6-annual-review-ui`. |
+| Estado | Validado localmente; PR, CI, merge y limpieza pendientes. |
+| Gate esperado | UI SII/Reporting, API reporting anual, tests focales, `manage.py check`, migraciones dry-run, frontend build/lint, acceptance local, higiene, CI remoto antes de merge. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Etapas 6 y 7 siguen sin cierre real sin fuente `snapshot_controlado` o `real_autorizado`, evidencia Stage 5/4, regla fiscal, certificados, SII/ledger autorizados y responsable final. Este paquete solo habilita preparacion/revision local trazable. |
+| Politica de reanudacion | No reabrir PR #806 ni reescribir goal. Si esta rama ya aparece mergeada, elegir el siguiente frente seguro desde trazabilidad. |
+| Siguiente accion | Abrir PR, esperar CI, mergear y limpiar. |
 
 ## Actualizacion
 

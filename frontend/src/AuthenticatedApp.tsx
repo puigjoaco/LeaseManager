@@ -1441,6 +1441,7 @@ type ProcesoRentaAnual = {
   anio_tributario: number
   estado: string
   fecha_preparacion: string | null
+  responsable_revision_ref: string
 }
 
 type DdjjPreparacion = {
@@ -1451,6 +1452,7 @@ type DdjjPreparacion = {
   anio_tributario: number
   estado_preparacion: string
   paquete_ref: string
+  responsable_revision_ref: string
   observaciones: string
 }
 
@@ -1462,6 +1464,7 @@ type F22Preparacion = {
   anio_tributario: number
   estado_preparacion: string
   borrador_ref: string
+  responsable_revision_ref: string
   observaciones: string
 }
 
@@ -1556,9 +1559,9 @@ type ReportingAnnualSummary = {
   anio_tributario: number
   empresa_id: number | null
   trazabilidad: ReportTraceability
-  procesos_renta: Array<{ empresa_id: number; estado: string; fecha_preparacion: string | null; resumen_anual: Record<string, unknown> }>
-  ddjj_preparadas: Array<{ empresa_id: number; estado_preparacion: string; paquete_ref: string; resumen_paquete: Record<string, unknown> }>
-  f22_preparados: Array<{ empresa_id: number; estado_preparacion: string; borrador_ref: string; resumen_f22: Record<string, unknown> }>
+  procesos_renta: Array<{ empresa_id: number; estado: string; fecha_preparacion: string | null; responsable_revision_ref: string; resumen_anual: Record<string, unknown> }>
+  ddjj_preparadas: Array<{ empresa_id: number; estado_preparacion: string; paquete_ref: string; responsable_revision_ref: string; resumen_paquete: Record<string, unknown> }>
+  f22_preparados: Array<{ empresa_id: number; estado_preparacion: string; borrador_ref: string; responsable_revision_ref: string; resumen_f22: Record<string, unknown> }>
 }
 
 type ReportingMigrationSummary = {
@@ -5053,8 +5056,8 @@ function App() {
   }
 
   async function handleSiiStatusUpdate(path: string, body: Record<string, unknown>, successMessage: string) {
-    if (!canEditSii) return
-    if (!token) return
+    if (!canEditSii) return false
+    if (!token) return false
     setIsSubmitting(true)
     setFormMessage(null)
     setFormError(null)
@@ -5062,8 +5065,10 @@ function App() {
       await apiRequest(path, { method: 'POST', token, body })
       await loadWorkspace(token, { forceDataRefresh: true })
       setFormMessage(successMessage)
+      return true
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'No se pudo actualizar el estado SII.')
+      return false
     } finally {
       setIsSubmitting(false)
     }
@@ -6340,21 +6345,21 @@ function App() {
   const filteredProcesosAnuales = useMemo(
     () =>
       procesosAnuales.filter((item) =>
-        matches(normalizedSearch, [item.empresa, item.anio_tributario, item.estado]),
+        matches(normalizedSearch, [item.empresa, item.anio_tributario, item.estado, item.responsable_revision_ref]),
       ),
     [procesosAnuales, normalizedSearch],
   )
   const filteredDdjjs = useMemo(
     () =>
       ddjjs.filter((item) =>
-        matches(normalizedSearch, [item.empresa, item.anio_tributario, item.estado_preparacion, item.paquete_ref]),
+        matches(normalizedSearch, [item.empresa, item.anio_tributario, item.estado_preparacion, item.paquete_ref, item.responsable_revision_ref, item.observaciones]),
       ),
     [ddjjs, normalizedSearch],
   )
   const filteredF22s = useMemo(
     () =>
       f22s.filter((item) =>
-        matches(normalizedSearch, [item.empresa, item.anio_tributario, item.estado_preparacion, item.borrador_ref]),
+        matches(normalizedSearch, [item.empresa, item.anio_tributario, item.estado_preparacion, item.borrador_ref, item.responsable_revision_ref, item.observaciones]),
       ),
     [f22s, normalizedSearch],
   )
