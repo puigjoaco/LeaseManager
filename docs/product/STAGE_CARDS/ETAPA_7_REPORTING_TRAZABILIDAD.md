@@ -18,8 +18,9 @@ documentos o procesos tributarios trazables.
   empresa incluida, eventos contables con origen y asiento contable posteado y
   cuadrado, con `hash_integridad` presente y vigente.
 - La API de resumen financiero mensual bloquea antes de entregar reporte los
-  asientos contabilizados sin `hash_integridad`, con hash desactualizado o sin
-  movimientos contables trazables.
+  eventos contabilizados sin origen trazable (`reporting.event_origin_missing`)
+  y los asientos contabilizados sin `hash_integridad`, con hash desactualizado o
+  sin movimientos contables trazables.
 - La API de resumen financiero mensual separa los bloqueos de asientos no
   posteados y asientos descuadrados con codigos especificos, alineados con
   `audit_stage7_reporting_readiness`.

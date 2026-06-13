@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras preparar PR #799: API de libros por periodo alinea snapshot faltante con readiness Etapa 7. |
-| Fuente exacta | `main` limpio `39ff7b7b` tras mergear PR #798. Rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna tras preparar PR #799: `_assert_period_books_traceability()` devuelve `reporting.books_snapshot_missing_for_close` para set incompleto de snapshots contables, alineado con `audit_stage7_reporting_readiness`. |
-| Motivo de prioridad | Mantener API y readiness de libros contables con codigos equivalentes antes de seguir endureciendo Reporting. |
-| Worktree | `D:/Proyectos/LeaseManager-stage7-books-missing-snapshot-code`. |
-| Rama | `codex/stage7-books-missing-snapshot-code`. |
-| Estado | PR #799 preparado y CI remoto en verde; pendiente merge y limpieza. |
-| Gate esperado | Test focal de libros por periodo, suite Reporting/readiness Etapa 7, `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, frontend build/lint, acceptance local, higiene y CI remoto antes de merge. |
-| Estado al cerrar paquete | PR #799 preparado con focal Reporting libros (2 tests OK), suite Reporting/readiness Etapa 7 (83 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1355 tests OK), higiene, `git diff --check` y CI remoto GitHub en verde. |
+| Frente activo | Etapa 7 Reporting: cubrir en API el bloqueo de eventos contables sin origen trazable. |
+| Fuente exacta | `main` limpio `f88e4c86` tras mergear PR #799. Rescue queda pausado fuera de alcance. |
+| Brecha activa | La API financiera mensual ya bloquea eventos sin `entidad_origen_tipo` o `entidad_origen_id` con `reporting.event_origin_missing`, pero faltaba test focal del endpoint para ese guard alineado con `stage7.reporting.event_origin_missing`. |
+| Motivo de prioridad | Fortalecer evidencia API/readiness de Reporting financiero antes de seguir con cierres finales o pruebas externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage7-financial-event-origin-api`. |
+| Rama | `codex/stage7-financial-event-origin-api`. |
+| Estado | Validacion local completa; listo para commit, PR y CI. |
+| Gate esperado | Test focal de resumen financiero, suite Reporting/readiness Etapa 7, `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, frontend build/lint, acceptance local, higiene y CI remoto antes de merge. |
+| Estado al cerrar paquete | Pendiente de PR/CI/merge. Validacion local: focal Reporting financiero (2 tests OK), suite Reporting/readiness Etapa 7 (84 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1356 tests OK), higiene y `git diff --check`. |
 | Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo alinea rutas locales de Reporting. |
-| Politica de reanudacion | No rehacer PR #799 ni redactar de nuevo el goal. Tras mergear y sincronizar `main`, seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Mergear PR #799, sincronizar `main`, limpiar worktree/rama y diagnosticar el siguiente frente seguro. |
+| Politica de reanudacion | Continuar este worktree hasta PR, CI, merge y limpieza. No rehacer PR #799 ni redactar de nuevo el goal. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Commit, PR, CI remoto, merge y limpieza. |
 
 ## Actualizacion
 

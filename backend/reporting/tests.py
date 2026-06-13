@@ -831,6 +831,33 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['traceability']['code'], 'reporting.monthly_close_missing')
 
+    def test_financial_monthly_summary_blocks_posted_event_without_origin(self):
+        _, empresa, _, _, _, _ = self._create_context('FINORIGIN', owner_kind='empresa', with_facturadora=True)
+        EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='',
+            entidad_origen_id='',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100111.00',
+            payload_resumen={},
+            idempotency_key='rep-fin-missing-origin',
+            estado_contable='contabilizado',
+        )
+        CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado='aprobado',
+        )
+
+        response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.event_origin_missing')
+        self.assertEqual(str(response.data['traceability']['details']['eventos_sin_origen']), '1')
+
     def test_financial_monthly_summary_blocks_posted_event_without_accounting_entry(self):
         _, empresa, _, _, contrato, periodo = self._create_context('FINASIENTO', owner_kind='empresa', with_facturadora=True)
         pago = PagoMensual.objects.create(
