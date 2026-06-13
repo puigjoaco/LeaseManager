@@ -8,6 +8,13 @@ decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
 Nota 2026-06-13: Reporting/Etapa 7 alinea la API tributaria anual con
+readiness para configuracion fiscal activa. El endpoint anual ahora separa
+`reporting.annual_process_fiscal_config_missing`,
+`reporting.annual_ddjj_fiscal_config_missing` y
+`reporting.annual_f22_fiscal_config_missing`, en correspondencia con los
+codigos `stage7.reporting.annual_*_fiscal_config_missing` del auditor.
+
+Nota 2026-06-13: Reporting/Etapa 7 alinea la API tributaria anual con
 readiness para documentos DDJJ/F22 faltantes o sin resumen. El endpoint anual
 ahora separa `reporting.annual_ddjj_missing_for_process`,
 `reporting.annual_f22_missing_for_process`,

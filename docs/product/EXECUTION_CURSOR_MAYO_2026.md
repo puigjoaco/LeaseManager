@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras preparar PR #794: API tributaria anual usa codigos DDJJ/F22 alineados con readiness. |
-| Fuente exacta | PR #794 preparado desde `main` limpio `39e3b0cc`; commit de paquete `b862e5d`. Rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna tras preparar PR #794: `_assert_annual_tax_traceability()` separa procesos sin DDJJ, procesos sin F22, DDJJ sin resumen y F22 sin resumen, en correspondencia con `audit_stage7_reporting_readiness`. |
+| Frente activo | Sin paquete tactico abierto tras preparar PR #795: API tributaria anual usa codigos de configuracion fiscal alineados con readiness. |
+| Fuente exacta | PR #795 preparado desde `main` limpio `e8e8247c`; commit de paquete `3934fec`. Rescue queda pausado fuera de alcance. |
+| Brecha activa | Ninguna tras preparar PR #795: `_assert_annual_tax_traceability()` separa falta de `ConfiguracionFiscalEmpresa` para proceso anual, DDJJ y F22, en correspondencia con `audit_stage7_reporting_readiness`. |
 | Motivo de prioridad | Mantener un punto de reanudacion estable que no reabra paquetes ya mergeados ni transforme contexto auxiliar en trabajo nuevo. |
-| Worktree | Ninguno de producto activo tras preparar PR #794. |
-| Rama | `main` tras mergear PR #794. |
-| Estado | Listo para seleccionar el siguiente frente seguro tras mergear PR #794. |
+| Worktree | Ninguno de producto activo tras preparar PR #795. |
+| Rama | `main` tras mergear PR #795. |
+| Estado | Listo para seleccionar el siguiente frente seguro tras mergear PR #795. |
 | Gate esperado | Antes de abrir un nuevo paquete: leer este cursor, confirmar `git status --short --branch` y `git worktree list`, diagnosticar PRD/stage cards/trazabilidad, y abrir worktree `codex/...` si el cambio no es trivial. |
-| Estado al cerrar paquete | PR #794 preparado con focal Reporting anual (5 tests OK), suite Reporting/readiness Etapa 7 (72 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1344 tests OK), higiene y `git diff --check`. |
+| Estado al cerrar paquete | PR #795 preparado con focal Reporting anual (4 tests OK), suite Reporting/readiness Etapa 7 (74 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1346 tests OK), higiene y `git diff --check`. |
 | Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales de Reporting. |
-| Politica de reanudacion | No rehacer PR #794 ni redactar de nuevo el goal. Confirmar estado real del repo y seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Tras mergear PR #794 y sincronizar `main`, diagnosticar el siguiente frente seguro desde PRD/stage cards/trazabilidad y abrir un paquete pequeno, verificable y trazable. |
+| Politica de reanudacion | No rehacer PR #795 ni redactar de nuevo el goal. Confirmar estado real del repo y seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Tras mergear PR #795 y sincronizar `main`, diagnosticar el siguiente frente seguro desde PRD/stage cards/trazabilidad y abrir un paquete pequeno, verificable y trazable. |
 
 ## Actualizacion
 
