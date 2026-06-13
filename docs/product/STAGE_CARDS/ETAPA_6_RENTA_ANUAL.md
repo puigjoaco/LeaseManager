@@ -1,22 +1,27 @@
-# Etapa 6 - Renta anual
+# Etapa 6 - Dossier de renta anual
 
 ## Objetivo
 
-Preparar proceso anual de renta, DDJJ, F22, certificados y trazabilidad desde
-cierres mensuales.
+Preparar el dossier anual de renta, DDJJ, F22, certificados y trazabilidad
+desde cierres mensuales. LeaseManager organiza datos, reglas, bloqueos y
+evidencia; la decision tributaria final requiere revision experta/oficial,
+responsable trazado y gate aplicable.
 
 ## Alcance
 
-- Proceso de renta anual.
+- Proceso de renta anual como expediente revisable.
 - Certificados.
 - Declaraciones juradas.
 - F22 y respaldos.
 - Validaciones tributarias.
+- Checklist de revision experta/oficial.
 
 ## Gate
 
 - Cierres mensuales completos.
 - Reglas tributarias validadas.
+- Responsable de revision anual trazado antes de tratar el paquete como
+  aprobado.
 - Documentos generados desde datos trazables.
 - Evidencia sin datos sensibles expuestos.
 - Capacidades DDJJ/F22, ProcesoRentaAnual, DDJJ y F22 pertenecen a empresas
@@ -26,6 +31,8 @@ cierres mensuales.
   capacidades DDJJ/F22, doce cierres, obligaciones mensuales, proceso anual,
   respaldos tributarios PDF y referencias finales no sensibles sin conectar SII
   ni leer certificados reales.
+- El readiness de Etapa 6 puede declarar preparacion local, brecha o bloqueo de
+  cierre; no declara presentacion anual final ni sustituye criterio tributario.
 - `ProcesoRentaAnual.resumen_anual`, `DDJJPreparacionAnual.resumen_paquete`
   y `F22PreparacionAnual.resumen_f22` deben trazar al ano comercial
   inmediatamente anterior al `anio_tributario`; el dominio rechaza nuevas
@@ -84,5 +91,7 @@ scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.ex
 
 ## Salida
 
-La renta anual no cierra si existen meses sin cierre validado o reglas fiscales
-sin respaldo.
+El dossier anual no queda aprobable si existen meses sin cierre validado,
+reglas fiscales sin respaldo o responsable de revision ausente. La renta anual
+final no se declara presentada por el core v1; `SII.PresentacionAnualFinal`
+sigue podada salvo reemision formal del set activo.

@@ -33,8 +33,8 @@ inconsistente, duplicado, desactualizado, inseguro, mal integrado o pendiente.
 | 2 | Cobranza y canales | Cobros, estados, correos/WebPay condicionados y evidencia de no envio accidental. |
 | 3 | Banco y conciliacion | Movimientos, conciliacion, ingresos desconocidos y saldos cuadrados. |
 | 4 | SII y DTE | Configuracion fiscal, emision aplicable, aceptacion/estado y reglas validadas. |
-| 5 | Cierre mensual y contabilidad | Ledger, asientos, liquidaciones, PPM/F29/F21 y cierre mensual reproducible. |
-| 6 | Renta anual | DDJJ, F22, certificados y trazabilidad anual. |
+| 5 | Pre-cierre mensual y contabilidad asistida | Ledger, asientos, liquidaciones, PPM/F29/F21 y paquete mensual reproducible con aprobacion responsable. |
+| 6 | Dossier de renta anual | DDJJ, F22, certificados y trazabilidad anual para revision experta/oficial. |
 | 7 | Operacion productiva | Backups, restore, runbook, monitoreo, smoke, aceptacion y continuidad. |
 
 ## Regla de cierre por etapas
@@ -42,6 +42,11 @@ inconsistente, duplicado, desactualizado, inseguro, mal integrado o pendiente.
 No declarar cerrada una etapa ni promover evidencia final si su gate esta
 bloqueado por dato real, decision de usuario o integracion externa no abierta.
 El bloqueo afecta el cierre, no la arquitectura del producto.
+
+En contabilidad y tributacion, `cerrado` no significa decision autonoma del
+sistema. Significa paquete reproducible, evidencia completa, reglas vigentes,
+gate aplicable y aprobacion responsable. Si falta criterio experto/oficial, el
+estado correcto es preparacion o revision, aunque los datos locales cuadren.
 
 Se permite preparar trabajo de etapas posteriores o de integracion cuando no
 use datos/credenciales no autorizadas, no abra integraciones cerradas y quede

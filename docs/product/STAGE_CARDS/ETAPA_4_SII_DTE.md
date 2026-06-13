@@ -88,6 +88,9 @@ produccion por defecto.
   heredados avanzados con capacidad condicionada, cerrada o invalida.
 - `F29Presentacion` y `PresentacionAnualFinal` no se registran desde el flujo
   local sin gate propio o reemision formal del set.
+- Una presentacion tributaria externa, cuando el gate la permita, exige
+  aprobacion responsable y evidencia no sensible; los borradores locales no
+  equivalen a presentacion ni aceptacion SII.
 - `audit_stage4_sii_readiness` consolida configuracion fiscal por empresa,
   capacidades SII, DTE, F29 y preparacion anual sin conectar SII ni leer
   certificados, y reporta refs, payloads u observaciones sensibles existentes
