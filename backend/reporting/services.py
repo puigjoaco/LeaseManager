@@ -22,7 +22,12 @@ from conciliacion.models import (
     IngresoDesconocido,
     MovimientoBancarioImportado,
 )
-from core.reference_validation import is_non_sensitive_reference, redact_sensitive_payload, redact_sensitive_reference
+from core.reference_validation import (
+    contains_sensitive_reference,
+    is_non_sensitive_reference,
+    redact_sensitive_payload,
+    redact_sensitive_reference,
+)
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 from contabilidad.models import (
     AsientoContable,
@@ -138,6 +143,10 @@ def _has_text(value) -> bool:
 def _sensitive_reference(value) -> bool:
     normalized = str(value or '').strip()
     return bool(normalized) and not is_non_sensitive_reference(normalized)
+
+
+def _sensitive_payload(value) -> bool:
+    return contains_sensitive_reference(value or {}, include_sensitive_keys=True)
 
 
 def _values_set(queryset, field: str) -> set[int]:
@@ -589,6 +598,12 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                     'expected_fiscal_year': int(anio_tributario) - 1,
                 },
             )
+        if process.estado in ANNUAL_STATES_REQUIRING_REF and _sensitive_payload(process.resumen_anual):
+            _raise_traceability_error(
+                'reporting.annual_process_sensitive_payload',
+                'El reporte tributario anual no puede validar resumen_anual sensible de proceso final.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
         if process.estado in ANNUAL_STATES_REQUIRING_REF and not _has_text(process.paquete_ddjj_ref):
             _raise_traceability_error(
                 'reporting.annual_process_ddjj_ref_missing',
@@ -677,6 +692,18 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
             _raise_traceability_error(
                 'reporting.annual_f22_fiscal_year_mismatch',
                 'El reporte tributario anual requiere F22 alineado al ano comercial reportado.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and _sensitive_payload(ddjj.resumen_paquete):
+            _raise_traceability_error(
+                'reporting.annual_ddjj_sensitive_payload',
+                'El reporte tributario anual no puede validar resumen_paquete sensible de DDJJ final.',
+                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+            )
+        if f22.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and _sensitive_payload(f22.resumen_f22):
+            _raise_traceability_error(
+                'reporting.annual_f22_sensitive_payload',
+                'El reporte tributario anual no puede validar resumen_f22 sensible de F22 final.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
         if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not _has_text(ddjj.paquete_ref):

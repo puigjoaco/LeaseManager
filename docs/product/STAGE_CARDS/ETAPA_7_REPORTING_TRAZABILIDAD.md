@@ -39,6 +39,9 @@ documentos o procesos tributarios trazables.
 - La API de resumen tributario anual bloquea referencias finales DDJJ/F22
   sensibles cuando el documento esta aprobado, observado, rectificado o
   presentado, sin exponer el valor sensible en la respuesta.
+- La API de resumen tributario anual bloquea payloads sensibles de
+  `ProcesoRentaAnual`, DDJJ y F22 cuando el artefacto ya esta en estado final,
+  manteniendo respuestas sin URLs, tokens, credenciales ni claves sensibles.
 - La API de resumen tributario anual bloquea consultas sin
   `ProcesoRentaAnual` incluido y documentos DDJJ/F22 heredados cuyo proceso
   anual no coincide con la empresa y ano tributario del documento.
