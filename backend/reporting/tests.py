@@ -1739,6 +1739,103 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['traceability']['code'], 'reporting.annual_f22_sensitive_payload')
         self.assertNotIn('credential', json.dumps(response.data))
 
+    def test_annual_tax_summary_blocks_prepared_process_sensitive_payload_without_leaking_value(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALPREPPROCPAYLOAD')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        self._create_annual_ddjj(empresa, process, suffix='prepared-process-payload')
+        self._create_annual_f22(empresa, process, suffix='prepared-process-payload')
+        ProcesoRentaAnual.objects.filter(pk=process.pk).update(
+            resumen_anual={
+                'fiscal_year': 2026,
+                'obligaciones': [{'mes': 1}],
+                'total_obligaciones': 12,
+                'api_key': None,
+            }
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_process_sensitive_payload')
+        self.assertNotIn('api_key', json.dumps(response.data))
+
+    def test_annual_tax_summary_blocks_prepared_ddjj_sensitive_payload_without_leaking_value(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALPREPDDJJPAYLOAD')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        ddjj = self._create_annual_ddjj(empresa, process, suffix='prepared-ddjj-payload')
+        self._create_annual_f22(empresa, process, suffix='prepared-ddjj-payload')
+        DDJJPreparacionAnual.objects.filter(pk=ddjj.pk).update(
+            resumen_paquete={
+                'ddjj_habilitadas': ['1887'],
+                'resumen_anual': {'fiscal_year': 2026},
+                'access_token': None,
+            }
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_ddjj_sensitive_payload')
+        self.assertNotIn('access_token', json.dumps(response.data))
+
+    def test_annual_tax_summary_blocks_prepared_f22_sensitive_payload_without_leaking_value(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALPREPF22PAYLOAD')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        self._create_annual_ddjj(empresa, process, suffix='prepared-f22-payload')
+        f22 = self._create_annual_f22(empresa, process, suffix='prepared-f22-payload')
+        F22PreparacionAnual.objects.filter(pk=f22.pk).update(
+            resumen_f22={
+                'base': '100.00',
+                'resumen_anual': {'fiscal_year': 2026},
+                'credential': None,
+            }
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_f22_sensitive_payload')
+        self.assertNotIn('credential', json.dumps(response.data))
+
+    def test_annual_tax_summary_blocks_prepared_ddjj_sensitive_ref_without_leaking_value(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALPREPDDJJREF')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        ddjj = self._create_annual_ddjj(empresa, process, suffix='prepared-ddjj-ref')
+        self._create_annual_f22(empresa, process, suffix='prepared-ddjj-ref')
+        DDJJPreparacionAnual.objects.filter(pk=ddjj.pk).update(
+            paquete_ref='https://sii.example.test/ddjj?token=secret'
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_ddjj_ref_sensitive')
+        serialized_response = json.dumps(response.data)
+        self.assertNotIn('sii.example.test', serialized_response)
+        self.assertNotIn('token=secret', serialized_response)
+
+    def test_annual_tax_summary_blocks_prepared_f22_sensitive_ref_without_leaking_value(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALPREPF22REF')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        self._create_annual_ddjj(empresa, process, suffix='prepared-f22-ref')
+        f22 = self._create_annual_f22(empresa, process, suffix='prepared-f22-ref')
+        F22PreparacionAnual.objects.filter(pk=f22.pk).update(
+            borrador_ref='https://sii.example.test/f22?token=secret'
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_f22_ref_sensitive')
+        serialized_response = json.dumps(response.data)
+        self.assertNotIn('sii.example.test', serialized_response)
+        self.assertNotIn('token=secret', serialized_response)
+
     def test_annual_tax_summary_blocks_sensitive_process_refs_without_leaking_value(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALPROCSENSITIVE')
         self._activate_fiscal_config(empresa)
@@ -1789,7 +1886,7 @@ class ReportingAPITests(APITestCase):
         self.assertNotIn('sii.example.test', serialized_response)
         self.assertNotIn('token=secret', serialized_response)
 
-    def test_annual_tax_summary_redacts_inherited_sensitive_refs_and_payloads(self):
+    def test_annual_tax_summary_blocks_inherited_sensitive_payloads_without_leaking_value(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALREDACT')
         self._activate_fiscal_config(empresa)
         process = ProcesoRentaAnual.objects.create(
@@ -1835,21 +1932,8 @@ class ReportingAPITests(APITestCase):
 
         response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            response.data['procesos_renta'][0]['resumen_anual']['callback'],
-            REDACTED_SENSITIVE_REFERENCE,
-        )
-        self.assertEqual(response.data['ddjj_preparadas'][0]['paquete_ref'], REDACTED_SENSITIVE_REFERENCE)
-        self.assertEqual(
-            response.data['ddjj_preparadas'][0]['resumen_paquete']['api_key'],
-            REDACTED_SENSITIVE_REFERENCE,
-        )
-        self.assertEqual(response.data['f22_preparados'][0]['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
-        self.assertEqual(
-            response.data['f22_preparados'][0]['resumen_f22']['access_token'],
-            REDACTED_SENSITIVE_REFERENCE,
-        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_process_sensitive_payload')
         serialized_response = json.dumps(response.data)
         self.assertNotIn('sii.example.test', serialized_response)
         self.assertNotIn('secret', serialized_response)

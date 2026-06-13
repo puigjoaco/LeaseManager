@@ -689,10 +689,10 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                     'expected_fiscal_year': int(anio_tributario) - 1,
                 },
             )
-        if process.estado in ANNUAL_STATES_REQUIRING_REF and _sensitive_payload(process.resumen_anual):
+        if _sensitive_payload(process.resumen_anual):
             _raise_traceability_error(
                 'reporting.annual_process_sensitive_payload',
-                'El reporte tributario anual no puede validar resumen_anual sensible de proceso final.',
+                'El reporte tributario anual no puede validar resumen_anual sensible.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
         if process.estado in ANNUAL_STATES_REQUIRING_REF and not _has_text(process.paquete_ddjj_ref):
@@ -842,16 +842,16 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                 'El reporte tributario anual requiere F22 alineado al ano comercial reportado.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
-        if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and _sensitive_payload(ddjj.resumen_paquete):
+        if _sensitive_payload(ddjj.resumen_paquete):
             _raise_traceability_error(
                 'reporting.annual_ddjj_sensitive_payload',
-                'El reporte tributario anual no puede validar resumen_paquete sensible de DDJJ final.',
+                'El reporte tributario anual no puede validar resumen_paquete sensible de DDJJ.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
-        if f22.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and _sensitive_payload(f22.resumen_f22):
+        if _sensitive_payload(f22.resumen_f22):
             _raise_traceability_error(
                 'reporting.annual_f22_sensitive_payload',
-                'El reporte tributario anual no puede validar resumen_f22 sensible de F22 final.',
+                'El reporte tributario anual no puede validar resumen_f22 sensible de F22.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
         if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not _has_text(ddjj.paquete_ref):
@@ -860,10 +860,10 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                 'El reporte tributario anual requiere paquete_ref para DDJJ aprobada, observada, rectificada o presentada.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
-        if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and _sensitive_reference(ddjj.paquete_ref):
+        if _sensitive_reference(ddjj.paquete_ref):
             _raise_traceability_error(
                 'reporting.annual_ddjj_ref_sensitive',
-                'El reporte tributario anual no puede validar paquete_ref sensible de DDJJ final.',
+                'El reporte tributario anual no puede validar paquete_ref sensible de DDJJ.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
         if f22.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not _has_text(f22.borrador_ref):
@@ -872,10 +872,10 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                 'El reporte tributario anual requiere borrador_ref para F22 aprobado, observado, rectificado o presentado.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
-        if f22.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and _sensitive_reference(f22.borrador_ref):
+        if _sensitive_reference(f22.borrador_ref):
             _raise_traceability_error(
                 'reporting.annual_f22_ref_sensitive',
-                'El reporte tributario anual no puede validar borrador_ref sensible de F22 final.',
+                'El reporte tributario anual no puede validar borrador_ref sensible de F22.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
 
