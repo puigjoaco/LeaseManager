@@ -834,13 +834,25 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
             _raise_traceability_error(
                 'reporting.annual_ddjj_fiscal_year_mismatch',
                 'El reporte tributario anual requiere DDJJ alineada al ano comercial reportado.',
-                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'ddjj_id': ddjj.id,
+                    'fiscal_year': _annual_summary_fiscal_year(ddjj_summary),
+                    'expected_fiscal_year': int(anio_tributario) - 1,
+                },
             )
         if _annual_summary_fiscal_year_mismatch(f22_summary, anio_tributario):
             _raise_traceability_error(
                 'reporting.annual_f22_fiscal_year_mismatch',
                 'El reporte tributario anual requiere F22 alineado al ano comercial reportado.',
-                {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'f22_id': f22.id,
+                    'fiscal_year': _annual_summary_fiscal_year(f22_summary),
+                    'expected_fiscal_year': int(anio_tributario) - 1,
+                },
             )
         if _sensitive_payload(ddjj.resumen_paquete):
             _raise_traceability_error(
