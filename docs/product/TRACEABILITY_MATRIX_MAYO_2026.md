@@ -653,6 +653,13 @@ el DTE/F29/DDJJ/F22 actualizado antes de guardar, de modo que la API rechaza
 snapshots heredados con capacidad SII de familia incorrecta u otra
 inconsistencia de dominio antes de emitir el evento auditable.
 
+Nota 2026-06-13: Reporting/Etapa 7 alinea la API tributaria anual con la
+validacion de familia SII de DDJJ/F22. `_assert_annual_tax_traceability()`
+bloquea documentos anuales con `capacidad_tributaria.capacidad_key` cruzada
+usando `reporting.annual_ddjj_invalid` y `reporting.annual_f22_invalid`,
+equivalentes a los bloqueos `stage7.reporting.annual_ddjj_invalid` y
+`stage7.reporting.annual_f22_invalid` de readiness.
+
 Nota 2026-06-13: Reporting/Etapa 7 alinea referencias finales DDJJ/F22 entre
 API tributaria anual y readiness. `_assert_annual_tax_traceability()` trata
 `paquete_ref` y `borrador_ref` vacios o compuestos solo por espacios como

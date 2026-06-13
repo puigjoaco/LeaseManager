@@ -51,7 +51,14 @@ from contabilidad.services import (
 from contratos.models import AvisoTermino, Contrato, EstadoAvisoTermino
 from operacion.models import CuentaRecaudadora, IdentidadDeEnvio, MandatoOperacion
 from patrimonio.models import ComunidadPatrimonial, Empresa, ParticipacionPatrimonial, Propiedad, Socio
-from sii.models import DDJJPreparacionAnual, DTEEmitido, F22PreparacionAnual, F29PreparacionMensual, ProcesoRentaAnual
+from sii.models import (
+    CapacidadSII,
+    DDJJPreparacionAnual,
+    DTEEmitido,
+    F22PreparacionAnual,
+    F29PreparacionMensual,
+    ProcesoRentaAnual,
+)
 
 REPORTING_CACHE_TTL_SECONDS = 15
 SOCIO_SCOPE_PATHS = (
@@ -146,6 +153,10 @@ def _annual_document_process_mismatch(document, process) -> bool:
         or document.empresa_id != process.empresa_id
         or document.anio_tributario != process.anio_tributario
     )
+
+
+def _annual_document_capability_key(document) -> str:
+    return getattr(document.capacidad_tributaria, 'capacidad_key', '')
 
 
 def _has_text(value) -> bool:
@@ -751,6 +762,28 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                     'anio_tributario': anio_tributario,
                     'proceso_renta_anual_id': process.id,
                     'f22_id': f22.id,
+                },
+            )
+        if _annual_document_capability_key(ddjj) != CapacidadSII.DDJJ_PREPARACION:
+            _raise_traceability_error(
+                'reporting.annual_ddjj_invalid',
+                'El reporte tributario anual requiere DDJJ con capacidad SII de preparacion DDJJ.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'ddjj_id': ddjj.id,
+                    'capacidad_key': _annual_document_capability_key(ddjj),
+                },
+            )
+        if _annual_document_capability_key(f22) != CapacidadSII.F22_PREPARACION:
+            _raise_traceability_error(
+                'reporting.annual_f22_invalid',
+                'El reporte tributario anual requiere F22 con capacidad SII de preparacion F22.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'f22_id': f22.id,
+                    'capacidad_key': _annual_document_capability_key(f22),
                 },
             )
         if ddjj.estado_preparacion not in ANNUAL_TRACEABLE_STATES:
@@ -1419,7 +1452,9 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
         process_queryset = process_queryset.filter(empresa_id=empresa_id)
 
     ddjj_queryset = scope_queryset_for_access(
-        DDJJPreparacionAnual.objects.filter(anio_tributario=anio_tributario),
+        DDJJPreparacionAnual.objects.select_related('capacidad_tributaria').filter(
+            anio_tributario=anio_tributario
+        ),
         access,
         company_paths=('empresa_id',),
     )
@@ -1427,7 +1462,9 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
         ddjj_queryset = ddjj_queryset.filter(empresa_id=empresa_id)
 
     f22_queryset = scope_queryset_for_access(
-        F22PreparacionAnual.objects.filter(anio_tributario=anio_tributario),
+        F22PreparacionAnual.objects.select_related('capacidad_tributaria').filter(
+            anio_tributario=anio_tributario
+        ),
         access,
         company_paths=('empresa_id',),
     )
