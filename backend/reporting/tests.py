@@ -1406,6 +1406,102 @@ class ReportingAPITests(APITestCase):
             ['DDJJPreparacionAnual', 'F22PreparacionAnual'],
         )
 
+    def test_annual_tax_summary_blocks_ddjj_without_traceable_state(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALDDJJSTATE')
+        self._activate_fiscal_config(empresa)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+        )
+        ddjj = DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref='cert-ddjj-state',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.IN_PREPARATION,
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='F22Preparacion',
+                certificado_ref='cert-f22-state',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_ddjj_not_traceable')
+        self.assertEqual(str(response.data['traceability']['details']['ddjj_id']), str(ddjj.id))
+        self.assertEqual(
+            response.data['traceability']['details']['estado'],
+            EstadoPreparacionTributaria.IN_PREPARATION,
+        )
+
+    def test_annual_tax_summary_blocks_f22_without_traceable_state(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALF22STATE')
+        self._activate_fiscal_config(empresa)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref='cert-ddjj-f22-state',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        f22 = F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='F22Preparacion',
+                certificado_ref='cert-f22-state-block',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.IN_PREPARATION,
+            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_f22_not_traceable')
+        self.assertEqual(str(response.data['traceability']['details']['f22_id']), str(f22.id))
+        self.assertEqual(
+            response.data['traceability']['details']['estado'],
+            EstadoPreparacionTributaria.IN_PREPARATION,
+        )
+
     def test_annual_tax_summary_blocks_wrong_fiscal_year(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALYEAR')
         self._activate_fiscal_config(empresa)

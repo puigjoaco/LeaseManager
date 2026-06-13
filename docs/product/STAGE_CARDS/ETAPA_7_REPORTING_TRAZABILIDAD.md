@@ -28,6 +28,8 @@ documentos o procesos tributarios trazables.
   trazable. Estados aprobados, observados, rectificados o presentados requieren
   referencia externa trazable. Cada empresa incluida debe tener
   `ConfiguracionFiscalEmpresa` activa propia.
+- La API de resumen tributario anual bloquea DDJJ y F22 que aun esten en
+  estados no trazables, aunque conserven resumen heredado.
 - La API de resumen tributario anual bloquea procesos anuales finales sin
   `paquete_ddjj_ref` o `borrador_f22_ref` trazable, y tambien bloquea esas
   referencias cuando contienen URLs, tokens, credenciales o valores sensibles.
