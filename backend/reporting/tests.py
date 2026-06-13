@@ -832,6 +832,43 @@ class ReportingAPITests(APITestCase):
             [str(asiento.id)],
         )
 
+    def test_financial_monthly_summary_blocks_accounting_entry_not_posted(self):
+        empresa, event = self._create_financial_summary_event_with_close(
+            'FINENTRYDRAFT',
+            origin_id='entry-draft-1',
+            idempotency_key='rep-fin-entry-draft',
+        )
+        asiento = self._create_posted_asiento(event)
+        asiento.estado = EstadoAsientoContable.DRAFT
+        asiento.save(update_fields=['estado'])
+
+        response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.accounting_entry_not_posted')
+        self.assertEqual(
+            [str(value) for value in response.data['traceability']['details']['asientos_no_posteados']],
+            [str(asiento.id)],
+        )
+
+    def test_financial_monthly_summary_blocks_accounting_entry_unbalanced(self):
+        empresa, event = self._create_financial_summary_event_with_close(
+            'FINENTRYUNBAL',
+            origin_id='entry-unbalanced-1',
+            idempotency_key='rep-fin-entry-unbalanced',
+        )
+        asiento = self._create_posted_asiento(event)
+        AsientoContable.objects.filter(pk=asiento.pk).update(haber_total='100000.00')
+
+        response = self.client.get(f"{reverse('reporting-financiero-mensual')}?anio=2026&mes=1&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.accounting_entry_unbalanced')
+        self.assertEqual(
+            [str(value) for value in response.data['traceability']['details']['asientos_descuadrados']],
+            [str(asiento.id)],
+        )
+
     def test_financial_monthly_summary_blocks_accounting_entry_with_stale_hash(self):
         empresa, event = self._create_financial_summary_event_with_close(
             'FINHASHBAD',

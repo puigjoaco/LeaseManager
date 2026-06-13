@@ -345,16 +345,28 @@ def _assert_financial_monthly_traceability(
         )
 
     asientos = AsientoContable.objects.filter(evento_contable__in=events).prefetch_related('movimientos')
-    invalid_asientos = [
+    asientos_no_posteados = [
         asiento.id
         for asiento in asientos
-        if asiento.estado != EstadoAsientoContable.POSTED or asiento.debe_total != asiento.haber_total
+        if asiento.estado != EstadoAsientoContable.POSTED
     ]
-    if invalid_asientos:
+    if asientos_no_posteados:
         _raise_traceability_error(
-            'reporting.accounting_entry_invalid',
-            'El reporte financiero mensual contiene asientos no posteados o descuadrados.',
-            {'periodo': _period_label(anio, mes), 'asientos_invalidos': invalid_asientos},
+            'reporting.accounting_entry_not_posted',
+            'El reporte financiero mensual contiene asientos no posteados.',
+            {'periodo': _period_label(anio, mes), 'asientos_no_posteados': asientos_no_posteados},
+        )
+
+    asientos_descuadrados = [
+        asiento.id
+        for asiento in asientos
+        if asiento.debe_total != asiento.haber_total
+    ]
+    if asientos_descuadrados:
+        _raise_traceability_error(
+            'reporting.accounting_entry_unbalanced',
+            'El reporte financiero mensual contiene asientos descuadrados.',
+            {'periodo': _period_label(anio, mes), 'asientos_descuadrados': asientos_descuadrados},
         )
 
     posted_asientos = [asiento for asiento in asientos if asiento.estado == EstadoAsientoContable.POSTED]

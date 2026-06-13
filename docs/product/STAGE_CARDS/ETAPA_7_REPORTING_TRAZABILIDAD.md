@@ -20,6 +20,9 @@ documentos o procesos tributarios trazables.
 - La API de resumen financiero mensual bloquea antes de entregar reporte los
   asientos contabilizados sin `hash_integridad`, con hash desactualizado o sin
   movimientos contables trazables.
+- La API de resumen financiero mensual separa los bloqueos de asientos no
+  posteados y asientos descuadrados con codigos especificos, alineados con
+  `audit_stage7_reporting_readiness`.
 - Los libros por periodo requieren `LibroDiario`, `LibroMayor` y
   `BalanceComprobacion` aprobados, resumen no vacio, balance cuadrado y cierre
   mensual aprobado.

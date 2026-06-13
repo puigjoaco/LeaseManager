@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-13: Reporting/Etapa 7 alinea la API financiera mensual con
+readiness para asientos contables incluidos en reportes. La API ahora separa
+`reporting.accounting_entry_not_posted` y
+`reporting.accounting_entry_unbalanced` en vez de agrupar ambos casos como
+invalidos genericos, manteniendo correspondencia con
+`stage7.reporting.accounting_entry_not_posted` y
+`stage7.reporting.accounting_entry_unbalanced`.
+
 Nota 2026-06-13: Reporting/Etapa 7 alinea la API tributaria anual con
 readiness para `ProcesoRentaAnual.resumen_anual`: `obligaciones` debe ser una
 lista no vacia. `_assert_annual_tax_traceability()` bloquea respuestas
