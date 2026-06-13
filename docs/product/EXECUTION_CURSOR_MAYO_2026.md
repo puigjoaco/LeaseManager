@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Paquete tactico abierto: API tributaria anual bloquea refs y payloads sensibles heredados en cualquier estado trazable. |
-| Fuente exacta | `main` limpio sincronizado en `59f0b0fd` tras mergear PR #797. Rescue queda pausado fuera de alcance. |
-| Brecha activa | `_assert_annual_tax_traceability()` bloqueaba payloads sensibles y refs DDJJ/F22 sensibles solo en estados finales, mientras `audit_stage7_reporting_readiness` los clasifica como bloqueantes para cierre aunque el documento este preparado. |
-| Motivo de prioridad | Alinear API de Reporting anual con readiness y evitar que un reporte tributario anual se entregue como valido sobre payloads o refs SII sensibles heredados. |
-| Worktree | `D:/Proyectos/LeaseManager-stage7-annual-sensitive-payload-codes`. |
-| Rama | `codex/stage7-annual-sensitive-payload-codes`. |
-| Estado | En implementacion local: servicio Reporting, tests de API, stage card, trazabilidad, evidencia y cursor. |
-| Gate esperado | Focal Reporting anual, suite Reporting/readiness Etapa 7, `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, frontend build/lint, acceptance local, higiene, PR, CI, merge y limpieza. |
-| Estado al cerrar paquete | Pendiente hasta validar, abrir PR, pasar CI, mergear a `main` y remover el worktree tactico. |
+| Frente activo | Sin paquete tactico abierto tras preparar PR #798: API tributaria anual bloquea refs y payloads sensibles heredados en cualquier estado trazable. |
+| Fuente exacta | PR #798 preparado desde `main` limpio `59f0b0fd`; commit de paquete `0311067`. Rescue queda pausado fuera de alcance. |
+| Brecha activa | Ninguna tras preparar PR #798: `_assert_annual_tax_traceability()` bloquea payloads sensibles y refs DDJJ/F22 sensibles aunque el documento este preparado, alineado con `audit_stage7_reporting_readiness`. |
+| Motivo de prioridad | Mantener la API de Reporting anual alineada con readiness y evitar reportes validos sobre payloads o refs SII sensibles heredados. |
+| Worktree | Ninguno de producto activo tras preparar PR #798. |
+| Rama | `main` tras mergear PR #798. |
+| Estado | Listo para seleccionar el siguiente frente seguro tras mergear PR #798. |
+| Gate esperado | Antes de abrir un nuevo paquete: leer este cursor, confirmar `git status --short --branch` y `git worktree list`, diagnosticar PRD/stage cards/trazabilidad, y abrir worktree `codex/...` si el cambio no es trivial. |
+| Estado al cerrar paquete | PR #798 preparado con focal Reporting anual (7 tests OK), suite Reporting/readiness Etapa 7 (82 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1354 tests OK), higiene, `git diff --check` y CI remoto GitHub en verde. |
 | Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales de Reporting. |
-| Politica de reanudacion | No rehacer PR #797 ni redactar de nuevo el goal. Continuar este paquete desde el worktree tactico hasta cierre o pausa explicita. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Implementar bloqueo API, actualizar tests/docs/evidencia, validar y cerrar paquete con PR/CI/merge/limpieza. |
+| Politica de reanudacion | No rehacer PR #798 ni redactar de nuevo el goal. Confirmar estado real del repo y seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Tras mergear PR #798 y sincronizar `main`, diagnosticar el siguiente frente seguro desde PRD/stage cards/trazabilidad y abrir un paquete pequeno, verificable y trazable. |
 
 ## Actualizacion
 
