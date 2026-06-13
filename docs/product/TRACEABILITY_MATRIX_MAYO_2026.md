@@ -614,6 +614,13 @@ emite codigos `reporting.annual_ddjj_ref_sensitive` y
 `reporting.annual_f22_ref_sensitive` sin filtrar URLs, tokens ni credenciales,
 alineando la ruta API con `audit_stage7_reporting_readiness`.
 
+Nota 2026-06-13: Reporting/Etapa 7 bloquea payloads anuales sensibles en API
+cuando el proceso, DDJJ o F22 ya estan en estados finales. La ruta tributaria
+anual emite codigos `reporting.annual_process_sensitive_payload`,
+`reporting.annual_ddjj_sensitive_payload` y
+`reporting.annual_f22_sensitive_payload` sin exponer claves o valores
+sensibles, manteniendo redaccion para datos heredados no finales.
+
 Nota 2026-05-31: Canales/Etapa 2 alinea altas y ediciones API de gates y
 configuraciones de notificacion con auditoria atomica. `AuditCreateUpdateMixin`
 en Canales persiste `created`, `updated` y `state_changed` dentro de

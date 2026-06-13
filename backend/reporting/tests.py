@@ -1377,6 +1377,172 @@ class ReportingAPITests(APITestCase):
         self.assertNotIn('sii.example.test', serialized_response)
         self.assertNotIn('token=secret', serialized_response)
 
+    def test_annual_tax_summary_blocks_final_process_sensitive_payload_without_leaking_value(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALPROCPAYLOAD')
+        self._activate_fiscal_config(empresa)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado=EstadoPreparacionTributaria.APPROVED,
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+            paquete_ddjj_ref='process-ddjj-controlled-ref',
+            borrador_f22_ref='process-f22-controlled-ref',
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref='cert-ddjj-process-payload',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            paquete_ref='ddjj-controlled-ref',
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='F22Preparacion',
+                certificado_ref='cert-f22-process-payload',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            borrador_ref='f22-controlled-ref',
+            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        ProcesoRentaAnual.objects.filter(pk=process.pk).update(
+            resumen_anual={
+                'fiscal_year': 2026,
+                'obligaciones': [{'mes': 1}],
+                'total_obligaciones': 12,
+                'api_key': None,
+            }
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_process_sensitive_payload')
+        self.assertNotIn('api_key', json.dumps(response.data))
+
+    def test_annual_tax_summary_blocks_final_ddjj_sensitive_payload_without_leaking_value(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALDDJJPAYLOAD')
+        self._activate_fiscal_config(empresa)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado=EstadoPreparacionTributaria.APPROVED,
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+            paquete_ddjj_ref='process-ddjj-controlled-ref',
+            borrador_f22_ref='process-f22-controlled-ref',
+        )
+        ddjj = DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref='cert-ddjj-final-payload',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            paquete_ref='ddjj-controlled-ref',
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='F22Preparacion',
+                certificado_ref='cert-f22-ddjj-final-payload',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            borrador_ref='f22-controlled-ref',
+            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        DDJJPreparacionAnual.objects.filter(pk=ddjj.pk).update(
+            resumen_paquete={
+                'ddjj_habilitadas': ['1887'],
+                'resumen_anual': {'fiscal_year': 2026},
+                'access_token': None,
+            }
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_ddjj_sensitive_payload')
+        self.assertNotIn('access_token', json.dumps(response.data))
+
+    def test_annual_tax_summary_blocks_final_f22_sensitive_payload_without_leaking_value(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALF22PAYLOAD')
+        self._activate_fiscal_config(empresa)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado=EstadoPreparacionTributaria.APPROVED,
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+            paquete_ddjj_ref='process-ddjj-controlled-ref',
+            borrador_f22_ref='process-f22-controlled-ref',
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref='cert-ddjj-f22-final-payload',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            paquete_ref='ddjj-controlled-ref',
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        f22 = F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='F22Preparacion',
+                certificado_ref='cert-f22-final-payload',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            borrador_ref='f22-controlled-ref',
+            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        F22PreparacionAnual.objects.filter(pk=f22.pk).update(
+            resumen_f22={
+                'base': '100.00',
+                'resumen_anual': {'fiscal_year': 2026},
+                'credential': None,
+            }
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_f22_sensitive_payload')
+        self.assertNotIn('credential', json.dumps(response.data))
+
     def test_annual_tax_summary_blocks_sensitive_process_refs_without_leaking_value(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALPROCSENSITIVE')
         self._activate_fiscal_config(empresa)
