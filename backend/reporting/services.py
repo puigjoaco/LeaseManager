@@ -637,6 +637,28 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                     'documentos_desalineados': mismatched_documents,
                 },
             )
+        if ddjj.estado_preparacion not in ANNUAL_TRACEABLE_STATES:
+            _raise_traceability_error(
+                'reporting.annual_ddjj_not_traceable',
+                'El reporte tributario anual requiere DDJJ en estado trazable de preparacion.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'ddjj_id': ddjj.id,
+                    'estado': ddjj.estado_preparacion,
+                },
+            )
+        if f22.estado_preparacion not in ANNUAL_TRACEABLE_STATES:
+            _raise_traceability_error(
+                'reporting.annual_f22_not_traceable',
+                'El reporte tributario anual requiere F22 en estado trazable de preparacion.',
+                {
+                    'empresa_id': process.empresa_id,
+                    'anio_tributario': anio_tributario,
+                    'f22_id': f22.id,
+                    'estado': f22.estado_preparacion,
+                },
+            )
         if not ddjj.resumen_paquete or not f22.resumen_f22:
             _raise_traceability_error(
                 'reporting.annual_documents_without_summary',
