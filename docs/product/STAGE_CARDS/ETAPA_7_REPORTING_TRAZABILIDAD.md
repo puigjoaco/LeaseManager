@@ -105,6 +105,13 @@ externa final.
 - La API de resumen tributario anual tambien bloquea esos eventos
   `status_updated` incompletos cuando pertenecen a DDJJ/F22 incluidos en la
   respuesta solicitada, sin exponer metadata cruda ni ids fuera del alcance.
+- Los eventos `status_updated` de DDJJ/F22 incluidos en reporting tambien deben
+  conservar `responsable_revision_ref` no sensible cuando el estado nuevo es
+  aprobado, observado, rectificado o presentado. La API anual bloquea eventos
+  en alcance sin responsable auditado o con referencia sensible usando codigos
+  `reporting.annual_status_responsible_ref_missing` y
+  `reporting.annual_status_responsible_ref_sensitive`, y readiness los alinea
+  con `stage7.reporting.audit_annual_status_responsible_ref_*`.
 - Si falta alguno de esos origenes, la API responde con bloqueo de
   trazabilidad y no entrega el reporte como valido.
 - `audit_stage7_reporting_readiness` consolida readiness local de resumen

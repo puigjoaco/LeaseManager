@@ -269,6 +269,48 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertIn('stage6.audit.annual_status_transition_metadata_missing', issue_codes)
         self.assertEqual(result['sections']['audit']['annual_status_transition_metadata_missing'], 1)
 
+    def test_annual_status_updated_event_without_review_responsible_is_blocking(self):
+        AuditEvent.objects.create(
+            event_type='sii.ddjj_preparacion.status_updated',
+            entity_type='ddjj_preparacion',
+            entity_id='1',
+            summary='Actualizacion anual heredada sin responsable auditado.',
+            metadata={
+                'campo_estado': 'estado_preparacion',
+                'estado_anterior': EstadoPreparacionTributaria.PREPARED,
+                'estado_nuevo': EstadoPreparacionTributaria.APPROVED,
+            },
+        )
+
+        result = collect_stage6_renta_anual_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage6.audit.annual_status_responsible_ref_missing', issue_codes)
+        self.assertEqual(result['sections']['audit']['annual_status_responsible_ref_missing'], 1)
+
+    def test_annual_status_updated_event_with_sensitive_review_responsible_is_blocking_without_leak(self):
+        AuditEvent.objects.create(
+            event_type='sii.f22_preparacion.status_updated',
+            entity_type='f22_preparacion',
+            entity_id='1',
+            summary='Actualizacion anual heredada con responsable sensible.',
+            metadata={
+                'campo_estado': 'estado_preparacion',
+                'estado_anterior': EstadoPreparacionTributaria.PREPARED,
+                'estado_nuevo': EstadoPreparacionTributaria.APPROVED,
+                'responsable_revision_ref': 'https://sii.example.test/reviewer?token=secret',
+            },
+        )
+
+        result = collect_stage6_renta_anual_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertIn('stage6.audit.annual_status_responsible_ref_sensitive', issue_codes)
+        self.assertEqual(result['sections']['audit']['annual_status_responsible_ref_sensitive'], 1)
+        self.assertNotIn('sii.example.test', serialized_result)
+        self.assertNotIn('token=secret', serialized_result)
+
     def test_valid_authorized_matrix_and_non_sensitive_refs_can_pass_readiness(self):
         self._create_valid_local_matrix()
 

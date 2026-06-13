@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils import timezone
 
+from audit.models import AuditEvent
 from contabilidad.models import (
     AsientoContable,
     BalanceComprobacion,
@@ -94,6 +95,22 @@ def _count_invalid(queryset) -> int:
 
 def _count_without_active_fiscal_config(items, active_fiscal_company_ids: set[int]) -> int:
     return sum(1 for item in items if item.empresa_id not in active_fiscal_company_ids)
+
+
+def _count_annual_status_review_responsible_issues() -> dict[str, int]:
+    counts = Counter()
+    required_states = {str(state) for state in ANNUAL_STATES_REQUIRING_REF}
+    events = AuditEvent.objects.filter(event_type__in=STAGE7_ANNUAL_STATUS_UPDATE_EVENT_TYPES).only('metadata')
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if str(metadata.get('estado_nuevo') or '').strip() not in required_states:
+            continue
+        responsible_ref = str(metadata.get('responsable_revision_ref') or '').strip()
+        if not responsible_ref:
+            counts['missing'] += 1
+        elif _sensitive_reference(responsible_ref):
+            counts['sensitive'] += 1
+    return dict(sorted(counts.items()))
 
 
 def _period_label(anio: int, mes: int) -> str:
@@ -368,6 +385,7 @@ def collect_stage7_reporting_readiness(
     annual_status_transition_metadata_missing = count_audit_events_without_transition_metadata(
         event_types=STAGE7_ANNUAL_STATUS_UPDATE_EVENT_TYPES
     )
+    annual_status_review_responsible_issues = _count_annual_status_review_responsible_issues()
 
     issues: list[dict[str, Any]] = []
     if not source_kind_authorized_for_close:
@@ -404,6 +422,22 @@ def collect_stage7_reporting_readiness(
                 'stage7.reporting.audit_annual_status_transition_metadata_missing',
                 'Existen eventos status_updated de DDJJ/F22 usados por reporting sin campo_estado, estado_anterior o estado_nuevo.',
                 count=annual_status_transition_metadata_missing,
+            )
+        )
+    if annual_status_review_responsible_issues.get('missing'):
+        issues.append(
+            _issue(
+                'stage7.reporting.audit_annual_status_responsible_ref_missing',
+                'Existen eventos status_updated de DDJJ/F22 avanzados sin responsable_revision_ref auditado para reporting.',
+                count=annual_status_review_responsible_issues['missing'],
+            )
+        )
+    if annual_status_review_responsible_issues.get('sensitive'):
+        issues.append(
+            _issue(
+                'stage7.reporting.audit_annual_status_responsible_ref_sensitive',
+                'Existen eventos status_updated de DDJJ/F22 avanzados con responsable_revision_ref sensible para reporting.',
+                count=annual_status_review_responsible_issues['sensitive'],
             )
         )
     if approved_closes.count() == 0:
@@ -807,6 +841,8 @@ def collect_stage7_reporting_readiness(
             },
             'audit': {
                 'annual_status_transition_metadata_missing': annual_status_transition_metadata_missing,
+                'annual_status_responsible_ref_missing': annual_status_review_responsible_issues.get('missing', 0),
+                'annual_status_responsible_ref_sensitive': annual_status_review_responsible_issues.get('sensitive', 0),
             },
             'final_evidence': final_evidence,
             'final_evidence_sensitive': final_evidence_sensitive,
