@@ -32,8 +32,10 @@ ahora separa `reporting.annual_ddjj_missing_for_process`,
 
 Nota 2026-06-13: Reporting/Etapa 7 alinea la API de libros por periodo con
 readiness. `_assert_period_books_traceability()` ahora usa
+`reporting.books_snapshot_missing_for_close`,
 `reporting.books_snapshot_summary_missing` y `reporting.books_balance_not_square`
 para los mismos casos que `audit_stage7_reporting_readiness` clasifica como
+`stage7.reporting.books_snapshot_missing_for_close`,
 `stage7.reporting.books_snapshot_summary_missing` y
 `stage7.reporting.books_balance_not_square`.
 

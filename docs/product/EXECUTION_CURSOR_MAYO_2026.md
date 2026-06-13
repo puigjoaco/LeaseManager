@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras preparar PR #798: API tributaria anual bloquea refs y payloads sensibles heredados en cualquier estado trazable. |
-| Fuente exacta | PR #798 preparado desde `main` limpio `59f0b0fd`; commit de paquete `0311067`. Rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna tras preparar PR #798: `_assert_annual_tax_traceability()` bloquea payloads sensibles y refs DDJJ/F22 sensibles aunque el documento este preparado, alineado con `audit_stage7_reporting_readiness`. |
-| Motivo de prioridad | Mantener la API de Reporting anual alineada con readiness y evitar reportes validos sobre payloads o refs SII sensibles heredados. |
-| Worktree | Ninguno de producto activo tras preparar PR #798. |
-| Rama | `main` tras mergear PR #798. |
-| Estado | Listo para seleccionar el siguiente frente seguro tras mergear PR #798. |
-| Gate esperado | Antes de abrir un nuevo paquete: leer este cursor, confirmar `git status --short --branch` y `git worktree list`, diagnosticar PRD/stage cards/trazabilidad, y abrir worktree `codex/...` si el cambio no es trivial. |
-| Estado al cerrar paquete | PR #798 preparado con focal Reporting anual (7 tests OK), suite Reporting/readiness Etapa 7 (82 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1354 tests OK), higiene, `git diff --check` y CI remoto GitHub en verde. |
-| Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales de Reporting. |
-| Politica de reanudacion | No rehacer PR #798 ni redactar de nuevo el goal. Confirmar estado real del repo y seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Tras mergear PR #798 y sincronizar `main`, diagnosticar el siguiente frente seguro desde PRD/stage cards/trazabilidad y abrir un paquete pequeno, verificable y trazable. |
+| Frente activo | Etapa 7 Reporting: alinear codigo API de libros por periodo para snapshots contables faltantes. |
+| Fuente exacta | `main` limpio `39ff7b7b` tras mergear PR #798. Rescue queda pausado fuera de alcance. |
+| Brecha activa | `_assert_period_books_traceability()` devuelve `reporting.books_snapshot_missing` cuando falta `LibroDiario`, `LibroMayor` o `BalanceComprobacion`, mientras readiness usa `stage7.reporting.books_snapshot_missing_for_close`. |
+| Motivo de prioridad | Mantener API y readiness de libros contables con codigos equivalentes antes de seguir endureciendo Reporting. |
+| Worktree | `D:/Proyectos/LeaseManager-stage7-books-missing-snapshot-code`. |
+| Rama | `codex/stage7-books-missing-snapshot-code`. |
+| Estado | Validacion local completa; listo para commit, PR y CI. |
+| Gate esperado | Test focal de libros por periodo, suite Reporting/readiness Etapa 7, `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, frontend build/lint, acceptance local, higiene y CI remoto antes de merge. |
+| Estado al cerrar paquete | Pendiente de PR/CI/merge. Validacion local: focal Reporting libros (2 tests OK), suite Reporting/readiness Etapa 7 (83 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1355 tests OK), higiene y `git diff --check`. |
+| Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo alinea rutas locales de Reporting. |
+| Politica de reanudacion | Continuar este worktree hasta PR, CI, merge y limpieza. No rehacer PR #798 ni redactar de nuevo el goal. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Commit, PR, CI remoto, merge y limpieza. |
 
 ## Actualizacion
 

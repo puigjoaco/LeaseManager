@@ -548,7 +548,7 @@ def _assert_period_books_traceability(*, empresa_id, periodo, libro_diario, libr
     missing = [name for name, snapshot in snapshots.items() if snapshot is None]
     if missing:
         _raise_traceability_error(
-            'reporting.books_snapshot_missing',
+            'reporting.books_snapshot_missing_for_close',
             'El reporte de libros requiere libro diario, libro mayor y balance de comprobacion existentes.',
             {'empresa_id': empresa_id, 'periodo': periodo, 'faltantes': missing},
         )

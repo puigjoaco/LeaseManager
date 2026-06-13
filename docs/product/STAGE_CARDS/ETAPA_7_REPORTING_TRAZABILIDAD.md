@@ -27,6 +27,7 @@ documentos o procesos tributarios trazables.
   `BalanceComprobacion` aprobados, resumen no vacio, balance cuadrado y cierre
   mensual aprobado.
 - La API de libros por periodo usa codigos alineados con readiness para
+  snapshots faltantes (`reporting.books_snapshot_missing_for_close`),
   snapshots sin resumen (`reporting.books_snapshot_summary_missing`) y balances
   no cuadrados (`reporting.books_balance_not_square`).
 - El resumen tributario anual requiere `ProcesoRentaAnual` preparado o superior,
