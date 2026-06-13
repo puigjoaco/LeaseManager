@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 7 Reporting: API tributaria anual alineada con estado trazable de DDJJ/F22. |
-| Fuente exacta | `main` limpio tras PR #777 (`7881eb9c`); worktree tactico `D:/Proyectos/LeaseManager-stage7-annual-document-state-api`. |
-| Brecha activa | `_assert_annual_tax_traceability()` validaba el estado trazable del proceso anual, pero aun podia entregar reporte con DDJJ/F22 en estado preliminar si conservaban resumen; readiness Etapa 7 ya bloqueaba esas condiciones. |
-| Motivo de prioridad | Evitar reporte tributario anual con trazabilidad API mas debil que el gate de Reporting y la stage card. |
-| Worktree | `D:/Proyectos/LeaseManager-stage7-annual-document-state-api`. |
-| Rama | `codex/stage7-annual-document-state-api`. |
-| Estado | Validacion local pre-PR completa; pendiente commit, PR, CI, merge y limpieza. |
-| Gate esperado | Focal Reporting anual, suite impactada `reporting core.tests_stage7_reporting_readiness`, `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial, frontend build/lint, acceptance local, higiene repo y `git diff --check`. |
-| Estado al cerrar paquete | Pre-PR local OK: focal Reporting anual 3 tests, suite impactada Reporting/readiness 55 tests, `manage.py check`, migraciones dry-run, gate Etapa 7 parcial, `npm ci`, build/lint, acceptance local 1327 tests, higiene repo y `git diff --check`. |
-| Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales sin leer datos reales ni integraciones externas. |
-| Politica de reanudacion | Continuar este worktree hasta cerrar PR o pausar explicitamente; no reabrir paquetes Reporting ya cerrados ni metatareas de goal. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Completar validaciones proporcionales, actualizar evidencia/trazabilidad, abrir PR, esperar CI, mergear y limpiar worktree. |
+| Frente activo | Sin paquete tactico abierto tras cerrar estado trazable de DDJJ/F22 en API Reporting Etapa 7. |
+| Fuente exacta | `main` limpio tras mergear PR #778 (`fbcd6114`); rescue queda pausado fuera de alcance. |
+| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear PR #778. La brecha de resumen tributario anual con API mas debil que readiness queda cubierta por servicio, tests, stage card, trazabilidad y evidencia. |
+| Motivo de prioridad | Evitar que reanudaciones reabran el paquete Reporting anual ya validado e integrado. |
+| Worktree | Ninguno tras merge y limpieza del paquete. |
+| Rama | `main` tras merge. |
+| Estado | Listo para seleccionar el siguiente frente util y seguro desde el repo limpio. |
+| Gate esperado | El siguiente paquete debe definir su gate proporcional antes de editar; los cierres evidenciales siguen sin declararse sin fuente autorizada y evidencia. |
+| Estado al cerrar paquete | PR #778: focal Reporting anual 3 tests OK; suite impactada Reporting/readiness 55 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 7 `classification=parcial`, `ready_for_stage7_close=False`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1327 tests OK; CI GitHub Release Gate OK; higiene repo y `git diff --check` OK. |
+| Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. El paquete #778 solo endurece rutas locales de Reporting sin leer datos reales ni integraciones externas. |
+| Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`, diagnosticar el siguiente frente seguro por orden de construccion/trazabilidad y abrir un worktree `codex/...` solo cuando haya paquete concreto. |
 
 ## Actualizacion
 
