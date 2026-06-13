@@ -4,7 +4,7 @@ from django.core.cache import cache
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
-from audit.models import ManualResolution
+from audit.models import AuditEvent, ManualResolution
 from audit.scope_filters import scope_manual_resolution_queryset
 from canales.models import EstadoMensajeSaliente, MensajeSaliente
 from cobranza.models import (
@@ -29,6 +29,7 @@ from core.reference_validation import (
     redact_sensitive_reference,
 )
 from core.scope_access import ScopeAccess, scope_queryset_for_access
+from core.state_transition_audit_readiness import transition_event_has_transition_metadata
 from contabilidad.models import (
     AsientoContable,
     BalanceComprobacion,
@@ -72,6 +73,10 @@ ANNUAL_STATES_REQUIRING_REF = {
     EstadoPreparacionTributaria.OBSERVED,
     EstadoPreparacionTributaria.RECTIFIED,
 }
+ANNUAL_STATUS_AUDIT_TARGETS = (
+    ('DDJJPreparacionAnual', 'sii.ddjj_preparacion.status_updated', 'ddjj_preparacion'),
+    ('F22PreparacionAnual', 'sii.f22_preparacion.status_updated', 'f22_preparacion'),
+)
 MONTHLY_CONTROL_READY_TAX_STATES = {
     EstadoPreparacionTributaria.NOT_APPLICABLE,
     EstadoPreparacionTributaria.PREPARED,
@@ -147,6 +152,35 @@ def _sensitive_reference(value) -> bool:
 
 def _sensitive_payload(value) -> bool:
     return contains_sensitive_reference(value or {}, include_sensitive_keys=True)
+
+
+def _annual_status_audit_metadata_missing(*, ddjj_items, f22_items) -> list[dict[str, object]]:
+    ids_by_document = {
+        'DDJJPreparacionAnual': {str(item.id) for item in ddjj_items if item.id is not None},
+        'F22PreparacionAnual': {str(item.id) for item in f22_items if item.id is not None},
+    }
+    missing: list[dict[str, object]] = []
+
+    for document_label, event_type, entity_type in ANNUAL_STATUS_AUDIT_TARGETS:
+        entity_ids = ids_by_document[document_label]
+        if not entity_ids:
+            continue
+        events = AuditEvent.objects.filter(
+            event_type=event_type,
+            entity_type=entity_type,
+            entity_id__in=entity_ids,
+        ).only('metadata')
+        count = sum(1 for event in events if not transition_event_has_transition_metadata(event))
+        if count:
+            missing.append(
+                {
+                    'documento': document_label,
+                    'event_type': event_type,
+                    'eventos_incompletos': count,
+                }
+            )
+
+    return missing
 
 
 def _values_set(queryset, field: str) -> set[int]:
@@ -730,6 +764,18 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                 'El reporte tributario anual no puede validar borrador_ref sensible de F22 final.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
+
+    annual_status_audit_missing = _annual_status_audit_metadata_missing(ddjj_items=ddjj_items, f22_items=f22_items)
+    if annual_status_audit_missing:
+        _raise_traceability_error(
+            'reporting.annual_status_transition_metadata_missing',
+            'El reporte tributario anual requiere auditorias status_updated DDJJ/F22 con metadata minima de transicion.',
+            {
+                'empresa_id': empresa_id,
+                'anio_tributario': anio_tributario,
+                'eventos_status_updated_incompletos': annual_status_audit_missing,
+            },
+        )
 
     return _traceability_payload(
         report_type='tributario_anual',
