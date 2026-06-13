@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Boundary contable/tributario asistido: alinear PRD, arquitectura, gates y stage cards para que LeaseManager prepare paquetes trazables, no decisiones autonomas de renta/contabilidad. |
-| Fuente exacta | `main` limpio `2eed3291` tras mergear PR #803. Rescue queda pausado fuera de alcance. |
-| Brecha activa | Lenguaje documental aun podia leerse como contabilidad/renta final automatizada. Debe quedar explicito que el core mecaniza datos, reglas, evidencias, asientos y dossiers, mientras la aprobacion/presentacion final exige responsable, gate y validacion experta/oficial. |
-| Motivo de prioridad | Evitar que el siguiente avance endurezca automatizacion tributaria o contable mas alla del boundary real del v1; mantener avance ordenado y trazable hacia cierre sin crear decisiones autonomas inseguras. |
-| Worktree | `D:/Proyectos/LeaseManager-accounting-tax-boundary`. |
-| Rama | `codex/accounting-tax-boundary`. |
-| Estado | En desarrollo documental, sin tocar codigo operativo ni datos reales. |
-| Gate esperado | Revision textual de PRD, matriz de gates, arquitectura y stage cards 4/5/6/7; `git diff --check`, higiene repo y PR/CI antes de merge. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | No hay bloqueo externo para este paquete. Cierres reales de Etapas 5, 6 y 7 siguen condicionados a fuentes autorizadas, evidencia no sensible, responsables y gates aplicables. |
-| Politica de reanudacion | No reabrir PR #803 ni redactar goal. Continuar este paquete hasta PR/CI/merge/limpieza; luego seleccionar el siguiente frente seguro desde el repo. |
-| Siguiente accion | Terminar ajuste documental, validar diff/higiene, abrir PR, esperar CI, mergear y limpiar worktree. |
+| Frente activo | Etapa 6: exigir responsable de revision no sensible en artefactos anuales avanzados. |
+| Fuente exacta | `main` limpio `887c3a4d` tras mergear PR #804. Rescue queda pausado fuera de alcance. |
+| Brecha activa | El boundary asistido ya esta en PRD/arquitectura, pero ProcesoRentaAnual, DDJJ y F22 avanzados aun no conservan una referencia propia de responsable de revision. |
+| Motivo de prioridad | Convertir el boundary contable-tributario asistido en enforcement local: un dossier anual no debe tratarse como aprobado/observado/rectificado sin responsable trazable no sensible. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-review-responsible`. |
+| Rama | `codex/stage6-review-responsible`. |
+| Estado | Validado localmente; PR/CI/merge pendiente. Si este paquete ya aparece mergeado en `main`, no reabrirlo. |
+| Gate esperado | Migracion/modelo/API/readiness/tests Etapa 6 y reporting impactado; `manage.py check`, migraciones dry-run, gate Etapa 6 local parcial esperado, frontend build/lint si aplica, acceptance local, higiene, CI remoto antes de merge. |
+| Estado al cerrar paquete | Pendiente de PR/CI/merge. |
+| Bloqueos relacionados | Etapa 6 sigue sin cierre real sin fuente `snapshot_controlado` o `real_autorizado`, evidencia Stage 5/4, regla fiscal, certificados y responsable final. Este paquete solo agrega responsable de revision a artefactos anuales avanzados. |
+| Politica de reanudacion | No reabrir PR #804 ni reescribir goal. Continuar este paquete solo si la rama `codex/stage6-review-responsible` sigue abierta; si ya fue mergeada, elegir el siguiente frente seguro desde trazabilidad. |
+| Siguiente accion | Abrir PR, esperar CI, mergear y limpiar worktree. |
 
 ## Actualizacion
 

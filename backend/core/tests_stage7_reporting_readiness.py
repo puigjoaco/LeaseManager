@@ -522,10 +522,13 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertIn('stage7.reporting.annual_summary_incomplete', issue_codes)
         self.assertIn('stage7.reporting.annual_process_ddjj_ref_missing', issue_codes)
         self.assertIn('stage7.reporting.annual_process_f22_ref_missing', issue_codes)
+        self.assertIn('stage7.reporting.annual_process_responsible_ref_missing', issue_codes)
         self.assertIn('stage7.reporting.annual_ddjj_summary_missing', issue_codes)
         self.assertIn('stage7.reporting.annual_f22_summary_missing', issue_codes)
         self.assertIn('stage7.reporting.annual_ddjj_ref_missing', issue_codes)
         self.assertIn('stage7.reporting.annual_f22_ref_missing', issue_codes)
+        self.assertIn('stage7.reporting.annual_ddjj_responsible_ref_missing', issue_codes)
+        self.assertIn('stage7.reporting.annual_f22_responsible_ref_missing', issue_codes)
 
     def test_annual_reporting_wrong_fiscal_year_is_blocking(self):
         self._create_valid_local_matrix()
@@ -578,9 +581,16 @@ class Stage7ReportingReadinessTests(TestCase):
         ProcesoRentaAnual.objects.update(
             paquete_ddjj_ref='https://sii.example.test/ddjj?token=secret',
             borrador_f22_ref='https://sii.example.test/f22?token=secret',
+            responsable_revision_ref='https://sii.example.test/reviewer?token=secret',
         )
-        DDJJPreparacionAnual.objects.update(paquete_ref='https://sii.example.test/ddjj?token=secret')
-        F22PreparacionAnual.objects.update(borrador_ref='https://sii.example.test/f22?token=secret')
+        DDJJPreparacionAnual.objects.update(
+            paquete_ref='https://sii.example.test/ddjj?token=secret',
+            responsable_revision_ref='https://sii.example.test/ddjj-reviewer?token=secret',
+        )
+        F22PreparacionAnual.objects.update(
+            borrador_ref='https://sii.example.test/f22?token=secret',
+            responsable_revision_ref='https://sii.example.test/f22-reviewer?token=secret',
+        )
 
         result = self._collect_with_final_refs()
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -588,12 +598,18 @@ class Stage7ReportingReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage7_reporting'])
         self.assertIn('stage7.reporting.annual_process_ddjj_ref_sensitive', issue_codes)
         self.assertIn('stage7.reporting.annual_process_f22_ref_sensitive', issue_codes)
+        self.assertIn('stage7.reporting.annual_process_responsible_ref_sensitive', issue_codes)
         self.assertIn('stage7.reporting.annual_ddjj_ref_sensitive', issue_codes)
         self.assertIn('stage7.reporting.annual_f22_ref_sensitive', issue_codes)
+        self.assertIn('stage7.reporting.annual_ddjj_responsible_ref_sensitive', issue_codes)
+        self.assertIn('stage7.reporting.annual_f22_responsible_ref_sensitive', issue_codes)
         self.assertEqual(result['sections']['annual_tax']['process_ddjj_ref_sensitive'], 1)
         self.assertEqual(result['sections']['annual_tax']['process_f22_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_tax']['process_responsible_ref_sensitive'], 1)
         self.assertEqual(result['sections']['annual_tax']['ddjj_ref_sensitive'], 1)
         self.assertEqual(result['sections']['annual_tax']['f22_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_tax']['ddjj_responsible_ref_sensitive'], 1)
+        self.assertEqual(result['sections']['annual_tax']['f22_responsible_ref_sensitive'], 1)
         self.assertNotIn('token=secret', json.dumps(result))
 
     def test_sensitive_final_refs_and_command_behaviour(self):

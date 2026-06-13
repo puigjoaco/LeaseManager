@@ -380,7 +380,7 @@ def generate_annual_preparation(empresa, anio_tributario):
     return process, ddjj, f22
 
 
-def register_annual_status(document, *, estado_preparacion, ref_value='', observaciones=''):
+def register_annual_status(document, *, estado_preparacion, ref_value='', observaciones='', responsable_revision_ref=''):
     if estado_preparacion == EstadoPreparacionTributaria.PRESENTED:
         raise ValueError('SII.PresentacionAnualFinal esta podada del v1 y requiere reemision formal del set.')
     current_ref = ''
@@ -389,20 +389,27 @@ def register_annual_status(document, *, estado_preparacion, ref_value='', observ
     if hasattr(document, 'borrador_ref'):
         current_ref = document.borrador_ref
     input_ref = _ensure_non_sensitive_reference(ref_value, 'ref_value')
+    input_responsable = _ensure_non_sensitive_reference(responsable_revision_ref, 'responsable_revision_ref')
     input_observaciones = _ensure_non_sensitive_text(observaciones, 'observaciones')
     next_ref = input_ref or current_ref
+    next_responsable = input_responsable or document.responsable_revision_ref
     if estado_preparacion in TAX_STATUS_REQUIRING_GATE:
         ensure_sii_capability_ready(document.capacidad_tributaria, document.capacidad_tributaria.capacidad_key)
     if estado_preparacion in TAX_STATUS_REQUIRING_REF:
         if not next_ref:
             raise ValueError('Aprobar u observar preparacion anual requiere referencia trazable.')
         _ensure_non_sensitive_reference(next_ref, 'ref_value')
+        if not next_responsable:
+            raise ValueError('Aprobar u observar preparacion anual requiere responsable_revision_ref trazable.')
+        _ensure_non_sensitive_reference(next_responsable, 'responsable_revision_ref')
 
     document.estado_preparacion = estado_preparacion
     if hasattr(document, 'paquete_ref') and input_ref:
         document.paquete_ref = input_ref
     if hasattr(document, 'borrador_ref') and input_ref:
         document.borrador_ref = input_ref
+    if input_responsable:
+        document.responsable_revision_ref = input_responsable
     if input_observaciones:
         document.observaciones = input_observaciones
     if estado_preparacion in TAX_STATUS_REQUIRING_GATE:
@@ -412,15 +419,18 @@ def register_annual_status(document, *, estado_preparacion, ref_value='', observ
         fields.append('paquete_ref')
     if hasattr(document, 'borrador_ref'):
         fields.append('borrador_ref')
+    fields.append('responsable_revision_ref')
     if hasattr(document, 'observaciones'):
         fields.append('observaciones')
     document.save(update_fields=fields)
 
     process = getattr(document, 'proceso_renta_anual', None)
-    if process and input_ref:
-        if hasattr(document, 'paquete_ref'):
+    if process and (input_ref or input_responsable):
+        if hasattr(document, 'paquete_ref') and input_ref:
             process.paquete_ddjj_ref = input_ref
-        if hasattr(document, 'borrador_ref'):
+        if hasattr(document, 'borrador_ref') and input_ref:
             process.borrador_f22_ref = input_ref
-        process.save(update_fields=['paquete_ddjj_ref', 'borrador_f22_ref', 'updated_at'])
+        if input_responsable:
+            process.responsable_revision_ref = input_responsable
+        process.save(update_fields=['paquete_ddjj_ref', 'borrador_f22_ref', 'responsable_revision_ref', 'updated_at'])
     return document
