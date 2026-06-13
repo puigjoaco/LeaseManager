@@ -595,6 +595,13 @@ borradores, paquetes y observaciones antes de validadores de campo, evitando
 rechazos por longitud cruda y manteniendo trazas canonicas para API, snapshot,
 admin, readiness y auditoria.
 
+Nota 2026-06-13: SII/Etapa 4 valida el artefacto completo antes de persistir
+transiciones externas o tributarias avanzadas. `register_dte_status`,
+`register_f29_status` y `register_annual_status` ejecutan `full_clean()` sobre
+el DTE/F29/DDJJ/F22 actualizado antes de guardar, de modo que la API rechaza
+snapshots heredados con capacidad SII de familia incorrecta u otra
+inconsistencia de dominio antes de emitir el evento auditable.
+
 Nota 2026-05-31: Canales/Etapa 2 alinea altas y ediciones API de gates y
 configuraciones de notificacion con auditoria atomica. `AuditCreateUpdateMixin`
 en Canales persiste `created`, `updated` y `state_changed` dentro de

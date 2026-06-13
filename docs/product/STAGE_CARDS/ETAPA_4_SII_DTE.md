@@ -79,6 +79,10 @@ produccion por defecto.
   gate antes de avanzar. Los DTE marcados `enviado_manual_controlado`
   revalidan `DTEEmision`; los estados finales `aceptado`, `rechazado` o
   `anulado` revalidan `DTEConsultaEstado` abierta y lista.
+- Antes de persistir esos estados externos o tributarios avanzados, el servicio
+  ejecuta `full_clean()` sobre el artefacto actualizado para bloquear DTE, F29,
+  DDJJ o F22 heredados con capacidad SII, empresa, periodo o relacion de
+  dominio invalida.
 - F29, DDJJ y F22 en estado preparado, aprobado, observado o rectificado deben
   mantener una capacidad SII abierta y lista; el readiness bloquea artefactos
   heredados avanzados con capacidad condicionada, cerrada o invalida.

@@ -1748,6 +1748,40 @@ class SiiAPITests(APITestCase):
         self.assertEqual(update.data['estado_dte'], 'aceptado')
         self.assertEqual(update.data['ultimo_estado_sii'], 'Aceptado')
 
+    def test_update_dte_external_status_rejects_inherited_invalid_artifact(self):
+        empresa, pago = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
+        self._activate_capability(empresa, estado_gate='abierto')
+        f29_capability = self._activate_capability(
+            empresa,
+            estado_gate='abierto',
+            capacidad_key='F29Preparacion',
+            prefix='f29',
+        )
+        self.assertEqual(f29_capability.status_code, status.HTTP_201_CREATED)
+        generated = self.client.post(reverse('sii-dte-generate'), {'pago_mensual_id': pago.id}, format='json')
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        DTEEmitido.objects.filter(pk=generated.data['id']).update(capacidad_tributaria_id=f29_capability.data['id'])
+
+        update = self.client.post(
+            reverse('sii-dte-status', args=[generated.data['id']]),
+            {
+                'estado_dte': 'enviado_manual_controlado',
+                'sii_track_id': 'dte-invalid-capability-track',
+            },
+            format='json',
+        )
+
+        self.assertEqual(update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('capacidad_tributaria', update.data['detail'])
+        self.assertEqual(DTEEmitido.objects.get(pk=generated.data['id']).estado_dte, 'borrador')
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='sii.dte_emitido.status_updated',
+                entity_id=str(generated.data['id']),
+            ).exists()
+        )
+
     def test_sii_status_updates_reject_sensitive_references(self):
         empresa, pago = self._setup_paid_payment()
         self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
@@ -2005,6 +2039,49 @@ class SiiAPITests(APITestCase):
 
         self.assertEqual(update.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('gate', update.data['detail'])
+
+    def test_update_f29_status_rejects_inherited_invalid_artifact(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
+        dte_capability = self._activate_capability(empresa, estado_gate='abierto')
+        self.assertEqual(dte_capability.status_code, status.HTTP_201_CREATED)
+        self.client.post(
+            reverse('sii-capacidad-list'),
+            {
+                'empresa': empresa.id,
+                'capacidad_key': 'F29Preparacion',
+                **self._sii_readiness_fields('f29'),
+                'ambiente': 'certificacion',
+                'estado_gate': 'abierto',
+                'ultimo_resultado': {},
+            },
+            format='json',
+        )
+        self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        generated = self.client.post(
+            reverse('sii-f29-generate'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        F29PreparacionMensual.objects.filter(pk=generated.data['id']).update(
+            capacidad_tributaria_id=dte_capability.data['id']
+        )
+
+        update = self.client.post(
+            reverse('sii-f29-status', args=[generated.data['id']]),
+            {'estado_preparacion': 'preparado'},
+            format='json',
+        )
+
+        self.assertEqual(update.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('capacidad_tributaria', update.data['detail'])
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='sii.f29_preparacion.status_updated',
+                entity_id=str(generated.data['id']),
+            ).exists()
+        )
 
     def test_update_f29_status_manually(self):
         empresa, _ = self._setup_paid_payment()
@@ -2309,6 +2386,47 @@ class SiiAPITests(APITestCase):
         )
         self.assertEqual(f22_status.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('gate', f22_status.data['detail'])
+
+    def test_annual_status_rejects_inherited_invalid_artifacts(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        ddjj_capability = CapacidadTributariaSII.objects.get(empresa=empresa, capacidad_key='DDJJPreparacion')
+        f22_capability = CapacidadTributariaSII.objects.get(empresa=empresa, capacidad_key='F22Preparacion')
+        DDJJPreparacionAnual.objects.filter(pk=generated.data['ddjj_preparacion']['id']).update(
+            capacidad_tributaria_id=f22_capability.id
+        )
+        F22PreparacionAnual.objects.filter(pk=generated.data['f22_preparacion']['id']).update(
+            capacidad_tributaria_id=ddjj_capability.id
+        )
+
+        ddjj_status = self.client.post(
+            reverse('sii-ddjj-status', args=[generated.data['ddjj_preparacion']['id']]),
+            {'estado_preparacion': 'preparado'},
+            format='json',
+        )
+        f22_status = self.client.post(
+            reverse('sii-f22-status', args=[generated.data['f22_preparacion']['id']]),
+            {'estado_preparacion': 'preparado'},
+            format='json',
+        )
+
+        self.assertEqual(ddjj_status.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(f22_status.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('capacidad_tributaria', ddjj_status.data['detail'])
+        self.assertIn('capacidad_tributaria', f22_status.data['detail'])
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type__in=('sii.ddjj_preparacion.status_updated', 'sii.f22_preparacion.status_updated'),
+            ).exists()
+        )
 
     def test_annual_status_rejects_final_presentation_boundary(self):
         empresa, _ = self._setup_paid_payment()
