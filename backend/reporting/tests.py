@@ -1304,6 +1304,25 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(len(response.data['ddjj_preparadas']), 1)
         self.assertEqual(len(response.data['f22_preparados']), 1)
 
+    def test_annual_tax_summary_blocks_process_without_traceable_state(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALPROCSTATE')
+        self._activate_fiscal_config(empresa)
+        ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado=EstadoPreparacionTributaria.IN_PREPARATION,
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_process_not_traceable')
+        self.assertEqual(
+            response.data['traceability']['details']['estado'],
+            EstadoPreparacionTributaria.IN_PREPARATION,
+        )
+
     def test_annual_tax_summary_blocks_in_scope_status_audit_without_transition_metadata(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALAUDIT')
         self._activate_fiscal_config(empresa)
