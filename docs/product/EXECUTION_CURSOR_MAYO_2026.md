@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 4 SII: validacion de dominio antes de persistir transiciones tributarias avanzadas. |
-| Fuente exacta | `main` limpio tras mergear PR #773 (`396b6ea1`); rescue queda pausado fuera de alcance. |
-| Brecha activa | Las transiciones manuales de estado SII revalidan gate y refs, pero deben ejecutar `full_clean()` sobre el artefacto actualizado antes de persistir estados externos/avanzados para impedir que un snapshot heredado ya invalido sea mutado por API. |
-| Motivo de prioridad | Alinear servicio/API con readiness Etapa 4: un artefacto heredado con capacidad SII de familia incorrecta debe bloquearse antes de guardar la transicion, no solo ser detectado despues por el auditor. |
-| Worktree | `D:/Proyectos/LeaseManager-stage4-sii-status-validation`. |
-| Rama | `codex/stage4-sii-status-validation`. |
-| Estado | Validacion local completa; pendiente commit, PR, CI, merge y limpieza. |
-| Gate esperado | Etapa 4 debe seguir `classification=parcial`, `ready_for_stage4_sii=false`; no se cierra SII sin fuente `snapshot_controlado` o `real_autorizado`, evidencia de ambiente/regla fiscal/responsable y dependencia contable. |
-| Estado al cerrar paquete | Focal 3 tests OK; suite impactada SII/readiness 78 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 4 `classification=parcial`, `ready_for_stage4_sii=false`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1322 tests OK; higiene repo y `git diff --check` OK. |
-| Bloqueos relacionados | Etapa 4 sigue parcial para cierre evidencial: requiere ambiente/fuente autorizada, regla fiscal validada, evidencia Etapa 5 y responsables. Este paquete solo endurece rutas locales de estado sin conectar SII. |
-| Politica de reanudacion | Continuar este worktree hasta cerrar, pausar explicitamente o limpiar. No reabrir metatareas del goal ni solicitar secretos; si falta fuente externa, registrar una vez y seguir trabajo local seguro. |
-| Siguiente accion | Cerrar con commit, PR, CI, merge y limpieza. |
+| Frente activo | Sin paquete tactico abierto tras cerrar validacion de dominio en transiciones avanzadas SII Etapa 4. |
+| Fuente exacta | `main` limpio tras mergear PR #774 (`552f5e2c`); rescue queda pausado fuera de alcance. |
+| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear PR #774. La brecha de transiciones avanzadas SII sin `full_clean()` previo queda cubierta por servicio, API, tests, stage card, trazabilidad y evidencia. |
+| Motivo de prioridad | Evitar que reanudaciones reabran el paquete SII ya validado e integrado. |
+| Worktree | Ninguno tras merge y limpieza del paquete. |
+| Rama | `main` tras merge. |
+| Estado | Listo para seleccionar el siguiente frente util y seguro desde el repo limpio. |
+| Gate esperado | El siguiente paquete debe definir su gate proporcional antes de editar; los cierres evidenciales siguen sin declararse sin fuente autorizada y evidencia. |
+| Estado al cerrar paquete | PR #774: focal 3 tests OK; suite impactada SII/readiness 78 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 4 `classification=parcial`, `ready_for_stage4_sii=false`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1322 tests OK; CI GitHub acceptance OK; higiene repo y `git diff --check` OK. |
+| Bloqueos relacionados | Etapa 4 sigue parcial para cierre evidencial: requiere ambiente/fuente autorizada, regla fiscal validada, evidencia Etapa 5 y responsables. El paquete #774 solo endurece rutas locales de estado sin conectar SII. |
+| Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`, diagnosticar el siguiente frente seguro por orden de construccion/trazabilidad y abrir un worktree `codex/...` solo cuando haya paquete concreto. |
 
 ## Actualizacion
 
