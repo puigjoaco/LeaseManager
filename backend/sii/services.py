@@ -48,6 +48,29 @@ def _first_readiness_error(errors):
     return f'{field}: {message}'
 
 
+def _first_validation_error(error):
+    if hasattr(error, 'message_dict'):
+        field, messages = next(iter(error.message_dict.items()))
+        if isinstance(messages, (list, tuple)):
+            message = messages[0] if messages else ''
+        else:
+            message = messages
+        return f'{field}: {message}'
+
+    messages = getattr(error, 'messages', None)
+    if messages:
+        return str(messages[0])
+    return str(error)
+
+
+def _ensure_artifact_valid_for_status_transition(instance, label):
+    try:
+        instance.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'{label} no cumple validacion de dominio para avanzar estado: {reason}') from error
+
+
 def _ensure_non_sensitive_reference(value, field_name):
     normalized = str(value or '').strip()
     if normalized and not is_non_sensitive_reference(normalized):
@@ -176,6 +199,8 @@ def register_dte_status(dte, *, estado_dte, sii_track_id='', ultimo_estado_sii='
         dte.ultimo_estado_sii = ultimo_estado_sii
     if input_observaciones:
         dte.observaciones = input_observaciones
+    if estado_dte in DTE_EXTERNAL_STATES:
+        _ensure_artifact_valid_for_status_transition(dte, 'DTE')
     dte.save(update_fields=['estado_dte', 'sii_track_id', 'ultimo_estado_sii', 'observaciones', 'updated_at'])
     return dte
 
@@ -256,6 +281,8 @@ def register_f29_status(draft, *, estado_preparacion, borrador_ref='', observaci
         draft.borrador_ref = input_ref
     if input_observaciones:
         draft.observaciones = input_observaciones
+    if estado_preparacion in TAX_STATUS_REQUIRING_GATE:
+        _ensure_artifact_valid_for_status_transition(draft, 'F29')
     draft.save(update_fields=['estado_preparacion', 'borrador_ref', 'observaciones', 'updated_at'])
     return draft
 
@@ -378,6 +405,8 @@ def register_annual_status(document, *, estado_preparacion, ref_value='', observ
         document.borrador_ref = input_ref
     if input_observaciones:
         document.observaciones = input_observaciones
+    if estado_preparacion in TAX_STATUS_REQUIRING_GATE:
+        _ensure_artifact_valid_for_status_transition(document, 'Preparacion anual SII')
     fields = ['estado_preparacion', 'updated_at']
     if hasattr(document, 'paquete_ref'):
         fields.append('paquete_ref')
