@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 5 Contabilidad: guard de vigencias solapadas en reglas contables activas. |
-| Fuente exacta | `main` limpio en `cc3e742c` tras PR #769; rescue queda pausado fuera de alcance. |
-| Brecha activa | `ReglaContable` podia conservar reglas activas solapadas para la misma empresa, tipo de evento y version de plan, dejando que el servicio eligiera una por orden en vez de exigir vigencia unica. |
-| Motivo de prioridad | Evitar ambiguedad de mapping contable antes de contabilizar eventos y dejar readiness explicita para snapshots heredados. |
-| Worktree | `D:/Proyectos/LeaseManager-stage5-rule-window-guard`. |
-| Rama | `codex/stage5-rule-window-guard`. |
-| Estado | Validado localmente; listo para commit, PR, CI, merge y limpieza. |
-| Gate esperado | Focal Contabilidad/readiness, suite impactada Etapa 5, `manage.py check`, migraciones dry-run, gate local Etapa 5 parcial esperado, frontend build/lint, acceptance, higiene y `git diff --check`. |
-| Estado al cerrar paquete | Local: focal 2 tests OK; suite impactada Contabilidad/Etapa 5/Reporting 104 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 5 `classification=parcial`, `ready_for_stage5_contabilidad=false`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1317 tests OK; higiene repo y `git diff --check` OK. |
+| Frente activo | Sin paquete tactico abierto tras cerrar guard de vigencias solapadas de reglas contables Etapa 5. |
+| Fuente exacta | `main` limpio tras mergear PR #770 (`1cd8db74`); rescue queda pausado fuera de alcance. |
+| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear PR #770. La brecha de reglas contables activas solapadas queda cubierta por dominio/API, readiness Etapa 5, stage card, trazabilidad y evidencia. |
+| Motivo de prioridad | Evitar que reanudaciones reabran el paquete de reglas contables ya validado e integrado. |
+| Worktree | Ninguno tras merge y limpieza del paquete. |
+| Rama | `main` tras merge. |
+| Estado | Listo para seleccionar el siguiente frente util y seguro desde el repo limpio. |
+| Gate esperado | El siguiente paquete debe definir su gate proporcional antes de editar; los cierres evidenciales siguen sin declararse sin fuente autorizada y evidencia. |
+| Estado al cerrar paquete | PR #770: focal 2 tests OK; suite impactada Contabilidad/Etapa 5/Reporting 104 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 5 `classification=parcial`, `ready_for_stage5_contabilidad=false`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1317 tests OK; CI GitHub acceptance OK; higiene repo y `git diff --check` OK. |
 | Bloqueos relacionados | Etapa 5 sigue parcial para cierre evidencial: requiere Conciliacion cerrada y fuente `snapshot_controlado` o `real_autorizado` con evidencia ledger/reportes/responsables. Este paquete solo endurece reglas locales sin fuente real/controlada. |
-| Politica de reanudacion | Si se reanuda con este worktree abierto, continuar este paquete hasta PR/CI/merge/limpieza antes de abrir otro frente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Commit, PR, esperar CI, mergear en `main`, limpiar worktree/rama y dejar cursor sin paquete abierto. |
+| Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`, diagnosticar el siguiente frente seguro por orden de construccion/trazabilidad y abrir un worktree `codex/...` solo cuando haya paquete concreto. |
 
 ## Actualizacion
 
