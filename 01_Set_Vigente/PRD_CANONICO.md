@@ -14,7 +14,7 @@ Este PRD reemplaza al PRD canonico de marzo 2026 como contrato rector de product
 
 ## 2. Mision del producto
 
-LeaseManager debe convertirse en el sistema principal para administrar arriendos, propiedades, sociedades, comunidades, socios, cobranza, conciliacion bancaria, facturacion cuando corresponda, contabilidad, liquidaciones, impuestos y operacion productiva de la cartera inmobiliaria familiar.
+LeaseManager debe convertirse en el sistema principal para administrar arriendos, propiedades, sociedades, comunidades, socios, cobranza, conciliacion bancaria, facturacion cuando corresponda, pre-cierre contable, liquidaciones, paquetes tributarios revisables y operacion productiva de la cartera inmobiliaria familiar.
 
 La mision no es solo construir pantallas o automatizaciones aisladas. La mision es reemplazar progresivamente el Excel legacy como fuente operativa diaria, manteniendo la logica real del negocio, pero normalizada en datos, flujos, auditoria, seguridad, evidencia y controles reproducibles.
 
@@ -31,8 +31,8 @@ LeaseManager v1 cubre:
 - Conciliacion bancaria por cuenta, con saldo sistema igual a saldo banco.
 - Deuda, repactacion, cobranza residual post-contrato, estado de cuenta del arrendatario y score de pago.
 - Facturacion SII DTE 34 solo para sociedades habilitadas y solo cuando el flujo tributario aplicable este validado.
-- Contabilidad mensual, asientos, cierre mensual, liquidaciones, distribuciones, PPM y contabilidad personal de socios.
-- Cierre tributario anual: renta, DDJJ, F22, certificados y reportes, siempre validado contra SII, normativa vigente o experto.
+- Contabilidad mensual mecanizada como pre-cierre trazable: eventos, asientos propuestos o contabilizados bajo reglas vigentes, liquidaciones, distribuciones, PPM y contabilidad personal de socios con revision o aprobacion cuando corresponda.
+- Preparacion tributaria anual: dossier de renta, DDJJ, F22, certificados y reportes revisables, siempre validado contra SII, normativa vigente o experto antes de tratarlo como cierre.
 - Expediente documental contractual, respaldos tributarios, cartas, liquidaciones de garantia y evidencia de firma/notaria cuando aplique.
 - Portal publico y superficies de arrendatario, con datos publicos limitados y sin exponer informacion interna.
 - Seguridad, RLS/Auth, roles, 2FA/MFA administrativo, rate limit, webhooks fail-closed, audit_log, backups, restore, runbook y evidencia de operacion.
@@ -40,7 +40,7 @@ LeaseManager v1 cubre:
 Queda fuera del boundary activo salvo reemision formal:
 
 - Scraping bancario o credenciales de portal como mecanismo canonico.
-- Automatizacion tributaria autonoma sin validacion oficial.
+- Automatizacion contable o tributaria autonoma sin revision responsable, gate aplicable y validacion oficial o experta.
 - Facturacion de comunidades o personas naturales.
 - Portales inmobiliarios externos como automatizacion obligatoria.
 - IA semantica/conversacional como mecanismo de acciones criticas.
@@ -107,7 +107,7 @@ Policies v1:
 - Email es canal base; WhatsApp es complementario y depende de gate, templates, opt-in y ventana permitida.
 - Debe existir al menos un canal operativo por contrato.
 - La pareja principal + vinculada comparte cobro, garantia, aviso de termino, calendario y codigo efectivo de la propiedad principal.
-- El cierre de mes es automatico o asistido por sistema; reapertura solo excepcional, aprobada y auditada.
+- El cierre de mes se prepara de forma mecanizada o asistida por sistema, pero su aprobacion queda condicionada a reglas vigentes, evidencia, banco cuadrado y responsable trazable; reapertura solo excepcional, aprobada y auditada.
 - El score de pago se expresa como porcentaje y conteo de meses evaluados; excluye meses sin registro operativo.
 - El score considera pago a tiempo hasta el dia de vencimiento inclusive. Si existe repactacion, cuenta como cumplido solo si el total exigible del mes, arriendo mas cuota, fue pagado en plazo.
 - No existen dias de gracia ocultos, feriados asumidos ni extensiones tacitas de vencimiento; cualquier excepcion debe venir de contrato, regla formal, gate o decision auditada.
@@ -220,7 +220,7 @@ El schema real puede nombrar tablas distinto si ya existe una decision tecnica v
 - `GateExterno`: condicion formal para habilitar, suspender, degradar o cerrar una capacidad dependiente de terceros, con entrada, suspension, salida, fallback y evidencia minima.
 - `CapacidadTributariaSII`: gate por empresa y capacidad; no existe bloque generico unico llamado "API SII".
 - Capacidades SII separadas: `DTEEmision`, `DTEConsultaEstado`, `F29Preparacion`, `F29Presentacion`, `DDJJPreparacion` y `F22Preparacion`, cada una con gate y evidencia propia.
-- `ConfiguracionFiscalEmpresa`: habilita cierre mensual, F29/PPM, DDJJ, F22 y preparacion tributaria solo cuando esta completa; si falta, la capa contractual/cobranza puede operar, pero el cierre tributario automatizado queda bloqueado.
+- `ConfiguracionFiscalEmpresa`: habilita pre-cierre mensual, F29/PPM, DDJJ, F22 y preparacion tributaria solo cuando esta completa; si falta, la capa contractual/cobranza puede operar, pero el paquete tributario revisable queda bloqueado.
 - `ContratoPropiedad`: relacion entre contrato y propiedad, incluyendo rol principal/vinculada y codigo snapshot cuando aplique.
 - `ContratoPrincipal`: documento contractual rector de un contrato activo, dentro de expediente documental.
 - `PeriodoContractual`: tramo de vigencia, valor, moneda, reajuste y reglas economicas sin duplicar contrato.
@@ -234,14 +234,14 @@ El schema real puede nombrar tablas distinto si ya existe una decision tecnica v
 - `HistorialGarantia`: historial de recepcion, retencion, aplicacion y devolucion de garantias, vinculado a contrato, movimiento y evidencia.
 - `EventoContable`: hecho economico canonico listo para contabilizar, con idempotencia y origen.
 - `ReglaContable`: transforma un evento contable en asiento segun plan y vigencia.
-- `MotorContable`: capacidad que transforma eventos contables en asientos idempotentes y balanceados bajo reglas vigentes.
+- `MotorContable`: capacidad que transforma eventos contables en asientos idempotentes y balanceados bajo reglas vigentes; no sustituye el criterio del responsable cuando la regla exige revision.
 - `MatrizReglasContables`: version canonica del mapping evento -> cuenta debe, cuenta haber, condicion tributaria y vigencia.
 - `CuentaContable`: cuenta del plan activo, con codigo, nombre, naturaleza, nivel, padre y estado.
 - `CentroResultado`: dimension de analisis cuando un evento deba atribuirse a propiedad, comunidad, sociedad, socio u otra unidad economica.
 - `AsientoContable`: journal balanceado, con debe = haber y `hash_integridad` cuando aplique.
 - `MovimientoAsiento`: linea de asiento con cuenta, debe/haber, centro de resultado, entidad y referencia de origen.
-- `CierreMensualContable`: cierre auditable del periodo; aprobado bloquea mutaciones estructurales salvo reapertura controlada.
-- `CierreMensualContableYTributario`: vista de control que une cierre operativo, contable, banco cuadrado, PPM/F29 cuando aplique y bloqueadores del periodo.
+- `CierreMensualContable`: pre-cierre o cierre auditable del periodo; aprobado bloquea mutaciones estructurales salvo reapertura controlada y conserva responsable/evidencia.
+- `CierreMensualContableYTributario`: vista de control que une cierre operativo, contable, banco cuadrado, PPM/F29 cuando aplique y bloqueadores del periodo, sin presentar impuestos por si sola.
 - `ReaperturaDeMes`: proceso excepcional para reabrir periodo aprobado con autorizacion, justificacion, efecto esperado, reversos/ajustes y evidencia.
 - `ObligacionTributariaMensual`: obligacion mensual que alimenta PPM/F29 y reportes.
 - `EstadoPreparacionTributaria`: NoAplica, PendienteDatos, EnPreparacion, Preparado, AprobadoParaPresentacion, Presentado, Observado o Rectificado.
@@ -257,7 +257,7 @@ El schema real puede nombrar tablas distinto si ya existe una decision tecnica v
 - `PoliticaRetencionDatos`: politica canonica de conservacion, exportacion, hold legal/tributario, borrado logico y purga fisica cuando aplique.
 - `EventoAuditable`: registro inmutable o equivalente para accion sensible, con actor, timestamp, entidad, accion, motivo, `payload_hash`, aprobacion, `external_ref` y referencia externa cuando exista.
 - `CodigoCobroResidual`: referencia visible de cobranza post-contrato, formato canonico `CCR-XXXXXX`, sin colision con codigos de propiedad.
-- `RegimenTributarioEmpresa`: regimen fiscal habilitado por empresa; en v1 solo se automatiza `EmpresaContabilidadCompletaV1`, y cualquier ampliacion requiere gate/ADR y validacion oficial o experta.
+- `RegimenTributarioEmpresa`: regimen fiscal habilitado por empresa; en v1 solo se mecaniza la preparacion para `EmpresaContabilidadCompletaV1`, y cualquier ampliacion requiere gate/ADR y validacion oficial o experta.
 
 Capacidades externas minimas gobernadas por gates:
 
@@ -307,9 +307,9 @@ El producto completo se entiende como este flujo:
 6. Confirmar pago por WebPay o transferencia, sin matching por monto cuando existe token/transaction id.
 7. Importar movimientos bancarios por cuenta y conciliar contra pagos, contratos y clasificaciones.
 8. Emitir DTE 34 solo si corresponde, despues de cumplir reglas y gate SII aplicable.
-9. Generar contabilidad mensual, asientos balanceados, liquidaciones y distribuciones.
-10. Calcular PPM y obligaciones mensuales, con aprobacion y safety gates para pagos.
-11. Preparar renta anual, DDJJ, F22 y certificados desde datos acumulados durante el ano.
+9. Generar pre-cierre contable mensual, asientos balanceados, liquidaciones y distribuciones con evidencia revisable.
+10. Preparar PPM y obligaciones mensuales, con aprobacion y safety gates para pagos o presentaciones.
+11. Preparar dossier anual de renta, DDJJ, F22 y certificados desde datos acumulados durante el ano para revision experta/oficial.
 12. Operar con seguridad, observabilidad, backups, restore, runbook y evidencias.
 
 Un modulo existente no se considera listo solo porque compile. Debe estar conectado al flujo, probado con datos reales o controlados, documentado y auditado.
@@ -378,6 +378,7 @@ Contabilidad:
 - Todo mes operativo debe cerrar tambien como periodo contable antes de habilitar presentacion tributaria mensual.
 - Movimientos bancarios detectados despues de un cierre aprobado no modifican el mes cerrado automaticamente; se tratan como periodo posterior, reclasificacion auditada o reapertura autorizada.
 - La reapertura de mes requiere administrador autorizado, justificacion, efecto esperado, evidencia y `EventoAuditable`.
+- LeaseManager puede preparar, validar y bloquear paquetes contables/tributarios, pero no toma decisiones contables o tributarias discrecionales sin regla vigente, evidencia y responsable trazable.
 
 Clasificacion, pagos parciales y resolucion manual:
 
@@ -493,7 +494,7 @@ Fallbacks y modo degradado:
 
 - UF: Banco Central, CMF, MiIndicador o carga manual auditada; nunca default silencioso.
 - Conciliacion bancaria: match exacto, asistido o manual auditado; nunca autoasignacion ambigua.
-- Contabilidad: automatica, cola de revision o resolucion manual auditada; nunca asiento invisible.
+- Contabilidad: mecanizada bajo reglas vigentes, cola de revision o resolucion manual auditada; nunca asiento invisible ni criterio discrecional sin responsable.
 - Mensajeria: WhatsApp gated, email base y alerta critica si no hay canal operativo.
 - SII: capacidad abierta, borrador con revision humana u operacion manual controlada; nunca presentacion tributaria final sin gate y autorizacion.
 - Banco: si falla proveedor, se opera con carga controlada y resolucion manual, manteniendo saldo sistema igual a saldo banco antes de cierre.
@@ -602,12 +603,12 @@ Escenarios transversales obligatorios:
 8. `AvisoTermino` con contrato futuro y bloqueo de renovacion automatica.
 9. Deuda residual con referencia propia sin colisionar con codigos de propiedad.
 10. Email operativo con WhatsApp suspendido o bloqueado, sin perder notificacion critica.
-11. Cierre mensual contable aprobado con banco cuadrado, asientos balanceados y PPM/F29 preparado solo si aplica.
-12. DDJJ y F22 preparados desde doce cierres mensuales aprobados.
-13. SII con DTE 34 abierto y presentaciones finales cerradas por gate.
+11. Paquete mensual contable aprobado con banco cuadrado, asientos balanceados y PPM/F29 preparado solo si aplica.
+12. DDJJ y F22 preparados como dossier revisable desde doce cierres mensuales aprobados.
+13. SII con DTE 34 abierto y presentaciones finales controladas por gate, aprobacion y evidencia; la presentacion anual final sigue fuera del core autonomo v1.
 14. Reverso o asiento complementario posterior a cierre aplicado segun politica.
 15. Exportacion sensible fuera de scope rechazada por permisos.
-16. Empresa fuera de regimen soportado bloqueada para automatizacion tributaria oficial.
+16. Empresa fuera de regimen soportado bloqueada para preparacion tributaria oficial automatizada.
 17. Bulnes 699, Parking E49 y Edificio Q/1014 ejecutados sin duplicar propiedades ni hardcodear montos.
 
 ## 14. Puntos que requieren verificacion antes de cierre productivo

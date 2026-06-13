@@ -10,9 +10,10 @@ en `docs/governance/SOURCE_OF_TRUTH_MAYO_2026.md`.
 ## Mision del producto
 
 LeaseManager debe operar la administracion inmobiliaria, contractual,
-recaudatoria, contable, documental y tributaria de patrimonios, empresas,
-comunidades y propietarios, manteniendo trazabilidad completa desde el dato
-maestro hasta el cierre mensual, renta anual y reporting.
+recaudatoria, documental y de preparacion contable/tributaria de patrimonios,
+empresas, comunidades y propietarios, manteniendo trazabilidad completa desde el
+dato maestro hasta el pre-cierre mensual, dossiers tributarios revisables y
+reporting.
 
 ## Stack v1
 
@@ -38,10 +39,13 @@ maestro hasta el cierre mensual, renta anual y reporting.
    WebPay, notificaciones y estados de cuenta.
 6. Dominio bancario: movimientos, conciliacion, ingresos desconocidos,
    atribucion y saldo sistema igual a saldo banco.
-7. Dominio contable: eventos contables, reglas, asientos, movimientos, cierres,
-   liquidaciones, PPM, F29/F21 y estados/reportes.
+7. Dominio contable: eventos contables, reglas, asientos, movimientos,
+   pre-cierres/cierres auditables, liquidaciones, PPM, F29/F21 y
+   estados/reportes; el sistema mecaniza reglas y evidencia, no criterio
+   discrecional sin responsable.
 8. Dominio tributario: empresas emisoras, DTE 34 cuando corresponda, SII,
-   renta anual, DDJJ, F22 y certificados.
+   preparacion F29/DDJJ/F22, dossier anual y certificados; las presentaciones
+   finales quedan bajo gate, aprobacion y revision responsable.
 9. Dominio documental: PDFs, contratos, respaldos, politicas de firma y
    notaria, origen de reportes y evidencia.
 10. Operacion productiva: backups, restore, runbook, monitoreo, soporte,
@@ -78,10 +82,26 @@ maestro hasta el cierre mensual, renta anual y reporting.
 
 Dependencias criticas:
 
-- Contabilidad no cierra antes de que Conciliacion genere hechos confiables.
-- SII no cierra antes de configuracion fiscal, ledger y cierre mensual.
+- Contabilidad no aprueba pre-cierre/cierre antes de que Conciliacion genere
+  hechos confiables y exista evidencia revisable.
+- SII no cierra ni presenta antes de configuracion fiscal, ledger, cierre
+  mensual, gate aplicable y aprobacion responsable.
 - Documentos no cierra sin politica de firma, notaria y origen verificable.
 - Reporting no cierra si sus cifras no trazan a datos, asientos o documentos.
+
+## Boundary contable y tributario
+
+LeaseManager v1 es el sistema de hechos, reglas, paquetes, evidencia y
+trazabilidad. Puede generar asientos bajo reglas vigentes, preparar cierres,
+calcular obligaciones y armar dossiers F29/DDJJ/F22, pero no reemplaza el
+criterio profesional cuando una decision contable o tributaria requiere
+interpretacion, validacion normativa, revision experta u operacion frente a SII.
+
+Una automatizacion contable o tributaria solo puede avanzar si existe regla
+vigente, source controlada o real autorizada, gate aplicable, responsable
+trazado y evidencia no sensible. Si falta cualquiera de esos elementos, el
+estado correcto es preparacion, revision o bloqueo de cierre, no decision
+autonoma ni presentacion final.
 
 ## Gates externos
 

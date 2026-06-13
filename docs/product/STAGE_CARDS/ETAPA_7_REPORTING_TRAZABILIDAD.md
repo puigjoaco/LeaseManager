@@ -2,8 +2,10 @@
 
 ## Objetivo
 
-Entregar reportes internos solo cuando sus cifras deriven de datos, ledger,
-documentos o procesos tributarios trazables.
+Entregar reportes internos revisables solo cuando sus cifras deriven de datos,
+ledger, documentos o procesos tributarios trazables. Reporting prueba origen y
+consistencia; no convierte un dossier contable o tributario en presentacion
+externa final.
 
 ## Alcance
 
@@ -11,6 +13,7 @@ documentos o procesos tributarios trazables.
 - Libros contables por periodo.
 - Resumen tributario anual.
 - Visualizacion de trazabilidad en backoffice.
+- Vistas de control para revision responsable.
 
 ## Gate local
 
@@ -36,6 +39,8 @@ documentos o procesos tributarios trazables.
   trazable. Estados aprobados, observados, rectificados o presentados requieren
   referencia externa trazable. Cada empresa incluida debe tener
   `ConfiguracionFiscalEmpresa` activa propia.
+- El resumen tributario anual es evidencia interna de trazabilidad del dossier;
+  no declara presentacion anual final ni reemplaza revision experta/oficial.
 - La API de resumen tributario anual separa la falta de configuracion fiscal
   activa por proceso anual, DDJJ y F22, alineando sus codigos con
   `audit_stage7_reporting_readiness`.
@@ -138,5 +143,5 @@ documentos o procesos tributarios trazables.
 
 Reporting sigue sin cierre final mientras falte evidencia con cierres completos,
 snapshot controlado o datos reales autorizados. El gate local evita reportes sin
-origen verificable, pero no reemplaza la evidencia externa/controlada requerida
-por etapas anteriores.
+origen verificable, pero no reemplaza la evidencia externa/controlada ni la
+revision responsable requerida por etapas contables o tributarias.

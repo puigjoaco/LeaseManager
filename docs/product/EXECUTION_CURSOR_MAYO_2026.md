@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras preparar PR #803: API tributaria anual cubre refs F22 finales del proceso. |
-| Fuente exacta | `main` limpio `91f77974` tras mergear PR #802. Rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna tras preparar PR #803: la API tributaria anual tiene cobertura focal para `reporting.annual_process_f22_ref_missing` y `reporting.annual_process_f22_ref_sensitive`, sin exponer valores sensibles. |
-| Motivo de prioridad | Completar evidencia API/readiness de Reporting tributario anual para referencias finales de ProcesoRentaAnual, sin depender de SII real ni fuente autorizada. |
-| Worktree | `D:/Proyectos/LeaseManager-stage7-annual-process-f22-ref-api`. |
-| Rama | `codex/stage7-annual-process-f22-ref-api`. |
-| Estado | PR #803 preparado y CI remoto en verde; pendiente merge y limpieza. |
-| Gate esperado | Tests focales de resumen tributario anual para `annual_process_f22_ref_missing` y `annual_process_f22_ref_sensitive`, suite Reporting/readiness Etapa 7, `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, frontend build/lint, acceptance local, higiene y CI remoto antes de merge. |
-| Estado al cerrar paquete | PR #803 preparado con focal Reporting anual (5 tests OK), suite Reporting/readiness Etapa 7 (89 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1361 tests OK), higiene, `git diff --check` y CI remoto GitHub en verde. |
-| Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo alinea rutas locales de Reporting anual. |
-| Politica de reanudacion | No rehacer PR #803 ni redactar de nuevo el goal. Tras mergear y sincronizar `main`, seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Mergear PR #803, sincronizar `main`, limpiar worktree/rama y diagnosticar el siguiente frente seguro. |
+| Frente activo | Boundary contable/tributario asistido: alinear PRD, arquitectura, gates y stage cards para que LeaseManager prepare paquetes trazables, no decisiones autonomas de renta/contabilidad. |
+| Fuente exacta | `main` limpio `2eed3291` tras mergear PR #803. Rescue queda pausado fuera de alcance. |
+| Brecha activa | Lenguaje documental aun podia leerse como contabilidad/renta final automatizada. Debe quedar explicito que el core mecaniza datos, reglas, evidencias, asientos y dossiers, mientras la aprobacion/presentacion final exige responsable, gate y validacion experta/oficial. |
+| Motivo de prioridad | Evitar que el siguiente avance endurezca automatizacion tributaria o contable mas alla del boundary real del v1; mantener avance ordenado y trazable hacia cierre sin crear decisiones autonomas inseguras. |
+| Worktree | `D:/Proyectos/LeaseManager-accounting-tax-boundary`. |
+| Rama | `codex/accounting-tax-boundary`. |
+| Estado | En desarrollo documental, sin tocar codigo operativo ni datos reales. |
+| Gate esperado | Revision textual de PRD, matriz de gates, arquitectura y stage cards 4/5/6/7; `git diff --check`, higiene repo y PR/CI antes de merge. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | No hay bloqueo externo para este paquete. Cierres reales de Etapas 5, 6 y 7 siguen condicionados a fuentes autorizadas, evidencia no sensible, responsables y gates aplicables. |
+| Politica de reanudacion | No reabrir PR #803 ni redactar goal. Continuar este paquete hasta PR/CI/merge/limpieza; luego seleccionar el siguiente frente seguro desde el repo. |
+| Siguiente accion | Terminar ajuste documental, validar diff/higiene, abrir PR, esperar CI, mergear y limpiar worktree. |
 
 ## Actualizacion
 

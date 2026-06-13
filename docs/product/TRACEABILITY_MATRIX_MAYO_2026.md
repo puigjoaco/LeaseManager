@@ -7,6 +7,13 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-13: PRD/Arquitectura/Etapas 4, 5, 6 y 7 fijan el boundary
+contable-tributario asistido. LeaseManager v1 mecaniza datos, reglas,
+evidencia, asientos, paquetes mensuales y dossiers F29/DDJJ/F22 revisables; no
+decide ni presenta renta/tributacion final de forma autonoma. La aprobacion o
+presentacion externa exige gate aplicable, responsable trazado y validacion
+experta/oficial cuando corresponda.
+
 Nota 2026-06-13: Reporting/Etapa 7 cubre en API los bloqueos de
 `ProcesoRentaAnual.borrador_f22_ref` faltante o sensible para procesos anuales
 finales. `_assert_annual_tax_traceability()` devuelve

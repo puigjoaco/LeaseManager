@@ -1,9 +1,11 @@
-# Etapa 5 - Cierre mensual y contabilidad
+# Etapa 5 - Pre-cierre mensual y contabilidad asistida
 
 ## Objetivo
 
-Cerrar ledger mensual, asientos, liquidaciones, PPM, F29/F21 y reportes
-contables desde hechos conciliados.
+Preparar un paquete mensual contable y tributario reproducible desde hechos
+conciliados: ledger, asientos, liquidaciones, PPM, F29/F21 y reportes. El core
+mecaniza reglas y evidencia; no reemplaza revision responsable cuando una regla
+contable o tributaria requiere criterio.
 
 ## Alcance
 
@@ -12,10 +14,14 @@ contables desde hechos conciliados.
 - Asientos y movimientos.
 - Cierre mensual.
 - Liquidaciones y reportes.
+- Paquete de revision/aprobacion responsable.
 
 ## Gate
 
 - Conciliacion cerrada.
+- El estado `aprobado` dentro del sistema exige responsable trazado y evidencia;
+  no equivale por si solo a presentacion tributaria ni a criterio contable
+  externo.
 - Preparar o aprobar cierre mensual bloquea si existen movimientos bancarios
   del periodo para cuentas de la empresa en `pendiente`,
   `ingreso_desconocido` o `manual_requerida`.
@@ -145,7 +151,10 @@ contables desde hechos conciliados.
 
 ## Salida
 
-Un mes se considera cerrado solo si banco, ledger, asientos y reportes cuadran.
+Un mes se considera preparado para aprobacion solo si banco, ledger, asientos y
+reportes cuadran. Se considera cerrado para efectos del producto solo cuando,
+ademas, conserva responsable, evidencia y gate aplicable; esa condicion no
+habilita por si sola una presentacion tributaria externa.
 
 ## Ejecucion local segura
 
