@@ -8,7 +8,7 @@ from django.db import models
 from core.reference_validation import is_non_sensitive_reference, normalize_reference
 
 
-DOCUMENT_CHECKSUM_PATTERN = re.compile(r'^(?:sha256:)?[0-9a-f]{64}$', re.IGNORECASE)
+DOCUMENT_CHECKSUM_PATTERN = re.compile(r'^[0-9a-f]{64}$')
 
 
 class TimestampedModel(models.Model):
@@ -71,8 +71,11 @@ def is_pdf_storage_ref(value):
 
 
 def is_valid_pdf_checksum(value):
-    normalized = str(value or '').strip()
-    return bool(DOCUMENT_CHECKSUM_PATTERN.fullmatch(normalized))
+    return bool(DOCUMENT_CHECKSUM_PATTERN.fullmatch(str(value or '')))
+
+
+def normalize_pdf_checksum(value):
+    return normalize_reference(value).lower()
 
 
 def _normalize_text_fields(instance, field_names):
@@ -80,11 +83,18 @@ def _normalize_text_fields(instance, field_names):
         setattr(instance, field_name, normalize_reference(getattr(instance, field_name, '')))
 
 
+def _normalize_checksum_fields(instance, field_names):
+    for field_name in field_names:
+        setattr(instance, field_name, normalize_pdf_checksum(getattr(instance, field_name, '')))
+
+
 class OperationalDocumentTextNormalizationMixin:
     operational_text_fields = ()
+    checksum_fields = ()
 
     def _normalize_operational_text_fields(self):
         _normalize_text_fields(self, self.operational_text_fields)
+        _normalize_checksum_fields(self, self.checksum_fields)
 
     def full_clean(self, *args, **kwargs):
         self._normalize_operational_text_fields()
@@ -236,6 +246,7 @@ class PoliticaFirmaYNotaria(TimestampedModel):
 
 class PlantillaDocumental(OperationalDocumentTextNormalizationMixin, TimestampedModel):
     operational_text_fields = ('version_plantilla', 'plantilla_ref', 'checksum_plantilla', 'descripcion')
+    checksum_fields = ('checksum_plantilla',)
 
     tipo_documental = models.CharField(max_length=64, choices=TipoDocumental.choices)
     version_plantilla = models.CharField(max_length=64)
@@ -307,6 +318,7 @@ class DocumentoEmitido(OperationalDocumentTextNormalizationMixin, TimestampedMod
         'evidencia_formalizacion_ref',
         'correccion_ref',
     )
+    checksum_fields = ('checksum',)
 
     expediente = models.ForeignKey(
         ExpedienteDocumental,
@@ -374,7 +386,7 @@ class DocumentoEmitido(OperationalDocumentTextNormalizationMixin, TimestampedMod
         super().clean()
         if self.checksum and not is_valid_pdf_checksum(self.checksum):
             raise ValidationError(
-                {'checksum': 'checksum debe ser SHA-256 hexadecimal de 64 caracteres, opcionalmente prefijado con sha256:.'}
+                {'checksum': 'checksum debe ser un digest SHA-256 hexadecimal canonico de 64 caracteres.'}
             )
         if self.storage_ref and not is_pdf_storage_ref(self.storage_ref):
             raise ValidationError({'storage_ref': 'El documento canonico debe referenciar un PDF.'})
@@ -433,7 +445,7 @@ class DocumentoEmitido(OperationalDocumentTextNormalizationMixin, TimestampedMod
             raise ValidationError({'correccion_ref': 'La version correctiva requiere referencia no sensible de motivo.'})
         if not is_non_sensitive_reference(self.correccion_ref):
             raise ValidationError({'correccion_ref': 'correccion_ref debe ser una referencia no sensible.'})
-        if str(self.checksum or '').strip().lower() == str(origin.checksum or '').strip().lower():
+        if normalize_pdf_checksum(self.checksum) == normalize_pdf_checksum(origin.checksum):
             raise ValidationError({'checksum': 'La version correctiva debe tener checksum propio distinto al documento origen.'})
         if str(self.storage_ref or '').strip() == str(origin.storage_ref or '').strip():
             raise ValidationError({'storage_ref': 'La version correctiva debe tener PDF propio distinto al documento origen.'})
