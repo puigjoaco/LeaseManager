@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Etapa 6/7: backoffice SII captura y muestra responsable de revision anual. |
-| Fuente exacta | `main` limpio `f821a111` tras mergear PR #806. Rescue queda pausado fuera de alcance. |
-| Brecha activa | Backend/API/readiness ya exigen `responsable_revision_ref` para DDJJ/F22 avanzados, pero el backoffice SII aun no permite registrar revision anual con responsable/ref/observacion y Reporting anual no expone el responsable redactado en su payload. |
-| Motivo de prioridad | Completar el flujo operativo del boundary asistido: el usuario debe poder preparar y revisar DDJJ/F22 desde backoffice dejando responsable trazado, sin automatizar presentacion final ni usar SII real. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-annual-review-ui`. |
-| Rama | `codex/stage6-annual-review-ui`. |
-| Estado | Validado localmente; PR, CI, merge y limpieza pendientes. |
-| Gate esperado | UI SII/Reporting, API reporting anual, tests focales, `manage.py check`, migraciones dry-run, frontend build/lint, acceptance local, higiene, CI remoto antes de merge. |
-| Estado al cerrar paquete | Pendiente. |
-| Bloqueos relacionados | Etapas 6 y 7 siguen sin cierre real sin fuente `snapshot_controlado` o `real_autorizado`, evidencia Stage 5/4, regla fiscal, certificados, SII/ledger autorizados y responsable final. Este paquete solo habilita preparacion/revision local trazable. |
-| Politica de reanudacion | No reabrir PR #806 ni reescribir goal. Si esta rama ya aparece mergeada, elegir el siguiente frente seguro desde trazabilidad. |
-| Siguiente accion | Abrir PR, esperar CI, mergear y limpiar. |
+| Frente activo | Sin paquete tactico activo; PR #807 cerrado. |
+| Fuente exacta | `main` limpio `207f26d1` tras mergear PR #807. Rescue queda pausado fuera de alcance. |
+| Brecha activa | Pendiente de seleccionar desde trazabilidad y estado real del repo. No reabrir el paquete Etapa 6/7 de responsable anual en backoffice. |
+| Motivo de prioridad | Evitar que reanudaciones o compactaciones repitan el paquete cerrado; el siguiente avance debe salir del repo actual, no del chat viejo ni de un PR ya mergeado. |
+| Worktree | Ninguno activo para producto; solo root principal. |
+| Rama | `main`. |
+| Estado | Main limpio y sincronizado tras PR #807. |
+| Gate esperado | Antes del proximo cambio no trivial: leer este cursor, confirmar `git status --short --branch` y `git worktree list`, elegir brecha segura desde trazabilidad, abrir worktree `codex/...`, validar proporcionalmente y cerrar con PR/CI/merge/limpieza. |
+| Estado al cerrar paquete | PR #807 mergeado, CI remoto OK, rama local/remota y worktree tactico eliminados. |
+| Bloqueos relacionados | Etapas 6 y 7 siguen sin cierre real sin fuente `snapshot_controlado` o `real_autorizado`, evidencia Stage 5/4, regla fiscal, certificados, SII/ledger autorizados y responsable final. Los bloqueos son condiciones de cierre, no freno para seguir preparando frentes locales seguros. |
+| Politica de reanudacion | No reabrir PR #806 ni PR #807, no reescribir goal, no repetir prompts de goal. Si no hay worktree tactico sucio, diagnosticar el siguiente frente seguro desde trazabilidad/documentos vigentes. |
+| Siguiente accion | Diagnosticar el siguiente frente seguro y verificable desde `main` limpio; abrir worktree tactico solo si el cambio no es trivial. |
 
 ## Actualizacion
 
