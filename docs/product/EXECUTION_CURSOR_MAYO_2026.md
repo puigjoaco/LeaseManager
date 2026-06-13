@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar payloads sensibles finales en API Reporting Etapa 7. |
-| Fuente exacta | `main` limpio tras mergear PR #784 (`57b8a2c`); rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear PR #784. La brecha de payloads sensibles en proceso/DDJJ/F22 finales de API tributaria anual queda cubierta por servicio, tests, stage card, trazabilidad y evidencia. |
-| Motivo de prioridad | Evitar que reanudaciones reabran el paquete Reporting anual ya validado e integrado. |
-| Worktree | Ninguno tras merge y limpieza del paquete. |
-| Rama | `main` tras merge. |
-| Estado | Listo para seleccionar el siguiente frente util y seguro desde el repo limpio. |
-| Gate esperado | El siguiente paquete debe definir su gate proporcional antes de editar; los cierres evidenciales siguen sin declararse sin fuente autorizada y evidencia. |
-| Estado al cerrar paquete | PR #784: focal Reporting anual 5 tests OK; suite impactada Reporting/readiness 62 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 7 `classification=parcial`, `ready_for_stage7_close=False`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1334 tests OK; CI GitHub Release Gate OK; higiene repo y `git diff --check` OK. |
-| Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. El paquete #784 solo endurece rutas locales de Reporting sin leer datos reales ni integraciones externas. |
-| Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`, diagnosticar el siguiente frente seguro por orden de construccion/trazabilidad y abrir un worktree `codex/...` solo cuando haya paquete concreto. |
+| Frente activo | API Reporting Etapa 7 - auditoria anual `status_updated` acotada al reporte. |
+| Fuente exacta | `main` limpio tras mergear PR #785 (`38777a13`); rescue queda pausado fuera de alcance. |
+| Brecha activa | `_assert_annual_tax_traceability()` valida procesos/DDJJ/F22, refs y payloads, pero no bloquea eventos `sii.ddjj_preparacion.status_updated` o `sii.f22_preparacion.status_updated` incompletos cuando pertenecen a documentos incluidos en el reporte anual. Readiness ya reporta esa brecha en Etapa 7. |
+| Motivo de prioridad | Alinear API y readiness para que Reporting no entregue estado `verificado` sobre auditoria anual heredada sin `campo_estado`, `estado_anterior` y `estado_nuevo`. |
+| Worktree | `D:/Proyectos/LeaseManager-stage7-annual-status-audit-api`. |
+| Rama | `codex/stage7-annual-status-audit-api`. |
+| Estado | En implementacion local segura; no requiere `.env`, secretos, DB historica, datos reales, snapshots autorizados ni SII real. |
+| Gate esperado | Focal Reporting API para auditoria anual; suite impactada `reporting core.tests_stage7_reporting_readiness`; `manage.py check`; migraciones dry-run; gate Etapa 7 parcial esperado; frontend build/lint; acceptance local; higiene y `git diff --check`; CI GitHub antes de merge. |
+| Estado al cerrar paquete | Pendiente de validacion y PR. |
+| Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales de Reporting. |
+| Politica de reanudacion | Si este worktree queda sucio, terminarlo o pausarlo explicitamente en este cursor antes de abrir otro frente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Validar focalmente el nuevo guard de auditoria anual, actualizar stage card/trazabilidad/evidencia y cerrar con PR/CI/merge si todo pasa. |
 
 ## Actualizacion
 

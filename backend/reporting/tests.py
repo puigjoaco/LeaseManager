@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from audit.models import ManualResolution
+from audit.models import AuditEvent, ManualResolution
 from canales.models import CanalMensajeria, EstadoMensajeSaliente, MensajeSaliente
 from cobranza.models import EstadoCuentaArrendatario, GarantiaContractual, PagoMensual
 from cobranza.services import sync_payment_distribution
@@ -1127,6 +1127,75 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(len(response.data['procesos_renta']), 1)
         self.assertEqual(len(response.data['ddjj_preparadas']), 1)
         self.assertEqual(len(response.data['f22_preparados']), 1)
+
+    def test_annual_tax_summary_blocks_in_scope_status_audit_without_transition_metadata(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALAUDIT')
+        self._activate_fiscal_config(empresa)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado=EstadoPreparacionTributaria.APPROVED,
+            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+            paquete_ddjj_ref='process-ddjj-controlled-ref',
+            borrador_f22_ref='process-f22-controlled-ref',
+        )
+        ddjj = DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='DDJJPreparacion',
+                certificado_ref='cert-ddjj-audit',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            paquete_ref='ddjj-controlled-ref',
+            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key='F22Preparacion',
+                certificado_ref='cert-f22-audit',
+                ambiente='certificacion',
+                estado_gate='condicionado',
+            ),
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            borrador_ref='f22-controlled-ref',
+            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
+        )
+        AuditEvent.objects.create(
+            event_type='sii.ddjj_preparacion.status_updated',
+            entity_type='ddjj_preparacion',
+            entity_id=str(ddjj.id),
+            summary='Actualizacion anual heredada sin metadata de transicion para reporting.',
+            metadata={'estado_nuevo': EstadoPreparacionTributaria.APPROVED},
+        )
+        AuditEvent.objects.create(
+            event_type='sii.f22_preparacion.status_updated',
+            entity_type='f22_preparacion',
+            entity_id='999999',
+            summary='Evento fuera del reporte anual solicitado.',
+            metadata={'estado_nuevo': EstadoPreparacionTributaria.APPROVED},
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_status_transition_metadata_missing')
+        missing_events = response.data['traceability']['details']['eventos_status_updated_incompletos']
+        self.assertEqual(len(missing_events), 1)
+        self.assertEqual(str(missing_events[0]['documento']), 'DDJJPreparacionAnual')
+        self.assertEqual(str(missing_events[0]['event_type']), 'sii.ddjj_preparacion.status_updated')
+        self.assertEqual(str(missing_events[0]['eventos_incompletos']), '1')
+        serialized_response = json.dumps(response.data)
+        self.assertNotIn('999999', serialized_response)
+        self.assertNotIn('estado_nuevo', serialized_response)
 
     def test_annual_tax_summary_blocks_final_process_without_ddjj_ref(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALPROCREF')
