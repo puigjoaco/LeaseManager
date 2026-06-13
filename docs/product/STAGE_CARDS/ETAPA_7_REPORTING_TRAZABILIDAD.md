@@ -68,7 +68,8 @@ documentos o procesos tributarios trazables.
   codigos separados para DDJJ y F22 alineados con readiness.
 - El `fiscal_year` reportado por `ProcesoRentaAnual`, DDJJ y F22 debe
   corresponder al ano comercial inmediatamente anterior al `anio_tributario`;
-  la API bloquea reportes desalineados y readiness los marca como brecha.
+  la API bloquea reportes desalineados con codigos separados para proceso,
+  DDJJ y F22, incluyendo el documento afectado, ano observado y ano esperado.
 - El resumen tributario anual bloquea `paquete_ref`, `borrador_ref` y payloads
   anuales sensibles heredados antes de exponerlos al backoffice como reporte
   valido.

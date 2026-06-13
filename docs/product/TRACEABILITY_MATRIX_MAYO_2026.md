@@ -7,6 +7,14 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-13: Reporting/Etapa 7 cubre en API la desalineacion de ano
+comercial en DDJJ y F22. `_assert_annual_tax_traceability()` devuelve
+`reporting.annual_ddjj_fiscal_year_mismatch` o
+`reporting.annual_f22_fiscal_year_mismatch` con el documento afectado, ano
+observado y ano esperado, alineado con los codigos
+`stage7.reporting.annual_ddjj_fiscal_year_mismatch` y
+`stage7.reporting.annual_f22_fiscal_year_mismatch` de readiness.
+
 Nota 2026-06-13: Reporting/Etapa 7 cubre en API el bloqueo de procesos de
 renta anual sin estado trazable. `_assert_annual_tax_traceability()` devuelve
 `reporting.annual_process_not_traceable`, alineado con el codigo
