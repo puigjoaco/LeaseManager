@@ -1267,6 +1267,7 @@ class ReportingAPITests(APITestCase):
             anio_tributario=2027,
             estado='preparado',
             resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+            responsable_revision_ref='process-review-controlled-ref',
         )
         DDJJPreparacionAnual.objects.create(
             empresa=empresa,
@@ -1280,6 +1281,8 @@ class ReportingAPITests(APITestCase):
             proceso_renta_anual=process,
             anio_tributario=2027,
             estado_preparacion='preparado',
+            paquete_ref='ddjj-controlled-ref',
+            responsable_revision_ref='ddjj-review-controlled-ref',
             resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
         )
         F22PreparacionAnual.objects.create(
@@ -1294,6 +1297,8 @@ class ReportingAPITests(APITestCase):
             proceso_renta_anual=process,
             anio_tributario=2027,
             estado_preparacion='preparado',
+            borrador_ref='f22-controlled-ref',
+            responsable_revision_ref='f22-review-controlled-ref',
             resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
         )
 
@@ -1303,6 +1308,9 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(len(response.data['procesos_renta']), 1)
         self.assertEqual(len(response.data['ddjj_preparadas']), 1)
         self.assertEqual(len(response.data['f22_preparados']), 1)
+        self.assertEqual(response.data['procesos_renta'][0]['responsable_revision_ref'], 'process-review-controlled-ref')
+        self.assertEqual(response.data['ddjj_preparadas'][0]['responsable_revision_ref'], 'ddjj-review-controlled-ref')
+        self.assertEqual(response.data['f22_preparados'][0]['responsable_revision_ref'], 'f22-review-controlled-ref')
 
     def test_annual_tax_summary_blocks_process_without_traceable_state(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALPROCSTATE')

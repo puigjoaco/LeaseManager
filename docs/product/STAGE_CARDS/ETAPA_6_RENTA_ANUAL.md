@@ -60,6 +60,10 @@ responsable trazado y gate aplicable.
   heredados sin responsable auditado o con referencia sensible usando codigos
   `stage6.audit.annual_status_responsible_ref_missing` y
   `stage6.audit.annual_status_responsible_ref_sensitive`, sin exponer valores.
+- El backoffice SII solo permite actualizar revision anual DDJJ/F22 mediante
+  formulario explicito con artefacto, estado, referencia, observacion no
+  sensible y `responsable_revision_ref`; no debe existir accion rapida que
+  avance estados anuales sin responsable revisable.
 - `audit_stage6_renta_anual_readiness` clasifica explicitamente como
   bloqueantes las referencias finales sensibles en ProcesoRentaAnual, DDJJ y
   F22, sin exponer esos valores.
