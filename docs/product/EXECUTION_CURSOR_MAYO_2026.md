@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar Reporting Etapa 7: resumen anual exige obligaciones trazables no vacias. |
-| Fuente exacta | `main` limpio tras mergear PR #789 (`ea52ac8f`); rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna para el paquete cerrado: `_assert_annual_tax_traceability()` ya exige `fiscal_year` trazable y `obligaciones` como lista no vacia, alineado con `audit_stage7_reporting_readiness`. |
-| Motivo de prioridad | Mantener un punto de reanudacion estable que no reabra paquetes ya mergeados ni transforme contexto auxiliar en trabajo nuevo. |
-| Worktree | Ninguno de producto activo. |
-| Rama | `main`. |
-| Estado | Listo para seleccionar el siguiente frente seguro. |
-| Gate esperado | Antes de abrir un nuevo paquete: leer este cursor, confirmar `git status --short --branch` y `git worktree list`, diagnosticar PRD/stage cards/trazabilidad, y abrir worktree `codex/...` si el cambio no es trivial. |
-| Estado al cerrar paquete | PR #788 mergeado en `main` con `e4b79eff`. Validado con focal Reporting anual (2 tests OK), suite Reporting/readiness Etapa 7 (64 tests OK), `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial esperado, `npm ci`, `npm run build`, `npm run lint`, acceptance local (`ACCEPTANCE_EXIT=0`, 1336 tests OK), higiene, `git diff --check` y CI GitHub. |
+| Frente activo | Reporting Etapa 7: alinear API financiera mensual con readiness para separar asientos no posteados y descuadrados. |
+| Fuente exacta | `main` limpio tras mergear PR #790 (`cdd422bb`); rescue queda pausado fuera de alcance. |
+| Brecha activa | `_assert_financial_monthly_traceability()` mezcla asientos no posteados y descuadrados bajo `reporting.accounting_entry_invalid`, mientras `audit_stage7_reporting_readiness` los clasifica con codigos especificos `stage7.reporting.accounting_entry_not_posted` y `stage7.reporting.accounting_entry_unbalanced`. |
+| Motivo de prioridad | Cierra una discrepancia local, pequena y verificable entre API Reporting financiero mensual y readiness Etapa 7, sin datos reales, banco, SII, snapshots ni integraciones externas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage7-financial-entry-state-alignment`. |
+| Rama | `codex/stage7-financial-entry-state-alignment`. |
+| Estado | En implementacion. |
+| Gate esperado | Focal Reporting financiero mensual + readiness Etapa 7; suite impactada Reporting/readiness; `manage.py check`; migraciones dry-run; gate Etapa 7 local parcial; frontend build/lint; acceptance local; higiene y `git diff --check`; CI GitHub antes de merge. |
+| Estado al cerrar paquete | Pendiente. |
 | Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales de Reporting. |
-| Politica de reanudacion | No rehacer PR #788 ni redactar de nuevo el goal. Confirmar estado real del repo y seleccionar el siguiente frente seguro desbloqueado por trazabilidad. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro desde PRD/stage cards/trazabilidad y abrir un paquete pequeno, verificable y trazable. |
+| Politica de reanudacion | Si se reanuda con este worktree activo, terminar este paquete antes de abrir otro frente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Separar codigos API para asientos no posteados y descuadrados, agregar pruebas focales, actualizar stage card/trazabilidad/evidencia y validar. |
 
 ## Actualizacion
 
