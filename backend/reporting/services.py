@@ -557,14 +557,14 @@ def _assert_period_books_traceability(*, empresa_id, periodo, libro_diario, libr
     empty_summaries = [name for name, snapshot in snapshots.items() if not snapshot.resumen]
     if empty_summaries:
         _raise_traceability_error(
-            'reporting.books_snapshot_without_summary',
+            'reporting.books_snapshot_summary_missing',
             'El reporte de libros requiere resumen contable trazable en cada snapshot.',
             {'empresa_id': empresa_id, 'periodo': periodo, 'snapshots_sin_resumen': empty_summaries},
         )
 
     if balance.resumen.get('cuadrado') is not True:
         _raise_traceability_error(
-            'reporting.books_balance_not_balanced',
+            'reporting.books_balance_not_square',
             'El reporte de libros requiere balance de comprobacion cuadrado.',
             {'empresa_id': empresa_id, 'periodo': periodo},
         )

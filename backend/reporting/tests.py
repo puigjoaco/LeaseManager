@@ -1104,6 +1104,41 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['traceability']['code'], 'reporting.books_snapshot_not_approved')
 
+    def test_period_books_summary_blocks_snapshot_without_summary(self):
+        _, empresa, _, _, _, _ = self._create_context('BOOKSNOSUM')
+        CierreMensualContable.objects.create(empresa=empresa, anio=2026, mes=1, estado='aprobado')
+        LibroDiario.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={})
+        LibroMayor.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'cuentas': [{'id': 1}]})
+        BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            resumen={'total_debe': '100.00', 'total_haber': '100.00', 'cuadrado': True},
+        )
+
+        response = self.client.get(f"{reverse('reporting-libros-periodo')}?empresa_id={empresa.id}&periodo=2026-01")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.books_snapshot_summary_missing')
+        self.assertEqual(response.data['traceability']['details']['snapshots_sin_resumen'], ['libro_diario'])
+
+    def test_period_books_summary_blocks_unbalanced_balance(self):
+        _, empresa, _, _, _, _ = self._create_context('BOOKSBALBAD')
+        CierreMensualContable.objects.create(empresa=empresa, anio=2026, mes=1, estado='aprobado')
+        LibroDiario.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'asientos': [{'id': 1}]})
+        LibroMayor.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'cuentas': [{'id': 1}]})
+        BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot='aprobado',
+            resumen={'total_debe': '100.00', 'total_haber': '90.00', 'cuadrado': False},
+        )
+
+        response = self.client.get(f"{reverse('reporting-libros-periodo')}?empresa_id={empresa.id}&periodo=2026-01")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.books_balance_not_square')
+
     def test_period_books_summary_blocks_without_approved_close(self):
         _, empresa, _, _, _, _ = self._create_context('BOOKSCLOSE')
         LibroDiario.objects.create(empresa=empresa, periodo='2026-01', estado_snapshot='aprobado', resumen={'asientos': [{'id': 1}]})

@@ -26,6 +26,9 @@ documentos o procesos tributarios trazables.
 - Los libros por periodo requieren `LibroDiario`, `LibroMayor` y
   `BalanceComprobacion` aprobados, resumen no vacio, balance cuadrado y cierre
   mensual aprobado.
+- La API de libros por periodo usa codigos alineados con readiness para
+  snapshots sin resumen (`reporting.books_snapshot_summary_missing`) y balances
+  no cuadrados (`reporting.books_balance_not_square`).
 - El resumen tributario anual requiere `ProcesoRentaAnual` preparado o superior,
   `resumen_anual` con ejercicio y obligaciones, y DDJJ/F22 asociados con resumen
   trazable. Estados aprobados, observados, rectificados o presentados requieren
