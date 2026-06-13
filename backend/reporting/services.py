@@ -201,6 +201,54 @@ def _annual_status_audit_metadata_missing(*, ddjj_items, f22_items) -> list[dict
     return missing
 
 
+def _annual_status_audit_responsible_ref_issues(*, ddjj_items, f22_items) -> dict[str, list[dict[str, object]]]:
+    ids_by_document = {
+        'DDJJPreparacionAnual': {str(item.id) for item in ddjj_items if item.id is not None},
+        'F22PreparacionAnual': {str(item.id) for item in f22_items if item.id is not None},
+    }
+    required_states = {str(state) for state in ANNUAL_STATES_REQUIRING_REF}
+    issues: dict[str, list[dict[str, object]]] = {'missing': [], 'sensitive': []}
+
+    for document_label, event_type, entity_type in ANNUAL_STATUS_AUDIT_TARGETS:
+        entity_ids = ids_by_document[document_label]
+        if not entity_ids:
+            continue
+        events = AuditEvent.objects.filter(
+            event_type=event_type,
+            entity_type=entity_type,
+            entity_id__in=entity_ids,
+        ).only('metadata')
+        missing_count = 0
+        sensitive_count = 0
+        for event in events:
+            metadata = event.metadata if isinstance(event.metadata, dict) else {}
+            if str(metadata.get('estado_nuevo') or '').strip() not in required_states:
+                continue
+            responsible_ref = str(metadata.get('responsable_revision_ref') or '').strip()
+            if not responsible_ref:
+                missing_count += 1
+            elif _sensitive_reference(responsible_ref):
+                sensitive_count += 1
+        if missing_count:
+            issues['missing'].append(
+                {
+                    'documento': document_label,
+                    'event_type': event_type,
+                    'eventos_sin_responsable': missing_count,
+                }
+            )
+        if sensitive_count:
+            issues['sensitive'].append(
+                {
+                    'documento': document_label,
+                    'event_type': event_type,
+                    'eventos_con_responsable_sensible': sensitive_count,
+                }
+            )
+
+    return issues
+
+
 def _values_set(queryset, field: str) -> set[int]:
     return {value for value in queryset.values_list(field, flat=True).distinct() if value is not None}
 
@@ -900,6 +948,31 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                 'empresa_id': empresa_id,
                 'anio_tributario': anio_tributario,
                 'eventos_status_updated_incompletos': annual_status_audit_missing,
+            },
+        )
+
+    annual_status_responsible_issues = _annual_status_audit_responsible_ref_issues(
+        ddjj_items=ddjj_items,
+        f22_items=f22_items,
+    )
+    if annual_status_responsible_issues['missing']:
+        _raise_traceability_error(
+            'reporting.annual_status_responsible_ref_missing',
+            'El reporte tributario anual requiere auditorias status_updated DDJJ/F22 con responsable_revision_ref.',
+            {
+                'empresa_id': empresa_id,
+                'anio_tributario': anio_tributario,
+                'eventos_status_updated_sin_responsable': annual_status_responsible_issues['missing'],
+            },
+        )
+    if annual_status_responsible_issues['sensitive']:
+        _raise_traceability_error(
+            'reporting.annual_status_responsible_ref_sensitive',
+            'El reporte tributario anual no puede validar auditorias status_updated DDJJ/F22 con responsable_revision_ref sensible.',
+            {
+                'empresa_id': empresa_id,
+                'anio_tributario': anio_tributario,
+                'eventos_status_updated_responsable_sensible': annual_status_responsible_issues['sensitive'],
             },
         )
 

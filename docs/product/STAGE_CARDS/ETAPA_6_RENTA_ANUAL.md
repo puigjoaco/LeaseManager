@@ -54,6 +54,12 @@ responsable trazado y gate aplicable.
   transicion con `campo_estado`, `estado_anterior` y `estado_nuevo`;
   `audit_stage6_renta_anual_readiness` bloquea snapshots heredados sin esa
   metadata.
+- Esos mismos eventos, cuando avanzan DDJJ/F22 a estados aprobados, observados
+  o rectificados, deben conservar `responsable_revision_ref` no sensible en la
+  metadata auditada. `audit_stage6_renta_anual_readiness` bloquea eventos
+  heredados sin responsable auditado o con referencia sensible usando codigos
+  `stage6.audit.annual_status_responsible_ref_missing` y
+  `stage6.audit.annual_status_responsible_ref_sensitive`, sin exponer valores.
 - `audit_stage6_renta_anual_readiness` clasifica explicitamente como
   bloqueantes las referencias finales sensibles en ProcesoRentaAnual, DDJJ y
   F22, sin exponer esos valores.

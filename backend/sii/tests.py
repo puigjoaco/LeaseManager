@@ -2331,6 +2331,7 @@ class SiiAPITests(APITestCase):
             previous='preparado',
             current='aprobado_para_presentacion',
         )
+        self.assertEqual(ddjj_event.metadata['responsable_revision_ref'], 'tax-reviewer-ddjj-2027')
 
         f22_status = self.client.post(
             reverse('sii-f22-status', args=[generated.data['f22_preparacion']['id']]),
@@ -2357,6 +2358,7 @@ class SiiAPITests(APITestCase):
             previous='preparado',
             current='aprobado_para_presentacion',
         )
+        self.assertEqual(f22_event.metadata['responsable_revision_ref'], 'tax-reviewer-f22-2027')
 
         process = ProcesoRentaAnual.objects.get(pk=generated.data['proceso_renta_anual']['id'])
         ddjj = DDJJPreparacionAnual.objects.get(pk=generated.data['ddjj_preparacion']['id'])
