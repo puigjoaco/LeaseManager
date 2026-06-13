@@ -679,13 +679,13 @@ def _assert_annual_tax_traceability(*, anio_tributario, empresa_id, processes, d
                 'El reporte tributario anual requiere F22 alineado al ano comercial reportado.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
-        if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not ddjj.paquete_ref:
+        if ddjj.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not _has_text(ddjj.paquete_ref):
             _raise_traceability_error(
                 'reporting.annual_ddjj_ref_missing',
                 'El reporte tributario anual requiere paquete_ref para DDJJ aprobada, observada, rectificada o presentada.',
                 {'empresa_id': process.empresa_id, 'anio_tributario': anio_tributario},
             )
-        if f22.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not f22.borrador_ref:
+        if f22.estado_preparacion in ANNUAL_STATES_REQUIRING_REF and not _has_text(f22.borrador_ref):
             _raise_traceability_error(
                 'reporting.annual_f22_ref_missing',
                 'El reporte tributario anual requiere borrador_ref para F22 aprobado, observado, rectificado o presentado.',

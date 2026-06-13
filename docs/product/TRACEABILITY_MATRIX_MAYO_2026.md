@@ -602,6 +602,12 @@ el DTE/F29/DDJJ/F22 actualizado antes de guardar, de modo que la API rechaza
 snapshots heredados con capacidad SII de familia incorrecta u otra
 inconsistencia de dominio antes de emitir el evento auditable.
 
+Nota 2026-06-13: Reporting/Etapa 7 alinea referencias finales DDJJ/F22 entre
+API tributaria anual y readiness. `_assert_annual_tax_traceability()` trata
+`paquete_ref` y `borrador_ref` vacios o compuestos solo por espacios como
+faltantes para estados finales, cubriendo snapshots heredados que saltaron la
+normalizacion del modelo antes de devolver el reporte como verificado.
+
 Nota 2026-05-31: Canales/Etapa 2 alinea altas y ediciones API de gates y
 configuraciones de notificacion con auditoria atomica. `AuditCreateUpdateMixin`
 en Canales persiste `created`, `updated` y `state_changed` dentro de

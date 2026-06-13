@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar estado trazable de DDJJ/F22 en API Reporting Etapa 7. |
-| Fuente exacta | `main` limpio tras mergear PR #778 (`fbcd6114`); rescue queda pausado fuera de alcance. |
-| Brecha activa | Ninguna brecha activa debe reabrirse desde este cursor tras mergear PR #778. La brecha de resumen tributario anual con API mas debil que readiness queda cubierta por servicio, tests, stage card, trazabilidad y evidencia. |
-| Motivo de prioridad | Evitar que reanudaciones reabran el paquete Reporting anual ya validado e integrado. |
-| Worktree | Ninguno tras merge y limpieza del paquete. |
-| Rama | `main` tras merge. |
-| Estado | Listo para seleccionar el siguiente frente util y seguro desde el repo limpio. |
-| Gate esperado | El siguiente paquete debe definir su gate proporcional antes de editar; los cierres evidenciales siguen sin declararse sin fuente autorizada y evidencia. |
-| Estado al cerrar paquete | PR #778: focal Reporting anual 3 tests OK; suite impactada Reporting/readiness 55 tests OK; `manage.py check` OK; migraciones dry-run OK; gate Etapa 7 `classification=parcial`, `ready_for_stage7_close=False`; `npm ci` 0 vulnerabilidades; build/lint OK; acceptance local 1327 tests OK; CI GitHub Release Gate OK; higiene repo y `git diff --check` OK. |
-| Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. El paquete #778 solo endurece rutas locales de Reporting sin leer datos reales ni integraciones externas. |
-| Politica de reanudacion | Si no hay worktree tactico de producto abierto, diagnosticar desde `main` limpio y elegir el siguiente frente util por orden de construccion, trazabilidad, stage cards y evidencia vigente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
-| Siguiente accion | Confirmar `git status --short --branch` y `git worktree list`, diagnosticar el siguiente frente seguro por orden de construccion/trazabilidad y abrir un worktree `codex/...` solo cuando haya paquete concreto. |
+| Frente activo | Reporting Etapa 7 - referencias finales DDJJ/F22 con texto operativo en API tributaria anual. |
+| Fuente exacta | `main` limpio tras mergear PR #779 (`b9974dbc`); rescue queda pausado fuera de alcance. |
+| Brecha activa | `_assert_annual_tax_traceability()` ya bloquea refs finales faltantes, pero en DDJJ/F22 usaba truthiness simple; snapshots heredados con `paquete_ref` o `borrador_ref` solo espacios podian pasar la API aunque readiness ya los marca faltantes. |
+| Motivo de prioridad | Alinear API y readiness antes de reportar tributario anual como verificado sobre refs finales sin texto real. |
+| Worktree | `D:/Proyectos/LeaseManager-stage7-annual-final-ref-text-api`. |
+| Rama | `codex/stage7-annual-final-ref-text-api`. |
+| Estado | En implementacion local segura. |
+| Gate esperado | Focal API anual, suite Reporting/readiness, `manage.py check`, migraciones dry-run, gate Etapa 7 local parcial, frontend build/lint, acceptance local, higiene y CI GitHub. |
+| Estado al cerrar paquete | Pendiente. |
+| Bloqueos relacionados | Etapa 7 sigue parcial para cierre evidencial: requiere fuente `snapshot_controlado` o `real_autorizado`, evidencias Stage 5/6, prueba API/backoffice y responsables no sensibles. Este paquete solo endurece rutas locales de Reporting sin leer datos reales ni integraciones externas. |
+| Politica de reanudacion | Si este worktree queda abierto, continuar este paquete antes de abrir otro frente. El rescue pausado no habilita lectura de datos reales ni bloquea trabajo local seguro. |
+| Siguiente accion | Implementar `_has_text()` para refs finales DDJJ/F22, cubrir API con tests de dato heredado por `update()`, validar y cerrar con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 

@@ -33,6 +33,9 @@ documentos o procesos tributarios trazables.
 - La API de resumen tributario anual bloquea procesos anuales finales sin
   `paquete_ddjj_ref` o `borrador_f22_ref` trazable, y tambien bloquea esas
   referencias cuando contienen URLs, tokens, credenciales o valores sensibles.
+- La API de resumen tributario anual trata referencias finales DDJJ/F22 vacias
+  o compuestas solo por espacios como faltantes, incluso si provienen de datos
+  heredados que saltaron la normalizacion del modelo.
 - La API de resumen tributario anual bloquea consultas sin
   `ProcesoRentaAnual` incluido y documentos DDJJ/F22 heredados cuyo proceso
   anual no coincide con la empresa y ano tributario del documento.
