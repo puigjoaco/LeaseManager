@@ -109,6 +109,16 @@ refs responsables o con revision pendiente. Mantiene
 `final_tax_calculation=false` y `sii_submission=false`: LeaseManager prepara
 evidencia para revision, no decide ni presenta renta final de forma autonoma.
 
+Nota 2026-06-14: Etapa 6 materializa el export/preview local controlado
+mediante `AnnualTaxExport`. `generate_annual_preparation()` lo sincroniza
+despues de crear DDJJ/F22 locales, conectado a `AnnualTaxDossier`, source
+bundle, rule set y matriz DDJJ/F22. El payload conserva hash, conteos DDJJ/F22,
+refs no sensibles, responsable y flags `official_format=false`,
+`sii_submission=false` y `final_tax_calculation=false`. API/snapshot/admin
+redactan refs/payloads y readiness bloquea procesos trazables sin export, con
+resumen desalineado, invalidos, refs faltantes, revision pendiente o cualquier
+intento de presentacion/formato oficial/calculo final autonomo.
+
 Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
 local para artefactos anuales. `ProcesoRentaAnual`, DDJJ y F22 en estados
 aprobados, observados, rectificados o presentados requieren

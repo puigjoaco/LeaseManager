@@ -42,6 +42,7 @@ from sii.models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
+    AnnualTaxExport,
     AmbienteSII,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
@@ -67,11 +68,13 @@ from sii.services import (
     summarize_annual_real_estate_sections,
     summarize_annual_tax_artifact_matrices,
     summarize_annual_tax_dossiers,
+    summarize_annual_tax_exports,
     summarize_annual_tax_workbooks,
     sync_annual_enterprise_registers,
     sync_annual_real_estate_section,
     sync_annual_tax_artifact_matrix,
     sync_annual_tax_dossier,
+    sync_annual_tax_export,
     sync_annual_tax_workbooks,
     sync_monthly_tax_facts,
 )
@@ -394,6 +397,10 @@ class Stage6RentaAnualReadinessTests(TestCase):
             borrador_ref='f22-draft-stage6-controlled',
             responsable_revision_ref='stage6-review-owner-f22',
         )
+        sync_annual_tax_export(process, rule_set, source_bundle)
+        summary['annual_tax_exports'] = summarize_annual_tax_exports(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
         self._create_tax_support_document(process)
         return empresa
 
@@ -806,6 +813,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
     def test_annual_process_without_artifact_matrix_is_blocking(self):
         self._create_valid_local_matrix()
+        AnnualTaxExport.objects.all().delete()
         AnnualTaxDossier.objects.all().delete()
         AnnualTaxArtifactMatrix.objects.all().delete()
 
@@ -915,6 +923,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
     def test_annual_process_without_tax_dossier_is_blocking(self):
         self._create_valid_local_matrix()
+        AnnualTaxExport.objects.all().delete()
         AnnualTaxDossier.objects.all().delete()
 
         result = self._collect_with_final_refs()
@@ -1010,6 +1019,64 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('api_key', serialized_result)
         self.assertNotIn('tax-dossier-secret', serialized_result)
+
+    def test_annual_process_without_tax_export_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualTaxExport.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_tax_export_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_tax_exports']['exports_total'], 0)
+
+    def test_tax_export_summary_hash_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        summary = dict(process.resumen_anual)
+        export_summary = dict(summary['annual_tax_exports'])
+        by_id = dict(export_summary['by_id'])
+        export_id = next(iter(by_id.keys()))
+        item_summary = dict(by_id[export_id])
+        item_summary['hash_export'] = 'f' * 64
+        by_id[export_id] = item_summary
+        export_summary['by_id'] = by_id
+        summary['annual_tax_exports'] = export_summary
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_tax_export_summary_mismatch', issue_codes)
+
+    def test_invalid_tax_export_is_blocking_without_leak(self):
+        self._create_valid_local_matrix()
+        AnnualTaxExport.objects.update(
+            source_ref='https://sii.example.test/export?token=secret',
+            responsible_ref='Bearer tax-export-secret',
+            export_ref='https://sii.example.test/export-file?token=secret',
+            export_payload={'api_key': 'secret-tax-export'},
+            hash_export='not-a-sha',
+            official_format=True,
+            sii_submission=True,
+            final_tax_calculation=True,
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_export_invalid', issue_codes)
+        self.assertIn('stage6.tax_export_official_format_boundary', issue_codes)
+        self.assertIn('stage6.tax_export_sii_submission_boundary', issue_codes)
+        self.assertIn('stage6.tax_export_final_calculation_boundary', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('api_key', serialized_result)
+        self.assertNotIn('tax-export-secret', serialized_result)
 
     def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
         self._create_valid_local_matrix()

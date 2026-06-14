@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Cerrar `stage6-dossier-review` y, tras merge/limpieza, continuar con `stage6-export-gate`. |
-| Fuente exacta | Rama tactica `codex/stage6-dossier-review` basada en `main` posterior a `stage6-ddjj-f22-artifact-matrix`; verificar SHA real con `git log -1 --oneline`. |
-| Brecha activa | `stage6-dossier-review`: dossier anual revisable que consolida source bundle, hechos mensuales, RLI/CPT, registros empresariales, bienes raices y matriz DDJJ/F22 con responsable. |
-| Motivo de prioridad | La capa intermedia anual ya enlaza fuentes, workbooks, registros, bienes raices y matriz DDJJ/F22; corresponde producir el dossier revisable antes de cualquier export/presentacion SII. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-dossier-review` durante el paquete; tras merge debe quedar solo el root principal esperado, salvo worktrees no relacionados ya existentes. |
-| Rama | `codex/stage6-dossier-review` durante el paquete; `main` tras merge. |
-| Estado | `stage6-dossier-review` agrega `AnnualTaxDossier`: consolida source bundle, hechos mensuales, RLI/CPT, registros empresariales, bienes raices y matriz DDJJ/F22 en resumen hasheado con responsable y refs no sensibles. API/snapshot/admin redactan refs/payloads; readiness bloquea procesos sin dossier, con resumen desalineado, invalidos, sin responsable/dossier ref, con warnings o revision pendiente. Mantiene `final_tax_calculation=false` y `sii_submission=false`. |
-| Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, validacion fiscal/oficial, dossier revisable aprobado por responsable y evidencia no sensible. |
-| Estado al cerrar paquete | `stage6-dossier-review` cerrado. Aun faltan export/preview controlado, formato/certificacion SII vigente y decision tributaria supervisada. |
+| Frente activo | Cerrar `stage6-export-gate`. |
+| Fuente exacta | Rama tactica `codex/stage6-export-gate` basada en `main` posterior a `stage6-dossier-review`; verificar SHA real con `git log -1 --oneline`. |
+| Brecha activa | `stage6-export-gate`: export/preview local controlado que conecta `AnnualTaxDossier`, source bundle, rule set, matriz DDJJ/F22 y documentos DDJJ/F22 locales sin declarar formato oficial ni presentacion SII. |
+| Motivo de prioridad | EDIG muestra que la renta termina en una salida/export revisable antes del upload; LeaseManager necesita una salida propia hasheada y bloqueada por gate, no un salto desde dossier a presentacion. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-export-gate` durante el paquete; tras merge debe quedar solo el root principal esperado, salvo worktrees no relacionados ya existentes. |
+| Rama | `codex/stage6-export-gate` durante el paquete; `main` tras merge. |
+| Estado | Validado para cierre: `AnnualTaxExport` agrega preview/export local controlado con payload hasheado, refs no sensibles, responsable, conteos DDJJ/F22 y flags obligatorios `official_format=false`, `sii_submission=false`, `final_tax_calculation=false`. API/snapshot/admin redactan refs/payloads; readiness bloquea procesos sin export, con resumen desalineado, invalidos, refs faltantes, revision pendiente o intento de presentacion/formato oficial/calculo final. Pendiente solo PR, CI, merge y limpieza del paquete. |
+| Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, formato/certificacion SII vigente, validacion fiscal/oficial, responsable y evidencia no sensible. |
+| Estado al cerrar paquete | `stage6-export-gate` cerrado. Aun faltan formato/certificacion SII vigente, decision tributaria supervisada y autorizacion explicita para cualquier presentacion final. |
 | Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Ejecucion EDIG solo en VM/sandbox con datos ficticios. |
 | Politica de reanudacion | No reabrir metatareas administrativas ya cerradas, no repetir el mapeo EDIG ya documentado, no volver a inventariar EDIG salvo solicitud nueva concreta y no reabrir la auditoria de contabilizacion ya cerrada. Si no hay worktree sucio, continuar por el siguiente frente util y seguro del repo; si un gate externo bloquea cierre, registrar una vez y seguir con preparacion local valida. |
-| Siguiente accion | Validar y cerrar `stage6-dossier-review`; luego diagnosticar `stage6-export-gate` contra PRD/blueprint sin abrir presentacion SII ni datos reales. |
+| Siguiente accion | Cerrar PR/CI/merge de `stage6-export-gate`; luego diagnosticar el siguiente frente seguro de Etapa 6/7 sin abrir presentacion SII, EDIG, datos reales ni secretos. |
 
 ## Actualizacion
 

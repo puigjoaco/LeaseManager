@@ -28,6 +28,7 @@ from .models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
+    AnnualTaxExport,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -40,6 +41,7 @@ from .models import (
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxDossier,
+    EstadoAnnualTaxExport,
     EstadoAnnualTaxWorkbook,
     EstadoDTE,
     EstadoGateSII,
@@ -57,6 +59,7 @@ from .models import (
     TaxCodeMapping,
     TaxYearRuleSet,
     TipoAnnualTaxArtifactTarget,
+    TipoAnnualTaxExport,
     TipoAnnualEnterpriseRegister,
     TipoAnnualTaxWorkbook,
     TipoDTE,
@@ -812,6 +815,39 @@ def summarize_annual_tax_dossiers(process):
         }
     return {
         'total': dossiers.count(),
+        'ids': sorted(by_id.keys()),
+        'by_id': by_id,
+    }
+
+
+def summarize_annual_tax_exports(process):
+    exports = AnnualTaxExport.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxExport.PREPARED,
+    ).order_by('id')
+    by_id = {}
+    for export in exports:
+        payload = export.export_payload if isinstance(export.export_payload, dict) else {}
+        by_id[str(export.id)] = {
+            'id': export.id,
+            'export_kind': export.export_kind,
+            'hash_export': export.hash_export,
+            'dossier_id': export.dossier_id,
+            'dossier_hash': payload.get('dossier_hash'),
+            'source_bundle_id': export.source_bundle_id,
+            'rule_set_id': export.rule_set_id,
+            'artifact_matrix_id': export.artifact_matrix_id,
+            'review_state': export.review_state,
+            'target_items_total': export.target_items_total,
+            'ddjj_items_total': export.ddjj_items_total,
+            'f22_items_total': export.f22_items_total,
+            'warnings_total': export.warnings_total,
+            'official_format': export.official_format,
+            'sii_submission': export.sii_submission,
+            'final_tax_calculation': export.final_tax_calculation,
+        }
+    return {
+        'total': exports.count(),
         'ids': sorted(by_id.keys()),
         'by_id': by_id,
     }
@@ -1954,6 +1990,117 @@ def sync_annual_tax_dossier(process, rule_set, source_bundle):
     return dossier
 
 
+def _annual_tax_export_summary(process, dossier, ddjj, f22):
+    dossier_summary = dossier.resumen_dossier if isinstance(dossier.resumen_dossier, dict) else {}
+    item_refs = dossier_summary.get('item_refs') if isinstance(dossier_summary.get('item_refs'), list) else []
+    export_items = [
+        {
+            'target_kind': item.get('target_kind'),
+            'target_code': item.get('target_code'),
+            'source_kind': item.get('source_kind'),
+            'source_model': item.get('source_model'),
+            'source_object_id': item.get('source_object_id'),
+            'source_hash': item.get('source_hash'),
+            'hash_item': item.get('hash_item'),
+            'review_state': item.get('review_state'),
+        }
+        for item in item_refs
+    ]
+    ddjj_items_total = dossier_summary.get('ddjj_items_total', dossier.artifact_matrix.ddjj_items_total)
+    f22_items_total = dossier_summary.get('f22_items_total', dossier.artifact_matrix.f22_items_total)
+    try:
+        ddjj_items_total = int(ddjj_items_total or 0)
+    except (TypeError, ValueError):
+        ddjj_items_total = 0
+    try:
+        f22_items_total = int(f22_items_total or 0)
+    except (TypeError, ValueError):
+        f22_items_total = 0
+    return {
+        'empresa_id': process.empresa_id,
+        'proceso_renta_anual_id': process.id,
+        'dossier_id': dossier.id,
+        'anio_tributario': process.anio_tributario,
+        'anio_comercial': process.anio_tributario - 1,
+        'export_kind': TipoAnnualTaxExport.PREVIEW_PACKAGE,
+        'format_kind': 'local_controlled_preview',
+        'dossier_hash': dossier.hash_dossier,
+        'artifact_matrix_id': dossier.artifact_matrix_id,
+        'artifact_matrix_hash': dossier_summary.get('artifact_matrix_hash'),
+        'source_bundle_id': dossier.source_bundle_id,
+        'source_bundle_hash': dossier_summary.get('source_bundle_hash'),
+        'rule_set_id': dossier.rule_set_id,
+        'rule_set_hash': dossier_summary.get('rule_set_hash'),
+        'ddjj_preparacion_id': ddjj.id if ddjj else None,
+        'ddjj_estado_preparacion': ddjj.estado_preparacion if ddjj else '',
+        'f22_preparacion_id': f22.id if f22 else None,
+        'f22_estado_preparacion': f22.estado_preparacion if f22 else '',
+        'target_items_total': ddjj_items_total + f22_items_total,
+        'ddjj_items_total': ddjj_items_total,
+        'f22_items_total': f22_items_total,
+        'warnings_total': dossier.warnings_total,
+        'review_state': dossier.review_state,
+        'export_items': export_items,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'sii_submission_attempted': False,
+        'requires_official_format_gate': True,
+        'requires_explicit_submission_authorization': True,
+    }
+
+
+def sync_annual_tax_export(process, rule_set, source_bundle):
+    dossier = AnnualTaxDossier.objects.get(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxDossier.PREPARED,
+    )
+    ddjj = DDJJPreparacionAnual.objects.filter(proceso_renta_anual=process).first()
+    f22 = F22PreparacionAnual.objects.filter(proceso_renta_anual=process).first()
+    if ddjj is None or f22 is None:
+        raise ValueError('AnnualTaxExport requiere DDJJ y F22 preparados antes de emitir preview controlado.')
+    summary = _annual_tax_export_summary(process, dossier, ddjj, f22)
+    export, _ = AnnualTaxExport.objects.update_or_create(
+        proceso_renta_anual=process,
+        export_kind=TipoAnnualTaxExport.PREVIEW_PACKAGE,
+        defaults={
+            'empresa': process.empresa,
+            'dossier': dossier,
+            'source_bundle': source_bundle,
+            'rule_set': rule_set,
+            'artifact_matrix': dossier.artifact_matrix,
+            'anio_tributario': process.anio_tributario,
+            'anio_comercial': process.anio_tributario - 1,
+            'source_ref': f'annual-tax-export-source-{process.empresa_id}-at{process.anio_tributario}',
+            'responsible_ref': dossier.responsible_ref,
+            'export_ref': f'annual-tax-export-{process.empresa_id}-{process.anio_tributario}-controlled-preview-v1',
+            'review_state': summary['review_state'],
+            'target_items_total': summary['target_items_total'],
+            'ddjj_items_total': summary['ddjj_items_total'],
+            'f22_items_total': summary['f22_items_total'],
+            'warnings_total': summary['warnings_total'],
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+            'export_payload': summary,
+            'hash_export': _source_bundle_hash(summary),
+            'estado': EstadoAnnualTaxExport.PREPARED,
+        },
+    )
+    try:
+        export.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxExport no cumple validacion de dominio: {reason}') from error
+    export.save()
+    AnnualTaxExport.objects.filter(
+        empresa=process.empresa,
+        anio_tributario=process.anio_tributario,
+        estado=EstadoAnnualTaxExport.PREPARED,
+    ).exclude(pk=export.pk).update(estado=EstadoAnnualTaxExport.RETIRED)
+    return export
+
+
 def freeze_annual_tax_source_bundle(
     empresa,
     anio_tributario,
@@ -2088,6 +2235,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=
         summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
         summary['annual_tax_artifact_matrices'] = summarize_annual_tax_artifact_matrices(process)
         summary['annual_tax_dossiers'] = summarize_annual_tax_dossiers(process)
+        summary['annual_tax_exports'] = summarize_annual_tax_exports(process)
     return summary
 
 
@@ -2160,6 +2308,10 @@ def generate_annual_preparation(empresa, anio_tributario):
     process.paquete_ddjj_ref = ddjj.paquete_ref
     process.borrador_f22_ref = f22.borrador_ref
     process.save(update_fields=['paquete_ddjj_ref', 'borrador_f22_ref', 'updated_at'])
+    sync_annual_tax_export(process, rule_set, source_bundle)
+    summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
+    process.resumen_anual = summary
+    process.save(update_fields=['resumen_anual', 'updated_at'])
     return process, ddjj, f22
 
 

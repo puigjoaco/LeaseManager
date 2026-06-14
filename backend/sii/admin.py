@@ -10,6 +10,7 @@ from .models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
+    AnnualTaxExport,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -812,6 +813,74 @@ class AnnualTaxDossierAdmin(admin.ModelAdmin):
     @admin.display(description='resumen_dossier')
     def resumen_dossier_redacted(self, obj):
         return _redacted_payload_attr(obj, 'resumen_dossier')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualTaxExport)
+class AnnualTaxExportAdmin(admin.ModelAdmin):
+    fields = (
+        'empresa',
+        'proceso_renta_anual',
+        'dossier',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+        'anio_tributario',
+        'anio_comercial',
+        'export_kind',
+        'source_ref_redacted',
+        'responsible_ref_redacted',
+        'export_ref_redacted',
+        'review_state',
+        'target_items_total',
+        'ddjj_items_total',
+        'f22_items_total',
+        'warnings_total',
+        'official_format',
+        'sii_submission',
+        'final_tax_calculation',
+        'export_payload_redacted',
+        'hash_export',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'export_kind',
+        'estado',
+        'review_state',
+        'target_items_total',
+        'export_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'export_kind', 'estado', 'review_state')
+    search_fields = ('empresa__razon_social',)
+
+    @admin.display(description='source_ref')
+    def source_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'source_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='export_ref')
+    def export_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'export_ref')
+
+    @admin.display(description='export_payload')
+    def export_payload_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'export_payload')
 
     def has_add_permission(self, request):
         return False

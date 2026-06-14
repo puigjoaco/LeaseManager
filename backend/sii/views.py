@@ -18,6 +18,7 @@ from .models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
+    AnnualTaxExport,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -36,6 +37,7 @@ from .serializers import (
     AnnualTaxArtifactMatrixItemSerializer,
     AnnualTaxArtifactMatrixSerializer,
     AnnualTaxDossierSerializer,
+    AnnualTaxExportSerializer,
     AnnualGenerateSerializer,
     AnnualStatusSerializer,
     AnnualTaxSourceBundleSerializer,
@@ -270,6 +272,18 @@ class SiiSnapshotView(APIView):
             AnnualTaxDossier.objects.select_related(
                 'empresa',
                 'proceso_renta_anual',
+                'source_bundle',
+                'rule_set',
+                'artifact_matrix',
+            ).order_by('-anio_tributario', 'empresa_id', 'id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        annual_tax_exports = scope_queryset_for_access(
+            AnnualTaxExport.objects.select_related(
+                'empresa',
+                'proceso_renta_anual',
+                'dossier',
                 'source_bundle',
                 'rule_set',
                 'artifact_matrix',
@@ -584,6 +598,35 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in annual_tax_dossiers
+                ],
+                'annual_tax_exports': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'proceso_renta_anual': item.proceso_renta_anual_id,
+                        'dossier': item.dossier_id,
+                        'source_bundle': item.source_bundle_id,
+                        'rule_set': item.rule_set_id,
+                        'artifact_matrix': item.artifact_matrix_id,
+                        'anio_tributario': item.anio_tributario,
+                        'anio_comercial': item.anio_comercial,
+                        'export_kind': item.export_kind,
+                        'source_ref': redact_sensitive_reference(item.source_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'export_ref': redact_sensitive_reference(item.export_ref),
+                        'review_state': item.review_state,
+                        'target_items_total': item.target_items_total,
+                        'ddjj_items_total': item.ddjj_items_total,
+                        'f22_items_total': item.f22_items_total,
+                        'warnings_total': item.warnings_total,
+                        'official_format': item.official_format,
+                        'sii_submission': item.sii_submission,
+                        'final_tax_calculation': item.final_tax_calculation,
+                        'export_payload': redact_sensitive_payload(item.export_payload),
+                        'hash_export': item.hash_export,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_exports
                 ],
                 'ddjjs': [
                     {
@@ -935,6 +978,34 @@ class AnnualTaxDossierDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
     queryset = AnnualTaxDossier.objects.select_related(
         'empresa',
         'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxExportListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxExportSerializer
+    queryset = AnnualTaxExport.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'dossier',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxExportDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxExportSerializer
+    queryset = AnnualTaxExport.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'dossier',
         'source_bundle',
         'rule_set',
         'artifact_matrix',

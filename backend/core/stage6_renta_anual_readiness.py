@@ -28,6 +28,7 @@ from sii.models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
+    AnnualTaxExport,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -39,6 +40,7 @@ from sii.models import (
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxDossier,
+    EstadoAnnualTaxExport,
     EstadoAnnualTaxSourceBundle,
     EstadoAnnualTaxWorkbook,
     EstadoReglaTributariaAnual,
@@ -669,6 +671,89 @@ def _collect_annual_tax_dossier_issues(dossiers, processes, active_fiscal_compan
     return dict(sorted(counts.items()))
 
 
+def _collect_annual_tax_export_issues(exports, processes, active_fiscal_company_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    invalid_exports = _count_invalid(exports)
+    if invalid_exports:
+        counts['tax_export_invalid'] = invalid_exports
+    without_fiscal_config = _count_without_active_fiscal_config(exports, active_fiscal_company_ids)
+    if without_fiscal_config:
+        counts['tax_export_fiscal_config_missing'] = without_fiscal_config
+
+    prepared_exports = exports.filter(estado=EstadoAnnualTaxExport.PREPARED)
+    exports_by_process = {}
+    for export in prepared_exports:
+        exports_by_process.setdefault(export.proceso_renta_anual_id, []).append(export)
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        process_exports = exports_by_process.get(process.id, [])
+        if not process_exports:
+            counts['process_tax_export_missing'] += 1
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        export_summary = summary.get('annual_tax_exports')
+        if not isinstance(export_summary, dict):
+            counts['process_tax_export_summary_missing'] += 1
+        else:
+            by_id = export_summary.get('by_id') if isinstance(export_summary.get('by_id'), dict) else {}
+            try:
+                summary_total = int(export_summary.get('total') or 0)
+            except (TypeError, ValueError):
+                summary_total = -1
+            summary_ids = set(str(value) for value in (export_summary.get('ids') or []))
+            export_ids = set(str(export.id) for export in process_exports)
+            if summary_total != len(process_exports) or summary_ids != export_ids:
+                counts['process_tax_export_summary_mismatch'] += 1
+            else:
+                for export in process_exports:
+                    item_summary = by_id.get(str(export.id))
+                    if not isinstance(item_summary, dict):
+                        counts['process_tax_export_summary_mismatch'] += 1
+                        break
+                    payload = export.export_payload if isinstance(export.export_payload, dict) else {}
+                    if (
+                        item_summary.get('id') != export.id
+                        or item_summary.get('hash_export') != export.hash_export
+                        or item_summary.get('export_kind') != export.export_kind
+                        or item_summary.get('dossier_id') != export.dossier_id
+                        or item_summary.get('dossier_hash') != payload.get('dossier_hash')
+                        or item_summary.get('source_bundle_id') != export.source_bundle_id
+                        or item_summary.get('rule_set_id') != export.rule_set_id
+                        or item_summary.get('artifact_matrix_id') != export.artifact_matrix_id
+                        or item_summary.get('review_state') != export.review_state
+                        or int(item_summary.get('target_items_total') or 0) != export.target_items_total
+                        or int(item_summary.get('ddjj_items_total') or 0) != export.ddjj_items_total
+                        or int(item_summary.get('f22_items_total') or 0) != export.f22_items_total
+                        or int(item_summary.get('warnings_total') or 0) != export.warnings_total
+                        or item_summary.get('official_format') is not False
+                        or item_summary.get('sii_submission') is not False
+                        or item_summary.get('final_tax_calculation') is not False
+                    ):
+                        counts['process_tax_export_summary_mismatch'] += 1
+                        break
+
+        for export in process_exports:
+            payload = export.export_payload if isinstance(export.export_payload, dict) else {}
+            if not has_text(export.responsible_ref):
+                counts['tax_export_responsible_missing'] += 1
+            if not has_text(export.export_ref):
+                counts['tax_export_ref_missing'] += 1
+            if export.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW:
+                counts['tax_export_review_required'] += 1
+            if export.review_state == EstadoAnnualTaxArtifactReview.BLOCKED:
+                counts['tax_export_blocked'] += 1
+            if export.official_format or payload.get('official_format') not in (False, None):
+                counts['tax_export_official_format_boundary'] += 1
+            if export.sii_submission or payload.get('sii_submission') not in (False, None) or bool(payload.get('sii_submission_attempted')):
+                counts['tax_export_sii_submission_boundary'] += 1
+            if export.final_tax_calculation or payload.get('final_tax_calculation') not in (False, None):
+                counts['tax_export_final_calculation_boundary'] += 1
+
+    return dict(sorted(counts.items()))
+
+
 def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str, int]:
     counts = Counter()
     fiscal_config_by_company_id = {
@@ -889,6 +974,19 @@ def collect_stage6_renta_anual_readiness(
     )
     annual_tax_dossier_issues = _collect_annual_tax_dossier_issues(
         annual_tax_dossiers,
+        annual_processes,
+        active_fiscal_company_ids,
+    )
+    annual_tax_exports = AnnualTaxExport.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+        'dossier',
+    )
+    annual_tax_export_issues = _collect_annual_tax_export_issues(
+        annual_tax_exports,
         annual_processes,
         active_fiscal_company_ids,
     )
@@ -1384,6 +1482,70 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if annual_tax_dossier_issues.get(key):
             issues.append(_issue(code, message, count=annual_tax_dossier_issues[key]))
+    for key, code, message in [
+        (
+            'tax_export_invalid',
+            'stage6.tax_export_invalid',
+            'Existen exports anuales que no pasan validacion de dominio o referencias.',
+        ),
+        (
+            'tax_export_fiscal_config_missing',
+            'stage6.tax_export_fiscal_config_missing',
+            'Existen exports anuales para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+        ),
+        (
+            'process_tax_export_missing',
+            'stage6.process_tax_export_missing',
+            'ProcesoRentaAnual trazable requiere export/preview controlado preparado.',
+        ),
+        (
+            'process_tax_export_summary_missing',
+            'stage6.process_tax_export_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen de export anual en resumen_anual.',
+        ),
+        (
+            'process_tax_export_summary_mismatch',
+            'stage6.process_tax_export_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen de export anual desalineado con el export vigente.',
+        ),
+        (
+            'tax_export_responsible_missing',
+            'stage6.tax_export_responsible_missing',
+            'AnnualTaxExport preparado requiere responsable de revision trazable.',
+        ),
+        (
+            'tax_export_ref_missing',
+            'stage6.tax_export_ref_missing',
+            'AnnualTaxExport preparado requiere export_ref trazable.',
+        ),
+        (
+            'tax_export_review_required',
+            'stage6.tax_export_review_required',
+            'AnnualTaxExport conserva revision tributaria pendiente.',
+        ),
+        (
+            'tax_export_blocked',
+            'stage6.tax_export_blocked',
+            'AnnualTaxExport esta bloqueado por dossier o matriz anual pendiente.',
+        ),
+        (
+            'tax_export_official_format_boundary',
+            'stage6.tax_export_official_format_boundary',
+            'AnnualTaxExport no puede declarar formato oficial SII sin gate/certificacion vigente.',
+        ),
+        (
+            'tax_export_sii_submission_boundary',
+            'stage6.tax_export_sii_submission_boundary',
+            'AnnualTaxExport no puede registrar presentacion SII desde el flujo local.',
+        ),
+        (
+            'tax_export_final_calculation_boundary',
+            'stage6.tax_export_final_calculation_boundary',
+            'AnnualTaxExport no puede declarar calculo fiscal final autonomo.',
+        ),
+    ]:
+        if annual_tax_export_issues.get(key):
+            issues.append(_issue(code, message, count=annual_tax_export_issues[key]))
     if approved_closes.count() < 12:
         issues.append(
             _issue(
@@ -1814,6 +1976,14 @@ def collect_stage6_renta_anual_readiness(
                 'dossiers_by_state': _count_by(annual_tax_dossiers, 'estado'),
                 'dossiers_by_review_state': _count_by(annual_tax_dossiers, 'review_state'),
                 **annual_tax_dossier_issues,
+            },
+            'annual_tax_exports': {
+                'exports_total': annual_tax_exports.count(),
+                'prepared_exports': annual_tax_exports.filter(estado=EstadoAnnualTaxExport.PREPARED).count(),
+                'exports_by_state': _count_by(annual_tax_exports, 'estado'),
+                'exports_by_kind': _count_by(annual_tax_exports, 'export_kind'),
+                'exports_by_review_state': _count_by(annual_tax_exports, 'review_state'),
+                **annual_tax_export_issues,
             },
             'annual_documents': {
                 'ddjj_total': ddjj_preparations.count(),
