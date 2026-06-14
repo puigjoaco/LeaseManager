@@ -43,6 +43,15 @@ extraccion local confirma bases separadas para maestros, F29/PPM, parametria de
 regimen, PRO/F22 y registros RLI/CPT/RAI/SAC. Esa evidencia orienta el motor
 anual propio, pero no habilita copiar schema EDIG ni declarar reglas fiscales.
 
+`scripts/build-edig-at2026-leasemanager-coverage.ps1` cruza los inventarios
+sanitizados de `local-evidence/` contra componentes propios observables en el
+repo. La matriz local confirma que LeaseManager ya cubre la columna vertebral
+funcional observada en EDIG: configuracion, F29/PPM, parametria AT, RLI/CPT,
+RAI/SAC, bienes raices, matriz DDJJ/F22, dossier y export local. Las brechas
+restantes son de fuente oficial/experta, saldos historicos, contribuciones,
+formatos/certificacion SII y autorizacion de presentacion; no son razon para
+copiar mas EDIG ni abrir una integracion externa.
+
 `docs/product/RENTA_ANUAL_AT2026_ENGINE_BLUEPRINT.md` traduce esa evidencia a
 componentes propios de LeaseManager: source bundle anual, rule set por AT,
 normalizador, workbooks RLI/CPT, registros RAI/SAC, seccion bienes raices,
