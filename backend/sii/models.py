@@ -456,6 +456,23 @@ class EstadoMonthlyTaxFact(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class TipoAnnualTaxWorkbook(models.TextChoices):
+    RLI = 'RLI', 'RLI'
+    CPT = 'CPT', 'CPT'
+
+
+class EstadoAnnualTaxWorkbook(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparado', 'Preparado'
+    RETIRED = 'retirado', 'Retirado'
+
+
+class SignoAnnualTaxLine(models.TextChoices):
+    ADD = 'suma', 'Suma'
+    SUBTRACT = 'resta', 'Resta'
+    INFO = 'informativo', 'Informativo'
+
+
 def _normalize_hash(value):
     return str(value or '').strip().lower()
 
@@ -471,6 +488,22 @@ def _canonical_json_payload(value):
 
 def _payload_hash(value):
     return hashlib.sha256(_canonical_json_payload(value).encode('utf-8')).hexdigest()
+
+
+def _line_integrity_payload(line):
+    return {
+        'workbook_id': line.workbook_id,
+        'mapping_id': line.mapping_id,
+        'codigo_interno': line.codigo_interno,
+        'codigo_destino': line.codigo_destino,
+        'origen': line.origen,
+        'signo': line.signo,
+        'monto_clp': str(line.monto_clp),
+        'formula_ref': line.formula_ref,
+        'evidencia_ref': line.evidencia_ref,
+        'warnings': line.warnings,
+        'source_payload': line.source_payload,
+    }
 
 
 class TaxYearRuleSet(OperationalSIITextNormalizationMixin, TimestampedModel):
@@ -839,6 +872,249 @@ class MonthlyTaxFact(OperationalSIITextNormalizationMixin, TimestampedModel):
                 errors['hash_hecho'] = 'MonthlyTaxFact normalizado requiere hash_hecho.'
         if has_text(self.hash_hecho) and not _is_sha256(self.hash_hecho):
             errors['hash_hecho'] = 'hash_hecho debe ser SHA-256 hexadecimal de 64 caracteres.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxWorkbook(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'source_ref',
+        'responsible_ref',
+        'hash_workbook',
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_workbooks',
+    )
+    proceso_renta_anual = models.ForeignKey(
+        'sii.ProcesoRentaAnual',
+        on_delete=models.PROTECT,
+        related_name='tax_workbooks',
+    )
+    source_bundle = models.ForeignKey(
+        AnnualTaxSourceBundle,
+        on_delete=models.PROTECT,
+        related_name='tax_workbooks',
+    )
+    rule_set = models.ForeignKey(
+        TaxYearRuleSet,
+        on_delete=models.PROTECT,
+        related_name='tax_workbooks',
+    )
+    anio_tributario = models.PositiveSmallIntegerField()
+    anio_comercial = models.PositiveSmallIntegerField()
+    tipo = models.CharField(max_length=8, choices=TipoAnnualTaxWorkbook.choices)
+    source_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    resumen_workbook = models.JSONField(default=dict, blank=True)
+    hash_workbook = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualTaxWorkbook.choices,
+        default=EstadoAnnualTaxWorkbook.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['empresa_id', '-anio_tributario', 'tipo']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['proceso_renta_anual', 'tipo'],
+                name='uniq_annual_tax_workbook_process_tipo',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.tipo} {self.empresa_id} AT{self.anio_tributario}'
+
+    def clean(self):
+        super().clean()
+        self.hash_workbook = _normalize_hash(self.hash_workbook)
+        errors = {}
+        expected_commercial_year = self.anio_tributario - 1
+        if self.anio_comercial != expected_commercial_year:
+            errors['anio_comercial'] = (
+                f'anio_comercial debe ser {expected_commercial_year} para AT{self.anio_tributario}.'
+            )
+        _add_non_sensitive_reference_error(errors, self, 'source_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_payload_error(errors, 'resumen_workbook', self.resumen_workbook)
+        if has_text(self.hash_workbook) and not _is_sha256(self.hash_workbook):
+            errors['hash_workbook'] = 'hash_workbook debe ser SHA-256 hexadecimal de 64 caracteres.'
+
+        try:
+            process = self.proceso_renta_anual
+        except ObjectDoesNotExist:
+            process = None
+        if process is not None:
+            if process.empresa_id != self.empresa_id:
+                errors['proceso_renta_anual'] = 'El proceso anual debe pertenecer a la misma empresa del workbook.'
+            elif process.anio_tributario != self.anio_tributario:
+                errors['proceso_renta_anual'] = 'El proceso anual debe corresponder al mismo anio_tributario.'
+            if process.source_bundle_id and process.source_bundle_id != self.source_bundle_id:
+                errors['source_bundle'] = 'El workbook debe usar el mismo AnnualTaxSourceBundle del proceso anual.'
+
+        try:
+            source_bundle = self.source_bundle
+        except ObjectDoesNotExist:
+            source_bundle = None
+        if source_bundle is not None:
+            if source_bundle.empresa_id != self.empresa_id:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe pertenecer a la misma empresa del workbook.'
+            elif source_bundle.anio_tributario != self.anio_tributario:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe corresponder al mismo anio_tributario.'
+            elif source_bundle.estado != EstadoAnnualTaxSourceBundle.FROZEN:
+                errors['source_bundle'] = 'AnnualTaxWorkbook requiere AnnualTaxSourceBundle congelado.'
+
+        try:
+            rule_set = self.rule_set
+        except ObjectDoesNotExist:
+            rule_set = None
+        if rule_set is not None:
+            if rule_set.anio_tributario != self.anio_tributario:
+                errors['rule_set'] = 'TaxYearRuleSet debe corresponder al mismo anio_tributario del workbook.'
+            elif rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+                errors['rule_set'] = 'AnnualTaxWorkbook requiere TaxYearRuleSet aprobado.'
+
+        if isinstance(self.resumen_workbook, dict):
+            identity_errors = []
+            for key, expected in (
+                ('empresa_id', self.empresa_id),
+                ('proceso_renta_anual_id', self.proceso_renta_anual_id),
+                ('source_bundle_id', self.source_bundle_id),
+                ('rule_set_id', self.rule_set_id),
+                ('anio_tributario', self.anio_tributario),
+                ('anio_comercial', self.anio_comercial),
+                ('tipo', self.tipo),
+            ):
+                value = self.resumen_workbook.get(key)
+                if value is None:
+                    continue
+                if key == 'tipo':
+                    matches = str(value) == str(expected)
+                else:
+                    try:
+                        matches = int(value) == int(expected)
+                    except (TypeError, ValueError):
+                        matches = False
+                if not matches:
+                    identity_errors.append(key)
+            if identity_errors:
+                errors['resumen_workbook'] = 'resumen_workbook debe coincidir con empresa, proceso, fuente, regla, anio y tipo.'
+            expected_hash = _payload_hash(self.resumen_workbook)
+            if self.hash_workbook and self.hash_workbook != expected_hash:
+                errors['hash_workbook'] = 'hash_workbook debe corresponder al resumen_workbook.'
+        elif self.resumen_workbook:
+            errors['resumen_workbook'] = 'resumen_workbook debe ser un objeto JSON.'
+
+        if self.estado == EstadoAnnualTaxWorkbook.PREPARED:
+            _add_active_fiscal_config_error(errors, self, 'AnnualTaxWorkbook')
+            if not has_text(self.source_ref):
+                errors['source_ref'] = 'AnnualTaxWorkbook preparado requiere source_ref no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'AnnualTaxWorkbook preparado requiere responsible_ref no sensible.'
+            if not self.resumen_workbook:
+                errors['resumen_workbook'] = 'AnnualTaxWorkbook preparado requiere resumen_workbook.'
+            if not has_text(self.hash_workbook):
+                errors['hash_workbook'] = 'AnnualTaxWorkbook preparado requiere hash_workbook.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxWorkbookLine(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'codigo_interno',
+        'codigo_destino',
+        'origen',
+        'formula_ref',
+        'evidencia_ref',
+        'hash_linea',
+    )
+
+    workbook = models.ForeignKey(
+        AnnualTaxWorkbook,
+        on_delete=models.CASCADE,
+        related_name='lines',
+    )
+    mapping = models.ForeignKey(
+        TaxCodeMapping,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_lines',
+    )
+    codigo_interno = models.CharField(max_length=64)
+    codigo_destino = models.CharField(max_length=64)
+    origen = models.CharField(max_length=64)
+    signo = models.CharField(max_length=16, choices=SignoAnnualTaxLine.choices, default=SignoAnnualTaxLine.INFO)
+    monto_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    formula_ref = models.CharField(max_length=255, blank=True)
+    evidencia_ref = models.CharField(max_length=255, blank=True)
+    warnings = models.JSONField(default=list, blank=True)
+    source_payload = models.JSONField(default=dict, blank=True)
+    hash_linea = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(max_length=16, choices=EstadoRegistro.choices, default=EstadoRegistro.ACTIVE)
+
+    class Meta:
+        ordering = ['workbook_id', 'codigo_interno', 'codigo_destino']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['workbook', 'codigo_interno', 'codigo_destino'],
+                name='uniq_annual_tax_workbook_line_target',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.workbook_id} {self.codigo_interno}->{self.codigo_destino}'
+
+    def clean(self):
+        super().clean()
+        self.hash_linea = _normalize_hash(self.hash_linea)
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'formula_ref')
+        _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+        _add_non_sensitive_payload_error(errors, 'warnings', self.warnings)
+        _add_non_sensitive_payload_error(errors, 'source_payload', self.source_payload)
+        if self.warnings and not isinstance(self.warnings, list):
+            errors['warnings'] = 'warnings debe ser una lista JSON.'
+        if self.source_payload and not isinstance(self.source_payload, dict):
+            errors['source_payload'] = 'source_payload debe ser un objeto JSON.'
+        if has_text(self.hash_linea) and not _is_sha256(self.hash_linea):
+            errors['hash_linea'] = 'hash_linea debe ser SHA-256 hexadecimal de 64 caracteres.'
+
+        try:
+            workbook = self.workbook
+        except ObjectDoesNotExist:
+            workbook = None
+        try:
+            mapping = self.mapping
+        except ObjectDoesNotExist:
+            mapping = None
+
+        if workbook is not None and mapping is not None:
+            if mapping.rule_set_id != workbook.rule_set_id:
+                errors['mapping'] = 'La linea debe usar un TaxCodeMapping del mismo TaxYearRuleSet del workbook.'
+            if mapping.destino != workbook.tipo:
+                errors['mapping'] = 'La linea RLI/CPT debe coincidir con el destino del TaxCodeMapping.'
+            if self.codigo_interno != mapping.codigo_interno:
+                errors['codigo_interno'] = 'codigo_interno debe coincidir con el TaxCodeMapping.'
+            if self.codigo_destino != mapping.codigo_destino:
+                errors['codigo_destino'] = 'codigo_destino debe coincidir con el TaxCodeMapping.'
+
+        expected_hash = _payload_hash(_line_integrity_payload(self))
+        if self.hash_linea and self.hash_linea != expected_hash:
+            errors['hash_linea'] = 'hash_linea debe corresponder a la linea normalizada.'
+
+        if self.estado == EstadoRegistro.ACTIVE:
+            if not has_text(self.origen):
+                errors['origen'] = 'Linea activa requiere origen trazable.'
+            if not has_text(self.formula_ref):
+                errors['formula_ref'] = 'Linea activa requiere formula_ref no sensible.'
+            if not has_text(self.evidencia_ref):
+                errors['evidencia_ref'] = 'Linea activa requiere evidencia_ref no sensible.'
+            if not self.source_payload:
+                errors['source_payload'] = 'Linea activa requiere source_payload trazable.'
+            if not has_text(self.hash_linea):
+                errors['hash_linea'] = 'Linea activa requiere hash_linea.'
         if errors:
             raise ValidationError(errors)
 

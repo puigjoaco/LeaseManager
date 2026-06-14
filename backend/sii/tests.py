@@ -23,6 +23,8 @@ from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoC
 
 from .admin import (
     AnnualTaxSourceBundleAdmin,
+    AnnualTaxWorkbookAdmin,
+    AnnualTaxWorkbookLineAdmin,
     CapacidadTributariaSIIAdmin,
     DDJJPreparacionAnualAdmin,
     DTEEmitidoAdmin,
@@ -35,6 +37,8 @@ from .admin import (
 )
 from .models import (
     AnnualTaxSourceBundle,
+    AnnualTaxWorkbook,
+    AnnualTaxWorkbookLine,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     DestinoMapeoTributarioAnual,
@@ -268,6 +272,10 @@ class SiiAPITests(APITestCase):
             DestinoMapeoTributarioAnual.DDJJ,
             DestinoMapeoTributarioAnual.F22,
         ):
+            source_metric = {
+                DestinoMapeoTributarioAnual.RLI: 'monthly_tax_facts.rent_distributions_total_devengado',
+                DestinoMapeoTributarioAnual.CPT: 'monthly_tax_facts.obligations_total_amount',
+            }.get(destino, '')
             TaxCodeMapping.objects.get_or_create(
                 rule_set=rule_set,
                 destino=destino,
@@ -276,7 +284,10 @@ class SiiAPITests(APITestCase):
                 defaults={
                     'formula_ref': f'formula-ref-{destino.lower()}-controlled',
                     'evidencia_ref': f'evidence-ref-{destino.lower()}-controlled',
-                    'metadata': {'source': 'sii-test-controlled'},
+                    'metadata': {
+                        'source': 'sii-test-controlled',
+                        **({'source_metric': source_metric} if source_metric else {}),
+                    },
                 },
             )
         return rule_set
@@ -2844,13 +2855,29 @@ class SiiAPITests(APITestCase):
         self.assertEqual(process.resumen_anual['annual_tax_monthly_facts']['months'], list(range(1, 13)))
         self.assertEqual(process.resumen_anual['annual_tax_monthly_facts']['obligations_total'], 12)
         self.assertEqual(process.resumen_anual['annual_tax_monthly_facts']['rent_distributions_total'], 1)
+        workbooks = AnnualTaxWorkbook.objects.filter(proceso_renta_anual=process).order_by('tipo')
+        workbook_lines = AnnualTaxWorkbookLine.objects.filter(workbook__proceso_renta_anual=process)
+        self.assertEqual(workbooks.count(), 2)
+        self.assertEqual(workbook_lines.count(), 2)
+        self.assertEqual(process.resumen_anual['annual_tax_workbooks']['total'], 2)
+        self.assertEqual(process.resumen_anual['annual_tax_workbooks']['types'], ['CPT', 'RLI'])
+        self.assertEqual(process.resumen_anual['annual_tax_workbooks']['by_type']['RLI']['warnings_total'], 0)
+        self.assertEqual(process.resumen_anual['annual_tax_workbooks']['by_type']['CPT']['warnings_total'], 0)
 
         monthly_facts_response = self.client.get(reverse('sii-monthly-tax-fact-list'))
         self.assertEqual(monthly_facts_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(monthly_facts_response.data), 12)
+        workbook_response = self.client.get(reverse('sii-annual-tax-workbook-list'))
+        workbook_line_response = self.client.get(reverse('sii-annual-tax-workbook-line-list'))
+        self.assertEqual(workbook_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(workbook_line_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(workbook_response.data), 2)
+        self.assertEqual(len(workbook_line_response.data), 2)
         snapshot = self.client.get(reverse('sii-snapshot'))
         self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
         self.assertEqual(len(snapshot.data['monthly_tax_facts']), 12)
+        self.assertEqual(len(snapshot.data['annual_tax_workbooks']), 2)
+        self.assertEqual(len(snapshot.data['annual_tax_workbook_lines']), 2)
 
     def test_monthly_tax_fact_admin_and_api_redact_sensitive_payloads(self):
         empresa, _ = self._setup_paid_payment()
@@ -2896,6 +2923,74 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('token=secret', serialized_payload)
         self.assertNotIn('monthly-secret', serialized_payload)
         self.assertNotIn('secret-monthly-value', serialized_payload)
+
+    def test_annual_tax_workbook_admin_and_api_redact_sensitive_payloads(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        workbook = AnnualTaxWorkbook.objects.get(empresa=empresa, anio_tributario=2027, tipo='RLI')
+        line = workbook.lines.get(codigo_destino='RLI-CONTROL')
+        AnnualTaxWorkbook.objects.filter(pk=workbook.pk).update(
+            source_ref='https://sii.example.test/rli?token=secret',
+            responsible_ref='Bearer workbook-secret',
+            resumen_workbook={'api_key': 'secret-workbook-value'},
+        )
+        AnnualTaxWorkbookLine.objects.filter(pk=line.pk).update(
+            formula_ref='https://sii.example.test/formula?token=secret',
+            evidencia_ref='Bearer line-secret',
+            warnings=['https://sii.example.test/warning?token=secret'],
+            source_payload={'api_key': 'secret-line-value'},
+        )
+        workbook.refresh_from_db()
+        line.refresh_from_db()
+        workbook_admin = AnnualTaxWorkbookAdmin(AnnualTaxWorkbook, AdminSite())
+        line_admin = AnnualTaxWorkbookLineAdmin(AnnualTaxWorkbookLine, AdminSite())
+
+        self.assertEqual(workbook_admin.source_ref_redacted(workbook), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(workbook_admin.responsible_ref_redacted(workbook), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-workbook-value', json.dumps(workbook_admin.resumen_workbook_redacted(workbook)))
+        self.assertEqual(line_admin.formula_ref_redacted(line), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(line_admin.evidencia_ref_redacted(line), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-line-value', json.dumps(line_admin.source_payload_redacted(line)))
+
+        workbook_response = self.client.get(reverse('sii-annual-tax-workbook-list'))
+        line_response = self.client.get(reverse('sii-annual-tax-workbook-line-list'))
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        serialized_payload = json.dumps(
+            {
+                'workbooks': workbook_response.data,
+                'lines': line_response.data,
+                'snapshot': snapshot.data,
+            },
+            default=str,
+        )
+        self.assertEqual(workbook_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(line_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        workbook_data = next(item for item in workbook_response.data if item['id'] == workbook.id)
+        line_data = next(item for item in line_response.data if item['id'] == line.id)
+        snapshot_workbook_data = next(item for item in snapshot.data['annual_tax_workbooks'] if item['id'] == workbook.id)
+        snapshot_line_data = next(item for item in snapshot.data['annual_tax_workbook_lines'] if item['id'] == line.id)
+        self.assertEqual(workbook_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(workbook_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_workbook_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_workbook_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(line_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(line_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_line_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_line_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_payload)
+        self.assertNotIn('workbook-secret', serialized_payload)
+        self.assertNotIn('line-secret', serialized_payload)
+        self.assertNotIn('secret-workbook-value', serialized_payload)
+        self.assertNotIn('secret-line-value', serialized_payload)
 
     def test_generate_annual_preparation_rejects_source_changes_after_bundle_freeze(self):
         empresa, _ = self._setup_paid_payment()

@@ -9,6 +9,8 @@ from patrimonio.models import Empresa
 
 from .models import (
     AnnualTaxSourceBundle,
+    AnnualTaxWorkbook,
+    AnnualTaxWorkbookLine,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     DTEEmitido,
@@ -255,6 +257,59 @@ class MonthlyTaxFactSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelS
         except DjangoValidationError as error:
             raise_drf_validation_error(error)
         return attrs
+
+
+class AnnualTaxWorkbookSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('source_ref', 'responsible_ref')
+    redacted_payload_fields = ('resumen_workbook',)
+
+    class Meta:
+        model = AnnualTaxWorkbook
+        fields = (
+            'id',
+            'empresa',
+            'proceso_renta_anual',
+            'source_bundle',
+            'rule_set',
+            'anio_tributario',
+            'anio_comercial',
+            'tipo',
+            'source_ref',
+            'responsible_ref',
+            'resumen_workbook',
+            'hash_workbook',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class AnnualTaxWorkbookLineSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('formula_ref', 'evidencia_ref')
+    redacted_payload_fields = ('warnings', 'source_payload')
+
+    class Meta:
+        model = AnnualTaxWorkbookLine
+        fields = (
+            'id',
+            'workbook',
+            'mapping',
+            'codigo_interno',
+            'codigo_destino',
+            'origen',
+            'signo',
+            'monto_clp',
+            'formula_ref',
+            'evidencia_ref',
+            'warnings',
+            'source_payload',
+            'hash_linea',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
 
 
 class DTEEmitidoSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):

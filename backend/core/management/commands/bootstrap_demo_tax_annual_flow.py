@@ -183,6 +183,10 @@ class Command(BaseCommand):
             DestinoMapeoTributarioAnual.DDJJ,
         )
         for destino in required_destinations:
+            source_metric = {
+                DestinoMapeoTributarioAnual.RLI: "monthly_tax_facts.rent_distributions_total_devengado",
+                DestinoMapeoTributarioAnual.CPT: "monthly_tax_facts.obligations_total_amount",
+            }.get(destino, "")
             TaxCodeMapping.objects.get_or_create(
                 rule_set=rule_set,
                 destino=destino,
@@ -193,6 +197,7 @@ class Command(BaseCommand):
                     "evidencia_ref": f"demo-evidence-{destino.lower()}-at{anio_tributario}",
                     "metadata": {
                         "source": "bootstrap_demo_tax_annual_flow",
+                        **({"source_metric": source_metric} if source_metric else {}),
                         "ddjj_codes": list(ddjj_codes) if destino == DestinoMapeoTributarioAnual.DDJJ else [],
                     },
                 },

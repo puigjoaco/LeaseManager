@@ -62,6 +62,12 @@ F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
 `hash_hecho` del resumen mensual, refs no sensibles y exposicion redactada en
 API/snapshot/admin. Esto mantiene la union contabilidad -> renta como
 transformacion trazable, no como salto directo desde asientos a F22.
+`AnnualTaxWorkbook` y `AnnualTaxWorkbookLine` materializan el primer esqueleto
+RLI/CPT: para cada `ProcesoRentaAnual` se preparan workbooks RLI y CPT desde
+`TaxCodeMapping` aprobado y `MonthlyTaxFact`, con hashes por linea/workbook,
+warnings revisables y exposicion redactada. Esta capa no declara calculo
+tributario final; deja importes, origenes y advertencias listos para revision
+antes de avanzar a RAI/SAC/DDJJ/F22.
 
 ## Gate
 
@@ -79,6 +85,14 @@ transformacion trazable, no como salto directo desde asientos a F22.
   anual como trazable. Deben existir doce meses normalizados para el ano
   comercial y `ProcesoRentaAnual.resumen_anual.annual_tax_monthly_facts` debe
   coincidir con esos hechos.
+- `AnnualTaxWorkbook` preparado para RLI y CPT antes de tratar un proceso anual
+  como trazable. Ambos workbooks deben pertenecer al mismo proceso, rule set,
+  bundle y empresa, conservar `hash_workbook` coherente y aparecer en
+  `ProcesoRentaAnual.resumen_anual.annual_tax_workbooks`.
+- `AnnualTaxWorkbookLine` activa requiere `TaxCodeMapping` del mismo rule set,
+  origen, monto, `formula_ref`, `evidencia_ref`, `source_payload` y
+  `hash_linea` coherente. Lineas con warnings bloquean readiness hasta revision
+  tributaria; no se transforman en cierre automatico.
 - Responsable de revision anual trazado antes de tratar el paquete como
   aprobado.
 - Documentos generados desde datos trazables.
@@ -180,6 +194,10 @@ transformacion trazable, no como salto directo desde asientos a F22.
   aprobados antes de construir el resumen anual. La readiness bloquea hechos
   mensuales invalidos, faltantes, sin configuracion fiscal activa o procesos
   cuyo resumen mensual quede desalineado.
+- `generate_annual_preparation()` sincroniza workbooks RLI/CPT despues de crear
+  el proceso anual y antes de emitir DDJJ/F22 locales. La readiness bloquea
+  procesos trazables sin ambos workbooks, sin lineas activas, con warnings,
+  invalidos o con resumen RLI/CPT desalineado.
 - La API/snapshot/admin de SII exponen `TaxYearRuleSet` y `TaxCodeMapping` con
   referencias/payloads redactados y auditoria de creacion/actualizacion; el
   bootstrap demo anual crea parametria demo controlada, no oficial, antes de
@@ -190,6 +208,10 @@ transformacion trazable, no como salto directo desde asientos a F22.
 - La API/snapshot/admin de SII exponen `MonthlyTaxFact` con `source_ref`,
   `responsible_ref` y `resumen_hecho` redactados; el admin es solo lectura para
   evitar ediciones manuales de hechos derivados.
+- La API/snapshot/admin de SII exponen `AnnualTaxWorkbook` y
+  `AnnualTaxWorkbookLine` con refs, warnings y payloads redactados; el admin es
+  solo lectura para preservar que RLI/CPT provienen del normalizador anual y no
+  de edicion manual opaca.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

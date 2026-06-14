@@ -61,6 +61,15 @@ del resumen mensual y refs no sensibles. La readiness bloquea procesos anuales
 trazables sin doce hechos mensuales normalizados o con resumen mensual
 desalineado, manteniendo el camino anual en capas antes de RLI/CPT/F22.
 
+Nota 2026-06-14: Etapa 6 materializa el skeleton RLI/CPT mediante
+`AnnualTaxWorkbook` y `AnnualTaxWorkbookLine`. La preparacion anual genera
+workbooks RLI y CPT desde `TaxCodeMapping` + `MonthlyTaxFact`, con hashes por
+workbook/linea, refs no sensibles, API/snapshot/admin redactados y readiness
+bloqueante si falta RLI/CPT, si no hay lineas activas, si el resumen queda
+desalineado o si existen warnings pendientes. El resumen conserva
+`final_tax_calculation=false`: LeaseManager prepara dossier revisable, no
+decide ni presenta renta final de forma autonoma.
+
 Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
 local para artefactos anuales. `ProcesoRentaAnual`, DDJJ y F22 en estados
 aprobados, observados, rectificados o presentados requieren

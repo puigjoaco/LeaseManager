@@ -22,10 +22,13 @@ from documentos.models import DocumentoEmitido, EstadoDocumento, TipoDocumental
 from sii.models import (
     AmbienteSII,
     AnnualTaxSourceBundle,
+    AnnualTaxWorkbook,
+    AnnualTaxWorkbookLine,
     CapacidadSII,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     EstadoAnnualTaxSourceBundle,
+    EstadoAnnualTaxWorkbook,
     EstadoReglaTributariaAnual,
     EstadoGateSII,
     EstadoMonthlyTaxFact,
@@ -34,6 +37,7 @@ from sii.models import (
     ProcesoRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
+    TipoAnnualTaxWorkbook,
     has_text,
 )
 
@@ -268,6 +272,78 @@ def _collect_monthly_tax_fact_issues(monthly_tax_facts, processes, active_fiscal
     return dict(sorted(counts.items()))
 
 
+def _collect_annual_tax_workbook_issues(workbooks, lines, processes, active_fiscal_company_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    expected_types = {TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT}
+    invalid_workbooks = _count_invalid(workbooks)
+    if invalid_workbooks:
+        counts['tax_workbook_invalid'] = invalid_workbooks
+    invalid_lines = _count_invalid(lines)
+    if invalid_lines:
+        counts['tax_workbook_line_invalid'] = invalid_lines
+    without_fiscal_config = _count_without_active_fiscal_config(workbooks, active_fiscal_company_ids)
+    if without_fiscal_config:
+        counts['tax_workbook_fiscal_config_missing'] = without_fiscal_config
+
+    prepared_workbooks = workbooks.filter(estado=EstadoAnnualTaxWorkbook.PREPARED)
+    workbooks_by_process = {}
+    for workbook in prepared_workbooks:
+        workbooks_by_process.setdefault(workbook.proceso_renta_anual_id, {})[workbook.tipo] = workbook
+
+    active_line_counts = Counter()
+    warning_line_counts = Counter()
+    for line in lines.filter(estado=EstadoRegistro.ACTIVE).select_related('workbook'):
+        active_line_counts[line.workbook_id] += 1
+        warnings = line.warnings if isinstance(line.warnings, list) else []
+        if warnings:
+            warning_line_counts[line.workbook_id] += 1
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        process_workbooks = workbooks_by_process.get(process.id, {})
+        present_types = set(process_workbooks.keys())
+        if not present_types:
+            counts['process_tax_workbooks_missing'] += 1
+        elif present_types != expected_types:
+            counts['process_tax_workbook_types_missing'] += 1
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        workbook_summary = summary.get('annual_tax_workbooks')
+        if not isinstance(workbook_summary, dict):
+            counts['process_tax_workbook_summary_missing'] += 1
+        else:
+            by_type = workbook_summary.get('by_type') if isinstance(workbook_summary.get('by_type'), dict) else {}
+            try:
+                summary_total = int(workbook_summary.get('total') or 0)
+            except (TypeError, ValueError):
+                summary_total = -1
+            summary_types = set(workbook_summary.get('types') or [])
+            if summary_total != len(process_workbooks) or summary_types != present_types:
+                counts['process_tax_workbook_summary_mismatch'] += 1
+            else:
+                for workbook_type, workbook in process_workbooks.items():
+                    type_summary = by_type.get(workbook_type)
+                    if not isinstance(type_summary, dict):
+                        counts['process_tax_workbook_summary_mismatch'] += 1
+                        break
+                    if (
+                        type_summary.get('id') != workbook.id
+                        or type_summary.get('hash_workbook') != workbook.hash_workbook
+                        or int(type_summary.get('lines_total') or 0) != active_line_counts[workbook.id]
+                    ):
+                        counts['process_tax_workbook_summary_mismatch'] += 1
+                        break
+
+        for workbook in process_workbooks.values():
+            if active_line_counts[workbook.id] == 0:
+                counts['tax_workbook_line_missing'] += 1
+            if warning_line_counts[workbook.id]:
+                counts['tax_workbook_line_warning_review_required'] += warning_line_counts[workbook.id]
+
+    return dict(sorted(counts.items()))
+
+
 def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str, int]:
     counts = Counter()
     fiscal_config_by_company_id = {
@@ -409,6 +485,23 @@ def collect_stage6_renta_anual_readiness(
     )
     monthly_tax_fact_issues = _collect_monthly_tax_fact_issues(
         monthly_tax_facts,
+        annual_processes,
+        active_fiscal_company_ids,
+    )
+    annual_tax_workbooks = AnnualTaxWorkbook.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    )
+    annual_tax_workbook_lines = AnnualTaxWorkbookLine.objects.select_related(
+        'workbook',
+        'workbook__empresa',
+        'mapping',
+    )
+    annual_tax_workbook_issues = _collect_annual_tax_workbook_issues(
+        annual_tax_workbooks,
+        annual_tax_workbook_lines,
         annual_processes,
         active_fiscal_company_ids,
     )
@@ -654,6 +747,55 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if monthly_tax_fact_issues.get(key):
             issues.append(_issue(code, message, count=monthly_tax_fact_issues[key]))
+    for key, code, message in [
+        (
+            'tax_workbook_invalid',
+            'stage6.tax_workbook_invalid',
+            'Existen AnnualTaxWorkbook RLI/CPT que no pasan validacion de dominio.',
+        ),
+        (
+            'tax_workbook_line_invalid',
+            'stage6.tax_workbook_line_invalid',
+            'Existen lineas RLI/CPT que no pasan validacion de dominio o referencias.',
+        ),
+        (
+            'tax_workbook_fiscal_config_missing',
+            'stage6.tax_workbook_fiscal_config_missing',
+            'Existen AnnualTaxWorkbook para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+        ),
+        (
+            'process_tax_workbooks_missing',
+            'stage6.process_tax_workbooks_missing',
+            'ProcesoRentaAnual trazable requiere workbooks RLI/CPT preparados.',
+        ),
+        (
+            'process_tax_workbook_types_missing',
+            'stage6.process_tax_workbook_types_missing',
+            'ProcesoRentaAnual trazable requiere ambos workbooks RLI y CPT.',
+        ),
+        (
+            'process_tax_workbook_summary_missing',
+            'stage6.process_tax_workbook_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen de workbooks RLI/CPT en resumen_anual.',
+        ),
+        (
+            'process_tax_workbook_summary_mismatch',
+            'stage6.process_tax_workbook_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen RLI/CPT desalineado con workbooks vigentes.',
+        ),
+        (
+            'tax_workbook_line_missing',
+            'stage6.tax_workbook_line_missing',
+            'AnnualTaxWorkbook preparado requiere lineas activas trazadas.',
+        ),
+        (
+            'tax_workbook_line_warning_review_required',
+            'stage6.tax_workbook_line_warning_review_required',
+            'Existen lineas RLI/CPT con warnings que requieren revision antes de cierre.',
+        ),
+    ]:
+        if annual_tax_workbook_issues.get(key):
+            issues.append(_issue(code, message, count=annual_tax_workbook_issues[key]))
     if approved_closes.count() < 12:
         issues.append(
             _issue(
@@ -1041,6 +1183,15 @@ def collect_stage6_renta_anual_readiness(
                 'facts_by_state': _count_by(monthly_tax_facts, 'estado'),
                 'facts_by_year': _count_by(monthly_tax_facts, 'anio'),
                 **monthly_tax_fact_issues,
+            },
+            'annual_tax_workbooks': {
+                'workbooks_total': annual_tax_workbooks.count(),
+                'prepared_workbooks': annual_tax_workbooks.filter(estado=EstadoAnnualTaxWorkbook.PREPARED).count(),
+                'workbooks_by_state': _count_by(annual_tax_workbooks, 'estado'),
+                'workbooks_by_type': _count_by(annual_tax_workbooks, 'tipo'),
+                'lines_total': annual_tax_workbook_lines.count(),
+                'active_lines': annual_tax_workbook_lines.filter(estado=EstadoRegistro.ACTIVE).count(),
+                **annual_tax_workbook_issues,
             },
             'annual_documents': {
                 'ddjj_total': ddjj_preparations.count(),
