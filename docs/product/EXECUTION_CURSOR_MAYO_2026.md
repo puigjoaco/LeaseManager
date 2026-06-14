@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Cerrar `stage6-annual-review-checklist`. |
-| Fuente exacta | Rama tactica `codex/stage6-annual-review-checklist` basada en `main` `9f1b7782` posterior a PR #837. |
-| Brecha activa | `stage6-annual-review-checklist`: falta una entidad/checklist trazable de revision responsable por categorias antes de tratar el dossier/export anual como paquete revisado. |
-| Motivo de prioridad | Completa la separacion entre preparacion mecanica y decision tributaria supervisada: LeaseManager entrega expediente y checklist, no decide la renta final. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-annual-review-checklist` durante el paquete; tras merge debe eliminarse. |
-| Rama | `codex/stage6-annual-review-checklist` durante el paquete; `main` tras merge. |
-| Estado | Validacion local OK; falta PR, CI, merge y limpieza. |
+| Frente activo | Sin paquete tactico abierto. |
+| Fuente exacta | `main` en `e85f0235`, posterior al merge de PR #838 (`stage6-annual-review-checklist`). |
+| Brecha activa | Ninguna en cursor. `stage6-annual-review-checklist` quedo integrado: `AnnualTaxReviewChecklist` separa preparacion mecanica de decision tributaria supervisada. |
+| Motivo de prioridad | Evitar que reanudaciones reabran el paquete cerrado o vuelvan a discutir goal prompts; el siguiente avance debe nacer del estado real del repo y la trazabilidad vigente. |
+| Worktree | Solo root principal activo; el worktree tactico `D:/Proyectos/LeaseManager-stage6-annual-review-checklist` fue eliminado. |
+| Rama | `main` tras merge; rama tactica local/remota eliminada. |
+| Estado | Paquete #838 cerrado, CI remoto verde, mergeado y limpieza hecha. |
 | Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, formato/certificacion SII vigente, validacion fiscal/oficial, responsable y evidencia no sensible. |
 | Estado al cerrar paquete | `stage6-annual-review-checklist` cerrado. El paquete anual preparado queda conectado a checklist de revision responsable no sensible, con readiness bloqueante si falta, esta incompleto o intenta aprobar sin responsable/evidencia. |
 | Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Reglas tributarias finales, contribuciones y mapping RLI/CPT/DJ/F22 requieren fuente oficial/experta. |
 | Politica de reanudacion | No reabrir EDIG ni goal prompts. Si no hay worktree sucio, continuar por el siguiente frente util que no requiera datos reales, secretos, presentacion SII ni decision tributaria final autonoma. |
-| Siguiente accion | Crear PR, esperar CI, mergear a main y limpiar worktree/rama. |
+| Siguiente accion | Desde `main` limpio, elegir el siguiente frente util y seguro segun arquitectura, trazabilidad y stage cards, sin usar secretos, datos reales, SII real ni decision tributaria final autonoma. |
 
 ## Actualizacion
 
