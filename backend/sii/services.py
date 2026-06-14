@@ -39,6 +39,7 @@ from .models import (
     AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
+    ANNUAL_TAX_OFFICIAL_SOURCE_READY_STATES,
     CapacidadSII,
     DDJJPreparacionAnual,
     DestinoMapeoTributarioAnual,
@@ -409,6 +410,44 @@ def _source_bundle_hash(payload):
     return hashlib.sha256(_canonical_source_payload(payload).encode('utf-8')).hexdigest()
 
 
+def _metadata_real_estate_contribution_values(source):
+    if source is None or not isinstance(source.metadata, dict):
+        return {}
+    values = (
+        source.metadata.get('values_by_property_id')
+        or source.metadata.get('real_estate_contributions_by_property_id')
+        or {}
+    )
+    return values if isinstance(values, dict) else {}
+
+
+def _find_real_estate_contribution_source_for_year(anio_tributario, regime_code=''):
+    candidates = (
+        AnnualTaxOfficialSource.objects.filter(
+            anio_tributario=anio_tributario,
+            estado__in=ANNUAL_TAX_OFFICIAL_SOURCE_READY_STATES,
+        )
+        .filter(
+            Q(source_type=TipoAnnualTaxOfficialSource.SII_REAL_ESTATE_CONTRIBUTIONS)
+            | Q(
+                source_type=TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+                applies_to__in=[
+                    DestinoMapeoTributarioAnual.F22,
+                    DestinoMapeoTributarioAnual.DOSSIER,
+                ],
+            )
+        )
+        .filter(Q(regime_code='') | Q(regime_code=regime_code))
+        .order_by('source_type', 'source_key', 'id')
+    )
+    for source in candidates:
+        if source.source_type == TipoAnnualTaxOfficialSource.SII_REAL_ESTATE_CONTRIBUTIONS:
+            return source
+        if isinstance(source.metadata, dict) and source.metadata.get('real_estate_contributions') is True:
+            return source
+    return None
+
+
 def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
     approved_closes = CierreMensualContable.objects.filter(
         empresa=empresa,
@@ -435,6 +474,11 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
         ),
         estado='activa',
     ).distinct()
+    real_estate_contribution_source = _find_real_estate_contribution_source_for_year(
+        rule_set.anio_tributario,
+        config.regimen_tributario.codigo_regimen,
+    )
+    real_estate_contribution_values = _metadata_real_estate_contribution_values(real_estate_contribution_source)
     liquidation_lines = LineaLiquidacionMensual.objects.filter(
         liquidacion__owner_tipo=TipoOwnerLiquidacion.COMPANY,
         liquidacion__empresa=empresa,
@@ -474,7 +518,12 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
         ),
         'real_estate_properties_total': real_estate_properties.count(),
         'real_estate_property_ids': list(real_estate_properties.order_by('codigo_propiedad', 'id').values_list('id', flat=True)),
-        'real_estate_contribuciones_source': 'not_loaded_v1',
+        'real_estate_contribuciones': {
+            'source': 'official_or_expert_review' if real_estate_contribution_source else 'not_loaded_v1',
+            'official_source_id': real_estate_contribution_source.id if real_estate_contribution_source else None,
+            'values_by_property_id': real_estate_contribution_values,
+            'final_tax_calculation': False,
+        },
         'liquidation_line_months': sorted(set(liquidation_lines.values_list('liquidacion__mes', flat=True))),
         'liquidation_lines_total': liquidation_lines.count(),
         'liquidation_lines_total_amount': str(sum((item.monto_clp for item in liquidation_lines), 0)),
@@ -1066,14 +1115,23 @@ def summarize_annual_real_estate_sections(process):
         for item in active_items:
             warnings = item.warnings if isinstance(item.warnings, list) else []
             warning_count += len(warnings)
+        section_payload = section.resumen_seccion if isinstance(section.resumen_seccion, dict) else {}
         by_id[str(section.id)] = {
             'id': section.id,
             'hash_seccion': section.hash_seccion,
+            'official_contribution_source_id': section.official_contribution_source_id,
             'propiedades_total': section.propiedades_total,
             'arriendo_devengado_total_clp': str(section.arriendo_devengado_total_clp),
             'arriendo_conciliado_total_clp': str(section.arriendo_conciliado_total_clp),
             'arriendo_facturable_total_clp': str(section.arriendo_facturable_total_clp),
             'contribuciones_total_clp': str(section.contribuciones_total_clp),
+            'contribuciones_source': section_payload.get('contribuciones_source') or (
+                'official_or_expert_review'
+                if section.official_contribution_source_id
+                else 'not_loaded_v1'
+            ),
+            'contribuciones_loaded_items_total': section_payload.get('contribuciones_loaded_items_total', 0),
+            'contribuciones_missing_items_total': section_payload.get('contribuciones_missing_items_total', active_items.count()),
             'items_total': active_items.count(),
             'warnings_total': warning_count,
         }
@@ -1677,6 +1735,50 @@ def _quantize_clp(value):
     return Decimal(str(value or '0.00')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 
+def _real_estate_contribution_summary(source_bundle):
+    summary = source_bundle.resumen_fuentes if isinstance(source_bundle.resumen_fuentes, dict) else {}
+    contribution_summary = summary.get('real_estate_contribuciones')
+    if not isinstance(contribution_summary, dict):
+        contribution_summary = {}
+    legacy_values = summary.get('real_estate_contributions_by_property_id')
+    values_by_property = contribution_summary.get('values_by_property_id')
+    if not isinstance(values_by_property, dict):
+        values_by_property = legacy_values if isinstance(legacy_values, dict) else {}
+    return {
+        'source': str(contribution_summary.get('source') or summary.get('real_estate_contribuciones_source') or 'not_loaded_v1'),
+        'official_source_id': contribution_summary.get('official_source_id')
+        or summary.get('real_estate_contribution_official_source_id'),
+        'values_by_property_id': values_by_property,
+    }
+
+
+def _real_estate_contribution_entry(source_bundle, propiedad_id):
+    contribution_summary = _real_estate_contribution_summary(source_bundle)
+    values_by_property = contribution_summary['values_by_property_id']
+    raw_entry = values_by_property.get(str(propiedad_id))
+    if raw_entry is None:
+        raw_entry = values_by_property.get(propiedad_id)
+    if raw_entry is None:
+        return None
+    if isinstance(raw_entry, dict):
+        raw_amount = (
+            raw_entry.get('contribuciones_clp')
+            or raw_entry.get('monto_clp')
+            or raw_entry.get('amount_clp')
+            or raw_entry.get('amount')
+        )
+        return {
+            'contribuciones_clp': _quantize_clp(raw_amount),
+            'codigo_f22': str(raw_entry.get('codigo_f22') or '').strip(),
+            'evidencia_ref': str(raw_entry.get('evidencia_ref') or raw_entry.get('source_ref') or '').strip(),
+        }
+    return {
+        'contribuciones_clp': _quantize_clp(raw_entry),
+        'codigo_f22': '',
+        'evidencia_ref': '',
+    }
+
+
 def _allocated_amount(amount, percentage):
     return _quantize_clp(Decimal(str(amount or '0.00')) * Decimal(str(percentage or '0.00')) / Decimal('100.00'))
 
@@ -1771,15 +1873,30 @@ def _real_estate_item_hash_payload(section, propiedad, payload):
         'arriendo_conciliado_clp': str(payload['arriendo_conciliado_clp']),
         'arriendo_facturable_clp': str(payload['arriendo_facturable_clp']),
         'contribuciones_clp': str(payload['contribuciones_clp']),
+        'official_contribution_source_id': section.official_contribution_source_id,
         'formula_ref': 'real-estate-annual-section-v1',
         'evidencia_ref': f'real-estate-property-{propiedad.id}-annual-source',
-        'warnings': [],
+        'warnings': payload['warnings'],
         'source_payload': payload['source_payload'],
     }
 
 
 def _save_real_estate_item(section, source):
     propiedad = source['propiedad']
+    contribution_source = section.official_contribution_source
+    contribution_source_id = section.official_contribution_source_id
+    contribution_entry = source.get('contribution_entry')
+    contribution_warnings = []
+    if not contribution_source_id:
+        contribution_warnings.append('contribuciones_source_not_loaded_v1')
+    elif contribution_entry is None:
+        contribution_warnings.append('contribuciones_value_not_loaded_v1')
+    contribution_loaded = bool(contribution_source_id and contribution_entry is not None)
+    contribution_source_state = 'not_loaded_v1'
+    if contribution_loaded:
+        contribution_source_state = 'official_or_expert_review'
+    elif contribution_source_id:
+        contribution_source_state = 'official_or_expert_review_missing_value'
     source_payload = {
         'empresa_id': section.empresa_id,
         'proceso_renta_anual_id': section.proceso_renta_anual_id,
@@ -1793,14 +1910,25 @@ def _save_real_estate_item(section, source):
         'distribution_ids': sorted(source['distribution_ids']),
         'allocation_sources': source['allocation_sources'],
         'rent_allocation': 'ContratoPropiedad.porcentaje_distribucion_interna',
-        'contribuciones_source': 'not_loaded_v1',
+        'contribuciones_source': contribution_source_state,
+        'contribuciones_loaded': contribution_loaded,
+        'official_contribution_source_id': contribution_source_id,
+        'official_contribution_source_type': contribution_source.source_type if contribution_source else '',
+        'official_contribution_source_ref_present': bool(contribution_source.source_ref) if contribution_source else False,
+        'contribuciones_evidence_ref_present': bool(contribution_entry and contribution_entry.get('evidencia_ref')),
+        'codigo_f22_contribuciones': contribution_entry.get('codigo_f22', '') if contribution_entry else '',
         'final_tax_calculation': False,
     }
     payload = {
         'arriendo_devengado_clp': _quantize_clp(source['arriendo_devengado_clp']),
         'arriendo_conciliado_clp': _quantize_clp(source['arriendo_conciliado_clp']),
         'arriendo_facturable_clp': _quantize_clp(source['arriendo_facturable_clp']),
-        'contribuciones_clp': _quantize_clp(source['contribuciones_clp']),
+        'contribuciones_clp': (
+            contribution_entry['contribuciones_clp']
+            if contribution_entry is not None
+            else _quantize_clp(source['contribuciones_clp'])
+        ),
+        'warnings': contribution_warnings,
         'source_payload': source_payload,
     }
     item_hash_payload = _real_estate_item_hash_payload(section, propiedad, payload)
@@ -1822,7 +1950,7 @@ def _save_real_estate_item(section, source):
             'contribuciones_clp': payload['contribuciones_clp'],
             'formula_ref': item_hash_payload['formula_ref'],
             'evidencia_ref': item_hash_payload['evidencia_ref'],
-            'warnings': [],
+            'warnings': payload['warnings'],
             'source_payload': source_payload,
             'hash_item': _source_bundle_hash(item_hash_payload),
             'estado': EstadoRegistro.ACTIVE,
@@ -1840,6 +1968,19 @@ def _save_real_estate_item(section, source):
 def _finalize_real_estate_section(section, fiscal_year):
     active_items = list(section.items.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_propiedad_snapshot', 'id'))
     warning_count = sum(len(item.warnings or []) for item in active_items if isinstance(item.warnings, list))
+    loaded_contribution_count = sum(
+        1
+        for item in active_items
+        if isinstance(item.source_payload, dict) and item.source_payload.get('contribuciones_loaded') is True
+    )
+    missing_contribution_count = max(len(active_items) - loaded_contribution_count, 0)
+    contribution_source_state = 'not_loaded_v1'
+    if section.official_contribution_source_id:
+        contribution_source_state = (
+            'official_or_expert_review'
+            if missing_contribution_count == 0
+            else 'official_or_expert_review_missing_values'
+        )
     section.propiedades_total = len(active_items)
     section.arriendo_devengado_total_clp = _sum_decimal(item.arriendo_devengado_clp for item in active_items)
     section.arriendo_conciliado_total_clp = _sum_decimal(item.arriendo_conciliado_clp for item in active_items)
@@ -1861,7 +2002,10 @@ def _finalize_real_estate_section(section, fiscal_year):
         'warnings_total': warning_count,
         'item_hashes': [item.hash_item for item in active_items],
         'source': 'Propiedad + DistribucionCobroMensual',
-        'contribuciones_source': 'not_loaded_v1',
+        'official_contribution_source_id': section.official_contribution_source_id,
+        'contribuciones_source': contribution_source_state,
+        'contribuciones_loaded_items_total': loaded_contribution_count,
+        'contribuciones_missing_items_total': missing_contribution_count,
         'final_tax_calculation': False,
     }
     section.hash_seccion = _source_bundle_hash(section.resumen_seccion)
@@ -1874,14 +2018,50 @@ def _finalize_real_estate_section(section, fiscal_year):
     section.save()
 
 
+def _find_real_estate_contribution_source(anio_tributario, source_bundle):
+    source_id = _real_estate_contribution_summary(source_bundle)['official_source_id']
+    if not source_id:
+        return None
+    try:
+        source_id = int(source_id)
+    except (TypeError, ValueError):
+        return None
+    candidates = (
+        AnnualTaxOfficialSource.objects.filter(
+            id=source_id,
+            anio_tributario=anio_tributario,
+            estado__in=ANNUAL_TAX_OFFICIAL_SOURCE_READY_STATES,
+        )
+        .filter(
+            Q(source_type=TipoAnnualTaxOfficialSource.SII_REAL_ESTATE_CONTRIBUTIONS)
+            | Q(
+                source_type=TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+                applies_to__in=[
+                    DestinoMapeoTributarioAnual.F22,
+                    DestinoMapeoTributarioAnual.DOSSIER,
+                ],
+            )
+        )
+        .order_by('source_type', 'source_key', 'id')
+    )
+    for source in candidates:
+        if source.source_type == TipoAnnualTaxOfficialSource.SII_REAL_ESTATE_CONTRIBUTIONS:
+            return source
+        if isinstance(source.metadata, dict) and source.metadata.get('real_estate_contributions') is True:
+            return source
+    return None
+
+
 def sync_annual_real_estate_section(process, rule_set, source_bundle):
     fiscal_year = process.anio_tributario - 1
+    contribution_source = _find_real_estate_contribution_source(process.anio_tributario, source_bundle)
     section, _ = AnnualRealEstateSection.objects.update_or_create(
         proceso_renta_anual=process,
         defaults={
             'empresa': process.empresa,
             'source_bundle': source_bundle,
             'rule_set': rule_set,
+            'official_contribution_source': contribution_source,
             'anio_tributario': process.anio_tributario,
             'anio_comercial': fiscal_year,
             'source_ref': f'annual-real-estate-section-{process.empresa_id}-at{process.anio_tributario}',
@@ -1891,6 +2071,7 @@ def sync_annual_real_estate_section(process, rule_set, source_bundle):
     )
     active_item_ids = []
     for source in _real_estate_property_sources(process.empresa, fiscal_year):
+        source['contribution_entry'] = _real_estate_contribution_entry(source_bundle, source['propiedad'].id)
         item = _save_real_estate_item(section, source)
         active_item_ids.append(item.id)
     section.items.exclude(id__in=active_item_ids).update(estado=EstadoRegistro.INACTIVE)
@@ -2200,7 +2381,17 @@ def _artifact_matrix_specs(matrix, rule_set, source_bundle, config):
                     'real_estate_section_id': section.id,
                     'items_total': len(active_items),
                     'hash_seccion': section.hash_seccion,
-                    'contribuciones_source': 'not_loaded_v1',
+                    'official_contribution_source_id': section.official_contribution_source_id,
+                    'contribuciones_source': (
+                        section.resumen_seccion.get('contribuciones_source')
+                        if isinstance(section.resumen_seccion, dict)
+                        else 'not_loaded_v1'
+                    ),
+                    'contribuciones_loaded_items_total': (
+                        section.resumen_seccion.get('contribuciones_loaded_items_total')
+                        if isinstance(section.resumen_seccion, dict)
+                        else 0
+                    ),
                 },
             )
     return specs

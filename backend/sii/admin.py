@@ -803,6 +803,7 @@ class AnnualRealEstateSectionAdmin(admin.ModelAdmin):
         'proceso_renta_anual',
         'source_bundle',
         'rule_set',
+        'official_contribution_source',
         'anio_tributario',
         'anio_comercial',
         'source_ref_redacted',
@@ -826,9 +827,10 @@ class AnnualRealEstateSectionAdmin(admin.ModelAdmin):
         'propiedades_total',
         'arriendo_devengado_total_clp',
         'contribuciones_total_clp',
+        'official_contribution_source',
         'source_ref_redacted',
     )
-    list_filter = ('anio_tributario', 'estado')
+    list_filter = ('anio_tributario', 'estado', 'official_contribution_source__source_type')
     search_fields = ('empresa__razon_social',)
 
     @admin.display(description='source_ref')

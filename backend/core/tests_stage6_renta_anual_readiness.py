@@ -259,6 +259,23 @@ class Stage6RentaAnualReadinessTests(TestCase):
             metadata={'source': 'stage6-controlled'},
         )
 
+    def _create_real_estate_contribution_source(self, *, anio_tributario=2026, regime_code=''):
+        return AnnualTaxOfficialSource.objects.create(
+            anio_tributario=anio_tributario,
+            source_key=f'expert-real-estate-contributions-at{anio_tributario}',
+            source_type=TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+            title=f'Revision experta contribuciones bienes raices AT{anio_tributario}',
+            source_ref=f'expert-real-estate-contributions-source-ref-at{anio_tributario}',
+            source_hash='9' * 64,
+            retrieved_on=date(2026, 6, 14),
+            responsible_ref='real-estate-tax-reviewer-controlled',
+            estado=EstadoAnnualTaxOfficialSource.APPROVED,
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            regime_code=regime_code,
+            scope_note='Fuente experta controlada para contribuciones y codigos F22 de bienes raices.',
+            metadata={'source': 'stage6-controlled', 'real_estate_contributions': True},
+        )
+
     def _create_ddjj_layouts(self, config, *, anio_tributario=2026):
         source = self._create_official_source(
             anio_tributario=anio_tributario,
@@ -366,7 +383,15 @@ class Stage6RentaAnualReadinessTests(TestCase):
             )
         return rule_set
 
-    def _create_annual_source_bundle(self, empresa, *, anio_tributario=2026, fiscal_year=2025):
+    def _create_annual_source_bundle(
+        self,
+        empresa,
+        *,
+        anio_tributario=2026,
+        fiscal_year=2025,
+        real_estate_contribution_source=None,
+        real_estate_contributions_by_property_id=None,
+    ):
         source_summary = {
             'empresa_id': empresa.id,
             'anio_comercial': fiscal_year,
@@ -377,6 +402,12 @@ class Stage6RentaAnualReadinessTests(TestCase):
             'obligations_total_amount': '120000.00',
             'f29_preparations_total': 0,
             'source_scope': 'stage6-controlled',
+            'real_estate_contribuciones': {
+                'source': 'official_or_expert_review' if real_estate_contribution_source else 'not_loaded_v1',
+                'official_source_id': real_estate_contribution_source.id if real_estate_contribution_source else None,
+                'values_by_property_id': real_estate_contributions_by_property_id or {},
+                'final_tax_calculation': False,
+            },
         }
         source_hash = hashlib.sha256(
             json.dumps(source_summary, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str)
@@ -455,7 +486,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
         ddjj_capability = self._open_capability(empresa, CapacidadSII.DDJJ_PREPARACION, 'ddjj')
         f22_capability = self._open_capability(empresa, CapacidadSII.F22_PREPARACION, 'f22')
         self._create_twelve_approved_closes(empresa)
-        Propiedad.objects.create(
+        propiedad = Propiedad.objects.create(
             rol_avaluo='ROL-STAGE6-001',
             direccion='Propiedad Stage 6',
             comuna='Santiago',
@@ -465,7 +496,20 @@ class Stage6RentaAnualReadinessTests(TestCase):
             estado='activa',
             empresa_owner=empresa,
         )
-        source_bundle = self._create_annual_source_bundle(empresa)
+        real_estate_source = self._create_real_estate_contribution_source(
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
+        source_bundle = self._create_annual_source_bundle(
+            empresa,
+            real_estate_contribution_source=real_estate_source,
+            real_estate_contributions_by_property_id={
+                str(propiedad.id): {
+                    'contribuciones_clp': '345000.00',
+                    'codigo_f22': 'F22-BIENES-RAICES',
+                    'evidencia_ref': 'real-estate-contributions-controlled',
+                },
+            },
+        )
         monthly_facts = sync_monthly_tax_facts(empresa, 2025)
         self._create_annual_trial_balance_source(empresa, 2025)
         summary = self._annual_summary()
@@ -972,6 +1016,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     'arriendo_conciliado_clp': str(item.arriendo_conciliado_clp),
                     'arriendo_facturable_clp': str(item.arriendo_facturable_clp),
                     'contribuciones_clp': str(item.contribuciones_clp),
+                    'official_contribution_source_id': item.section.official_contribution_source_id,
                     'formula_ref': item.formula_ref,
                     'evidencia_ref': item.evidencia_ref,
                     'warnings': item.warnings,
@@ -990,6 +1035,62 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.real_estate_item_warning_review_required', issue_codes)
+
+    def test_real_estate_contribution_source_missing_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualRealEstateSection.objects.update(official_contribution_source=None)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.real_estate_contribution_source_missing', issue_codes)
+
+    def test_real_estate_contribution_value_missing_is_blocking(self):
+        self._create_valid_local_matrix()
+        item = AnnualRealEstateItem.objects.select_related('section').get()
+        item.warnings = ['contribuciones_value_not_loaded_v1']
+        item.source_payload = {
+            **item.source_payload,
+            'contribuciones_loaded': False,
+            'contribuciones_source': 'official_or_expert_review_missing_value',
+        }
+        item.hash_item = hashlib.sha256(
+            json.dumps(
+                {
+                    'section_id': item.section_id,
+                    'propiedad_id': item.propiedad_id,
+                    'codigo_propiedad_snapshot': item.codigo_propiedad_snapshot,
+                    'rol_avaluo_snapshot': item.rol_avaluo_snapshot,
+                    'direccion_snapshot': item.direccion_snapshot,
+                    'comuna_snapshot': item.comuna_snapshot,
+                    'region_snapshot': item.region_snapshot,
+                    'tipo_inmueble_snapshot': item.tipo_inmueble_snapshot,
+                    'owner_tipo_snapshot': item.owner_tipo_snapshot,
+                    'owner_id_snapshot': item.owner_id_snapshot,
+                    'arriendo_devengado_clp': str(item.arriendo_devengado_clp),
+                    'arriendo_conciliado_clp': str(item.arriendo_conciliado_clp),
+                    'arriendo_facturable_clp': str(item.arriendo_facturable_clp),
+                    'contribuciones_clp': str(item.contribuciones_clp),
+                    'official_contribution_source_id': item.section.official_contribution_source_id,
+                    'formula_ref': item.formula_ref,
+                    'evidencia_ref': item.evidencia_ref,
+                    'warnings': item.warnings,
+                    'source_payload': item.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        item.save(update_fields=['warnings', 'source_payload', 'hash_item', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.real_estate_contribution_value_missing', issue_codes)
 
     def test_real_estate_section_summary_hash_mismatch_is_blocking(self):
         self._create_valid_local_matrix()
@@ -1773,7 +1874,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.official_source_invalid', issue_codes)
         self.assertEqual(result['sections']['annual_tax_official_sources']['official_source_invalid'], 1)
-        self.assertEqual(result['sections']['annual_tax_official_sources']['sources_total'], 7)
+        self.assertEqual(result['sections']['annual_tax_official_sources']['sources_total'], 8)
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('source-secret', serialized_result)
 

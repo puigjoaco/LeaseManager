@@ -275,6 +275,7 @@ class SiiSnapshotView(APIView):
                 'proceso_renta_anual',
                 'source_bundle',
                 'rule_set',
+                'official_contribution_source',
             ).order_by('-anio_tributario', 'empresa_id', 'id'),
             access,
             company_paths=('empresa_id',),
@@ -645,6 +646,7 @@ class SiiSnapshotView(APIView):
                         'proceso_renta_anual': item.proceso_renta_anual_id,
                         'source_bundle': item.source_bundle_id,
                         'rule_set': item.rule_set_id,
+                        'official_contribution_source': item.official_contribution_source_id,
                         'anio_tributario': item.anio_tributario,
                         'anio_comercial': item.anio_comercial,
                         'source_ref': redact_sensitive_reference(item.source_ref),
@@ -1151,6 +1153,7 @@ class AnnualRealEstateSectionListView(ScopedQuerysetMixin, generics.ListAPIView)
         'proceso_renta_anual',
         'source_bundle',
         'rule_set',
+        'official_contribution_source',
     ).all()
     company_scope_paths = ('empresa_id',)
 
@@ -1163,6 +1166,7 @@ class AnnualRealEstateSectionDetailView(ScopedQuerysetMixin, generics.RetrieveAP
         'proceso_renta_anual',
         'source_bundle',
         'rule_set',
+        'official_contribution_source',
     ).all()
     company_scope_paths = ('empresa_id',)
 

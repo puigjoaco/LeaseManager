@@ -550,6 +550,8 @@ def _collect_annual_real_estate_issues(sections, items, processes, active_fiscal
     sections_by_process = {}
     for section in prepared_sections:
         sections_by_process.setdefault(section.proceso_renta_anual_id, []).append(section)
+        if section.official_contribution_source_id is None:
+            counts['real_estate_contribution_source_missing'] += 1
 
     active_item_counts = Counter()
     warning_item_counts = Counter()
@@ -558,6 +560,8 @@ def _collect_annual_real_estate_issues(sections, items, processes, active_fiscal
         warnings = item.warnings if isinstance(item.warnings, list) else []
         if warnings:
             warning_item_counts[item.section_id] += 1
+        if 'contribuciones_value_not_loaded_v1' in warnings:
+            counts['real_estate_contribution_value_missing'] += 1
 
     for process in processes:
         if process.estado not in ANNUAL_TRACEABLE_STATES:
@@ -589,12 +593,14 @@ def _collect_annual_real_estate_issues(sections, items, processes, active_fiscal
                     if (
                         type_summary.get('id') != section.id
                         or type_summary.get('hash_seccion') != section.hash_seccion
+                        or type_summary.get('official_contribution_source_id') != section.official_contribution_source_id
                         or int(type_summary.get('propiedades_total') or 0) != section.propiedades_total
                         or str(type_summary.get('arriendo_devengado_total_clp')) != str(section.arriendo_devengado_total_clp)
                         or str(type_summary.get('arriendo_conciliado_total_clp')) != str(section.arriendo_conciliado_total_clp)
                         or str(type_summary.get('arriendo_facturable_total_clp')) != str(section.arriendo_facturable_total_clp)
                         or str(type_summary.get('contribuciones_total_clp')) != str(section.contribuciones_total_clp)
                         or int(type_summary.get('items_total') or 0) != active_item_counts[section.id]
+                        or int(type_summary.get('warnings_total') or 0) != warning_item_counts[section.id]
                     ):
                         counts['process_real_estate_section_summary_mismatch'] += 1
                         break
@@ -1764,6 +1770,16 @@ def collect_stage6_renta_anual_readiness(
             'process_real_estate_section_summary_mismatch',
             'stage6.process_real_estate_section_summary_mismatch',
             'ProcesoRentaAnual conserva resumen de bienes raices/arriendos desalineado con la seccion vigente.',
+        ),
+        (
+            'real_estate_contribution_source_missing',
+            'stage6.real_estate_contribution_source_missing',
+            'AnnualRealEstateSection preparada requiere fuente oficial/experta de contribuciones antes de cierre.',
+        ),
+        (
+            'real_estate_contribution_value_missing',
+            'stage6.real_estate_contribution_value_missing',
+            'Items de bienes raices requieren monto de contribuciones trazado por propiedad antes de cierre.',
         ),
         (
             'real_estate_item_missing',

@@ -447,6 +447,7 @@ class TipoAnnualTaxOfficialSource(models.TextChoices):
     SII_DDJJ_FORMS = 'sii_ddjj_forms', 'SII formularios DDJJ'
     SII_DDJJ_SOFTWARE_HOUSES = 'sii_ddjj_software_houses', 'SII casas software DDJJ'
     SII_DJ1847_INSTRUCTIONS = 'sii_dj1847_instructions', 'SII instrucciones DJ1847'
+    SII_REAL_ESTATE_CONTRIBUTIONS = 'sii_real_estate_contributions', 'SII contribuciones bienes raices'
     SII_F29_CERTIFICATION = 'sii_f29_certification', 'SII certificacion F29'
     SII_DTE_TECHNICAL = 'sii_dte_technical', 'SII tecnico DTE'
     EXPERT_REVIEW = 'expert_review', 'Revision experta'
@@ -736,6 +737,7 @@ def _real_estate_item_integrity_payload(item):
         'arriendo_conciliado_clp': str(item.arriendo_conciliado_clp),
         'arriendo_facturable_clp': str(item.arriendo_facturable_clp),
         'contribuciones_clp': str(item.contribuciones_clp),
+        'official_contribution_source_id': item.section.official_contribution_source_id if item.section_id else None,
         'formula_ref': item.formula_ref,
         'evidencia_ref': item.evidencia_ref,
         'warnings': item.warnings,
@@ -2313,6 +2315,13 @@ class AnnualRealEstateSection(OperationalSIITextNormalizationMixin, TimestampedM
         on_delete=models.PROTECT,
         related_name='real_estate_sections',
     )
+    official_contribution_source = models.ForeignKey(
+        AnnualTaxOfficialSource,
+        on_delete=models.PROTECT,
+        related_name='real_estate_contribution_sections',
+        null=True,
+        blank=True,
+    )
     anio_tributario = models.PositiveSmallIntegerField()
     anio_comercial = models.PositiveSmallIntegerField()
     source_ref = models.CharField(max_length=255, blank=True)
@@ -2400,6 +2409,59 @@ class AnnualRealEstateSection(OperationalSIITextNormalizationMixin, TimestampedM
             elif rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
                 errors['rule_set'] = 'AnnualRealEstateSection requiere TaxYearRuleSet aprobado.'
 
+        try:
+            contribution_source = self.official_contribution_source
+        except ObjectDoesNotExist:
+            contribution_source = None
+        if contribution_source is not None:
+            try:
+                contribution_source.full_clean()
+            except ValidationError:
+                errors['official_contribution_source'] = 'AnnualTaxOfficialSource de contribuciones no pasa validacion de dominio.'
+            else:
+                allowed_source_types = {
+                    TipoAnnualTaxOfficialSource.SII_REAL_ESTATE_CONTRIBUTIONS,
+                    TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+                }
+                allowed_destinations = {
+                    '',
+                    DestinoMapeoTributarioAnual.F22,
+                    DestinoMapeoTributarioAnual.DOSSIER,
+                }
+                if contribution_source.anio_tributario != self.anio_tributario:
+                    errors['official_contribution_source'] = 'Fuente de contribuciones debe corresponder al mismo anio_tributario.'
+                elif contribution_source.estado not in ANNUAL_TAX_OFFICIAL_SOURCE_READY_STATES:
+                    errors['official_contribution_source'] = 'Fuente de contribuciones debe estar revisada o aprobada.'
+                elif contribution_source.source_type not in allowed_source_types:
+                    errors['official_contribution_source'] = 'Fuente de contribuciones debe ser SII bienes raices o revision experta.'
+                elif contribution_source.applies_to not in allowed_destinations:
+                    errors['official_contribution_source'] = 'Fuente de contribuciones solo puede aplicar a F22, Dossier o alcance general.'
+                if 'official_contribution_source' not in errors and has_text(contribution_source.regime_code):
+                    try:
+                        regime_code = self.empresa.configuracion_fiscal.regimen_tributario.codigo_regimen
+                    except ObjectDoesNotExist:
+                        regime_code = ''
+                    if has_text(regime_code) and contribution_source.regime_code != regime_code:
+                        errors['official_contribution_source'] = 'Fuente de contribuciones debe corresponder al regimen tributario de la empresa.'
+                if (
+                    'official_contribution_source' not in errors
+                    and contribution_source.source_type == TipoAnnualTaxOfficialSource.EXPERT_REVIEW
+                    and contribution_source.applies_to not in {
+                        DestinoMapeoTributarioAnual.F22,
+                        DestinoMapeoTributarioAnual.DOSSIER,
+                    }
+                ):
+                    errors['official_contribution_source'] = 'Revision experta de contribuciones debe declarar alcance F22 o Dossier.'
+                if (
+                    'official_contribution_source' not in errors
+                    and contribution_source.source_type == TipoAnnualTaxOfficialSource.EXPERT_REVIEW
+                    and not (
+                        isinstance(contribution_source.metadata, dict)
+                        and contribution_source.metadata.get('real_estate_contributions') is True
+                    )
+                ):
+                    errors['official_contribution_source'] = 'Revision experta de contribuciones debe declarar metadata real_estate_contributions.'
+
         if isinstance(self.resumen_seccion, dict):
             identity_errors = []
             for key, expected in (
@@ -2407,6 +2469,7 @@ class AnnualRealEstateSection(OperationalSIITextNormalizationMixin, TimestampedM
                 ('proceso_renta_anual_id', self.proceso_renta_anual_id),
                 ('source_bundle_id', self.source_bundle_id),
                 ('rule_set_id', self.rule_set_id),
+                ('official_contribution_source_id', self.official_contribution_source_id),
                 ('anio_tributario', self.anio_tributario),
                 ('anio_comercial', self.anio_comercial),
                 ('propiedades_total', self.propiedades_total),
