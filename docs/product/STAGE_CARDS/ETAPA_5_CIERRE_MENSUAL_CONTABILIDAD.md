@@ -115,6 +115,11 @@ contable o tributaria requiere criterio.
   transaccion. Los eventos `contabilidad.*.state_changed` deben conservar
   metadata minima de transicion con `campo_estado`, `estado_anterior` y
   `estado_nuevo`.
+- La creacion y el reintento de contabilizacion de `EventoContable` deben
+  registrar `contabilidad.evento_contable.state_changed` cuando
+  `post_accounting_event()` cambie `estado_contable`, incluyendo el `asiento_id`
+  cuando exista asiento. Si falla esa auditoria, no deben persistir evento,
+  asiento ni cambio de estado sin traza.
 - `audit_stage5_contabilidad_readiness` bloquea eventos `state_changed`
   heredados de Contabilidad que no conserven esa metadata minima de
   transicion.

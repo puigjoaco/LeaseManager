@@ -56,6 +56,29 @@ from .services import approve_monthly_close, post_accounting_event, prepare_mont
 CONTROL_SNAPSHOT_CACHE_TTL_SECONDS = 15
 
 
+def _event_state_transition_metadata(event, previous_state, asiento):
+    return {
+        'campo_estado': 'estado_contable',
+        'estado_anterior': previous_state,
+        'estado_nuevo': event.estado_contable,
+        'asiento_id': asiento.pk if asiento else None,
+    }
+
+
+def _audit_event_state_transition_if_needed(*, event, previous_state, asiento, actor_user, ip_address):
+    if previous_state == event.estado_contable:
+        return
+    create_audit_event(
+        event_type='contabilidad.evento_contable.state_changed',
+        entity_type='evento_contable',
+        entity_id=str(event.pk),
+        summary='Cambio de estado de evento contable',
+        actor_user=actor_user,
+        ip_address=ip_address,
+        metadata=_event_state_transition_metadata(event, previous_state, asiento),
+    )
+
+
 def build_control_snapshot_payload(access, *, mode='full', use_cache=True):
     include_core = mode in {'full', 'core', 'bootstrap'}
     include_catalogs = mode in {'full', 'catalogs', 'bootstrap'}
@@ -472,6 +495,7 @@ class EventoContableListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, 
     def perform_create(self, serializer):
         with transaction.atomic():
             event = serializer.save()
+            previous_state = event.estado_contable
             self._create_audit_event(instance=event, action='created')
             asiento = post_accounting_event(event)
             create_audit_event(
@@ -482,6 +506,13 @@ class EventoContableListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, 
                 actor_user=self.request.user,
                 ip_address=self.request.META.get('REMOTE_ADDR'),
                 metadata={'asiento_id': asiento.pk if asiento else None, 'estado_contable': event.estado_contable},
+            )
+            _audit_event_state_transition_if_needed(
+                event=event,
+                previous_state=previous_state,
+                asiento=asiento,
+                actor_user=self.request.user,
+                ip_address=self.request.META.get('REMOTE_ADDR'),
             )
         return event
 
@@ -506,6 +537,7 @@ class EventoContablePostView(APIView):
             pk=pk,
         )
         with transaction.atomic():
+            previous_state = event.estado_contable
             asiento = post_accounting_event(event)
             create_audit_event(
                 event_type='contabilidad.evento_contable.post_retried',
@@ -515,6 +547,13 @@ class EventoContablePostView(APIView):
                 actor_user=request.user,
                 ip_address=request.META.get('REMOTE_ADDR'),
                 metadata={'asiento_id': asiento.pk if asiento else None, 'estado_contable': event.estado_contable},
+            )
+            _audit_event_state_transition_if_needed(
+                event=event,
+                previous_state=previous_state,
+                asiento=asiento,
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
             )
         event.refresh_from_db()
         return Response(EventoContableSerializer(event).data, status=status.HTTP_200_OK)
