@@ -20,9 +20,6 @@ ignoradas bajo `local-evidence/`:
 - `build-edig-at2026-leasemanager-coverage.ps1`: matriz local ignorada que
   cruza senales EDIG sanitizadas contra componentes propios observables en
   LeaseManager, sin leer EDIG ni versionar salidas.
-- `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md`: matriz de fuentes SII AT2026,
-  limites de certificacion/formato y brechas que requieren regla oficial o
-  revision experta antes de cerrar renta.
 - `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` y
   `build-stage6-official-source-gap-matrix.ps1`: matriz de fuentes oficiales,
   brechas y limites v1 para separar preparacion local de formato,
@@ -190,15 +187,11 @@ contratos:
     claramente componentes ya implementados de brechas externas/oficiales.
 11. `stage6-official-source-gaps`: matriz de brechas oficiales AT2026.
     Implementado como `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` y
-    `build-stage6-official-source-gap-matrix.ps1`: separa aprendizaje EDIG de
-    fuentes SII, certificacion/formato y revision experta, sin ejecutar EDIG,
-    sin llamar SII y sin producir archivos oficiales.
-11. `stage6-official-source-gaps`: matriz de brechas oficiales AT2026.
-    Implementado como `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` y
     `build-stage6-official-source-gap-matrix.ps1`: clasifica DTE, F29, DDJJ,
     DJ1847/RLI/CPT, F22, bienes raices/contribuciones y automatizacion por
     navegador entre preparacion local permitida, fuente oficial/experta
-    requerida y presentacion externa bloqueada.
+    requerida y presentacion externa bloqueada, sin ejecutar EDIG, sin llamar
+    SII y sin producir archivos oficiales.
 
 ## Cobertura actual contra EDIG AT2026
 
