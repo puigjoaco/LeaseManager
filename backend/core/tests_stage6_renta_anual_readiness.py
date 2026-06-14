@@ -33,9 +33,12 @@ from documentos.models import (
     TipoDocumental,
 )
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
+from patrimonio.models import Propiedad, TipoInmueble
 from sii.models import (
     AnnualEnterpriseRegisterMovement,
     AnnualEnterpriseRegisterSet,
+    AnnualRealEstateItem,
+    AnnualRealEstateSection,
     AmbienteSII,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
@@ -57,8 +60,10 @@ from sii.models import (
 )
 from sii.services import (
     summarize_annual_enterprise_registers,
+    summarize_annual_real_estate_sections,
     summarize_annual_tax_workbooks,
     sync_annual_enterprise_registers,
+    sync_annual_real_estate_section,
     sync_annual_tax_workbooks,
     sync_monthly_tax_facts,
 )
@@ -295,6 +300,16 @@ class Stage6RentaAnualReadinessTests(TestCase):
         ddjj_capability = self._open_capability(empresa, CapacidadSII.DDJJ_PREPARACION, 'ddjj')
         f22_capability = self._open_capability(empresa, CapacidadSII.F22_PREPARACION, 'f22')
         self._create_twelve_approved_closes(empresa)
+        Propiedad.objects.create(
+            rol_avaluo='ROL-STAGE6-001',
+            direccion='Propiedad Stage 6',
+            comuna='Santiago',
+            region='RM',
+            tipo_inmueble=TipoInmueble.APARTMENT,
+            codigo_propiedad='STG6-001',
+            estado='activa',
+            empresa_owner=empresa,
+        )
         source_bundle = self._create_annual_source_bundle(empresa)
         monthly_facts = sync_monthly_tax_facts(empresa, 2025)
         summary = self._annual_summary()
@@ -337,8 +352,10 @@ class Stage6RentaAnualReadinessTests(TestCase):
         )
         sync_annual_tax_workbooks(process, rule_set, source_bundle)
         sync_annual_enterprise_registers(process, rule_set, source_bundle)
+        sync_annual_real_estate_section(process, rule_set, source_bundle)
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
+        summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
         process.resumen_anual = summary
         process.save(update_fields=['resumen_anual', 'updated_at'])
         DDJJPreparacionAnual.objects.create(
@@ -658,6 +675,115 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.enterprise_register_invalid', issue_codes)
         self.assertIn('stage6.enterprise_register_movement_invalid', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('api_key', serialized_result)
+        self.assertNotIn('access_token', serialized_result)
+
+    def test_annual_process_without_real_estate_section_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualRealEstateSection.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_real_estate_section_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_real_estate_sections']['sections_total'], 0)
+
+    def test_real_estate_section_without_active_items_is_blocking(self):
+        self._create_valid_local_matrix()
+        section = AnnualRealEstateSection.objects.get()
+        AnnualRealEstateItem.objects.filter(section=section).update(estado=EstadoRegistro.INACTIVE)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.real_estate_item_missing', issue_codes)
+
+    def test_real_estate_item_warning_is_blocking(self):
+        self._create_valid_local_matrix()
+        item = AnnualRealEstateItem.objects.select_related('section').get()
+        item.warnings = ['contribuciones_requires_expert_review']
+        item.hash_item = hashlib.sha256(
+            json.dumps(
+                {
+                    'section_id': item.section_id,
+                    'propiedad_id': item.propiedad_id,
+                    'codigo_propiedad_snapshot': item.codigo_propiedad_snapshot,
+                    'rol_avaluo_snapshot': item.rol_avaluo_snapshot,
+                    'direccion_snapshot': item.direccion_snapshot,
+                    'comuna_snapshot': item.comuna_snapshot,
+                    'region_snapshot': item.region_snapshot,
+                    'tipo_inmueble_snapshot': item.tipo_inmueble_snapshot,
+                    'owner_tipo_snapshot': item.owner_tipo_snapshot,
+                    'owner_id_snapshot': item.owner_id_snapshot,
+                    'arriendo_devengado_clp': str(item.arriendo_devengado_clp),
+                    'arriendo_conciliado_clp': str(item.arriendo_conciliado_clp),
+                    'arriendo_facturable_clp': str(item.arriendo_facturable_clp),
+                    'contribuciones_clp': str(item.contribuciones_clp),
+                    'formula_ref': item.formula_ref,
+                    'evidencia_ref': item.evidencia_ref,
+                    'warnings': item.warnings,
+                    'source_payload': item.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        item.save(update_fields=['warnings', 'hash_item', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.real_estate_item_warning_review_required', issue_codes)
+
+    def test_real_estate_section_summary_hash_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        summary = dict(process.resumen_anual)
+        real_estate_summary = dict(summary['annual_real_estate_sections'])
+        by_id = dict(real_estate_summary['by_id'])
+        section_id = next(iter(by_id.keys()))
+        section_summary = dict(by_id[section_id])
+        section_summary['hash_seccion'] = 'f' * 64
+        by_id[section_id] = section_summary
+        real_estate_summary['by_id'] = by_id
+        summary['annual_real_estate_sections'] = real_estate_summary
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_real_estate_section_summary_mismatch', issue_codes)
+
+    def test_invalid_real_estate_section_is_blocking_without_leak(self):
+        self._create_valid_local_matrix()
+        section = AnnualRealEstateSection.objects.get()
+        item = AnnualRealEstateItem.objects.get(section=section)
+        AnnualRealEstateSection.objects.filter(pk=section.pk).update(
+            source_ref='https://sii.example.test/real-estate?token=secret',
+            resumen_seccion={'api_key': 'secret-real-estate'},
+            hash_seccion='not-a-sha',
+        )
+        AnnualRealEstateItem.objects.filter(pk=item.pk).update(
+            evidencia_ref='https://sii.example.test/property?token=secret',
+            source_payload={'access_token': 'secret-real-estate-item'},
+            hash_item='not-a-sha',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.real_estate_section_invalid', issue_codes)
+        self.assertIn('stage6.real_estate_item_invalid', issue_codes)
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('api_key', serialized_result)
         self.assertNotIn('access_token', serialized_result)

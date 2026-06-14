@@ -1,7 +1,7 @@
 import hashlib
 import json
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -23,6 +23,8 @@ from core.reference_validation import contains_sensitive_reference, is_non_sensi
 from .models import (
     AnnualEnterpriseRegisterMovement,
     AnnualEnterpriseRegisterSet,
+    AnnualRealEstateItem,
+    AnnualRealEstateSection,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -31,6 +33,7 @@ from .models import (
     DestinoMapeoTributarioAnual,
     DTEEmitido,
     EstadoAnnualEnterpriseRegister,
+    EstadoAnnualRealEstateSection,
     EstadoAnnualTaxWorkbook,
     EstadoDTE,
     EstadoGateSII,
@@ -50,7 +53,7 @@ from .models import (
     TipoAnnualTaxWorkbook,
     TipoDTE,
 )
-from patrimonio.models import ParticipacionPatrimonial
+from patrimonio.models import ParticipacionPatrimonial, Propiedad
 
 
 DTE_EXTERNAL_STATES = {
@@ -401,6 +404,14 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
         beneficiario_empresa_owner=empresa,
         pago_mensual__anio=fiscal_year,
     ).select_related('pago_mensual')
+    real_estate_properties = Propiedad.objects.filter(
+        Q(empresa_owner=empresa)
+        | Q(
+            contrato_propiedades__contrato__pagos_mensuales__distribuciones_cobro__beneficiario_empresa_owner=empresa,
+            contrato_propiedades__contrato__pagos_mensuales__anio=fiscal_year,
+        ),
+        estado='activa',
+    ).distinct()
     liquidation_lines = LineaLiquidacionMensual.objects.filter(
         liquidacion__owner_tipo=TipoOwnerLiquidacion.COMPANY,
         liquidacion__empresa=empresa,
@@ -438,6 +449,9 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
         'rent_distributions_total_devengado': str(
             sum((item.monto_devengado_clp for item in rent_distributions), 0)
         ),
+        'real_estate_properties_total': real_estate_properties.count(),
+        'real_estate_property_ids': list(real_estate_properties.order_by('codigo_propiedad', 'id').values_list('id', flat=True)),
+        'real_estate_contribuciones_source': 'not_loaded_v1',
         'liquidation_line_months': sorted(set(liquidation_lines.values_list('liquidacion__mes', flat=True))),
         'liquidation_lines_total': liquidation_lines.count(),
         'liquidation_lines_total_amount': str(sum((item.monto_clp for item in liquidation_lines), 0)),
@@ -695,6 +709,36 @@ def summarize_annual_enterprise_registers(process):
         'total': registers.count(),
         'types': sorted(by_type.keys()),
         'by_type': by_type,
+    }
+
+
+def summarize_annual_real_estate_sections(process):
+    sections = AnnualRealEstateSection.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualRealEstateSection.PREPARED,
+    ).order_by('id')
+    by_id = {}
+    for section in sections:
+        active_items = section.items.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_propiedad_snapshot', 'id')
+        warning_count = 0
+        for item in active_items:
+            warnings = item.warnings if isinstance(item.warnings, list) else []
+            warning_count += len(warnings)
+        by_id[str(section.id)] = {
+            'id': section.id,
+            'hash_seccion': section.hash_seccion,
+            'propiedades_total': section.propiedades_total,
+            'arriendo_devengado_total_clp': str(section.arriendo_devengado_total_clp),
+            'arriendo_conciliado_total_clp': str(section.arriendo_conciliado_total_clp),
+            'arriendo_facturable_total_clp': str(section.arriendo_facturable_total_clp),
+            'contribuciones_total_clp': str(section.contribuciones_total_clp),
+            'items_total': active_items.count(),
+            'warnings_total': warning_count,
+        }
+    return {
+        'total': sections.count(),
+        'ids': sorted(by_id.keys()),
+        'by_id': by_id,
     }
 
 
@@ -1107,6 +1151,231 @@ def _finalize_enterprise_register(register, fiscal_year, *, source):
     register.save()
 
 
+def _quantize_clp(value):
+    return Decimal(str(value or '0.00')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def _allocated_amount(amount, percentage):
+    return _quantize_clp(Decimal(str(amount or '0.00')) * Decimal(str(percentage or '0.00')) / Decimal('100.00'))
+
+
+def _empty_property_source(propiedad):
+    return {
+        'propiedad': propiedad,
+        'arriendo_devengado_clp': Decimal('0.00'),
+        'arriendo_conciliado_clp': Decimal('0.00'),
+        'arriendo_facturable_clp': Decimal('0.00'),
+        'contribuciones_clp': Decimal('0.00'),
+        'contract_ids': set(),
+        'payment_ids': set(),
+        'distribution_ids': set(),
+        'allocation_sources': [],
+    }
+
+
+def _real_estate_property_sources(empresa, fiscal_year):
+    sources_by_property_id = {}
+    direct_properties = Propiedad.objects.filter(
+        empresa_owner=empresa,
+        estado='activa',
+    ).order_by('codigo_propiedad', 'id')
+    for propiedad in direct_properties:
+        sources_by_property_id[propiedad.id] = _empty_property_source(propiedad)
+
+    distributions = (
+        DistribucionCobroMensual.objects.filter(
+            beneficiario_empresa_owner=empresa,
+            pago_mensual__anio=fiscal_year,
+        )
+        .select_related('pago_mensual', 'pago_mensual__contrato')
+        .prefetch_related('pago_mensual__contrato__contrato_propiedades__propiedad')
+        .order_by('pago_mensual__mes', 'id')
+    )
+    for distribution in distributions:
+        contract = distribution.pago_mensual.contrato
+        links = list(contract.contrato_propiedades.all())
+        for link in links:
+            propiedad = link.propiedad
+            source = sources_by_property_id.setdefault(propiedad.id, _empty_property_source(propiedad))
+            source['arriendo_devengado_clp'] += _allocated_amount(
+                distribution.monto_devengado_clp,
+                link.porcentaje_distribucion_interna,
+            )
+            source['arriendo_conciliado_clp'] += _allocated_amount(
+                distribution.monto_conciliado_clp,
+                link.porcentaje_distribucion_interna,
+            )
+            source['arriendo_facturable_clp'] += _allocated_amount(
+                distribution.monto_facturable_clp,
+                link.porcentaje_distribucion_interna,
+            )
+            source['contract_ids'].add(contract.id)
+            source['payment_ids'].add(distribution.pago_mensual_id)
+            source['distribution_ids'].add(distribution.id)
+            source['allocation_sources'].append(
+                {
+                    'contrato_id': contract.id,
+                    'pago_mensual_id': distribution.pago_mensual_id,
+                    'distribucion_cobro_id': distribution.id,
+                    'porcentaje_distribucion_interna': str(link.porcentaje_distribucion_interna),
+                }
+            )
+
+    return [
+        sources_by_property_id[key]
+        for key in sorted(
+            sources_by_property_id.keys(),
+            key=lambda property_id: (
+                sources_by_property_id[property_id]['propiedad'].codigo_propiedad,
+                property_id,
+            ),
+        )
+    ]
+
+
+def _real_estate_item_hash_payload(section, propiedad, payload):
+    return {
+        'section_id': section.id,
+        'propiedad_id': propiedad.id,
+        'codigo_propiedad_snapshot': propiedad.codigo_propiedad,
+        'rol_avaluo_snapshot': propiedad.rol_avaluo,
+        'direccion_snapshot': propiedad.direccion,
+        'comuna_snapshot': propiedad.comuna,
+        'region_snapshot': propiedad.region,
+        'tipo_inmueble_snapshot': propiedad.tipo_inmueble,
+        'owner_tipo_snapshot': propiedad.owner_tipo,
+        'owner_id_snapshot': propiedad.owner_id,
+        'arriendo_devengado_clp': str(payload['arriendo_devengado_clp']),
+        'arriendo_conciliado_clp': str(payload['arriendo_conciliado_clp']),
+        'arriendo_facturable_clp': str(payload['arriendo_facturable_clp']),
+        'contribuciones_clp': str(payload['contribuciones_clp']),
+        'formula_ref': 'real-estate-annual-section-v1',
+        'evidencia_ref': f'real-estate-property-{propiedad.id}-annual-source',
+        'warnings': [],
+        'source_payload': payload['source_payload'],
+    }
+
+
+def _save_real_estate_item(section, source):
+    propiedad = source['propiedad']
+    source_payload = {
+        'empresa_id': section.empresa_id,
+        'proceso_renta_anual_id': section.proceso_renta_anual_id,
+        'anio_tributario': section.anio_tributario,
+        'anio_comercial': section.anio_comercial,
+        'propiedad_id': propiedad.id,
+        'codigo_propiedad': propiedad.codigo_propiedad,
+        'rol_avaluo_present': bool(propiedad.rol_avaluo),
+        'contract_ids': sorted(source['contract_ids']),
+        'payment_ids': sorted(source['payment_ids']),
+        'distribution_ids': sorted(source['distribution_ids']),
+        'allocation_sources': source['allocation_sources'],
+        'rent_allocation': 'ContratoPropiedad.porcentaje_distribucion_interna',
+        'contribuciones_source': 'not_loaded_v1',
+        'final_tax_calculation': False,
+    }
+    payload = {
+        'arriendo_devengado_clp': _quantize_clp(source['arriendo_devengado_clp']),
+        'arriendo_conciliado_clp': _quantize_clp(source['arriendo_conciliado_clp']),
+        'arriendo_facturable_clp': _quantize_clp(source['arriendo_facturable_clp']),
+        'contribuciones_clp': _quantize_clp(source['contribuciones_clp']),
+        'source_payload': source_payload,
+    }
+    item_hash_payload = _real_estate_item_hash_payload(section, propiedad, payload)
+    item, _ = AnnualRealEstateItem.objects.update_or_create(
+        section=section,
+        propiedad=propiedad,
+        defaults={
+            'codigo_propiedad_snapshot': propiedad.codigo_propiedad,
+            'rol_avaluo_snapshot': propiedad.rol_avaluo,
+            'direccion_snapshot': propiedad.direccion,
+            'comuna_snapshot': propiedad.comuna,
+            'region_snapshot': propiedad.region,
+            'tipo_inmueble_snapshot': propiedad.tipo_inmueble,
+            'owner_tipo_snapshot': propiedad.owner_tipo,
+            'owner_id_snapshot': propiedad.owner_id,
+            'arriendo_devengado_clp': payload['arriendo_devengado_clp'],
+            'arriendo_conciliado_clp': payload['arriendo_conciliado_clp'],
+            'arriendo_facturable_clp': payload['arriendo_facturable_clp'],
+            'contribuciones_clp': payload['contribuciones_clp'],
+            'formula_ref': item_hash_payload['formula_ref'],
+            'evidencia_ref': item_hash_payload['evidencia_ref'],
+            'warnings': [],
+            'source_payload': source_payload,
+            'hash_item': _source_bundle_hash(item_hash_payload),
+            'estado': EstadoRegistro.ACTIVE,
+        },
+    )
+    try:
+        item.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualRealEstateItem no cumple validacion de dominio: {reason}') from error
+    item.save()
+    return item
+
+
+def _finalize_real_estate_section(section, fiscal_year):
+    active_items = list(section.items.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_propiedad_snapshot', 'id'))
+    warning_count = sum(len(item.warnings or []) for item in active_items if isinstance(item.warnings, list))
+    section.propiedades_total = len(active_items)
+    section.arriendo_devengado_total_clp = _sum_decimal(item.arriendo_devengado_clp for item in active_items)
+    section.arriendo_conciliado_total_clp = _sum_decimal(item.arriendo_conciliado_clp for item in active_items)
+    section.arriendo_facturable_total_clp = _sum_decimal(item.arriendo_facturable_clp for item in active_items)
+    section.contribuciones_total_clp = _sum_decimal(item.contribuciones_clp for item in active_items)
+    section.resumen_seccion = {
+        'empresa_id': section.empresa_id,
+        'proceso_renta_anual_id': section.proceso_renta_anual_id,
+        'source_bundle_id': section.source_bundle_id,
+        'rule_set_id': section.rule_set_id,
+        'anio_tributario': section.anio_tributario,
+        'anio_comercial': fiscal_year,
+        'propiedades_total': section.propiedades_total,
+        'arriendo_devengado_total_clp': str(section.arriendo_devengado_total_clp),
+        'arriendo_conciliado_total_clp': str(section.arriendo_conciliado_total_clp),
+        'arriendo_facturable_total_clp': str(section.arriendo_facturable_total_clp),
+        'contribuciones_total_clp': str(section.contribuciones_total_clp),
+        'items_total': len(active_items),
+        'warnings_total': warning_count,
+        'item_hashes': [item.hash_item for item in active_items],
+        'source': 'Propiedad + DistribucionCobroMensual',
+        'contribuciones_source': 'not_loaded_v1',
+        'final_tax_calculation': False,
+    }
+    section.hash_seccion = _source_bundle_hash(section.resumen_seccion)
+    section.estado = EstadoAnnualRealEstateSection.PREPARED
+    try:
+        section.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualRealEstateSection no cumple validacion de dominio: {reason}') from error
+    section.save()
+
+
+def sync_annual_real_estate_section(process, rule_set, source_bundle):
+    fiscal_year = process.anio_tributario - 1
+    section, _ = AnnualRealEstateSection.objects.update_or_create(
+        proceso_renta_anual=process,
+        defaults={
+            'empresa': process.empresa,
+            'source_bundle': source_bundle,
+            'rule_set': rule_set,
+            'anio_tributario': process.anio_tributario,
+            'anio_comercial': fiscal_year,
+            'source_ref': f'annual-real-estate-section-{process.empresa_id}-at{process.anio_tributario}',
+            'responsible_ref': 'system-annual-real-estate-normalizer',
+            'estado': EstadoAnnualRealEstateSection.DRAFT,
+        },
+    )
+    active_item_ids = []
+    for source in _real_estate_property_sources(process.empresa, fiscal_year):
+        item = _save_real_estate_item(section, source)
+        active_item_ids.append(item.id)
+    section.items.exclude(id__in=active_item_ids).update(estado=EstadoRegistro.INACTIVE)
+    _finalize_real_estate_section(section, fiscal_year)
+    return section
+
+
 def freeze_annual_tax_source_bundle(
     empresa,
     anio_tributario,
@@ -1227,6 +1496,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=
             'approved_closes_total': source_bundle.resumen_fuentes.get('approved_closes_total', 0),
             'obligations_total': source_bundle.resumen_fuentes.get('obligations_total', 0),
             'f29_preparations_total': source_bundle.resumen_fuentes.get('f29_preparations_total', 0),
+            'real_estate_properties_total': source_bundle.resumen_fuentes.get('real_estate_properties_total', 0),
         },
         'annual_tax_monthly_facts': {
             'total': monthly_facts.count(),
@@ -1237,6 +1507,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=
     if process is not None:
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
+        summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
     return summary
 
 
@@ -1255,6 +1526,7 @@ def generate_annual_preparation(empresa, anio_tributario):
     process.save()
     sync_annual_tax_workbooks(process, rule_set, source_bundle)
     sync_annual_enterprise_registers(process, rule_set, source_bundle)
+    sync_annual_real_estate_section(process, rule_set, source_bundle)
     summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
     process.resumen_anual = summary
     process.save(update_fields=['resumen_anual', 'updated_at'])

@@ -5,6 +5,8 @@ from core.reference_validation import redact_sensitive_payload, redact_sensitive
 from .models import (
     AnnualEnterpriseRegisterMovement,
     AnnualEnterpriseRegisterSet,
+    AnnualRealEstateItem,
+    AnnualRealEstateSection,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -484,6 +486,128 @@ class AnnualEnterpriseRegisterMovementAdmin(admin.ModelAdmin):
     )
     list_filter = ('register_set__tipo_registro', 'estado')
     search_fields = ('codigo_interno', 'register_set__empresa__razon_social')
+
+    @admin.display(description='formula_ref')
+    def formula_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'formula_ref')
+
+    @admin.display(description='evidencia_ref')
+    def evidencia_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'evidencia_ref')
+
+    @admin.display(description='warnings')
+    def warnings_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'warnings')
+
+    @admin.display(description='source_payload')
+    def source_payload_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'source_payload')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualRealEstateSection)
+class AnnualRealEstateSectionAdmin(admin.ModelAdmin):
+    fields = (
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'anio_tributario',
+        'anio_comercial',
+        'source_ref_redacted',
+        'responsible_ref_redacted',
+        'propiedades_total',
+        'arriendo_devengado_total_clp',
+        'arriendo_conciliado_total_clp',
+        'arriendo_facturable_total_clp',
+        'contribuciones_total_clp',
+        'resumen_seccion_redacted',
+        'hash_seccion',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'estado',
+        'propiedades_total',
+        'arriendo_devengado_total_clp',
+        'contribuciones_total_clp',
+        'source_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'estado')
+    search_fields = ('empresa__razon_social',)
+
+    @admin.display(description='source_ref')
+    def source_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'source_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='resumen_seccion')
+    def resumen_seccion_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'resumen_seccion')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualRealEstateItem)
+class AnnualRealEstateItemAdmin(admin.ModelAdmin):
+    fields = (
+        'section',
+        'propiedad',
+        'codigo_propiedad_snapshot',
+        'rol_avaluo_snapshot',
+        'direccion_snapshot',
+        'comuna_snapshot',
+        'region_snapshot',
+        'tipo_inmueble_snapshot',
+        'owner_tipo_snapshot',
+        'owner_id_snapshot',
+        'arriendo_devengado_clp',
+        'arriendo_conciliado_clp',
+        'arriendo_facturable_clp',
+        'contribuciones_clp',
+        'formula_ref_redacted',
+        'evidencia_ref_redacted',
+        'warnings_redacted',
+        'source_payload_redacted',
+        'hash_item',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'section',
+        'codigo_propiedad_snapshot',
+        'arriendo_devengado_clp',
+        'contribuciones_clp',
+        'estado',
+        'formula_ref_redacted',
+        'evidencia_ref_redacted',
+    )
+    list_filter = ('estado', 'section__anio_tributario')
+    search_fields = ('codigo_propiedad_snapshot', 'section__empresa__razon_social')
 
     @admin.display(description='formula_ref')
     def formula_ref_redacted(self, obj):

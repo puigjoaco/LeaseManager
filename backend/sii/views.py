@@ -13,6 +13,8 @@ from patrimonio.models import Empresa
 from .models import (
     AnnualEnterpriseRegisterMovement,
     AnnualEnterpriseRegisterSet,
+    AnnualRealEstateItem,
+    AnnualRealEstateSection,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -26,6 +28,8 @@ from .models import (
 from .serializers import (
     AnnualEnterpriseRegisterMovementSerializer,
     AnnualEnterpriseRegisterSetSerializer,
+    AnnualRealEstateItemSerializer,
+    AnnualRealEstateSectionSerializer,
     AnnualGenerateSerializer,
     AnnualStatusSerializer,
     AnnualTaxSourceBundleSerializer,
@@ -219,6 +223,25 @@ class SiiSnapshotView(APIView):
             access,
             company_paths=('register_set__empresa_id',),
         )
+        annual_real_estate_sections = scope_queryset_for_access(
+            AnnualRealEstateSection.objects.select_related(
+                'empresa',
+                'proceso_renta_anual',
+                'source_bundle',
+                'rule_set',
+            ).order_by('-anio_tributario', 'empresa_id', 'id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        annual_real_estate_items = scope_queryset_for_access(
+            AnnualRealEstateItem.objects.select_related(
+                'section',
+                'section__empresa',
+                'propiedad',
+            ).order_by('section_id', 'codigo_propiedad_snapshot', 'id'),
+            access,
+            company_paths=('section__empresa_id',),
+        )
         tax_year_rule_sets = TaxYearRuleSet.objects.select_related('regimen_tributario').order_by(
             '-anio_tributario',
             'regimen_tributario_id',
@@ -410,6 +433,54 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in annual_enterprise_register_movements
+                ],
+                'annual_real_estate_sections': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'proceso_renta_anual': item.proceso_renta_anual_id,
+                        'source_bundle': item.source_bundle_id,
+                        'rule_set': item.rule_set_id,
+                        'anio_tributario': item.anio_tributario,
+                        'anio_comercial': item.anio_comercial,
+                        'source_ref': redact_sensitive_reference(item.source_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'propiedades_total': item.propiedades_total,
+                        'arriendo_devengado_total_clp': item.arriendo_devengado_total_clp,
+                        'arriendo_conciliado_total_clp': item.arriendo_conciliado_total_clp,
+                        'arriendo_facturable_total_clp': item.arriendo_facturable_total_clp,
+                        'contribuciones_total_clp': item.contribuciones_total_clp,
+                        'resumen_seccion': redact_sensitive_payload(item.resumen_seccion),
+                        'hash_seccion': item.hash_seccion,
+                        'estado': item.estado,
+                    }
+                    for item in annual_real_estate_sections
+                ],
+                'annual_real_estate_items': [
+                    {
+                        'id': item.id,
+                        'section': item.section_id,
+                        'propiedad': item.propiedad_id,
+                        'codigo_propiedad_snapshot': item.codigo_propiedad_snapshot,
+                        'rol_avaluo_snapshot': redact_sensitive_reference(item.rol_avaluo_snapshot),
+                        'direccion_snapshot': redact_sensitive_reference(item.direccion_snapshot),
+                        'comuna_snapshot': item.comuna_snapshot,
+                        'region_snapshot': item.region_snapshot,
+                        'tipo_inmueble_snapshot': item.tipo_inmueble_snapshot,
+                        'owner_tipo_snapshot': item.owner_tipo_snapshot,
+                        'owner_id_snapshot': item.owner_id_snapshot,
+                        'arriendo_devengado_clp': item.arriendo_devengado_clp,
+                        'arriendo_conciliado_clp': item.arriendo_conciliado_clp,
+                        'arriendo_facturable_clp': item.arriendo_facturable_clp,
+                        'contribuciones_clp': item.contribuciones_clp,
+                        'formula_ref': redact_sensitive_reference(item.formula_ref),
+                        'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                        'warnings': redact_sensitive_payload(item.warnings),
+                        'source_payload': redact_sensitive_payload(item.source_payload),
+                        'hash_item': item.hash_item,
+                        'estado': item.estado,
+                    }
+                    for item in annual_real_estate_items
                 ],
                 'ddjjs': [
                     {
@@ -650,6 +721,52 @@ class AnnualEnterpriseRegisterMovementDetailView(ScopedQuerysetMixin, generics.R
         'source_workbook_line',
     ).all()
     company_scope_paths = ('register_set__empresa_id',)
+
+
+class AnnualRealEstateSectionListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualRealEstateSectionSerializer
+    queryset = AnnualRealEstateSection.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualRealEstateSectionDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualRealEstateSectionSerializer
+    queryset = AnnualRealEstateSection.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualRealEstateItemListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualRealEstateItemSerializer
+    queryset = AnnualRealEstateItem.objects.select_related(
+        'section',
+        'section__empresa',
+        'propiedad',
+    ).all()
+    company_scope_paths = ('section__empresa_id',)
+
+
+class AnnualRealEstateItemDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualRealEstateItemSerializer
+    queryset = AnnualRealEstateItem.objects.select_related(
+        'section',
+        'section__empresa',
+        'propiedad',
+    ).all()
+    company_scope_paths = ('section__empresa_id',)
 
 
 class DTEEmitidoListView(ScopedQuerysetMixin, generics.ListAPIView):

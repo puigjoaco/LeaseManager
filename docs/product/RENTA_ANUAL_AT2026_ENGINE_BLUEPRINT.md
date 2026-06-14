@@ -80,7 +80,7 @@ certeza fiscal mediante navegacion automatica ni por inferencia de IA.
 | `AnnualTaxWorkbook` RLI | Determinar lineas RLI trazadas | `TaxCodeMapping` + `MonthlyTaxFact` | lineas RLI, hashes, warnings | origen y fuente por linea |
 | `AnnualTaxWorkbook` CPT | Determinar capital propio tributario preparatorio | `TaxCodeMapping` + `MonthlyTaxFact` | lineas CPT, hashes y warnings | no cerrar con warnings |
 | `AnnualEnterpriseRegisterSet` | Construir RAI/SAC/retiros/dividendos | RLI/CPT/socios/movimientos | registros empresariales | saldos iniciales y movimientos trazados |
-| `RealEstateAnnualSection` | Normalizar bienes raices/arriendos | propiedades, contratos, pagos, contribuciones | seccion anual y respaldo | fuente SII/experta para codigos |
+| `AnnualRealEstateSection` / `AnnualRealEstateItem` | Normalizar bienes raices/arriendos | propiedades, contratos, pagos, distribuciones y contribuciones | seccion anual, items por propiedad y respaldo | fuente SII/experta para codigos y contribuciones |
 | `DdjjPackageBuilder` | Preparar DDJJ/certificados | registros, socios, certificados | paquetes DDJJ revisables | medio SII vigente por formulario |
 | `F22DraftBuilder` | Mapear a codigos F22 | registros intermedios y DDJJ | preview F22 | formato/certificacion vigente |
 | `AnnualTaxDossier` | Generar respaldo revisable | todo lo anterior | PDF/HTML/resumen hash | responsable de revision |
@@ -135,7 +135,13 @@ contratos:
    API/snapshot/admin redactados y bloquea readiness si faltan registros,
    movimientos, resumen alineado o si existen warnings pendientes.
 6. `stage6-real-estate-section`: seccion anual de bienes raices/arriendos y
-   contribuciones.
+   contribuciones. Implementado como `AnnualRealEstateSection` y
+   `AnnualRealEstateItem`: genera items por propiedad desde `Propiedad`,
+   `DistribucionCobroMensual` y `ContratoPropiedad`, distribuye arriendos por
+   `porcentaje_distribucion_interna`, congela snapshots anuales con hash,
+   conserva contribuciones como `not_loaded_v1`, expone API/snapshot/admin
+   redactados y bloquea readiness si falta seccion, items activos, resumen
+   alineado o hay warnings pendientes.
 7. `stage6-ddjj-f22-artifact-matrix`: matriz DDJJ/F22 por fuente, medio,
    responsable y estado.
 8. `stage6-dossier-review`: dossier anual revisable con bloqueo si falta
@@ -156,6 +162,10 @@ contratos:
 | Registros empresariales faltantes | proceso anual trazable sin RAI/SAC/retiros/dividendos preparados |
 | Saldos empresariales opacos | RAI/SAC/retiros/dividendos sin saldo inicial o sin movimiento trazado |
 | Resumen empresarial desalineado | hash, tipo, saldo o conteo del proceso no coincide con registros vigentes |
+| Seccion bienes raices faltante | proceso anual trazable sin `AnnualRealEstateSection` preparada |
+| Item bienes raices faltante | seccion anual preparada sin `AnnualRealEstateItem` activo |
+| Resumen bienes raices desalineado | hash, total, monto o conteo del proceso no coincide con seccion vigente |
+| Item bienes raices con warning | contribuciones u otra fuente inmobiliaria requiere revision antes de cierre |
 | Responsable ausente | DDJJ/F22/dossier avanzado sin `responsable_revision_ref` |
 | Refs sensibles | URLs, tokens, correos, certificados o claves en refs/payloads |
 | Presentacion sin gate | intento de marcar presentado sin formato SII, autorizacion y evidencia |

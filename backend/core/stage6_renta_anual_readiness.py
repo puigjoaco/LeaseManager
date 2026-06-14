@@ -23,6 +23,8 @@ from sii.models import (
     AmbienteSII,
     AnnualEnterpriseRegisterMovement,
     AnnualEnterpriseRegisterSet,
+    AnnualRealEstateItem,
+    AnnualRealEstateSection,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -30,6 +32,7 @@ from sii.models import (
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     EstadoAnnualEnterpriseRegister,
+    EstadoAnnualRealEstateSection,
     EstadoAnnualTaxSourceBundle,
     EstadoAnnualTaxWorkbook,
     EstadoReglaTributariaAnual,
@@ -428,6 +431,80 @@ def _collect_annual_enterprise_register_issues(registers, movements, processes, 
     return dict(sorted(counts.items()))
 
 
+def _collect_annual_real_estate_issues(sections, items, processes, active_fiscal_company_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    invalid_sections = _count_invalid(sections)
+    if invalid_sections:
+        counts['real_estate_section_invalid'] = invalid_sections
+    invalid_items = _count_invalid(items)
+    if invalid_items:
+        counts['real_estate_item_invalid'] = invalid_items
+    without_fiscal_config = _count_without_active_fiscal_config(sections, active_fiscal_company_ids)
+    if without_fiscal_config:
+        counts['real_estate_section_fiscal_config_missing'] = without_fiscal_config
+
+    prepared_sections = sections.filter(estado=EstadoAnnualRealEstateSection.PREPARED)
+    sections_by_process = {}
+    for section in prepared_sections:
+        sections_by_process.setdefault(section.proceso_renta_anual_id, []).append(section)
+
+    active_item_counts = Counter()
+    warning_item_counts = Counter()
+    for item in items.filter(estado=EstadoRegistro.ACTIVE).select_related('section'):
+        active_item_counts[item.section_id] += 1
+        warnings = item.warnings if isinstance(item.warnings, list) else []
+        if warnings:
+            warning_item_counts[item.section_id] += 1
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        process_sections = sections_by_process.get(process.id, [])
+        if not process_sections:
+            counts['process_real_estate_section_missing'] += 1
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        section_summary = summary.get('annual_real_estate_sections')
+        if not isinstance(section_summary, dict):
+            counts['process_real_estate_section_summary_missing'] += 1
+        else:
+            by_id = section_summary.get('by_id') if isinstance(section_summary.get('by_id'), dict) else {}
+            try:
+                summary_total = int(section_summary.get('total') or 0)
+            except (TypeError, ValueError):
+                summary_total = -1
+            summary_ids = set(str(value) for value in (section_summary.get('ids') or []))
+            section_ids = set(str(section.id) for section in process_sections)
+            if summary_total != len(process_sections) or summary_ids != section_ids:
+                counts['process_real_estate_section_summary_mismatch'] += 1
+            else:
+                for section in process_sections:
+                    type_summary = by_id.get(str(section.id))
+                    if not isinstance(type_summary, dict):
+                        counts['process_real_estate_section_summary_mismatch'] += 1
+                        break
+                    if (
+                        type_summary.get('id') != section.id
+                        or type_summary.get('hash_seccion') != section.hash_seccion
+                        or int(type_summary.get('propiedades_total') or 0) != section.propiedades_total
+                        or str(type_summary.get('arriendo_devengado_total_clp')) != str(section.arriendo_devengado_total_clp)
+                        or str(type_summary.get('arriendo_conciliado_total_clp')) != str(section.arriendo_conciliado_total_clp)
+                        or str(type_summary.get('arriendo_facturable_total_clp')) != str(section.arriendo_facturable_total_clp)
+                        or str(type_summary.get('contribuciones_total_clp')) != str(section.contribuciones_total_clp)
+                        or int(type_summary.get('items_total') or 0) != active_item_counts[section.id]
+                    ):
+                        counts['process_real_estate_section_summary_mismatch'] += 1
+                        break
+
+        for section in process_sections:
+            if active_item_counts[section.id] == 0:
+                counts['real_estate_item_missing'] += 1
+            if warning_item_counts[section.id]:
+                counts['real_estate_item_warning_review_required'] += warning_item_counts[section.id]
+
+    return dict(sorted(counts.items()))
+
+
 def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str, int]:
     counts = Counter()
     fiscal_config_by_company_id = {
@@ -603,6 +680,23 @@ def collect_stage6_renta_anual_readiness(
     annual_enterprise_register_issues = _collect_annual_enterprise_register_issues(
         annual_enterprise_registers,
         annual_enterprise_register_movements,
+        annual_processes,
+        active_fiscal_company_ids,
+    )
+    annual_real_estate_sections = AnnualRealEstateSection.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    )
+    annual_real_estate_items = AnnualRealEstateItem.objects.select_related(
+        'section',
+        'section__empresa',
+        'propiedad',
+    )
+    annual_real_estate_issues = _collect_annual_real_estate_issues(
+        annual_real_estate_sections,
+        annual_real_estate_items,
         annual_processes,
         active_fiscal_company_ids,
     )
@@ -946,6 +1040,50 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if annual_enterprise_register_issues.get(key):
             issues.append(_issue(code, message, count=annual_enterprise_register_issues[key]))
+    for key, code, message in [
+        (
+            'real_estate_section_invalid',
+            'stage6.real_estate_section_invalid',
+            'Existen secciones anuales de bienes raices que no pasan validacion de dominio.',
+        ),
+        (
+            'real_estate_item_invalid',
+            'stage6.real_estate_item_invalid',
+            'Existen items anuales de bienes raices/arriendos que no pasan validacion de dominio o referencias.',
+        ),
+        (
+            'real_estate_section_fiscal_config_missing',
+            'stage6.real_estate_section_fiscal_config_missing',
+            'Existen secciones de bienes raices para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+        ),
+        (
+            'process_real_estate_section_missing',
+            'stage6.process_real_estate_section_missing',
+            'ProcesoRentaAnual trazable requiere seccion anual de bienes raices/arriendos preparada.',
+        ),
+        (
+            'process_real_estate_section_summary_missing',
+            'stage6.process_real_estate_section_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen de bienes raices/arriendos en resumen_anual.',
+        ),
+        (
+            'process_real_estate_section_summary_mismatch',
+            'stage6.process_real_estate_section_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen de bienes raices/arriendos desalineado con la seccion vigente.',
+        ),
+        (
+            'real_estate_item_missing',
+            'stage6.real_estate_item_missing',
+            'AnnualRealEstateSection preparada requiere items activos por propiedad trazada.',
+        ),
+        (
+            'real_estate_item_warning_review_required',
+            'stage6.real_estate_item_warning_review_required',
+            'Existen items de bienes raices/arriendos con warnings que requieren revision antes de cierre.',
+        ),
+    ]:
+        if annual_real_estate_issues.get(key):
+            issues.append(_issue(code, message, count=annual_real_estate_issues[key]))
     if approved_closes.count() < 12:
         issues.append(
             _issue(
@@ -1351,6 +1489,14 @@ def collect_stage6_renta_anual_readiness(
                 'movements_total': annual_enterprise_register_movements.count(),
                 'active_movements': annual_enterprise_register_movements.filter(estado=EstadoRegistro.ACTIVE).count(),
                 **annual_enterprise_register_issues,
+            },
+            'annual_real_estate_sections': {
+                'sections_total': annual_real_estate_sections.count(),
+                'prepared_sections': annual_real_estate_sections.filter(estado=EstadoAnnualRealEstateSection.PREPARED).count(),
+                'sections_by_state': _count_by(annual_real_estate_sections, 'estado'),
+                'items_total': annual_real_estate_items.count(),
+                'active_items': annual_real_estate_items.filter(estado=EstadoRegistro.ACTIVE).count(),
+                **annual_real_estate_issues,
             },
             'annual_documents': {
                 'ddjj_total': ddjj_preparations.count(),
