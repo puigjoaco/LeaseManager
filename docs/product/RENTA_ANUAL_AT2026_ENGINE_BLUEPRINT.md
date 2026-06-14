@@ -20,6 +20,10 @@ ignoradas bajo `local-evidence/`:
 - `build-edig-at2026-leasemanager-coverage.ps1`: matriz local ignorada que
   cruza senales EDIG sanitizadas contra componentes propios observables en
   LeaseManager, sin leer EDIG ni versionar salidas.
+- `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` y
+  `build-stage6-official-source-gap-matrix.ps1`: matriz de fuentes oficiales,
+  brechas y limites v1 para separar preparacion local de formato,
+  certificacion, presentacion o criterio tributario final.
 
 La corrida local de esquema extrajo 7/7 MDB nucleo, con 205 tablas y 5.494
 columnas. La distribucion funcional observada fue:
@@ -70,6 +74,12 @@ automatizado.
 Si no existe API oficial o medio tecnico estable para una capacidad, el sistema
 debe producir archivos, reportes, hashes y pasos de revision. No debe simular
 certeza fiscal mediante navegacion automatica ni por inferencia de IA.
+
+La matriz operativa de fuentes y brechas vive en
+`docs/product/RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md`. Esa matriz deja
+`DTE` como integracion tecnica posible bajo gate, y deja `F29`, `DDJJ`, `F22`,
+DJ1847/RLI/CPT, bienes raices y contribuciones bajo preparacion revisable hasta
+tener fuente SII/experta, responsable y evidencia no sensible.
 
 ## Componentes propios
 
@@ -175,6 +185,13 @@ contratos:
     `build-edig-at2026-leasemanager-coverage.ps1`: toma los inventarios
     sanitizados de `local-evidence/`, resume cobertura por area y separa
     claramente componentes ya implementados de brechas externas/oficiales.
+11. `stage6-official-source-gaps`: matriz de brechas oficiales AT2026.
+    Implementado como `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` y
+    `build-stage6-official-source-gap-matrix.ps1`: clasifica DTE, F29, DDJJ,
+    DJ1847/RLI/CPT, F22, bienes raices/contribuciones y automatizacion por
+    navegador entre preparacion local permitida, fuente oficial/experta
+    requerida y presentacion externa bloqueada, sin ejecutar EDIG, sin llamar
+    SII y sin producir archivos oficiales.
 
 ## Cobertura actual contra EDIG AT2026
 
@@ -198,6 +215,27 @@ La conclusion operativa es que EDIG ya no debe ser usado como fuente para
 seguir agregando estructura interna. El siguiente avance real depende de fuente
 SII/experta para reglas AT2026, DJ/F22, contribuciones, formatos y validaciones
 oficiales.
+
+## Frontera oficial AT2026
+
+`docs/product/RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` fija la frontera
+posterior al mapeo EDIG. EDIG demuestra que la renta anual se resuelve con
+capas intermedias; las reglas ejecutables de LeaseManager deben bajar desde
+fuentes SII, normativa vigente o revision experta.
+
+Fuentes verificadas al 2026-06-14:
+
+| Fuente | Decision tecnica |
+| --- | --- |
+| Certificacion F22 AT2026 | Investigar formato/certificacion de archivo; no declarar consistencia tributaria por estar certificado tecnicamente. |
+| Instrucciones F22 Renta 2026 | Bajar codigos a `TaxCodeMapping` con fuente/hash/responsable, no citar la guia como formula generica. |
+| Medios y formularios DDJJ 2026 | Modelar cada DDJJ por formulario, medio, layout, certificado, vencimiento y responsable. |
+| DJ1847 AT2026 | Priorizar mapping plan de cuentas -> balance 8 columnas -> RLI/CPT y valores tributarios. |
+| Certificacion F29 | Mantener F29/PPM como insumo anual trazable; la prueba de formato no valida contenido fiscal. |
+
+El siguiente paquete de producto no debe volver a inventariar EDIG. Debe crear
+o alimentar el registro de fuentes oficiales AT2026 y empezar por la familia
+DJ1847/RLI/CPT, porque ahi ocurre la union real entre contabilidad y renta.
 
 ## Validaciones necesarias
 

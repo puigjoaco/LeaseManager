@@ -169,14 +169,23 @@ piezas minimas:
 ## Fuentes oficiales verificadas
 
 - F22: el SII invita a empresas de software a certificarse para generar
-  archivos de declaracion anual Formulario 22 por Internet.
-  `https://www.sii.cl/noticias/2025/120225noti01aav.htm`
+  archivos de declaracion anual Formulario 22 por Internet para AT2026.
+  `https://www.sii.cl/noticias/2026/060226noti02pcr.htm`
+- F22 Renta 2026: el SII publica instrucciones operativas del Formulario 22
+  para el ano tributario 2026.
+  `https://www.sii.cl/servicios_online/renta/guia_trib_suplemento_2026.html`
 - F29: el proceso Upload carga archivo, despliega el formulario, recalcula
   totalizadores y valida con set de validaciones.
   `https://www.sii.cl/ayudas/ayudas_por_servicios/2055-procesocertificacion-2056.html`
 - DDJJ 2026: el SII publica medios disponibles por formulario, incluyendo
   transferencia, upload, importador y software comercial segun formulario.
   `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-medios_dj_renta_2026-2171.html`
+- DDJJ AT2026: el SII publica instrucciones, visualizaciones, certificados,
+  resoluciones y vencimientos por declaracion jurada.
+  `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-formularios_y_plazos_2026-2171.html`
+- Casas software DDJJ 2026: el SII lista casas cuyo software genera archivos
+  DDJJ certificados para formularios concretos.
+  `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-casas_sw_2026-2171.html`
 - DJ 1847 AT2026: las instrucciones SII piden informar el balance de ocho
   columnas, clasificacion de cuentas, ajustes para determinar RLI y valor
   tributario de activos/pasivos para CPT.
@@ -184,12 +193,21 @@ piezas minimas:
 
 Estas fuentes prueban el camino archivo/upload/certificacion. No prueban una API
 REST publica para presentar F22; por defecto ese camino queda bloqueado hasta
-documento oficial vigente.
+documento oficial vigente. Tampoco prueban consistencia tributaria del
+contenido: certificacion tecnica de archivo y validacion fiscal del calculo son
+gates separados.
+
+La separacion operativa queda consolidada en
+`docs/product/RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md`: DTE puede tratarse
+como integracion tecnica con gate propio; F29, DDJJ, DJ1847/RLI/CPT, F22,
+bienes raices y contribuciones quedan como preparacion local hasta fuente
+oficial/experta, certificacion, responsable y autorizacion explicita.
 
 ## Proximos paquetes tecnicos
 
-1. `stage6-edig-coverage-matrix`: mantener el cruce automatizado EDIG ->
-   LeaseManager para no volver a mapear manualmente lo ya observado.
+1. `stage6-official-tax-source-registry`: registrar fuentes oficiales AT2026
+   por documento, hash, fecha, formulario/codigo/regimen, alcance, responsable
+   y estado de revision.
 2. `stage6-dj1847-balance-cpt-mapping`: mapping plan de cuentas/balance ->
    RLI/CPT/DJ/F22 solo con instrucciones SII AT2026 o experto responsable.
 3. `stage6-real-estate-official-source`: cargar contribuciones, codigos y
