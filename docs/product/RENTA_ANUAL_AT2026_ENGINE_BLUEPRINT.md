@@ -85,6 +85,7 @@ tener fuente SII/experta, responsable y evidencia no sensible.
 
 | Componente | Responsabilidad | Entrada | Salida | Gate |
 | --- | --- | --- | --- | --- |
+| `AnnualTaxOfficialSource` | Registrar fuente SII/experta por AT | URL publica SII o ref experta, hash, fecha, responsable, alcance | fuente revisada/aprobada trazable | refs no sensibles y dominio SII seguro cuando aplica |
 | `AnnualTaxSourceBundle` | Congelar fuentes anuales no sensibles | cierres, ledger, F29/PPM, contratos, propiedades, socios, certificados | snapshot anual trazable | 12 cierres aprobados y refs no sensibles |
 | `TaxYearRuleSet` | Versionar reglas por AT/regimen | fuente oficial/experta, hashes, vigencia | reglas aprobadas/condicionadas | no se activa sin fuente aprobada |
 | `AnnualTaxProfile` | Fijar empresa/regimen/responsable | empresa, configuracion fiscal, representante | perfil anual | configuracion fiscal activa |
@@ -192,6 +193,11 @@ contratos:
     navegador entre preparacion local permitida, fuente oficial/experta
     requerida y presentacion externa bloqueada, sin ejecutar EDIG, sin llamar
     SII y sin producir archivos oficiales.
+12. `stage6-official-tax-source-registry`: registro operacional de fuentes
+    oficiales/experta. Implementado como `AnnualTaxOfficialSource`: modelo,
+    migracion, API/snapshot/admin redactados y readiness bloqueante si una
+    fuente AT registrada es invalida, usa URL no segura, carece de hash/fecha/
+    responsable o conserva refs/payloads sensibles.
 
 ## Cobertura actual contra EDIG AT2026
 

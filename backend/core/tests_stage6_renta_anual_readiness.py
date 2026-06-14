@@ -43,6 +43,7 @@ from sii.models import (
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
     AnnualTaxExport,
+    AnnualTaxOfficialSource,
     AmbienteSII,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
@@ -53,6 +54,7 @@ from sii.models import (
     DestinoMapeoTributarioAnual,
     EstadoAnnualEnterpriseRegister,
     EstadoAnnualTaxArtifactReview,
+    EstadoAnnualTaxOfficialSource,
     EstadoAnnualTaxSourceBundle,
     EstadoRegistro,
     EstadoReglaTributariaAnual,
@@ -62,6 +64,7 @@ from sii.models import (
     ProcesoRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
+    TipoAnnualTaxOfficialSource,
 )
 from sii.services import (
     summarize_annual_enterprise_registers,
@@ -1296,6 +1299,35 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertIn('stage6.tax_code_mapping_invalid', issue_codes)
         self.assertNotIn('sii.example.test', serialized_result)
         self.assertNotIn('token=secret', serialized_result)
+
+    def test_invalid_annual_tax_official_source_is_blocking_without_sensitive_leak(self):
+        self._create_valid_local_matrix()
+        AnnualTaxOfficialSource.objects.create(
+            anio_tributario=2026,
+            source_key='sii-f22-invalid-at2026',
+            source_type=TipoAnnualTaxOfficialSource.SII_F22_CERTIFICATION,
+            title='Certificacion F22 AT2026',
+            source_url='https://www.sii.cl/noticias/2026/060226noti02pcr.htm?token=secret',
+            source_ref='Bearer source-secret',
+            source_hash='bad-hash',
+            retrieved_on=date(2026, 6, 14),
+            responsible_ref='https://sii.example.test/reviewer?token=secret',
+            metadata={'credential': 'secret'},
+            estado=EstadoAnnualTaxOfficialSource.APPROVED,
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            form_code='F22',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.official_source_invalid', issue_codes)
+        self.assertEqual(result['sections']['annual_tax_official_sources']['official_source_invalid'], 1)
+        self.assertEqual(result['sections']['annual_tax_official_sources']['sources_total'], 1)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('source-secret', serialized_result)
 
     def test_authorized_source_requires_source_trace_refs(self):
         self._create_valid_local_matrix()

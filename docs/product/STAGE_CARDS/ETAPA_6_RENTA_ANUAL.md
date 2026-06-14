@@ -117,6 +117,12 @@ posterior al mapeo EDIG es bajar fuentes SII AT2026 a reglas versionadas,
 partiendo por balance de 8 columnas/DJ1847, RLI/CPT, DDJJ por formulario,
 contribuciones y formato/certificacion F22; no seguir copiando ni ejecutando
 EDIG.
+`AnnualTaxOfficialSource` materializa ese registro de fuentes oficiales o
+expertas: conserva ano tributario, tipo, URL publica SII segura cuando aplica,
+referencia no sensible, hash SHA-256, fecha de recuperacion, responsable,
+alcance y destino RLI/CPT/RAI/SAC/DDJJ/F22/Dossier. API, snapshot y admin
+redactan refs, notas y metadata sensibles; readiness bloquea fuentes invalidas
+sin exponer valores.
 
 ## Gate
 
@@ -189,6 +195,10 @@ EDIG.
 - La matriz `stage6-official-source-gaps` debe mantenerse alineada con fuentes
   SII vigentes antes de promover cualquier warning de regla, medio DDJJ,
   mapping DJ1847/RLI/CPT, contribucion o formato F22 a estado cerrable.
+- `AnnualTaxOfficialSource` revisada/aprobada requiere `source_url` publica SII
+  segura si la fuente es SII, `source_ref`, `source_hash`, `retrieved_on` y
+  `responsible_ref` no sensibles. Fuentes invalidas o con URLs/refs/payloads
+  sensibles bloquean readiness.
 - Una certificacion tecnica F22, F29 o DDJJ acredita formato/recepcion en el
   alcance descrito por SII; no reemplaza validacion tributaria del contenido ni
   revision responsable.

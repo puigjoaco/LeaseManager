@@ -16,6 +16,7 @@ from .models import (
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
     AnnualTaxExport,
+    AnnualTaxOfficialSource,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -30,6 +31,7 @@ from .models import (
     TaxCodeMapping,
     TaxYearRuleSet,
     TipoDTE,
+    is_safe_public_sii_source_url,
 )
 
 
@@ -167,6 +169,53 @@ class TaxCodeMappingSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelS
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, TaxCodeMapping)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
+class AnnualTaxOfficialSourceSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('source_ref', 'responsible_ref')
+    redacted_payload_fields = ('metadata',)
+    redacted_text_fields = ('scope_note',)
+
+    class Meta:
+        model = AnnualTaxOfficialSource
+        fields = (
+            'id',
+            'anio_tributario',
+            'source_key',
+            'source_type',
+            'title',
+            'source_url',
+            'source_ref',
+            'source_hash',
+            'retrieved_on',
+            'responsible_ref',
+            'estado',
+            'applies_to',
+            'form_code',
+            'regime_code',
+            'scope_note',
+            'metadata',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        source_url = data.get('source_url')
+        if source_url and not is_safe_public_sii_source_url(source_url):
+            data['source_url'] = '<redacted-sensitive-reference>'
+        return data
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, AnnualTaxOfficialSource)
         for field, value in attrs.items():
             setattr(candidate, field, value)
         try:

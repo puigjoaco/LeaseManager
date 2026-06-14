@@ -29,6 +29,7 @@ from sii.models import (
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
     AnnualTaxExport,
+    AnnualTaxOfficialSource,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -41,6 +42,7 @@ from sii.models import (
     EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
+    EstadoAnnualTaxOfficialSource,
     EstadoAnnualTaxSourceBundle,
     EstadoAnnualTaxWorkbook,
     EstadoReglaTributariaAnual,
@@ -239,6 +241,14 @@ def _collect_source_bundle_issues(source_bundles, active_fiscal_company_ids: set
     without_fiscal_config = _count_without_active_fiscal_config(source_bundles, active_fiscal_company_ids)
     if without_fiscal_config:
         counts['source_bundle_fiscal_config_missing'] = without_fiscal_config
+    return dict(sorted(counts.items()))
+
+
+def _collect_official_source_issues(official_sources) -> dict[str, int]:
+    counts = Counter()
+    invalid_sources = _count_invalid(official_sources)
+    if invalid_sources:
+        counts['official_source_invalid'] = invalid_sources
     return dict(sorted(counts.items()))
 
 
@@ -887,6 +897,8 @@ def collect_stage6_renta_anual_readiness(
     tax_year_rule_issues = _collect_tax_year_rule_issues(annual_processes, active_fiscal_configs)
     source_bundles = AnnualTaxSourceBundle.objects.select_related('empresa')
     source_bundle_issues = _collect_source_bundle_issues(source_bundles, active_fiscal_company_ids)
+    official_sources = AnnualTaxOfficialSource.objects.all()
+    official_source_issues = _collect_official_source_issues(official_sources)
     monthly_tax_facts = MonthlyTaxFact.objects.select_related(
         'empresa',
         'cierre_mensual',
@@ -1198,6 +1210,15 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if source_bundle_issues.get(key):
             issues.append(_issue(code, message, count=source_bundle_issues[key]))
+    for key, code, message in [
+        (
+            'official_source_invalid',
+            'stage6.official_source_invalid',
+            'Existen fuentes oficiales AT registradas que no pasan validacion de dominio o contienen trazas no permitidas.',
+        ),
+    ]:
+        if official_source_issues.get(key):
+            issues.append(_issue(code, message, count=official_source_issues[key]))
     for key, code, message in [
         (
             'monthly_tax_fact_invalid',
@@ -1926,6 +1947,15 @@ def collect_stage6_renta_anual_readiness(
                 'bundles_by_state': _count_by(source_bundles, 'estado'),
                 'bundles_by_source_kind': _count_by(source_bundles, 'source_kind'),
                 **source_bundle_issues,
+            },
+            'annual_tax_official_sources': {
+                'sources_total': official_sources.count(),
+                'approved_sources': official_sources.filter(estado=EstadoAnnualTaxOfficialSource.APPROVED).count(),
+                'reviewed_sources': official_sources.filter(estado=EstadoAnnualTaxOfficialSource.REVIEWED).count(),
+                'sources_by_state': _count_by(official_sources, 'estado'),
+                'sources_by_type': _count_by(official_sources, 'source_type'),
+                'sources_by_target': _count_by(official_sources, 'applies_to'),
+                **official_source_issues,
             },
             'monthly_tax_facts': {
                 'facts_total': monthly_tax_facts.count(),

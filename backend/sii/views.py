@@ -19,6 +19,7 @@ from .models import (
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
     AnnualTaxExport,
+    AnnualTaxOfficialSource,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -28,6 +29,7 @@ from .models import (
     MonthlyTaxFact,
     TaxCodeMapping,
     TaxYearRuleSet,
+    is_safe_public_sii_source_url,
 )
 from .serializers import (
     AnnualEnterpriseRegisterMovementSerializer,
@@ -39,6 +41,7 @@ from .serializers import (
     AnnualTaxDossierSerializer,
     AnnualTaxExportSerializer,
     AnnualGenerateSerializer,
+    AnnualTaxOfficialSourceSerializer,
     AnnualStatusSerializer,
     AnnualTaxSourceBundleSerializer,
     AnnualTaxWorkbookLineSerializer,
@@ -183,6 +186,7 @@ class SiiSnapshotView(APIView):
             access,
             company_paths=('empresa_id',),
         )
+        official_sources = AnnualTaxOfficialSource.objects.order_by('-anio_tributario', 'source_type', 'source_key')
         monthly_tax_facts = scope_queryset_for_access(
             MonthlyTaxFact.objects.select_related(
                 'empresa',
@@ -389,6 +393,31 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in source_bundles
+                ],
+                'annual_tax_official_sources': [
+                    {
+                        'id': item.id,
+                        'anio_tributario': item.anio_tributario,
+                        'source_key': item.source_key,
+                        'source_type': item.source_type,
+                        'title': item.title,
+                        'source_url': (
+                            item.source_url
+                            if is_safe_public_sii_source_url(item.source_url)
+                            else redact_sensitive_reference(item.source_url)
+                        ),
+                        'source_ref': redact_sensitive_reference(item.source_ref),
+                        'source_hash': item.source_hash,
+                        'retrieved_on': item.retrieved_on.isoformat() if item.retrieved_on else None,
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'estado': item.estado,
+                        'applies_to': item.applies_to,
+                        'form_code': item.form_code,
+                        'regime_code': item.regime_code,
+                        'scope_note': redact_sensitive_reference(item.scope_note),
+                        'metadata': redact_sensitive_payload(item.metadata),
+                    }
+                    for item in official_sources
                 ],
                 'monthly_tax_facts': [
                     {
@@ -733,6 +762,22 @@ class TaxCodeMappingDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAP
     queryset = TaxCodeMapping.objects.select_related('rule_set', 'rule_set__regimen_tributario').all()
     audit_entity_type = 'tax_code_mapping'
     audit_entity_label = 'TaxCodeMapping'
+
+
+class AnnualTaxOfficialSourceListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxOfficialSourceSerializer
+    queryset = AnnualTaxOfficialSource.objects.all()
+    audit_entity_type = 'annual_tax_official_source'
+    audit_entity_label = 'AnnualTaxOfficialSource'
+
+
+class AnnualTaxOfficialSourceDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxOfficialSourceSerializer
+    queryset = AnnualTaxOfficialSource.objects.all()
+    audit_entity_type = 'annual_tax_official_source'
+    audit_entity_label = 'AnnualTaxOfficialSource'
 
 
 class AnnualTaxSourceBundleListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):

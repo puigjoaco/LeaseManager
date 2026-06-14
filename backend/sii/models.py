@@ -1,5 +1,6 @@
 import hashlib
 import json
+from urllib.parse import urlparse
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
@@ -436,6 +437,25 @@ class DestinoMapeoTributarioAnual(models.TextChoices):
     DOSSIER = 'DOSSIER', 'Dossier'
 
 
+class TipoAnnualTaxOfficialSource(models.TextChoices):
+    SII_F22_CERTIFICATION = 'sii_f22_certification', 'SII certificacion F22'
+    SII_F22_INSTRUCTIONS = 'sii_f22_instructions', 'SII instrucciones F22'
+    SII_DDJJ_MEDIA = 'sii_ddjj_media', 'SII medios DDJJ'
+    SII_DDJJ_FORMS = 'sii_ddjj_forms', 'SII formularios DDJJ'
+    SII_DDJJ_SOFTWARE_HOUSES = 'sii_ddjj_software_houses', 'SII casas software DDJJ'
+    SII_DJ1847_INSTRUCTIONS = 'sii_dj1847_instructions', 'SII instrucciones DJ1847'
+    SII_F29_CERTIFICATION = 'sii_f29_certification', 'SII certificacion F29'
+    SII_DTE_TECHNICAL = 'sii_dte_technical', 'SII tecnico DTE'
+    EXPERT_REVIEW = 'expert_review', 'Revision experta'
+
+
+class EstadoAnnualTaxOfficialSource(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    REVIEWED = 'revisada', 'Revisada'
+    APPROVED = 'aprobada', 'Aprobada'
+    RETIRED = 'retirada', 'Retirada'
+
+
 class EstadoAnnualTaxSourceBundle(models.TextChoices):
     DRAFT = 'borrador', 'Borrador'
     FROZEN = 'congelado', 'Congelado'
@@ -542,6 +562,31 @@ def _normalize_hash(value):
 def _is_sha256(value):
     normalized = _normalize_hash(value)
     return len(normalized) == 64 and all(character in '0123456789abcdef' for character in normalized)
+
+
+SII_PUBLIC_SOURCE_DOMAINS = {
+    'api.sii.cl',
+    'www.sii.cl',
+    'www4.sii.cl',
+    'zeus.sii.cl',
+}
+
+
+def is_safe_public_sii_source_url(value):
+    normalized = str(value or '').strip()
+    if not normalized:
+        return False
+    parsed = urlparse(normalized)
+    hostname = str(parsed.hostname or '').lower()
+    return (
+        parsed.scheme == 'https'
+        and hostname in SII_PUBLIC_SOURCE_DOMAINS
+        and not parsed.username
+        and not parsed.password
+        and not parsed.query
+        and not parsed.fragment
+        and not contains_sensitive_reference(parsed.path)
+    )
 
 
 def _canonical_json_payload(value):
@@ -746,6 +791,88 @@ class TaxCodeMapping(OperationalSIITextNormalizationMixin, TimestampedModel):
                 errors['evidencia_ref'] = 'Mapeo activo de rule set aprobado requiere evidencia_ref no sensible.'
         _add_non_sensitive_reference_error(errors, self, 'formula_ref')
         _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+        _add_non_sensitive_payload_error(errors, 'metadata', self.metadata)
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxOfficialSource(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'source_key',
+        'title',
+        'source_url',
+        'source_ref',
+        'source_hash',
+        'responsible_ref',
+        'scope_note',
+        'form_code',
+        'regime_code',
+    )
+
+    anio_tributario = models.PositiveSmallIntegerField()
+    source_key = models.CharField(max_length=96)
+    source_type = models.CharField(max_length=64, choices=TipoAnnualTaxOfficialSource.choices)
+    title = models.CharField(max_length=160)
+    source_url = models.CharField(max_length=255, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+    source_hash = models.CharField(max_length=64, blank=True)
+    retrieved_on = models.DateField(null=True, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualTaxOfficialSource.choices,
+        default=EstadoAnnualTaxOfficialSource.DRAFT,
+    )
+    applies_to = models.CharField(max_length=16, choices=DestinoMapeoTributarioAnual.choices, blank=True)
+    form_code = models.CharField(max_length=32, blank=True)
+    regime_code = models.CharField(max_length=64, blank=True)
+    scope_note = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['-anio_tributario', 'source_type', 'source_key']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['anio_tributario', 'source_key'],
+                name='uniq_annual_tax_official_source_key',
+            ),
+        ]
+
+    def __str__(self):
+        return f'AT{self.anio_tributario} {self.source_key}'
+
+    def clean(self):
+        super().clean()
+        self.source_hash = _normalize_hash(self.source_hash)
+        errors = {}
+        if self.anio_tributario < 2000:
+            errors['anio_tributario'] = 'anio_tributario debe ser un ano tributario valido.'
+        if self.source_type.startswith('sii_'):
+            if not has_text(self.source_url):
+                errors['source_url'] = 'Fuente oficial SII requiere source_url publica trazable.'
+            elif not is_safe_public_sii_source_url(self.source_url):
+                errors['source_url'] = 'source_url debe ser HTTPS, publica, sin query/fragment y bajo dominio SII permitido.'
+        elif has_text(self.source_url) and not is_safe_public_sii_source_url(self.source_url):
+            errors['source_url'] = 'source_url solo admite URL publica SII segura.'
+        if self.estado in {
+            EstadoAnnualTaxOfficialSource.REVIEWED,
+            EstadoAnnualTaxOfficialSource.APPROVED,
+        }:
+            if not has_text(self.title):
+                errors['title'] = 'Fuente revisada requiere title.'
+            if not has_text(self.source_ref):
+                errors['source_ref'] = 'Fuente revisada requiere source_ref no sensible.'
+            if not has_text(self.source_hash):
+                errors['source_hash'] = 'Fuente revisada requiere source_hash SHA-256.'
+            if self.retrieved_on is None:
+                errors['retrieved_on'] = 'Fuente revisada requiere retrieved_on.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'Fuente revisada requiere responsible_ref no sensible.'
+        if has_text(self.source_hash) and not _is_sha256(self.source_hash):
+            errors['source_hash'] = 'source_hash debe ser SHA-256 hexadecimal de 64 caracteres.'
+        _add_non_sensitive_reference_error(errors, self, 'source_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_text_error(errors, 'scope_note', self.scope_note)
         _add_non_sensitive_payload_error(errors, 'metadata', self.metadata)
         if errors:
             raise ValidationError(errors)

@@ -30,6 +30,7 @@ from .admin import (
     AnnualTaxArtifactMatrixItemAdmin,
     AnnualTaxDossierAdmin,
     AnnualTaxExportAdmin,
+    AnnualTaxOfficialSourceAdmin,
     AnnualTaxSourceBundleAdmin,
     AnnualTaxWorkbookAdmin,
     AnnualTaxWorkbookLineAdmin,
@@ -52,6 +53,7 @@ from .models import (
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
     AnnualTaxExport,
+    AnnualTaxOfficialSource,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -60,6 +62,7 @@ from .models import (
     DestinoMapeoTributarioAnual,
     DTEEmitido,
     EstadoGateSII,
+    EstadoAnnualTaxOfficialSource,
     EstadoAnnualTaxSourceBundle,
     EstadoMonthlyTaxFact,
     EstadoReglaTributariaAnual,
@@ -70,6 +73,7 @@ from .models import (
     SourceKindRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
+    TipoAnnualTaxOfficialSource,
 )
 
 
@@ -565,6 +569,107 @@ class SiiAPITests(APITestCase):
         )
         self.assertNotIn('token=secret', serialized_snapshot)
         self.assertNotIn('reviewer-secret', serialized_snapshot)
+
+    def test_annual_tax_official_source_requires_safe_sii_source(self):
+        source = AnnualTaxOfficialSource(
+            anio_tributario=2026,
+            source_key='sii-f22-certification-at2026',
+            source_type=TipoAnnualTaxOfficialSource.SII_F22_CERTIFICATION,
+            title='Certificacion F22 AT2026',
+            source_url='https://example.com/f22-at2026',
+            source_ref='sii-f22-certification-at2026-ref',
+            source_hash='bad-hash',
+            retrieved_on='2026-06-14',
+            responsible_ref='tax-source-reviewer-at2026',
+            estado=EstadoAnnualTaxOfficialSource.APPROVED,
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            form_code='F22',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            source.full_clean()
+
+        self.assertIn('source_url', error.exception.message_dict)
+        self.assertIn('source_hash', error.exception.message_dict)
+
+        source.source_url = 'https://www.sii.cl/noticias/2026/060226noti02pcr.htm'
+        source.source_hash = 'A' * 64
+        source.full_clean()
+        source.save()
+        self.assertEqual(source.source_hash, 'a' * 64)
+
+    def test_annual_tax_official_source_admin_redacts_sensitive_refs(self):
+        source = AnnualTaxOfficialSource.objects.create(
+            anio_tributario=2026,
+            source_key='sii-f22-admin-at2026',
+            source_type=TipoAnnualTaxOfficialSource.SII_F22_CERTIFICATION,
+            title='Certificacion F22 AT2026',
+            source_url='https://www.sii.cl/noticias/2026/060226noti02pcr.htm?token=secret',
+            source_ref='Bearer source-secret',
+            responsible_ref='https://sii.example.test/reviewer?token=secret',
+            scope_note='https://sii.example.test/scope?token=secret',
+            metadata={'api_key': 'secret'},
+            estado=EstadoAnnualTaxOfficialSource.DRAFT,
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            form_code='F22',
+        )
+        source_admin = AnnualTaxOfficialSourceAdmin(AnnualTaxOfficialSource, AdminSite())
+
+        self.assertEqual(source_admin.source_url_safe(source), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(source_admin.source_ref_redacted(source), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(source_admin.responsible_ref_redacted(source), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(source_admin.scope_note_redacted(source), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret', json.dumps(source_admin.metadata_redacted(source)))
+        self.assertNotIn('source_url', source_admin.search_fields)
+
+    def test_annual_tax_official_source_api_creates_and_snapshot_redacts_refs(self):
+        response = self.client.post(
+            reverse('sii-annual-tax-official-source-list'),
+            {
+                'anio_tributario': 2026,
+                'source_key': 'sii-dj1847-at2026',
+                'source_type': TipoAnnualTaxOfficialSource.SII_DJ1847_INSTRUCTIONS,
+                'title': 'Instrucciones DJ1847 AT2026',
+                'source_url': 'https://www.sii.cl/ayudas/ayudas_por_servicios/renta/2026/instrucciones_dj1847.pdf',
+                'source_ref': 'sii-dj1847-at2026-ref',
+                'source_hash': 'd' * 64,
+                'retrieved_on': '2026-06-14',
+                'responsible_ref': 'tax-source-reviewer-at2026',
+                'estado': EstadoAnnualTaxOfficialSource.REVIEWED,
+                'applies_to': DestinoMapeoTributarioAnual.CPT,
+                'form_code': 'DJ1847',
+                'regime_code': 'EmpresaContabilidadCompletaV1',
+                'scope_note': 'Balance 8 columnas y CPT para AT2026.',
+                'metadata': {'source_scope': 'official-at2026-controlled'},
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data['source_url'],
+            'https://www.sii.cl/ayudas/ayudas_por_servicios/renta/2026/instrucciones_dj1847.pdf',
+        )
+
+        AnnualTaxOfficialSource.objects.filter(pk=response.data['id']).update(
+            source_url='https://www.sii.cl/ayudas/ayudas_por_servicios/renta/2026/instrucciones_dj1847.pdf?token=secret',
+            source_ref='Bearer source-secret',
+            responsible_ref='https://sii.example.test/reviewer?token=secret',
+            scope_note='https://sii.example.test/scope?token=secret',
+            metadata={'credential': 'secret'},
+        )
+
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        official_source = next(
+            item for item in snapshot.data['annual_tax_official_sources'] if item['id'] == response.data['id']
+        )
+        serialized_snapshot = json.dumps(snapshot.data)
+        self.assertEqual(official_source['source_url'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(official_source['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(official_source['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(official_source['scope_note'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_snapshot)
+        self.assertNotIn('source-secret', serialized_snapshot)
 
     def _valid_source_bundle_summary(self):
         return {
