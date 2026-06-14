@@ -97,6 +97,15 @@ calcular obligaciones y armar dossiers F29/DDJJ/F22, pero no reemplaza el
 criterio profesional cuando una decision contable o tributaria requiere
 interpretacion, validacion normativa, revision experta u operacion frente a SII.
 
+El motor anual de renta no debe llenar F22 directamente desde asientos. La
+arquitectura canonica exige una capa intermedia versionada por ano tributario:
+normaliza cierres, ledger, F29/PPM, patrimonio, socios, contratos, arriendos,
+contribuciones y certificados en registros tributarios revisables como RLI, CPT,
+RAI, SAC, DDJJ y codigos F22. La investigacion local de EDIG AT2026 queda como
+referencia conceptual read-only en
+`docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`; no es fuente normativa, no se
+copia codigo propietario y no abre gates SII.
+
 Una automatizacion contable o tributaria solo puede avanzar si existe regla
 vigente, source controlada o real autorizada, gate aplicable, responsable
 trazado y evidencia no sensible. Si falta cualquiera de esos elementos, el

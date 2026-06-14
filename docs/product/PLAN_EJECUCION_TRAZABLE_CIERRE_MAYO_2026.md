@@ -34,7 +34,7 @@ inconsistente, duplicado, desactualizado, inseguro, mal integrado o pendiente.
 | 3 | Banco y conciliacion | Movimientos, conciliacion, ingresos desconocidos y saldos cuadrados. |
 | 4 | SII y DTE | Configuracion fiscal, emision aplicable, aceptacion/estado y reglas validadas. |
 | 5 | Pre-cierre mensual y contabilidad asistida | Ledger, asientos, liquidaciones, PPM/F29/F21 y paquete mensual reproducible con aprobacion responsable. |
-| 6 | Dossier de renta anual | DDJJ, F22, certificados y trazabilidad anual para revision experta/oficial. |
+| 6 | Dossier de renta anual | Motor anual versionado por ano tributario que normaliza cierres, ledger, F29/PPM, patrimonio, socios, arriendos, contribuciones y certificados en RLI/CPT/RAI/SAC, DDJJ, F22, respaldos y trazabilidad para revision experta/oficial. |
 | 7 | Operacion productiva | Backups, restore, runbook, monitoreo, smoke, aceptacion y continuidad. |
 
 ## Regla de cierre por etapas
@@ -47,6 +47,12 @@ En contabilidad y tributacion, `cerrado` no significa decision autonoma del
 sistema. Significa paquete reproducible, evidencia completa, reglas vigentes,
 gate aplicable y aprobacion responsable. Si falta criterio experto/oficial, el
 estado correcto es preparacion o revision, aunque los datos locales cuadren.
+
+Para Renta Anual, el camino correcto no es mapear asientos directamente a F22.
+La etapa debe construir una capa tributaria anual intermedia y versionada por
+AT, documentada en `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, antes de
+generar preview/export F22/DDJJ. La presentacion final sigue condicionada por
+gate SII, certificacion/formato vigente, responsable y autorizacion explicita.
 
 Se permite preparar trabajo de etapas posteriores o de integracion cuando no
 use datos/credenciales no autorizadas, no abra integraciones cerradas y quede

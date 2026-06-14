@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar Etapa 5 - auditoria `state_changed` en contabilizacion de eventos. |
-| Fuente exacta | Stage Card Etapa 5: mutaciones API de Contabilidad que actualizan entidades con estado deben persistir `state_changed` en la misma transaccion con `campo_estado`, `estado_anterior` y `estado_nuevo`. |
-| Brecha activa | Ninguna brecha tactica abierta en este cursor tras implementar auditoria `state_changed` para creacion y reintento de `EventoContable`. |
-| Motivo de prioridad | La contabilizacion es el punto donde un hecho economico pasa a ledger o revision; debe quedar trazado para paquetes mensuales revisables sin decision contable opaca. |
-| Worktree | N/A tras merge y limpieza del paquete. |
-| Rama | `main` tras merge y limpieza. |
-| Estado | Paquete Etapa 5 event post state audit implementado, validado localmente y documentado. No se uso `.env`, DB historicas, datos reales, banco real, SII real, backfills, deploys ni integraciones externas. |
-| Gate esperado | Para el siguiente paquete, repetir protocolo: diagnosticar desde repo limpio, elegir siguiente frente seguro por trazabilidad, usar worktree `codex/...`, validar proporcionalmente, actualizar evidencia/trazabilidad si aplica y cerrar con PR/CI/merge/limpieza. |
-| Estado al cerrar paquete | Creacion y reintento de contabilizacion deben auditar `state_changed` cuando `estado_contable` cambie; si falla auditoria, evento/asiento/estado se revierten. |
-| Bloqueos relacionados | Etapa 5 no cierra sin Conciliacion cerrada, fuente `snapshot_controlado` o `real_autorizado`, ledger/reportes controlados y responsables finales. Es condicion de cierre, no freno para preparar siguientes paquetes locales. |
-| Politica de reanudacion | No reabrir este paquete ni redactar goals. Si `main` esta limpio, seleccionar el siguiente frente seguro desde AGENTS, PRD, matriz, stage cards y evidencia. No abrir ni usar el worktree externo con PDFs tributarios reales sin solicitud concreta del usuario. |
-| Siguiente accion | Tras merge y limpieza, continuar con el siguiente frente local seguro segun orden y trazabilidad vigentes. |
+| Frente activo | Sin paquete tactico abierto. |
+| Fuente exacta | `main` despues de PR #813 y PR #814: mapeo EDIG AT2026 integrado, Etapa 6 alineada con motor anual tributario versionado y Etapa 5 con auditoria de contabilizacion de eventos reforzada. |
+| Brecha activa | Pendiente elegir el siguiente frente seguro desde plan trazable, stage cards, gates y estado real del repositorio. |
+| Motivo de prioridad | Evitar que compactaciones o contexto auxiliar reabran paquetes ya cerrados, vuelvan a redactar goals/prompts o pierdan el orden trazable desde el repo. |
+| Worktree | N/A. |
+| Rama | `main`. |
+| Estado | PR #813 cerrado: EDIG protegido por Git, matriz EDIG->LeaseManager creada, runbook sandbox creado, script de inventario read-only creado y arquitectura de Renta Anual actualizada. PR #814 cerrado: creacion y reintento de `EventoContable` auditan `state_changed` cuando cambia `estado_contable`. |
+| Gate esperado | Antes del proximo paquete, confirmar `git status --short --branch`, `git worktree list` y seleccionar una brecha real que no dependa de secretos, EDIG ejecutado, SII real, banco real ni datos productivos. |
+| Estado al cerrar paquete | Etapa 6 quedo alineada con normalizador anual RLI/CPT/RAI/SAC/DDJJ/F22 por ano tributario. Etapa 5 registra `contabilidad.evento_contable.state_changed` con transicion y `asiento_id`; si falla auditoria, se revierte evento/asiento/estado. |
+| Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Ejecucion EDIG solo en VM/sandbox con datos ficticios. |
+| Politica de reanudacion | No reabrir conversaciones de goal, no repetir el mapeo EDIG ni reabrir la auditoria de contabilizacion ya cerrada. Si no hay worktree sucio, continuar por el siguiente frente util y seguro del repo; si un gate externo bloquea cierre, registrar una vez y seguir con preparacion local valida. |
+| Siguiente accion | Diagnosticar estado real y avanzar el siguiente paquete tecnico trazable permitido por la arquitectura. |
 
 ## Actualizacion
 
