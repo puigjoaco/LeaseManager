@@ -32,7 +32,7 @@ nueva.
 | Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, validacion fiscal/oficial, dossier revisable, responsable y evidencia no sensible. |
 | Estado al cerrar paquete | `stage6-ddjj-f22-artifact-matrix` cerrado. Aun faltan dossier revisable, export/presentacion SII y decision tributaria supervisada. |
 | Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Ejecucion EDIG solo en VM/sandbox con datos ficticios. |
-| Politica de reanudacion | No reabrir conversaciones de goal, no repetir el mapeo EDIG ya documentado, no volver a inventariar EDIG salvo solicitud nueva concreta y no reabrir la auditoria de contabilizacion ya cerrada. Si no hay worktree sucio, continuar por el siguiente frente util y seguro del repo; si un gate externo bloquea cierre, registrar una vez y seguir con preparacion local valida. |
+| Politica de reanudacion | No reabrir metatareas administrativas ya cerradas, no repetir el mapeo EDIG ya documentado, no volver a inventariar EDIG salvo solicitud nueva concreta y no reabrir la auditoria de contabilizacion ya cerrada. Si no hay worktree sucio, continuar por el siguiente frente util y seguro del repo; si un gate externo bloquea cierre, registrar una vez y seguir con preparacion local valida. |
 | Siguiente accion | Diagnosticar `stage6-dossier-review` contra PRD/blueprint y abrir worktree tactico solo si no aparece una brecha mas prioritaria en el estado real del repo. |
 
 ## Actualizacion
