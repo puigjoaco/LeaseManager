@@ -7,6 +7,7 @@ from core.scope_access import get_scope_access
 from .services import (
     ReportingTraceabilityError,
     build_annual_tax_summary,
+    build_company_accounting_progress_report,
     build_financial_monthly_summary,
     build_manual_resolution_summary,
     build_migration_manual_resolution_summary,
@@ -135,6 +136,25 @@ class PeriodBooksSummaryView(APIView):
         empresa_id = _required_int_query_param(request, 'empresa_id')
         periodo = _required_query_param(request, 'periodo')
         return _traceable_response(build_period_books_summary, empresa_id, periodo, access=get_scope_access(request.user))
+
+
+class CompanyAccountingProgressView(APIView):
+    permission_classes = [ReportingPermission]
+
+    def get(self, request):
+        from patrimonio.models import Empresa
+
+        empresa_id = _required_int_query_param(request, 'empresa_id')
+        fiscal_year = _required_int_query_param(request, 'fiscal_year')
+        try:
+            return _traceable_response(
+                build_company_accounting_progress_report,
+                empresa_id,
+                fiscal_year,
+                access=get_scope_access(request.user),
+            )
+        except Empresa.DoesNotExist as error:
+            raise NotFound('Empresa no encontrada.') from error
 
 
 class AnnualTaxSummaryView(APIView):

@@ -70,6 +70,12 @@ La senal es lista para revision responsable, no cierre contable/tributario
 legal, y no lee `.env`, fuentes externas, SII, EDIG ni datos reales por
 defecto.
 
+Nota 2026-06-14: Reporting expone el auditor de progreso contable/renta por
+empresa en `contabilidad/progreso-empresa/` y backoffice. El reporte respeta
+scope por empresa, no incluye RUT, agrega trazabilidad de fuentes y muestra
+porcentaje, fases, faltantes y bloqueos para que la primera empresa piloto se
+mida con `empresa_id` y `fiscal_year` antes de declarar avance real.
+
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxTrialBalance` como capa anual de
 balance de ocho columnas entre `BalanceComprobacion` y RLI/CPT/DJ1847.
 `generate_annual_preparation()` lo sincroniza desde el balance aprobado de

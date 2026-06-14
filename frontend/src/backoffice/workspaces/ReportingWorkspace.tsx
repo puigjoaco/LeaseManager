@@ -39,6 +39,11 @@ type ReportingAnnualDraft = {
   empresa_id: string
 }
 
+type ReportingCompanyProgressDraft = {
+  empresa_id: string
+  fiscal_year: string
+}
+
 type ReportingMigrationDraft = {
   status: string
 }
@@ -99,6 +104,27 @@ type ReportingAnnualSummary = {
   f22_preparados: Array<{ empresa_id: number; estado_preparacion: string; borrador_ref: string; responsable_revision_ref: string }>
 }
 
+type ReportingCompanyProgressSummary = {
+  empresa: { id: number; razon_social: string; estado: string }
+  fiscal_year: number
+  tax_year: number
+  classification: string
+  progress_percent: number
+  ready_for_company_accounting_review: boolean
+  phases: Record<string, {
+    label: string
+    status: string
+    ready: boolean
+    expected: number
+    completed: number
+    missing: Array<string | number>
+  }>
+  issue_counts: { blocking: number }
+  issues: Array<{ code: string; severity: string; count: number; message: string }>
+  next_blocking_phase: string
+  trazabilidad: ReportTraceability
+}
+
 type ReportingMigrationSummary = {
   total: number
   categorias: Array<{ category: string; total: number }>
@@ -119,6 +145,12 @@ type ReportingMigrationSummary = {
 function sumPercentages(values: Array<{ porcentaje: string }>) {
   const total = values.reduce((accumulator, item) => accumulator + Number(item.porcentaje || 0), 0)
   return `${total.toFixed(2)}%`
+}
+
+function progressTone(value: ReportingCompanyProgressSummary): Tone {
+  if (value.ready_for_company_accounting_review) return 'positive'
+  if (value.classification === 'sin_datos') return 'danger'
+  return 'warning'
 }
 
 function TraceabilityBlock({ value }: { value: ReportTraceability }) {
@@ -151,6 +183,9 @@ export function ReportingWorkspace({
   reportingAnnualDraft,
   setReportingAnnualDraft,
   handleFetchAnnualSummary,
+  reportingCompanyProgressDraft,
+  setReportingCompanyProgressDraft,
+  handleFetchCompanyProgressSummary,
   reportingMigrationDraft,
   setReportingMigrationDraft,
   handleFetchMigrationSummary,
@@ -158,6 +193,7 @@ export function ReportingWorkspace({
   reportingPartnerSummary,
   reportingBooksSummary,
   reportingAnnualSummary,
+  reportingCompanyProgressSummary,
   reportingMigrationSummary,
   empresas,
   socios,
@@ -181,6 +217,9 @@ export function ReportingWorkspace({
   reportingAnnualDraft: ReportingAnnualDraft
   setReportingAnnualDraft: Dispatch<SetStateAction<ReportingAnnualDraft>>
   handleFetchAnnualSummary: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  reportingCompanyProgressDraft: ReportingCompanyProgressDraft
+  setReportingCompanyProgressDraft: Dispatch<SetStateAction<ReportingCompanyProgressDraft>>
+  handleFetchCompanyProgressSummary: (event: FormEvent<HTMLFormElement>) => Promise<void>
   reportingMigrationDraft: ReportingMigrationDraft
   setReportingMigrationDraft: Dispatch<SetStateAction<ReportingMigrationDraft>>
   handleFetchMigrationSummary: (event: FormEvent<HTMLFormElement>) => Promise<void>
@@ -188,6 +227,7 @@ export function ReportingWorkspace({
   reportingPartnerSummary: ReportingPartnerSummary | null
   reportingBooksSummary: ReportingBooksSummary | null
   reportingAnnualSummary: ReportingAnnualSummary | null
+  reportingCompanyProgressSummary: ReportingCompanyProgressSummary | null
   reportingMigrationSummary: ReportingMigrationSummary | null
   empresas: EmpresaItem[]
   socios: SocioItem[]
@@ -280,6 +320,20 @@ export function ReportingWorkspace({
               </select>
               <input placeholder="Año tributario" value={reportingAnnualDraft.anio_tributario} onChange={(event) => setReportingAnnualDraft((current) => ({ ...current, anio_tributario: event.target.value }))} />
               <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar anual</button>
+            </form>
+          </section>
+
+          <section className="panel">
+            <div className="section-heading"><div><h2>Progreso contable empresa</h2><p>Cierres, balances, F29, renta anual y dossier por año comercial.</p></div></div>
+            <form className="entity-form" onSubmit={handleFetchCompanyProgressSummary}>
+              <select value={reportingCompanyProgressDraft.empresa_id} onChange={(event) => setReportingCompanyProgressDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
+                <option value="">Selecciona empresa</option>
+                {empresas.map((item) => (
+                  <option key={item.id} value={item.id}>{item.razon_social}</option>
+                ))}
+              </select>
+              <input placeholder="Año comercial" value={reportingCompanyProgressDraft.fiscal_year} onChange={(event) => setReportingCompanyProgressDraft((current) => ({ ...current, fiscal_year: event.target.value }))} />
+              <button type="submit" className="button-primary" disabled={isSubmitting || !reportingCompanyProgressDraft.empresa_id}>Cargar progreso</button>
             </form>
           </section>
 
@@ -400,6 +454,41 @@ export function ReportingWorkspace({
             { label: 'Borrador', render: (row) => row.borrador_ref || 'Sin ref' },
             { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
             { label: 'Responsable', render: (row) => row.responsable_revision_ref || 'Sin responsable' },
+          ]} />
+        </>
+      ) : null}
+
+      {reportingCompanyProgressSummary ? (
+        <>
+          <TraceabilityBlock value={reportingCompanyProgressSummary.trazabilidad} />
+          <section className="metric-grid">
+            <Metric label="Empresa" value={reportingCompanyProgressSummary.empresa.razon_social} tone="neutral" />
+            <Metric label="Año comercial" value={String(reportingCompanyProgressSummary.fiscal_year)} tone="neutral" />
+            <Metric label="AT" value={String(reportingCompanyProgressSummary.tax_year)} tone="neutral" />
+            <Metric label="Avance" value={`${reportingCompanyProgressSummary.progress_percent}%`} tone={progressTone(reportingCompanyProgressSummary)} />
+            <Metric label="Clasificación" value={reportingCompanyProgressSummary.classification} tone={progressTone(reportingCompanyProgressSummary)} />
+            <Metric label="Bloqueos" value={count(reportingCompanyProgressSummary.issue_counts.blocking)} tone={reportingCompanyProgressSummary.issue_counts.blocking ? 'warning' : 'positive'} />
+          </section>
+          <section className="panel">
+            <div className="section-heading">
+              <div><h2>Próximo corte</h2><p>{reportingCompanyProgressSummary.empresa.estado}</p></div>
+              <Badge label={reportingCompanyProgressSummary.ready_for_company_accounting_review ? 'revisable' : 'no_revisable'} tone={reportingCompanyProgressSummary.ready_for_company_accounting_review ? 'positive' : 'warning'} />
+            </div>
+            <div className="list-stack">
+              <div className="list-row"><span>Siguiente fase bloqueante</span><strong>{reportingCompanyProgressSummary.next_blocking_phase || 'Sin bloqueo'}</strong></div>
+            </div>
+          </section>
+          <TableBlock title="Fases contables y renta" subtitle="Medición objetiva por empresa y año comercial." rows={Object.entries(reportingCompanyProgressSummary.phases).map(([key, phase]) => ({ id: key, key, ...phase }))} empty="No hay fases para este reporte." columns={[
+            { label: 'Fase', render: (row) => row.label },
+            { label: 'Estado', render: (row) => <Badge label={row.status} tone={row.ready ? 'positive' : toneFor(row.status)} /> },
+            { label: 'Completado', render: (row) => `${count(row.completed)} / ${count(row.expected)}` },
+            { label: 'Faltantes', render: (row) => row.missing.map((item) => String(item)).join(', ') || 'Ninguno' },
+          ]} />
+          <TableBlock title="Bloqueos detectados" subtitle="Condiciones pendientes antes de revisión contable/renta." rows={reportingCompanyProgressSummary.issues.map((item, index) => ({ id: `${item.code}-${index}`, ...item }))} empty="No hay bloqueos para esta empresa/año." columns={[
+            { label: 'Código', render: (row) => row.code },
+            { label: 'Severidad', render: (row) => <Badge label={row.severity} tone={row.severity === 'blocking' ? 'warning' : 'neutral'} /> },
+            { label: 'Conteo', render: (row) => count(row.count) },
+            { label: 'Mensaje', render: (row) => row.message },
           ]} />
         </>
       ) : null}

@@ -103,13 +103,14 @@ function createManualResolutionDraft() {
   }
 }
 
-const REPORTING_REQUEST_KEYS = ['financial', 'partner', 'books', 'annual', 'migration'] as const
+const REPORTING_REQUEST_KEYS = ['financial', 'partner', 'books', 'annual', 'companyProgress', 'migration'] as const
 type ReportingRequestKey = (typeof REPORTING_REQUEST_KEYS)[number]
 const INITIAL_REPORTING_QUERY_KEYS: Record<ReportingRequestKey, string | null> = {
   financial: null,
   partner: null,
   books: null,
   annual: null,
+  companyProgress: null,
   migration: null,
 }
 
@@ -139,6 +140,10 @@ function buildBooksSummaryQueryKey(draft: { empresa_id: string; periodo: string 
 
 function buildAnnualSummaryQueryKey(draft: { anio_tributario: string; empresa_id: string }) {
   return `anio_tributario=${draft.anio_tributario.trim()}|empresa=${draft.empresa_id || '*'}`
+}
+
+function buildCompanyProgressQueryKey(draft: { empresa_id: string; fiscal_year: string }) {
+  return `empresa=${draft.empresa_id || '*'}|fiscal_year=${draft.fiscal_year.trim()}`
 }
 
 function buildMigrationSummaryQueryKey(status: string) {
@@ -1610,6 +1615,27 @@ type ReportingAnnualSummary = {
   f22_preparados: Array<{ empresa_id: number; estado_preparacion: string; borrador_ref: string; responsable_revision_ref: string; resumen_f22: Record<string, unknown> }>
 }
 
+type ReportingCompanyAccountingProgress = {
+  empresa: { id: number; razon_social: string; estado: string }
+  fiscal_year: number
+  tax_year: number
+  classification: string
+  progress_percent: number
+  ready_for_company_accounting_review: boolean
+  phases: Record<string, {
+    label: string
+    status: string
+    ready: boolean
+    expected: number
+    completed: number
+    missing: Array<string | number>
+  }>
+  issue_counts: { blocking: number }
+  issues: Array<{ code: string; severity: string; count: number; message: string }>
+  next_blocking_phase: string
+  trazabilidad: ReportTraceability
+}
+
 type ReportingMigrationSummary = {
   status: string
   total: number
@@ -2176,6 +2202,10 @@ function App() {
     anio_tributario: '2027',
     empresa_id: '',
   })
+  const [reportingCompanyProgressDraft, setReportingCompanyProgressDraft] = useState({
+    empresa_id: '',
+    fiscal_year: '2026',
+  })
   const [reportingMigrationDraft, setReportingMigrationDraft] = useState({
     status: 'open',
   })
@@ -2183,6 +2213,7 @@ function App() {
   const [reportingPartnerSummary, setReportingPartnerSummary] = useState<ReportingPartnerSummary | null>(null)
   const [reportingBooksSummary, setReportingBooksSummary] = useState<ReportingBooksSummary | null>(null)
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
+  const [reportingCompanyProgressSummary, setReportingCompanyProgressSummary] = useState<ReportingCompanyAccountingProgress | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
   const [reportingLoadedQueryKeys, setReportingLoadedQueryKeys] = useState<Record<ReportingRequestKey, string | null>>(INITIAL_REPORTING_QUERY_KEYS)
   const [editingManualResolutionId, setEditingManualResolutionId] = useState<string | null>(null)
@@ -2230,6 +2261,7 @@ function App() {
     partner: 0,
     books: 0,
     annual: 0,
+    companyProgress: 0,
     migration: 0,
   })
   const [manualResolutionDraft, setManualResolutionDraft] = useState(createManualResolutionDraft)
@@ -2277,6 +2309,7 @@ function App() {
   const reportingPartnerQueryKey = useMemo(() => buildPartnerSummaryQueryKey(reportingPartnerDraft.socio_id), [reportingPartnerDraft.socio_id])
   const reportingBooksQueryKey = useMemo(() => buildBooksSummaryQueryKey(reportingBooksDraft), [reportingBooksDraft])
   const reportingAnnualQueryKey = useMemo(() => buildAnnualSummaryQueryKey(reportingAnnualDraft), [reportingAnnualDraft])
+  const reportingCompanyProgressQueryKey = useMemo(() => buildCompanyProgressQueryKey(reportingCompanyProgressDraft), [reportingCompanyProgressDraft])
   const reportingMigrationQueryKey = useMemo(() => buildMigrationSummaryQueryKey(reportingMigrationDraft.status), [reportingMigrationDraft.status])
   const visibleReportingFinancialSummary =
     reportingLoadedQueryKeys.financial === reportingFinancialQueryKey
@@ -2293,6 +2326,10 @@ function App() {
   const visibleReportingAnnualSummary =
     reportingLoadedQueryKeys.annual === reportingAnnualQueryKey
       ? reportingAnnualSummary
+      : null
+  const visibleReportingCompanyProgressSummary =
+    reportingLoadedQueryKeys.companyProgress === reportingCompanyProgressQueryKey
+      ? reportingCompanyProgressSummary
       : null
   const visibleReportingMigrationSummary =
     reportingLoadedQueryKeys.migration === reportingMigrationQueryKey
@@ -2813,6 +2850,10 @@ function App() {
       anio_tributario: '2027',
       empresa_id: '',
     })
+    setReportingCompanyProgressDraft({
+      empresa_id: '',
+      fiscal_year: '2026',
+    })
     setReportingMigrationDraft({
       status: 'open',
     })
@@ -2820,6 +2861,7 @@ function App() {
     setReportingPartnerSummary(null)
     setReportingBooksSummary(null)
     setReportingAnnualSummary(null)
+    setReportingCompanyProgressSummary(null)
     setReportingMigrationSummary(null)
     setReportingLoadedQueryKeys(INITIAL_REPORTING_QUERY_KEYS)
     setIsPatrimonioSnapshotLoading(false)
@@ -5361,6 +5403,22 @@ function App() {
     )
   }
 
+  async function handleFetchCompanyProgressSummary(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const query = new URLSearchParams({
+      empresa_id: reportingCompanyProgressDraft.empresa_id,
+      fiscal_year: reportingCompanyProgressDraft.fiscal_year,
+    })
+    await fetchReportingData<ReportingCompanyAccountingProgress>(
+      'companyProgress',
+      reportingCompanyProgressQueryKey,
+      `/api/v1/reporting/contabilidad/progreso-empresa/?${query.toString()}`,
+      setReportingCompanyProgressSummary,
+      () => setReportingCompanyProgressSummary(null),
+      'Progreso contable por empresa cargado correctamente.',
+    )
+  }
+
   async function handleFetchMigrationSummary(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const query = new URLSearchParams({ status: reportingMigrationDraft.status, refresh: '1' })
@@ -7215,6 +7273,9 @@ function App() {
           reportingAnnualDraft={reportingAnnualDraft}
           setReportingAnnualDraft={setReportingAnnualDraft}
           handleFetchAnnualSummary={handleFetchAnnualSummary}
+          reportingCompanyProgressDraft={reportingCompanyProgressDraft}
+          setReportingCompanyProgressDraft={setReportingCompanyProgressDraft}
+          handleFetchCompanyProgressSummary={handleFetchCompanyProgressSummary}
           reportingMigrationDraft={reportingMigrationDraft}
           setReportingMigrationDraft={setReportingMigrationDraft}
           handleFetchMigrationSummary={handleFetchMigrationSummary}
@@ -7222,6 +7283,7 @@ function App() {
           reportingPartnerSummary={visibleReportingPartnerSummary}
           reportingBooksSummary={visibleReportingBooksSummary}
           reportingAnnualSummary={visibleReportingAnnualSummary}
+          reportingCompanyProgressSummary={visibleReportingCompanyProgressSummary}
           reportingMigrationSummary={visibleReportingMigrationSummary}
           empresas={empresas}
           socios={socios}
