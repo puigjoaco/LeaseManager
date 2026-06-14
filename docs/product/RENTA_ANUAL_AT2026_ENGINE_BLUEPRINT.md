@@ -109,7 +109,10 @@ contratos:
    generacion anual y readiness bloqueante si falta regla aprobada o mapping
    trazable.
 2. `stage6-source-bundle`: congelar fuentes anuales desde cierres/F29/ledger
-   controlados.
+   controlados. Implementado como `AnnualTaxSourceBundle`: modelo, migracion,
+   API/snapshot/admin redactados, hash de payload normalizado, enlace a
+   `ProcesoRentaAnual` y readiness bloqueante si falta bundle congelado o si
+   su metadata queda desalineada.
 3. `stage6-monthly-tax-facts`: crear hechos mensuales anualizables desde F29,
    pagos, liquidaciones y cierres.
 4. `stage6-rli-cpt-skeleton`: estructura RLI/CPT con lineas trazadas y

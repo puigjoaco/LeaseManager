@@ -1,4 +1,5 @@
 import json
+import hashlib
 from datetime import date
 from decimal import Decimal
 from io import StringIO
@@ -34,10 +35,12 @@ from documentos.models import (
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import (
     AmbienteSII,
+    AnnualTaxSourceBundle,
     CapacidadSII,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     DestinoMapeoTributarioAnual,
+    EstadoAnnualTaxSourceBundle,
     EstadoReglaTributariaAnual,
     EstadoGateSII,
     F22PreparacionAnual,
@@ -213,6 +216,35 @@ class Stage6RentaAnualReadinessTests(TestCase):
         )
         return rule_set
 
+    def _create_annual_source_bundle(self, empresa, *, anio_tributario=2026, fiscal_year=2025):
+        source_summary = {
+            'empresa_id': empresa.id,
+            'anio_comercial': fiscal_year,
+            'approved_close_months': list(range(1, 13)),
+            'approved_closes_total': 12,
+            'obligation_months': list(range(1, 13)),
+            'obligations_total': 12,
+            'obligations_total_amount': '120000.00',
+            'f29_preparations_total': 0,
+            'source_scope': 'stage6-controlled',
+        }
+        source_hash = hashlib.sha256(
+            json.dumps(source_summary, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str)
+            .encode('utf-8')
+        ).hexdigest()
+        return AnnualTaxSourceBundle.objects.create(
+            empresa=empresa,
+            anio_tributario=anio_tributario,
+            anio_comercial=fiscal_year,
+            source_kind='snapshot_controlado',
+            source_label='stage6-controlled-v1',
+            authorization_ref='stage6-authorization-v1',
+            responsible_ref='stage6-source-owner-v1',
+            hash_fuentes=source_hash,
+            resumen_fuentes=source_summary,
+            estado=EstadoAnnualTaxSourceBundle.FROZEN,
+        )
+
     def _create_valid_local_matrix(self):
         empresa = self._create_active_empresa()
         config = self._activate_fiscal_config(empresa)
@@ -220,11 +252,23 @@ class Stage6RentaAnualReadinessTests(TestCase):
         ddjj_capability = self._open_capability(empresa, CapacidadSII.DDJJ_PREPARACION, 'ddjj')
         f22_capability = self._open_capability(empresa, CapacidadSII.F22_PREPARACION, 'f22')
         self._create_twelve_approved_closes(empresa)
+        source_bundle = self._create_annual_source_bundle(empresa)
         summary = self._annual_summary()
+        summary['annual_tax_source_bundle'] = {
+            'id': source_bundle.id,
+            'source_kind': source_bundle.source_kind,
+            'source_label': source_bundle.source_label,
+            'hash_fuentes': source_bundle.hash_fuentes,
+            'anio_comercial': source_bundle.anio_comercial,
+            'approved_closes_total': source_bundle.resumen_fuentes['approved_closes_total'],
+            'obligations_total': source_bundle.resumen_fuentes['obligations_total'],
+            'f29_preparations_total': source_bundle.resumen_fuentes['f29_preparations_total'],
+        }
         process = ProcesoRentaAnual.objects.create(
             empresa=empresa,
             anio_tributario=2026,
             estado=EstadoPreparacionTributaria.APPROVED,
+            source_bundle=source_bundle,
             fecha_preparacion=timezone.now(),
             resumen_anual=summary,
             paquete_ddjj_ref='ddjj-package-stage6-controlled',
@@ -367,6 +411,52 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('stage6.source_kind_not_authorized', issue_codes)
+
+    def test_annual_process_without_source_bundle_is_blocking(self):
+        self._create_valid_local_matrix()
+        ProcesoRentaAnual.objects.update(source_bundle=None)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_source_bundle_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_process']['process_source_bundle_missing'], 1)
+
+    def test_invalid_annual_source_bundle_is_blocking_without_sensitive_leak(self):
+        self._create_valid_local_matrix()
+        AnnualTaxSourceBundle.objects.update(
+            source_label='https://sii.example.test/source?token=secret',
+            hash_fuentes='bad-hash',
+            resumen_fuentes={'api_key': 'secret'},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.source_bundle_invalid', issue_codes)
+        self.assertNotIn('sii.example.test', serialized_result)
+        self.assertNotIn('token=secret', serialized_result)
+
+    def test_annual_process_source_bundle_summary_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_source_bundle': {
+                **process.resumen_anual['annual_tax_source_bundle'],
+                'hash_fuentes': 'f' * 64,
+            },
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_source_bundle_summary_mismatch', issue_codes)
 
     def test_annual_process_without_approved_tax_year_ruleset_is_blocking(self):
         self._create_valid_local_matrix()

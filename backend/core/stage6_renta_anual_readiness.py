@@ -21,9 +21,11 @@ from core.state_transition_audit_readiness import count_audit_events_without_tra
 from documentos.models import DocumentoEmitido, EstadoDocumento, TipoDocumental
 from sii.models import (
     AmbienteSII,
+    AnnualTaxSourceBundle,
     CapacidadSII,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
+    EstadoAnnualTaxSourceBundle,
     EstadoReglaTributariaAnual,
     EstadoGateSII,
     F22PreparacionAnual,
@@ -179,6 +181,24 @@ def _collect_process_issues(processes) -> dict[str, int]:
         if not ObligacionTributariaMensual.objects.filter(empresa=process.empresa, anio=fiscal_year).exists():
             counts['annual_obligations_missing'] += 1
 
+        if process.estado in ANNUAL_TRACEABLE_STATES:
+            if not process.source_bundle_id:
+                counts['process_source_bundle_missing'] += 1
+            else:
+                bundle = process.source_bundle
+                if bundle.empresa_id != process.empresa_id or bundle.anio_tributario != process.anio_tributario:
+                    counts['process_source_bundle_mismatch'] += 1
+                if bundle.estado != EstadoAnnualTaxSourceBundle.FROZEN:
+                    counts['process_source_bundle_not_frozen'] += 1
+                bundle_summary = summary.get('annual_tax_source_bundle') if isinstance(summary, dict) else None
+                if not isinstance(bundle_summary, dict):
+                    counts['process_source_bundle_summary_missing'] += 1
+                elif (
+                    bundle_summary.get('id') != bundle.id
+                    or bundle_summary.get('hash_fuentes') != bundle.hash_fuentes
+                ):
+                    counts['process_source_bundle_summary_mismatch'] += 1
+
         if process.estado in ANNUAL_REF_REQUIRED_STATES:
             if not has_text(process.paquete_ddjj_ref):
                 counts['process_ddjj_ref_missing'] += 1
@@ -187,6 +207,17 @@ def _collect_process_issues(processes) -> dict[str, int]:
             if not has_text(process.responsable_revision_ref):
                 counts['process_responsible_ref_missing'] += 1
 
+    return dict(sorted(counts.items()))
+
+
+def _collect_source_bundle_issues(source_bundles, active_fiscal_company_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    invalid_source_bundles = _count_invalid(source_bundles)
+    if invalid_source_bundles:
+        counts['source_bundle_invalid'] = invalid_source_bundles
+    without_fiscal_config = _count_without_active_fiscal_config(source_bundles, active_fiscal_company_ids)
+    if without_fiscal_config:
+        counts['source_bundle_fiscal_config_missing'] = without_fiscal_config
     return dict(sorted(counts.items()))
 
 
@@ -318,9 +349,11 @@ def collect_stage6_renta_anual_readiness(
     approved_closes = CierreMensualContable.objects.filter(estado=EstadoCierreMensual.APPROVED)
     obligations = ObligacionTributariaMensual.objects.all()
 
-    annual_processes = ProcesoRentaAnual.objects.select_related('empresa')
+    annual_processes = ProcesoRentaAnual.objects.select_related('empresa', 'source_bundle')
     process_issues = _collect_process_issues(annual_processes)
     tax_year_rule_issues = _collect_tax_year_rule_issues(annual_processes, active_fiscal_configs)
+    source_bundles = AnnualTaxSourceBundle.objects.select_related('empresa')
+    source_bundle_issues = _collect_source_bundle_issues(source_bundles, active_fiscal_company_ids)
 
     ddjj_preparations = DDJJPreparacionAnual.objects.select_related(
         'empresa',
@@ -493,6 +526,13 @@ def collect_stage6_renta_anual_readiness(
                 'Etapa 6 requiere al menos un ProcesoRentaAnual preparado.',
             )
         )
+    if source_bundles.count() == 0:
+        issues.append(
+            _issue(
+                'stage6.source_bundle_missing',
+                'Etapa 6 requiere AnnualTaxSourceBundle congelado antes de preparar Renta anual.',
+            )
+        )
     if annual_processes_without_fiscal_config:
         issues.append(
             _issue(
@@ -501,6 +541,20 @@ def collect_stage6_renta_anual_readiness(
                 count=annual_processes_without_fiscal_config,
             )
         )
+    for key, code, message in [
+        (
+            'source_bundle_invalid',
+            'stage6.source_bundle_invalid',
+            'Existen AnnualTaxSourceBundle que no pasan validacion de dominio o contienen trazas no permitidas.',
+        ),
+        (
+            'source_bundle_fiscal_config_missing',
+            'stage6.source_bundle_fiscal_config_missing',
+            'Existen AnnualTaxSourceBundle para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+        ),
+    ]:
+        if source_bundle_issues.get(key):
+            issues.append(_issue(code, message, count=source_bundle_issues[key]))
     if approved_closes.count() < 12:
         issues.append(
             _issue(
@@ -606,6 +660,31 @@ def collect_stage6_renta_anual_readiness(
             'process_sensitive_payload',
             'stage6.annual_process_sensitive_payload',
             'ProcesoRentaAnual contiene resumen_anual sensible.',
+        ),
+        (
+            'process_source_bundle_missing',
+            'stage6.process_source_bundle_missing',
+            'ProcesoRentaAnual preparado requiere AnnualTaxSourceBundle congelado.',
+        ),
+        (
+            'process_source_bundle_mismatch',
+            'stage6.process_source_bundle_mismatch',
+            'ProcesoRentaAnual apunta a AnnualTaxSourceBundle de otra empresa o ano tributario.',
+        ),
+        (
+            'process_source_bundle_not_frozen',
+            'stage6.process_source_bundle_not_frozen',
+            'ProcesoRentaAnual apunta a AnnualTaxSourceBundle no congelado.',
+        ),
+        (
+            'process_source_bundle_summary_missing',
+            'stage6.process_source_bundle_summary_missing',
+            'ProcesoRentaAnual debe conservar metadata del AnnualTaxSourceBundle en resumen_anual.',
+        ),
+        (
+            'process_source_bundle_summary_mismatch',
+            'stage6.process_source_bundle_summary_mismatch',
+            'ProcesoRentaAnual conserva metadata de AnnualTaxSourceBundle desalineada con la fuente congelada.',
         ),
         (
             'process_ddjj_ref_sensitive',
@@ -849,6 +928,13 @@ def collect_stage6_renta_anual_readiness(
                 'processes_by_state': _count_by(annual_processes, 'estado'),
                 'without_active_fiscal_config': annual_processes_without_fiscal_config,
                 **process_issues,
+            },
+            'annual_source_bundles': {
+                'bundles_total': source_bundles.count(),
+                'frozen_bundles': source_bundles.filter(estado=EstadoAnnualTaxSourceBundle.FROZEN).count(),
+                'bundles_by_state': _count_by(source_bundles, 'estado'),
+                'bundles_by_source_kind': _count_by(source_bundles, 'source_kind'),
+                **source_bundle_issues,
             },
             'annual_documents': {
                 'ddjj_total': ddjj_preparations.count(),

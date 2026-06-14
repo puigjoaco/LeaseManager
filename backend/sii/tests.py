@@ -1,3 +1,4 @@
+import hashlib
 import json
 from unittest.mock import patch
 
@@ -21,6 +22,7 @@ from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Soci
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 
 from .admin import (
+    AnnualTaxSourceBundleAdmin,
     CapacidadTributariaSIIAdmin,
     DDJJPreparacionAnualAdmin,
     DTEEmitidoAdmin,
@@ -31,15 +33,18 @@ from .admin import (
     TaxYearRuleSetAdmin,
 )
 from .models import (
+    AnnualTaxSourceBundle,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     DestinoMapeoTributarioAnual,
     DTEEmitido,
     EstadoGateSII,
+    EstadoAnnualTaxSourceBundle,
     EstadoReglaTributariaAnual,
     F22PreparacionAnual,
     F29PreparacionMensual,
     ProcesoRentaAnual,
+    SourceKindRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
 )
@@ -273,6 +278,131 @@ class SiiAPITests(APITestCase):
             )
         return rule_set
 
+    def _annual_source_summary(self, fiscal_year=2026):
+        return {
+            'empresa_id': 1,
+            'anio_comercial': fiscal_year,
+            'regimen_tributario': 'EmpresaContabilidadCompletaV1',
+            'moneda_funcional': 'CLP',
+            'approved_close_months': list(range(1, 13)),
+            'approved_closes_total': 12,
+            'obligation_months': list(range(1, 13)),
+            'obligations_total': 12,
+            'obligations_total_amount': '120133.20',
+            'obligations_by_type': ['PPM'],
+            'f29_preparations_total': 0,
+            'f29_traceable_months': [],
+        }
+
+    def _annual_source_hash(self, summary):
+        payload = json.dumps(summary, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str)
+        return hashlib.sha256(payload.encode('utf-8')).hexdigest()
+
+    def test_annual_tax_source_bundle_requires_traceable_frozen_sources(self):
+        empresa = self._create_active_empresa(nombre='AnnualSourceDomainCo', rut='59595959-5')
+        self._activate_fiscal_config(empresa)
+        incomplete_summary = {
+            **self._annual_source_summary(),
+            'empresa_id': empresa.id,
+            'approved_close_months': list(range(1, 12)),
+        }
+        bundle = AnnualTaxSourceBundle(
+            empresa=empresa,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            source_kind=SourceKindRentaAnual.CONTROLLED_SNAPSHOT,
+            source_label='annual-source-controlled-at2027',
+            authorization_ref='annual-source-authorization-at2027',
+            responsible_ref='annual-source-reviewer-at2027',
+            hash_fuentes=self._annual_source_hash(incomplete_summary),
+            resumen_fuentes=incomplete_summary,
+            estado=EstadoAnnualTaxSourceBundle.FROZEN,
+        )
+
+        with self.assertRaises(ValidationError) as incomplete_error:
+            bundle.full_clean()
+
+        self.assertIn('resumen_fuentes', incomplete_error.exception.message_dict)
+
+        complete_summary = {**self._annual_source_summary(), 'empresa_id': empresa.id}
+        bundle.resumen_fuentes = complete_summary
+        bundle.hash_fuentes = 'f' * 64
+        with self.assertRaises(ValidationError) as hash_error:
+            bundle.full_clean()
+        self.assertIn('hash_fuentes', hash_error.exception.message_dict)
+
+        bundle.hash_fuentes = self._annual_source_hash(complete_summary)
+        bundle.full_clean()
+        bundle.save()
+        self.assertEqual(bundle.hash_fuentes, self._annual_source_hash(complete_summary))
+
+    def test_annual_tax_source_bundle_admin_redacts_sensitive_refs(self):
+        empresa = self._create_active_empresa(nombre='AnnualSourceAdminCo', rut='60606060-6')
+        self._activate_fiscal_config(empresa)
+        bundle = AnnualTaxSourceBundle.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            source_kind=SourceKindRentaAnual.LOCAL,
+            source_label='https://sii.example.test/source?token=secret',
+            authorization_ref='Bearer authorization-secret',
+            responsible_ref='https://sii.example.test/responsible?token=secret',
+            resumen_fuentes={'api_key': 'secret'},
+            estado=EstadoAnnualTaxSourceBundle.DRAFT,
+        )
+        bundle_admin = AnnualTaxSourceBundleAdmin(AnnualTaxSourceBundle, AdminSite())
+
+        self.assertEqual(bundle_admin.source_label_redacted(bundle), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(bundle_admin.authorization_ref_redacted(bundle), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(bundle_admin.responsible_ref_redacted(bundle), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret', json.dumps(bundle_admin.resumen_fuentes_redacted(bundle)))
+
+    def test_annual_tax_source_bundle_api_creates_and_redacts_snapshot_refs(self):
+        empresa = self._create_active_empresa(nombre='AnnualSourceApiCo', rut='61616161-6')
+        self._activate_fiscal_config(empresa)
+        summary = {**self._annual_source_summary(), 'empresa_id': empresa.id}
+
+        response = self.client.post(
+            reverse('sii-annual-source-bundle-list'),
+            {
+                'empresa': empresa.id,
+                'anio_tributario': 2027,
+                'anio_comercial': 2026,
+                'source_kind': SourceKindRentaAnual.CONTROLLED_SNAPSHOT,
+                'source_label': 'annual-source-api-at2027',
+                'authorization_ref': 'annual-source-api-authorization-at2027',
+                'responsible_ref': 'annual-source-api-reviewer-at2027',
+                'hash_fuentes': self._annual_source_hash(summary),
+                'resumen_fuentes': summary,
+                'estado': EstadoAnnualTaxSourceBundle.FROZEN,
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        AnnualTaxSourceBundle.objects.filter(pk=response.data['id']).update(
+            source_label='https://sii.example.test/source?token=secret',
+            authorization_ref='Bearer authorization-secret',
+            responsible_ref='https://sii.example.test/responsible?token=secret',
+            resumen_fuentes={
+                'api_key': 'secret',
+                'approved_close_months': list(range(1, 13)),
+                'obligation_months': list(range(1, 13)),
+            },
+        )
+
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        bundle_snapshot = next(
+            item for item in snapshot.data['annual_tax_source_bundles'] if item['id'] == response.data['id']
+        )
+        serialized_snapshot = json.dumps(snapshot.data)
+        self.assertEqual(bundle_snapshot['source_label'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(bundle_snapshot['authorization_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(bundle_snapshot['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_snapshot)
+        self.assertNotIn('authorization-secret', serialized_snapshot)
+
     def test_tax_year_ruleset_and_mapping_require_traceable_non_sensitive_refs(self):
         empresa = self._create_active_empresa(nombre='TaxRuleCo', rut='56565656-5')
         config = self._activate_fiscal_config(empresa)
@@ -406,6 +536,138 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('token=secret', serialized_snapshot)
         self.assertNotIn('reviewer-secret', serialized_snapshot)
 
+    def _valid_source_bundle_summary(self):
+        return {
+            'approved_close_months': list(range(1, 13)),
+            'approved_closes_total': 12,
+            'obligation_months': list(range(1, 13)),
+            'obligations_total': 12,
+            'f29_preparations_total': 0,
+            'source_scope': 'sii-test-controlled',
+        }
+
+    def test_annual_tax_source_bundle_requires_traceable_non_sensitive_refs(self):
+        empresa = self._create_active_empresa(nombre='SourceBundleCo', rut='59595959-5')
+        self._activate_fiscal_config(empresa)
+        bundle = AnnualTaxSourceBundle(
+            empresa=empresa,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            source_kind=SourceKindRentaAnual.CONTROLLED_SNAPSHOT,
+            source_label='https://sii.example.test/source?token=secret',
+            authorization_ref='',
+            responsible_ref='tax-source-owner-controlled',
+            hash_fuentes='bad-hash',
+            resumen_fuentes=self._valid_source_bundle_summary(),
+            estado=EstadoAnnualTaxSourceBundle.FROZEN,
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            bundle.full_clean()
+
+        self.assertIn('source_label', error.exception.message_dict)
+        self.assertIn('authorization_ref', error.exception.message_dict)
+        self.assertIn('hash_fuentes', error.exception.message_dict)
+
+        bundle.source_label = 'source-bundle-at2027-controlled'
+        bundle.authorization_ref = 'source-bundle-authorization-at2027'
+        expected_hash = self._annual_source_hash(self._valid_source_bundle_summary())
+        bundle.hash_fuentes = expected_hash.upper()
+        bundle.full_clean()
+        bundle.save()
+        self.assertEqual(bundle.hash_fuentes, expected_hash)
+
+    def test_annual_tax_source_bundle_admin_redacts_sensitive_refs(self):
+        empresa = self._create_active_empresa(nombre='SourceBundleAdminCo', rut='60606060-6')
+        self._activate_fiscal_config(empresa)
+        bundle = AnnualTaxSourceBundle.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            source_kind=SourceKindRentaAnual.LOCAL,
+            source_label='https://sii.example.test/source?token=secret',
+            authorization_ref='Bearer source-secret',
+            responsible_ref='https://sii.example.test/responsible?token=secret',
+            hash_fuentes='e' * 64,
+            resumen_fuentes={'api_key': 'secret'},
+            estado=EstadoAnnualTaxSourceBundle.DRAFT,
+        )
+        site = AdminSite()
+        bundle_admin = AnnualTaxSourceBundleAdmin(AnnualTaxSourceBundle, site)
+
+        self.assertEqual(bundle_admin.source_label_redacted(bundle), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(bundle_admin.authorization_ref_redacted(bundle), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(bundle_admin.responsible_ref_redacted(bundle), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret', json.dumps(bundle_admin.resumen_fuentes_redacted(bundle)))
+
+    def test_annual_tax_source_bundle_api_creates_and_snapshot_redacts_refs(self):
+        empresa = self._create_active_empresa(nombre='SourceBundleApiCo', rut='61616161-6')
+        self._activate_fiscal_config(empresa)
+        summary = self._valid_source_bundle_summary()
+
+        response = self.client.post(
+            reverse('sii-annual-source-bundle-list'),
+            {
+                'empresa': empresa.id,
+                'anio_tributario': 2027,
+                'anio_comercial': 2026,
+                'source_kind': SourceKindRentaAnual.LOCAL,
+                'source_label': 'source-bundle-api-controlled',
+                'authorization_ref': '',
+                'responsible_ref': 'source-bundle-api-owner',
+                'hash_fuentes': self._annual_source_hash(summary),
+                'resumen_fuentes': summary,
+                'estado': EstadoAnnualTaxSourceBundle.FROZEN,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['source_label'], 'source-bundle-api-controlled')
+        AnnualTaxSourceBundle.objects.filter(pk=response.data['id']).update(
+            source_label='https://sii.example.test/source?token=secret',
+            authorization_ref='Bearer source-secret',
+            responsible_ref='https://sii.example.test/responsible?token=secret',
+            resumen_fuentes={'credential': 'secret'},
+        )
+
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        source_bundle = next(
+            item for item in snapshot.data['annual_tax_source_bundles'] if item['id'] == response.data['id']
+        )
+        serialized_snapshot = json.dumps(snapshot.data)
+        self.assertEqual(source_bundle['source_label'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(source_bundle['authorization_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(source_bundle['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_snapshot)
+        self.assertNotIn('source-secret', serialized_snapshot)
+
+    def test_annual_tax_source_bundle_api_rejects_update_when_frozen(self):
+        empresa = self._create_active_empresa(nombre='SourceBundleFrozenApiCo', rut='62626262-6')
+        self._activate_fiscal_config(empresa)
+        summary = self._valid_source_bundle_summary()
+        bundle = AnnualTaxSourceBundle.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            source_kind=SourceKindRentaAnual.LOCAL,
+            source_label='source-bundle-frozen-controlled',
+            responsible_ref='source-bundle-frozen-owner',
+            hash_fuentes=self._annual_source_hash(summary),
+            resumen_fuentes=summary,
+            estado=EstadoAnnualTaxSourceBundle.FROZEN,
+        )
+
+        response = self.client.patch(
+            reverse('sii-annual-source-bundle-detail', args=[bundle.id]),
+            {'source_label': 'source-bundle-mutated'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estado', response.data)
+
     def _create_monthly_close_and_obligation(self, empresa, estado_preparacion='preparado'):
         close = CierreMensualContable.objects.create(
             empresa=empresa,
@@ -464,6 +726,7 @@ class SiiAPITests(APITestCase):
             reverse('sii-capacidad-list'),
             reverse('sii-dte-list'),
             reverse('sii-dte-generate'),
+            reverse('sii-annual-source-bundle-list'),
         ]
         for url in urls:
             response = client.get(url) if 'generar' not in url else client.post(url, {}, format='json')
@@ -2557,6 +2820,44 @@ class SiiAPITests(APITestCase):
         self.assertEqual(response.data['proceso_renta_anual']['estado'], 'preparado')
         self.assertEqual(response.data['ddjj_preparacion']['estado_preparacion'], 'preparado')
         self.assertEqual(response.data['f22_preparacion']['estado_preparacion'], 'preparado')
+        process = ProcesoRentaAnual.objects.get(pk=response.data['proceso_renta_anual']['id'])
+        self.assertIsNotNone(process.source_bundle_id)
+        self.assertEqual(process.source_bundle.estado, EstadoAnnualTaxSourceBundle.FROZEN)
+        self.assertEqual(process.source_bundle.anio_comercial, 2026)
+        self.assertEqual(process.source_bundle.resumen_fuentes['approved_close_months'], list(range(1, 13)))
+        self.assertEqual(process.source_bundle.resumen_fuentes['obligation_months'], list(range(1, 13)))
+        self.assertEqual(process.resumen_anual['annual_tax_source_bundle']['id'], process.source_bundle_id)
+        self.assertEqual(
+            process.resumen_anual['annual_tax_source_bundle']['hash_fuentes'],
+            process.source_bundle.hash_fuentes,
+        )
+
+    def test_generate_annual_preparation_rejects_source_changes_after_bundle_freeze(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+
+        ObligacionTributariaMensual.objects.filter(
+            empresa=empresa,
+            anio=2026,
+            mes=12,
+            obligacion_tipo='PPM',
+        ).update(monto_calculado='20022.20')
+        response = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('AnnualTaxSourceBundle congelado existente', response.data['detail'])
 
     def test_annual_sii_workflow_prepares_and_updates_ddjj_and_f22(self):
         empresa, _ = self._setup_paid_payment()

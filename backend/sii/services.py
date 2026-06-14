@@ -1,10 +1,20 @@
+import hashlib
+import json
+
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
-from contabilidad.models import EstadoPreparacionTributaria, EstadoRegistro, ObligacionTributariaMensual
+from contabilidad.models import (
+    CierreMensualContable,
+    EstadoCierreMensual,
+    EstadoPreparacionTributaria,
+    EstadoRegistro,
+    ObligacionTributariaMensual,
+)
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 from .models import (
+    AnnualTaxSourceBundle,
     CapacidadSII,
     DDJJPreparacionAnual,
     DTEEmitido,
@@ -15,6 +25,8 @@ from .models import (
     F29PreparacionMensual,
     ProcesoRentaAnual,
     SII_AUTOMATED_REGIME_CODE,
+    EstadoAnnualTaxSourceBundle,
+    SourceKindRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
     TipoDTE,
@@ -343,6 +355,120 @@ def get_approved_tax_year_rule_set(config, anio_tributario):
     return rule_set
 
 
+def _canonical_source_payload(payload):
+    return json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str)
+
+
+def _source_bundle_hash(payload):
+    return hashlib.sha256(_canonical_source_payload(payload).encode('utf-8')).hexdigest()
+
+
+def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
+    approved_closes = CierreMensualContable.objects.filter(
+        empresa=empresa,
+        anio=fiscal_year,
+        estado=EstadoCierreMensual.APPROVED,
+    ).order_by('mes')
+    obligations = ObligacionTributariaMensual.objects.filter(
+        empresa=empresa,
+        anio=fiscal_year,
+    ).order_by('mes', 'obligacion_tipo')
+    f29s = F29PreparacionMensual.objects.filter(
+        empresa=empresa,
+        anio=fiscal_year,
+    ).order_by('mes')
+    obligation_months = sorted(set(obligations.values_list('mes', flat=True)))
+    obligation_total = sum((item.monto_calculado for item in obligations), 0)
+    f29_traceable_states = {
+        EstadoPreparacionTributaria.PREPARED,
+        EstadoPreparacionTributaria.APPROVED,
+        EstadoPreparacionTributaria.OBSERVED,
+        EstadoPreparacionTributaria.RECTIFIED,
+    }
+    return {
+        'empresa_id': empresa.id,
+        'anio_comercial': fiscal_year,
+        'regimen_tributario': config.regimen_tributario.codigo_regimen,
+        'moneda_funcional': config.moneda_funcional,
+        'approved_close_months': list(approved_closes.values_list('mes', flat=True)),
+        'approved_closes_total': approved_closes.count(),
+        'obligation_months': obligation_months,
+        'obligations_total': obligations.count(),
+        'obligations_total_amount': str(obligation_total),
+        'obligations_by_type': sorted(set(obligations.values_list('obligacion_tipo', flat=True))),
+        'f29_preparations_total': f29s.count(),
+        'f29_traceable_months': sorted(
+            set(
+                f29s.filter(estado_preparacion__in=f29_traceable_states)
+                .values_list('mes', flat=True)
+            )
+        ),
+        'tax_year_rule_set': {
+            'id': rule_set.id,
+            'anio_tributario': rule_set.anio_tributario,
+            'regimen_tributario': rule_set.regimen_tributario.codigo_regimen,
+            'version': rule_set.version,
+            'hash_normativo': rule_set.hash_normativo,
+            'active_mapping_count': rule_set.code_mappings.filter(estado=EstadoRegistro.ACTIVE).count(),
+            'mapeos_activos_por_destino': _tax_mapping_counts_by_target(rule_set),
+        },
+    }
+
+
+def freeze_annual_tax_source_bundle(
+    empresa,
+    anio_tributario,
+    config,
+    rule_set,
+    *,
+    source_kind=SourceKindRentaAnual.LOCAL,
+    source_label='',
+    authorization_ref='',
+    responsible_ref='',
+):
+    fiscal_year = anio_tributario - 1
+    summary = build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set)
+    source_label = str(source_label or f'annual-source-{empresa.id}-at{anio_tributario}-{source_kind}').strip()
+    responsible_ref = str(responsible_ref or 'system-annual-source-bundle').strip()
+    hash_fuentes = _source_bundle_hash(summary)
+    bundle = AnnualTaxSourceBundle.objects.filter(
+        empresa=empresa,
+        anio_tributario=anio_tributario,
+        estado=EstadoAnnualTaxSourceBundle.FROZEN,
+    ).first()
+    if bundle is not None:
+        if bundle.hash_fuentes != hash_fuentes:
+            raise ValueError(
+                'AnnualTaxSourceBundle congelado existente no coincide con las fuentes anuales actuales.'
+            )
+        try:
+            bundle.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'AnnualTaxSourceBundle congelado existente no es valido: {reason}') from error
+        return bundle
+
+    bundle = AnnualTaxSourceBundle(
+        empresa=empresa,
+        anio_tributario=anio_tributario,
+    )
+    bundle.anio_comercial = fiscal_year
+    bundle.source_kind = source_kind
+    bundle.source_label = source_label
+    bundle.authorization_ref = str(authorization_ref or '').strip()
+    bundle.responsible_ref = responsible_ref
+    bundle.hash_fuentes = hash_fuentes
+    bundle.resumen_fuentes = summary
+    bundle.estado = EstadoAnnualTaxSourceBundle.FROZEN
+    try:
+        bundle.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxSourceBundle no cumple validacion de dominio: {reason}') from error
+    bundle.save()
+    return bundle
+
+
 def validate_annual_readiness(empresa, anio_tributario):
     config = validate_company_fiscal_readiness(empresa)
     fiscal_year = anio_tributario - 1
@@ -353,7 +479,7 @@ def validate_annual_readiness(empresa, anio_tributario):
     return config, fiscal_year, rule_set
 
 
-def build_annual_summary(empresa, fiscal_year, rule_set):
+def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle):
     obligations = ObligacionTributariaMensual.objects.filter(empresa=empresa, anio=fiscal_year)
     total_obligations = obligations.count()
     total_monto = sum((item.monto_calculado for item in obligations), 0)
@@ -380,16 +506,28 @@ def build_annual_summary(empresa, fiscal_year, rule_set):
             'hash_normativo': rule_set.hash_normativo,
             'mapeos_activos_por_destino': _tax_mapping_counts_by_target(rule_set),
         },
+        'annual_tax_source_bundle': {
+            'id': source_bundle.id,
+            'source_kind': source_bundle.source_kind,
+            'source_label': source_bundle.source_label,
+            'hash_fuentes': source_bundle.hash_fuentes,
+            'anio_comercial': source_bundle.anio_comercial,
+            'approved_closes_total': source_bundle.resumen_fuentes.get('approved_closes_total', 0),
+            'obligations_total': source_bundle.resumen_fuentes.get('obligations_total', 0),
+            'f29_preparations_total': source_bundle.resumen_fuentes.get('f29_preparations_total', 0),
+        },
     }
 
 
 def generate_annual_preparation(empresa, anio_tributario):
     config, fiscal_year, rule_set = validate_annual_readiness(empresa, anio_tributario)
-    summary = build_annual_summary(empresa, fiscal_year, rule_set)
+    source_bundle = freeze_annual_tax_source_bundle(empresa, anio_tributario, config, rule_set)
+    summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle)
     process, _ = ProcesoRentaAnual.objects.get_or_create(
         empresa=empresa,
         anio_tributario=anio_tributario,
     )
+    process.source_bundle = source_bundle
     process.fecha_preparacion = timezone.now()
     process.resumen_anual = summary
     process.estado = EstadoPreparacionTributaria.PREPARED

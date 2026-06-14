@@ -1,3 +1,6 @@
+import hashlib
+import json
+
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
 from django.db.models import Q
@@ -425,6 +428,20 @@ class DestinoMapeoTributarioAnual(models.TextChoices):
     DOSSIER = 'DOSSIER', 'Dossier'
 
 
+class EstadoAnnualTaxSourceBundle(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    FROZEN = 'congelado', 'Congelado'
+    RETIRED = 'retirado', 'Retirado'
+
+
+class SourceKindRentaAnual(models.TextChoices):
+    LOCAL = 'local', 'Local'
+    FIXTURE = 'fixture', 'Fixture'
+    DEMO = 'demo', 'Demo'
+    CONTROLLED_SNAPSHOT = 'snapshot_controlado', 'Snapshot controlado'
+    AUTHORIZED_REAL = 'real_autorizado', 'Real autorizado'
+
+
 def _normalize_hash(value):
     return str(value or '').strip().lower()
 
@@ -432,6 +449,14 @@ def _normalize_hash(value):
 def _is_sha256(value):
     normalized = _normalize_hash(value)
     return len(normalized) == 64 and all(character in '0123456789abcdef' for character in normalized)
+
+
+def _canonical_json_payload(value):
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str)
+
+
+def _payload_hash(value):
+    return hashlib.sha256(_canonical_json_payload(value).encode('utf-8')).hexdigest()
 
 
 class TaxYearRuleSet(OperationalSIITextNormalizationMixin, TimestampedModel):
@@ -560,6 +585,113 @@ class TaxCodeMapping(OperationalSIITextNormalizationMixin, TimestampedModel):
             raise ValidationError(errors)
 
 
+class AnnualTaxSourceBundle(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'source_label',
+        'authorization_ref',
+        'responsible_ref',
+        'hash_fuentes',
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_source_bundles',
+    )
+    anio_tributario = models.PositiveSmallIntegerField()
+    anio_comercial = models.PositiveSmallIntegerField()
+    source_kind = models.CharField(
+        max_length=32,
+        choices=SourceKindRentaAnual.choices,
+        default=SourceKindRentaAnual.LOCAL,
+    )
+    source_label = models.CharField(max_length=255, blank=True)
+    authorization_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    hash_fuentes = models.CharField(max_length=64, blank=True)
+    resumen_fuentes = models.JSONField(default=dict, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualTaxSourceBundle.choices,
+        default=EstadoAnnualTaxSourceBundle.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['empresa_id', '-anio_tributario', 'source_kind', 'source_label']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['empresa', 'anio_tributario', 'source_kind', 'source_label'],
+                name='uniq_annual_tax_source_bundle_label',
+            ),
+            models.UniqueConstraint(
+                fields=['empresa', 'anio_tributario'],
+                condition=Q(estado=EstadoAnnualTaxSourceBundle.FROZEN),
+                name='uniq_annual_tax_source_bundle_frozen',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.empresa_id} AT{self.anio_tributario} {self.source_kind}:{self.source_label}'
+
+    def clean(self):
+        super().clean()
+        self.hash_fuentes = _normalize_hash(self.hash_fuentes)
+        errors = {}
+        expected_commercial_year = self.anio_tributario - 1
+        if self.anio_comercial != expected_commercial_year:
+            errors['anio_comercial'] = (
+                f'anio_comercial debe ser {expected_commercial_year} para AT{self.anio_tributario}.'
+            )
+        _add_non_sensitive_reference_error(errors, self, 'source_label')
+        _add_non_sensitive_reference_error(errors, self, 'authorization_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_payload_error(errors, 'resumen_fuentes', self.resumen_fuentes)
+        if has_text(self.hash_fuentes) and not _is_sha256(self.hash_fuentes):
+            errors['hash_fuentes'] = 'hash_fuentes debe ser SHA-256 hexadecimal de 64 caracteres.'
+
+        if self.estado == EstadoAnnualTaxSourceBundle.FROZEN:
+            _add_active_fiscal_config_error(errors, self, 'AnnualTaxSourceBundle')
+            if not has_text(self.source_label):
+                errors['source_label'] = 'AnnualTaxSourceBundle congelado requiere source_label no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'AnnualTaxSourceBundle congelado requiere responsible_ref no sensible.'
+            if not has_text(self.hash_fuentes):
+                errors['hash_fuentes'] = 'AnnualTaxSourceBundle congelado requiere hash_fuentes.'
+            elif isinstance(self.resumen_fuentes, dict) and self.hash_fuentes != _payload_hash(self.resumen_fuentes):
+                errors['hash_fuentes'] = 'hash_fuentes debe corresponder al resumen_fuentes congelado.'
+            if self.source_kind in {
+                SourceKindRentaAnual.CONTROLLED_SNAPSHOT,
+                SourceKindRentaAnual.AUTHORIZED_REAL,
+            } and not has_text(self.authorization_ref):
+                errors['authorization_ref'] = (
+                    'AnnualTaxSourceBundle evidencial requiere authorization_ref no sensible.'
+                )
+
+            summary = self.resumen_fuentes if isinstance(self.resumen_fuentes, dict) else {}
+            close_months = summary.get('approved_close_months') or []
+            try:
+                normalized_close_months = sorted({int(month) for month in close_months})
+            except (TypeError, ValueError):
+                normalized_close_months = []
+            if normalized_close_months != list(range(1, 13)):
+                errors['resumen_fuentes'] = (
+                    'AnnualTaxSourceBundle congelado requiere doce cierres mensuales aprobados.'
+                )
+            obligation_months = summary.get('obligation_months') or []
+            try:
+                normalized_obligation_months = sorted({int(month) for month in obligation_months})
+            except (TypeError, ValueError):
+                normalized_obligation_months = []
+            if normalized_obligation_months != list(range(1, 13)):
+                _add_error(
+                    errors,
+                    'resumen_fuentes',
+                    'AnnualTaxSourceBundle congelado requiere obligaciones mensuales trazables para los doce meses.',
+                )
+        if errors:
+            raise ValidationError(errors)
+
+
 class ProcesoRentaAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
     operational_text_fields = ('paquete_ddjj_ref', 'borrador_f22_ref', 'responsable_revision_ref')
 
@@ -573,6 +705,13 @@ class ProcesoRentaAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
         max_length=32,
         choices=EstadoPreparacionTributaria.choices,
         default=EstadoPreparacionTributaria.PENDING_DATA,
+    )
+    source_bundle = models.ForeignKey(
+        AnnualTaxSourceBundle,
+        on_delete=models.PROTECT,
+        related_name='procesos_renta_anual',
+        null=True,
+        blank=True,
     )
     fecha_preparacion = models.DateTimeField(null=True, blank=True)
     resumen_anual = models.JSONField(default=dict, blank=True)
@@ -601,6 +740,17 @@ class ProcesoRentaAnual(OperationalSIITextNormalizationMixin, TimestampedModel):
         _add_active_fiscal_config_error(errors, self, 'ProcesoRentaAnual')
         _add_non_sensitive_payload_error(errors, 'resumen_anual', self.resumen_anual)
         _add_annual_summary_year_error(errors, 'resumen_anual', self.resumen_anual, self.anio_tributario)
+        try:
+            source_bundle = self.source_bundle
+        except ObjectDoesNotExist:
+            source_bundle = None
+        if source_bundle is not None:
+            if source_bundle.empresa_id != self.empresa_id:
+                errors['source_bundle'] = 'source_bundle debe pertenecer a la misma empresa del ProcesoRentaAnual.'
+            elif source_bundle.anio_tributario != self.anio_tributario:
+                errors['source_bundle'] = 'source_bundle debe corresponder al mismo anio_tributario del ProcesoRentaAnual.'
+            elif source_bundle.estado != EstadoAnnualTaxSourceBundle.FROZEN:
+                errors['source_bundle'] = 'ProcesoRentaAnual requiere AnnualTaxSourceBundle congelado.'
         if errors:
             raise ValidationError(errors)
 
