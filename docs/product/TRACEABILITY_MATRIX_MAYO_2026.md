@@ -96,6 +96,12 @@ pasado o presente para fuentes revisadas/aprobadas. El bootstrap demo anual usa
 la fecha local de corrida como recuperacion controlada en vez de derivarla del
 ano tributario, evitando evidencia AT futura en escenarios demo.
 
+Nota 2026-06-14: `AnnualTaxDossier.resumen_dossier` queda bajo el mismo
+boundary no autonomo que el export local: no puede declarar formato oficial
+SII, presentacion SII, intento de presentacion ni calculo fiscal final. La
+readiness Etapa 6 clasifica snapshots heredados con flags de cierre como
+brecha bloqueante especifica, aunque el hash del dossier este recalculado.
+
 Nota 2026-06-14: Etapa 6 materializa el skeleton RLI/CPT mediante
 `AnnualTaxWorkbook` y `AnnualTaxWorkbookLine`. La preparacion anual genera
 workbooks RLI y CPT desde `TaxCodeMapping` + `MonthlyTaxFact`, con hashes por

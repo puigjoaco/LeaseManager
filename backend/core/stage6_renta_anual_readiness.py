@@ -669,6 +669,7 @@ def _collect_annual_tax_dossier_issues(dossiers, processes, active_fiscal_compan
                         break
 
         for dossier in process_dossiers:
+            payload = dossier.resumen_dossier if isinstance(dossier.resumen_dossier, dict) else {}
             if not has_text(dossier.responsible_ref):
                 counts['tax_dossier_responsible_missing'] += 1
             if not has_text(dossier.dossier_ref):
@@ -677,6 +678,12 @@ def _collect_annual_tax_dossier_issues(dossiers, processes, active_fiscal_compan
                 counts['tax_dossier_review_required'] += 1
             if dossier.review_state == EstadoAnnualTaxArtifactReview.BLOCKED:
                 counts['tax_dossier_blocked'] += 1
+            if payload.get('official_format') not in (False, None):
+                counts['tax_dossier_official_format_boundary'] += 1
+            if payload.get('sii_submission') not in (False, None) or bool(payload.get('sii_submission_attempted')):
+                counts['tax_dossier_sii_submission_boundary'] += 1
+            if payload.get('final_tax_calculation') not in (False, None):
+                counts['tax_dossier_final_calculation_boundary'] += 1
 
     return dict(sorted(counts.items()))
 
@@ -1546,6 +1553,21 @@ def collect_stage6_renta_anual_readiness(
             'tax_dossier_blocked',
             'stage6.tax_dossier_blocked',
             'AnnualTaxDossier esta bloqueado por artefactos anuales pendientes.',
+        ),
+        (
+            'tax_dossier_official_format_boundary',
+            'stage6.tax_dossier_official_format_boundary',
+            'AnnualTaxDossier no puede declarar formato oficial SII sin gate/certificacion vigente.',
+        ),
+        (
+            'tax_dossier_sii_submission_boundary',
+            'stage6.tax_dossier_sii_submission_boundary',
+            'AnnualTaxDossier no puede registrar presentacion SII desde el flujo local.',
+        ),
+        (
+            'tax_dossier_final_calculation_boundary',
+            'stage6.tax_dossier_final_calculation_boundary',
+            'AnnualTaxDossier no puede declarar calculo fiscal final autonomo.',
         ),
     ]:
         if annual_tax_dossier_issues.get(key):

@@ -186,6 +186,10 @@ sin exponer valores.
   `hash_dossier` alineados. Para tratar un proceso anual como trazable debe
   existir un dossier preparado y su resumen debe coincidir con
   `ProcesoRentaAnual.resumen_anual.annual_tax_dossiers`.
+- `AnnualTaxDossier.resumen_dossier` no puede declarar `official_format`,
+  `sii_submission`, `sii_submission_attempted` ni `final_tax_calculation` como
+  verdaderos. El dossier es expediente revisable, no formato oficial, calculo
+  fiscal final ni evidencia de presentacion SII.
 - Un dossier con warnings o estado `requiere_revision` puede alimentar un
   export local de revision, pero bloquea readiness hasta revision tributaria
   responsable; un dossier `bloqueado` no se convierte en export ni presentacion
