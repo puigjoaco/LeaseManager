@@ -12,6 +12,7 @@ from .models import (
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
+    AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -958,6 +959,71 @@ class AnnualTaxExportAdmin(admin.ModelAdmin):
     @admin.display(description='export_payload')
     def export_payload_redacted(self, obj):
         return _redacted_payload_attr(obj, 'export_payload')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualTaxReviewChecklist)
+class AnnualTaxReviewChecklistAdmin(admin.ModelAdmin):
+    fields = (
+        'empresa',
+        'proceso_renta_anual',
+        'dossier',
+        'annual_export',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+        'anio_tributario',
+        'anio_comercial',
+        'checklist_ref_redacted',
+        'responsible_ref_redacted',
+        'evidence_ref_redacted',
+        'items_total',
+        'completed_items_total',
+        'blockers_total',
+        'warnings_total',
+        'review_payload_redacted',
+        'hash_checklist',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'estado',
+        'items_total',
+        'completed_items_total',
+        'blockers_total',
+        'warnings_total',
+        'checklist_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'estado')
+    search_fields = ('empresa__razon_social',)
+
+    @admin.display(description='checklist_ref')
+    def checklist_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'checklist_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='evidence_ref')
+    def evidence_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'evidence_ref')
+
+    @admin.display(description='review_payload')
+    def review_payload_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'review_payload')
 
     def has_add_permission(self, request):
         return False

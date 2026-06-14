@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico activo; escoger siguiente frente seguro desde `main`. |
-| Fuente exacta | `main` posterior a PR #836 (`stage6-dossier-boundary-flags`) y a esta actualizacion de cursor. |
-| Brecha activa | Ninguna brecha abierta por cursor. El paquete `stage6-dossier-boundary-flags` quedo cerrado: `AnnualTaxDossier.resumen_dossier` no puede declarar formato oficial SII, presentacion SII, intento de presentacion ni calculo fiscal final autonomo. |
-| Motivo de prioridad | Evitar que una reanudacion o compactacion reabra el PR #836 ya cerrado como si todavia faltaran PR, CI o merge. |
-| Worktree | Solo debe quedar el worktree principal de `main`; eliminar worktrees tacticos cerrados. |
-| Rama | `main` tras merge. |
-| Estado | PR #836 mergeado en `main`; validacion local y CI remoto pasaron. No repetir este paquete. |
+| Frente activo | Cerrar `stage6-annual-review-checklist`. |
+| Fuente exacta | Rama tactica `codex/stage6-annual-review-checklist` basada en `main` `9f1b7782` posterior a PR #837. |
+| Brecha activa | `stage6-annual-review-checklist`: falta una entidad/checklist trazable de revision responsable por categorias antes de tratar el dossier/export anual como paquete revisado. |
+| Motivo de prioridad | Completa la separacion entre preparacion mecanica y decision tributaria supervisada: LeaseManager entrega expediente y checklist, no decide la renta final. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-annual-review-checklist` durante el paquete; tras merge debe eliminarse. |
+| Rama | `codex/stage6-annual-review-checklist` durante el paquete; `main` tras merge. |
+| Estado | Validacion local OK; falta PR, CI, merge y limpieza. |
 | Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, formato/certificacion SII vigente, validacion fiscal/oficial, responsable y evidencia no sensible. |
-| Estado al cerrar paquete | `stage6-dossier-boundary-flags` cerrado. El dossier anual preparado no acepta ni deja pasar flags/payloads que declaren formato oficial, presentacion SII o calculo fiscal final autonomo. |
+| Estado al cerrar paquete | `stage6-annual-review-checklist` cerrado. El paquete anual preparado queda conectado a checklist de revision responsable no sensible, con readiness bloqueante si falta, esta incompleto o intenta aprobar sin responsable/evidencia. |
 | Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Reglas tributarias finales, contribuciones y mapping RLI/CPT/DJ/F22 requieren fuente oficial/experta. |
 | Politica de reanudacion | No reabrir EDIG ni goal prompts. Si no hay worktree sucio, continuar por el siguiente frente util que no requiera datos reales, secretos, presentacion SII ni decision tributaria final autonoma. |
-| Siguiente accion | Confirmar `main` limpio y escoger el siguiente frente Stage 6/7 no sensible segun trazabilidad vigente. |
+| Siguiente accion | Crear PR, esperar CI, mergear a main y limpiar worktree/rama. |
 
 ## Actualizacion
 

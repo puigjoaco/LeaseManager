@@ -29,6 +29,7 @@ from .models import (
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
     AnnualTaxExport,
+    AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -42,6 +43,7 @@ from .models import (
     EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
+    EstadoAnnualTaxReviewChecklist,
     EstadoAnnualTaxWorkbook,
     EstadoDTE,
     EstadoGateSII,
@@ -848,6 +850,33 @@ def summarize_annual_tax_exports(process):
         }
     return {
         'total': exports.count(),
+        'ids': sorted(by_id.keys()),
+        'by_id': by_id,
+    }
+
+
+def summarize_annual_tax_review_checklists(process):
+    checklists = AnnualTaxReviewChecklist.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxReviewChecklist.PREPARED,
+    ).order_by('id')
+    by_id = {}
+    for checklist in checklists:
+        by_id[str(checklist.id)] = {
+            'id': checklist.id,
+            'hash_checklist': checklist.hash_checklist,
+            'dossier_id': checklist.dossier_id,
+            'annual_export_id': checklist.annual_export_id,
+            'source_bundle_id': checklist.source_bundle_id,
+            'rule_set_id': checklist.rule_set_id,
+            'artifact_matrix_id': checklist.artifact_matrix_id,
+            'items_total': checklist.items_total,
+            'completed_items_total': checklist.completed_items_total,
+            'blockers_total': checklist.blockers_total,
+            'warnings_total': checklist.warnings_total,
+        }
+    return {
+        'total': checklists.count(),
         'ids': sorted(by_id.keys()),
         'by_id': by_id,
     }
@@ -2101,6 +2130,224 @@ def sync_annual_tax_export(process, rule_set, source_bundle):
     return export
 
 
+def _summary_warning_total(summary, key='by_id'):
+    items = summary.get(key) if isinstance(summary, dict) else {}
+    if not isinstance(items, dict):
+        return 0
+    total = 0
+    for item in items.values():
+        if not isinstance(item, dict):
+            continue
+        try:
+            total += int(item.get('warnings_total') or 0)
+        except (TypeError, ValueError):
+            continue
+    return total
+
+
+def _checklist_item(code, label, status, *, evidence_ref='', details=None):
+    return {
+        'code': code,
+        'label': label,
+        'status': status,
+        'evidence_ref': evidence_ref,
+        'details': details or {},
+    }
+
+
+def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossier, annual_export):
+    process_summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+    monthly_summary = process_summary.get('annual_tax_monthly_facts', {})
+    workbook_summary = process_summary.get('annual_tax_workbooks', {})
+    register_summary = process_summary.get('annual_enterprise_registers', {})
+    real_estate_summary = process_summary.get('annual_real_estate_sections', {})
+    matrix_summary = process_summary.get('annual_tax_artifact_matrices', {})
+    dossier_summary = process_summary.get('annual_tax_dossiers', {})
+    export_summary = process_summary.get('annual_tax_exports', {})
+    matrix = dossier.artifact_matrix
+
+    months = set(monthly_summary.get('months') or []) if isinstance(monthly_summary, dict) else set()
+    workbook_types = set(workbook_summary.get('types') or []) if isinstance(workbook_summary, dict) else set()
+    register_types = set(register_summary.get('types') or []) if isinstance(register_summary, dict) else set()
+    matrix_review_counts = (
+        next(iter(matrix_summary.get('by_id', {}).values()), {}).get('review_state_counts', {})
+        if isinstance(matrix_summary.get('by_id'), dict)
+        else {}
+    )
+    matrix_blocked = int(matrix_review_counts.get(EstadoAnnualTaxArtifactReview.BLOCKED) or 0)
+    matrix_review_required = int(matrix_review_counts.get(EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW) or 0)
+    matrix_warnings = _summary_warning_total(matrix_summary)
+    workbook_warnings = _summary_warning_total(workbook_summary, key='by_type')
+    register_warnings = _summary_warning_total(register_summary, key='by_type')
+    real_estate_warnings = _summary_warning_total(real_estate_summary)
+
+    items = [
+        _checklist_item(
+            'source_bundle_frozen',
+            'AnnualTaxSourceBundle congelado y enlazado',
+            'complete' if source_bundle.estado == EstadoAnnualTaxSourceBundle.FROZEN else 'blocking',
+            evidence_ref=source_bundle.hash_fuentes,
+            details={'source_bundle_id': source_bundle.id, 'source_kind': source_bundle.source_kind},
+        ),
+        _checklist_item(
+            'tax_rules_approved',
+            'Reglas tributarias anuales aprobadas y versionadas',
+            'complete' if rule_set.estado == EstadoReglaTributariaAnual.APPROVED else 'blocking',
+            evidence_ref=rule_set.hash_normativo,
+            details={'rule_set_id': rule_set.id, 'official_source_id': rule_set.official_source_id},
+        ),
+        _checklist_item(
+            'monthly_facts_complete',
+            'Doce hechos tributarios mensuales normalizados',
+            'complete' if set(range(1, 13)).issubset(months) else 'blocking',
+            details={'months': sorted(months), 'total': monthly_summary.get('total') if isinstance(monthly_summary, dict) else 0},
+        ),
+        _checklist_item(
+            'workbooks_rli_cpt',
+            'Workbooks RLI y CPT preparados',
+            'warning' if workbook_warnings else ('complete' if {TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT}.issubset(workbook_types) else 'blocking'),
+            details={'types': sorted(workbook_types), 'warnings_total': workbook_warnings},
+        ),
+        _checklist_item(
+            'enterprise_registers',
+            'Registros empresariales preparados',
+            'warning' if register_warnings else ('complete' if register_types else 'blocking'),
+            details={'types': sorted(register_types), 'warnings_total': register_warnings},
+        ),
+        _checklist_item(
+            'real_estate_support',
+            'Bienes raices y contribuciones trazados como respaldo anual',
+            'warning' if real_estate_warnings else ('complete' if int(real_estate_summary.get('total') or 0) > 0 else 'blocking'),
+            details={'sections_total': real_estate_summary.get('total') if isinstance(real_estate_summary, dict) else 0, 'warnings_total': real_estate_warnings},
+        ),
+        _checklist_item(
+            'artifact_matrix',
+            'Matriz DDJJ/F22 preparada y trazable',
+            'blocking' if matrix_blocked else ('warning' if matrix_review_required or matrix_warnings else 'complete'),
+            evidence_ref=matrix.hash_matriz,
+            details={
+                'artifact_matrix_id': matrix.id,
+                'items_total': matrix.items_total,
+                'ddjj_items_total': matrix.ddjj_items_total,
+                'f22_items_total': matrix.f22_items_total,
+                'warnings_total': matrix_warnings,
+                'review_state_counts': matrix_review_counts,
+            },
+        ),
+        _checklist_item(
+            'dossier_review_package',
+            'Dossier anual preparado para revision responsable',
+            'blocking' if dossier.review_state == EstadoAnnualTaxArtifactReview.BLOCKED else (
+                'warning' if dossier.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW or dossier.warnings_total else 'complete'
+            ),
+            evidence_ref=dossier.hash_dossier,
+            details={'dossier_id': dossier.id, 'review_state': dossier.review_state, 'warnings_total': dossier.warnings_total},
+        ),
+        _checklist_item(
+            'local_export_preview',
+            'Export local controlado preparado sin formato oficial ni presentacion',
+            'blocking' if annual_export.review_state == EstadoAnnualTaxArtifactReview.BLOCKED else (
+                'warning' if annual_export.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW or annual_export.warnings_total else 'complete'
+            ),
+            evidence_ref=annual_export.hash_export,
+            details={'annual_export_id': annual_export.id, 'review_state': annual_export.review_state, 'warnings_total': annual_export.warnings_total},
+        ),
+        _checklist_item(
+            'external_boundary',
+            'Frontera externa mantiene F22 oficial, presentacion SII y calculo final fuera del motor local',
+            'complete' if (
+                annual_export.official_format is False
+                and annual_export.sii_submission is False
+                and annual_export.final_tax_calculation is False
+            ) else 'blocking',
+            details={
+                'official_format': annual_export.official_format,
+                'sii_submission': annual_export.sii_submission,
+                'final_tax_calculation': annual_export.final_tax_calculation,
+                'requires_explicit_submission_authorization': True,
+            },
+        ),
+    ]
+    items_total = len(items)
+    completed_items_total = sum(1 for item in items if item['status'] == 'complete')
+    blockers_total = sum(1 for item in items if item['status'] == 'blocking')
+    warnings_total = sum(1 for item in items if item['status'] == 'warning')
+    return {
+        'empresa_id': process.empresa_id,
+        'proceso_renta_anual_id': process.id,
+        'dossier_id': dossier.id,
+        'annual_export_id': annual_export.id,
+        'source_bundle_id': source_bundle.id,
+        'rule_set_id': rule_set.id,
+        'artifact_matrix_id': matrix.id,
+        'anio_tributario': process.anio_tributario,
+        'anio_comercial': process.anio_tributario - 1,
+        'items_total': items_total,
+        'completed_items_total': completed_items_total,
+        'blockers_total': blockers_total,
+        'warnings_total': warnings_total,
+        'items': items,
+        'component_summaries': {
+            'annual_tax_dossiers': dossier_summary,
+            'annual_tax_exports': export_summary,
+        },
+        'official_format': False,
+        'sii_submission': False,
+        'sii_submission_attempted': False,
+        'final_tax_calculation': False,
+        'requires_responsible_review': True,
+        'leasemanager_boundary': 'preparation_and_evidence_only',
+    }
+
+
+def sync_annual_tax_review_checklist(process, rule_set, source_bundle):
+    dossier = AnnualTaxDossier.objects.get(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxDossier.PREPARED,
+    )
+    annual_export = AnnualTaxExport.objects.get(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxExport.PREPARED,
+        export_kind=TipoAnnualTaxExport.PREVIEW_PACKAGE,
+    )
+    summary = _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossier, annual_export)
+    checklist, _ = AnnualTaxReviewChecklist.objects.update_or_create(
+        proceso_renta_anual=process,
+        defaults={
+            'empresa': process.empresa,
+            'dossier': dossier,
+            'annual_export': annual_export,
+            'source_bundle': source_bundle,
+            'rule_set': rule_set,
+            'artifact_matrix': dossier.artifact_matrix,
+            'anio_tributario': process.anio_tributario,
+            'anio_comercial': process.anio_tributario - 1,
+            'checklist_ref': f'annual-tax-review-checklist-{process.empresa_id}-at{process.anio_tributario}-v1',
+            'responsible_ref': dossier.responsible_ref or process.responsable_revision_ref or 'annual-tax-review-owner',
+            'evidence_ref': f'annual-tax-review-evidence-{process.empresa_id}-at{process.anio_tributario}',
+            'items_total': summary['items_total'],
+            'completed_items_total': summary['completed_items_total'],
+            'blockers_total': summary['blockers_total'],
+            'warnings_total': summary['warnings_total'],
+            'review_payload': summary,
+            'hash_checklist': _source_bundle_hash(summary),
+            'estado': EstadoAnnualTaxReviewChecklist.PREPARED,
+        },
+    )
+    try:
+        checklist.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxReviewChecklist no cumple validacion de dominio: {reason}') from error
+    checklist.save()
+    AnnualTaxReviewChecklist.objects.filter(
+        empresa=process.empresa,
+        anio_tributario=process.anio_tributario,
+        estado=EstadoAnnualTaxReviewChecklist.PREPARED,
+    ).exclude(pk=checklist.pk).update(estado=EstadoAnnualTaxReviewChecklist.RETIRED)
+    return checklist
+
+
 def freeze_annual_tax_source_bundle(
     empresa,
     anio_tributario,
@@ -2236,6 +2483,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=
         summary['annual_tax_artifact_matrices'] = summarize_annual_tax_artifact_matrices(process)
         summary['annual_tax_dossiers'] = summarize_annual_tax_dossiers(process)
         summary['annual_tax_exports'] = summarize_annual_tax_exports(process)
+        summary['annual_tax_review_checklists'] = summarize_annual_tax_review_checklists(process)
     return summary
 
 
@@ -2309,6 +2557,10 @@ def generate_annual_preparation(empresa, anio_tributario):
     process.borrador_f22_ref = f22.borrador_ref
     process.save(update_fields=['paquete_ddjj_ref', 'borrador_f22_ref', 'updated_at'])
     sync_annual_tax_export(process, rule_set, source_bundle)
+    summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
+    process.resumen_anual = summary
+    process.save(update_fields=['resumen_anual', 'updated_at'])
+    sync_annual_tax_review_checklist(process, rule_set, source_bundle)
     summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
     process.resumen_anual = summary
     process.save(update_fields=['resumen_anual', 'updated_at'])

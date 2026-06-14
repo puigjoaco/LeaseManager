@@ -44,6 +44,7 @@ from sii.models import (
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
+    AnnualTaxReviewChecklist,
     AmbienteSII,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
@@ -72,12 +73,14 @@ from sii.services import (
     summarize_annual_tax_artifact_matrices,
     summarize_annual_tax_dossiers,
     summarize_annual_tax_exports,
+    summarize_annual_tax_review_checklists,
     summarize_annual_tax_workbooks,
     sync_annual_enterprise_registers,
     sync_annual_real_estate_section,
     sync_annual_tax_artifact_matrix,
     sync_annual_tax_dossier,
     sync_annual_tax_export,
+    sync_annual_tax_review_checklist,
     sync_annual_tax_workbooks,
     sync_monthly_tax_facts,
 )
@@ -431,6 +434,10 @@ class Stage6RentaAnualReadinessTests(TestCase):
         )
         sync_annual_tax_export(process, rule_set, source_bundle)
         summary['annual_tax_exports'] = summarize_annual_tax_exports(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+        summary['annual_tax_review_checklists'] = summarize_annual_tax_review_checklists(process)
         process.resumen_anual = summary
         process.save(update_fields=['resumen_anual', 'updated_at'])
         self._create_tax_support_document(process)
@@ -845,6 +852,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
     def test_annual_process_without_artifact_matrix_is_blocking(self):
         self._create_valid_local_matrix()
+        AnnualTaxReviewChecklist.objects.all().delete()
         AnnualTaxExport.objects.all().delete()
         AnnualTaxDossier.objects.all().delete()
         AnnualTaxArtifactMatrix.objects.all().delete()
@@ -955,6 +963,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
     def test_annual_process_without_tax_dossier_is_blocking(self):
         self._create_valid_local_matrix()
+        AnnualTaxReviewChecklist.objects.all().delete()
         AnnualTaxExport.objects.all().delete()
         AnnualTaxDossier.objects.all().delete()
 
@@ -1100,6 +1109,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
     def test_annual_process_without_tax_export_is_blocking(self):
         self._create_valid_local_matrix()
+        AnnualTaxReviewChecklist.objects.all().delete()
         AnnualTaxExport.objects.all().delete()
 
         result = self._collect_with_final_refs()
@@ -1155,6 +1165,104 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('api_key', serialized_result)
         self.assertNotIn('tax-export-secret', serialized_result)
+
+    def test_annual_process_without_tax_review_checklist_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualTaxReviewChecklist.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_tax_review_checklist_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_tax_review_checklists']['checklists_total'], 0)
+
+    def test_tax_review_checklist_summary_hash_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        summary = dict(process.resumen_anual)
+        checklist_summary = dict(summary['annual_tax_review_checklists'])
+        by_id = dict(checklist_summary['by_id'])
+        checklist_id = next(iter(by_id.keys()))
+        item_summary = dict(by_id[checklist_id])
+        item_summary['hash_checklist'] = 'e' * 64
+        by_id[checklist_id] = item_summary
+        checklist_summary['by_id'] = by_id
+        summary['annual_tax_review_checklists'] = checklist_summary
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_tax_review_checklist_summary_mismatch', issue_codes)
+
+    def test_invalid_tax_review_checklist_is_blocking_without_leak(self):
+        self._create_valid_local_matrix()
+        AnnualTaxReviewChecklist.objects.update(
+            checklist_ref='https://sii.example.test/checklist?token=secret',
+            responsible_ref='Bearer tax-checklist-secret',
+            evidence_ref='https://sii.example.test/evidence?token=secret',
+            review_payload={'api_key': 'secret-tax-checklist'},
+            hash_checklist='not-a-sha',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_review_checklist_invalid', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('api_key', serialized_result)
+        self.assertNotIn('tax-checklist-secret', serialized_result)
+
+    def test_tax_review_checklist_boundary_flags_are_blocking(self):
+        self._create_valid_local_matrix()
+        checklist = AnnualTaxReviewChecklist.objects.get()
+        process = checklist.proceso_renta_anual
+        review_payload = dict(checklist.review_payload)
+        review_payload.update(
+            {
+                'official_format': True,
+                'sii_submission': True,
+                'sii_submission_attempted': True,
+                'final_tax_calculation': True,
+            }
+        )
+        hash_checklist = hashlib.sha256(
+            json.dumps(
+                review_payload,
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        AnnualTaxReviewChecklist.objects.filter(pk=checklist.pk).update(
+            review_payload=review_payload,
+            hash_checklist=hash_checklist,
+        )
+        process_summary = dict(process.resumen_anual)
+        checklist_process_summary = dict(process_summary['annual_tax_review_checklists'])
+        by_id = dict(checklist_process_summary['by_id'])
+        item_summary = dict(by_id[str(checklist.id)])
+        item_summary['hash_checklist'] = hash_checklist
+        by_id[str(checklist.id)] = item_summary
+        checklist_process_summary['by_id'] = by_id
+        process_summary['annual_tax_review_checklists'] = checklist_process_summary
+        process.resumen_anual = process_summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_review_checklist_invalid', issue_codes)
+        self.assertIn('stage6.tax_review_checklist_official_format_boundary', issue_codes)
+        self.assertIn('stage6.tax_review_checklist_sii_submission_boundary', issue_codes)
+        self.assertIn('stage6.tax_review_checklist_final_calculation_boundary', issue_codes)
 
     def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
         self._create_valid_local_matrix()

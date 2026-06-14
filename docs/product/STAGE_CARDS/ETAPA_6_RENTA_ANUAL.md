@@ -108,6 +108,12 @@ dossier y la matriz DDJJ/F22 en un payload hasheado, con refs no sensibles,
 responsable, conteos DDJJ/F22 y flags obligatorios `official_format=false`,
 `sii_submission=false` y `final_tax_calculation=false`. Es una salida revisable
 del motor anual, no un formato oficial SII ni una presentacion.
+`AnnualTaxReviewChecklist` materializa la revision responsable previa a
+cualquier aprobacion: toma dossier, export local, source bundle, rule set y
+matriz DDJJ/F22, arma items de control por categoria, conserva refs no
+sensibles, evidencia, conteos y hash. El checklist no decide la renta final ni
+declara formato oficial, presentacion SII o calculo fiscal autonomo; solo deja
+preparado un paquete auditable para responsable experto/oficial.
 `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` fija la matriz de brechas
 oficiales: DTE queda como integracion tecnica separada bajo gate; F29, DDJJ,
 DJ1847/RLI/CPT, F22, bienes raices/contribuciones y automatizacion por
@@ -201,6 +207,17 @@ sin exponer valores.
 - `AnnualTaxExport` bloquea readiness si falta, si esta desalineado, si contiene
   refs/payloads sensibles, si hay revision pendiente o si intenta declarar
   formato oficial SII, presentacion SII o calculo fiscal final autonomo.
+- `AnnualTaxReviewChecklist` preparado requiere proceso anual, dossier, export
+  local, source bundle, rule set y matriz DDJJ/F22 coherentes; refs no
+  sensibles, responsable, evidencia, `review_payload`, `hash_checklist`,
+  conteos de items, warnings y bloqueos alineados. Para tratar un proceso anual
+  como trazable debe existir checklist preparado y su resumen debe coincidir
+  con `ProcesoRentaAnual.resumen_anual.annual_tax_review_checklists`.
+- `AnnualTaxReviewChecklist.review_payload` no puede declarar
+  `official_format`, `sii_submission`, `sii_submission_attempted` ni
+  `final_tax_calculation` como verdaderos. Si el checklist conserva items
+  incompletos, warnings o bloqueos, readiness exige revision responsable antes
+  de cualquier cierre.
 - La matriz `stage6-official-source-gaps` debe mantenerse alineada con fuentes
   SII vigentes antes de promover cualquier warning de regla, medio DDJJ,
   mapping DJ1847/RLI/CPT, contribucion o formato F22 a estado cerrable.
@@ -228,6 +245,11 @@ sin exponer valores.
   DDJJ/F22 locales. La readiness bloquea procesos trazables sin export/preview
   controlado, con resumen desalineado, invalidos, refs faltantes o cualquier
   intento de presentacion/formato oficial/calculo final.
+- `generate_annual_preparation()` sincroniza `AnnualTaxReviewChecklist` despues
+  del export local controlado. La readiness bloquea procesos trazables sin
+  checklist, con resumen desalineado, invalidos, refs/evidencia faltantes,
+  items incompletos, warnings, bloqueos o cualquier intento de formato oficial,
+  presentacion SII o calculo final autonomo.
 - Responsable de revision anual trazado antes de tratar el paquete como
   aprobado.
 - Documentos generados desde datos trazables.
@@ -371,6 +393,10 @@ sin exponer valores.
 - La API/snapshot/admin de SII exponen `AnnualTaxExport` con source,
   responsable, export ref y payload anual redactados; el admin es solo lectura
   y no existe endpoint para presentar a SII desde esta capa.
+- La API/snapshot/admin de SII exponen `AnnualTaxReviewChecklist` con checklist
+  ref, responsable, evidencia y payload anual redactados; el admin es solo
+  lectura para preservar que la checklist proviene del motor anual y no de una
+  edicion manual opaca.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe
