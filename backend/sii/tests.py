@@ -33,6 +33,7 @@ from .admin import (
     AnnualTaxDossierAdmin,
     AnnualTaxExportAdmin,
     AnnualTaxOfficialSourceAdmin,
+    AnnualTaxReviewChecklistAdmin,
     AnnualTaxSourceBundleAdmin,
     AnnualTaxWorkbookAdmin,
     AnnualTaxWorkbookLineAdmin,
@@ -56,6 +57,7 @@ from .models import (
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
+    AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -3160,6 +3162,27 @@ class SiiAPITests(APITestCase):
         self.assertFalse(export_summary['official_format'])
         self.assertFalse(export_summary['sii_submission'])
         self.assertFalse(export_summary['final_tax_calculation'])
+        review_checklists = AnnualTaxReviewChecklist.objects.filter(proceso_renta_anual=process)
+        self.assertEqual(review_checklists.count(), 1)
+        review_checklist = review_checklists.get()
+        self.assertEqual(review_checklist.dossier_id, dossier.id)
+        self.assertEqual(review_checklist.annual_export_id, annual_export.id)
+        self.assertEqual(review_checklist.source_bundle_id, process.source_bundle_id)
+        self.assertEqual(review_checklist.rule_set_id, dossier.rule_set_id)
+        self.assertEqual(review_checklist.artifact_matrix_id, artifact_matrices.get().id)
+        self.assertEqual(review_checklist.items_total, review_checklist.completed_items_total)
+        self.assertEqual(review_checklist.blockers_total, 0)
+        self.assertEqual(review_checklist.warnings_total, 0)
+        self.assertFalse(review_checklist.review_payload['official_format'])
+        self.assertFalse(review_checklist.review_payload['sii_submission'])
+        self.assertFalse(review_checklist.review_payload['sii_submission_attempted'])
+        self.assertFalse(review_checklist.review_payload['final_tax_calculation'])
+        self.assertEqual(process.resumen_anual['annual_tax_review_checklists']['total'], 1)
+        checklist_summary = next(iter(process.resumen_anual['annual_tax_review_checklists']['by_id'].values()))
+        self.assertEqual(checklist_summary['hash_checklist'], review_checklist.hash_checklist)
+        self.assertEqual(checklist_summary['dossier_id'], dossier.id)
+        self.assertEqual(checklist_summary['annual_export_id'], annual_export.id)
+        self.assertEqual(checklist_summary['items_total'], review_checklist.items_total)
 
         monthly_facts_response = self.client.get(reverse('sii-monthly-tax-fact-list'))
         self.assertEqual(monthly_facts_response.status_code, status.HTTP_200_OK)
@@ -3174,6 +3197,7 @@ class SiiAPITests(APITestCase):
         artifact_matrix_item_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-item-list'))
         dossier_response = self.client.get(reverse('sii-annual-tax-dossier-list'))
         export_response = self.client.get(reverse('sii-annual-tax-export-list'))
+        checklist_response = self.client.get(reverse('sii-annual-tax-review-checklist-list'))
         self.assertEqual(workbook_response.status_code, status.HTTP_200_OK)
         self.assertEqual(workbook_line_response.status_code, status.HTTP_200_OK)
         self.assertEqual(enterprise_register_response.status_code, status.HTTP_200_OK)
@@ -3184,6 +3208,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(artifact_matrix_item_response.status_code, status.HTTP_200_OK)
         self.assertEqual(dossier_response.status_code, status.HTTP_200_OK)
         self.assertEqual(export_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(checklist_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(workbook_response.data), 2)
         self.assertEqual(len(workbook_line_response.data), 2)
         self.assertEqual(len(enterprise_register_response.data), 4)
@@ -3194,6 +3219,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(len(artifact_matrix_item_response.data), artifact_items.count())
         self.assertEqual(len(dossier_response.data), 1)
         self.assertEqual(len(export_response.data), 1)
+        self.assertEqual(len(checklist_response.data), 1)
         snapshot = self.client.get(reverse('sii-snapshot'))
         self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
         self.assertEqual(len(snapshot.data['monthly_tax_facts']), 12)
@@ -3207,6 +3233,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(len(snapshot.data['annual_tax_artifact_matrix_items']), artifact_items.count())
         self.assertEqual(len(snapshot.data['annual_tax_dossiers']), 1)
         self.assertEqual(len(snapshot.data['annual_tax_exports']), 1)
+        self.assertEqual(len(snapshot.data['annual_tax_review_checklists']), 1)
 
     def test_real_estate_item_preserves_frozen_snapshot_after_property_master_changes(self):
         empresa, _ = self._setup_paid_payment()
@@ -3683,6 +3710,57 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('token=secret', serialized_payload)
         self.assertNotIn('export-secret', serialized_payload)
         self.assertNotIn('secret-export-value', serialized_payload)
+
+    def test_tax_review_checklist_admin_and_api_redact_sensitive_payloads(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        checklist = AnnualTaxReviewChecklist.objects.get(empresa=empresa, anio_tributario=2027)
+        AnnualTaxReviewChecklist.objects.filter(pk=checklist.pk).update(
+            checklist_ref='https://sii.example.test/checklist?token=secret',
+            responsible_ref='Bearer checklist-secret',
+            evidence_ref='https://sii.example.test/evidence?token=secret',
+            review_payload={'api_key': 'secret-checklist-value'},
+        )
+        checklist.refresh_from_db()
+        checklist_admin = AnnualTaxReviewChecklistAdmin(AnnualTaxReviewChecklist, AdminSite())
+
+        self.assertEqual(checklist_admin.checklist_ref_redacted(checklist), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(checklist_admin.responsible_ref_redacted(checklist), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(checklist_admin.evidence_ref_redacted(checklist), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-checklist-value', json.dumps(checklist_admin.review_payload_redacted(checklist)))
+
+        checklist_response = self.client.get(reverse('sii-annual-tax-review-checklist-list'))
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        serialized_payload = json.dumps(
+            {
+                'checklists': checklist_response.data,
+                'snapshot': snapshot.data,
+            },
+            default=str,
+        )
+        self.assertEqual(checklist_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        checklist_data = next(entry for entry in checklist_response.data if entry['id'] == checklist.id)
+        snapshot_checklist_data = next(
+            entry for entry in snapshot.data['annual_tax_review_checklists'] if entry['id'] == checklist.id
+        )
+        self.assertEqual(checklist_data['checklist_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(checklist_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(checklist_data['evidence_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_checklist_data['checklist_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_checklist_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_checklist_data['evidence_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_payload)
+        self.assertNotIn('checklist-secret', serialized_payload)
+        self.assertNotIn('secret-checklist-value', serialized_payload)
 
     def test_generate_annual_preparation_rejects_source_changes_after_bundle_freeze(self):
         empresa, _ = self._setup_paid_payment()

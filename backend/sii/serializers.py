@@ -17,6 +17,7 @@ from .models import (
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
+    AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -612,6 +613,39 @@ class AnnualTaxExportSerializer(RedactSensitiveSiiFieldsMixin, serializers.Model
             'final_tax_calculation',
             'export_payload',
             'hash_export',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class AnnualTaxReviewChecklistSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('checklist_ref', 'responsible_ref', 'evidence_ref')
+    redacted_payload_fields = ('review_payload',)
+
+    class Meta:
+        model = AnnualTaxReviewChecklist
+        fields = (
+            'id',
+            'empresa',
+            'proceso_renta_anual',
+            'dossier',
+            'annual_export',
+            'source_bundle',
+            'rule_set',
+            'artifact_matrix',
+            'anio_tributario',
+            'anio_comercial',
+            'checklist_ref',
+            'responsible_ref',
+            'evidence_ref',
+            'items_total',
+            'completed_items_total',
+            'blockers_total',
+            'warnings_total',
+            'review_payload',
+            'hash_checklist',
             'estado',
             'created_at',
             'updated_at',

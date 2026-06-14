@@ -531,6 +531,12 @@ class EstadoAnnualTaxExport(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class EstadoAnnualTaxReviewChecklist(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparado', 'Preparado'
+    RETIRED = 'retirado', 'Retirado'
+
+
 class TipoAnnualTaxExport(models.TextChoices):
     PREVIEW_PACKAGE = 'preview_package', 'Preview package'
 
@@ -2698,6 +2704,213 @@ class AnnualTaxExport(OperationalSIITextNormalizationMixin, TimestampedModel):
                 errors['hash_export'] = 'AnnualTaxExport preparado requiere hash_export.'
             if self.target_items_total <= 0:
                 errors['target_items_total'] = 'AnnualTaxExport preparado requiere items DDJJ/F22 trazables.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxReviewChecklist(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'checklist_ref',
+        'responsible_ref',
+        'evidence_ref',
+        'hash_checklist',
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_review_checklists',
+    )
+    proceso_renta_anual = models.ForeignKey(
+        'sii.ProcesoRentaAnual',
+        on_delete=models.PROTECT,
+        related_name='tax_review_checklists',
+    )
+    dossier = models.ForeignKey(
+        AnnualTaxDossier,
+        on_delete=models.PROTECT,
+        related_name='review_checklists',
+    )
+    annual_export = models.ForeignKey(
+        AnnualTaxExport,
+        on_delete=models.PROTECT,
+        related_name='review_checklists',
+    )
+    source_bundle = models.ForeignKey(
+        AnnualTaxSourceBundle,
+        on_delete=models.PROTECT,
+        related_name='tax_review_checklists',
+    )
+    rule_set = models.ForeignKey(
+        TaxYearRuleSet,
+        on_delete=models.PROTECT,
+        related_name='tax_review_checklists',
+    )
+    artifact_matrix = models.ForeignKey(
+        AnnualTaxArtifactMatrix,
+        on_delete=models.PROTECT,
+        related_name='tax_review_checklists',
+    )
+    anio_tributario = models.PositiveSmallIntegerField()
+    anio_comercial = models.PositiveSmallIntegerField()
+    checklist_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    evidence_ref = models.CharField(max_length=255, blank=True)
+    items_total = models.PositiveIntegerField(default=0)
+    completed_items_total = models.PositiveIntegerField(default=0)
+    blockers_total = models.PositiveIntegerField(default=0)
+    warnings_total = models.PositiveIntegerField(default=0)
+    review_payload = models.JSONField(default=dict, blank=True)
+    hash_checklist = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualTaxReviewChecklist.choices,
+        default=EstadoAnnualTaxReviewChecklist.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['empresa_id', '-anio_tributario', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['proceso_renta_anual'],
+                name='uniq_annual_tax_review_checklist_process',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Checklist renta {self.empresa_id} AT{self.anio_tributario}'
+
+    def clean(self):
+        super().clean()
+        self.hash_checklist = _normalize_hash(self.hash_checklist)
+        errors = {}
+        expected_commercial_year = self.anio_tributario - 1
+        if self.anio_comercial != expected_commercial_year:
+            errors['anio_comercial'] = (
+                f'anio_comercial debe ser {expected_commercial_year} para AT{self.anio_tributario}.'
+            )
+        _add_non_sensitive_reference_error(errors, self, 'checklist_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_reference_error(errors, self, 'evidence_ref')
+        _add_non_sensitive_payload_error(errors, 'review_payload', self.review_payload)
+        if has_text(self.hash_checklist) and not _is_sha256(self.hash_checklist):
+            errors['hash_checklist'] = 'hash_checklist debe ser SHA-256 hexadecimal de 64 caracteres.'
+        if self.completed_items_total > self.items_total:
+            errors['completed_items_total'] = 'completed_items_total no puede superar items_total.'
+
+        try:
+            process = self.proceso_renta_anual
+        except ObjectDoesNotExist:
+            process = None
+        if process is not None:
+            if process.empresa_id != self.empresa_id:
+                errors['proceso_renta_anual'] = 'El proceso anual debe pertenecer a la misma empresa del checklist.'
+            elif process.anio_tributario != self.anio_tributario:
+                errors['proceso_renta_anual'] = 'El proceso anual debe corresponder al mismo anio_tributario.'
+            if process.source_bundle_id and process.source_bundle_id != self.source_bundle_id:
+                errors['source_bundle'] = 'El checklist debe usar el mismo AnnualTaxSourceBundle del proceso anual.'
+
+        try:
+            dossier = self.dossier
+        except ObjectDoesNotExist:
+            dossier = None
+        if dossier is not None:
+            if dossier.empresa_id != self.empresa_id:
+                errors['dossier'] = 'AnnualTaxDossier debe pertenecer a la misma empresa del checklist.'
+            elif dossier.proceso_renta_anual_id != self.proceso_renta_anual_id:
+                errors['dossier'] = 'AnnualTaxDossier debe corresponder al mismo proceso anual.'
+            elif dossier.anio_tributario != self.anio_tributario:
+                errors['dossier'] = 'AnnualTaxDossier debe corresponder al mismo anio_tributario.'
+            elif dossier.estado != EstadoAnnualTaxDossier.PREPARED:
+                errors['dossier'] = 'AnnualTaxReviewChecklist requiere AnnualTaxDossier preparado.'
+
+        try:
+            annual_export = self.annual_export
+        except ObjectDoesNotExist:
+            annual_export = None
+        if annual_export is not None:
+            if annual_export.empresa_id != self.empresa_id:
+                errors['annual_export'] = 'AnnualTaxExport debe pertenecer a la misma empresa del checklist.'
+            elif annual_export.proceso_renta_anual_id != self.proceso_renta_anual_id:
+                errors['annual_export'] = 'AnnualTaxExport debe corresponder al mismo proceso anual.'
+            elif annual_export.anio_tributario != self.anio_tributario:
+                errors['annual_export'] = 'AnnualTaxExport debe corresponder al mismo anio_tributario.'
+            elif annual_export.estado != EstadoAnnualTaxExport.PREPARED:
+                errors['annual_export'] = 'AnnualTaxReviewChecklist requiere AnnualTaxExport preparado.'
+            elif annual_export.dossier_id != self.dossier_id:
+                errors['annual_export'] = 'AnnualTaxExport debe apuntar al mismo dossier del checklist.'
+
+        for field_name, related_object, expected_state, message in (
+            ('source_bundle', getattr(self, 'source_bundle', None), EstadoAnnualTaxSourceBundle.FROZEN, 'AnnualTaxSourceBundle congelado'),
+            ('rule_set', getattr(self, 'rule_set', None), EstadoReglaTributariaAnual.APPROVED, 'TaxYearRuleSet aprobado'),
+            ('artifact_matrix', getattr(self, 'artifact_matrix', None), EstadoAnnualTaxArtifactMatrix.PREPARED, 'AnnualTaxArtifactMatrix preparada'),
+        ):
+            try:
+                obj = related_object
+            except ObjectDoesNotExist:
+                obj = None
+            if obj is None:
+                continue
+            if getattr(obj, 'anio_tributario', self.anio_tributario) != self.anio_tributario:
+                errors[field_name] = f'{message} debe corresponder al mismo anio_tributario.'
+            elif getattr(obj, 'estado', None) != expected_state:
+                errors[field_name] = f'AnnualTaxReviewChecklist requiere {message}.'
+
+        if isinstance(self.review_payload, dict):
+            identity_errors = []
+            for key, expected in (
+                ('empresa_id', self.empresa_id),
+                ('proceso_renta_anual_id', self.proceso_renta_anual_id),
+                ('dossier_id', self.dossier_id),
+                ('annual_export_id', self.annual_export_id),
+                ('source_bundle_id', self.source_bundle_id),
+                ('rule_set_id', self.rule_set_id),
+                ('artifact_matrix_id', self.artifact_matrix_id),
+                ('anio_tributario', self.anio_tributario),
+                ('anio_comercial', self.anio_comercial),
+                ('items_total', self.items_total),
+                ('completed_items_total', self.completed_items_total),
+                ('blockers_total', self.blockers_total),
+                ('warnings_total', self.warnings_total),
+            ):
+                value = self.review_payload.get(key)
+                if value is None:
+                    continue
+                try:
+                    matches = int(value) == int(expected)
+                except (TypeError, ValueError):
+                    matches = False
+                if not matches:
+                    identity_errors.append(key)
+            if identity_errors:
+                errors['review_payload'] = (
+                    'review_payload debe coincidir con empresa, proceso, dossier, export, fuente, regla, matriz, anio y totales.'
+                )
+            for key in ('official_format', 'sii_submission', 'final_tax_calculation'):
+                if self.review_payload.get(key) not in (False, None):
+                    _add_error(errors, 'review_payload', 'Checklist anual no declara formato oficial, presentacion SII ni calculo fiscal final.')
+            if self.review_payload.get('sii_submission_attempted'):
+                _add_error(errors, 'review_payload', 'Checklist anual no registra intentos de presentacion SII.')
+            expected_hash = _payload_hash(self.review_payload)
+            if self.hash_checklist and self.hash_checklist != expected_hash:
+                errors['hash_checklist'] = 'hash_checklist debe corresponder al review_payload.'
+        elif self.review_payload:
+            errors['review_payload'] = 'review_payload debe ser un objeto JSON.'
+
+        if self.estado == EstadoAnnualTaxReviewChecklist.PREPARED:
+            _add_active_fiscal_config_error(errors, self, 'AnnualTaxReviewChecklist')
+            if not has_text(self.checklist_ref):
+                errors['checklist_ref'] = 'AnnualTaxReviewChecklist preparado requiere checklist_ref no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'AnnualTaxReviewChecklist preparado requiere responsible_ref no sensible.'
+            if not has_text(self.evidence_ref):
+                errors['evidence_ref'] = 'AnnualTaxReviewChecklist preparado requiere evidence_ref no sensible.'
+            if not self.review_payload:
+                errors['review_payload'] = 'AnnualTaxReviewChecklist preparado requiere review_payload.'
+            if not has_text(self.hash_checklist):
+                errors['hash_checklist'] = 'AnnualTaxReviewChecklist preparado requiere hash_checklist.'
+            if self.items_total <= 0:
+                errors['items_total'] = 'AnnualTaxReviewChecklist preparado requiere items de revision.'
         if errors:
             raise ValidationError(errors)
 

@@ -113,8 +113,10 @@ un export local en presentacion oficial.
    respaldo SII/experto y mantener warnings hasta aprobacion.
 5. `stage6-f22-official-export-format`: evaluar formato/certificacion F22 solo
    con material oficial, casos controlados y autorizacion.
-6. `stage6-annual-review-checklist`: checklist de revision responsable por
-   regimen antes de marcar cualquier paquete como aprobado.
+6. `stage6-annual-review-checklist`: materializado como
+   `AnnualTaxReviewChecklist` para exigir revision responsable por regimen,
+   evidencia no sensible y frontera explicita antes de tratar cualquier
+   dossier/export anual como revisado.
 
 ## Herramienta local
 

@@ -61,6 +61,14 @@ del resumen mensual y refs no sensibles. La readiness bloquea procesos anuales
 trazables sin doce hechos mensuales normalizados o con resumen mensual
 desalineado, manteniendo el camino anual en capas antes de RLI/CPT/F22.
 
+Nota 2026-06-14: Etapa 6 agrega `AnnualTaxReviewChecklist` como frontera
+auditable entre preparacion mecanica y decision tributaria supervisada. El
+checklist resume dossier, export local, fuentes, reglas, matriz DDJJ/F22 e
+items de control con hash, responsable y evidencia no sensible. No declara
+formato oficial, presentacion SII ni calculo fiscal final; readiness bloquea
+procesos trazables sin checklist, con resumen desalineado, items incompletos,
+warnings/bloqueos o payloads que crucen esa frontera.
+
 Nota 2026-06-14: `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` consolida las
 fuentes oficiales y brechas externas de Etapa 6. DTE queda como integracion
 tecnica posible bajo gate propio; F29, DDJJ, DJ1847/RLI/CPT, F22, bienes

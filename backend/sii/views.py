@@ -20,6 +20,7 @@ from .models import (
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
+    AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -42,6 +43,7 @@ from .serializers import (
     AnnualTaxExportSerializer,
     AnnualGenerateSerializer,
     AnnualTaxOfficialSourceSerializer,
+    AnnualTaxReviewChecklistSerializer,
     AnnualStatusSerializer,
     AnnualTaxSourceBundleSerializer,
     AnnualTaxWorkbookLineSerializer,
@@ -288,6 +290,19 @@ class SiiSnapshotView(APIView):
                 'empresa',
                 'proceso_renta_anual',
                 'dossier',
+                'source_bundle',
+                'rule_set',
+                'artifact_matrix',
+            ).order_by('-anio_tributario', 'empresa_id', 'id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        annual_tax_review_checklists = scope_queryset_for_access(
+            AnnualTaxReviewChecklist.objects.select_related(
+                'empresa',
+                'proceso_renta_anual',
+                'dossier',
+                'annual_export',
                 'source_bundle',
                 'rule_set',
                 'artifact_matrix',
@@ -657,6 +672,31 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in annual_tax_exports
+                ],
+                'annual_tax_review_checklists': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'proceso_renta_anual': item.proceso_renta_anual_id,
+                        'dossier': item.dossier_id,
+                        'annual_export': item.annual_export_id,
+                        'source_bundle': item.source_bundle_id,
+                        'rule_set': item.rule_set_id,
+                        'artifact_matrix': item.artifact_matrix_id,
+                        'anio_tributario': item.anio_tributario,
+                        'anio_comercial': item.anio_comercial,
+                        'checklist_ref': redact_sensitive_reference(item.checklist_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'evidence_ref': redact_sensitive_reference(item.evidence_ref),
+                        'items_total': item.items_total,
+                        'completed_items_total': item.completed_items_total,
+                        'blockers_total': item.blockers_total,
+                        'warnings_total': item.warnings_total,
+                        'review_payload': redact_sensitive_payload(item.review_payload),
+                        'hash_checklist': item.hash_checklist,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_review_checklists
                 ],
                 'ddjjs': [
                     {
@@ -1056,6 +1096,36 @@ class AnnualTaxExportDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
         'empresa',
         'proceso_renta_anual',
         'dossier',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxReviewChecklistListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxReviewChecklistSerializer
+    queryset = AnnualTaxReviewChecklist.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'dossier',
+        'annual_export',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxReviewChecklistDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxReviewChecklistSerializer
+    queryset = AnnualTaxReviewChecklist.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'dossier',
+        'annual_export',
         'source_bundle',
         'rule_set',
         'artifact_matrix',

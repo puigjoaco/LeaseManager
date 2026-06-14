@@ -30,6 +30,7 @@ from sii.models import (
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
+    AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -43,6 +44,7 @@ from sii.models import (
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
     EstadoAnnualTaxOfficialSource,
+    EstadoAnnualTaxReviewChecklist,
     EstadoAnnualTaxSourceBundle,
     EstadoAnnualTaxWorkbook,
     EstadoReglaTributariaAnual,
@@ -771,6 +773,87 @@ def _collect_annual_tax_export_issues(exports, processes, active_fiscal_company_
     return dict(sorted(counts.items()))
 
 
+def _collect_annual_tax_review_checklist_issues(checklists, processes, active_fiscal_company_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    invalid_checklists = _count_invalid(checklists)
+    if invalid_checklists:
+        counts['tax_review_checklist_invalid'] = invalid_checklists
+    without_fiscal_config = _count_without_active_fiscal_config(checklists, active_fiscal_company_ids)
+    if without_fiscal_config:
+        counts['tax_review_checklist_fiscal_config_missing'] = without_fiscal_config
+
+    prepared_checklists = checklists.filter(estado=EstadoAnnualTaxReviewChecklist.PREPARED)
+    checklists_by_process = {}
+    for checklist in prepared_checklists:
+        checklists_by_process.setdefault(checklist.proceso_renta_anual_id, []).append(checklist)
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        process_checklists = checklists_by_process.get(process.id, [])
+        if not process_checklists:
+            counts['process_tax_review_checklist_missing'] += 1
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        checklist_summary = summary.get('annual_tax_review_checklists')
+        if not isinstance(checklist_summary, dict):
+            counts['process_tax_review_checklist_summary_missing'] += 1
+        else:
+            by_id = checklist_summary.get('by_id') if isinstance(checklist_summary.get('by_id'), dict) else {}
+            try:
+                summary_total = int(checklist_summary.get('total') or 0)
+            except (TypeError, ValueError):
+                summary_total = -1
+            summary_ids = set(str(value) for value in (checklist_summary.get('ids') or []))
+            checklist_ids = set(str(checklist.id) for checklist in process_checklists)
+            if summary_total != len(process_checklists) or summary_ids != checklist_ids:
+                counts['process_tax_review_checklist_summary_mismatch'] += 1
+            else:
+                for checklist in process_checklists:
+                    item_summary = by_id.get(str(checklist.id))
+                    if not isinstance(item_summary, dict):
+                        counts['process_tax_review_checklist_summary_mismatch'] += 1
+                        break
+                    if (
+                        item_summary.get('id') != checklist.id
+                        or item_summary.get('hash_checklist') != checklist.hash_checklist
+                        or item_summary.get('dossier_id') != checklist.dossier_id
+                        or item_summary.get('annual_export_id') != checklist.annual_export_id
+                        or item_summary.get('source_bundle_id') != checklist.source_bundle_id
+                        or item_summary.get('rule_set_id') != checklist.rule_set_id
+                        or item_summary.get('artifact_matrix_id') != checklist.artifact_matrix_id
+                        or int(item_summary.get('items_total') or 0) != checklist.items_total
+                        or int(item_summary.get('completed_items_total') or 0) != checklist.completed_items_total
+                        or int(item_summary.get('blockers_total') or 0) != checklist.blockers_total
+                        or int(item_summary.get('warnings_total') or 0) != checklist.warnings_total
+                    ):
+                        counts['process_tax_review_checklist_summary_mismatch'] += 1
+                        break
+
+        for checklist in process_checklists:
+            payload = checklist.review_payload if isinstance(checklist.review_payload, dict) else {}
+            if not has_text(checklist.checklist_ref):
+                counts['tax_review_checklist_ref_missing'] += 1
+            if not has_text(checklist.responsible_ref):
+                counts['tax_review_checklist_responsible_missing'] += 1
+            if not has_text(checklist.evidence_ref):
+                counts['tax_review_checklist_evidence_missing'] += 1
+            if checklist.completed_items_total != checklist.items_total:
+                counts['tax_review_checklist_incomplete'] += 1
+            if checklist.blockers_total:
+                counts['tax_review_checklist_blocked'] += 1
+            if checklist.warnings_total:
+                counts['tax_review_checklist_warning_review_required'] += 1
+            if payload.get('official_format') not in (False, None):
+                counts['tax_review_checklist_official_format_boundary'] += 1
+            if payload.get('sii_submission') not in (False, None) or bool(payload.get('sii_submission_attempted')):
+                counts['tax_review_checklist_sii_submission_boundary'] += 1
+            if payload.get('final_tax_calculation') not in (False, None):
+                counts['tax_review_checklist_final_calculation_boundary'] += 1
+
+    return dict(sorted(counts.items()))
+
+
 def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str, int]:
     counts = Counter()
     fiscal_config_by_company_id = {
@@ -1053,6 +1136,20 @@ def collect_stage6_renta_anual_readiness(
     )
     annual_tax_export_issues = _collect_annual_tax_export_issues(
         annual_tax_exports,
+        annual_processes,
+        active_fiscal_company_ids,
+    )
+    annual_tax_review_checklists = AnnualTaxReviewChecklist.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'dossier',
+        'annual_export',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+    )
+    annual_tax_review_checklist_issues = _collect_annual_tax_review_checklist_issues(
+        annual_tax_review_checklists,
         annual_processes,
         active_fiscal_company_ids,
     )
@@ -1636,6 +1733,80 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if annual_tax_export_issues.get(key):
             issues.append(_issue(code, message, count=annual_tax_export_issues[key]))
+    for key, code, message in [
+        (
+            'tax_review_checklist_invalid',
+            'stage6.tax_review_checklist_invalid',
+            'Existen checklists de revision anual que no pasan validacion de dominio o referencias.',
+        ),
+        (
+            'tax_review_checklist_fiscal_config_missing',
+            'stage6.tax_review_checklist_fiscal_config_missing',
+            'Existen checklists de revision anual para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+        ),
+        (
+            'process_tax_review_checklist_missing',
+            'stage6.process_tax_review_checklist_missing',
+            'ProcesoRentaAnual trazable requiere checklist de revision responsable preparado.',
+        ),
+        (
+            'process_tax_review_checklist_summary_missing',
+            'stage6.process_tax_review_checklist_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen de checklist anual en resumen_anual.',
+        ),
+        (
+            'process_tax_review_checklist_summary_mismatch',
+            'stage6.process_tax_review_checklist_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen de checklist anual desalineado con el checklist vigente.',
+        ),
+        (
+            'tax_review_checklist_ref_missing',
+            'stage6.tax_review_checklist_ref_missing',
+            'AnnualTaxReviewChecklist preparado requiere checklist_ref trazable.',
+        ),
+        (
+            'tax_review_checklist_responsible_missing',
+            'stage6.tax_review_checklist_responsible_missing',
+            'AnnualTaxReviewChecklist preparado requiere responsable de revision trazable.',
+        ),
+        (
+            'tax_review_checklist_evidence_missing',
+            'stage6.tax_review_checklist_evidence_missing',
+            'AnnualTaxReviewChecklist preparado requiere evidencia trazable no sensible.',
+        ),
+        (
+            'tax_review_checklist_incomplete',
+            'stage6.tax_review_checklist_incomplete',
+            'AnnualTaxReviewChecklist conserva items incompletos antes de cierre.',
+        ),
+        (
+            'tax_review_checklist_blocked',
+            'stage6.tax_review_checklist_blocked',
+            'AnnualTaxReviewChecklist conserva bloqueos de revision responsable.',
+        ),
+        (
+            'tax_review_checklist_warning_review_required',
+            'stage6.tax_review_checklist_warning_review_required',
+            'AnnualTaxReviewChecklist conserva warnings que requieren revision tributaria responsable.',
+        ),
+        (
+            'tax_review_checklist_official_format_boundary',
+            'stage6.tax_review_checklist_official_format_boundary',
+            'AnnualTaxReviewChecklist no puede declarar formato oficial SII sin gate/certificacion vigente.',
+        ),
+        (
+            'tax_review_checklist_sii_submission_boundary',
+            'stage6.tax_review_checklist_sii_submission_boundary',
+            'AnnualTaxReviewChecklist no puede registrar presentacion SII desde el flujo local.',
+        ),
+        (
+            'tax_review_checklist_final_calculation_boundary',
+            'stage6.tax_review_checklist_final_calculation_boundary',
+            'AnnualTaxReviewChecklist no puede declarar calculo fiscal final autonomo.',
+        ),
+    ]:
+        if annual_tax_review_checklist_issues.get(key):
+            issues.append(_issue(code, message, count=annual_tax_review_checklist_issues[key]))
     if approved_closes.count() < 12:
         issues.append(
             _issue(
@@ -2128,6 +2299,12 @@ def collect_stage6_renta_anual_readiness(
                 'exports_by_kind': _count_by(annual_tax_exports, 'export_kind'),
                 'exports_by_review_state': _count_by(annual_tax_exports, 'review_state'),
                 **annual_tax_export_issues,
+            },
+            'annual_tax_review_checklists': {
+                'checklists_total': annual_tax_review_checklists.count(),
+                'prepared_checklists': annual_tax_review_checklists.filter(estado=EstadoAnnualTaxReviewChecklist.PREPARED).count(),
+                'checklists_by_state': _count_by(annual_tax_review_checklists, 'estado'),
+                **annual_tax_review_checklist_issues,
             },
             'annual_documents': {
                 'ddjj_total': ddjj_preparations.count(),
