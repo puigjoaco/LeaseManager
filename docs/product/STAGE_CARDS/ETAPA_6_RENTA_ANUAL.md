@@ -95,8 +95,13 @@ anual de bienes raices/arriendos: preparan items por propiedad desde
 `Propiedad`, `DistribucionCobroMensual` y `ContratoPropiedad`, distribuyen
 arriendos por porcentaje interno, congelan snapshots anuales con hash y dejan
 contribuciones como fuente `not_loaded_v1` hasta contar con respaldo oficial o
-experto. Esta capa alimenta el dossier y la matriz DDJJ/F22, pero no
-declara calculo fiscal final ni presentacion SII.
+experto. Cuando existe `AnnualTaxOfficialSource` de contribuciones/bienes
+raices o revision experta con alcance F22/Dossier, la seccion la enlaza como
+fuente preparatoria revisable y toma montos solo desde
+`AnnualTaxSourceBundle.resumen_fuentes.real_estate_contribuciones.values_by_property_id`.
+Si falta fuente o valor por propiedad, conserva warning de cierre. Esta capa
+alimenta el dossier y la matriz DDJJ/F22, pero no declara calculo fiscal final
+ni presentacion SII.
 `AnnualTaxArtifactMatrix` y `AnnualTaxArtifactMatrixItem` materializan la
 matriz anual DDJJ/F22: conectan configuracion fiscal, mapeos tributarios,
 source bundle, resumen anual, RLI/CPT, registros empresariales y bienes
@@ -196,6 +201,9 @@ autonoma.
   set coherentes, `resumen_seccion` y `hash_seccion` coherentes. Para tratar un
   proceso anual como trazable debe existir una seccion preparada y su resumen
   debe coincidir con `ProcesoRentaAnual.resumen_anual.annual_real_estate_sections`.
+  Si la seccion no enlaza fuente oficial/experta de contribuciones o un item
+  activo no tiene monto de contribuciones trazado por propiedad, readiness
+  conserva bloqueo explicito de cierre.
 - `AnnualRealEstateItem` activo requiere snapshot anual completo de propiedad,
   montos no negativos, `formula_ref`, `evidencia_ref`, `source_payload` y
   `hash_item` coherente. El snapshot anual queda congelado: cambios posteriores
@@ -427,7 +435,9 @@ autonoma.
   `AnnualRealEstateItem` con refs, warnings y payloads redactados; el snapshot
   redacta rol/direccion de propiedad y el admin es solo lectura para preservar
   que bienes raices/arriendos provienen del normalizador anual y no de edicion
-  manual opaca.
+  manual opaca. La seccion expone el id de `official_contribution_source`
+  cuando existe, y los items exponen warnings redactados de fuente/valor
+  pendiente sin convertirlo en calculo fiscal final.
 - La API/snapshot/admin de SII exponen `AnnualTaxDDJJFormLayout` con refs,
   fuentes, warnings y payloads redactados; el admin es solo lectura para
   preservar que los medios/layouts DDJJ provienen de fuentes revisadas y no de

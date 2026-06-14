@@ -78,6 +78,7 @@ class Command(BaseCommand):
         self._ensure_config_baseline(config=config, ppm_rate=ppm_rate, ddjj_codes=ddjj_codes)
         self._ensure_tax_year_ruleset(config=config, anio_tributario=anio_tributario, ddjj_codes=ddjj_codes)
         self._ensure_ddjj_layouts(config=config, anio_tributario=anio_tributario, ddjj_codes=ddjj_codes)
+        self._ensure_real_estate_contribution_source(config=config, anio_tributario=anio_tributario)
         updated_capabilities = self._ensure_annual_cert_refs(empresa=empresa, cert_prefix=cert_prefix)
 
         prepared_months = 0
@@ -264,11 +265,14 @@ class Command(BaseCommand):
         anio_tributario: int,
         key: str,
         applies_to: str = "",
+        metadata_extra: dict | None = None,
     ) -> AnnualTaxOfficialSource:
         source_key = f"demo-{key}-at{anio_tributario}"
         source_hash = hashlib.sha256(
             f"bootstrap-demo-official-source-{source_key}-{config.regimen_tributario_id}".encode("utf-8")
         ).hexdigest()
+        metadata = {"source": "bootstrap_demo_tax_annual_flow", "official": False}
+        metadata.update(metadata_extra or {})
         defaults = {
             "source_type": TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
             "title": f"Revision experta demo {key} AT{anio_tributario}",
@@ -280,7 +284,7 @@ class Command(BaseCommand):
             "applies_to": applies_to,
             "regime_code": config.regimen_tributario.codigo_regimen,
             "scope_note": "Fuente experta demo controlada para preparacion anual local.",
-            "metadata": {"source": "bootstrap_demo_tax_annual_flow", "official": False},
+            "metadata": metadata,
         }
         source, created = AnnualTaxOfficialSource.objects.get_or_create(
             anio_tributario=anio_tributario,
@@ -297,6 +301,32 @@ class Command(BaseCommand):
                 source.full_clean()
                 source.save(update_fields=[*dirty_fields, "updated_at"])
         return source
+
+    def _ensure_real_estate_contribution_source(
+        self,
+        *,
+        config: ConfiguracionFiscalEmpresa,
+        anio_tributario: int,
+    ) -> AnnualTaxOfficialSource:
+        values_by_property_id = {
+            str(propiedad.id): {
+                "contribuciones_clp": "0.00",
+                "codigo_f22": "F22-BIENES-RAICES-DEMO",
+                "evidencia_ref": f"demo-real-estate-contributions-{propiedad.codigo_propiedad}",
+            }
+            for propiedad in Empresa.objects.get(pk=config.empresa_id).propiedades.order_by("codigo_propiedad", "id")
+            if propiedad.estado == "activa"
+        }
+        return self._ensure_official_source(
+            config=config,
+            anio_tributario=anio_tributario,
+            key="real-estate-contributions",
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            metadata_extra={
+                "real_estate_contributions": True,
+                "values_by_property_id": values_by_property_id,
+            },
+        )
 
     def _ensure_ddjj_layouts(
         self,

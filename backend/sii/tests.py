@@ -252,7 +252,17 @@ class SiiAPITests(APITestCase):
             'regla_fiscal_ref': f'regla-{prefix}-validada',
         }
 
-    def _ensure_official_source(self, *, anio_tributario=2027, key='ruleset', applies_to='', regime_code='EmpresaContabilidadCompletaV1'):
+    def _ensure_official_source(
+        self,
+        *,
+        anio_tributario=2027,
+        key='ruleset',
+        applies_to='',
+        regime_code='EmpresaContabilidadCompletaV1',
+        metadata_extra=None,
+    ):
+        metadata = {'source': 'sii-test-controlled'}
+        metadata.update(metadata_extra or {})
         source, _ = AnnualTaxOfficialSource.objects.get_or_create(
             anio_tributario=anio_tributario,
             source_key=f'expert-{key}-at{anio_tributario}',
@@ -267,10 +277,30 @@ class SiiAPITests(APITestCase):
                 'applies_to': applies_to,
                 'regime_code': regime_code,
                 'scope_note': 'Fuente experta controlada para pruebas locales.',
-                'metadata': {'source': 'sii-test-controlled'},
+                'metadata': metadata,
             },
         )
         return source
+
+    def _ensure_real_estate_contribution_source(self, empresa, *, anio_tributario=2027, regime_code='EmpresaContabilidadCompletaV1'):
+        values_by_property_id = {
+            str(propiedad.id): {
+                'contribuciones_clp': '123000.00',
+                'codigo_f22': 'F22-BIENES-RAICES',
+                'evidencia_ref': f'real-estate-contributions-{propiedad.codigo_propiedad}',
+            }
+            for propiedad in Propiedad.objects.filter(empresa_owner=empresa, estado='activa')
+        }
+        return self._ensure_official_source(
+            anio_tributario=anio_tributario,
+            key='real-estate-contributions',
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            regime_code=regime_code,
+            metadata_extra={
+                'real_estate_contributions': True,
+                'values_by_property_id': values_by_property_id,
+            },
+        )
 
     def _ensure_ddjj_form_layout(self, form_code='1887', *, anio_tributario=2027, warnings=None):
         media_source = self._ensure_official_source(
@@ -369,6 +399,11 @@ class SiiAPITests(APITestCase):
         )
         if with_tax_year_ruleset:
             self._ensure_tax_year_ruleset(regime, anio_tributario=anio_tributario)
+        self._ensure_real_estate_contribution_source(
+            empresa,
+            anio_tributario=anio_tributario,
+            regime_code=regime.codigo_regimen,
+        )
         for form_code in ddjj_habilitadas or []:
             self._ensure_ddjj_form_layout(form_code, anio_tributario=anio_tributario)
         return config
@@ -3360,9 +3395,24 @@ class SiiAPITests(APITestCase):
         self.assertEqual(real_estate_items.count(), 1)
         self.assertEqual(process.resumen_anual['annual_real_estate_sections']['total'], 1)
         section_summary = next(iter(process.resumen_anual['annual_real_estate_sections']['by_id'].values()))
+        section = real_estate_sections.get()
+        real_estate_item = real_estate_items.get()
+        self.assertIsNotNone(section.official_contribution_source_id)
+        self.assertEqual(section_summary['official_contribution_source_id'], section.official_contribution_source_id)
+        self.assertEqual(section_summary['contribuciones_source'], 'official_or_expert_review')
         self.assertEqual(section_summary['propiedades_total'], 1)
         self.assertEqual(section_summary['items_total'], 1)
         self.assertEqual(section_summary['warnings_total'], 0)
+        self.assertEqual(section_summary['contribuciones_loaded_items_total'], 1)
+        self.assertEqual(section_summary['contribuciones_missing_items_total'], 0)
+        self.assertEqual(real_estate_item.contribuciones_clp, Decimal('123000.00'))
+        self.assertEqual(real_estate_item.warnings, [])
+        self.assertEqual(real_estate_item.source_payload['contribuciones_source'], 'official_or_expert_review')
+        self.assertTrue(real_estate_item.source_payload['contribuciones_loaded'])
+        self.assertEqual(
+            real_estate_item.source_payload['official_contribution_source_id'],
+            section.official_contribution_source_id,
+        )
         ddjj_layouts = AnnualTaxDDJJFormLayout.objects.filter(anio_tributario=2027).order_by('form_code')
         self.assertEqual(ddjj_layouts.count(), 2)
         self.assertEqual(process.resumen_anual['annual_tax_ddjj_layouts']['total'], 2)

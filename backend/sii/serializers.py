@@ -563,6 +563,7 @@ class AnnualRealEstateSectionSerializer(RedactSensitiveSiiFieldsMixin, serialize
             'proceso_renta_anual',
             'source_bundle',
             'rule_set',
+            'official_contribution_source',
             'anio_tributario',
             'anio_comercial',
             'source_ref',
