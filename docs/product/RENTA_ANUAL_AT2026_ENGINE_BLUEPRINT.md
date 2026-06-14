@@ -77,8 +77,8 @@ certeza fiscal mediante navegacion automatica ni por inferencia de IA.
 | `AnnualTaxProfile` | Fijar empresa/regimen/responsable | empresa, configuracion fiscal, representante | perfil anual | configuracion fiscal activa |
 | `MonthlyTaxFact` | Normalizar hechos mensuales | F29, cierre mensual, liquidaciones, pagos | base mensual anualizable con hash | cierre aprobado y refs no sensibles |
 | `AnnualTaxNormalizer` | Transformar fuentes a registros intermedios | source bundle + rule set | RLI, CPT, RAI, SAC, DDJJ base | no calcula sin rule set vigente |
-| `RliWorkbook` | Determinar lineas RLI trazadas | ingresos/gastos/ajustes | lineas RLI, warnings | ajustes con fuente |
-| `CptWorkbook` | Determinar capital propio tributario | balance, activos, pasivos, patrimonio | lineas CPT y razonabilidad | plan de cuentas clasificado |
+| `AnnualTaxWorkbook` RLI | Determinar lineas RLI trazadas | `TaxCodeMapping` + `MonthlyTaxFact` | lineas RLI, hashes, warnings | origen y fuente por linea |
+| `AnnualTaxWorkbook` CPT | Determinar capital propio tributario preparatorio | `TaxCodeMapping` + `MonthlyTaxFact` | lineas CPT, hashes y warnings | no cerrar con warnings |
 | `EnterpriseRegisterSet` | Construir RAI/SAC/retiros/dividendos | RLI/CPT/socios/movimientos | registros empresariales | saldos iniciales trazados |
 | `RealEstateAnnualSection` | Normalizar bienes raices/arriendos | propiedades, contratos, pagos, contribuciones | seccion anual y respaldo | fuente SII/experta para codigos |
 | `DdjjPackageBuilder` | Preparar DDJJ/certificados | registros, socios, certificados | paquetes DDJJ revisables | medio SII vigente por formulario |
@@ -120,7 +120,12 @@ contratos:
    redactados y readiness bloqueante si un proceso anual trazable no conserva
    los doce meses normalizados en su resumen.
 4. `stage6-rli-cpt-skeleton`: estructura RLI/CPT con lineas trazadas y
-   warnings, sin afirmar calculo fiscal final.
+   warnings, sin afirmar calculo fiscal final. Implementado como
+   `AnnualTaxWorkbook` y `AnnualTaxWorkbookLine`: genera workbooks RLI y CPT
+   desde `TaxCodeMapping` activo y `MonthlyTaxFact`, conserva hash por linea y
+   por workbook, expone API/snapshot/admin redactados y bloquea readiness si
+   faltan workbooks, faltan lineas activas, hay warnings pendientes o el
+   resumen anual queda desalineado.
 5. `stage6-enterprise-registers`: estructura RAI/SAC/retiros/dividendos con
    saldos iniciales y finales trazables.
 6. `stage6-real-estate-section`: seccion anual de bienes raices/arriendos y
@@ -138,7 +143,10 @@ contratos:
 | Fuente anual incompleta | menos de 12 cierres aprobados, F29 faltante si aplica, ledger no cerrado |
 | Hechos mensuales incompletos | proceso anual sin 12 `MonthlyTaxFact` normalizados o resumen anual desalineado |
 | Regla AT ausente | cualquier calculo marcado como listo sin `TaxYearRuleSet` aprobado |
+| Workbooks RLI/CPT faltantes | proceso anual trazable sin ambos workbooks preparados |
 | Linea sin origen | RLI/CPT/DDJJ/F22 con monto sin fuente |
+| Linea RLI/CPT con warning | requiere revision tributaria antes de cierre |
+| Resumen anual RLI/CPT desalineado | hash, tipo o conteo del proceso no coincide con workbooks vigentes |
 | Saldos empresariales opacos | RAI/SAC sin saldo inicial o sin movimiento trazado |
 | Responsable ausente | DDJJ/F22/dossier avanzado sin `responsable_revision_ref` |
 | Refs sensibles | URLs, tokens, correos, certificados o claves en refs/payloads |

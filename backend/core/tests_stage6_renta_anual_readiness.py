@@ -36,11 +36,14 @@ from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import (
     AmbienteSII,
     AnnualTaxSourceBundle,
+    AnnualTaxWorkbook,
+    AnnualTaxWorkbookLine,
     CapacidadSII,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     DestinoMapeoTributarioAnual,
     EstadoAnnualTaxSourceBundle,
+    EstadoRegistro,
     EstadoReglaTributariaAnual,
     EstadoGateSII,
     F22PreparacionAnual,
@@ -49,7 +52,7 @@ from sii.models import (
     TaxCodeMapping,
     TaxYearRuleSet,
 )
-from sii.services import sync_monthly_tax_facts
+from sii.services import summarize_annual_tax_workbooks, sync_annual_tax_workbooks, sync_monthly_tax_facts
 
 
 VALID_DOCUMENT_SHA256 = 'd' * 64
@@ -207,15 +210,29 @@ class Stage6RentaAnualReadinessTests(TestCase):
             responsable_aprobacion_ref='tax-rule-reviewer-controlled',
             metadata={'source': 'stage6-controlled'},
         )
-        TaxCodeMapping.objects.create(
-            rule_set=rule_set,
-            destino=DestinoMapeoTributarioAnual.RLI,
-            codigo_interno='lease.revenue.net',
-            codigo_destino='RLI-ING-001',
-            formula_ref='formula-ref-rli-ing-001-controlled',
-            evidencia_ref='evidence-ref-rli-ing-001-controlled',
-            metadata={'source': 'stage6-controlled'},
-        )
+        for destino, codigo_interno, codigo_destino, source_metric in (
+            (
+                DestinoMapeoTributarioAnual.RLI,
+                'lease.revenue.net',
+                'RLI-ING-001',
+                'monthly_tax_facts.rent_distributions_total_devengado',
+            ),
+            (
+                DestinoMapeoTributarioAnual.CPT,
+                'lease.capital.taxable',
+                'CPT-CAP-001',
+                'monthly_tax_facts.obligations_total_amount',
+            ),
+        ):
+            TaxCodeMapping.objects.create(
+                rule_set=rule_set,
+                destino=destino,
+                codigo_interno=codigo_interno,
+                codigo_destino=codigo_destino,
+                formula_ref=f'formula-ref-{codigo_destino.lower()}-controlled',
+                evidencia_ref=f'evidence-ref-{codigo_destino.lower()}-controlled',
+                metadata={'source': 'stage6-controlled', 'source_metric': source_metric},
+            )
         return rule_set
 
     def _create_annual_source_bundle(self, empresa, *, anio_tributario=2026, fiscal_year=2025):
@@ -250,7 +267,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
     def _create_valid_local_matrix(self):
         empresa = self._create_active_empresa()
         config = self._activate_fiscal_config(empresa)
-        self._create_approved_tax_year_ruleset(config)
+        rule_set = self._create_approved_tax_year_ruleset(config)
         ddjj_capability = self._open_capability(empresa, CapacidadSII.DDJJ_PREPARACION, 'ddjj')
         f22_capability = self._open_capability(empresa, CapacidadSII.F22_PREPARACION, 'f22')
         self._create_twelve_approved_closes(empresa)
@@ -294,6 +311,10 @@ class Stage6RentaAnualReadinessTests(TestCase):
             borrador_f22_ref='f22-draft-stage6-controlled',
             responsable_revision_ref='stage6-review-owner-controlled',
         )
+        sync_annual_tax_workbooks(process, rule_set, source_bundle)
+        summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
         DDJJPreparacionAnual.objects.create(
             empresa=empresa,
             capacidad_tributaria=ddjj_capability,
@@ -413,6 +434,107 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertTrue(result['sections']['source_trace']['authorization_ref'])
         self.assertEqual(result['issues'], [])
 
+    def test_annual_process_without_tax_workbooks_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualTaxWorkbook.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_tax_workbooks_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_tax_workbooks']['workbooks_total'], 0)
+
+    def test_annual_tax_workbook_without_active_lines_is_blocking(self):
+        self._create_valid_local_matrix()
+        workbook = AnnualTaxWorkbook.objects.get(tipo='RLI')
+        AnnualTaxWorkbookLine.objects.filter(workbook=workbook).update(estado=EstadoRegistro.INACTIVE)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_workbook_line_missing', issue_codes)
+
+    def test_annual_tax_workbook_line_warning_is_blocking(self):
+        self._create_valid_local_matrix()
+        line = AnnualTaxWorkbookLine.objects.select_related('workbook', 'mapping').get(workbook__tipo='RLI')
+        line.warnings = ['source_metric_missing_or_unsupported']
+        line.hash_linea = hashlib.sha256(
+            json.dumps(
+                {
+                    'workbook_id': line.workbook_id,
+                    'mapping_id': line.mapping_id,
+                    'codigo_interno': line.codigo_interno,
+                    'codigo_destino': line.codigo_destino,
+                    'origen': line.origen,
+                    'signo': line.signo,
+                    'monto_clp': str(line.monto_clp),
+                    'formula_ref': line.formula_ref,
+                    'evidencia_ref': line.evidencia_ref,
+                    'warnings': line.warnings,
+                    'source_payload': line.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        line.save(update_fields=['warnings', 'hash_linea', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_workbook_line_warning_review_required', issue_codes)
+
+    def test_annual_tax_workbook_summary_hash_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        summary = dict(process.resumen_anual)
+        workbook_summary = dict(summary['annual_tax_workbooks'])
+        by_type = dict(workbook_summary['by_type'])
+        rli_summary = dict(by_type['RLI'])
+        rli_summary['hash_workbook'] = 'f' * 64
+        by_type['RLI'] = rli_summary
+        workbook_summary['by_type'] = by_type
+        summary['annual_tax_workbooks'] = workbook_summary
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_tax_workbook_summary_mismatch', issue_codes)
+
+    def test_invalid_annual_tax_workbook_is_blocking_without_leak(self):
+        self._create_valid_local_matrix()
+        workbook = AnnualTaxWorkbook.objects.get(tipo='RLI')
+        line = AnnualTaxWorkbookLine.objects.get(workbook=workbook)
+        AnnualTaxWorkbook.objects.filter(pk=workbook.pk).update(
+            source_ref='https://sii.example.test/rli?token=secret',
+            resumen_workbook={'api_key': 'secret'},
+            hash_workbook='not-a-sha',
+        )
+        AnnualTaxWorkbookLine.objects.filter(pk=line.pk).update(
+            evidencia_ref='https://sii.example.test/evidence?token=secret',
+            source_payload={'access_token': 'secret'},
+            hash_linea='not-a-sha',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_workbook_invalid', issue_codes)
+        self.assertIn('stage6.tax_workbook_line_invalid', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('api_key', serialized_result)
+        self.assertNotIn('access_token', serialized_result)
+
     def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
         self._create_valid_local_matrix()
 
@@ -524,6 +646,68 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.process_monthly_tax_fact_summary_mismatch', issue_codes)
 
+    def test_annual_process_without_rli_cpt_workbooks_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualTaxWorkbookLine.objects.all().delete()
+        AnnualTaxWorkbook.objects.all().delete()
+        process = ProcesoRentaAnual.objects.get()
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_workbooks': {'total': 2, 'types': ['CPT', 'RLI'], 'by_type': {}},
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_tax_workbooks_missing', issue_codes)
+        self.assertIn('stage6.process_tax_workbook_summary_mismatch', issue_codes)
+        self.assertEqual(result['sections']['annual_tax_workbooks']['process_tax_workbooks_missing'], 1)
+
+    def test_invalid_annual_tax_workbook_line_is_blocking_without_sensitive_leak(self):
+        self._create_valid_local_matrix()
+        AnnualTaxWorkbookLine.objects.filter(codigo_destino='RLI-ING-001').update(
+            origen='',
+            formula_ref='https://sii.example.test/formula?token=secret',
+            evidencia_ref='Bearer annual-line-secret',
+            source_payload={'api_key': 'secret-line-value'},
+            hash_linea='bad-hash',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_workbook_line_invalid', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('secret-line-value', serialized_result)
+
+    def test_annual_tax_workbook_summary_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_workbooks': {
+                **summarize_annual_tax_workbooks(process),
+                'by_type': {
+                    **summarize_annual_tax_workbooks(process)['by_type'],
+                    'RLI': {
+                        **summarize_annual_tax_workbooks(process)['by_type']['RLI'],
+                        'hash_workbook': 'f' * 64,
+                    },
+                },
+            },
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_tax_workbook_summary_mismatch', issue_codes)
+
     def test_annual_process_without_approved_tax_year_ruleset_is_blocking(self):
         self._create_valid_local_matrix()
         TaxYearRuleSet.objects.update(estado=EstadoReglaTributariaAnual.DRAFT)
@@ -537,6 +721,8 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
     def test_approved_tax_year_ruleset_without_mapping_is_blocking(self):
         self._create_valid_local_matrix()
+        AnnualTaxWorkbookLine.objects.all().delete()
+        AnnualTaxWorkbook.objects.all().delete()
         TaxCodeMapping.objects.all().delete()
 
         result = self._collect_with_final_refs()

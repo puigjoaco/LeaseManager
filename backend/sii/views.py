@@ -12,6 +12,8 @@ from patrimonio.models import Empresa
 
 from .models import (
     AnnualTaxSourceBundle,
+    AnnualTaxWorkbook,
+    AnnualTaxWorkbookLine,
     CapacidadTributariaSII,
     DTEEmitido,
     F29PreparacionMensual,
@@ -23,6 +25,8 @@ from .serializers import (
     AnnualGenerateSerializer,
     AnnualStatusSerializer,
     AnnualTaxSourceBundleSerializer,
+    AnnualTaxWorkbookLineSerializer,
+    AnnualTaxWorkbookSerializer,
     CapacidadTributariaSIISerializer,
     DDJJPreparacionAnualSerializer,
     DTEEmitidoSerializer,
@@ -173,6 +177,25 @@ class SiiSnapshotView(APIView):
             access,
             company_paths=('empresa_id',),
         )
+        annual_tax_workbooks = scope_queryset_for_access(
+            AnnualTaxWorkbook.objects.select_related(
+                'empresa',
+                'proceso_renta_anual',
+                'source_bundle',
+                'rule_set',
+            ).order_by('-anio_tributario', 'empresa_id', 'tipo'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        annual_tax_workbook_lines = scope_queryset_for_access(
+            AnnualTaxWorkbookLine.objects.select_related(
+                'workbook',
+                'workbook__empresa',
+                'mapping',
+            ).order_by('workbook_id', 'codigo_interno', 'codigo_destino'),
+            access,
+            company_paths=('workbook__empresa_id',),
+        )
         tax_year_rule_sets = TaxYearRuleSet.objects.select_related('regimen_tributario').order_by(
             '-anio_tributario',
             'regimen_tributario_id',
@@ -288,6 +311,43 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in monthly_tax_facts
+                ],
+                'annual_tax_workbooks': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'proceso_renta_anual': item.proceso_renta_anual_id,
+                        'source_bundle': item.source_bundle_id,
+                        'rule_set': item.rule_set_id,
+                        'anio_tributario': item.anio_tributario,
+                        'anio_comercial': item.anio_comercial,
+                        'tipo': item.tipo,
+                        'source_ref': redact_sensitive_reference(item.source_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'resumen_workbook': redact_sensitive_payload(item.resumen_workbook),
+                        'hash_workbook': item.hash_workbook,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_workbooks
+                ],
+                'annual_tax_workbook_lines': [
+                    {
+                        'id': item.id,
+                        'workbook': item.workbook_id,
+                        'mapping': item.mapping_id,
+                        'codigo_interno': item.codigo_interno,
+                        'codigo_destino': item.codigo_destino,
+                        'origen': item.origen,
+                        'signo': item.signo,
+                        'monto_clp': item.monto_clp,
+                        'formula_ref': redact_sensitive_reference(item.formula_ref),
+                        'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                        'warnings': redact_sensitive_payload(item.warnings),
+                        'source_payload': redact_sensitive_payload(item.source_payload),
+                        'hash_linea': item.hash_linea,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_workbook_lines
                 ],
                 'ddjjs': [
                     {
@@ -436,6 +496,52 @@ class MonthlyTaxFactDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
         'liquidacion_mensual',
     ).all()
     company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxWorkbookListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxWorkbookSerializer
+    queryset = AnnualTaxWorkbook.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxWorkbookDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxWorkbookSerializer
+    queryset = AnnualTaxWorkbook.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxWorkbookLineListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxWorkbookLineSerializer
+    queryset = AnnualTaxWorkbookLine.objects.select_related(
+        'workbook',
+        'workbook__empresa',
+        'mapping',
+    ).all()
+    company_scope_paths = ('workbook__empresa_id',)
+
+
+class AnnualTaxWorkbookLineDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxWorkbookLineSerializer
+    queryset = AnnualTaxWorkbookLine.objects.select_related(
+        'workbook',
+        'workbook__empresa',
+        'mapping',
+    ).all()
+    company_scope_paths = ('workbook__empresa_id',)
 
 
 class DTEEmitidoListView(ScopedQuerysetMixin, generics.ListAPIView):

@@ -20,9 +20,12 @@ from core.reference_validation import contains_sensitive_reference, is_non_sensi
 
 from .models import (
     AnnualTaxSourceBundle,
+    AnnualTaxWorkbook,
+    AnnualTaxWorkbookLine,
     CapacidadSII,
     DDJJPreparacionAnual,
     DTEEmitido,
+    EstadoAnnualTaxWorkbook,
     EstadoDTE,
     EstadoGateSII,
     EstadoMonthlyTaxFact,
@@ -34,8 +37,10 @@ from .models import (
     SII_AUTOMATED_REGIME_CODE,
     EstadoAnnualTaxSourceBundle,
     SourceKindRentaAnual,
+    SignoAnnualTaxLine,
     TaxCodeMapping,
     TaxYearRuleSet,
+    TipoAnnualTaxWorkbook,
     TipoDTE,
 )
 
@@ -465,6 +470,45 @@ def _sum_decimal(values):
     return total
 
 
+MONTHLY_FACT_SOURCE_METRICS = {
+    'monthly_tax_facts.obligations_total_amount': 'obligations_total_amount',
+    'monthly_tax_facts.rent_distributions_total_devengado': 'rent_distributions_total_devengado',
+    'monthly_tax_facts.liquidation_lines_total_amount': 'liquidation_lines_total_amount',
+}
+
+
+def _decimal_from_monthly_payload(payload, key):
+    if not isinstance(payload, dict):
+        return Decimal('0.00')
+    try:
+        return Decimal(str(payload.get(key) or '0.00'))
+    except Exception:
+        return Decimal('0.00')
+
+
+def _line_amount_from_mapping(mapping, monthly_facts):
+    metadata = mapping.metadata if isinstance(mapping.metadata, dict) else {}
+    source_metric = str(metadata.get('source_metric') or '').strip()
+    warnings = []
+    if source_metric not in MONTHLY_FACT_SOURCE_METRICS:
+        warnings.append('source_metric_missing_or_unsupported')
+        return Decimal('0.00'), source_metric, warnings
+
+    payload_key = MONTHLY_FACT_SOURCE_METRICS[source_metric]
+    amount = Decimal('0.00')
+    months = []
+    for fact in monthly_facts:
+        amount += _decimal_from_monthly_payload(fact.resumen_hecho, payload_key)
+        months.append(fact.mes)
+    if sorted(set(months)) != list(range(1, 13)):
+        warnings.append('monthly_tax_facts_not_complete')
+    return amount, source_metric, warnings
+
+
+def _line_hash_payload(line_payload):
+    return hashlib.sha256(_canonical_source_payload(line_payload).encode('utf-8')).hexdigest()
+
+
 def sync_monthly_tax_facts(empresa, fiscal_year):
     closes = CierreMensualContable.objects.filter(
         empresa=empresa,
@@ -593,6 +637,147 @@ def sync_monthly_tax_facts(empresa, fiscal_year):
     return normalized_facts
 
 
+def summarize_annual_tax_workbooks(process):
+    workbooks = AnnualTaxWorkbook.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxWorkbook.PREPARED,
+    ).order_by('tipo')
+    by_type = {}
+    for workbook in workbooks:
+        active_lines = workbook.lines.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_interno', 'codigo_destino')
+        warning_count = 0
+        for line in active_lines:
+            warnings = line.warnings if isinstance(line.warnings, list) else []
+            warning_count += len(warnings)
+        by_type[workbook.tipo] = {
+            'id': workbook.id,
+            'hash_workbook': workbook.hash_workbook,
+            'lines_total': active_lines.count(),
+            'warnings_total': warning_count,
+        }
+    return {
+        'total': workbooks.count(),
+        'types': sorted(by_type.keys()),
+        'by_type': by_type,
+    }
+
+
+def sync_annual_tax_workbooks(process, rule_set, source_bundle):
+    fiscal_year = process.anio_tributario - 1
+    monthly_facts = list(
+        MonthlyTaxFact.objects.filter(
+            empresa=process.empresa,
+            anio=fiscal_year,
+            estado=EstadoMonthlyTaxFact.NORMALIZED,
+        ).order_by('mes')
+    )
+    workbooks = []
+    for workbook_type in (TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT):
+        mappings = list(
+            TaxCodeMapping.objects.filter(
+                rule_set=rule_set,
+                destino=workbook_type,
+                estado=EstadoRegistro.ACTIVE,
+            ).order_by('codigo_interno', 'codigo_destino')
+        )
+        workbook, _ = AnnualTaxWorkbook.objects.update_or_create(
+            proceso_renta_anual=process,
+            tipo=workbook_type,
+            defaults={
+                'empresa': process.empresa,
+                'source_bundle': source_bundle,
+                'rule_set': rule_set,
+                'anio_tributario': process.anio_tributario,
+                'anio_comercial': fiscal_year,
+                'source_ref': f'annual-tax-workbook-{process.empresa_id}-at{process.anio_tributario}-{workbook_type.lower()}',
+                'responsible_ref': 'system-annual-tax-workbook-normalizer',
+                'estado': EstadoAnnualTaxWorkbook.DRAFT,
+            },
+        )
+        active_line_ids = []
+        for mapping in mappings:
+            amount, source_metric, warnings = _line_amount_from_mapping(mapping, monthly_facts)
+            line_source_payload = {
+                'source': 'monthly_tax_facts',
+                'source_metric': source_metric,
+                'monthly_tax_fact_ids': [fact.id for fact in monthly_facts],
+                'months': [fact.mes for fact in monthly_facts],
+                'mapping_id': mapping.id,
+                'rule_set_id': rule_set.id,
+            }
+            line_payload = {
+                'workbook_id': workbook.id,
+                'mapping_id': mapping.id,
+                'codigo_interno': mapping.codigo_interno,
+                'codigo_destino': mapping.codigo_destino,
+                'origen': 'monthly_tax_facts',
+                'signo': SignoAnnualTaxLine.INFO,
+                'monto_clp': str(amount),
+                'formula_ref': mapping.formula_ref,
+                'evidencia_ref': mapping.evidencia_ref,
+                'warnings': warnings,
+                'source_payload': line_source_payload,
+            }
+            line, _ = AnnualTaxWorkbookLine.objects.update_or_create(
+                workbook=workbook,
+                codigo_interno=mapping.codigo_interno,
+                codigo_destino=mapping.codigo_destino,
+                defaults={
+                    'mapping': mapping,
+                    'origen': 'monthly_tax_facts',
+                    'signo': SignoAnnualTaxLine.INFO,
+                    'monto_clp': amount,
+                    'formula_ref': mapping.formula_ref,
+                    'evidencia_ref': mapping.evidencia_ref,
+                    'warnings': warnings,
+                    'source_payload': line_source_payload,
+                    'hash_linea': _line_hash_payload(line_payload),
+                    'estado': EstadoRegistro.ACTIVE,
+                },
+            )
+            try:
+                line.full_clean()
+            except ValidationError as error:
+                reason = _first_validation_error(error)
+                raise ValueError(f'AnnualTaxWorkbookLine no cumple validacion de dominio: {reason}') from error
+            line.save()
+            active_line_ids.append(line.id)
+
+        workbook.lines.exclude(id__in=active_line_ids).update(estado=EstadoRegistro.INACTIVE)
+        active_lines = list(workbook.lines.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_interno', 'codigo_destino'))
+        warning_count = sum(len(line.warnings or []) for line in active_lines if isinstance(line.warnings, list))
+        workbook_summary = {
+            'empresa_id': process.empresa_id,
+            'proceso_renta_anual_id': process.id,
+            'source_bundle_id': source_bundle.id,
+            'rule_set_id': rule_set.id,
+            'anio_tributario': process.anio_tributario,
+            'anio_comercial': fiscal_year,
+            'tipo': workbook_type,
+            'lines_total': len(active_lines),
+            'warnings_total': warning_count,
+            'line_hashes': [line.hash_linea for line in active_lines],
+            'source': 'TaxCodeMapping + MonthlyTaxFact',
+            'final_tax_calculation': False,
+        }
+        workbook.resumen_workbook = workbook_summary
+        workbook.hash_workbook = _source_bundle_hash(workbook_summary)
+        workbook.estado = EstadoAnnualTaxWorkbook.PREPARED
+        try:
+            workbook.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'AnnualTaxWorkbook no cumple validacion de dominio: {reason}') from error
+        workbook.save()
+        workbooks.append(workbook)
+
+    AnnualTaxWorkbook.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxWorkbook.PREPARED,
+    ).exclude(id__in=[workbook.id for workbook in workbooks]).update(estado=EstadoAnnualTaxWorkbook.RETIRED)
+    return workbooks
+
+
 def freeze_annual_tax_source_bundle(
     empresa,
     anio_tributario,
@@ -659,7 +844,7 @@ def validate_annual_readiness(empresa, anio_tributario):
     return config, fiscal_year, rule_set
 
 
-def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle):
+def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=None):
     obligations = ObligacionTributariaMensual.objects.filter(empresa=empresa, anio=fiscal_year)
     total_obligations = obligations.count()
     total_monto = sum((item.monto_calculado for item in obligations), 0)
@@ -681,7 +866,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle):
                 monthly_fact_totals[key] += int(payload.get(key) or 0)
             except (TypeError, ValueError):
                 continue
-    return {
+    summary = {
         'fiscal_year': fiscal_year,
         'obligaciones': [
             {
@@ -720,6 +905,9 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle):
             **monthly_fact_totals,
         },
     }
+    if process is not None:
+        summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
+    return summary
 
 
 def generate_annual_preparation(empresa, anio_tributario):
@@ -735,6 +923,10 @@ def generate_annual_preparation(empresa, anio_tributario):
     process.resumen_anual = summary
     process.estado = EstadoPreparacionTributaria.PREPARED
     process.save()
+    sync_annual_tax_workbooks(process, rule_set, source_bundle)
+    summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
+    process.resumen_anual = summary
+    process.save(update_fields=['resumen_anual', 'updated_at'])
 
     ddjj_enabled = bool(config.ddjj_habilitadas)
     ddjj_capability = get_active_annual_capability(empresa, CapacidadSII.DDJJ_PREPARACION)
